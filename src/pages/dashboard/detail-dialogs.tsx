@@ -1,4 +1,5 @@
 import { useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 
 import { PembayaranPinjamanDialog } from "@/components/PembayaranPinjamanDialog";
@@ -14,14 +15,16 @@ import {
 import { SkeletonDetail } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { MessageCircle } from "lucide-react";
+import { CheckCircle2, MessageCircle, ReceiptText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { SimulasiBulanan } from "@/lib/bulanan";
 import { urlChatCs } from "@/lib/kontak";
 import { loanPurposeLabel, loanStatusMeta, type LoanQuote } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { LABEL_MODE_PEMBAYARAN } from "@/lib/perpanjanganPinjaman";
 import { pawnStatusMeta, type PawnStatus } from "@/lib/pawn";
+import { formatTanggalWIB, formatWaktuWIB, kodeTanggalWIB } from "@/lib/waktu";
 
 import { formatDate } from "./shared";
 
@@ -152,6 +155,200 @@ function RincianPinjaman({ loan, final }: { loan: RincianPinjamanInput; final: b
   );
 }
 
+type KuitansiRow = FunctionReturnType<typeof api.loans.myLoanReceipts>[number];
+
+/** Nomor kuitansi dari tanggal pembayaran + ekor referensi bukti (unik). */
+function nomorKuitansi(row: KuitansiRow): string {
+  const waktu = row.dicocokkanPada ?? row.tanggalTransfer;
+  const ekor = row.nomorReferensi.replace(/[^A-Za-z0-9]/g, "").slice(-4).toUpperCase();
+  return `TRX-${kodeTanggalWIB(waktu)}-${ekor}`;
+}
+
+function metodeBayar(metode: KuitansiRow["metodePembayaran"]): string {
+  return metode === "qris" ? "QRIS" : "Bank Transfer";
+}
+
+/**
+ * Daftar kuitansi pembayaran yang sudah dicocokkan admin. Hanya muncul bila
+ * ada pembayaran tingkat pinjaman yang tercatat.
+ */
+function KuitansiPinjaman({
+  rows,
+  onBuka,
+}: {
+  rows: KuitansiRow[];
+  onBuka: (id: KuitansiRow["_id"]) => void;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <section aria-labelledby="judul-kuitansi-pinjaman">
+      <h3
+        id="judul-kuitansi-pinjaman"
+        className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+      >
+        <ReceiptText className="size-4 text-emerald-700" aria-hidden />
+        Kuitansi pembayaran
+      </h3>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        Bukti elektronik untuk setiap pembayaran yang sudah dicocokkan admin.
+      </p>
+      <ul className="mt-2 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        {rows.map((row) => (
+          <li key={row._id}>
+            <button
+              type="button"
+              onClick={() => onBuka(row._id)}
+              className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-800"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold tabular-nums text-slate-900">
+                  {LABEL_MODE_PEMBAYARAN[row.paymentType]} · {formatRupiah(row.jumlah)}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {nomorKuitansi(row)} · {formatTanggalWIB(row.dicocokkanPada ?? row.tanggalTransfer)}
+                </span>
+              </span>
+              <span className="flex items-center gap-1 text-xs font-medium text-emerald-800">
+                <CheckCircle2 className="size-3.5" aria-hidden />
+                Lihat kuitansi
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * Modal kuitansi elektronik satu pembayaran. Seluruh angka berasal dari
+ * snapshot rencana yang dihitung server saat bukti dikirim dan dicocokkan
+ * admin — tidak dihitung ulang di layar.
+ */
+function KuitansiPembayaranDialog({
+  row,
+  onClose,
+}: {
+  row: KuitansiRow | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={row !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[92dvh] overflow-y-auto p-0 sm:max-w-lg">
+        {row !== null && (
+          <div className="text-slate-900">
+            <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 bg-emerald-800 px-4 py-4 text-white sm:px-5">
+              <div>
+                <p className="text-lg font-bold tracking-tight">PINDAI</p>
+                <p className="text-[11px] text-emerald-100">Kuitansi pembayaran elektronik</p>
+              </div>
+              <div className="text-left sm:text-right">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-emerald-100">
+                  Nomor referensi
+                </p>
+                <p className="text-sm font-semibold tabular-nums">{nomorKuitansi(row)}</p>
+              </div>
+            </header>
+
+            <div className="space-y-4 px-4 py-4 sm:px-5">
+              <p className="text-xs text-muted-foreground">
+                Waktu pembayaran:{" "}
+                <strong className="font-semibold text-slate-800">
+                  {formatWaktuWIB(row.dicocokkanPada ?? row.tanggalTransfer)} WIB
+                </strong>
+                {row.referensiMutasi !== null ? ` · Mutasi ${row.referensiMutasi}` : ""}
+              </p>
+
+              <dl className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm">
+                <BarisKuitansi label="Jenis aksi" nilai={LABEL_MODE_PEMBAYARAN[row.paymentType]} />
+                <BarisKuitansi
+                  label="Pokok dibayar"
+                  nilai={formatRupiah(row.rencana.principalPaid)}
+                />
+                <BarisKuitansi
+                  label="Bunga dibayar"
+                  nilai={formatRupiah(row.rencana.interestDue)}
+                />
+                <BarisKuitansi label="Denda" nilai={formatRupiah(row.rencana.lateFee)} />
+                <BarisKuitansi label="Total bayar" nilai={formatRupiah(row.jumlah)} tebal />
+                <BarisKuitansi label="Metode" nilai={metodeBayar(row.metodePembayaran)} />
+              </dl>
+
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-900">
+                  Status sisa kewajiban
+                </p>
+                <dl className="mt-2 space-y-1.5 text-sm">
+                  <BarisKuitansi
+                    label="Sisa pokok baru"
+                    nilai={formatRupiah(row.rencana.principalSesudah)}
+                    tebal
+                  />
+                  <BarisKuitansi
+                    label="Jatuh tempo berikutnya"
+                    nilai={
+                      row.rencana.nextDueDate === null
+                        ? "Pinjaman lunas"
+                        : formatTanggalWIB(row.rencana.nextDueDate)
+                    }
+                  />
+                  <BarisKuitansi
+                    label="Suku bunga"
+                    nilai={`${row.rencana.tierRate}%`}
+                  />
+                  <BarisKuitansi
+                    label="Estimasi bunga periode berikutnya"
+                    nilai={
+                      row.rencana.nextDueDate === null
+                        ? "—"
+                        : formatRupiah(row.rencana.nextInterestAmount)
+                    }
+                  />
+                </dl>
+              </div>
+
+              <p className="text-[11px] leading-5 text-slate-500">
+                Kuitansi ini sah sebagai bukti pembayaran elektronik PINDAI setelah bukti
+                transfer dicocokkan dengan mutasi bank. Simpan nomor referensi ini untuk
+                keperluan verifikasi. Kuitansi tidak dapat dipindahtangankan dan bukan
+                bukti kepemilikan akun.
+              </p>
+            </div>
+
+            <footer className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
+              <Button type="button" variant="outline" className="h-10" onClick={() => window.print()}>
+                Cetak kuitansi
+              </Button>
+              <Button type="button" className="h-10 bg-emerald-800 text-white hover:bg-emerald-900" onClick={onClose}>
+                Tutup
+              </Button>
+            </footer>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BarisKuitansi({
+  label,
+  nilai,
+  tebal = false,
+}: {
+  label: string;
+  nilai: string;
+  tebal?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={`tabular-nums ${tebal ? "font-semibold text-slate-900" : "text-slate-800"}`}>
+        {nilai}
+      </dd>
+    </div>
+  );
+}
+
 /** Dialog rincian pinjaman + aksi pelunasan. */
 export function LoanDetailDialog({
   loanId,
@@ -163,7 +360,13 @@ export function LoanDetailDialog({
   onMintaVerifikasi: () => void;
 }) {
   const loan = useQuery(api.loans.getMyLoan, loanId ? { loanId } : "skip");
+  const kuitansi = useQuery(
+    api.loans.myLoanReceipts,
+    loanId ? { loanId } : "skip",
+  );
   const [bayarTerbuka, setBayarTerbuka] = useState(false);
+  const [kuitansiId, setKuitansiId] = useState<Id<"manualPaymentReceipts"> | null>(null);
+  const kuitansiTerpilih = (kuitansi ?? []).find((row) => row._id === kuitansiId) ?? null;
   // Angka baru FINAL setelah pinjaman benar-benar dicairkan; sebelum itu semua
   // nominal masih perkiraan dan labelnya menyebut itu apa adanya.
   const angkaFinal = loan?.status === "didanai" || loan?.status === "lunas";
@@ -175,6 +378,7 @@ export function LoanDetailDialog({
       onOpenChange={(open) => {
         if (!open) {
           setBayarTerbuka(false);
+          setKuitansiId(null);
           onClose();
         }
       }}
@@ -278,6 +482,8 @@ export function LoanDetailDialog({
               </div>
             )}
 
+            <KuitansiPinjaman rows={kuitansi ?? []} onBuka={setKuitansiId} />
+
             {/* Footer lengket: jalan keluar selalu terlihat tanpa menggulir balik
                 ke atas, dan di ponsel tombolnya selebar dialog. Aksi pembayaran
                 tinggal di blok pelunasan supaya satu jalur tidak punya dua
@@ -295,6 +501,10 @@ export function LoanDetailDialog({
       key={bayarTerbuka ? loan?._id ?? "pinjaman" : "tutup"}
       loan={bayarTerbuka ? loan ?? null : null}
       onClose={() => setBayarTerbuka(false)}
+    />
+    <KuitansiPembayaranDialog
+      row={kuitansiTerpilih}
+      onClose={() => setKuitansiId(null)}
     />
     </>
   );

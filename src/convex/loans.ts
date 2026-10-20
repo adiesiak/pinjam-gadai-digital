@@ -829,6 +829,52 @@ export const myLoanCreditHistory = query({
   },
 });
 
+/**
+ * Kuitansi pembayaran yang SUDAH dicocokkan admin untuk satu pinjaman.
+ *
+ * Hanya bukti tingkat pinjaman (pelunasan/roll-over/cicil pokok) yang
+ * dikembalikan: inilah transaksi yang punya rincian pokok, bunga, denda, dan
+ * sisa kewajiban. Hanya pemilik pinjaman yang dapat membacanya.
+ */
+export const myLoanReceipts = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, args) => {
+    const { userId } = await requirePeminjam(ctx);
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null || loan.userId !== userId) return [];
+    const rows = await ctx.db
+      .query("manualPaymentReceipts")
+      .withIndex("by_loan", (q) => q.eq("loanId", args.loanId))
+      .collect();
+    return rows
+      .filter(
+        (row) =>
+          row.status === "dicocokkan" &&
+          row.paymentType !== undefined &&
+          row.rencana !== undefined,
+      )
+      .sort(
+        (a, b) =>
+          (b.dicocokkanPada ?? b.tanggalTransfer) -
+          (a.dicocokkanPada ?? a.tanggalTransfer),
+      )
+      .map((row) => ({
+        _id: row._id,
+        nomorReferensi: row.nomorReferensi,
+        paymentType: row.paymentType!,
+        extensionDays: row.extensionDays ?? null,
+        principalAmount: row.principalAmount ?? null,
+        jumlah: row.jumlah,
+        metodePembayaran: row.metodePembayaran,
+        tanggalTransfer: row.tanggalTransfer,
+        dicocokkanPada: row.dicocokkanPada ?? null,
+        referensiMutasi: row.referensiMutasi ?? null,
+        catatanAdmin: row.catatanAdmin ?? null,
+        rencana: row.rencana!,
+      }));
+  },
+});
+
 /** Detail satu pinjaman milik sendiri, dengan quote turunannya. */
 export const getMyLoan = query({
   args: { loanId: v.id("loans") },

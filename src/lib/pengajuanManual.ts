@@ -29,7 +29,6 @@ import {
 import { formatRupiah, parseRupiah } from "./money";
 import { namaHurufBesar } from "./nama";
 import { kodeTanggalWIB } from "./waktu";
-import { PLAFON_NAIK_SETELAH_LUNAS } from "./plafon";
 import { COLLATERAL_CATEGORIES } from "./pawn";
 
 /** Satu nasabah yang bisa dipilih sebagai pemilik pengajuan manual. */
@@ -207,13 +206,13 @@ export function tenorBulananManualSah(tenorBulan: number): boolean {
  * datang ke kantor, koperasi mitra, data lama). Batas produk harian Rp 1 juta
  * mengikat pengajuan yang dibuat nasabah sendiri di aplikasi — bukan admin yang
  * sedang mencatat apa yang sudah terjadi. Karena itu batas jalur manual adalah
- * langit-langit sistem (`PLAFON_NAIK_SETELAH_LUNAS`, sama dengan batas plafon
- * maksimum yang boleh diisi admin), bukan `LOAN_LIMITS.maxPokok`.
+ * langit-langit pencatatan manual (Rp10 juta, sama dengan batas penyimpanan
+ * plafon admin), bukan `LOAN_LIMITS.maxPokok`.
  *
  * Satu angka ini dipakai validasi server DAN formulir admin, supaya pesan yang
  * dibaca admin dan nilai yang benar-benar disimpan tidak pernah berbeda.
  */
-export const POKOK_MANUAL_MAKS = PLAFON_NAIK_SETELAH_LUNAS;
+export const POKOK_MANUAL_MAKS = 10_000_000 as const;
 
 /**
  * Nama pada CATATAN pinjaman/kredit per nasabah — yang TERBARU menang.

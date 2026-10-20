@@ -148,31 +148,42 @@ function galat(fn: () => unknown): string | null {
     14,
     "Rp500.000/14 hari diterima pada jalur manual",
   );
-  ok(
-    galat(() =>
-      validasiPinjamanManual({
-        pokokPinjaman: 500_000,
-        tenorHari: 7,
-        tujuan: "modal_usaha",
-        namaLengkap: "rani",
-        namaBank: "BCA",
-        nomorRekening: "1234567890",
-      }),
-    ) !== null,
-    "Rp500.000/7 hari ditolak pada jalur manual",
+  eq(
+    validasiPinjamanManual({
+      pokokPinjaman: 500_000,
+      tenorHari: 7,
+      tujuan: "modal_usaha",
+      namaLengkap: "rani",
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+    }).tenorHari,
+    7,
+    "Rp500.000/7 hari diterima pada jalur manual",
+  );
+  eq(
+    validasiPinjamanManual({
+      pokokPinjaman: 1_000_000,
+      tenorHari: 14,
+      tujuan: "modal_usaha",
+      namaLengkap: "rani",
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+    }).tenorHari,
+    14,
+    "Rp1 juta/14 hari diterima pada jalur manual",
   );
   ok(
     galat(() =>
       validasiPinjamanManual({
-        pokokPinjaman: 1_000_000,
-        tenorHari: 14,
+        pokokPinjaman: 500_000,
+        tenorHari: 30,
         tujuan: "modal_usaha",
         namaLengkap: "rani",
         namaBank: "BCA",
         nomorRekening: "1234567890",
       }),
     ) !== null,
-    "Rp1 juta/14 hari ditolak pada jalur manual",
+    "tenor 30 hari ditolak pada jalur manual",
   );
   eq(POKOK_MANUAL_MAKS, 10_000_000, "langit-langit jalur manual Rp 10 juta");
   eq(

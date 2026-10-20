@@ -25,6 +25,20 @@ export function kanalAktif(disimpan: boolean | undefined): boolean {
 }
 
 /**
+ * Preferensi WhatsApp efektif per nasabah.
+ *
+ * `whatsappNotificationEnabled` adalah field baru; `notifWhatsapp` adalah nama
+ * lama yang tetap dibaca agar baris data lama (dan sakelar yang sudah dimatikan
+ * sebelumnya) tidak tiba-tiba aktif kembali. Kosong di keduanya berarti aktif.
+ */
+export function kanalWhatsappAktif(
+  preferensiBaru: boolean | undefined,
+  preferensiLama: boolean | undefined,
+): boolean {
+  return kanalAktif(preferensiBaru ?? preferensiLama);
+}
+
+/**
  * Keadaan efektif satu kanal untuk satu nasabah.
  *
  * Dua lapis sengaja: sakelar global adalah kebijakan operasional, sedangkan

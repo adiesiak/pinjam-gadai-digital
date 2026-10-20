@@ -46,15 +46,13 @@ export type Tenor = (typeof TENOR_OPTIONS)[number];
  * Matriks tenor & bunga pinjaman HARIAN.
  *
  * Aturan produk yang dijaga di sini (berlaku sama di klien dan server):
- *  - pokok di bawah Rp500.000: tenor bawaan 7 hari (bunga dasar 30%). Memilih
- *    perpanjangan 14 atau 28 hari menaikkan bunga ke 35% / 40%.
- *  - pokok Rp500.000 sampai di bawah Rp1.000.000: tenor bawaan 14 hari;
- *    bunga 35% (14 hari) atau 40% (28 hari).
- *  - pokok tepat Rp1.000.000: tenor terkunci 28 hari dengan bunga 35%.
+ *  - Tier 1, pokok di bawah Rp500.000: 7 hari 30%, 14 hari 35%, 28 hari 40%.
+ *  - Tier 2, pokok Rp500.000 sampai di bawah Rp1.000.000: 7 hari 28%,
+ *    14 hari 32%, 28 hari 35%.
+ *  - Tier 3, pokok tepat Rp1.000.000: 7 hari 26%, 14 hari 28%, 28 hari 30%.
  *
- * Tenor di luar baris matriks tidak ditawarkan UI dan DITOLAK server — bukan
- * sekadar disembunyikan — supaya kombinasi nominal/tenor/bunga tidak bisa
- * dikirim langsung ke mutation.
+ * Tenor 30 hari bukan pilihan produk; tenor resmi hanya 7, 14, dan 28 hari.
+ * Kombinasi di luar baris matriks ditolak server, bukan sekadar disembunyikan.
  */
 const MATRIKS_HARIAN: readonly {
   /** Batas bawah inklusif. */
@@ -79,15 +77,20 @@ const MATRIKS_HARIAN: readonly {
     maksPokok: 999_999,
     tenorDefault: 14,
     tarif: [
-      { tenor: 14, persenBunga: 35 },
-      { tenor: 28, persenBunga: 40 },
+      { tenor: 7, persenBunga: 28 },
+      { tenor: 14, persenBunga: 32 },
+      { tenor: 28, persenBunga: 35 },
     ],
   },
   {
     minPokok: 1_000_000,
     maksPokok: 1_000_000,
     tenorDefault: 28,
-    tarif: [{ tenor: 28, persenBunga: 35 }],
+    tarif: [
+      { tenor: 7, persenBunga: 26 },
+      { tenor: 14, persenBunga: 28 },
+      { tenor: 28, persenBunga: 30 },
+    ],
   },
 ] as const;
 

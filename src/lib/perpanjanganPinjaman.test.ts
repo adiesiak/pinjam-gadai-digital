@@ -57,13 +57,13 @@ eq(
 // ===== 2. Opsi tier perpanjangan =====
 eq(
   opsiPerpanjangan(1_000_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
-  "28:35",
-  "pokok Rp1 juta hanya boleh 28 hari dengan tier 35%",
+  "7:26,14:28,28:30",
+  "pokok Rp1 juta memakai tier 7/14/28 hari",
 );
 eq(
   opsiPerpanjangan(750_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
-  "14:35,28:40",
-  "pokok Rp750 ribu memakai tier 14/28 hari",
+  "7:28,14:32,28:35",
+  "pokok Rp750 ribu memakai tier 7/14/28 hari",
 );
 eq(
   opsiPerpanjangan(400_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
@@ -81,8 +81,8 @@ const bungaSaja = hitungRencanaPembayaran({
 });
 eq(bungaSaja.totalDue, 300_000, "bayar bunga saja hanya menagih bunga berjalan");
 eq(bungaSaja.principalSesudah, 1_000_000, "pokok utuh setelah roll-over");
-eq(bungaSaja.tierRate, 35, "tier baru dari nominal pokok utuh");
-eq(bungaSaja.nextInterestAmount, 350_000, "bunga periode berikut 35% dari pokok");
+eq(bungaSaja.tierRate, 30, "tier baru dari nominal pokok utuh");
+eq(bungaSaja.nextInterestAmount, 300_000, "bunga periode berikut 30% dari pokok");
 eq(bungaSaja.nextDueDate, JATUH_TEMPO + 28 * HARI, "jatuh tempo diperpanjang 28 hari");
 eq(bungaSaja.lateFee, 0, "tepat jatuh tempo tidak ada denda");
 
@@ -96,8 +96,8 @@ const cicil = hitungRencanaPembayaran({
 });
 eq(cicil.totalDue, 500_000, "total hari ini = bunga + cicilan pokok");
 eq(cicil.principalSesudah, 800_000, "sisa pokok berkurang");
-eq(cicil.tierRate, 40, "tier mengikuti sisa pokok Rp800 ribu pada tenor 28 hari");
-eq(cicil.nextInterestAmount, 320_000, "bunga baru = sisa pokok x tier baru");
+eq(cicil.tierRate, 35, "tier mengikuti sisa pokok Rp800 ribu pada tenor 28 hari");
+eq(cicil.nextInterestAmount, 280_000, "bunga baru = sisa pokok x tier baru");
 eq(cicil.nextDueDate, JATUH_TEMPO + 28 * HARI, "cicil pokok juga memperpanjang tenor");
 
 const cicilTierTurun = hitungRencanaPembayaran({
@@ -143,11 +143,11 @@ gagal(
     hitungRencanaPembayaran({
       loan: pinjaman,
       mode: "bunga_saja",
-      extensionDays: 14,
+      extensionDays: 30,
       waktuTransaksi: JATUH_TEMPO,
     }),
   "tenor perpanjangan yang tersedia",
-  "tenor 14 hari ditolak untuk pokok Rp1 juta",
+  "tenor 30 hari ditolak untuk pokok Rp1 juta",
 );
 gagal(
   () =>

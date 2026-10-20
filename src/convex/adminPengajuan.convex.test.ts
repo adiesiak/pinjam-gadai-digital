@@ -110,8 +110,8 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       nomorWhatsApp: "628123456791",
       penghasilanBulanan: 3_500_000,
       sumberPenghasilan: "Usaha warung",
-      // Rp900.000/28 hari berada di matriks harian: bunga 40%.
-      persenBunga: 40,
+      // Rp900.000/28 hari berada di Tier 2: bunga 35%.
+      persenBunga: 35,
     });
     // Baris baru tidak melewati keputusan: catatan review masih kosong.
     expect(loan?.catatanReview).toBeUndefined();

@@ -4,7 +4,11 @@ import type { Id } from "./_generated/dataModel";
 import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
 import { audit, getConfig } from "./system";
-import { kanalAktif, kanalEfektif } from "../lib/preferensiNotifikasi";
+import {
+  kanalAktif,
+  kanalEfektif,
+  kanalWhatsappAktif,
+} from "../lib/preferensiNotifikasi";
 
 /**
  * Preferensi notifikasi PER NASABAH.
@@ -47,7 +51,10 @@ export const preferensiNasabah = query({
     await requireAdminSession(ctx);
     const { user, nomorWhatsapp, emailAlamat } = await dataNasabah(ctx, userId);
     const cfg = await getConfig(ctx);
-    const whatsapp = kanalAktif(user.notifWhatsapp);
+    const whatsapp = kanalWhatsappAktif(
+      user.whatsappNotificationEnabled,
+      user.notifWhatsapp,
+    );
     const email = kanalAktif(user.notifEmail);
     return {
       whatsapp,
@@ -55,7 +62,10 @@ export const preferensiNasabah = query({
       globalWhatsapp: cfg.notifWhatsappAktif,
       globalEmail: cfg.notifEmailAktif,
       // Keadaan akhir, supaya panel tidak menghitung ulang aturan `&&`.
-      efektifWhatsapp: kanalEfektif(cfg.notifWhatsappAktif, user.notifWhatsapp),
+      efektifWhatsapp: kanalEfektif(
+        cfg.notifWhatsappAktif,
+        kanalWhatsappAktif(user.whatsappNotificationEnabled, user.notifWhatsapp),
+      ),
       efektifEmail: kanalEfektif(cfg.notifEmailAktif, user.notifEmail),
       nomorWhatsapp,
       emailAlamat,
@@ -76,10 +86,14 @@ export const simpanPreferensiNasabah = mutation({
     if (target === null) throw new Error("Nasabah tidak ditemukan.");
 
     const sebelum = {
-      whatsapp: kanalAktif(target.notifWhatsapp),
+      whatsapp: kanalWhatsappAktif(
+        target.whatsappNotificationEnabled,
+        target.notifWhatsapp,
+      ),
       email: kanalAktif(target.notifEmail),
     };
     await ctx.db.patch(args.userId, {
+      whatsappNotificationEnabled: args.whatsapp,
       notifWhatsapp: args.whatsapp,
       notifEmail: args.email,
     });
@@ -116,7 +130,10 @@ export const _kanalAktif = internalQuery({
     if (user === null) return false;
     const cfg = await getConfig(ctx);
     return kanal === "whatsapp"
-      ? kanalEfektif(cfg.notifWhatsappAktif, user.notifWhatsapp)
+      ? kanalEfektif(
+          cfg.notifWhatsappAktif,
+          kanalWhatsappAktif(user.whatsappNotificationEnabled, user.notifWhatsapp),
+        )
       : kanalEfektif(cfg.notifEmailAktif, user.notifEmail);
   },
 });

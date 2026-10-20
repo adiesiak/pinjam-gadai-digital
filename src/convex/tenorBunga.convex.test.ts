@@ -4,10 +4,9 @@
  *
  * UI boleh menyembunyikan tenor yang tidak berlaku, tetapi server tetap harus
  * menolak kombinasi nominal/tenor di luar matriks. Tes ini memastikan:
- *  - tenor 7/14/28 diterima hanya pada nominal yang tepat;
- *  - snapshot bunga yang disimpan berasal dari matriks (30/35/40%), bukan
- *    angka global lama 30% untuk semua tenor;
- *  - kombinasi terkunci (Rp500.000/7 hari, Rp1 juta/14 hari) ditolak mutation.
+ *  - tenor 7/14/28 diterima pada setiap tier nominal;
+ *  - snapshot bunga berasal dari matriks tier (26–40%), bukan angka global;
+ *  - tenor 30 hari ditolak mutation.
  */
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
@@ -24,8 +23,20 @@ const TTD =
 type Tx = ReturnType<typeof convexTest>;
 
 /** Peminjam siap-KYC + lokasi aktif — prasyarat gerbang pengajuan. */
-async function peminjamSiap(t: Tx, email: string): Promise<SesiUji> {
+async function peminjamSiap(
+  t: Tx,
+  email: string,
+  plafon?: number,
+): Promise<SesiUji> {
   const sesi = await buatSesi(t, "peminjam-tenor", { email, role: "peminjam" });
+  if (plafon !== undefined) {
+    await t.run(async (ctx) => {
+      const users = await ctx.db.query("users").collect();
+      const user = users.find((row) => row.email === email);
+      if (user === null) throw new Error("Pengguna uji tidak ditemukan.");
+      await ctx.db.patch(user._id, { plafonPinjaman: plafon });
+    });
+  }
   await seedKycTerverifikasiEmail(t, email);
   await sesi.mutation(api.lokasi.catatLokasi, { ...TITIK, sumber: "web" });
   return sesi;
@@ -89,41 +100,52 @@ describe("matriks tenor & bunga harian", () => {
     expect(loan?.persenBunga).toBe(40);
   });
 
-  it("Rp500.000 tenor 14 hari memakai bunga 35%", async () => {
+  it("Rp500.000 tenor 14 hari memakai bunga 32%", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-menengah@pindai.test");
     await ajukan(t, sesi, 500_000, 14, "menengah");
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(14);
-    expect(loan?.persenBunga).toBe(35);
+    expect(loan?.persenBunga).toBe(32);
   });
 
-  it("Rp1 juta tenor 28 hari memakai bunga 35%", async () => {
+  it("Rp500.000 tenor 7 hari memakai bunga 28%", async () => {
     const t = convexTest(schema, modules);
-    const sesi = await peminjamSiap(t, "tenor-penuh@pindai.test");
+    const sesi = await peminjamSiap(t, "tenor-menengah-pendek@pindai.test");
+    await ajukan(t, sesi, 500_000, 7, "menengah-pendek");
+
+    const loan = await pinjamanTerakhir(t);
+    expect(loan?.tenorHari).toBe(7);
+    expect(loan?.persenBunga).toBe(28);
+  });
+
+  it("Rp1 juta tenor 28 hari memakai bunga 30%", async () => {
+    const t = convexTest(schema, modules);
+    const sesi = await peminjamSiap(t, "tenor-penuh@pindai.test", 1_000_000);
     await ajukan(t, sesi, 1_000_000, 28, "penuh");
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(28);
-    expect(loan?.persenBunga).toBe(35);
+    expect(loan?.persenBunga).toBe(30);
   });
 
-  it("Rp500.000 menolak tenor 7 hari", async () => {
+  it("Rp1 juta tenor 14 hari memakai bunga 28%", async () => {
     const t = convexTest(schema, modules);
-    const sesi = await peminjamSiap(t, "tenor-tolak-menengah@pindai.test");
+    const sesi = await peminjamSiap(t, "tenor-penuh-mid@pindai.test", 1_000_000);
+    await ajukan(t, sesi, 1_000_000, 14, "penuh-mid");
 
-    await expect(ajukan(t, sesi, 500_000, 7, "tolak-menengah")).rejects.toThrow(
-      /tenor yang tersedia 14 \/ 28 hari/,
-    );
+    const loan = await pinjamanTerakhir(t);
+    expect(loan?.tenorHari).toBe(14);
+    expect(loan?.persenBunga).toBe(28);
   });
 
-  it("Rp1 juta menolak tenor 14 hari", async () => {
+  it("tenor 30 hari ditolak pada semua tier", async () => {
     const t = convexTest(schema, modules);
-    const sesi = await peminjamSiap(t, "tenor-tolak-penuh@pindai.test");
+    const sesi = await peminjamSiap(t, "tenor-tolak-tigapuluh@pindai.test");
 
-    await expect(ajukan(t, sesi, 1_000_000, 14, "tolak-penuh")).rejects.toThrow(
-      /tenor yang tersedia 28 hari/,
+    await expect(ajukan(t, sesi, 500_000, 30, "tolak-tigapuluh")).rejects.toThrow(
+      /tenor yang tersedia 7 \/ 14 \/ 28 hari/,
     );
   });
 });

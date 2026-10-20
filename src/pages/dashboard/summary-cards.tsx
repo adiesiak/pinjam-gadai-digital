@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { ArrowRight, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowRight, CheckCircle2, ShieldCheck, TrendingUp, Wallet } from "lucide-react";
 import { useMemo } from "react";
 
 import { CountUp } from "@/components/CountUp";
@@ -17,9 +17,11 @@ import { ringkasJatuhTempo } from "@/lib/jatuhTempo";
 import { formatRupiah } from "@/lib/money";
 import {
   kalimatBatasPlafon,
+  PLAFON_BARU,
   PLAFON_NAIK_SETELAH_LUNAS,
   type RingkasanPlafon,
 } from "@/lib/plafon";
+import { formatTanggalWIB } from "@/lib/waktu";
 
 import type { LoanScheduleRow } from "./shared";
 
@@ -111,8 +113,8 @@ export function KartuBatasPinjaman({ ringkas }: { ringkas: RingkasanPlafon | nul
         </p>
       ) : bisaNaik ? (
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
-          Pinjaman minimal Rp1 juta yang tercatat lunas tepat waktu menaikkan batas
-          sampai {formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}.
+          Selesaikan 1x pinjaman tepat waktu untuk membuka limit{" "}
+          {formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}.
         </p>
       ) : null}
     </div>
@@ -222,6 +224,145 @@ function KycKartu({ status, onBuka }: { status: StatusKyc | null; onBuka?: () =>
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * Riwayat Progres Plafon — level limit aktif dan satu langkah yang tersisa.
+ *
+ * Angka limit berasal dari server (`plafonEfektif`), bukan dihitung ulang dari
+ * jumlah pelunasan di klien: override admin dan status tunggakan ikut terbaca
+ * di angka yang sama dengan validasi pengajuan.
+ */
+export function RiwayatProgresPlafon() {
+  const data = useQuery(api.loans.myLoanCreditHistory, {});
+
+  if (data === undefined) {
+    return (
+      <section
+        aria-label="Riwayat progres plafon"
+        className="glass-card mt-4 rounded-2xl border p-4 sm:p-5"
+      >
+        <p className="text-xs text-muted-foreground">Memuat progres plafon…</p>
+      </section>
+    );
+  }
+
+  const terbuka = data.jumlahPelunasanTepatWaktu >= 1;
+  const limitAktif = data.plafonEfektif;
+
+  return (
+    <section
+      aria-labelledby="judul-progres-plafon"
+      className="glass-card mt-4 rounded-2xl border p-4 shadow-sm sm:p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2
+            id="judul-progres-plafon"
+            className="flex items-center gap-2 text-sm font-semibold text-slate-900"
+          >
+            <TrendingUp className="size-4 text-emerald-700" aria-hidden />
+            Riwayat Progres Plafon
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {terbuka
+              ? "Limit Rp1.000.000 sudah terbuka. Pertahankan pembayaran tepat waktu agar tetap aktif."
+              : "Selesaikan 1x pinjaman tepat waktu untuk membuka limit Rp1.000.000."}
+          </p>
+        </div>
+        <span
+          className={
+            terbuka
+              ? "rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800"
+              : "rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+          }
+        >
+          {terbuka ? "Nasabah Teruji" : "Nasabah Baru"}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800">
+            Level 1 · aktif
+          </p>
+          <p className="mt-0.5 text-sm font-semibold tabular-nums text-emerald-900">
+            {formatRupiah(PLAFON_BARU)}
+          </p>
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] text-emerald-800">
+            <CheckCircle2 className="size-3.5" aria-hidden /> Terbuka sejak awal
+          </p>
+        </div>
+        <div
+          className={
+            terbuka
+              ? "rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2.5"
+              : "rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5"
+          }
+        >
+          <p
+            className={
+              terbuka
+                ? "text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800"
+                : "text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500"
+            }
+          >
+            Level 2 · {terbuka ? "aktif" : "terkunci"}
+          </p>
+          <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
+            {formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {terbuka
+              ? `${data.jumlahPelunasanTepatWaktu}x lunas tepat waktu tercatat`
+              : "Butuh 1x lunas tepat waktu"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <Progress
+          value={terbuka ? 100 : 0}
+          aria-label={
+            terbuka
+              ? "Progres plafon 1 dari 1 pelunasan tepat waktu"
+              : "Progres plafon 0 dari 1 pelunasan tepat waktu"
+          }
+          className="h-2"
+        />
+        <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+          Limit aktif saat ini:{" "}
+          <strong className="font-semibold tabular-nums text-slate-800">
+            {formatRupiah(limitAktif)}
+          </strong>
+          {limitAktif !== (terbuka ? PLAFON_NAIK_SETELAH_LUNAS : PLAFON_BARU)
+            ? " (ditetapkan khusus oleh tim PINDAI)"
+            : ""}
+          .
+        </p>
+      </div>
+
+      {data.riwayat.length > 0 && (
+        <ul className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+          {data.riwayat.slice(0, 3).map((item) => (
+            <li
+              key={item.nomorReferensi}
+              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs"
+            >
+              <span className="flex items-center gap-1.5 text-slate-700">
+                <CheckCircle2 className="size-3.5 text-emerald-700" aria-hidden />
+                <span className="tabular-nums">{item.nomorReferensi}</span>
+              </span>
+              <span className="tabular-nums text-muted-foreground">
+                {formatRupiah(item.pokokPinjaman)}
+                {item.lunasPada === null ? "" : ` · ${formatTanggalWIB(item.lunasPada)}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

@@ -73,10 +73,10 @@ const SIAP: IsianPengajuanCepat = {
 // ===== 1. Batas nominal =====
 // Batas atas selalu = SISA batas nasabah, dipotong batas produk.
 eq(batasNominalCepat(null).min, LOAN_LIMITS.minPokok, "batas bawah = batas produk");
-eq(batasNominalCepat(null).maks, LOAN_LIMITS.maxPokok, "sisa belum termuat, batas atas = batas produk");
+eq(batasNominalCepat(null).maks, 500_000, "sisa belum termuat memakai plafon nasabah baru");
 eq(batasNominalCepat(3_000_000).maks, LOAN_LIMITS.maxPokok, "sisa besar tetap dipotong batas produk");
 eq(batasNominalCepat(600_000).maks, 600_000, "sisa kecil menjadi batas atas");
-eq(batasNominalCepat(Number.NaN).maks, LOAN_LIMITS.maxPokok, "sisa tidak wajar diabaikan");
+eq(batasNominalCepat(Number.NaN).maks, 500_000, "sisa tidak wajar memakai plafon nasabah baru");
 
 // Sisa habis BUKAN rentang palsu: ditandai supaya layar menampilkan alasannya.
 eq(batasNominalCepat(0).maks, 0, "sisa nol tidak menawarkan nominal");
@@ -149,14 +149,14 @@ ok(
 ada(tolak({ pokokPinjaman: 500_000.5 }), "minimal", "nominal pecahan ditolak");
 ada(tolak({ tenorHari: 45 }), "Pilih lama pinjaman", "tenor di luar daftar ditolak");
 ada(
-  tolak({ pokokPinjaman: 500_000, tenorHari: 7 }),
-  "tenor yang tersedia 14 / 28 hari",
-  "Rp500.000 tidak menerima tenor 7 hari",
+  tolak({ pokokPinjaman: 500_000, tenorHari: 30 }),
+  "tenor yang tersedia 7 / 14 / 28 hari",
+  "Rp500.000 tidak menerima tenor 30 hari",
 );
 ada(
-  tolak({ pokokPinjaman: 1_000_000, tenorHari: 14 }),
-  "tenor yang tersedia 28 hari",
-  "Rp1 juta terkunci pada tenor 28 hari",
+  tolak({ pokokPinjaman: 1_000_000, tenorHari: 30 }),
+  "tenor yang tersedia 7 / 14 / 28 hari",
+  "Rp1 juta tidak menerima tenor 30 hari",
 );
 ada(tolak({ tujuan: "" }), "keperluan", "keperluan kosong ditolak");
 ada(tolak({ rekeningBenar: false }), "rekening bank", "konfirmasi rekening wajib");
@@ -194,15 +194,21 @@ eq(tenorHarianDefault(1_000_000), 28, "Rp1 juta: tenor bawaan 28 hari");
 eq(persenBungaHarian(250_000, 7), 30, "Rp250.000/7 hari: bunga 30%");
 eq(persenBungaHarian(250_000, 14), 35, "Rp250.000/14 hari: bunga naik ke 35%");
 eq(persenBungaHarian(250_000, 28), 40, "Rp250.000/28 hari: bunga naik ke 40%");
-eq(persenBungaHarian(500_000, 14), 35, "Rp500.000/14 hari: bunga 35%");
-eq(persenBungaHarian(500_000, 28), 40, "Rp500.000/28 hari: bunga 40%");
-eq(persenBungaHarian(1_000_000, 28), 35, "Rp1 juta/28 hari: bunga 35%");
+eq(persenBungaHarian(500_000, 7), 28, "Rp500.000/7 hari: bunga 28%");
+eq(persenBungaHarian(500_000, 14), 32, "Rp500.000/14 hari: bunga 32%");
+eq(persenBungaHarian(500_000, 28), 35, "Rp500.000/28 hari: bunga 35%");
+eq(persenBungaHarian(1_000_000, 7), 26, "Rp1 juta/7 hari: bunga 26%");
+eq(persenBungaHarian(1_000_000, 14), 28, "Rp1 juta/14 hari: bunga 28%");
+eq(persenBungaHarian(1_000_000, 28), 30, "Rp1 juta/28 hari: bunga 30%");
 for (const [pokok, tenor] of [
   [250_000, 7],
   [250_000, 14],
   [250_000, 28],
+  [500_000, 7],
   [500_000, 14],
   [500_000, 28],
+  [1_000_000, 7],
+  [1_000_000, 14],
   [1_000_000, 28],
 ] as const) {
   eq(

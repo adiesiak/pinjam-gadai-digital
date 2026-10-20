@@ -174,13 +174,14 @@ describe("master nasabah ↔ KYC ↔ plafon ↔ pengajuan", () => {
     const aktif = await peminjam.query(api.nasabah.plafonRingkasSaya, {});
     expect(aktif?.maksimal).toBe(PLAFON_DEFAULT);
     expect(aktif?.terpakai).toBe(500_000);
-    expect(aktif?.tersedia).toBe(500_000);
+    expect(aktif?.tersedia).toBe(0);
 
-    // Lunas → plafon kembali tersedia penuh.
+    // Lunas tepat waktu → plafon naik ke Rp1 juta dan kembali tersedia penuh.
     await t.run((ctx) => ctx.db.patch(loanId, { status: "lunas", lunasPada: Date.now() }));
     const lunas = await peminjam.query(api.nasabah.plafonRingkasSaya, {});
     expect(lunas?.terpakai).toBe(0);
-    expect(lunas?.tersedia).toBe(PLAFON_DEFAULT);
+    expect(lunas?.maksimal).toBe(1_000_000);
+    expect(lunas?.tersedia).toBe(1_000_000);
   });
 
   it("server menolak pengajuan yang melebihi plafon TERSEDIA", async () => {
@@ -264,7 +265,9 @@ describe("master nasabah ↔ KYC ↔ plafon ↔ pengajuan", () => {
     expect(detail?.profil?.nik).toBe("3201234567890003");
     expect(detail?.kyc?.status).toBe("VERIFIED");
     expect(detail?.plafon.terpakai).toBe(300_000);
-    expect(detail?.plafon.tersedia).toBe(PLAFON_DEFAULT - 300_000);
+    // Pinjaman lama Rp400.000 lunas tepat waktu membuka plafon Rp1 juta.
+    expect(detail?.plafon.maksimal).toBe(1_000_000);
+    expect(detail?.plafon.tersedia).toBe(1_000_000 - 300_000);
     expect(detail?.ringkasan.jumlahPengajuan).toBe(2);
     expect(detail?.ringkasan.pinjamanLunas).toBe(1);
     expect(detail?.ringkasan.pinjamanAktif).toBe(1);

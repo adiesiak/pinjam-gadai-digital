@@ -70,6 +70,7 @@ describe("pengaturan notifikasi per nasabah", () => {
     });
 
     const tersimpan = await t.run((ctx) => ctx.db.get(nasabahId));
+    expect(tersimpan?.whatsappNotificationEnabled).toBe(false);
     expect(tersimpan?.notifWhatsapp).toBe(false);
     expect(tersimpan?.notifEmail).toBe(true);
 
@@ -193,7 +194,42 @@ describe("pengaturan notifikasi per nasabah", () => {
 
     // Penolakan terjadi sebelum data ditulis.
     const tersimpan = await t.run((ctx) => ctx.db.get(nasabahId));
+    expect(tersimpan?.whatsappNotificationEnabled).toBeUndefined();
     expect(tersimpan?.notifWhatsapp).toBeUndefined();
     expect(tersimpan?.notifEmail).toBeUndefined();
+  });
+
+  it("membaca field baru, lalu menghormati nilai lama notifWhatsapp", async () => {
+    const t = buatKontek();
+    const { admin, nasabahId } = await adminDanNasabah(t);
+
+    await t.run((ctx) =>
+      ctx.db.patch(nasabahId, { whatsappNotificationEnabled: false }),
+    );
+    expect(
+      await t.query(internal.notifikasiNasabah._kanalAktif, {
+        userId: nasabahId,
+        kanal: "whatsapp",
+      }),
+    ).toBe(false);
+
+    // Baris lama yang hanya punya notifWhatsapp=false tidak boleh aktif lagi.
+    await t.run((ctx) =>
+      ctx.db.patch(nasabahId, {
+        whatsappNotificationEnabled: undefined,
+        notifWhatsapp: false,
+      }),
+    );
+    expect(
+      await t.query(internal.notifikasiNasabah._kanalAktif, {
+        userId: nasabahId,
+        kanal: "whatsapp",
+      }),
+    ).toBe(false);
+
+    const data = await admin.query(api.notifikasiNasabah.preferensiNasabah, {
+      userId: nasabahId,
+    });
+    expect(data.whatsapp).toBe(false);
   });
 });

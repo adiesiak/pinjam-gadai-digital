@@ -171,7 +171,7 @@ async function siapkanPinjamanTunaiDidanai(
 }
 
 describe("plafon pinjaman per nasabah", () => {
-  it("default tunai Rp1 juta; kredit barang memakai batas terpisah Rp10 juta", async () => {
+  it("default tunai nasabah baru Rp500 ribu; kredit barang memakai batas terpisah Rp10 juta", async () => {
     const t = convexTest(schema, modules);
     const { sesi: peminjam } = await siapkanPengguna(t, "rani", {
       email: "rani@pindai.test",
@@ -180,12 +180,12 @@ describe("plafon pinjaman per nasabah", () => {
     const kyc = await unggahKyc(t);
     await aktifkanLokasi(peminjam);
 
-    expect(PLAFON_DEFAULT).toBe(1_000_000);
+    expect(PLAFON_DEFAULT).toBe(500_000);
     expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(PLAFON_DEFAULT);
 
     // Tunai di atas plafon awal tetap ditolak di server.
     await expect(ajukanTunai(peminjam, kyc, 5_000_000)).rejects.toThrow(
-      /Batas pinjaman Anda saat ini Rp 1\.000\.000/,
+      /Batas pinjaman Anda saat ini Rp 500\.000/,
     );
     // Kredit barang tidak mewarisi plafon tunai: pokok Rp10 juta lolos.
     await expect(ajukanKredit(peminjam, 10_000_000, 0)).resolves.toBeDefined();
@@ -433,7 +433,7 @@ describe("plafon pinjaman per nasabah", () => {
     await admin.mutation(api.admin.setPlafonPeminjam, { userId, plafon: null });
     expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(PLAFON_DEFAULT);
     await expect(ajukanTunai(peminjam, kyc, 5_000_001)).rejects.toThrow(
-      /Batas pinjaman Anda saat ini Rp 1\.000\.000/,
+      /Batas pinjaman Anda saat ini Rp 500\.000/,
     );
   });
 

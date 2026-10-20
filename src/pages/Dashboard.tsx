@@ -35,7 +35,7 @@ import { AngsuranSection } from "./dashboard/angsuran-views";
 import { CatatanPinjamanSection } from "./dashboard/history-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
-import { SummaryCards } from "./dashboard/summary-cards";
+import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
 
 /**
  * Rangka pemuatan dashboard: bentuknya mengikuti kartu ringkasan + daftar
@@ -436,6 +436,7 @@ export default function Dashboard() {
                     kycStatus={kyc === undefined ? null : kyc.status}
                     onBukaKyc={() => gantiTab("kyc")}
                   />
+                  <RiwayatProgresPlafon />
                   <Button
                     type="button"
                     className="mt-4 w-full gap-2 bg-emerald-800 text-white hover:bg-emerald-900 sm:w-auto"

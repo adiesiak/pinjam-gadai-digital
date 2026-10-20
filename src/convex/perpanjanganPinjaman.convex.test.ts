@@ -34,7 +34,7 @@ async function siapkan(t: ReturnType<typeof convexTest>, persenBunga = 30) {
     email: "admin-perpanjangan@pindai.test",
     role: "admin",
   });
-  const { userId } = await siapkanPengguna(t, "sari perpanjangan", {
+  const { sesi: peminjam, userId } = await siapkanPengguna(t, "sari perpanjangan", {
     email: "sari-perpanjangan@pindai.test",
     role: "peminjam",
   });
@@ -70,7 +70,7 @@ async function siapkan(t: ReturnType<typeof convexTest>, persenBunga = 30) {
     );
     return { loanId, buktiPembayaranId, userId };
   });
-  return { admin, danaId, sekarang, ...bukti };
+  return { admin, danaId, sekarang, peminjam, ...bukti };
 }
 
 async function buatBukti(
@@ -149,8 +149,8 @@ describe("pembayaran tingkat pinjaman", () => {
     const antrean = await ambilAntrean(data.admin);
     expect(antrean.jumlah).toBe(1);
     expect(antrean.rows[0].rencana.principalSebelum).toBe(1_000_000);
-    expect(antrean.rows[0].rencana.tierRate).toBe(35);
-    expect(antrean.rows[0].rencana.nextInterestAmount).toBe(350_000);
+    expect(antrean.rows[0].rencana.tierRate).toBe(30);
+    expect(antrean.rows[0].rencana.nextInterestAmount).toBe(300_000);
 
     await data.admin.mutation(api.perpanjanganPinjaman.verifikasiPembayaranPinjaman, {
       receiptId: pertama.receiptId,
@@ -168,17 +168,17 @@ describe("pembayaran tingkat pinjaman", () => {
       return { loan, jadwal };
     });
     expect(setelahBunga.loan?.remainingPrincipal).toBe(1_000_000);
-    expect(setelahBunga.loan?.currentTierRate).toBe(35);
-    expect(setelahBunga.loan?.nextInterestAmount).toBe(350_000);
+    expect(setelahBunga.loan?.currentTierRate).toBe(30);
+    expect(setelahBunga.loan?.nextInterestAmount).toBe(300_000);
     expect(setelahBunga.loan?.bungaTerbayar).toBe(300_000);
     expect(setelahBunga.loan?.nextDueDate).toBe(data.sekarang + 28 * HARI);
-    expect(setelahBunga.jadwal?.bunga).toBe(350_000);
+    expect(setelahBunga.jadwal?.bunga).toBe(300_000);
     expect(setelahBunga.jadwal?.jatuhTempoPada).toBe(data.sekarang + 28 * HARI);
     const ledger1 = await totalLedger(t);
     expect(ledger1.rows.every((e) => e.eventType === "INTEREST_ONLY_PAYMENT")).toBe(true);
     expect(ledger1.debit).toBe(ledger1.kredit);
 
-    // Cicil pokok Rp200.000: bunga berjalan Rp350.000 + pokok = Rp550.000.
+    // Cicil pokok Rp200.000: bunga berjalan Rp300.000 + pokok = Rp500.000.
     const kedua = await buatBukti(t, {
       ...data,
       paymentType: "cicil_pokok",
@@ -187,12 +187,12 @@ describe("pembayaran tingkat pinjaman", () => {
       tanggalTransfer: data.sekarang,
       nomorReferensi: "BUKTI-PERPANJANGAN-002",
     });
-    expect(kedua.totalDue).toBe(550_000);
+    expect(kedua.totalDue).toBe(500_000);
     await data.admin.mutation(api.perpanjanganPinjaman.verifikasiPembayaranPinjaman, {
       receiptId: kedua.receiptId,
       keputusan: "terima",
       referensiMutasi: "MUTASI-PERPANJANGAN-002",
-      jumlahMutasi: 550_000,
+      jumlahMutasi: 500_000,
     });
 
     const setelahCicil = await t.run(async (ctx) => {
@@ -200,28 +200,28 @@ describe("pembayaran tingkat pinjaman", () => {
       return loan;
     });
     expect(setelahCicil?.remainingPrincipal).toBe(800_000);
-    expect(setelahCicil?.currentTierRate).toBe(40);
-    expect(setelahCicil?.nextInterestAmount).toBe(320_000);
-    expect(setelahCicil?.bungaTerbayar).toBe(650_000);
+    expect(setelahCicil?.currentTierRate).toBe(35);
+    expect(setelahCicil?.nextInterestAmount).toBe(280_000);
+    expect(setelahCicil?.bungaTerbayar).toBe(600_000);
     const ledger2 = await totalLedger(t);
     expect(
       ledger2.rows.filter((e) => e.eventType === "PARTIAL_PRINCIPAL_PAYMENT").length,
     ).toBeGreaterThan(0);
     expect(ledger2.debit).toBe(ledger2.kredit);
 
-    // Pelunasan total: sisa pokok Rp800.000 + bunga Rp320.000.
+    // Pelunasan total: sisa pokok Rp800.000 + bunga Rp280.000.
     const ketiga = await buatBukti(t, {
       ...data,
       paymentType: "pelunasan_total",
       tanggalTransfer: data.sekarang,
       nomorReferensi: "BUKTI-PERPANJANGAN-003",
     });
-    expect(ketiga.totalDue).toBe(1_120_000);
+    expect(ketiga.totalDue).toBe(1_080_000);
     await data.admin.mutation(api.perpanjanganPinjaman.verifikasiPembayaranPinjaman, {
       receiptId: ketiga.receiptId,
       keputusan: "terima",
       referensiMutasi: "MUTASI-PERPANJANGAN-003",
-      jumlahMutasi: 1_120_000,
+      jumlahMutasi: 1_080_000,
     });
 
     const akhir = await t.run(async (ctx) => {
@@ -239,6 +239,19 @@ describe("pembayaran tingkat pinjaman", () => {
     const ledger3 = await totalLedger(t);
     expect(ledger3.rows.some((e) => e.eventType === "LOAN_REPAYMENT")).toBe(true);
     expect(ledger3.debit).toBe(ledger3.kredit);
+
+    // Kuitansi peminjam: tiga transaksi yang sudah dicocokkan, terbaru dulu,
+    // masing-masing membawa snapshot rencana yang dipakai admin.
+    const kuitansi = await data.peminjam.query(api.loans.myLoanReceipts, {
+      loanId: data.loanId,
+    });
+    expect(kuitansi).toHaveLength(3);
+    expect(kuitansi[0].paymentType).toBe("pelunasan_total");
+    expect(kuitansi.map((row) => row.rencana.tierRate)).toEqual([30, 35, 30]);
+    expect(kuitansi[0].rencana.principalSesudah).toBe(0);
+    expect(kuitansi[1].rencana.principalSesudah).toBe(800_000);
+    expect(kuitansi[2].rencana.principalSesudah).toBe(1_000_000);
+    expect(kuitansi[0].dicocokkanPada).not.toBeNull();
   });
 
   it("memisahkan margin platform dari hak pendana yang tetap 30%", async () => {

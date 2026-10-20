@@ -34,6 +34,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
@@ -475,20 +480,43 @@ export function PengajuanCepatSection({
                 />
               </div>
               {[250_000, 500_000, 1_000_000]
-                .filter((n) => n >= batas.min && n <= batas.maks)
-                .map((n) => (
-                  <Button
-                    key={n}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 rounded-xl tabular-nums"
-                    disabled={submitting || !batas.adaSisa}
-                    onClick={() => pilihPokok(n)}
-                  >
-                    {formatRupiah(n)}
-                  </Button>
-                ))}
+                .filter((n) => n >= batas.min)
+                .map((n) => {
+                  // Nominal di atas plafon tetap terlihat tetapi terkunci, supaya
+                  // nasabah tahu langkah untuk membukanya — bukan menghilang
+                  // tanpa penjelasan. Chip Rp1 juta khusus memakai tooltip
+                  // progres plafon.
+                  const terkunci = submitting || !batas.adaSisa || n > batas.maks;
+                  const perluNaik = n > batas.maks && !submitting && batas.adaSisa;
+                  const tombol = (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 rounded-xl tabular-nums"
+                      disabled={terkunci}
+                      onClick={() => pilihPokok(n)}
+                    >
+                      {formatRupiah(n)}
+                    </Button>
+                  );
+                  return perluNaik ? (
+                    <Tooltip key={n}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-not-allowed" tabIndex={0}>
+                          {tombol}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-64 text-balance">
+                        Selesaikan 1x pinjaman tepat waktu untuk membuka limit Rp1.000.000
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <span key={n} className="inline-flex">
+                      {tombol}
+                    </span>
+                  );
+                })}
             </div>
             {/* Rentang nominal memakai SISA batas dari server; saat sisa habis
                 penjelasannya yang tampil, bukan rentang yang tak bisa dipakai. */}

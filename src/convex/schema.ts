@@ -194,6 +194,12 @@ const schema = defineSchema(
        * selalu `global && preferensi`, jadi mematikan sakelar global tetap
        * menahan pengingat walau baris ini true.
        */
+      whatsappNotificationEnabled: v.optional(v.boolean()),
+      /**
+       * Nama lama sakelar WhatsApp. Masih ditulis bersama field di atas agar
+       * data dan tes lama tetap terbaca; sumber kebenaran barunya
+       * `whatsappNotificationEnabled`.
+       */
       notifWhatsapp: v.optional(v.boolean()),
       /** Pengingat tagihan lewat email; diubah Super Admin dari panel nasabah. */
       notifEmail: v.optional(v.boolean()),

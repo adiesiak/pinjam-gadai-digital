@@ -67,8 +67,8 @@ ok(
   "dana bersih demo Rp 490.000",
 );
 ok(
-  formatRupiah(q.totalKewajibanPelunasan) === "Rp 675.000",
-  "total kewajiban demo Rp 675.000 (500 ribu, tenor bawaan 14 hari, bunga 35%)",
+  formatRupiah(q.totalKewajibanPelunasan) === "Rp 660.000",
+  "total kewajiban demo Rp 660.000 (500 ribu, tenor bawaan 14 hari, bunga 32%)",
 );
 
 // Setiap layar diuji sendiri: hanya layar aktif yang dirender di markup, jadi
@@ -85,7 +85,7 @@ function layar(id: (typeof LANGKAH_DEMO)[number]["id"]): string {
 
 const formulir = layar("ajukan");
 ok(formulir.includes("Rp 490.000"), "dana bersih tampil di layar formulir");
-ok(formulir.includes("Rp 675.000"), "total kewajiban tampil di layar formulir");
+ok(formulir.includes("Rp 660.000"), "total kewajiban tampil di layar formulir");
 ok(formulir.includes("Rp 10.000"), "potongan di muka tampil di layar formulir");
 ok(
   formulir.includes("bukan persetujuan pinjaman"),

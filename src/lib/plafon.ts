@@ -1,11 +1,10 @@
 /**
  * Plafon pinjaman tunai per nasabah.
  *
- * Plafon dasar mengikuti konfigurasi global (default Rp1 juta). Setiap
- * pinjaman tunai pokok minimal Rp1 juta yang dilunasi penuh paling lambat pada
- * tanggal jatuh tempo menaikkan plafon dasar Rp1 juta, hingga maksimum Rp10
- * juta. Penanda warisan di users tidak menjadi bukti kelayakan. Override
- * pribadi admin tetap menang atas plafon turunan ini.
+ * Nasabah baru tanpa riwayat lunas tepat waktu dibatasi Rp500.000. Satu
+ * pinjaman yang dilunasi penuh paling lambat pada tanggal jatuh tempo membuka
+ * plafon Rp1.000.000. Penanda warisan di users tidak menjadi bukti kelayakan.
+ * Override pribadi admin tetap menang atas plafon turunan ini.
  */
 import { formatRupiah, type Rupiah } from "./money";
 import { LOAN_LIMITS } from "./loan";
@@ -99,36 +98,21 @@ export function skorPerilaku(p: PerilakuBayar): number {
 }
 
 /**
- * Plafon dari perilaku bayar — MENGGANTIKAN hitungan "per pelunasan" di
- * `plafonDasarDariRiwayat` untuk plafon efektif.
+ * Plafon dari perilaku bayar.
  *
- * Aturan (sengaja konservatif, tanpa menurunkan plafon di bawah default):
- *  - tunggakan aktif menahan semua kenaikan; plafon kembali ke default global;
- *  - setiap pelunasan tepat waktu memberi Rp1 juta (aturan lama tetap);
- *  - catatan bersih (tanpa terlambat) memberi bonus: 2 pelunasan +Rp1 juta,
- *    3 pelunasan atau lebih +Rp2 juta;
- *  - maksimum tetap `PLAFON_NAIK_SETELAH_LUNAS`; override admin tetap menang.
- *
- * Bonus hanya berlaku bila semua pelunasan tercatat tepat waktu — keterlambatan
- * tidak menghapus kenaikan pokok, tetapi tidak pernah mendapat bonus.
+ * Aturan konsolidasi:
+ *  - tanpa pelunasan tepat waktu, plafon dibatasi `PLAFON_BARU` (Rp500.000);
+ *  - satu pelunasan tepat waktu atau lebih membuka `PLAFON_TERUJI` (Rp1 juta);
+ *  - tunggakan aktif menahan plafon kembali ke batas nasabah baru;
+ *  - override admin tetap menang dan dapat menetapkan angka lain.
  */
 export function plafonDariPerilaku(
   globalDefault: number,
   p: PerilakuBayar,
 ): Rupiah {
-  const dasar = clampPlafon(globalDefault);
+  const dasar = Math.min(clampPlafon(globalDefault), PLAFON_BARU) as Rupiah;
   if (p.menunggak > 0) return dasar;
-  const kenaikanPokok = p.tepatWaktu * PLAFON_KENAIKAN_PER_PELUNASAN;
-  const bonusBersih =
-    p.terlambat === 0 && p.tepatWaktu >= 3
-      ? 2_000_000
-      : p.terlambat === 0 && p.tepatWaktu >= 2
-        ? 1_000_000
-        : 0;
-  return Math.min(
-    PLAFON_NAIK_SETELAH_LUNAS,
-    dasar + kenaikanPokok + bonusBersih,
-  ) as Rupiah;
+  return p.tepatWaktu >= 1 ? PLAFON_TERUJI : dasar;
 }
 
 /** Plafon efektif: override admin, lalu perilaku bayar, lalu default global. */
@@ -149,20 +133,34 @@ async function getConfigServer(ctx: QueryCtx): Promise<number> {
   return row?.plafonPinjaman ?? PLAFON_DEFAULT;
 }
 
-/** Plafon awal pinjaman tunai — sama dengan batas skema tunai harian. */
-export const PLAFON_DEFAULT = LOAN_LIMITS.maxPokok as Rupiah;
+/** Plafon nasabah baru tanpa riwayat lunas tepat waktu. */
+export const PLAFON_BARU = 500_000 as Rupiah;
 
-/** Pokok minimum dan nilai kenaikan untuk setiap pelunasan yang memenuhi syarat. */
-export const PLAFON_POKOK_MINIMUM_LUNAS = 1_000_000 as Rupiah;
-export const PLAFON_KENAIKAN_PER_PELUNASAN = 1_000_000 as Rupiah;
+/** Plafon setelah minimal satu pinjaman lunas tepat waktu. */
+export const PLAFON_TERUJI = 1_000_000 as Rupiah;
 
-/** Plafon maksimum turunan maupun override admin. */
-export const PLAFON_NAIK_SETELAH_LUNAS = 10_000_000 as Rupiah;
+/** Plafon awal pinjaman tunai untuk nasabah baru. */
+export const PLAFON_DEFAULT = PLAFON_BARU;
+
+/**
+ * Pokok minimum yang dihitung sebagai pelunasan tepat waktu. Nasabah baru
+ * hanya bisa meminjam sampai Rp500.000, jadi ambang Rp1 juta lama akan membuat
+ * kenaikan plafon mustahil diraih.
+ */
+export const PLAFON_POKOK_MINIMUM_LUNAS = LOAN_LIMITS.minPokok as Rupiah;
+
+/** Selisih satu langkah plafon: Rp500.000 → Rp1.000.000. */
+export const PLAFON_KENAIKAN_PER_PELUNASAN = (PLAFON_TERUJI - PLAFON_BARU) as Rupiah;
+
+/** Plafon maksimum yang dibuka otomatis oleh perilaku bayar. */
+export const PLAFON_NAIK_SETELAH_LUNAS = PLAFON_TERUJI;
 
 /** Rentang plafon tunai yang boleh disimpan admin (rupiah bulat). */
 export const PLAFON_BATAS = {
   min: 100_000,
-  maks: PLAFON_NAIK_SETELAH_LUNAS,
+  // Batas penyimpanan admin sengaja lebih tinggi dari plafon otomatis: tim
+  // dapat memberi limit khusus, sedangkan produk tunai tetap maksimal Rp1 juta.
+  maks: 10_000_000 as Rupiah,
 } as const;
 
 /** Langkah slider kelipatan (rupiah). */
@@ -198,7 +196,7 @@ export function apakahPelunasanTepatWaktu(loan: RiwayatPinjamanPlafon): boolean 
   return jatuhTempo !== null && (loan.lunasPada ?? Infinity) <= jatuhTempo;
 }
 
-/** Plafon dasar = global + Rp1 jt per pelunasan tepat waktu, dibatasi maksimum. */
+/** Plafon dasar: Rp500.000 untuk nasabah baru, Rp1 juta setelah satu pelunasan. */
 export function plafonDasarDariRiwayat(
   globalDefault: number,
   jumlahPelunasanTepatWaktu: number,
@@ -206,11 +204,8 @@ export function plafonDasarDariRiwayat(
   const jumlah = Number.isSafeInteger(jumlahPelunasanTepatWaktu)
     ? Math.max(0, jumlahPelunasanTepatWaktu)
     : 0;
-  const dasar = clampPlafon(globalDefault);
-  return Math.min(
-    PLAFON_NAIK_SETELAH_LUNAS,
-    dasar + jumlah * PLAFON_KENAIKAN_PER_PELUNASAN,
-  ) as Rupiah;
+  const dasar = Math.min(clampPlafon(globalDefault), PLAFON_BARU) as Rupiah;
+  return jumlah >= 1 ? PLAFON_TERUJI : dasar;
 }
 
 /** Plafon efektif: override admin, lalu plafon progresif hasil riwayat, lalu default global. */

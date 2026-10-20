@@ -62,7 +62,6 @@ import {
   validasiPinjamanManual,
   type NasabahManual,
 } from "../lib/pengajuanManual";
-import { PLAFON_NAIK_SETELAH_LUNAS } from "../lib/plafon";
 import { requireAdminSession } from "./adminAuthz";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { ROLES } from "./schema";
@@ -274,7 +273,7 @@ export const catatPinjamanManual = mutation({
     // bukan syaratnya. Yang dijaga hanya langit-langit jalur manual (skema
     // harian) dan batas sistem (skema bulanan, mesin bulanan) supaya satu salah
     // ketik tidak memasukkan nominal di luar jangkauan produk.
-    if (bersih.pokokPinjaman > PLAFON_NAIK_SETELAH_LUNAS) {
+    if (bersih.pokokPinjaman > POKOK_MANUAL_MAKS) {
       throw new Error(
         `Pokok pinjaman manual maksimal ${formatRupiah(
           POKOK_MANUAL_MAKS,

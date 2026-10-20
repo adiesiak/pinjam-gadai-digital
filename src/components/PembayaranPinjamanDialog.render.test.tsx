@@ -76,9 +76,10 @@ ada(html, "sisa pokok Rp 1.000.000", "sisa pokok di keterangan");
 // ===== Pratinjau live mode bawaan (bunga saja) =====
 ada(html, "Total wajib bayar hari ini", "ringkasan total");
 ada(html, "Rp 300.000", "bunga periode berjalan");
-ada(html, "Rp 350.000", "bunga periode berikut dari tier 35%");
-ada(html, "+28 hari", "tenor tersedia untuk pokok Rp1 juta");
-ada(html, "tier 35%", "tier baru ditampilkan");
+ada(html, "Rp 300.000", "bunga periode berikut dari tier 30%");
+ada(html, "+7 hari", "tenor tersedia untuk pokok Rp1 juta");
+ada(html, "+28 hari", "tenor 28 hari tersedia untuk pokok Rp1 juta");
+ada(html, "tier 30%", "tier baru ditampilkan");
 ada(html, "Lanjut kirim bukti pembayaran", "tombol lanjut");
 tidakAda(html, "NaN", "tanpa NaN");
 tidakAda(html, "undefined", "tanpa undefined");
