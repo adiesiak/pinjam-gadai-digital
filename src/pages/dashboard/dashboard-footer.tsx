@@ -11,7 +11,7 @@ export function DashboardFooter() {
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>
             Harian (7–28 hari): nilai bersih 98% (potongan di muka 2%),
-            kewajiban 130%.
+            bunga flat 26–40% sesuai nominal dan tenor.
           </li>
           <li>
             Bulanan (1–6 bulan): DP 0%, potongan di muka 2% (biaya admin; biaya

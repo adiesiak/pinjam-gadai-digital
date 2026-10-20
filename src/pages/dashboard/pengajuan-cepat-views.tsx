@@ -187,9 +187,9 @@ export function PengajuanCepatSection({
     };
   }, [batas.adaSisa, batas.min, batas.maks]);
 
-  // Tenor ikut terkunci saat nominal berubah: Rp1 juta hanya menerima 28 hari,
-  // Rp500 ribu–di bawah Rp1 juta menerima 14/28 hari. Pilihan lama digeser ke
-  // tenor sah terdekat supaya dropdown tidak menampilkan nilai yang ditolak.
+  // Tenor resmi 7/14/28 hari berlaku di semua tier. Pilihan lama yang tidak
+  // sah (mis. data lama 30 hari) digeser ke tenor sah terdekat agar dropdown
+  // tidak menampilkan nilai yang ditolak server.
   useEffect(() => {
     if (!batas.adaSisa) return;
     queueMicrotask(() => {

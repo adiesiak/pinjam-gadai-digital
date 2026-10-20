@@ -228,7 +228,7 @@ function rincianKeuanganHarian(quote: LoanQuote): string {
       <tr><td>Biaya platform</td><td class="angka">${formatRupiah(quote.biayaPlatform)}</td></tr>
       <tr><td>Dana bersih diterima (98% dari pokok)</td><td class="angka">${formatRupiah(quote.danaBersihDitransfer)}</td></tr>
       <tr><td>Bunga</td><td class="angka">${formatRupiah(quote.bunga)}</td></tr>
-      <tr class="total"><td>Total kewajiban (130% dari pokok)</td><td class="angka">${formatRupiah(quote.totalKewajibanPelunasan)}</td></tr>
+      <tr class="total"><td>Total kewajiban (pokok + bunga)</td><td class="angka">${formatRupiah(quote.totalKewajibanPelunasan)}</td></tr>
     </tbody>
   </table>`;
 }
@@ -259,7 +259,7 @@ function blokParaPihak(): string {
 /**
  * Rangkai HTML ringkasan pengajuan pinjaman pada ledger internal.
  *
- * Dua skema didukung: harian (130%, potongan 2% di muka) dan bulanan
+ * Dua skema didukung: harian (pokok + bunga, potongan 2% di muka) dan bulanan
  * (DP 0%, biaya dipotong di muka, bunga flat dari pokok penuh per tenor). Bila
  * `bulanan`
  * diisi, rincian mengikuti skema bulanan dan angka dari engine lib/bulanan.ts.
@@ -297,7 +297,7 @@ export function buildPinjamanContract(
       <li>Total potongan di muka 2%: ${formatRupiah(quote.totalPotonganDiMuka)} (biaya platform dihapus — 0%).</li>
       <li><strong>Perhitungan dana bersih: ${formatRupiah(quote.danaBersihDitransfer)} (98% dari pokok)</strong>; dana diteruskan sesuai proses pencairan.</li>
       <li>Bunga: ${formatRupiah(quote.bunga)}.</li>
-      <li><strong>Total kewajiban: ${formatRupiah(quote.totalKewajibanPelunasan)} (130% dari pokok)</strong>; nominal mengikuti perhitungan aplikasi.</li>`
+      <li><strong>Total kewajiban: ${formatRupiah(quote.totalKewajibanPelunasan)} (pokok + bunga)</strong>; nominal mengikuti perhitungan aplikasi.</li>`
       : `
       <li>Uang muka: ${formatRupiah(bulanan.dp)} — 0% dari pokok acuan.</li>
       ${rincianBiayaBulanan}

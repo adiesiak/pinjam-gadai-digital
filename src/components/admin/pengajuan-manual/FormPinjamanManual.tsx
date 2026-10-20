@@ -308,7 +308,7 @@ export function FormPinjamanManual({
                 </span>
               </p>
               <p className="mt-1">
-                Total kewajiban pelunasan (130%){" "}
+                Total kewajiban pelunasan{" "}
                 <span className="font-semibold tabular-nums text-navy">
                   {formatRupiah(pratinjau.quote.totalKewajibanPelunasan)}
                 </span>

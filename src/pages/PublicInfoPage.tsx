@@ -689,11 +689,11 @@ export function PublicInfoPageView({
                           7/14/28 hari, bunga 30/35/40%.
                         </span>
                         <span className="mt-1 block">
-                          {formatRupiah(500_000)}–{formatRupiah(999_999)}: tenor 14/28 hari,
-                          bunga 35/40%.
+                          {formatRupiah(500_000)}–{formatRupiah(999_999)}: tenor 7/14/28 hari,
+                          bunga 28/32/35%.
                         </span>
                         <span className="mt-1 block">
-                          {formatRupiah(1_000_000)}: tenor 28 hari, bunga 35%.
+                          {formatRupiah(1_000_000)}: tenor 7/14/28 hari, bunga 26/28/30%.
                         </span>
                       </td>
                       <td className="px-4 py-3">

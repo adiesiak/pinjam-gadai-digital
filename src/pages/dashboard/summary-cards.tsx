@@ -66,7 +66,7 @@ export function KartuBatasPinjaman({ ringkas }: { ringkas: RingkasanPlafon | nul
     ? Math.min(100, Math.max(0, Math.round((ringkas.terpakai / ringkas.maksimal) * 100)))
     : 0;
   // Kalimat kenaikan hanya relevan selama batasnya belum menyentuh langit-langit
-  // kebijakan — menyebutnya untuk batas Rp10 juta hanya mengulang angka kepala.
+  // kebijakan — untuk batas Rp1 juta kalimat itu hanya mengulang angka kepala.
   const bisaNaik = ringkas !== null && ringkas.maksimal < PLAFON_NAIK_SETELAH_LUNAS;
 
   return (
@@ -227,6 +227,17 @@ function KycKartu({ status, onBuka }: { status: StatusKyc | null; onBuka?: () =>
   );
 }
 
+/** Data server yang dibaca kartu progres plafon. */
+export type DataProgresPlafon = {
+  plafonEfektif: number;
+  jumlahPelunasanTepatWaktu: number;
+  riwayat: readonly {
+    nomorReferensi: string;
+    pokokPinjaman: number;
+    lunasPada: number | null;
+  }[];
+};
+
 /**
  * Riwayat Progres Plafon — level limit aktif dan satu langkah yang tersisa.
  *
@@ -234,20 +245,7 @@ function KycKartu({ status, onBuka }: { status: StatusKyc | null; onBuka?: () =>
  * jumlah pelunasan di klien: override admin dan status tunggakan ikut terbaca
  * di angka yang sama dengan validasi pengajuan.
  */
-export function RiwayatProgresPlafon() {
-  const data = useQuery(api.loans.myLoanCreditHistory, {});
-
-  if (data === undefined) {
-    return (
-      <section
-        aria-label="Riwayat progres plafon"
-        className="glass-card mt-4 rounded-2xl border p-4 sm:p-5"
-      >
-        <p className="text-xs text-muted-foreground">Memuat progres plafon…</p>
-      </section>
-    );
-  }
-
+export function KartuProgresPlafon({ data }: { data: DataProgresPlafon }) {
   const terbuka = data.jumlahPelunasanTepatWaktu >= 1;
   const limitAktif = data.plafonEfektif;
 
@@ -364,6 +362,22 @@ export function RiwayatProgresPlafon() {
       )}
     </section>
   );
+}
+
+/** Pembungkus data: kartu murni di atas diuji tanpa klien Convex. */
+export function RiwayatProgresPlafon() {
+  const data = useQuery(api.loans.myLoanCreditHistory, {});
+  if (data === undefined) {
+    return (
+      <section
+        aria-label="Riwayat progres plafon"
+        className="glass-card mt-4 rounded-2xl border p-4 sm:p-5"
+      >
+        <p className="text-xs text-muted-foreground">Memuat progres plafon…</p>
+      </section>
+    );
+  }
+  return <KartuProgresPlafon data={data} />;
 }
 
 /**

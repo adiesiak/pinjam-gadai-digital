@@ -80,7 +80,8 @@ export const TENOR_CEPAT = TENOR_OPTIONS;
 
 /**
  * Tenor yang benar-benar boleh dipilih untuk satu nominal pengajuan cepat.
- * Nominal berubah → daftar ini ikut berubah (mis. Rp1 juta hanya 28 hari).
+ * Produk menawarkan 7/14/28 hari; fungsi ini tetap membaca matriks agar
+ * perubahan aturan tenor hanya ditulis di `lib/loan.ts`.
  */
 export function tenorCepat(pokok: number): readonly Tenor[] {
   return tenorHarianTersedia(pokok);
@@ -206,8 +207,8 @@ export function validasiPengajuanCepat(
       sebutSisa ? ` Sisa batas pinjaman Anda ${formatRupiah(maks)}.` : ""
     }`;
   }
-  // Tenor mengikuti matriks nominal: 7/14/28 hari di bawah Rp500.000,
-  // 14/28 hari sampai di bawah Rp1 juta, dan 28 hari untuk Rp1 juta.
+  // Tenor resmi 7/14/28 hari. Matriks tetap menjadi satu-satunya sumber
+  // kebenaran bila aturan produk berubah.
   const pesanTenor = validasiTenorHarian(isian.pokokPinjaman, isian.tenorHari);
   if (pesanTenor !== null) {
     return `${pesanTenor} Pilih lama pinjaman: ${tenorHarianTersedia(

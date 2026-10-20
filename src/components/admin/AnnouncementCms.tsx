@@ -45,7 +45,7 @@ const FALLBACK = {
   layananJudul: "Dua fitur, satu catatan internal",
   layananSub: "Semua nominal, skema biaya, dan status yang terlihat adalah pencatatan internal PINDAI.",
   pinjamanJudul: "Pinjaman Tunai Digital",
-  pinjamanIsi: "Perhitungan harian: potongan di muka 2%, bunga 30%, total kewajiban 130% dari pokok; skema bulanan 1–6 bulan memakai DP 0% dan potongan di muka 2%.",
+  pinjamanIsi: "Perhitungan harian: potongan di muka 2%, bunga flat 26–40% sesuai nominal dan tenor, total kewajiban 126–140% dari pokok; skema bulanan 1–6 bulan memakai DP 0% dan potongan di muka 2%.",
   pinjamanCta: "Ajukan sekarang",
   gadaiJudul: "Gadai Digital",
   gadaiIsi: "Catat informasi barang dan nilai taksiran untuk pengajuan gadai. Status dan pembayaran tercatat di catatan internal.",

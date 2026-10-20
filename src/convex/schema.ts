@@ -93,7 +93,7 @@ export const loanStatusValidator = v.union(
   v.literal("didanai"),
   // Peminjam (atau admin) menarik pengajuan SEBELUM dana ditandai tersalurkan.
   v.literal("dibatalkan"),
-  // Kewajiban 130% telah dibayar penuh oleh Peminjam.
+  // Kewajiban pokok + bunga telah dibayar penuh oleh Peminjam.
   v.literal("lunas"),
 );
 export type LoanStatusValue = Infer<typeof loanStatusValidator>;
@@ -301,7 +301,7 @@ const schema = defineSchema(
       diputuskanPada: v.optional(v.number()),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
-      /** Terisi saat kewajiban 130% (+ denda bila terlambat) dibayar penuh. */
+      /** Terisi saat kewajiban pokok + bunga (+ denda bila terlambat) dibayar penuh. */
       lunasPada: v.optional(v.number()),
       /** Denda keterlambatan rupiah bulat yang dibayar saat pelunasan. */
       dendaTerlambat: v.optional(v.number()),

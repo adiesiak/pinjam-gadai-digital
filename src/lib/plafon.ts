@@ -181,7 +181,7 @@ export function tanggalJatuhTempoPinjaman(
   return loan.didanaiPada! + tenorHari * DAY_MS;
 }
 
-/** Bukti kelayakan kenaikan: pokok tunai ≥Rp1 juta, lunas, dan waktu pelunasan tidak melewati jatuh tempo. */
+/** Bukti kelayakan kenaikan: pokok tunai ≥ pokok minimum, lunas, dan waktu pelunasan tidak melewati jatuh tempo. */
 export function apakahPelunasanTepatWaktu(loan: RiwayatPinjamanPlafon): boolean {
   if (
     loan.status !== "lunas" ||

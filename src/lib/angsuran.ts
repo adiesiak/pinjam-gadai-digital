@@ -6,8 +6,8 @@
  *  2. kontrak (rincian biaya),
  *  3. tabel `angsuran` + halaman Cicilan.
  *
- * Skema harian adalah SATU angsuran jatuh tempo di akhir tenor (130% dari
- * pokok; biaya admin 2% sudah dipotong di muka, jadi tidak masuk angsuran).
+ * Skema harian adalah SATU angsuran jatuh tempo di akhir tenor (pokok + bunga;
+ * biaya admin 2% sudah dipotong di muka, jadi tidak masuk angsuran).
  * Skema bulanan memakai `hitungSimulasiBulanan().jadwal` — pokok + bunga +
  * biaya admin cicilan per bulan — sehingga Σ pokok = pokok pinjaman dan
  * Σ total = total kewajiban yang tampil di kontrak.

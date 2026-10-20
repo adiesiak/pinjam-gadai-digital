@@ -280,7 +280,7 @@ export default function Dashboard() {
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman harian</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi: asumsi biaya admin 2% (biaya platform dihapus), dan bunga flat 30%. Angka ini bukan pencairan atau tagihan; status lunas hanya perubahan catatan internal.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi: biaya admin 2% (biaya platform dihapus) dan bunga flat 26–40% sesuai nominal serta tenor. Angka ini bukan pencairan atau tagihan; status lunas hanya perubahan catatan internal.</p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman bulanan</h2>

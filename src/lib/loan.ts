@@ -115,9 +115,9 @@ export function tenorHarianDefault(pokok: number): Tenor {
 }
 
 /**
- * Sesuaikan tenor lama ke pilihan terdekat yang sah. Dipakai saat nominal
- * berubah: pilihan yang tadinya 14 hari tidak boleh tertinggal di nominal yang
- * hanya menerima 28 hari.
+ * Sesuaikan tenor lama ke pilihan terdekat yang sah. Ketiga tenor berlaku di
+ * semua tier, jadi fungsi ini hanya menggeser nilai di luar 7/14/28 hari
+ * (mis. data lama 30 hari).
  */
 export function sesuaikanTenorHarian(pokok: number, tenor: number): Tenor {
   const opsi = tenorHarianTersedia(pokok);

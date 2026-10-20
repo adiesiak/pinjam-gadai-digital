@@ -24,7 +24,7 @@ import {
   type RingkasanPlafon,
 } from "@/lib/plafon";
 
-import { KartuBatasPinjaman } from "./summary-cards";
+import { KartuBatasPinjaman, KartuProgresPlafon } from "./summary-cards";
 
 let passed = 0;
 let failed = 0;
@@ -95,6 +95,36 @@ ok(
 const htmlMuat = renderToStaticMarkup(<KartuBatasPinjaman ringkas={null} />);
 ok("belum termuat tidak menyebut nominal apa pun", !/Rp \d/.test(htmlMuat));
 ok("belum termuat menjelaskan keadaannya", htmlMuat.includes("sedang dibaca"));
+
+// ===== 4b. Progres plafon: satu langkah untuk membuka Rp1 juta =====
+const htmlProgresBaru = renderToStaticMarkup(
+  <KartuProgresPlafon
+    data={{ plafonEfektif: 500_000, jumlahPelunasanTepatWaktu: 0, riwayat: [] }}
+  />,
+);
+ok("kartu progres berjudul jelas", htmlProgresBaru.includes("Riwayat Progres Plafon"));
+ok("level awal disebut Nasabah Baru", htmlProgresBaru.includes("Nasabah Baru"));
+ok("limit aktif Rp500.000 tampil", htmlProgresBaru.includes(formatRupiah(500_000)));
+ok(
+  "langkah menuju Rp1 juta dijelaskan",
+  htmlProgresBaru.includes("Selesaikan 1x pinjaman tepat waktu"),
+);
+ok("level kedua masih terkunci", htmlProgresBaru.includes("terkunci"));
+
+const htmlProgresTeruji = renderToStaticMarkup(
+  <KartuProgresPlafon
+    data={{
+      plafonEfektif: PLAFON_NAIK_SETELAH_LUNAS,
+      jumlahPelunasanTepatWaktu: 1,
+      riwayat: [
+        { nomorReferensi: "PGD-20261020-ABCD", pokokPinjaman: 500_000, lunasPada: 1_792_000_000_000 },
+      ],
+    }}
+  />,
+);
+ok("level teruji terbuka", htmlProgresTeruji.includes("Nasabah Teruji"));
+ok("riwayat pelunasan tampil", htmlProgresTeruji.includes("PGD-20261020-ABCD"));
+ok("tidak menyebut level terkunci saat sudah terbuka", !htmlProgresTeruji.includes("terkunci"));
 
 // ===== 5. Sumber tunggal: tidak ada layar nasabah yang menulis batas sendiri =====
 const sumberKartu = bacaSumber("pages/dashboard/summary-cards.tsx");

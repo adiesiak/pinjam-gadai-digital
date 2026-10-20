@@ -619,8 +619,8 @@ export const createLoanApplication = mutation({
     // Server-side pricing engine — fee fields are never accepted from the client.
     const quote = quoteLoan(args.pokokPinjaman);
     // Matriks tenor harian ditegakkan di server, bukan hanya disembunyikan di
-    // UI: nominal Rp1 juta hanya menerima 28 hari, Rp500 ribu–di bawah Rp1 juta
-    // 14/28 hari, dan di bawah Rp500 ribu 7/14/28 hari.
+    // UI: tenor resmi 7/14/28 hari, dan tarif mengikuti tier nominal (26–40%).
+    // Tenor di luar daftar itu—termasuk 30 hari—ditolak.
     let persenBungaSimpanan: number;
     if (tenorBulanSim === undefined) {
       const pesanTenor = validasiTenorHarian(args.pokokPinjaman, args.tenorHari);
@@ -773,7 +773,7 @@ export const createLoanApplication = mutation({
 /**
  * Turunan pelunasan live untuk satu pinjaman didanai: jatuh tempo, sisa hari,
  * hari terlambat, denda, dan total kewajiban saat ini — satu sumber kebenaran
- * dari lib/loan.ts (skema harian 130% dan skema bulanan).
+ * dari lib/loan.ts (skema harian pokok + bunga dan skema bulanan).
  */
 const pelunasanInfo = pelunasanPinjaman;
 
@@ -884,7 +884,7 @@ export const getMyLoan = query({
     if (loan === null || loan.userId !== userId) return null;
     const tarifDenda = await tarifDendaBerlaku(ctx);
     const pelunasan = pelunasanPinjaman(loan, Date.now(), tarifDenda);
-    // Skema bulanan: kewajiban diturunkan dari mesin bulanan, bukan 130%.
+    // Skema bulanan: kewajiban diturunkan dari mesin bulanan, bukan tarif dasar.
     const sim =
       loan.tenorBulan !== undefined
         ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan })
@@ -2013,7 +2013,7 @@ export const hapusGadai = mutation({
 // =====================================================================
 
 /**
- * Pelunasan oleh Peminjam — skema harian: total kewajiban 130% dari pokok;
+ * Pelunasan oleh Peminjam — skema harian: pokok + bunga sesuai tarif tersimpan;
  * skema bulanan (tenorBulan): Σ cicilan + biaya layanan (fee platform).
  * Jurnal (semua dalam satu mutation transaksional, append-only):
  *   1. D platform:CASH total kewajiban | K pinjaman:<id>
@@ -2110,8 +2110,8 @@ export const repayLoan = mutation({
           ? `Pelunasan ${loan.nomorReferensi} — skema bulanan + denda ${pelunasan.hariTerlambat} hari (${pelunasan.dendaTerlambat})`
           : `Pelunasan ${loan.nomorReferensi} — total cicilan skema bulanan`
         : pelunasan.hariTerlambat > 0
-          ? `Pelunasan ${loan.nomorReferensi} — 130% + denda ${pelunasan.hariTerlambat} hari (${pelunasan.dendaTerlambat})`
-          : `Pelunasan ${loan.nomorReferensi} — total kewajiban 130%`,
+          ? `Pelunasan ${loan.nomorReferensi} — pokok + bunga + denda ${pelunasan.hariTerlambat} hari (${pelunasan.dendaTerlambat})`
+          : `Pelunasan ${loan.nomorReferensi} — pokok + bunga`,
       aktor: userId,
       lines: cashLines,
     });

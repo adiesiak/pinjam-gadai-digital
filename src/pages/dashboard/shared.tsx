@@ -31,9 +31,9 @@ export type LoanScheduleRow = {
   quote: ReturnType<typeof quoteLoan>;
   /** Rincian biaya dan cicilan yang dihitung engine untuk tenor bulanan. */
   simulasiBulanan: ReturnType<typeof hitungSimulasiBulanan> | null;
-  /** Hak Imbal Hasil: 30% pokok (harian) atau Σ bunga bulanan. */
+  /** Hak Imbal Hasil: bunga harian sesuai tarif tersimpan, atau Σ bunga bulanan. */
   imbalHasilTotal: number;
-  /** Total kewajiban menurut skema pinjaman (130% atau Σ cicilan bulanan). */
+  /** Total kewajiban menurut skema pinjaman (pokok + bunga atau Σ cicilan bulanan). */
   totalKewajiban: number;
   pelunasan: {
     jatuhTempoPada: number;

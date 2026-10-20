@@ -42,9 +42,9 @@ import { BUNGA_BATAS, clampPersenBunga } from "@/lib/bunga";
  * Panel Plafon Nasabah — naikkan/turunkan batas pinjaman satu orang dan atur
  * bunga khususnya.
  *
- * Panel ini mengatur pinjaman tunai. Setiap pinjaman pokok ≥Rp1 juta yang
- * lunas tepat waktu menaikkan plafon dasar Rp1 juta hingga maksimum Rp10 juta;
- * override admin tetap menang. Kredit barang punya batas tersendiri.
+ * Panel ini mengatur pinjaman tunai. Nasabah baru dibatasi Rp500.000; satu
+ * pinjaman yang lunas tepat waktu membuka plafon Rp1.000.000. Override admin
+ * dapat menetapkan angka lain, dan kredit barang punya batas tersendiri.
  *
  * Bunga per nasabah mengalahkan default Pengaturan Sistem dan disimpan sebagai
  * snapshot pada tiap pengajuan; pengajuan yang belum cair ikut diperbarui,
@@ -247,8 +247,8 @@ export function PlafonPanel() {
                   di kolom aksi cepat.
                 </li>
                 <li>
-                  Setiap pinjaman tunai dengan pokok minimal Rp1 juta yang lunas tepat waktu
-                  menambah plafon Rp1 juta, hingga maksimum Rp10 juta.
+                  Nasabah baru dibatasi Rp500.000. Satu pinjaman tunai yang lunas tepat waktu
+                  membuka plafon Rp1.000.000.
                 </li>
                 <li>Status lunas dan tanggal pelunasan mengikuti entri ledger internal PINDAI.</li>
                 <li>

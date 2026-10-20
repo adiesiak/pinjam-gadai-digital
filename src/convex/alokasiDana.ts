@@ -100,7 +100,7 @@ async function requireWaOtpIfEnabled(ctx: MutationCtx, userId: Id<"users">) {
 
 /**
  * Ringkasan pinjaman untuk ditampilkan ke penyedia dana — SATU sumber kebenaran
- * untuk skema harian (130% flat) dan skema bulanan (bunga flat per tenor).
+ * untuk skema harian (pokok + bunga) dan skema bulanan (bunga flat per tenor).
  * Imbal
  * Hasil penyedia dana = 30% pokok (harian) atau Σ bunga bulanan; potongan di
  * muka kini selalu 2% (biaya admin 2%, biaya platform dihapus) dan SELURUH

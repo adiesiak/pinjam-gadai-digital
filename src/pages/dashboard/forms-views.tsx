@@ -453,8 +453,8 @@ export function LoanForm({
     PINDAI_PRICING.bungaPercent;
   const q = quoteLoanBunga(pokok, bulanan ? (bungaSaya ?? PINDAI_PRICING.bungaPercent) : tarifHarian);
 
-  // Nominal berubah → tenor harian yang tersedia ikut berubah. Geser pilihan
-  // lama ke tenor sah terdekat (mis. Rp1 juta mengunci 28 hari).
+  // Nominal berubah → tarif tier ikut berubah. Pilihan tenor lama tetap sah
+  // selama termasuk 7/14/28 hari, jadi hanya tenor asing yang digeser.
   useEffect(() => {
     if (bulanan) return;
     queueMicrotask(() => {
@@ -1522,7 +1522,7 @@ export function LoanForm({
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Batas awal {formatRupiah(PLAFON_DEFAULT)}. Pinjaman minimal Rp1 juta yang tercatat lunas tepat waktu menaikkan batas sampai {formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}. {ungkapBatas} {bulanan ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Semua tersimpan di PINDAI, dan perpindahan dana ditangani di luar aplikasi.
+        Batas awal {formatRupiah(PLAFON_DEFAULT)}. Selesaikan 1x pinjaman tepat waktu untuk membuka limit {formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}. {ungkapBatas} {bulanan ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Semua tersimpan di PINDAI, dan perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>
   );
