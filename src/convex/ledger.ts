@@ -30,6 +30,11 @@ export interface JournalLine {
  */
 export type SkemaLedger = "pinjaman" | "gadai" | "kredit";
 
+export type EventTypeLedger =
+  | "INTEREST_ONLY_PAYMENT"
+  | "PARTIAL_PRINCIPAL_PAYMENT"
+  | "LOAN_REPAYMENT";
+
 export interface JournalSpec {
   jenis: "deposit" | "disbursement" | "platform_fee" | "repayment" | "payout" | "withdrawal";
   keterangan: string;
@@ -37,6 +42,8 @@ export interface JournalSpec {
   lines: JournalLine[];
   /** Skema produk asal jurnal; kosong hanya untuk jurnal lama/lain-lain. */
   skema?: SkemaLedger;
+  /** Peristiwa bisnis eksplisit untuk jalur perpanjangan. */
+  eventType?: EventTypeLedger;
 }
 
 function assertIntegerRupiah(n: number, label: string) {
@@ -90,6 +97,7 @@ export async function appendJournal(
       aktor: spec.aktor,
       waktu: now,
       skema: spec.skema,
+      ...(spec.eventType === undefined ? {} : { eventType: spec.eventType }),
     });
   }
   return gid;

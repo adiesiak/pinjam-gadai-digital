@@ -51,8 +51,9 @@ function jenisPinjaman(loan: BarisPinjaman): string {
  * status, satu baris per pinjaman. Rincian dibuka lewat dialog, jadi daftar ini
  * tetap pendek dan tidak mengulang angka yang sudah ada di Ringkasan.
  *
- * Yang tidak ada di sini: pembayaran. Pelunasan dicatat tim PINDAI di luar
- * aplikasi, jadi tidak ada tombol bayar atau unggah bukti di halaman mana pun.
+ * Halaman ini tidak memuat formulir pembayaran. Pinjaman harian membuka
+ * pilihan bayar bunga/cicil pokok/pelunasan dari dialog rincian, lalu bukti
+ * transfer dicocokkan admin sebelum state berubah.
  */
 export function CatatanPinjamanSection({
   loans,

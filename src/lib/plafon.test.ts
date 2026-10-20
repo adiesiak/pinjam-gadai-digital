@@ -83,6 +83,20 @@ ok("pelunasan pokok di bawah minimum tidak memenuhi syarat", !apakahPelunasanTep
 ok("status selain lunas tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, status: "didanai" }));
 ok("data tanpa waktu pendanaan tidak memenuhi syarat", !apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, didanaiPada: undefined }));
 ok("tenor bulanan dihitung sebagai 30 hari per bulan", apakahPelunasanTepatWaktu({ ...lunasTepatWaktu, tenorHari: undefined, tenorBulan: 3, lunasPada: waktuDanaPada + 90 * 86_400_000 }));
+const jatuhTempoDiperpanjang = jatuhTempo + 14 * 86_400_000;
+eq(
+  "jatuh tempo periode berjalan mengalahkan tenor awal",
+  tanggalJatuhTempoPinjaman({ ...lunasTepatWaktu, nextDueDate: jatuhTempoDiperpanjang }),
+  jatuhTempoDiperpanjang,
+);
+ok(
+  "pelunasan dalam masa perpanjangan tetap tepat waktu",
+  apakahPelunasanTepatWaktu({
+    ...lunasTepatWaktu,
+    nextDueDate: jatuhTempoDiperpanjang,
+    lunasPada: jatuhTempo + 10 * 86_400_000,
+  }),
+);
 
 ok("pokok tunai dalam plafon diterima", pokokDalamPlafon(900_000, 1_000_000));
 ok("pokok tunai tepat plafon diterima", pokokDalamPlafon(1_000_000, 1_000_000));

@@ -90,6 +90,8 @@ export type PinjamanRiwayat = {
   lunasPada?: number | null;
   tenorHari?: number | null;
   tenorBulan?: number | null;
+  /** Jatuh tempo periode berjalan setelah perpanjangan. */
+  nextDueDate?: number | null;
 };
 
 /**
@@ -98,6 +100,14 @@ export type PinjamanRiwayat = {
  * dihitung 30 hari per bulan.
  */
 export function jatuhTempoPinjaman(pinjaman: PinjamanRiwayat): number | null {
+  if (
+    pinjaman.nextDueDate !== null &&
+    pinjaman.nextDueDate !== undefined &&
+    Number.isSafeInteger(pinjaman.nextDueDate) &&
+    pinjaman.nextDueDate > 0
+  ) {
+    return pinjaman.nextDueDate;
+  }
   const didanai = pinjaman.didanaiPada ?? null;
   if (didanai === null || !Number.isSafeInteger(didanai) || didanai <= 0) return null;
   const tenorHari =

@@ -56,6 +56,24 @@ eq(
   DIDANAI + DEFAULT_TENOR_HARI * HARI,
   "tenor kosong dua-duanya tetap memakai default",
 );
+const JATUH_TEMPO_DIPERPANJANG = DIDANAI + 42 * HARI;
+eq(
+  batasPelunasan(baris({ nextDueDate: JATUH_TEMPO_DIPERPANJANG })),
+  JATUH_TEMPO_DIPERPANJANG,
+  "perpanjangan mengalahkan tenor awal",
+);
+eq(
+  ringkasJatuhTempo(
+    baris({
+      nextDueDate: JATUH_TEMPO_DIPERPANJANG,
+      remainingPrincipal: 800_000,
+      nextInterestAmount: 320_000,
+    }),
+    DIDANAI + 40 * HARI,
+  ).hitung,
+  "Sisa 2 hari",
+  "hitungan hari mengikuti jatuh tempo baru",
+);
 
 // ===== 2. Nada & kalimat hitung hari =====
 const netral = ringkasJatuhTempo(baris(), NOW);

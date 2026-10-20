@@ -30,7 +30,6 @@ import {
 } from "../lib/plafon";
 import {
   assertPokokPinjamanValid,
-  calculateRepayment,
   pelunasanPinjaman,
   persenBungaHarian,
   PINDAI_PRICING,
@@ -65,6 +64,10 @@ import {
 import { gerbangPengajuan } from "./gerbangKirim";
 import { pastikanAngsuran } from "./angsuranJadwal";
 import { dendaAngsuran } from "../lib/angsuran";
+import {
+  hitungRencanaPembayaran,
+  type RencanaPembayaranPinjaman,
+} from "../lib/perpanjanganPinjaman";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import {
   bolehDibatalkan,
@@ -257,6 +260,16 @@ export const submitManualPaymentReceipt = mutation({
     pawnId: v.optional(v.id("pawns")),
     /** Angsuran yang diklaim dibayar. Kosong = bukti lama tanpa jadwal. */
     angsuranId: v.optional(v.id("angsuran")),
+    /** Jalur pembayaran tingkat pinjaman; kosong = bukti angsuran biasa. */
+    paymentType: v.optional(
+      v.union(
+        v.literal("pelunasan_total"),
+        v.literal("bunga_saja"),
+        v.literal("cicil_pokok"),
+      ),
+    ),
+    extensionDays: v.optional(v.number()),
+    principalAmount: v.optional(v.number()),
     jumlah: v.number(),
     metodePembayaran: v.union(v.literal("qris"), v.literal("transfer")),
     tanggalTransfer: v.number(),
@@ -283,10 +296,25 @@ export const submitManualPaymentReceipt = mutation({
       (args.jenis === "gadai" && (!args.pawnId || args.loanId || args.kreditId))) {
       throw new Error("Pilih tepat satu catatan pembayaran dengan jenis yang sesuai.");
     }
+    if (args.paymentType !== undefined && args.angsuranId !== undefined) {
+      throw new Error("Pilih satu jalur: angsuran atau pembayaran tingkat pinjaman.");
+    }
+    let rencana: RencanaPembayaranPinjaman | undefined;
     let angsuran: Doc<"angsuran"> | null = null;
     if (args.angsuranId !== undefined) {
       if (args.jenis !== "pinjaman" || args.loanId === undefined) {
         throw new Error("Angsuran hanya boleh dipakai untuk bukti pinjaman.");
+      }
+      const antreanPinjaman = await ctx.db
+        .query("manualPaymentReceipts")
+        .withIndex("by_loan", (q) => q.eq("loanId", args.loanId))
+        .collect();
+      if (
+        antreanPinjaman.some(
+          (r) => r.status === "menunggu_pencocokan" && r.paymentType !== undefined,
+        )
+      ) {
+        throw new Error("Masih ada pembayaran pinjaman yang menunggu pencocokan.");
       }
       angsuran = await ctx.db.get(args.angsuranId);
       if (
@@ -316,6 +344,45 @@ export const submitManualPaymentReceipt = mutation({
     if (args.jenis === "pinjaman") {
       const loan = args.loanId ? await ctx.db.get(args.loanId) : null;
       if (!loan || loan.userId !== userId || loan.status !== "didanai") throw new Error("Pinjaman aktif milik Anda tidak ditemukan.");
+      if (args.paymentType !== undefined) {
+        if (loan.tenorBulan !== undefined) {
+          throw new Error("Pembayaran bunga/cicil pokok hanya tersedia untuk pinjaman harian.");
+        }
+        const menunggu = await ctx.db
+          .query("manualPaymentReceipts")
+          .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+          .collect();
+        if (
+          menunggu.some(
+            (r) =>
+              r.status === "menunggu_pencocokan" && r.paymentType !== undefined,
+          )
+        ) {
+          throw new Error("Masih ada pembayaran pinjaman yang menunggu pencocokan.");
+        }
+        const jadwalBerjalan = await ctx.db
+          .query("angsuran")
+          .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+          .collect();
+        if (jadwalBerjalan.some((row) => row.status === "menunggu_verifikasi")) {
+          throw new Error(
+            "Masih ada bukti angsuran yang menunggu pencocokan. Selesaikan dulu sebelum mengubah pokok atau jatuh tempo.",
+          );
+        }
+        rencana = hitungRencanaPembayaran({
+          loan,
+          mode: args.paymentType,
+          extensionDays: args.extensionDays,
+          principalPaid: args.principalAmount ?? 0,
+          waktuTransaksi: args.tanggalTransfer,
+          tarifDendaPerHari: await tarifDendaBerlaku(ctx),
+        });
+        if (args.jumlah !== rencana.totalDue) {
+          throw new Error(
+            `Nominal bukti harus ${formatRupiah(rencana.totalDue)} sesuai rencana pembayaran.`,
+          );
+        }
+      }
     } else if (args.jenis === "kredit_barang") {
       const kredit = args.kreditId ? await ctx.db.get(args.kreditId) : null;
       if (!kredit || kredit.userId !== userId || kredit.status !== "didanai") throw new Error("Kredit barang aktif milik Anda tidak ditemukan.");
@@ -342,6 +409,14 @@ export const submitManualPaymentReceipt = mutation({
       kreditId: args.kreditId,
       pawnId: args.pawnId,
       angsuranId: args.angsuranId,
+      ...(args.paymentType === undefined || rencana === undefined
+        ? {}
+        : {
+            paymentType: args.paymentType,
+            extensionDays: args.extensionDays,
+            principalAmount: args.principalAmount,
+            rencana,
+          }),
       jumlah: args.jumlah,
       metodePembayaran: args.metodePembayaran,
       tanggalTransfer: args.tanggalTransfer,
@@ -386,6 +461,7 @@ export const myManualPaymentReceipts = query({
       kreditId: row.kreditId ?? null,
       pawnId: row.pawnId ?? null,
       angsuranId: row.angsuranId ?? null,
+      paymentType: row.paymentType ?? null,
       status: row.status,
       catatanAdmin: row.catatanAdmin ?? null,
       referensiMutasi: row.referensiMutasi ?? null,
@@ -754,21 +830,21 @@ export const getMyLoan = query({
     const { userId } = await requirePeminjam(ctx);
     const loan = await ctx.db.get(args.loanId);
     if (loan === null || loan.userId !== userId) return null;
-    const pelunasan =
-      loan.status === "didanai" && loan.didanaiPada !== undefined
-        ? calculateRepayment(
-            loan.pokokPinjaman,
-            loan.tenorHari ?? DEFAULT_TENOR_HARI,
-            loan.didanaiPada,
-            Date.now(),
-            loan.persenBunga,
-          )
-        : null;
+    const tarifDenda = await tarifDendaBerlaku(ctx);
+    const pelunasan = pelunasanPinjaman(loan, Date.now(), tarifDenda);
     // Skema bulanan: kewajiban diturunkan dari mesin bulanan, bukan 130%.
     const sim =
       loan.tenorBulan !== undefined
         ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan })
         : null;
+    const pembayaranMenunggu = (
+      await ctx.db
+        .query("manualPaymentReceipts")
+        .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+        .collect()
+    ).some(
+      (r) => r.status === "menunggu_pencocokan" && r.paymentType !== undefined,
+    );
     return {
       _id: loan._id,
       _creationTime: loan._creationTime,
@@ -786,6 +862,11 @@ export const getMyLoan = query({
       imbalHasilTotal: sim !== null ? sim.bungaTotal : quotePinjaman(loan).bunga,
       totalKewajiban: sim !== null ? sim.totalPengembalian : quotePinjaman(loan).totalKewajibanPelunasan,
       pelunasan,
+      sisaPokok: loan.remainingPrincipal ?? loan.pokokPinjaman,
+      currentTierRate: loan.currentTierRate ?? loan.persenBunga ?? null,
+      nextInterestAmount: loan.nextInterestAmount ?? null,
+      nextDueDate: loan.nextDueDate ?? null,
+      pembayaranMenunggu,
     };
   },
 });
@@ -898,6 +979,10 @@ export const myLoanSchedule = query({
           tenorBulan: l.tenorBulan ?? null,
           didanaiPada: l.didanaiPada ?? null,
           persenBunga: l.persenBunga ?? null,
+          remainingPrincipal: l.remainingPrincipal ?? null,
+          currentTierRate: l.currentTierRate ?? null,
+          nextDueDate: l.nextDueDate ?? null,
+          nextInterestAmount: l.nextInterestAmount ?? null,
           simulasiBulanan:
             l.tenorBulan !== undefined
               ? simulasiBulananPinjaman({ ...l, tenorBulan: l.tenorBulan })
@@ -1261,6 +1346,11 @@ async function setLoanStatus(
     // riwayat pelunasan dan notifikasi lunas tidak pernah muncul.
     ...(status === "lunas" && loan.lunasPada === undefined
       ? { lunasPada: Date.now() }
+      : {}),
+    // Status lunas menutup kewajiban pokok juga. Tanpa ini, pinjaman yang
+    // pernah diperpanjang tetap membawa sisa pokok > 0 setelah ditutup admin.
+    ...(status === "lunas"
+      ? { remainingPrincipal: 0, nextInterestAmount: 0 }
       : {}),
   });
 

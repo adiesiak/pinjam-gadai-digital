@@ -85,6 +85,9 @@ export type PinjamanBagiHasil = {
   tenorBulan?: number | null;
   /** Snapshot bunga (persen). Kosong = tarif bawaan skema. */
   persenBunga?: number | null;
+  /** State perpanjangan: bunga yang sudah dibayar + bunga periode berjalan. */
+  bungaTerbayar?: number | null;
+  nextInterestAmount?: number | null;
 };
 
 export type BagiHasilPinjaman = {
@@ -172,6 +175,31 @@ export function bagiHasilPinjamanDari(
 ): BagiHasilPinjaman {
   const tenorBulan = pinjaman.tenorBulan ?? null;
   const persenBunga = pinjaman.persenBunga ?? null;
+
+  // Pinjaman yang sudah diperpanjang punya beberapa periode bunga. Imbal Hasil
+  // penyedia dana adalah AKUMULASI bunga yang sudah dibayar + bunga periode
+  // berjalan, sedangkan pokok kontraknya tetap pokok awal.
+  if (
+    pinjaman.bungaTerbayar !== undefined ||
+    pinjaman.nextInterestAmount !== undefined
+  ) {
+    const bunga =
+      Math.max(0, pinjaman.bungaTerbayar ?? 0) +
+      Math.max(0, pinjaman.nextInterestAmount ?? 0);
+    const totalLunas = pinjaman.pokokPinjaman + bunga;
+    const { potonganAdmin, imbalBersih } = bagiImbalHasil(
+      totalLunas,
+      persenPotonganAdmin,
+    );
+    return {
+      bunga,
+      totalLunas,
+      potonganAdmin,
+      pendanaTerima: imbalBersih,
+      keuntunganPendana: imbalBersih - pinjaman.pokokPinjaman,
+      keuntunganAdmin: potonganAdmin,
+    };
+  }
 
   if (tenorBulan === null) {
     return bagiHasilPinjaman(

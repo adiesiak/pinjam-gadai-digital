@@ -13,6 +13,7 @@ import { useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { progresPersen, type TahapForm } from "@/lib/formInteraksi";
 import { formatRupiah } from "@/lib/money";
 import { unggahDokumen, type ProgresUnggah } from "@/lib/unggahDokumen";
+import { LABEL_MODE_PEMBAYARAN } from "@/lib/perpanjanganPinjaman";
 
 /** Tanggal hari ini (YYYY-MM-DD) untuk nilai awal form — dihitung sekali saat
  * modul dimuat supaya render tetap murni (bebas `Date.now()` saat render). */
@@ -43,12 +44,19 @@ type GalatIsian = Partial<Record<"jumlah" | "referensi" | "berkas", string>>;
  *   dan berkas yang dipilih tetap ada supaya bisa dikirim ulang tanpa mengetik
  *   ulang. Baru setelah SERVER mengonfirmasi, referensi & berkas dikosongkan.
  */
+export type PembayaranPinjamanArg = {
+  paymentType: "pelunasan_total" | "bunga_saja" | "cicil_pokok";
+  extensionDays?: number;
+  principalAmount?: number;
+};
+
 export function ManualPaymentEvidenceForm({
   jenis,
   targetId,
   reference,
   suggestedAmount,
   angsuranId,
+  pembayaran,
   kunciJumlah = false,
   onBerhasil,
 }: {
@@ -58,6 +66,8 @@ export function ManualPaymentEvidenceForm({
   suggestedAmount: number;
   /** Diisi bila bukti untuk satu angsuran; server mencocokkan nominal persis. */
   angsuranId?: Id<"angsuran">;
+  /** Diisi untuk pembayaran tingkat pinjaman (bunga saja/cicil pokok/pelunasan). */
+  pembayaran?: PembayaranPinjamanArg;
   /** Nominal tagihan tidak boleh diubah saat membayar angsuran tertentu. */
   kunciJumlah?: boolean;
   /** Dipanggil setelah SERVER menyimpan bukti — bukan setelah unggahan lokal. */
@@ -152,6 +162,7 @@ export function ManualPaymentEvidenceForm({
         jenis,
         ...target,
         angsuranId,
+        ...(pembayaran ?? {}),
         jumlah: rupiah,
         metodePembayaran: method,
         tanggalTransfer: new Date(`${transferDate}T00:00:00`).getTime(),
@@ -371,7 +382,23 @@ export function ManualPaymentEvidenceHistory() {
     <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
       <h3 className="text-sm font-semibold">Riwayat bukti pembayaran yang dikirim</h3>
       <ul className="mt-2 divide-y divide-slate-100">
-        {rows.map((row) => <li key={row._id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"><span>{row.nomorReferensi} · {formatRupiah(row.jumlah)} · {row.jenis}</span><span className="text-muted-foreground">{row.status === "dicocokkan" ? "Mutasi dicocokkan, saldo tidak berubah" : row.status === "ditolak" ? `Ditolak${row.catatanAdmin ? `: ${row.catatanAdmin}` : ""}` : "Menunggu pencocokan"}</span></li>)}
+        {rows.map((row) => (
+          <li key={row._id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs">
+            <span>
+              {row.nomorReferensi} · {formatRupiah(row.jumlah)} ·{" "}
+              {row.paymentType === null ? row.jenis : LABEL_MODE_PEMBAYARAN[row.paymentType]}
+            </span>
+            <span className="text-muted-foreground">
+              {row.status === "dicocokkan"
+                ? row.paymentType === null
+                  ? "Mutasi dicocokkan, saldo tidak berubah"
+                  : "Mutasi dicocokkan, pinjaman diperbarui"
+                : row.status === "ditolak"
+                  ? `Ditolak${row.catatanAdmin ? `: ${row.catatanAdmin}` : ""}`
+                  : "Menunggu pencocokan"}
+            </span>
+          </li>
+        ))}
       </ul>
     </section>
   );

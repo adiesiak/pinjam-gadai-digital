@@ -395,6 +395,11 @@ export function pelunasanPinjaman(
     didanaiPada?: number;
     /** Snapshot bunga per nasabah; kosong = default global. */
     persenBunga?: number;
+    /** State perpanjangan: sisa pokok, jatuh tempo, dan bunga periode berjalan. */
+    remainingPrincipal?: number;
+    currentTierRate?: number;
+    nextDueDate?: number;
+    nextInterestAmount?: number;
   },
   now: number,
   /** Tarif denda per hari (% pokok); default kebijakan bawaan. */
@@ -402,6 +407,35 @@ export function pelunasanPinjaman(
 ): PelunasanPinjaman | null {
   if (loan.status !== "didanai" || loan.didanaiPada === undefined) {
     return null;
+  }
+  // Pinjaman yang sudah diperpanjang memakai state periode berjalan, bukan
+  // tenor awal: pokoknya sisa pokok dan bunganya adalah bunga periode ini.
+  if (
+    loan.remainingPrincipal !== undefined &&
+    loan.nextDueDate !== undefined &&
+    loan.nextInterestAmount !== undefined
+  ) {
+    const pokok = loan.remainingPrincipal;
+    const sisaMs = loan.nextDueDate - now;
+    const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
+    const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
+    const hariDenda = Math.min(hariTerlambat, maxHariDenda(dendaPerHari));
+    const dendaTerlambat =
+      hariDenda === 0
+        ? 0
+        : percentOf(
+            pokok,
+            Math.min(dendaPerHari * hariDenda, LATE_FEE_POLICY.maxPercent),
+          );
+    const totalKewajibanPelunasan = pokok + loan.nextInterestAmount;
+    return {
+      jatuhTempoPada: loan.nextDueDate,
+      sisaHari,
+      hariTerlambat,
+      dendaTerlambat,
+      totalKewajibanDenganPenalti: totalKewajibanPelunasan + dendaTerlambat,
+      totalKewajibanPelunasan,
+    };
   }
   if (loan.tenorBulan !== undefined) {
     const sim = simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan });

@@ -159,6 +159,10 @@ export type BarisPinjaman = {
   tenorBulan: number | null;
   /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
   persenBunga: number | null;
+  /** State perpanjangan: sisa pokok dan akumulasi bunga. */
+  remainingPrincipal: number | null;
+  bungaTerbayar: number | null;
+  nextInterestAmount: number | null;
   tujuan: string;
   status: string;
   /** Waktu pengajuan tercatat (convex `_creationTime`). */
@@ -293,7 +297,13 @@ export type BarisKredit = {
  * dari tenor penuhnya — angka yang sama dengan yang dibukukan ledger.
  */
 function bagiPinjamanAman(
-  pinjaman: { pokokPinjaman: number; tenorBulan?: number | null; persenBunga?: number | null },
+  pinjaman: {
+    pokokPinjaman: number;
+    tenorBulan?: number | null;
+    persenBunga?: number | null;
+    bungaTerbayar?: number | null;
+    nextInterestAmount?: number | null;
+  },
   persenBungaDefault: number,
   persenAdmin: number,
 ) {
@@ -303,6 +313,8 @@ function bagiPinjamanAman(
         pokokPinjaman: pinjaman.pokokPinjaman,
         tenorBulan: pinjaman.tenorBulan ?? null,
         persenBunga: pinjaman.persenBunga ?? persenBungaDefault,
+        bungaTerbayar: pinjaman.bungaTerbayar ?? undefined,
+        nextInterestAmount: pinjaman.nextInterestAmount ?? undefined,
       },
       persenAdmin,
     );
@@ -703,6 +715,9 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         tenorHari: loan.tenorHari,
         tenorBulan: loan.tenorBulan ?? null,
         persenBunga: loan.persenBunga ?? null,
+        remainingPrincipal: loan.remainingPrincipal ?? null,
+        bungaTerbayar: loan.bungaTerbayar ?? null,
+        nextInterestAmount: loan.nextInterestAmount ?? null,
         tujuan: loan.tujuan,
         status: loan.status,
         diajukanPada: loan.diajukanPada ?? loan._creationTime,
@@ -1423,7 +1438,7 @@ export const daftarInvestor = query({
           jumlahLunas += 1;
         } else {
           jumlahAktif += 1;
-          saldoBerjalan += l.pokokPinjaman;
+          saldoBerjalan += l.remainingPrincipal ?? l.pokokPinjaman;
         }
         peminjam.add(l.userId);
         waktuPinjaman.push(l.didanaiPada ?? l.diajukanPada ?? l._creationTime);

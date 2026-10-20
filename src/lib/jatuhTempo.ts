@@ -67,6 +67,11 @@ export type BarisJatuhTempo = {
   tenorHari?: number | null;
   tenorBulan?: number | null;
   persenBunga?: number | null;
+  /** State perpanjangan agar hitungan hari memakai periode berjalan. */
+  remainingPrincipal?: number | null;
+  currentTierRate?: number | null;
+  nextDueDate?: number | null;
+  nextInterestAmount?: number | null;
 };
 
 /** Tanggal ringkas "12 Sep 2026" (id-ID). */
@@ -87,6 +92,14 @@ export function tanggalRingkas(ms: number): string {
  * pinjamannya sudah berjalan.
  */
 export function batasPelunasan(baris: BarisJatuhTempo): number | null {
+  if (
+    baris.nextDueDate !== undefined &&
+    baris.nextDueDate !== null &&
+    Number.isSafeInteger(baris.nextDueDate) &&
+    baris.nextDueDate > 0
+  ) {
+    return baris.nextDueDate;
+  }
   const didanai = baris.didanaiPada ?? null;
   if (didanai === null || !Number.isSafeInteger(didanai) || didanai <= 0) return null;
   const tenorBulan = baris.tenorBulan ?? null;
@@ -165,6 +178,10 @@ export function ringkasJatuhTempo(
           tenorBulan: baris.tenorBulan ?? undefined,
           didanaiPada: baris.didanaiPada ?? undefined,
           persenBunga: baris.persenBunga ?? undefined,
+          remainingPrincipal: baris.remainingPrincipal ?? undefined,
+          currentTierRate: baris.currentTierRate ?? undefined,
+          nextDueDate: baris.nextDueDate ?? undefined,
+          nextInterestAmount: baris.nextInterestAmount ?? undefined,
         },
         sekarang,
       );

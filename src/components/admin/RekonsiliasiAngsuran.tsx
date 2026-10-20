@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { RekonsiliasiPembayaranPinjaman } from "@/components/admin/RekonsiliasiPembayaranPinjaman";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -284,6 +285,7 @@ export function RekonsiliasiAngsuran() {
 
   return (
     <div className="space-y-4">
+      <RekonsiliasiPembayaranPinjaman />
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
         <div>
           <p className="text-sm font-semibold">Antrean bukti transfer angsuran</p>

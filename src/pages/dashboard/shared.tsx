@@ -23,6 +23,11 @@ export type LoanScheduleRow = {
   /** Diisi (1/3/6 bln) bila pinjaman memakai skema bulanan. */
   tenorBulan: number | null;
   didanaiPada: number | null;
+  /** State perpanjangan; kosong bila belum pernah diperpanjang. */
+  remainingPrincipal: number | null;
+  currentTierRate: number | null;
+  nextDueDate: number | null;
+  nextInterestAmount: number | null;
   quote: ReturnType<typeof quoteLoan>;
   /** Rincian biaya dan cicilan yang dihitung engine untuk tenor bulanan. */
   simulasiBulanan: ReturnType<typeof hitungSimulasiBulanan> | null;

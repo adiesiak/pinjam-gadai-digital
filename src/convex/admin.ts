@@ -1669,7 +1669,8 @@ export const adminAnalitik = query({
 
       if (kanonik === "didanai") {
         const jatuhTempoPada =
-          l.didanaiPada === undefined ? null : l.didanaiPada + l.tenorHari * MS_HARI;
+          l.nextDueDate ??
+          (l.didanaiPada === undefined ? null : l.didanaiPada + l.tenorHari * MS_HARI);
         if (jatuhTempoPada !== null && jatuhTempoPada < sekarang) jatuhTempo += 1;
         else lancar += 1;
       }

@@ -411,6 +411,9 @@ export const daftarBuktiAngsuran = query({
     const rows = [];
     for (const receipt of receipts) {
       if (receipt.jenis !== "pinjaman" || receipt.loanId === undefined) continue;
+      // Bukti tingkat pinjaman (bunga saja / cicil pokok / pelunasan) punya
+      // antrean dan verifikasi sendiri; jangan ditawarkan sebagai angsuran.
+      if (receipt.paymentType !== undefined) continue;
       const loan = await ctx.db.get(receipt.loanId);
       if (loan === null) continue;
       const angsuran = await ctx.db

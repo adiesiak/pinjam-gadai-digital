@@ -21,6 +21,8 @@ export type RiwayatPinjamanPlafon = {
   lunasPada?: number;
   tenorHari?: number;
   tenorBulan?: number;
+  /** Jatuh tempo periode berjalan setelah perpanjangan. */
+  nextDueDate?: number;
   /**
    * Ada angsuran yang dibayar melewati jatuh tempo. Pinjaman yang lunas di
    * akhir tenor tetapi pernah telat TIDAK menaikkan plafon — penanda ini
@@ -168,8 +170,11 @@ export const PLAFON_LANGKAH = 100_000;
 
 /** Hitung tanggal jatuh tempo berdasarkan tenor tersimpan; null untuk data tidak valid. */
 export function tanggalJatuhTempoPinjaman(
-  loan: Pick<RiwayatPinjamanPlafon, "didanaiPada" | "tenorHari" | "tenorBulan">,
+  loan: Pick<RiwayatPinjamanPlafon, "didanaiPada" | "tenorHari" | "tenorBulan" | "nextDueDate">,
 ): number | null {
+  if (Number.isSafeInteger(loan.nextDueDate) && (loan.nextDueDate ?? 0) > 0) {
+    return loan.nextDueDate!;
+  }
   if (!Number.isSafeInteger(loan.didanaiPada) || (loan.didanaiPada ?? 0) <= 0) return null;
   const tenorHari = loan.tenorBulan !== undefined
     ? loan.tenorBulan * 30

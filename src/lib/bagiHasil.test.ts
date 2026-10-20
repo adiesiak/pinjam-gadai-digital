@@ -264,6 +264,22 @@ for (const [pokok, tenorBulan, persenBulan] of [
   );
 }
 
+// ===== Perpanjangan: Imbal Hasil = akumulasi bunga, bukan satu periode =====
+const diperpanjang = bagiHasilPinjamanDari(
+  {
+    pokokPinjaman: 1_000_000,
+    tenorBulan: null,
+    persenBunga: 30,
+    bungaTerbayar: 650_000,
+    nextInterestAmount: 320_000,
+  },
+  5,
+);
+eq(diperpanjang.bunga, 970_000, "bunga penyedia menjumlahkan periode yang sudah dan akan dibayar");
+eq(diperpanjang.totalLunas, 1_970_000, "total kembali = pokok awal + seluruh bunga");
+eq(diperpanjang.potonganAdmin, 98_500, "potongan 5% dari total kembali");
+eq(diperpanjang.keuntunganPendana, 871_500, "keuntungan = bersih - pokok awal");
+
 throws(() => bagiHasilPinjaman(-1, 30, 5), "pokok negatif ditolak");
 throws(() => bagiHasilPinjaman(1.5, 30, 5), "pokok pecahan ditolak");
 throws(() => bagiHasilPinjaman(1_000_000, -1, 5), "bunga negatif ditolak");

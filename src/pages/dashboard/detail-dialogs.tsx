@@ -1,5 +1,7 @@
 import { useQuery } from "convex/react";
+import { useState } from "react";
 
+import { PembayaranPinjamanDialog } from "@/components/PembayaranPinjamanDialog";
 import { PermohonanRestrukturisasi } from "@/components/PermohonanRestrukturisasi";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
@@ -161,11 +163,13 @@ export function LoanDetailDialog({
   onMintaVerifikasi: () => void;
 }) {
   const loan = useQuery(api.loans.getMyLoan, loanId ? { loanId } : "skip");
+  const [bayarTerbuka, setBayarTerbuka] = useState(false);
   // Angka baru FINAL setelah pinjaman benar-benar dicairkan; sebelum itu semua
   // nominal masih perkiraan dan labelnya menyebut itu apa adanya.
   const angkaFinal = loan?.status === "didanai" || loan?.status === "lunas";
 
   return (
+    <>
     <Dialog open={loanId !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-md sm:p-6">
         {loan === undefined ? (
@@ -233,14 +237,21 @@ export function LoanDetailDialog({
                     </div>
                   )}
                 </dl>
-                {/* Satu kalimat penjelas, hanya di sini: pembayaran memang di luar
-                    aplikasi, jadi tidak ada tombol bayar maupun unggah bukti. */}
                 <p className="mt-3 text-xs leading-5 text-slate-600">
-                  Pembayaran dilakukan di luar aplikasi dan aplikasi ini hanya mencatat.
-                  Status <span className="font-medium">Lunas</span> diperbarui oleh tim PINDAI
-                  setelah pembayaran dicatat, bukan diubah dari sini.
+                  Pilih bayar bunga saja, cicil pokok, atau pelunasan total. Nominal
+                  akhirnya dihitung server; status pinjaman berubah setelah admin
+                  mencocokkan bukti transfer dengan mutasi bank.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {loan.tenorBulan === null && (
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-emerald-800 text-white hover:bg-emerald-900"
+                      onClick={() => setBayarTerbuka(true)}
+                    >
+                      Atur pembayaran
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={onMintaVerifikasi}>
                     Verifikasi tagihan
                   </Button>
@@ -273,6 +284,12 @@ export function LoanDetailDialog({
         )}
       </DialogContent>
     </Dialog>
+    <PembayaranPinjamanDialog
+      key={bayarTerbuka ? loan?._id ?? "pinjaman" : "tutup"}
+      loan={bayarTerbuka ? loan ?? null : null}
+      onClose={() => setBayarTerbuka(false)}
+    />
+    </>
   );
 }
 

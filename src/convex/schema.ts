@@ -267,6 +267,23 @@ const schema = defineSchema(
        */
       persenBunga: v.optional(v.number()),
       /**
+       * Sisa pokok setelah cicilan pokok atau perpanjangan. Kosong pada pinjaman
+       * yang belum pernah memakai jalur perpanjangan = `pokokPinjaman`.
+       */
+      remainingPrincipal: v.optional(v.number()),
+      /** Tier bunga periode berjalan (persen), ditetapkan saat perpanjangan. */
+      currentTierRate: v.optional(v.number()),
+      /** Jatuh tempo periode berjalan; mengalahkan didanaiPada + tenor. */
+      nextDueDate: v.optional(v.number()),
+      /** Bunga yang harus dibayar pada periode berjalan (rupiah bulat). */
+      nextInterestAmount: v.optional(v.number()),
+      /** Akumulasi bunga yang sudah dibayar lewat perpanjangan. */
+      bungaTerbayar: v.optional(v.number()),
+      /** Cacah perpanjangan yang sudah dicocokkan admin. */
+      perpanjanganCount: v.optional(v.number()),
+      /** Waktu perpanjangan terakhir dicocokkan. */
+      perpanjanganTerakhirPada: v.optional(v.number()),
+      /**
        * Waktu keputusan admin TERAKHIR atas pengajuan ini (perpindahan status
        * oleh petugas lewat `setLoanStatus`). Dipakai sebagai dasar waktu
        * notifikasi "status pinjaman berubah" dan jejak "kapan diputuskan".
@@ -1572,8 +1589,10 @@ const schema = defineSchema(
      *
      * Pencocokan oleh admin TIDAK mengubah saldo/status secara otomatis: bukti
      * hanya menjadi antrean. Perubahan angsuran/ledger hanya terjadi lewat
-     * `angsuran.verifikasiBuktiAngsuran`, yang mewajibkan referensi mutasi bank
-     * dan nominal yang cocok — bukan sekadar persetujuan admin.
+     * `angsuran.verifikasiBuktiAngsuran` atau
+     * `perpanjanganPinjaman.verifikasiPembayaranPinjaman`; keduanya mewajibkan
+     * referensi mutasi bank dan nominal yang cocok — bukan sekadar persetujuan
+     * admin.
      */
     manualPaymentReceipts: defineTable({
       userId: v.id("users"),
@@ -1583,6 +1602,41 @@ const schema = defineSchema(
       pawnId: v.optional(v.id("pawns")),
       /** Angsuran yang diklaim dibayar; kosong untuk bukti lama. */
       angsuranId: v.optional(v.id("angsuran")),
+      /**
+       * Jalur pembayaran tingkat pinjaman. Kosong = bukti angsuran lama.
+       * `pelunasan_total` menutup pinjaman; dua lainnya memperpanjang tenor.
+       */
+      paymentType: v.optional(
+        v.union(
+          v.literal("pelunasan_total"),
+          v.literal("bunga_saja"),
+          v.literal("cicil_pokok"),
+        ),
+      ),
+      /** Tenor perpanjangan yang dipilih (7/14/28) untuk dua jalur terakhir. */
+      extensionDays: v.optional(v.number()),
+      /** Nominal cicilan pokok pada jalur `cicil_pokok`. */
+      principalAmount: v.optional(v.number()),
+      /**
+       * Snapshot rencana yang dihitung server saat bukti dikirim. Admin
+       * mencocokkan angka ini — bukan menghitung ulang dari isian klien.
+       */
+      rencana: v.optional(
+        v.object({
+          principalSebelum: v.number(),
+          interestDue: v.number(),
+          lateFee: v.number(),
+          principalPaid: v.number(),
+          totalDue: v.number(),
+          principalSesudah: v.number(),
+          tierRate: v.number(),
+          nextInterestAmount: v.number(),
+          jatuhTempoSebelum: v.number(),
+          nextDueDate: v.union(v.number(), v.null()),
+          extensionDays: v.number(),
+          hariTerlambat: v.number(),
+        }),
+      ),
       jumlah: v.number(),
       metodePembayaran: v.union(v.literal("qris"), v.literal("transfer")),
       tanggalTransfer: v.number(),
@@ -1730,6 +1784,18 @@ const schema = defineSchema(
       akun: v.string(),
       /** Jenis transaksi: deposit|disbursement|platform_fee|repayment|payout. */
       jenis: v.string(),
+      /**
+       * Peristiwa bisnis eksplisit untuk jalur perpanjangan. `jenis` tetap
+       * kategori finansial (repayment/payout), sedangkan field ini menjawab
+       * "pembayaran apa" tanpa menebak dari teks keterangan.
+       */
+      eventType: v.optional(
+        v.union(
+          v.literal("INTEREST_ONLY_PAYMENT"),
+          v.literal("PARTIAL_PRINCIPAL_PAYMENT"),
+          v.literal("LOAN_REPAYMENT"),
+        ),
+      ),
       keterangan: v.string(),
       /**
        * Skema produk asal jurnal (pinjaman|gadai|kredit). Kosong pada entri lama
