@@ -144,7 +144,7 @@ describe("pembayaran tingkat pinjaman", () => {
       tanggalTransfer: data.sekarang,
       nomorReferensi: "BUKTI-PERPANJANGAN-001",
     });
-    expect(pertama.totalDue).toBe(300_000);
+    expect(pertama.totalDue).toBe(305_000);
 
     const antrean = await ambilAntrean(data.admin);
     expect(antrean.jumlah).toBe(1);
@@ -156,7 +156,7 @@ describe("pembayaran tingkat pinjaman", () => {
       receiptId: pertama.receiptId,
       keputusan: "terima",
       referensiMutasi: "MUTASI-PERPANJANGAN-001",
-      jumlahMutasi: 300_000,
+      jumlahMutasi: 305_000,
     });
 
     const setelahBunga = await t.run(async (ctx) => {
@@ -291,12 +291,18 @@ describe("pembayaran tingkat pinjaman", () => {
     // Selisih 5% bunga nasabah masuk akun margin platform, bukan platform:FEE.
     const spread = hasil.entries.filter((e) => e.akun === "PLATFORM_SPREAD_MARGIN");
     expect(spread).toHaveLength(1);
-    expect(spread[0]).toMatchObject({ arah: "kredit", jumlah: 50_000 });
+    // 2,5% dari margin Rp50.000 disisihkan ke dana proteksi risiko.
+    expect(spread[0]).toMatchObject({ arah: "kredit", jumlah: 48_750 });
     expect(spread[0].keterangan).toContain("bunga nasabah");
+    const pool = hasil.entries.filter((e) => e.akun === "RISK_PROTECTION_POOL");
+    expect(pool).toHaveLength(1);
+    expect(pool[0]).toMatchObject({ arah: "kredit", jumlah: 1_250 });
 
     // Ringkasan admin membaca akun spread sebagai pendapatan platform.
     const ringkasan = await data.admin.query(api.admin.ledgerSummary, {});
-    expect(ringkasan.pendapatanPlatform).toBe(115_000);
+    // Pendapatan = potongan admin payout Rp65.000 + margin spread Rp48.750
+    // (Rp1.250 disisihkan ke dana proteksi risiko, bukan pendapatan).
+    expect(ringkasan.pendapatanPlatform).toBe(113_750);
 
     // Biaya layanan 5% tetap terpisah dari margin tenor.
     const fee = hasil.entries.find(

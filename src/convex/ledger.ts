@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { MutationCtx, QueryCtx } from "./_generated/server";
+import { porsiDanaProteksiRisiko } from "../lib/ekonomiPlatform";
 import { formatRupiah } from "../lib/money";
 
 /** Prefix akun dompet dana pada ledger, mis. `dana:WALLET:<userId>`. */
@@ -20,6 +21,19 @@ export const AKUN_PLATFORM_SPREAD = "PLATFORM_SPREAD_MARGIN";
  * margin tenor, supaya `platform:FEE` tidak menyerap angka pokok.
  */
 export const AKUN_PLATFORM_PRINCIPAL_CLEARING = "platform:PRINCIPAL_CLEARING";
+
+/**
+ * Pendapatan platform yang diterima LANGSUNG dari biaya di muka: biaya admin
+ * dan biaya pencairan ekspres. Dipisah dari `platform:FEE` (denda & biaya
+ * cicilan) agar laporan margin bisa membedakan keduanya.
+ */
+export const AKUN_PLATFORM_DIRECT_REVENUE = "PLATFORM_DIRECT_REVENUE";
+
+/**
+ * Dana proteksi risiko: 2,5% dari margin spread platform disisihkan ke akun
+ * ini. Bukan dompet pengguna dan bukan biaya — hanya cadangan internal.
+ */
+export const AKUN_RISK_PROTECTION_POOL = "RISK_PROTECTION_POOL";
 
 /** Nama akun ledger dompet dana untuk satu pengguna. */
 export function akunDompetDana(id: string): string {
@@ -106,18 +120,38 @@ export async function catatMarginSpread(
 ): Promise<void> {
   if (args.margin === 0) return;
   const jumlah = Math.abs(args.margin);
+  // Margin positif disisihkan sebagian ke dana proteksi risiko. Margin negatif
+  // (platform menutup kekurangan) tidak boleh "mengisi" pool dari kerugian.
+  const risiko = args.margin > 0 ? porsiDanaProteksiRisiko(args.margin) : 0;
+  const marginBersih = jumlah - risiko;
   await appendJournal(ctx, {
     jenis: "platform_spread",
     skema: "pinjaman",
-    keterangan: `Margin spread platform ${args.referensi}: bunga nasabah ${formatRupiah(
-      args.bungaNasabah,
-    )} - hak pendana ${formatRupiah(args.hakPendana)} = ${formatRupiah(args.margin)}`,
+    keterangan:
+      risiko > 0
+        ? `Margin spread platform ${args.referensi}: bunga nasabah ${formatRupiah(
+            args.bungaNasabah,
+          )} - hak pendana ${formatRupiah(args.hakPendana)} = ${formatRupiah(
+            args.margin,
+          )}; ${formatRupiah(risiko)} ke dana proteksi risiko`
+        : `Margin spread platform ${args.referensi}: bunga nasabah ${formatRupiah(
+            args.bungaNasabah,
+          )} - hak pendana ${formatRupiah(args.hakPendana)} = ${formatRupiah(args.margin)}`,
     aktor: "platform",
     lines:
       args.margin > 0
         ? [
             { akun: `pinjaman:${args.loanId}`, arah: "debit", jumlah },
-            { akun: AKUN_PLATFORM_SPREAD, arah: "kredit", jumlah },
+            { akun: AKUN_PLATFORM_SPREAD, arah: "kredit", jumlah: marginBersih },
+            ...(risiko > 0
+              ? [
+                  {
+                    akun: AKUN_RISK_PROTECTION_POOL,
+                    arah: "kredit" as const,
+                    jumlah: risiko,
+                  },
+                ]
+              : []),
           ]
         : [
             { akun: AKUN_PLATFORM_SPREAD, arah: "debit", jumlah },

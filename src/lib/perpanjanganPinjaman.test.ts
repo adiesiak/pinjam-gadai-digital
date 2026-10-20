@@ -79,7 +79,8 @@ const bungaSaja = hitungRencanaPembayaran({
   extensionDays: 28,
   waktuTransaksi: JATUH_TEMPO,
 });
-eq(bungaSaja.totalDue, 300_000, "bayar bunga saja hanya menagih bunga berjalan");
+eq(bungaSaja.totalDue, 305_000, "bayar bunga saja menagih bunga berjalan + biaya roll-over Rp5.000");
+eq(bungaSaja.rolloverFee, 5_000, "biaya roll-over flat tercatat terpisah");
 eq(bungaSaja.principalSesudah, 1_000_000, "pokok utuh setelah roll-over");
 eq(bungaSaja.tierRate, 30, "tier baru dari nominal pokok utuh");
 eq(bungaSaja.nextInterestAmount, 300_000, "bunga periode berikut 30% dari pokok");
@@ -120,7 +121,7 @@ const terlambat = hitungRencanaPembayaran({
 });
 eq(terlambat.hariTerlambat, 2, "dua hari terlambat terhitung");
 eq(terlambat.lateFee, 40_000, "denda 2% x 2 hari dari pokok");
-eq(terlambat.totalDue, 340_000, "denda ikut ditagih bersama bunga");
+eq(terlambat.totalDue, 345_000, "denda + biaya roll-over ikut ditagih bersama bunga");
 eq(
   terlambat.nextDueDate,
   JATUH_TEMPO + 2 * HARI + 28 * HARI,

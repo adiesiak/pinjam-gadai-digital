@@ -5,6 +5,7 @@
  * exact integer rupiah computed with BigInt half-up rounding.
  */
 import { hitungSimulasiBulanan } from "./bulanan";
+import { biayaEkspres } from "./ekonomiPlatform";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
 
 export const PINDAI_PRICING = {
@@ -202,9 +203,14 @@ export interface LoanQuote {
   biayaAdmin: Rupiah;
   /** Biaya Layanan Platform — 0% dari pokok (dihapus dari potongan di muka) */
   biayaPlatform: Rupiah;
-  /** Total Potongan di Muka — 2% (hanya biaya admin) */
+  /**
+   * Biaya pencairan ekspres — flat Rp5.000–Rp10.000 sekali per pinjaman baru.
+   * Bukan bunga dan tidak menambah kewajiban; hanya mengurangi dana bersih.
+   */
+  biayaExpress: Rupiah;
+  /** Total Potongan di Muka — biaya admin 2% + biaya ekspres */
   totalPotonganDiMuka: Rupiah;
-  /** Dana Bersih Ditransfer — 98% */
+  /** Dana Bersih Ditransfer — pokok − (biaya admin + biaya ekspres) */
   danaBersihDitransfer: Rupiah;
   /** Bunga Pinjaman — 30% (hak finansial penyedia dana) */
   bunga: Rupiah;
@@ -271,8 +277,12 @@ export function quoteLoanDenganPersen(
   }
   const biayaAdmin = percentOf(pokok, persen.admin);
   const biayaPlatform = percentOf(pokok, persen.platform);
-  const totalPotonganDiMuka = biayaAdmin + biayaPlatform;
+  const biayaExpress = biayaEkspres(pokok);
+  const totalPotonganDiMuka = biayaAdmin + biayaPlatform + biayaExpress;
   const danaBersihDitransfer = pokok - totalPotonganDiMuka;
+  if (danaBersihDitransfer <= 0) {
+    throw new Error("Potongan di muka melebihi pokok pinjaman.");
+  }
   const bunga = percentOf(pokok, persen.bunga);
   const totalKewajibanPelunasan = pokok + bunga;
 
@@ -280,6 +290,7 @@ export function quoteLoanDenganPersen(
     pokok,
     biayaAdmin,
     biayaPlatform,
+    biayaExpress,
     totalPotonganDiMuka,
     danaBersihDitransfer,
     bunga,

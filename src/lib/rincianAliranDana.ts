@@ -37,6 +37,7 @@ import {
   bagiHasilPinjamanDari,
   POTONGAN_ADMIN_DEFAULT_PERSEN,
 } from "./bagiHasil";
+import { biayaEkspres } from "./ekonomiPlatform";
 import {
   LOAN_LIMITS,
   PINDAI_PRICING,
@@ -181,8 +182,8 @@ export function rincianAliranDana(
  */
 export function kalimatContohAliran(r: RincianAliranDana): string {
   return (
-    `Contoh satu pinjaman ${formatRupiah(r.pokok)}: dipotong ` +
-    `${r.persenPotonganDiMuka}% di muka, kembali ${r.persenImbalHasil + 100}% ` +
+    `Contoh satu pinjaman ${formatRupiah(r.pokok)}: dipotong admin ` +
+    `${r.persenPotonganDiMuka}% + biaya ekspres di muka, kembali ${r.persenImbalHasil + 100}% ` +
     `dari pokok, lalu dipotong ${r.persenPotonganPenyedia}% dari uang yang kembali.`
   );
 }
@@ -222,7 +223,7 @@ export function barisRincianAliran(
   return [
     { label: "Pokok pinjaman", nilai: r.pokok, arah: "kotor" },
     {
-      label: `Potongan di muka ${r.persenPotonganDiMuka}% (biaya admin)`,
+      label: `Potongan di muka (admin ${r.persenPotonganDiMuka}% + ekspres)`,
       nilai: r.potonganDiMuka,
       arah: "potongan",
     },
@@ -277,9 +278,13 @@ export function rincianPinjamanNyata(
       pendapatanPlatform: nol,
     };
   }
-  // Potongan di muka 2% tetap dipotong dari pokok pada semua tenor pinjaman
-  // tunai (lihat PINDAI_PRICING), jadi paruh pertama memakai tarif itu.
-  const potonganDiMuka = percentOf(pokok, PINDAI_PRICING.upfrontDeductionPercent);
+  // Pinjaman harian juga dikenai biaya pencairan ekspres; skema bulanan tidak.
+  // Dihitung dari mesin yang sama dengan pencairan, bukan ditulis ulang.
+  const potonganDiMuka =
+    percentOf(pokok, PINDAI_PRICING.upfrontDeductionPercent) +
+    (pinjaman.tenorBulan === null || pinjaman.tenorBulan === undefined
+      ? biayaEkspres(pokok)
+      : 0);
   const bagi = bagiHasilPinjamanDari(pinjaman, persenPotonganPenyedia);
   return {
     pokok,

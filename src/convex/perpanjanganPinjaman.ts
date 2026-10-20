@@ -14,6 +14,7 @@ import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireAdminRole, requireAdminSession } from "./adminAuthz";
 import { pastikanAngsuran } from "./angsuranJadwal";
 import {
+  AKUN_PLATFORM_DIRECT_REVENUE,
   AKUN_PLATFORM_PRINCIPAL_CLEARING,
   akunDompetDana,
   appendJournal,
@@ -21,6 +22,9 @@ import {
 } from "./ledger";
 import { bagiImbalHasil } from "../lib/bagiHasil";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
+import { apakahPelunasanTepatWaktu } from "../lib/plafon";
+import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
+import { catatDanaKembali } from "./matchingQueue";
 import { quotePinjaman } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import { audit, getConfig } from "./system";
@@ -260,6 +264,14 @@ async function catatPerpanjangan(
   }
   if (rencana.lateFee > 0) {
     lines.push({ akun: "platform:FEE", arah: "kredit", jumlah: rencana.lateFee });
+  }
+  const rolloverFee = rencana.rolloverFee ?? 0;
+  if (rolloverFee > 0) {
+    lines.push({
+      akun: AKUN_PLATFORM_DIRECT_REVENUE,
+      arah: "kredit",
+      jumlah: rolloverFee,
+    });
   }
   await appendJournal(ctx, {
     jenis: "repayment",
@@ -515,6 +527,30 @@ async function catatPelunasanTotal(
     loan.nomorReferensi,
     `${loan.namaLengkap}: pelunasan total ${formatRupiah(rencana.totalDue)} dicocokkan dari bukti ${receipt.nomorReferensi}; sisa pokok 0, alokasi penyedia dana ditutup.`,
   );
+
+  // Tiket Doorprize Emas pada jalur pencocokan admin, dengan aturan yang sama
+  // seperti pelunasan nasabah: peminjam harus lunas tepat waktu, pendana
+  // mendapat satu tiket per kelipatan Rp1 juta alokasinya.
+  const tepatWaktu = apakahPelunasanTepatWaktu({
+    ...loan,
+    status: "lunas",
+    lunasPada: receipt.tanggalTransfer,
+  });
+  await beriTiketPelunasan(ctx, {
+    pemilikId: loan.userId,
+    nomorReferensi: loan.nomorReferensi,
+    tepatWaktu,
+    waktu: receipt.tanggalTransfer,
+  });
+  for (const { funding } of bagian) {
+    await beriTiketPendanaan(ctx, {
+      pemilikId: funding.danaId,
+      nomorReferensi: funding.nomorReferensi,
+      jumlahAlokasi: funding.jumlahAlokasi,
+      waktu: receipt.tanggalTransfer,
+    });
+  }
+  await catatDanaKembali(ctx, loan, receipt.tanggalTransfer);
 
   if (loan.pendanaId !== undefined) {
     await ctx.scheduler.runAfter(0, internal.laporanPendana.kirimLaporanPelunasan, {

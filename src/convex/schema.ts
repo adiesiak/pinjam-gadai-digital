@@ -1634,6 +1634,8 @@ const schema = defineSchema(
           principalSebelum: v.number(),
           interestDue: v.number(),
           lateFee: v.number(),
+          /** Biaya roll-over flat; kosong pada bukti lama sebelum biaya ada. */
+          rolloverFee: v.optional(v.number()),
           principalPaid: v.number(),
           totalDue: v.number(),
           principalSesudah: v.number(),
@@ -2896,6 +2898,67 @@ const schema = defineSchema(
       .index("by_admin", ["adminId"])
       .index("by_target", ["targetId"])
       .index("by_nonce", ["nonce"]),
+
+    /**
+     * Tiket Doorprize Emas — diterbitkan otomatis, tidak bisa diklaim manual.
+     *
+     * `referensi` adalah kunci idempotensi: satu pelunasan hanya menghasilkan
+     * satu tiket peminjam, satu alokasi pendana hanya menghasilkan tiketnya
+     * sekali. `periode` (YYYY-MM WIB) memisahkan undian bulanan.
+     */
+    doorprizeTiket: defineTable({
+      pemilikId: v.id("users"),
+      peran: v.union(v.literal("peminjam"), v.literal("pendana")),
+      periode: v.string(),
+      /** `pelunasan_tepat_waktu` | `pendanaan_1jt` | `undian_admin`. */
+      sumber: v.string(),
+      /** Kunci unik sumber tiket (mis. nomor referensi pinjaman/alokasi). */
+      referensi: v.string(),
+      status: v.union(v.literal("aktif"), v.literal("menang"), v.literal("batal")),
+      dibuatPada: v.number(),
+      /** Terisi saat tiket ini memenangkan undian. */
+      menangPada: v.optional(v.number()),
+    })
+      .index("by_pemilik", ["pemilikId"])
+      .index("by_periode", ["periode"])
+      .index("by_referensi", ["referensi"])
+      .index("by_pemilik_periode", ["pemilikId", "periode"]),
+
+    /** Satu pemenang per periode undian; catatan permanen, tidak dihapus. */
+    doorprizeUndian: defineTable({
+      periode: v.string(),
+      pemilikId: v.id("users"),
+      tiketId: v.id("doorprizeTiket"),
+      peran: v.union(v.literal("peminjam"), v.literal("pendana")),
+      hadiah: v.string(),
+      jumlahPeserta: v.number(),
+      jumlahTiket: v.number(),
+      diundiPada: v.number(),
+      diundiOleh: v.string(),
+      diundiOlehId: v.id("users"),
+    })
+      .index("by_periode", ["periode"]),
+
+    /**
+     * Antrean auto-matching: pokok pinjaman 7/14 hari yang sudah lunas kembali
+     * ke pool dan siap disalurkan ke peminjam berikutnya. Satu baris per
+     * pelunasan; `status` berubah saat admin menandai sudah tersalurkan.
+     */
+    matchingQueue: defineTable({
+      loanId: v.id("loans"),
+      nomorReferensi: v.string(),
+      pokok: v.number(),
+      tenorHari: v.number(),
+      /** Waktu dana kembali ke pool (pelunasan dicocokkan). */
+      tersediaPada: v.number(),
+      status: v.union(v.literal("tersedia"), v.literal("tersalurkan")),
+      /** Pinjaman berikutnya yang memakai dana ini; kosong selama menunggu. */
+      loanTujuanId: v.optional(v.id("loans")),
+      dicocokkanPada: v.optional(v.number()),
+      dicocokkanOleh: v.optional(v.string()),
+    })
+      .index("by_status", ["status"])
+      .index("by_loan", ["loanId"]),
   },
   {
     schemaValidation: false,

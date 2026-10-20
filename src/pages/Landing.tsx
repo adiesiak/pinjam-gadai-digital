@@ -296,7 +296,7 @@ const ISI_BRANKAS: ReadonlyArray<{
       ["Nomor referensi", "PDI-••••-••"],
       ["Pokok perhitungan", "Rp 100 rb – Rp 1 jt"],
       ["Potongan di muka", "2% (biaya admin; platform 0%)"],
-      ["Nilai bersih diterima", "98% dari pokok"],
+      ["Potongan di muka", "Admin 2% + ekspres"],
       ["Bunga flat", "26–40% dari pokok (sesuai nominal & tenor)"],
       ["Total kewajiban pelunasan", "126–140% dari pokok"],
     ],
@@ -513,7 +513,7 @@ function IsiBrankas() {
 
 /** Fakta ringkas yang berjalan (marquee) di bawah hero. */
 const HERO_FACTS = [
-  "Skema harian 7–28 hari · nilai bersih 98% · bunga flat 26–40%",
+  "Skema harian 7–28 hari · biaya ekspres Rp5.000–Rp10.000 · bunga flat 26–40%",
   "Skema bulanan tenor 1/3/6 bulan · biaya 2% dipotong di muka",
   "Bunga flat dari pokok penuh · mengikuti tarif akun (bawaan 30% per bulan)",
   "Kredit barang hingga Rp 10 juta · biaya admin cicilan 2% tiap pembayaran",
@@ -613,7 +613,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Dari mana angka cicilan di kalkulator berasal?",
-    a: "Semua angka dihitung aplikasi dari nominal dan tenor yang Anda pilih, bukan angka yang diketik manual. Harian: potongan di muka 2% dan bunga flat 26–40% sesuai nominal serta tenor. Bulanan: bunga flat mengikuti tarif akun, bawaan 30% per bulan untuk semua tenor.",
+    a: "Semua angka dihitung aplikasi dari nominal dan tenor yang Anda pilih, bukan angka yang diketik manual. Harian: potongan admin 2% + biaya ekspres Rp5.000–Rp10.000 di muka, dan bunga flat 26–40% sesuai nominal serta tenor. Bulanan: bunga flat mengikuti tarif akun, bawaan 30% per bulan untuk semua tenor.",
   },
   {
     q: "Kapan biaya dipotong?",
@@ -935,7 +935,7 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
                   formatRupiah(quote.bunga),
                   false,
                 ],
-                ["Nilai bersih (98% dari pokok)", formatRupiah(quote.danaBersihDitransfer), true],
+                ["Dana bersih (setelah seluruh potongan di muka)", formatRupiah(quote.danaBersihDitransfer), true],
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
           <div key={term} className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
@@ -1819,7 +1819,7 @@ export default function Landing() {
                 body="Untuk kebutuhan jangka pendek. Pelunasan sekali di akhir tenor, dan semua potongan terlihat sejak awal."
                 rows={[
                   { label: "Biaya admin 2% (platform dihapus)", value: "2% dari pokok" },
-                  { label: "Nilai bersih diterima", value: "98% dari pokok" },
+                  { label: "Potongan di muka", value: "Admin 2% + ekspres" },
                   { label: "Bunga flat", value: "30% dari pokok" },
                 ]}
                 stats={[
@@ -1921,7 +1921,7 @@ export default function Landing() {
               </div>
               <Reveal delay={0.1}>
                 <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                  Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian menghitung nilai bersih 98% (potongan di muka 2%) dan total kewajiban 126–140% dari pokok sesuai nominal serta tenor; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya 2% yang dipotong di muka dari dana yang diterima (biaya admin pada tenor 3/6, biaya layanan pada tenor 1), dan biaya admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan; bunga flat dari pokok penuh mengikuti tarif akun (bawaan 30% per bulan) untuk semua tenor, jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
+                  Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian memotong biaya admin 2% dan biaya ekspres Rp5.000–Rp10.000 di muka, dengan total kewajiban 126–140% dari pokok sesuai nominal serta tenor; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya 2% yang dipotong di muka dari dana yang diterima (biaya admin pada tenor 3/6, biaya layanan pada tenor 1), dan biaya admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan; bunga flat dari pokok penuh mengikuti tarif akun (bawaan 30% per bulan) untuk semua tenor, jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
                 </p>
               </Reveal>
             </div>

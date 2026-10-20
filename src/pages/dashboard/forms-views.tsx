@@ -937,7 +937,7 @@ export function LoanForm({
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaPlatformTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Total potongan di muka 2%</dt>
+                  <dt className="font-medium text-slate-700">Total potongan di muka (admin + ekspres)</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
                 </div>
               </>

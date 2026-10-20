@@ -63,7 +63,7 @@ function daftarFaq(dendaPerHari: number, maksDenda: number) {
   },
   {
     q: "Kapan biaya pinjaman dipotong?",
-    a: `Biaya awal ${PINDAI_PRICING.upfrontDeductionPercent}% dihitung dari pokok dan ditampilkan sebagai potongan di muka. Setiap pembayaran bulanan juga dikenai biaya admin cicilan ${BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan.`,
+    a: `Biaya awal ${PINDAI_PRICING.adminFeePercent}% dihitung dari pokok, ditambah biaya pencairan ekspres Rp5.000–Rp10.000, dan ditampilkan sebagai potongan di muka. Setiap pembayaran bulanan juga dikenai biaya admin cicilan ${BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan.`,
   },
   {
     q: "Apa yang dicatat untuk gadai?",
@@ -295,7 +295,7 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
           <dl className="mt-4 divide-y divide-slate-100 text-sm">
             <Baris label={`Tenor pilihan ${tenorHarianEfektif} hari`} nilai="" />
             <Baris
-              label={`Potongan awal ${PINDAI_PRICING.upfrontDeductionPercent}%`}
+              label={`Potongan awal admin ${PINDAI_PRICING.adminFeePercent}% + ekspres`}
               nilai={formatRupiah(simulasiHarian.totalPotonganDiMuka)}
             />
             <Baris
@@ -673,7 +673,7 @@ export function PublicInfoPageView({
                         Potongan awal
                       </th>
                       <td className="px-4 py-3">
-                        {PINDAI_PRICING.upfrontDeductionPercent}% dari pokok
+                        Admin {PINDAI_PRICING.adminFeePercent}% dari pokok + ekspres Rp5.000–Rp10.000
                       </td>
                       <td className="px-4 py-3">
                         {BULANAN_PRICING.biayaLayananPersen}% dari pokok

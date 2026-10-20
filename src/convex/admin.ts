@@ -11,7 +11,12 @@ import {
   simulasiBulananPinjaman,
 } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
-import { AKUN_PLATFORM_SPREAD, ledgerTotals, appendJournal } from "./ledger";
+import {
+  AKUN_PLATFORM_DIRECT_REVENUE,
+  AKUN_PLATFORM_SPREAD,
+  ledgerTotals,
+  appendJournal,
+} from "./ledger";
 import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { namaHurufBesar, namaTampil } from "../lib/nama";
@@ -1453,6 +1458,10 @@ function nilaiPendapatanPlatform(e: {
   if (e.akun === "platform:FEE") {
     return e.jenis === "platform_fee" || e.jenis === "payout" ? e.jumlah : 0;
   }
+  // Biaya admin & pencairan ekspres dipotong di muka: pendapatan langsung.
+  if (e.akun === AKUN_PLATFORM_DIRECT_REVENUE) {
+    return e.jenis === "platform_fee" ? e.jumlah : 0;
+  }
   if (e.akun === AKUN_PLATFORM_SPREAD) {
     return e.arah === "kredit" ? e.jumlah : -e.jumlah;
   }
@@ -1517,6 +1526,7 @@ export const ledgerSummary = query({
         !kredit &&
         !gadai &&
         (e.skema === "pinjaman" ||
+          e.akun === AKUN_PLATFORM_DIRECT_REVENUE ||
           (e.skema === undefined && (ket.includes("biaya admin") || ket.includes("pinjaman"))));
       if (kredit) {
         rincianSkema.kredit += nilaiPendapatan;

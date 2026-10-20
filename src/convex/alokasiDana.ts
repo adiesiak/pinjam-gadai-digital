@@ -26,7 +26,12 @@ import {
   siklusPendanaan,
   statusPendanaan as labelStatusPendanaan,
 } from "../lib/imbalPendana";
-import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
+import {
+  AKUN_PLATFORM_DIRECT_REVENUE,
+  akunDompetDana,
+  appendJournal,
+  danaWalletBalance,
+} from "./ledger";
 import { getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { pastikanAngsuran } from "./angsuranJadwal";
@@ -127,6 +132,8 @@ type RingkasanPinjaman = {
   cicilanPerBulan: number | null;
   biayaAdmin: number;
   biayaPlatform: number;
+  /** Biaya pencairan ekspres (harian); nol pada skema bulanan & data lama. */
+  biayaExpress: number;
   totalPotonganDiMuka: number;
   biayaLayananTotal: number;
   /** Biaya admin 2% per cicilan (semua tenor resmi; nol pada tenor warisan). */
@@ -159,6 +166,7 @@ function ringkasPinjaman(loan: {
       cicilanPerBulan: sim.cicilanPerBulan,
       biayaAdmin: sim.biayaAdminTotal,
       biayaPlatform: sim.biayaPlatformTotal,
+      biayaExpress: 0,
       totalPotonganDiMuka: sim.potonganDiMuka,
       biayaLayananTotal: sim.biayaLayananTotal,
       biayaAdminCicilanTotal: sim.biayaAdminCicilanTotal,
@@ -206,6 +214,7 @@ function ringkasPinjaman(loan: {
     cicilanPerBulan: null,
     biayaAdmin: q.biayaAdmin,
     biayaPlatform: q.biayaPlatform,
+    biayaExpress: q.biayaExpress,
     totalPotonganDiMuka: q.totalPotonganDiMuka,
     biayaLayananTotal: 0,
     biayaAdminCicilanTotal: 0,
@@ -553,17 +562,24 @@ export const allocateFunding = mutation({
       const ringkasPenuh = ringkasPinjaman(loan);
       const now = Date.now();
 
-      // Jurnal biaya: potongan di muka 2% untuk KEDUA skema (harian dari
-      // quoteLoan; bulanan dari mesin bulanan — admin 2% tenor 3/6, layanan 2%
-      // tenor 1; biaya platform dihapus jadi nol).
+      // Jurnal biaya: potongan di muka untuk KEDUA skema (harian dari
+      // quoteLoan: admin 2% + biaya ekspres; bulanan dari mesin bulanan).
+      // Seluruhnya pendapatan platform langsung — akunnya dipisah dari
+      // `platform:FEE` (denda & biaya cicilan) agar laporan margin jujur.
       if (ringkasPenuh.totalPotonganDiMuka > 0) {
         await appendJournal(ctx, {
           jenis: "platform_fee",
           skema: "pinjaman",
-          keterangan: `Biaya admin & platform ${loan.nomorReferensi}`,
+          keterangan: ringkasPenuh.biayaExpress > 0
+            ? `Biaya admin & pencairan ekspres ${loan.nomorReferensi}`
+            : `Biaya admin & platform ${loan.nomorReferensi}`,
           aktor: "platform",
           lines: [
-            { akun: "platform:FEE", arah: "debit", jumlah: ringkasPenuh.totalPotonganDiMuka },
+            {
+              akun: AKUN_PLATFORM_DIRECT_REVENUE,
+              arah: "debit",
+              jumlah: ringkasPenuh.totalPotonganDiMuka,
+            },
             { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: ringkasPenuh.totalPotonganDiMuka },
           ],
         });

@@ -327,6 +327,10 @@ function ActiveLoanCard({
             />
             <RincianBaris label="Biaya platform (0%)" value={formatRupiah(q.biayaPlatform)} />
             <RincianBaris
+              label="Biaya pencairan ekspres"
+              value={formatRupiah(q.biayaExpress)}
+            />
+            <RincianBaris
               label="Dana bersih yang Anda terima (belum ditransfer)"
               value={formatRupiah(q.danaBersihDitransfer)}
               tone="net"

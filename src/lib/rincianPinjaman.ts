@@ -220,6 +220,7 @@ export function susunRincianPinjaman(
       { label: "Pokok pinjaman", nilai: rp(quote.pokok) },
       { label: "Biaya admin (2%, dipotong di muka)", nilai: rp(quote.biayaAdmin) },
       { label: "Biaya platform (0%, dipotong di muka)", nilai: rp(quote.biayaPlatform) },
+      { label: "Biaya pencairan ekspres", nilai: rp(quote.biayaExpress) },
       { label: "Dana bersih ke rekening", nilai: rp(quote.danaBersihDitransfer), tegas: true },
     ];
     const rekening = rekeningTujuan(loan);

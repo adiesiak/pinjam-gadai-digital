@@ -68,12 +68,17 @@ throws(() => parseNominalRupiah("999999999"), "di atas batas atas ditolak");
 const q1 = quoteLoan(10_000_000);
 eq(q1.biayaAdmin, 200_000, "Admin 2% dari 10jt");
 eq(q1.biayaPlatform, 0, "Platform 0% — biaya platform dihapus");
-eq(q1.totalPotonganDiMuka, 200_000, "Potongan di muka 2% dari 10jt");
-eq(q1.danaBersihDitransfer, 9_800_000, "Net 98% dari 10jt");
+eq(q1.biayaExpress, 10_000, "Biaya ekspres tier tertinggi Rp10.000");
+eq(
+  q1.totalPotonganDiMuka,
+  210_000,
+  "Potongan di muka = admin 2% + biaya ekspres",
+);
+eq(q1.danaBersihDitransfer, 9_790_000, "Net setelah seluruh potongan di muka");
 eq(q1.bunga, 3_000_000, "Bunga 30% dari 10jt");
 eq(q1.totalKewajibanPelunasan, 13_000_000, "Total 130% dari 10jt");
 eq(
-  q1.biayaAdmin + q1.biayaPlatform,
+  q1.biayaAdmin + q1.biayaPlatform + q1.biayaExpress,
   q1.totalPotonganDiMuka,
   "identitas potongan",
 );
@@ -86,7 +91,7 @@ eq(
 // ---- requote: simulasi kalkulator landing ----
 const r1 = requote(8_000_000);
 eq(r1.pokok, 8_000_000, "requote pokok");
-eq(r1.danaBersihDitransfer, 7_840_000, "requote net 98%");
+eq(r1.danaBersihDitransfer, 7_830_000, "requote net setelah admin + ekspres");
 
 // requote adalah alias quoteLoan — validasi minimum terjadi di lapisan mutasi.
 eq(requote(500_000).pokok, 500_000, "requote nominal kecil tetap terhitung");

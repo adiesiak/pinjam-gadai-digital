@@ -63,11 +63,11 @@ export function AliranDanaPinjaman({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-navy">Aliran uang pinjaman ini</p>
           <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-            Pokok {formatRupiah(rincian.pokok)} · {skema} · dipotong{" "}
-            {rincian.persenPotonganDiMuka}% di muka
+            Pokok {formatRupiah(rincian.pokok)} · {skema} · dipotong admin{" "}
+            {rincian.persenPotonganDiMuka}%{tenorBulan === null ? " + biaya ekspres" : ""} di muka
             <IstilahBantuan
               istilah="potongan di muka"
-              penjelasan="Dipotong sekali di awal dari pokok pinjaman (biaya admin), sehingga dana yang cair ke peminjam lebih kecil dari pokok."
+              penjelasan="Dipotong sekali di awal dari pokok pinjaman (biaya admin, plus biaya pencairan ekspres pada pinjaman harian), sehingga dana yang cair ke peminjam lebih kecil dari pokok."
             />
             , lalu {rincian.persenPotonganPenyedia}% dari uang yang kembali.
           </p>

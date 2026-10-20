@@ -106,8 +106,9 @@ function RincianPinjaman({ loan, final }: { loan: RincianPinjamanInput; final: b
     potongan.push(
       ["Biaya admin (2%, dipotong di muka)", formatRupiah(loan.quote.biayaAdmin)],
       ["Biaya platform (0%)", formatRupiah(loan.quote.biayaPlatform)],
+      ["Biaya pencairan ekspres", formatRupiah(loan.quote.biayaExpress)],
       [
-        "Dana bersih yang Anda terima (98%, belum ditransfer)",
+        "Dana bersih yang Anda terima (belum ditransfer)",
         formatRupiah(loan.quote.danaBersihDitransfer),
         "net",
       ],

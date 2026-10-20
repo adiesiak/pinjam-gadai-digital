@@ -16,6 +16,7 @@ import {
   quotePinjaman,
   tenorHarianTersedia,
 } from "./loan";
+import { biayaRollover } from "./ekonomiPlatform";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
 
 const DAY_MS = 86_400_000;
@@ -57,6 +58,8 @@ export type RencanaPembayaranPinjaman = {
   principalSebelum: Rupiah;
   interestDue: Rupiah;
   lateFee: Rupiah;
+  /** Biaya roll-over flat; hanya untuk mode "bayar bunga saja". */
+  rolloverFee: Rupiah;
   principalPaid: Rupiah;
   totalDue: Rupiah;
   principalSesudah: Rupiah;
@@ -189,6 +192,7 @@ export function hitungRencanaPembayaran({
       principalSebelum,
       interestDue,
       lateFee: denda,
+      rolloverFee: 0 as Rupiah,
       principalPaid: principalSebelum,
       totalDue: principalSebelum + interestDue + denda,
       principalSesudah: 0,
@@ -232,6 +236,7 @@ export function hitungRencanaPembayaran({
     throw new Error("Tier bunga untuk sisa pokok dan tenor ini tidak tersedia.");
   }
   const nextInterestAmount = percentOf(principalSesudah, tierRate);
+  const rolloverFee = biayaRollover(mode);
   const dasarJatuhTempo = Math.max(jatuhTempoSebelum, waktuTransaksi);
   const nextDueDate = dasarJatuhTempo + hari * DAY_MS;
 
@@ -240,8 +245,9 @@ export function hitungRencanaPembayaran({
     principalSebelum,
     interestDue,
     lateFee: denda,
+    rolloverFee,
     principalPaid: principalPaidFinal,
-    totalDue: interestDue + principalPaidFinal + denda,
+    totalDue: interestDue + principalPaidFinal + denda + rolloverFee,
     principalSesudah,
     tierRate,
     nextInterestAmount,

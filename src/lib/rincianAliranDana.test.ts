@@ -49,8 +49,8 @@ const contoh = rincianAliranDana();
 eq(POKOK_CONTOH_RINCIAN, 1_000_000, "contoh memakai pokok maksimum yang bisa diajukan");
 eq(contoh.pokok, 1_000_000, "pokok Rp1.000.000");
 eq(contoh.persenPotonganDiMuka, 2, "tarif potongan di muka 2%");
-eq(contoh.potonganDiMuka, 20_000, "potongan 2% = Rp20.000");
-eq(contoh.diterimaPeminjam, 980_000, "peminjam menerima Rp980.000");
+eq(contoh.potonganDiMuka, 30_000, "potongan di muka = admin 2% + ekspres Rp10.000");
+eq(contoh.diterimaPeminjam, 970_000, "peminjam menerima Rp970.000");
 eq(contoh.persenImbalHasil, 30, "Imbal Hasil 30% flat");
 eq(contoh.imbalHasil, 300_000, "Imbal Hasil = Rp300.000");
 eq(contoh.totalKembali, 1_300_000, "kembali Rp1.300.000 (130%)");
@@ -58,7 +58,7 @@ eq(contoh.persenPotonganPenyedia, 5, "tarif potongan 5% (bawaan bagiHasil.ts)");
 eq(contoh.potonganPenyedia, 65_000, "potongan 5% DARI UANG YANG KEMBALI = Rp65.000");
 eq(contoh.diterimaPenyedia, 1_235_000, "penyedia dana menerima Rp1.235.000");
 eq(contoh.imbalBersihPenyedia, 235_000, "Imbal Hasil bersih penyedia Rp235.000");
-eq(contoh.pendapatanPlatform, 85_000, "pendapatan platform Rp85.000 (20.000 + 65.000)");
+eq(contoh.pendapatanPlatform, 95_000, "pendapatan platform Rp95.000 (30.000 + 65.000)");
 
 // Dasar potongan adalah total yang kembali, BUKAN Imbal Hasil.
 eq(
@@ -73,8 +73,8 @@ eq(
 // 5% × 433.333 = 21.666,65 → KE BAWAH 21.666 (sisa rupiah milik penyedia dana,
 // sama dengan yang dibukukan ledger saat pelunasan).
 const ganjil = rincianAliranDana(333_333);
-eq(ganjil.potonganDiMuka, 6_667, "2% dari 333.333 dibulatkan HALF-UP");
-eq(ganjil.diterimaPeminjam, 326_666, "dana bersih 333.333 − 6.667");
+eq(ganjil.potonganDiMuka, 11_667, "2% dari 333.333 dibulatkan HALF-UP, ditambah ekspres Rp5.000");
+eq(ganjil.diterimaPeminjam, 321_666, "dana bersih 333.333 − 11.667");
 eq(ganjil.imbalHasil, 100_000, "30% dari 333.333 dibulatkan HALF-UP");
 eq(ganjil.totalKembali, 433_333, "total kembali 433.333");
 eq(ganjil.potonganPenyedia, 21_666, "5% dari 433.333 dibulatkan KE BAWAH (bukan 21.667)");
@@ -88,12 +88,12 @@ eq(ganjil.imbalBersihPenyedia, 78_334, "Imbal Hasil bersih = 100.000 − 21.666"
 
 // Batas bisnis bawah.
 const terkecil = rincianAliranDana(100_000);
-eq(terkecil.potonganDiMuka, 2_000, "pokok 100rb: potongan di muka Rp2.000");
-eq(terkecil.diterimaPeminjam, 98_000, "pokok 100rb: diterima peminjam Rp98.000");
+eq(terkecil.potonganDiMuka, 7_000, "pokok 100rb: admin Rp2.000 + ekspres Rp5.000");
+eq(terkecil.diterimaPeminjam, 93_000, "pokok 100rb: diterima peminjam Rp93.000");
 eq(terkecil.totalKembali, 130_000, "pokok 100rb: kembali Rp130.000");
 eq(terkecil.potonganPenyedia, 6_500, "pokok 100rb: potongan 5% = Rp6.500");
 eq(terkecil.diterimaPenyedia, 123_500, "pokok 100rb: penyedia menerima Rp123.500");
-eq(terkecil.pendapatanPlatform, 8_500, "pokok 100rb: platform Rp8.500");
+eq(terkecil.pendapatanPlatform, 13_500, "pokok 100rb: platform Rp13.500");
 
 // ===== Invarian lintas pokok =====
 
@@ -154,7 +154,7 @@ for (const pokok of daftarPokok) {
 const tanpaPotongan = rincianAliranDana(1_000_000, 0);
 eq(tanpaPotongan.potonganPenyedia, 0, "potongan 0% → Rp0");
 eq(tanpaPotongan.diterimaPenyedia, 1_300_000, "potongan 0% → penyedia menerima Rp1.300.000");
-eq(tanpaPotongan.pendapatanPlatform, 20_000, "potongan 0% → platform hanya potongan di muka");
+eq(tanpaPotongan.pendapatanPlatform, 30_000, "potongan 0% → platform hanya potongan di muka (admin + ekspres)");
 
 const limaBelas = rincianAliranDana(1_000_000, 15);
 eq(limaBelas.potonganPenyedia, 195_000, "potongan 15% dari 1,3jt = Rp195.000");
@@ -176,8 +176,8 @@ eq(baris.length, 8, "8 baris rincian");
 eq(baris[0]?.label, "Pokok pinjaman", "baris pertama: pokok");
 eq(
   baris[1]?.label,
-  "Potongan di muka 2% (biaya admin)",
-  "baris potongan di muka menyebut persennya",
+  "Potongan di muka (admin 2% + ekspres)",
+  "baris potongan di muka menyebut admin + ekspres",
 );
 eq(baris[2]?.label, "Diterima peminjam", "baris dana bersih");
 eq(
@@ -236,11 +236,11 @@ for (const pokok of PILIHAN_POKOK_RINCIAN) {
 }
 
 // ===== Rincian satu pinjaman NYATA (detail pinjaman admin) =====
-// Harian: pokok 500.000 @30% → potongan di muka 10.000, kembali 650.000,
-// potongan 5% dari uang kembali = 32.500, penyedia dana menerima 617.500.
+// Harian: pokok 500.000 @30% → admin 10.000 + ekspres 7.500 = 17.500,
+// kembali 650.000, potongan 5% = 32.500, penyedia dana menerima 617.500.
 const nyataHarian = rincianPinjamanNyata({ pokokPinjaman: 500_000, persenBunga: 30 });
-eq(nyataHarian.potonganDiMuka, 10_000, "nyata harian: potongan di muka 2%");
-eq(nyataHarian.diterimaPeminjam, 490_000, "nyata harian: diterima peminjam");
+eq(nyataHarian.potonganDiMuka, 17_500, "nyata harian: admin + ekspres");
+eq(nyataHarian.diterimaPeminjam, 482_500, "nyata harian: diterima peminjam");
 eq(nyataHarian.imbalHasil, 150_000, "nyata harian: Imbal Hasil 30%");
 eq(nyataHarian.totalKembali, 650_000, "nyata harian: uang yang kembali");
 eq(nyataHarian.potonganPenyedia, 32_500, "nyata harian: potongan 5% dari yang kembali");

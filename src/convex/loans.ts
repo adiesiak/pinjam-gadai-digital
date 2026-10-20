@@ -75,6 +75,8 @@ import {
   type RencanaPembayaranPinjaman,
 } from "../lib/perpanjanganPinjaman";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
+import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
+import { catatDanaKembali } from "./matchingQueue";
 import {
   bolehDibatalkan,
   diTahapTinjauan,
@@ -2279,7 +2281,8 @@ export const repayLoan = mutation({
       status: "lunas",
       lunasPada: now,
     };
-    if (apakahPelunasanTepatWaktu(lunasUntukPlafon)) {
+    const tepatWaktu = apakahPelunasanTepatWaktu(lunasUntukPlafon);
+    if (tepatWaktu) {
       await audit(
         ctx,
         userId,
@@ -2289,6 +2292,28 @@ export const repayLoan = mutation({
         `Pinjaman tunai ${formatRupiah(loan.pokokPinjaman)} lunas tepat waktu; plafon dasar bertambah ${formatRupiah(PLAFON_KENAIKAN_PER_PELUNASAN)} hingga maksimum ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}. Override admin tetap berlaku.`,
       );
     }
+
+    // Tiket Doorprize Emas: satu untuk peminjam yang lunas tepat waktu, dan
+    // satu per kelipatan Rp1 juta untuk tiap penyedia dana yang siklusnya
+    // selesai. Idempoten pada referensi, jadi aman bila pelunasan dicatat ulang.
+    await beriTiketPelunasan(ctx, {
+      pemilikId: loan.userId,
+      nomorReferensi: loan.nomorReferensi,
+      tepatWaktu,
+      waktu: now,
+    });
+    for (const { funding } of imbalBagian) {
+      await beriTiketPendanaan(ctx, {
+        pemilikId: funding.danaId,
+        nomorReferensi: funding.nomorReferensi,
+        jumlahAlokasi: funding.jumlahAlokasi,
+        waktu: now,
+      });
+    }
+
+    // Auto-matching: pokok tenor 7/14 hari kembali ke pool dan menunggu
+    // peminjam berikutnya. Tenor 28 hari tetap di luar antrean cepat.
+    await catatDanaKembali(ctx, loan, now);
 
     return {
       totalDibayar: totalKasMasuk,

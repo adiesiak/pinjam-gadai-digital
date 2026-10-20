@@ -398,6 +398,9 @@ function RingkasanRencana({
             nada="denda"
           />
         )}
+        {rencana.rolloverFee > 0 && (
+          <Baris label="Biaya roll-over" nilai={formatRupiah(rencana.rolloverFee)} />
+        )}
         {penuh ? (
           <Baris label="Sisa pokok dilunasi" nilai={formatRupiah(rencana.principalSebelum)} />
         ) : (

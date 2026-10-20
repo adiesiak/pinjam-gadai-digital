@@ -226,7 +226,9 @@ function rincianKeuanganHarian(quote: LoanQuote): string {
       <tr><td>Pokok pinjaman</td><td class="angka">${formatRupiah(quote.pokok)}</td></tr>
       <tr><td>Potongan admin (2%)</td><td class="angka">${formatRupiah(quote.biayaAdmin)}</td></tr>
       <tr><td>Biaya platform</td><td class="angka">${formatRupiah(quote.biayaPlatform)}</td></tr>
-      <tr><td>Dana bersih diterima (98% dari pokok)</td><td class="angka">${formatRupiah(quote.danaBersihDitransfer)}</td></tr>
+      <tr><td>Biaya pencairan ekspres</td><td class="angka">${formatRupiah(quote.biayaExpress)}</td></tr>
+      <tr><td>Total potongan di muka</td><td class="angka">${formatRupiah(quote.totalPotonganDiMuka)}</td></tr>
+      <tr><td>Dana bersih diterima</td><td class="angka">${formatRupiah(quote.danaBersihDitransfer)}</td></tr>
       <tr><td>Bunga</td><td class="angka">${formatRupiah(quote.bunga)}</td></tr>
       <tr class="total"><td>Total kewajiban (pokok + bunga)</td><td class="angka">${formatRupiah(quote.totalKewajibanPelunasan)}</td></tr>
     </tbody>
@@ -294,8 +296,9 @@ export function buildPinjamanContract(
     bulanan === null
       ? `
       <li>Biaya admin 2%: ${formatRupiah(quote.biayaAdmin)}.</li>
-      <li>Total potongan di muka 2%: ${formatRupiah(quote.totalPotonganDiMuka)} (biaya platform dihapus — 0%).</li>
-      <li><strong>Perhitungan dana bersih: ${formatRupiah(quote.danaBersihDitransfer)} (98% dari pokok)</strong>; dana diteruskan sesuai proses pencairan.</li>
+      <li>Biaya pencairan ekspres: ${formatRupiah(quote.biayaExpress)} (sekali, bukan bunga).</li>
+      <li>Total potongan di muka: ${formatRupiah(quote.totalPotonganDiMuka)} (biaya platform dihapus — 0%).</li>
+      <li><strong>Perhitungan dana bersih: ${formatRupiah(quote.danaBersihDitransfer)} (pokok setelah seluruh potongan di muka)</strong>; dana diteruskan sesuai proses pencairan.</li>
       <li>Bunga: ${formatRupiah(quote.bunga)}.</li>
       <li><strong>Total kewajiban: ${formatRupiah(quote.totalKewajibanPelunasan)} (pokok + bunga)</strong>; nominal mengikuti perhitungan aplikasi.</li>`
       : `

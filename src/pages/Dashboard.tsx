@@ -36,6 +36,7 @@ import { CatatanPinjamanSection } from "./dashboard/history-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
+import { DoorprizeWidget } from "@/components/DoorprizeWidget";
 
 /**
  * Rangka pemuatan dashboard: bentuknya mengikuti kartu ringkasan + daftar
@@ -437,6 +438,7 @@ export default function Dashboard() {
                     onBukaKyc={() => gantiTab("kyc")}
                   />
                   <RiwayatProgresPlafon />
+                  <DoorprizeWidget peran="peminjam" />
                   <Button
                     type="button"
                     className="mt-4 w-full gap-2 bg-emerald-800 text-white hover:bg-emerald-900 sm:w-auto"

@@ -31,7 +31,7 @@ function bersih(html: string, label: string): void {
 
 const LABEL = [
   "Pokok pinjaman",
-  "Potongan di muka 2% (biaya admin)",
+  "Potongan di muka (admin 2% + ekspres)",
   "Diterima peminjam",
   "Potongan 5% dari uang yang kembali",
   "Diterima pendana",
@@ -46,11 +46,11 @@ const harian = renderToStaticMarkup(
 ada(harian, "Aliran uang pinjaman ini", "judul kartu");
 ada(harian, "Pokok Rp 1.000.000", "pokok nyata yang sedang dibuka");
 ada(harian, "skema harian 30 hari", "skema pinjaman disebut");
-ada(harian, "dipotong 2% di muka", "potongan di muka disebut");
+ada(harian, "dipotong admin 2% + biaya ekspres di muka", "potongan admin + ekspres disebut");
 ada(harian, "5% dari uang yang kembali", "dasar potongan 5% disebut");
 for (const teks of LABEL) ada(harian, teks, `label "${teks}"`);
 ada(harian, "Kembali (pokok + Imbal Hasil 30%)", "label baris kembali harian");
-ada(harian, "Rp 980.000", "diterima peminjam");
+ada(harian, "Rp 970.000", "diterima peminjam");
 ada(harian, "Rp 1.300.000", "uang yang kembali");
 ada(harian, "− Rp 65.000", "potongan 5% dari uang yang kembali");
 ada(harian, "Rp 1.235.000", "diterima pendana");
@@ -68,13 +68,13 @@ const menengah = renderToStaticMarkup(
   <AliranDanaPinjaman pokokPinjaman={500_000} tenorHari={14} persenBunga={30} />,
 );
 ada(menengah, "Pokok Rp 500.000", "pokok menengah");
-ada(menengah, "− Rp 10.000", "potongan di muka 2% dari Rp500.000");
-ada(menengah, "Rp 490.000", "diterima peminjam");
+ada(menengah, "− Rp 17.500", "potongan admin + ekspres dari Rp500.000");
+ada(menengah, "Rp 482.500", "diterima peminjam");
 ada(menengah, "Rp 650.000", "uang yang kembali");
 ada(menengah, "− Rp 32.500", "potongan 5% = Rp32.500");
 ada(menengah, "Rp 617.500", "diterima pendana");
 ada(menengah, "Rp 117.500", "Imbal Hasil bersih pendana");
-ada(menengah, "Rp 42.500", "pendapatan platform satu pinjaman");
+ada(menengah, "Rp 50.000", "pendapatan platform satu pinjaman");
 bersih(menengah, "markup pinjaman pokok menengah");
 
 // ===== Pinjaman bulanan: Imbal Hasil = bunga SELAMA TENOR =====

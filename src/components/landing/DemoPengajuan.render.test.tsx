@@ -59,12 +59,12 @@ ok(aktif.length === 1, "tepat satu langkah ditandai aktif");
 const q = quoteDemo();
 ok(formatRupiah(DEMO_POKOK) === "Rp 500.000", "nominal demo Rp 500.000");
 ok(
-  formatRupiah(q.totalPotonganDiMuka) === "Rp 10.000",
-  "potongan di muka demo Rp 10.000",
+  formatRupiah(q.totalPotonganDiMuka) === "Rp 17.500",
+  "potongan di muka demo Rp 17.500 (admin 2% + biaya ekspres)",
 );
 ok(
-  formatRupiah(q.danaBersihDitransfer) === "Rp 490.000",
-  "dana bersih demo Rp 490.000",
+  formatRupiah(q.danaBersihDitransfer) === "Rp 482.500",
+  "dana bersih demo Rp 482.500",
 );
 ok(
   formatRupiah(q.totalKewajibanPelunasan) === "Rp 660.000",
@@ -84,9 +84,9 @@ function layar(id: (typeof LANGKAH_DEMO)[number]["id"]): string {
 }
 
 const formulir = layar("ajukan");
-ok(formulir.includes("Rp 490.000"), "dana bersih tampil di layar formulir");
+ok(formulir.includes("Rp 482.500"), "dana bersih tampil di layar formulir");
 ok(formulir.includes("Rp 660.000"), "total kewajiban tampil di layar formulir");
-ok(formulir.includes("Rp 10.000"), "potongan di muka tampil di layar formulir");
+ok(formulir.includes("Rp 17.500"), "potongan di muka tampil di layar formulir");
 ok(
   formulir.includes("bukan persetujuan pinjaman"),
   "layar formulir menyebut ilustrasi, bukan persetujuan",

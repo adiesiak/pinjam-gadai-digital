@@ -54,6 +54,7 @@ import { ANCHOR_RISIKO_PENDANAAN, CATATAN_INTERNAL_SINGKAT } from "@/lib/teksRis
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
 import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
+import { DoorprizeWidget } from "@/components/DoorprizeWidget";
 import {
   KalkulatorImbalPendana,
   PortofolioPendanaanSection,
@@ -2514,6 +2515,9 @@ function IsiRuang() {
                 ("berapa yang sudah jadi uang, berapa yang masih perkiraan")
                 dijawab di puncak halaman, bukan di tengah daftar angka. */}
             <RingkasanKeuntungan ringkasan={data.ringkasan} pribadi={isPendana} />
+
+            {/* Tiket doorprize pendana: satu per kelipatan Rp1 juta per siklus. */}
+            {isPendana && <DoorprizeWidget peran="pendana" />}
 
             {/* Skema pendana TETAP: kalkulator dan portofolio per alokasi.
                 Hanya untuk akun pendana; admin memakai tabel rekap di bawah. */}

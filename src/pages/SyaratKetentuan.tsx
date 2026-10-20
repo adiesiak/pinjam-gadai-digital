@@ -274,11 +274,11 @@ const PASAL: Pasal[] = [
           </Ayat>
           <Ayat>
             <strong>Biaya admin {PINDAI_PRICING.adminFeePercent}%</strong> dari
-            pokok. Biaya platform
+            pokok, ditambah biaya pencairan ekspres Rp5.000–Rp10.000 sekali per
+            pinjaman harian baru. Biaya platform
             {PINDAI_PRICING.platformFeePercent}%, sehingga total potongan di
-            muka {PINDAI_PRICING.upfrontDeductionPercent}% dan dana bersih pada
-            hitungan sebesar {PINDAI_PRICING.netDisbursementPercent}% dari
-            pokok.
+            muka bergantung pada nominal dan dana bersih adalah pokok setelah
+            seluruh potongan tersebut.
           </Ayat>
           <Ayat>
             <strong>Bunga pinjaman harian mengikuti matriks nominal–tenor.</strong>{" "}

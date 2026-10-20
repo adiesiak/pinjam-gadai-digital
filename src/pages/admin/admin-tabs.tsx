@@ -16,6 +16,7 @@ import {
   Send,
   SlidersHorizontal,
   Settings2,
+  Trophy,
   ShieldCheck,
   ShoppingBag,
   PanelsTopLeft,
@@ -48,6 +49,7 @@ import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
 import { DpdTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
 import { PanelBiKesehatan } from "@/components/admin/PanelBiKesehatan";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
+import { UndianPanel } from "@/components/admin/UndianPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { RekonsiliasiAngsuran } from "@/components/admin/RekonsiliasiAngsuran";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
@@ -217,6 +219,14 @@ export function AdminTabs({
           // "info" supaya tidak ikut dijumlahkan pada ringkasan grup tertutup.
           hitung: "info",
           Icon: Wallet,
+        },
+        {
+          value: "undian",
+          label: "Doorprize & Antrean Dana",
+          hint: "Undi pemenang Doorprize Emas dan cocokkan dana yang kembali ke pool auto-matching.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Trophy,
         },
         {
           value: "rekonsiliasi",
@@ -446,6 +456,7 @@ export function AdminTabs({
     kredit: <KreditQueuePanel />,
     kyc: <KycPanel />,
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
+    undian: <UndianPanel />,
     rekonsiliasi: <RekonsiliasiAngsuran />,
     // Peta live + audit verifikasi dari tautan WhatsApp: dua sisi data lokasi
     // yang sama (titik dari `/cek-status` juga mengalir ke peta lewat jejak
