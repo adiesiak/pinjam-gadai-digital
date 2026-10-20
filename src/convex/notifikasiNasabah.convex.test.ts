@@ -1,11 +1,12 @@
 /**
- * Tes override notifikasi PER NASABAH.
+ * Tes pengaturan notifikasi PER NASABAH.
  *
  * Yang dijaga:
+ *  - hanya Super Admin yang punya jalur baca/tulis; modul ini tidak menyediakan
+ *    mutation milik nasabah;
  *  - admin dapat membaca keadaan default dan menyimpan pilihan satu nasabah;
- *  - nasabah dapat mematikan pengingat WhatsApp miliknya sendiri;
- *  - nilai efektif selalu `global && preferensi`, jadi preferensi tidak bisa
- *    menghidupkan kanal yang dimatikan global;
+ *  - nilai efektif selalu `global && preferensi`, jadi pengaturan per nasabah
+ *    tidak bisa menghidupkan kanal yang dimatikan global;
  *  - non-admin tidak dapat memakai jalur admin untuk membaca atau mengubah
  *    pilihan nasabah lain;
  *  - perubahan tercatat di audit trail.
@@ -16,6 +17,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api, internal } from "./_generated/api";
+import * as modul from "./notifikasiNasabah";
 import schema from "./schema";
 import { buatPengguna, siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
@@ -34,10 +36,10 @@ async function adminDanNasabah(t: ReturnType<typeof buatKontek>) {
   return { admin, adminId, nasabah, nasabahId };
 }
 
-describe("override notifikasi per nasabah", () => {
+describe("pengaturan notifikasi per nasabah", () => {
   it("default aktif dan admin dapat menyimpan pilihan nasabah", async () => {
     const t = buatKontek();
-    const { admin, nasabahId } = await adminDanNasabah(t);
+    const { admin, adminId, nasabahId } = await adminDanNasabah(t);
 
     const awal = await admin.query(api.notifikasiNasabah.preferensiNasabah, {
       userId: nasabahId,
@@ -78,61 +80,24 @@ describe("override notifikasi per nasabah", () => {
         .collect(),
     );
     expect(audit).toHaveLength(1);
+    expect(audit[0].aktorUserId).toBe(adminId);
     expect(audit[0].target).toBe(`users:${nasabahId}`);
   });
 
-  it("nasabah dapat mematikan pengingat WhatsApp miliknya sendiri", async () => {
-    const t = buatKontek();
-    const { admin, nasabah, nasabahId } = await adminDanNasabah(t);
-
-    const awal = await nasabah.query(api.notifikasiNasabah.preferensiSaya, {});
-    expect(awal).toMatchObject({
-      whatsapp: true,
-      efektifWhatsapp: true,
-      globalWhatsapp: true,
-      nomorWhatsapp: null,
-    });
-
-    await nasabah.mutation(api.notifikasiNasabah.simpanPreferensiSaya, {
-      whatsapp: false,
-    });
-
-    const sesudah = await nasabah.query(api.notifikasiNasabah.preferensiSaya, {});
-    expect(sesudah).toMatchObject({
-      whatsapp: false,
-      efektifWhatsapp: false,
-      globalWhatsapp: true,
-    });
-    expect(
-      await t.query(internal.notifikasiNasabah._kanalAktif, {
-        userId: nasabahId,
-        kanal: "whatsapp",
-      }),
-    ).toBe(false);
-
-    const tersimpan = await t.run((ctx) => ctx.db.get(nasabahId));
-    expect(tersimpan?.notifWhatsapp).toBe(false);
-
-    // Admin melihat pilihan yang sama, sehingga tidak ada dua sumber kebenaran.
-    const dariAdmin = await admin.query(api.notifikasiNasabah.preferensiNasabah, {
-      userId: nasabahId,
-    });
-    expect(dariAdmin).toMatchObject({ whatsapp: false, efektifWhatsapp: false });
-
-    const audit = await t.run((ctx) =>
-      ctx.db
-        .query("auditLog")
-        .withIndex("by_aksi", (q) => q.eq("aksi", "ubah_preferensi_notifikasi_saya"))
-        .collect(),
-    );
-    expect(audit).toHaveLength(1);
-    expect(audit[0].aktorUserId).toBe(nasabahId);
-    expect(audit[0].target).toBe(`users:${nasabahId}`);
+  it("tidak menyediakan jalur milik nasabah untuk mengubah pengingat", () => {
+    // Kontrak modul: hanya query dan mutation admin, plus satu gerbang internal.
+    // Menambah endpoint milik nasabah akan menggagalkan tes ini, karena
+    // keputusan on/off ada di tangan Super Admin.
+    expect(Object.keys(modul).sort()).toEqual([
+      "_kanalAktif",
+      "preferensiNasabah",
+      "simpanPreferensiNasabah",
+    ]);
   });
 
   it("menampilkan nomor WhatsApp dari Data Diri bila KYC belum diisi", async () => {
     const t = buatKontek();
-    const { nasabah, nasabahId } = await adminDanNasabah(t);
+    const { admin, nasabahId } = await adminDanNasabah(t);
     await t.run((ctx) =>
       ctx.db.insert("nasabahProfil", {
         userId: nasabahId,
@@ -145,27 +110,17 @@ describe("override notifikasi per nasabah", () => {
       }),
     );
 
-    const data = await nasabah.query(api.notifikasiNasabah.preferensiSaya, {});
+    const data = await admin.query(api.notifikasiNasabah.preferensiNasabah, {
+      userId: nasabahId,
+    });
     expect(data.nomorWhatsapp).toBe("628123450999");
   });
 
-  it("akun tamu tidak dapat membaca atau mengubah preferensi sendiri", async () => {
-    const t = buatKontek();
-    const { sesi: tamu } = await buatPengguna(t, "Tamu Notif", { isAnonymous: true });
-
-    await expect(
-      tamu.query(api.notifikasiNasabah.preferensiSaya, {}),
-    ).rejects.toThrow(/tamu/i);
-    await expect(
-      tamu.mutation(api.notifikasiNasabah.simpanPreferensiSaya, { whatsapp: false }),
-    ).rejects.toThrow(/tamu/i);
-  });
-
-  it("gerbang efektif menggabungkan sakelar global dan override nasabah", async () => {
+  it("gerbang efektif menggabungkan sakelar global dan pengaturan nasabah", async () => {
     const t = buatKontek();
     const { admin, nasabahId } = await adminDanNasabah(t);
 
-    // Global aktif, override nasabah mati → kanal mati.
+    // Global aktif, pengingat nasabah mati → kanal mati.
     await admin.mutation(api.notifikasiNasabah.simpanPreferensiNasabah, {
       userId: nasabahId,
       whatsapp: false,
@@ -184,7 +139,7 @@ describe("override notifikasi per nasabah", () => {
       }),
     ).toBe(true);
 
-    // Override nasabah dinyalakan, tetapi global dimatikan → tetap mati.
+    // Pengingat nasabah dinyalakan, tetapi global dimatikan → tetap mati.
     await admin.mutation(api.notifikasiNasabah.simpanPreferensiNasabah, {
       userId: nasabahId,
       whatsapp: true,
@@ -221,7 +176,7 @@ describe("override notifikasi per nasabah", () => {
     });
   });
 
-  it("non-admin tidak dapat membaca atau mengubah override nasabah", async () => {
+  it("non-admin tidak dapat membaca atau mengubah pengaturan nasabah", async () => {
     const t = buatKontek();
     const { nasabah, nasabahId } = await adminDanNasabah(t);
 
@@ -235,5 +190,10 @@ describe("override notifikasi per nasabah", () => {
         email: false,
       }),
     ).rejects.toThrow(/admin/i);
+
+    // Penolakan terjadi sebelum data ditulis.
+    const tersimpan = await t.run((ctx) => ctx.db.get(nasabahId));
+    expect(tersimpan?.notifWhatsapp).toBeUndefined();
+    expect(tersimpan?.notifEmail).toBeUndefined();
   });
 });

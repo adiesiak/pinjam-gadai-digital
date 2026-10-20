@@ -12,7 +12,7 @@ const BATAS_PERCOBAAN = 3;
  *
  * Email tujuan HANYA `users.email` milik pemilik akun. Tidak ada alamat
  * cadangan: kalau akun tidak punya email, kanal email memang tidak bisa dipakai
- * dan pengingat WhatsApp tetap berjalan sesuai pilihannya sendiri.
+ * dan pengingat WhatsApp tetap berjalan sesuai pengaturan Super Admin.
  */
 export const _dataKirim = internalQuery({
   args: { userId: v.id("users"), kunci: v.string() },

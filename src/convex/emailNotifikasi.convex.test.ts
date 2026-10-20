@@ -102,7 +102,7 @@ describe("email pengingat", () => {
         "PINDAI · Pengingat angsuran ke-2 pinjaman PND-1",
       );
       expect(kiriman.text).toContain(PESAN);
-      expect(kiriman.text).toContain("Profil & Rekening");
+      expect(kiriman.text).toContain("diatur tim PINDAI");
 
       const log = await t.run((ctx) => ctx.db.query("emailNotifikasiLog").collect());
       expect(log).toHaveLength(1);

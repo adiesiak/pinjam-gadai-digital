@@ -3,7 +3,7 @@
  *
  * Isi email memakai kalimat pengingat yang SAMA dengan WhatsApp: pemanggil
  * mengirim teks yang sudah pasti benar (nominal, tanggal, nomor referensi),
- * lalu modul ini hanya menambahkan subjek dan keterangan cara mematikan
+ * lalu modul ini hanya menambahkan subjek dan keterangan siapa yang mengatur
  * kanalnya. Tidak ada angka atau status yang dikarang di sini.
  */
 
@@ -24,7 +24,7 @@ export function isiEmailPengingat(isi: string): string {
   return [
     pesan,
     "",
-    "Email ini dikirim karena pengingat lewat email aktif di akun PINDAI Anda.",
-    "Ubah pilihannya di Dashboard → Profil & Rekening → Pengingat tagihan.",
+    "Email ini dikirim karena pengingat lewat email diaktifkan untuk akun PINDAI Anda.",
+    "Pengingat ini diatur tim PINDAI. Hubungi tim PINDAI bila Anda tidak ingin menerimanya.",
   ].join("\n");
 }

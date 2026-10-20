@@ -2,8 +2,9 @@
  * Uji render kartu notifikasi per nasabah (panel admin).
  * Run: bun src/components/admin/PengaturanNotifikasiNasabah.render.test.tsx
  *
- * Yang dijaga: keadaan pilihan nasabah dan keadaan EFEKTIF ditampilkan
- * terpisah, sehingga admin tahu kapan sebuah kanal ditahan sakelar global.
+ * Yang dijaga: keadaan tersimpan dan keadaan EFEKTIF ditampilkan terpisah,
+ * sehingga admin tahu kapan sebuah kanal ditahan sakelar global. Kartu juga
+ * menyatakan bahwa hanya Super Admin yang dapat mengubahnya.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -53,10 +54,13 @@ function bersih(html: string, label: string): void {
   ok((html.match(/Aktif/g) ?? []).length >= 2, "kedua sakelar berlabel Aktif");
   ada(html, "Pengingat WhatsApp untuk nasabah ini", "sakelar WhatsApp berlabel aksesibel");
   ada(html, "Pengingat Email untuk nasabah ini", "sakelar email berlabel aksesibel");
+  ada(html, "Hanya", "menyatakan siapa yang berwenang");
+  ada(html, "Super Admin", "wewenang Super Admin disebut");
+  tidakAda(html, "Profil & Rekening", "tidak lagi menunjuk sakelar nasabah");
   bersih(html, "kartu aktif");
 }
 
-// ===== Pilihan nasabah aktif, tetapi global mati =====
+// ===== Pengaturan aktif, tetapi global mati =====
 {
   const html = renderToStaticMarkup(
     <KartuNotifikasiNasabah

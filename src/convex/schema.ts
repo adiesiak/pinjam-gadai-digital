@@ -188,14 +188,14 @@ const schema = defineSchema(
        */
       nomorWhatsApp: v.optional(v.string()),
       /**
-       * Preferensi pengingat tagihan lewat WhatsApp milik nasabah ini.
-       * Nasabah mengubahnya dari Profil & Rekening; admin dapat menimpanya
-       * dari panel nasabah. Kosong = aktif. Nilai efektif selalu
-       * `global && preferensi`, jadi mematikan sakelar global tetap menahan
-       * pengingat walau baris ini true.
+       * Pengingat tagihan lewat WhatsApp untuk nasabah ini.
+       * Hanya Super Admin yang menyalakan atau mematikannya dari panel nasabah;
+       * nasabah tidak punya sakelar sendiri. Kosong = aktif. Nilai efektif
+       * selalu `global && preferensi`, jadi mematikan sakelar global tetap
+       * menahan pengingat walau baris ini true.
        */
       notifWhatsapp: v.optional(v.boolean()),
-      /** Preferensi pengingat tagihan lewat email; diubah admin. */
+      /** Pengingat tagihan lewat email; diubah Super Admin dari panel nasabah. */
       notifEmail: v.optional(v.boolean()),
       /**
        * Waktu admin mencatat pemohon yang BELUM punya akun (nasabah walk-in,

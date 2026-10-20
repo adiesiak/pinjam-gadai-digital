@@ -6,7 +6,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PerangkatSesiSaya } from "@/components/PerangkatSesiSaya";
-import { PreferensiNotifikasiWhatsapp } from "@/components/PreferensiNotifikasi";
 import { FormDataDiri } from "@/components/DataDiriForm";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
@@ -147,7 +146,6 @@ export function DataDiriSection() {
         />
       </div>
     </section>
-    <PreferensiNotifikasiWhatsapp />
     <PerangkatSesiSaya />
     </div>
   );

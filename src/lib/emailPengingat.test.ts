@@ -4,7 +4,7 @@
  *
  * Yang dijaga: kalimat pengingat dari WhatsApp dipakai APA ADANYA (tidak ada
  * angka atau status yang dikarang), subjek tetap dikenali sebagai PINDAI, dan
- * keterangan cara mematikan kanal selalu ikut — tanpa sisa placeholder.
+ * keterangan siapa yang mengatur kanal selalu ikut — tanpa sisa placeholder.
  */
 import { isiEmailPengingat, subjekEmailPengingat } from "./emailPengingat";
 
@@ -47,8 +47,12 @@ const isiWa =
   "Halo Rani, angsuran ke-2 pinjaman PND-1 jatuh tempo HARI INI (3 November 2026). Tagihan Rp550.000.";
 const email = isiEmailPengingat(isiWa);
 ok(email.startsWith(isiWa), "kalimat pengingat dari WhatsApp dipakai apa adanya");
-ada(email, "pengingat lewat email aktif", "menjelaskan alasan email dikirim");
-ada(email, "Profil & Rekening", "menyebut tempat mematikan kanal");
+ada(email, "pengingat lewat email diaktifkan", "menjelaskan alasan email dikirim");
+ada(email, "diatur tim PINDAI", "menjelaskan siapa yang mengatur kanal");
+ok(
+  !email.includes("Profil & Rekening"),
+  "tidak lagi mengarahkan nasabah ke sakelar yang sudah tidak ada",
+);
 ok(!email.includes("undefined"), "tidak ada sisa undefined");
 ok(!email.includes("NaN"), "tidak ada NaN");
 ok(!email.includes("{"), "tidak ada placeholder tersisa");

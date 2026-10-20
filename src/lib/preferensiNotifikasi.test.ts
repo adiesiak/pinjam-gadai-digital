@@ -3,8 +3,8 @@
  * Run: bun src/lib/preferensiNotifikasi.test.ts
  *
  * Yang dijaga: konfigurasi lama tanpa kolom tetap mengirim pengingat, hanya
- * `false` eksplisit yang mematikan kanal, dan preferensi nasabah tetap tunduk
- * pada sakelar global.
+ * `false` eksplisit yang mematikan kanal, dan pengaturan per nasabah yang
+ * ditetapkan Super Admin tetap tunduk pada sakelar global.
  */
 import {
   PREFERENSI_BAWAAN,
@@ -40,11 +40,11 @@ eq(kanalAktif(false), false, "hanya false eksplisit yang mematikan kanal");
 
 ok(kanalAktif(undefined) && !kanalAktif(false), "bawaan dan pilihan admin dibedakan");
 
-// ===== Gabungan global + override nasabah =====
+// ===== Gabungan global + pengaturan per nasabah =====
 eq(kanalEfektif(true, true), true, "global dan nasabah aktif = kanal berjalan");
-eq(kanalEfektif(true, undefined), true, "nasabah tanpa override mengikuti global");
-eq(kanalEfektif(true, false), false, "nasabah dapat mematikan kanal");
-eq(kanalEfektif(false, true), false, "override nasabah tidak melawan sakelar global");
+eq(kanalEfektif(true, undefined), true, "nasabah tanpa pengaturan mengikuti global");
+eq(kanalEfektif(true, false), false, "Super Admin dapat mematikan kanal satu nasabah");
+eq(kanalEfektif(false, true), false, "pengaturan nasabah tidak melawan sakelar global");
 eq(kanalEfektif(false, undefined), false, "global mati menahan semua nasabah");
 eq(kanalEfektif(false, false), false, "dua-duanya mati tetap mati");
 

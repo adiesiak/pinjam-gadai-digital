@@ -14,8 +14,9 @@ type NilaiOverride = { whatsapp: boolean; email: boolean };
  * Kartu notifikasi per nasabah, bagian MURNI supaya teks dan keadaan
  * "ditahan sakelar global" bisa diuji tanpa server.
  *
- * Dua lapis ditampilkan terpisah: pilihan nasabah dan apakah kanal itu benar-
- * benar berjalan. Admin tidak perlu menghitung sendiri aturan `global && nasabah`.
+ * Dua lapis ditampilkan terpisah: pengaturan tersimpan dan apakah kanal itu
+ * benar-benar berjalan. Admin tidak perlu menghitung sendiri aturan
+ * `global && nasabah`.
  */
 export function KartuNotifikasiNasabah({
   nilai,
@@ -76,9 +77,9 @@ export function KartuNotifikasiNasabah({
             <BellRing className="size-4" aria-hidden /> Notifikasi nasabah ini
           </h3>
           <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-            Pengingat tagihan lewat WhatsApp dan email. Nasabah juga dapat mengubah
-            pengingat WhatsApp dari Profil & Rekening. Sakelar global di Pengaturan
-            Sistem tetap berlaku untuk semua akun.
+            Pengingat tagihan lewat WhatsApp dan email untuk nasabah ini. Hanya
+            Super Admin yang dapat menyalakan atau mematikannya. Sakelar global di
+            Pengaturan Sistem tetap berlaku untuk semua akun.
           </p>
         </div>
       </div>
@@ -130,7 +131,7 @@ export function KartuNotifikasiNasabah({
 
       {adaYangDitahan && (
         <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900">
-          Pilihan nasabah aktif, tetapi sakelar global sedang mati. Nyalakan sakelar global di
+          Pilihan ini aktif, tetapi sakelar global sedang mati. Nyalakan sakelar global di
           Pengaturan Sistem agar pengingat berjalan.
         </p>
       )}

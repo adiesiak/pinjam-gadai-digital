@@ -2,8 +2,9 @@
  * Aturan sakelar notifikasi otomatis PINDAI (murni, tanpa React maupun Convex).
  *
  * Ada dua lapis: sakelar global di dashboard admin (`Pengaturan Sistem`) dan
- * preferensi milik nasabah. Kosong berarti aktif, sehingga baris konfigurasi
- * yang dibuat sebelum kolomnya ada tetap mengirim pengingat seperti sebelumnya.
+ * pengaturan per nasabah yang hanya dapat diubah Super Admin dari panel
+ * nasabah. Kosong berarti aktif, sehingga baris konfigurasi yang dibuat sebelum
+ * kolomnya ada tetap mengirim pengingat seperti sebelumnya.
  *
  * Yang diatur hanya pengingat tagihan. Notifikasi di dalam aplikasi tetap
  * tersimpan, dan pesan keamanan seperti kode OTP tidak pernah dimatikan oleh
@@ -27,8 +28,9 @@ export function kanalAktif(disimpan: boolean | undefined): boolean {
  * Keadaan efektif satu kanal untuk satu nasabah.
  *
  * Dua lapis sengaja: sakelar global adalah kebijakan operasional, sedangkan
- * sakelar nasabah adalah pengecualian. Pengecualian tidak boleh menghidupkan
- * kembali kanal yang dimatikan global. Karena itu `&&`, bukan `||`.
+ * pengaturan per nasabah adalah pengecualian yang ditetapkan Super Admin.
+ * Pengecualian tidak boleh menghidupkan kembali kanal yang dimatikan global.
+ * Karena itu `&&`, bukan `||`.
  */
 export function kanalEfektif(
   global: boolean,

@@ -1,4 +1,3 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
@@ -10,28 +9,17 @@ import { kanalAktif, kanalEfektif } from "../lib/preferensiNotifikasi";
 /**
  * Preferensi notifikasi PER NASABAH.
  *
- * Nasabah dapat mematikan pengingat WhatsApp dari tab Profil & Rekening.
- * Admin membaca dan mengubah nilai yang sama dari panel nasabah, sehingga
- * tidak ada dua sakelar yang bisa saling bertentangan. Sakelar global di
- * Pengaturan Sistem tetap berlaku untuk semua akun; nilai efektifnya selalu
- * `global && preferensi`: mematikan global tidak bisa dilawan dengan
- * menghidupkan preferensi nasabah.
+ * Hanya Super Admin yang dapat menyalakan atau mematikan pengingat satu nasabah,
+ * lewat panel nasabah di dashboard admin. Nasabah tidak punya jalur untuk
+ * mengubahnya sendiri; modul ini sengaja tidak menyediakan mutation milik
+ * nasabah. Sakelar global di Pengaturan Sistem tetap berlaku untuk semua akun;
+ * nilai efektifnya selalu `global && preferensi`: mematikan global tidak bisa
+ * dilawan dengan menghidupkan pengingat satu nasabah.
  *
  * Pengirim otomatis memakai `_kanalAktif` (internal) sehingga satu aturan yang
  * sama dipakai WhatsApp dan email. OTP dan pesan keamanan tidak melewati
  * gerbang ini.
  */
-
-async function requireNasabahSendiri(ctx: QueryCtx) {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-  const user = await ctx.db.get(userId);
-  if (user === null) throw new Error("Pengguna tidak ditemukan.");
-  if (user.isAnonymous === true) {
-    throw new Error("Akun tamu tidak dapat mengubah preferensi notifikasi.");
-  }
-  return { userId, user };
-}
 
 async function dataNasabah(ctx: QueryCtx, userId: Id<"users">) {
   const user = await ctx.db.get(userId);
@@ -52,7 +40,7 @@ async function dataNasabah(ctx: QueryCtx, userId: Id<"users">) {
   };
 }
 
-/** Keadaan sakelar nasabah + sakelar global yang sedang berlaku. */
+/** Keadaan pengaturan nasabah + sakelar global yang sedang berlaku. */
 export const preferensiNasabah = query({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
@@ -75,7 +63,7 @@ export const preferensiNasabah = query({
   },
 });
 
-/** Simpan preferensi satu nasabah lewat jalur admin, dengan jejak audit. */
+/** Simpan pengingat satu nasabah; hanya Super Admin yang boleh memanggilnya. */
 export const simpanPreferensiNasabah = mutation({
   args: {
     userId: v.id("users"),
@@ -111,57 +99,12 @@ export const simpanPreferensiNasabah = mutation({
   },
 });
 
-/** Preferensi pengingat WhatsApp milik pengguna yang sedang masuk. */
-export const preferensiSaya = query({
-  args: {},
-  handler: async (ctx) => {
-    const { userId, user } = await requireNasabahSendiri(ctx);
-    const { nomorWhatsapp } = await dataNasabah(ctx, userId);
-    const cfg = await getConfig(ctx);
-    return {
-      whatsapp: kanalAktif(user.notifWhatsapp),
-      efektifWhatsapp: kanalEfektif(cfg.notifWhatsappAktif, user.notifWhatsapp),
-      globalWhatsapp: cfg.notifWhatsappAktif,
-      nomorWhatsapp,
-    };
-  },
-});
-
-/**
- * Simpan preferensi pengingat WhatsApp milik sendiri.
- *
- * Nilai yang disimpan adalah preferensi nasabah, bukan keputusan admin. Admin
- * melihat nilai yang sama di panel nasabah dan tetap dapat menimpanya bila
- * perlu. Perubahan dicatat dengan aktor nasabah agar jejaknya tidak tertukar
- * dengan tindakan admin.
- */
-export const simpanPreferensiSaya = mutation({
-  args: { whatsapp: v.boolean() },
-  handler: async (ctx, { whatsapp }) => {
-    const { userId, user } = await requireNasabahSendiri(ctx);
-    const sebelum = kanalAktif(user.notifWhatsapp);
-    if (sebelum !== whatsapp) {
-      await ctx.db.patch(userId, { notifWhatsapp: whatsapp });
-      await audit(
-        ctx,
-        userId,
-        user.email ?? user.name ?? "nasabah",
-        "ubah_preferensi_notifikasi_saya",
-        `users:${userId}`,
-        `Pengingat WhatsApp: ${sebelum ? "aktif" : "nonaktif"} → ${
-          whatsapp ? "aktif" : "nonaktif"
-        }`,
-      );
-    }
-    return { whatsapp };
-  },
-});
-
 /**
  * Gerbang pengiriman efektif untuk satu nasabah dan satu kanal.
  *
  * Dipakai action cron lewat `runQuery`. Menggabungkan kebijakan global dengan
- * pengecualian nasabah; kanal yang dimatikan di level mana pun tidak dikirimi.
+ * pengaturan per nasabah yang ditetapkan Super Admin; kanal yang dimatikan di
+ * level mana pun tidak dikirimi.
  */
 export const _kanalAktif = internalQuery({
   args: {
