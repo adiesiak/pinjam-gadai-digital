@@ -209,12 +209,11 @@ export function PagePengembangan() {
             Melihat analitik, portofolio pendana, dan laporan transfer.
           </li>
         </ul>
+      </section>          <section className="space-y-3 text-sm text-muted-foreground">
+        <p>Halaman ini menjelaskan halaman, fitur, logika bisnis, alur peminjam, dan alur admin yang sudah ada di kode, dan akan diperbarui seiring fitur yang ada di kode.</p>
+        <p>Referensi cepat: <code className="text-navy">src/pages/dashboard/</code> untuk halaman peminjam, <code className="text-navy">src/pages/admin/</code> dan <code className="text-navy">src/components/admin/</code> untuk halaman dan komponen admin, serta <code className="text-navy">src/convex/</code> dan <code className="text-navy">src/lib/</code> untuk logika di sisi server dan utilitas.</p>
       </section>
 
-      <section className="space-y-3 text-sm text-muted-foreground">
-        <p>Halaman ini masih dalam pengerjaan. Content akan diperbarui seiring fitur yang ada di kode.</p>
-        <p>Referensi cepat: <code className="text-navy">src/pages/dashboard/</code> untuk halaman peminjam, <code className="text-navy">src/pages/admin/</code> dan <code className="text-navy">src/components/admin/</code> untuk halaman dan komponen admin, serta <code className="text-navy">src/convex/</code> dan <code className="text-navy">src/lib/</code> untuk logic di sisi server dan utilitas.</p>
-      </section>
     </section>
   );
 }
