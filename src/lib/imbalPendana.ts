@@ -51,6 +51,28 @@ export function totalPengembalianPendana(pokok: number): Rupiah {
   return pokok + imbalPendana(pokok);
 }
 
+/**
+ * Siklus hak pendana yang disimpan bersama setiap alokasi.
+ *
+ * Tiga angka ini sengaja dinamai seperti kontrak data: `periodDuration` dalam
+ * hari, `expectedReturnRate` dalam persen, dan `lenderProfit` dalam rupiah.
+ * Nilainya tidak pernah dibaca dari tenor atau bunga pinjaman nasabah.
+ */
+export type SiklusPendanaan = {
+  periodDuration: number;
+  expectedReturnRate: number;
+  lenderProfit: Rupiah;
+};
+
+/** Siklus fixed untuk satu nominal pendanaan. */
+export function siklusPendanaan(pokok: number): SiklusPendanaan {
+  return {
+    periodDuration: TENOR_PENDANA_HARI,
+    expectedReturnRate: PERSEN_IMBAL_PENDANA,
+    lenderProfit: imbalPendana(pokok),
+  };
+}
+
 export type BagiHasilPendana = {
   /** Imbal hasil bruto tetap (pokok × 30%). */
   imbal: Rupiah;

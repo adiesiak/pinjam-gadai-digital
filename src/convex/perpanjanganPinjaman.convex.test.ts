@@ -29,7 +29,7 @@ const HARI = 86_400_000;
 
 type JenisBukti = "pelunasan_total" | "bunga_saja" | "cicil_pokok";
 
-async function siapkan(t: ReturnType<typeof convexTest>) {
+async function siapkan(t: ReturnType<typeof convexTest>, persenBunga = 30) {
   const { sesi: admin } = await siapkanPengguna(t, "admin perpanjangan", {
     email: "admin-perpanjangan@pindai.test",
     role: "admin",
@@ -54,7 +54,7 @@ async function siapkan(t: ReturnType<typeof convexTest>) {
       status: "didanai",
       nomorReferensi: "PGD-PERPANJANGAN-UJI",
       tenorHari: 28,
-      persenBunga: 30,
+      persenBunga,
       didanaiPada: sekarang - 28 * HARI,
     });
     await ctx.db.insert("fundings", {
@@ -239,6 +239,64 @@ describe("pembayaran tingkat pinjaman", () => {
     const ledger3 = await totalLedger(t);
     expect(ledger3.rows.some((e) => e.eventType === "LOAN_REPAYMENT")).toBe(true);
     expect(ledger3.debit).toBe(ledger3.kredit);
+  });
+
+  it("memisahkan margin platform dari hak pendana yang tetap 30%", async () => {
+    const t = convexTest(schema, modules);
+    // Bunga nasabah 35%, sedangkan hak pendana tetap 30% × Rp1 juta.
+    const data = await siapkan(t, 35);
+    const bukti = await buatBukti(t, {
+      ...data,
+      paymentType: "pelunasan_total",
+      tanggalTransfer: data.sekarang,
+      nomorReferensi: "BUKTI-SPREAD-001",
+    });
+    expect(bukti.totalDue).toBe(1_350_000);
+
+    await data.admin.mutation(api.perpanjanganPinjaman.verifikasiPembayaranPinjaman, {
+      receiptId: bukti.receiptId,
+      keputusan: "terima",
+      referensiMutasi: "MUTASI-SPREAD-001",
+      jumlahMutasi: 1_350_000,
+    });
+
+    const hasil = await t.run(async (ctx) => {
+      const funding = await ctx.db
+        .query("fundings")
+        .withIndex("by_loan", (q) => q.eq("loanId", data.loanId))
+        .first();
+      const entries = await ctx.db.query("ledger_entries").collect();
+      return { funding, entries };
+    });
+
+    // Snapshot siklus pendana tetap 30 hari / 30%, tidak ikut bunga 35%.
+    expect(hasil.funding?.imbalHasil).toBe(300_000);
+    expect(hasil.funding?.lenderProfit).toBe(300_000);
+    expect(hasil.funding?.periodDuration).toBe(30);
+    expect(hasil.funding?.expectedReturnRate).toBe(30);
+
+    // Selisih 5% bunga nasabah masuk akun margin platform, bukan platform:FEE.
+    const spread = hasil.entries.filter((e) => e.akun === "PLATFORM_SPREAD_MARGIN");
+    expect(spread).toHaveLength(1);
+    expect(spread[0]).toMatchObject({ arah: "kredit", jumlah: 50_000 });
+    expect(spread[0].keterangan).toContain("bunga nasabah");
+
+    // Ringkasan admin membaca akun spread sebagai pendapatan platform.
+    const ringkasan = await data.admin.query(api.admin.ledgerSummary, {});
+    expect(ringkasan.pendapatanPlatform).toBe(115_000);
+
+    // Biaya layanan 5% tetap terpisah dari margin tenor.
+    const fee = hasil.entries.find(
+      (e) => e.akun === "platform:FEE" && e.jenis === "payout",
+    );
+    expect(fee).toMatchObject({ arah: "debit", jumlah: 65_000 });
+    const debit = hasil.entries
+      .filter((e) => e.arah === "debit")
+      .reduce((acc, e) => acc + e.jumlah, 0);
+    const kredit = hasil.entries
+      .filter((e) => e.arah === "kredit")
+      .reduce((acc, e) => acc + e.jumlah, 0);
+    expect(debit).toBe(kredit);
   });
 
   it("menolak nominal mutasi yang tidak sama dengan tagihan tanpa mengubah state", async () => {

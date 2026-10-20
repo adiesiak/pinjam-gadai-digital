@@ -1,8 +1,25 @@
 import { v } from "convex/values";
 import { MutationCtx, QueryCtx } from "./_generated/server";
+import { formatRupiah } from "../lib/money";
 
 /** Prefix akun dompet dana pada ledger, mis. `dana:WALLET:<userId>`. */
 export const PREFIX_AKUN_DANA = "dana:WALLET:";
+
+/**
+ * Akun pendapatan margin platform dari selisih bunga nasabah dan hak pendana.
+ *
+ * Dipisah dari `platform:FEE` supaya biaya layanan tidak tercampur dengan
+ * margin tenor. Nama akun sengaja huruf besar semua: ia akun internal, bukan
+ * akun dompet pengguna.
+ */
+export const AKUN_PLATFORM_SPREAD = "PLATFORM_SPREAD_MARGIN";
+
+/**
+ * Akun penampung selisih pokok saat settlement. Bukan pendapatan platform:
+ * ia hanya memisahkan pengembalian pokok yang sudah diterima lebih dulu dari
+ * margin tenor, supaya `platform:FEE` tidak menyerap angka pokok.
+ */
+export const AKUN_PLATFORM_PRINCIPAL_CLEARING = "platform:PRINCIPAL_CLEARING";
 
 /** Nama akun ledger dompet dana untuk satu pengguna. */
 export function akunDompetDana(id: string): string {
@@ -17,7 +34,7 @@ export function akunDompetDana(id: string): string {
  */
 
 export interface JournalLine {
-  /** dompet dana ("dana:WALLET:<id>") | "pinjaman:<id>" | "platform:FEE" */
+  /** dompet dana ("dana:WALLET:<id>") | "pinjaman:<id>" | akun platform */
   akun: string;
   arah: "debit" | "kredit";
   jumlah: number;
@@ -36,7 +53,15 @@ export type EventTypeLedger =
   | "LOAN_REPAYMENT";
 
 export interface JournalSpec {
-  jenis: "deposit" | "disbursement" | "platform_fee" | "repayment" | "payout" | "withdrawal";
+  jenis:
+    | "deposit"
+    | "disbursement"
+    | "platform_fee"
+    | "platform_spread"
+    | "principal_adjustment"
+    | "repayment"
+    | "payout"
+    | "withdrawal";
   keterangan: string;
   aktor: string;
   lines: JournalLine[];
@@ -54,6 +79,51 @@ function assertIntegerRupiah(n: number, label: string) {
 
 export function newGroupId(): string {
   return `J-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Catat margin platform dari satu settlement pinjaman.
+ *
+ * `margin` = bunga yang benar-benar menjadi pendapatan nasabah dikurangi hak
+ * pendana (30% nominal pendanaan). Nilai positif menambah pendapatan platform;
+ * nilai negatif berarti platform menutup kekurangan, jadi akun spread berada di
+ * sisi debit. Akun lawannya adalah `pinjaman:<id>` — sama seperti jurnal
+ * penyesuaian settlement lain — sehingga jurnal tetap seimbang tanpa menyentuh
+ * dompet pendana.
+ *
+ * Nol tidak menulis jurnal: pinjaman berbunga tepat 30% memang tidak punya
+ * margin spread, dan entri nol hanya akan mengotori audit.
+ */
+export async function catatMarginSpread(
+  ctx: MutationCtx,
+  args: {
+    loanId: string;
+    referensi: string;
+    margin: number;
+    bungaNasabah: number;
+    hakPendana: number;
+  },
+): Promise<void> {
+  if (args.margin === 0) return;
+  const jumlah = Math.abs(args.margin);
+  await appendJournal(ctx, {
+    jenis: "platform_spread",
+    skema: "pinjaman",
+    keterangan: `Margin spread platform ${args.referensi}: bunga nasabah ${formatRupiah(
+      args.bungaNasabah,
+    )} - hak pendana ${formatRupiah(args.hakPendana)} = ${formatRupiah(args.margin)}`,
+    aktor: "platform",
+    lines:
+      args.margin > 0
+        ? [
+            { akun: `pinjaman:${args.loanId}`, arah: "debit", jumlah },
+            { akun: AKUN_PLATFORM_SPREAD, arah: "kredit", jumlah },
+          ]
+        : [
+            { akun: AKUN_PLATFORM_SPREAD, arah: "debit", jumlah },
+            { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah },
+          ],
+  });
 }
 
 /**

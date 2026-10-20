@@ -16,7 +16,8 @@ import {
   type AngsuranTampil,
   type RingkasanAngsuran,
 } from "../lib/angsuran";
-import { akunDompetDana, appendJournal } from "./ledger";
+import { akunDompetDana, appendJournal, catatMarginSpread } from "./ledger";
+import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah } from "../lib/money";
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
 import { audit, getConfig, tarifDendaBerlaku } from "./system";
@@ -259,12 +260,15 @@ async function distribusikanKePendana(
     );
   }
 
+  // Hak pendana TETAP 30% dari alokasinya, bukan porsi bunga bulanan nasabah.
+  // Kelebihan atau kekurangan bunga menjadi margin platform dan dicatat ke
+  // akun spread tersendiri setelah pembayaran pendana.
   const imbalBagian = aktif.map((f) => ({
     funding: f,
-    imbal: Math.floor((totalImbal * f.jumlahAlokasi) / totalPokok),
+    imbal: imbalPendana(f.jumlahAlokasi),
   }));
-  const dust = totalImbal - imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
-  imbalBagian[0].imbal += dust;
+  const totalImbalPendana = imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
+  const marginSpread = totalImbal - totalImbalPendana;
 
   let terdistribusi = 0;
   let totalPotongan = 0;
@@ -294,6 +298,8 @@ async function distribusikanKePendana(
       ],
     });
     await ctx.db.patch(f._id, {
+      imbalHasil: imbal,
+      ...siklusPendanaan(f.jumlahAlokasi),
       potonganAdmin,
       imbalHasilNet: imbalBersih,
       diselesaikanPada: selesaiPada,
@@ -307,9 +313,18 @@ async function distribusikanKePendana(
     (acc, x) => acc + x.funding.jumlahAlokasi + x.imbal,
     0,
   );
-  if (terdistribusi + totalPotongan !== totalBruto) {
+  // Kas yang sudah diterima = pokok + bunga seluruh angsuran. Yang dibayarkan
+  // ke pendana = totalBruto; selisihnya tepat margin spread platform.
+  if (terdistribusi + totalPotongan + marginSpread !== totalPokok + totalImbal) {
     throw new Error("Pembagian angsuran ke penyedia dana tidak seimbang. Transaksi dibatalkan.");
   }
+  await catatMarginSpread(ctx, {
+    loanId: loan._id,
+    referensi: loan.nomorReferensi,
+    margin: marginSpread,
+    bungaNasabah: totalImbal,
+    hakPendana: totalImbalPendana,
+  });
 }
 
 /**

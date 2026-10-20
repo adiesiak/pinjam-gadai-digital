@@ -1695,6 +1695,15 @@ const schema = defineSchema(
       jumlahAlokasi: v.number(),
       /** Rupiah bulat — hak Imbal Hasil pendana (30% dari bagian pokok). */
       imbalHasil: v.number(),
+      /**
+       * Siklus fixed hak pendana — disimpan sebagai snapshot bersama alokasi.
+       * Tidak pernah diturunkan dari tenor/bunga pinjaman nasabah, sehingga
+       * perpanjangan atau pelunasan awal tidak mengubah angka ini. Kolom
+       * opsional demi baris lama; alokasi baru selalu mengisinya.
+       */
+      periodDuration: v.optional(v.number()),
+      expectedReturnRate: v.optional(v.number()),
+      lenderProfit: v.optional(v.number()),
       status: v.union(
         v.literal("dialokasikan"),
         v.literal("selesai"),

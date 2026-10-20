@@ -13,9 +13,14 @@ import { internal } from "./_generated/api";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireAdminRole, requireAdminSession } from "./adminAuthz";
 import { pastikanAngsuran } from "./angsuranJadwal";
-import { akunDompetDana, appendJournal } from "./ledger";
+import {
+  AKUN_PLATFORM_PRINCIPAL_CLEARING,
+  akunDompetDana,
+  appendJournal,
+  catatMarginSpread,
+} from "./ledger";
 import { bagiImbalHasil } from "../lib/bagiHasil";
-import { imbalPendana } from "../lib/imbalPendana";
+import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { quotePinjaman } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import { audit, getConfig } from "./system";
@@ -384,6 +389,13 @@ async function catatPelunasanTotal(
     (acc, x) => acc + x.funding.jumlahAlokasi + x.imbal,
     0,
   );
+  const totalImbalPendana = bagian.reduce((acc, x) => acc + x.imbal, 0);
+  // Bunga yang sudah dibayar pada periode sebelumnya ikut dihitung: margin
+  // platform adalah total bunga nasabah sepanjang umur pinjaman dikurangi hak
+  // pendana yang tetap. Tanpa `bungaTerbayar`, perpanjangan akan menghapus
+  // margin dari periode yang sudah lewat.
+  const totalBungaNasabah = (loan.bungaTerbayar ?? 0) + rencana.interestDue;
+  const marginSpread = totalBungaNasabah - totalImbalPendana;
 
   let terdistribusi = 0;
   let totalPotongan = 0;
@@ -414,6 +426,7 @@ async function catatPelunasanTotal(
     });
     await ctx.db.patch(funding._id, {
       imbalHasil: imbal,
+      ...siklusPendanaan(funding.jumlahAlokasi),
       potonganAdmin,
       imbalHasilNet: imbalBersih,
       diselesaikanPada: receipt.tanggalTransfer,
@@ -425,21 +438,40 @@ async function catatPelunasanTotal(
 
   const kasPeminjam = rencana.principalSebelum + rencana.interestDue;
   const selisihHak = kasPeminjam - totalHakPendana;
-  if (selisihHak !== 0) {
+  await catatMarginSpread(ctx, {
+    loanId: loan._id,
+    referensi: loan.nomorReferensi,
+    margin: marginSpread,
+    bungaNasabah: totalBungaNasabah,
+    hakPendana: totalImbalPendana,
+  });
+  // Selisih yang tersisa berasal dari pokok yang sudah dicicil lebih dulu atau
+  // dari bunga periode lama yang sudah masuk ke kas. Itu penyesuaian pokok,
+  // bukan margin tenor, jadi tidak boleh dicampur ke akun spread.
+  const penyesuaianPokok = selisihHak - marginSpread;
+  if (penyesuaianPokok !== 0) {
     await appendJournal(ctx, {
-      jenis: "platform_fee",
+      jenis: "principal_adjustment",
       skema: "pinjaman",
-      keterangan: `Selisih hak pendana tetap ${loan.nomorReferensi}`,
+      keterangan: `Penyesuaian pokok/bunga periode sebelumnya ${loan.nomorReferensi}`,
       aktor: "platform",
       lines:
-        selisihHak > 0
+        penyesuaianPokok > 0
           ? [
-              { akun: `pinjaman:${loan._id}`, arah: "debit", jumlah: selisihHak },
-              { akun: "platform:FEE", arah: "kredit", jumlah: selisihHak },
+              { akun: `pinjaman:${loan._id}`, arah: "debit", jumlah: penyesuaianPokok },
+              {
+                akun: AKUN_PLATFORM_PRINCIPAL_CLEARING,
+                arah: "kredit",
+                jumlah: penyesuaianPokok,
+              },
             ]
           : [
-              { akun: "platform:FEE", arah: "debit", jumlah: -selisihHak },
-              { akun: `pinjaman:${loan._id}`, arah: "kredit", jumlah: -selisihHak },
+              {
+                akun: AKUN_PLATFORM_PRINCIPAL_CLEARING,
+                arah: "debit",
+                jumlah: -penyesuaianPokok,
+              },
+              { akun: `pinjaman:${loan._id}`, arah: "kredit", jumlah: -penyesuaianPokok },
             ],
     });
   }

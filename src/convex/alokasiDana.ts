@@ -23,6 +23,7 @@ import {
   PERSEN_IMBAL_PENDANA,
   TENOR_PENDANA_HARI,
   imbalPendana,
+  siklusPendanaan,
   statusPendanaan as labelStatusPendanaan,
 } from "../lib/imbalPendana";
 import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
@@ -522,13 +523,14 @@ export const allocateFunding = mutation({
     // 4. Tulis posisi alokasi. Imbal Hasil pendana TETAP: 30% dari nominal
     //    alokasi untuk siklus 30 hari, tidak diturunkan dari tenor/bunga nasabah.
     //    Snapshot ini yang menjadi hak pendana sampai pelunasan.
-    const imbalHasil = imbalPendana(args.jumlah);
+    const siklus = siklusPendanaan(args.jumlah);
     const fndRef = referenceNumber("FND");
     await ctx.db.insert("fundings", {
       loanId: args.loanId,
       danaId: userId,
       jumlahAlokasi: args.jumlah,
-      imbalHasil,
+      imbalHasil: siklus.lenderProfit,
+      ...siklus,
       status: "dialokasikan",
       nomorReferensi: fndRef,
     });
@@ -602,8 +604,18 @@ export const allocateFunding = mutation({
         .collect();
       const aktif = fundingsTerbaru.filter((x) => x.status === "dialokasikan");
       for (const f of aktif) {
-        const hak = imbalPendana(f.jumlahAlokasi);
-        if (f.imbalHasil !== hak) await ctx.db.patch(f._id, { imbalHasil: hak });
+        const siklus = siklusPendanaan(f.jumlahAlokasi);
+        if (
+          f.imbalHasil !== siklus.lenderProfit ||
+          f.periodDuration !== siklus.periodDuration ||
+          f.expectedReturnRate !== siklus.expectedReturnRate ||
+          f.lenderProfit !== siklus.lenderProfit
+        ) {
+          await ctx.db.patch(f._id, {
+            imbalHasil: siklus.lenderProfit,
+            ...siklus,
+          });
+        }
       }
 
       await ctx.db.patch(loan._id, { status: "didanai", didanaiPada: now });
@@ -758,6 +770,7 @@ export const myPortfolio = query({
         // Hak pendana selalu dihitung dari pokok alokasi, bukan dari tenor atau
         // bunga pinjaman yang bisa berubah karena perpanjangan/cicil pokok.
         imbalHasil: imbalPendana(meta.jumlahAlokasi),
+        ...siklusPendanaan(meta.jumlahAlokasi),
         tenorPendanaHari: TENOR_PENDANA_HARI,
         persenImbalPendana: PERSEN_IMBAL_PENDANA,
         statusPendanaan: labelStatusPendanaan(meta.statusAlokasi, loan.status),
@@ -869,6 +882,7 @@ export const myFundingContracts = query({
         tujuan: loan.tujuan,
         jumlahAlokasi: meta.jumlahAlokasi,
         imbalHasil: imbalPendana(meta.jumlahAlokasi),
+        ...siklusPendanaan(meta.jumlahAlokasi),
         tenorPendanaHari: TENOR_PENDANA_HARI,
         persenImbalPendana: PERSEN_IMBAL_PENDANA,
         statusPendanaan: labelStatusPendanaan(meta.statusAlokasi, loan.status),

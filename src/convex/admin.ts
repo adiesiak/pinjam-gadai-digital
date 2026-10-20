@@ -11,7 +11,7 @@ import {
   simulasiBulananPinjaman,
 } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
-import { ledgerTotals, appendJournal } from "./ledger";
+import { AKUN_PLATFORM_SPREAD, ledgerTotals, appendJournal } from "./ledger";
 import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { namaHurufBesar, namaTampil } from "../lib/nama";
@@ -1433,30 +1433,37 @@ export const rejectDeposit = mutation({
 });
 
 /**
- * Apakah satu baris ledger termasuk pendapatan platform yang diakui?
+ * Nilai pendapatan platform dari satu baris ledger.
  *
- * Dua jenis jurnal menulis ke akun `platform:FEE`:
- *  - `platform_fee` — biaya yang dipotong platform: potongan di muka pinjaman
- *    (2%), potongan muka 1% + sewa modal gadai, dan biaya layanan kredit;
- *  - `payout` — potongan admin atas Imbal Hasil penyedia dana, dibukukan saat
- *    pelunasan pinjaman. Uang ini juga benar-benar masuk kas platform, jadi ikut
- *    dihitung; sebelum ini ia terlewat, sehingga kartu "Pendapatan tercatat"
- *    selalu lebih kecil daripada saldo akun platform:FEE.
+ * `platform:FEE` adalah biaya layanan: potongan di muka, biaya cicilan, dan
+ * potongan admin saat payout. `PLATFORM_SPREAD_MARGIN` adalah margin tenor:
+ * bunga nasabah dikurangi hak pendana 30%. Margin negatif (bunga nasabah di
+ * bawah 30%) mengurangi pendapatan, jadi arah debit dihitung negatif — beda
+ * dari FEE yang selama ini mencatat nominal apa adanya.
  *
- * Denda keterlambatan (jenis `repayment`) sengaja TIDAK dihitung: kartu ini
- * melaporkan pendapatan jasa platform, sedangkan denda adalah sanksi ke
- * Peminjam yang dicatat terpisah.
+ * Denda keterlambatan (jenis `repayment`) tidak dihitung: kartu ini melaporkan
+ * pendapatan jasa platform, sedangkan denda adalah sanksi terpisah.
  */
-function pendapatanPlatformEntry(e: { jenis: string; akun: string }): boolean {
-  if (e.akun !== "platform:FEE") return false;
-  return e.jenis === "platform_fee" || e.jenis === "payout";
+function nilaiPendapatanPlatform(e: {
+  jenis: string;
+  akun: string;
+  arah: "debit" | "kredit";
+  jumlah: number;
+}): number {
+  if (e.akun === "platform:FEE") {
+    return e.jenis === "platform_fee" || e.jenis === "payout" ? e.jumlah : 0;
+  }
+  if (e.akun === AKUN_PLATFORM_SPREAD) {
+    return e.arah === "kredit" ? e.jumlah : -e.jumlah;
+  }
+  return 0;
 }
 
 /**
  * Ringkasan ledger untuk kartu kesehatan sistem di panel admin.
- * `pendapatanPlatform` = total entri pendapatan platform pada akun platform:FEE
- * (lihat `pendapatanPlatformEntry`; debit maupun kredit — sewa modal gadai
- * dibayar dari arah kredit); `rincianSkema` memecahnya per lini usaha.
+ * `pendapatanPlatform` = total pendapatan platform dari `platform:FEE` dan
+ * `PLATFORM_SPREAD_MARGIN` (lihat `nilaiPendapatanPlatform`); `rincianSkema`
+ * memecahnya per lini usaha.
  */
 export const ledgerSummary = query({
   args: {},
@@ -1479,14 +1486,15 @@ export const ledgerSummary = query({
     };
     let pendapatanPlatform = 0;
     for (const e of entries) {
-      // Setiap jurnal pendapatan menyentuh platform:FEE tepat satu kali; jumlah
-      // baris itulah pendapatan yang diakui — arahnya bisa debit (biaya dipotong
-      // ke platform) atau kredit (sewa modal dibayar dari akun gadai:
-      // D gadai:<id> / K platform:FEE). Keduanya dihitung.
-      if (!pendapatanPlatformEntry(e)) {
+      // Satu jurnal pendapatan menyentuh akun platform satu kali. Untuk FEE,
+      // arah debit maupun kredit sama-sama pendapatan (biaya dipotong / sewa
+      // modal dibayar). Untuk margin spread, debit berarti platform menutup
+      // kekurangan, jadi nilainya negatif.
+      const nilaiPendapatan = nilaiPendapatanPlatform(e);
+      if (nilaiPendapatan === 0) {
         continue;
       }
-      pendapatanPlatform += e.jumlah;
+      pendapatanPlatform += nilaiPendapatan;
       // Klasifikasi dari keterangan jurnal yang ditulis saat penerimaan:
       //  - "Biaya admin & platform <REF>" (pinjaman tunai)
       //  - "Potongan muka 1% gadai <REF>" / "Sewa modal <REF>" (gadai)
@@ -1511,13 +1519,13 @@ export const ledgerSummary = query({
         (e.skema === "pinjaman" ||
           (e.skema === undefined && (ket.includes("biaya admin") || ket.includes("pinjaman"))));
       if (kredit) {
-        rincianSkema.kredit += e.jumlah;
+        rincianSkema.kredit += nilaiPendapatan;
       } else if (gadai) {
-        rincianSkema.gadai += e.jumlah;
+        rincianSkema.gadai += nilaiPendapatan;
       } else if (pinjaman) {
-        rincianSkema.pinjaman += e.jumlah;
+        rincianSkema.pinjaman += nilaiPendapatan;
       } else {
-        rincianSkema.lainnya += e.jumlah;
+        rincianSkema.lainnya += nilaiPendapatan;
       }
     }
     return { ...totals, pendapatanPlatform, rincianSkema };
@@ -1527,7 +1535,7 @@ export const ledgerSummary = query({
 /**
  * Tren pendapatan platform per bulan kalender (WIB) — 12 bulan terakhir,
  * tertua → terbaru. Bulan tanpa transaksi tetap muncul dengan nilai 0.
- * Sumber: entri pendapatan platform (`pendapatanPlatformEntry`, sumber sama
+ * Sumber: entri pendapatan platform (`nilaiPendapatanPlatform`, sumber sama
  * dengan ledgerSummary), sehingga Σ semua bulan = pendapatanPlatform.
  */
 
@@ -1595,9 +1603,10 @@ export const trenPendapatanBulanan = query({
     // Kumpulkan pendapatan per kunci bulan.
     const perBulan = new Map<string, number>();
     for (const e of entries) {
-      if (!pendapatanPlatformEntry(e)) continue;
+      const nilaiPendapatan = nilaiPendapatanPlatform(e);
+      if (nilaiPendapatan === 0) continue;
       const kunci = kunciBulan(e.waktu);
-      perBulan.set(kunci, (perBulan.get(kunci) ?? 0) + e.jumlah);
+      perBulan.set(kunci, (perBulan.get(kunci) ?? 0) + nilaiPendapatan);
     }
 
     // 12 bulan kalender terakhir (bulan ini termasuk), tertua lebih dulu.

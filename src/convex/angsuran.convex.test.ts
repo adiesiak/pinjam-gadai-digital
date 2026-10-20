@@ -155,6 +155,16 @@ describe("verifikasi bukti angsuran", () => {
       repayment.find((e) => e.akun === "platform:FEE"),
     ).toMatchObject({ arah: "kredit", jumlah: 24_000 });
 
+    // Bunga angsuran 20% (Rp200.000) lebih kecil daripada hak pendana tetap
+    // 30% (Rp300.000), jadi platform menanggung selisih Rp100.000 sebagai
+    // margin spread negatif — bukan menurunkan hak pendana.
+    const spread = hasil.entries.find((e) => e.akun === "PLATFORM_SPREAD_MARGIN");
+    expect(spread).toMatchObject({ arah: "debit", jumlah: 100_000 });
+    const biayaPendana = hasil.entries.find(
+      (e) => e.akun === "platform:FEE" && e.jenis === "payout",
+    );
+    expect(biayaPendana).toMatchObject({ arah: "debit", jumlah: 65_000 });
+
     const debit = hasil.entries
       .filter((e) => e.arah === "debit")
       .reduce((acc, e) => acc + e.jumlah, 0);

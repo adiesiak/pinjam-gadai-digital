@@ -47,11 +47,16 @@ import {
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
 import { bagiImbalHasil } from "../lib/bagiHasil";
-import { imbalPendana } from "../lib/imbalPendana";
+import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
-import { akunDompetDana, appendJournal } from "./ledger";
+import {
+  AKUN_PLATFORM_PRINCIPAL_CLEARING,
+  akunDompetDana,
+  appendJournal,
+  catatMarginSpread,
+} from "./ledger";
 import { getConfig, audit, tarifDendaBerlaku } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { requireAdminSession } from "./adminAuthz";
@@ -2078,6 +2083,9 @@ export const repayLoan = mutation({
       (acc, x) => acc + x.funding.jumlahAlokasi + x.imbal,
       0,
     );
+    const totalImbalPendana = imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
+    const totalBungaNasabah = totalKewajibanDana - loan.pokokPinjaman;
+    const marginSpread = totalBungaNasabah - totalImbalPendana;
 
     let terdistribusi = 0;
     let totalPotonganAdmin = 0;
@@ -2121,31 +2129,50 @@ export const repayLoan = mutation({
       // Cap bukti audit: berapa bruto, berapa dipotong, berapa dibayarkan.
       await ctx.db.patch(f._id, {
         imbalHasil: imbal,
+        ...siklusPendanaan(f.jumlahAlokasi),
         potonganAdmin,
         imbalHasilNet: imbalBersih,
         diselesaikanPada: now,
       });
     }
 
-    // Selisih antara kas yang dibayar peminjam dan hak tetap pendana menjadi
-    // pendapatan platform (positif) atau penutup kekurangan (negatif). Jurnal
-    // tetap seimbang dan akun pinjaman kembali nol.
+    // Bunga nasabah di atas kewajiban 30% pendana adalah margin platform,
+    // bukan bagian hak pendana. Ia dicatat ke akun tersendiri supaya biaya
+    // layanan (`platform:FEE`) dan margin tenor tidak tertukar. Sisa selisih
+    // (bila alokasi warisan tidak sama dengan pokok pinjaman) tetap menjadi
+    // penyesuaian pokok di platform:FEE.
     const selisihHak = totalKewajibanDana - totalHakPendana;
-    if (selisihHak !== 0) {
+    await catatMarginSpread(ctx, {
+      loanId: args.loanId,
+      referensi: loan.nomorReferensi,
+      margin: marginSpread,
+      bungaNasabah: totalBungaNasabah,
+      hakPendana: totalImbalPendana,
+    });
+    const penyesuaianPokok = selisihHak - marginSpread;
+    if (penyesuaianPokok !== 0) {
       await appendJournal(ctx, {
-        jenis: "platform_fee",
+        jenis: "principal_adjustment",
         skema: "pinjaman",
-        keterangan: `Selisih hak pendana tetap ${loan.nomorReferensi}`,
+        keterangan: `Penyesuaian pokok pendanaan ${loan.nomorReferensi}`,
         aktor: "platform",
         lines:
-          selisihHak > 0
+          penyesuaianPokok > 0
             ? [
-                { akun: `pinjaman:${args.loanId}`, arah: "debit", jumlah: selisihHak },
-                { akun: "platform:FEE", arah: "kredit", jumlah: selisihHak },
+                { akun: `pinjaman:${args.loanId}`, arah: "debit", jumlah: penyesuaianPokok },
+                {
+                  akun: AKUN_PLATFORM_PRINCIPAL_CLEARING,
+                  arah: "kredit",
+                  jumlah: penyesuaianPokok,
+                },
               ]
             : [
-                { akun: "platform:FEE", arah: "debit", jumlah: -selisihHak },
-                { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: -selisihHak },
+                {
+                  akun: AKUN_PLATFORM_PRINCIPAL_CLEARING,
+                  arah: "debit",
+                  jumlah: -penyesuaianPokok,
+                },
+                { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: -penyesuaianPokok },
               ],
       });
     }
