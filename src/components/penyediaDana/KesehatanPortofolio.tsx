@@ -93,7 +93,7 @@ export function KesehatanPortofolio({ angka }: { angka: AngkaKesehatanPortofolio
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <KartuKesehatan
-          label="Jatuh tempo 7 hari"
+          label="Jatuh tempo ≤7 hari"
           nilai={`${jatuhTempoSegera.jumlah} pinjaman`}
           catatan={`${formatRupiah(jatuhTempoSegera.nominal)} pokok akan jatuh tempo`}
           icon={<CalendarClock className="size-3.5" />}

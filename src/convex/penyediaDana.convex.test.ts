@@ -20,7 +20,10 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { hitungSimulasiBulanan } from "../lib/bulanan";
+import {
+  imbalPendana,
+  totalPengembalianPendana,
+} from "../lib/imbalPendana";
 import { akunDompetDana } from "./ledger";
 import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import { BATAS_BARIS } from "./penyediaDana";
@@ -1822,7 +1825,7 @@ describe("kelola penyedia dana (panel admin)", () => {
     expect(lunas?.keuntunganPendana).toBe(235_000);
   });
 
-  it("menghitung pinjaman bulanan dari tenor penuhnya, bukan satu bulan bunga", async () => {
+  it("memakai skema pendana tetap meski pinjaman nasabah bulanan", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "admin", {
       email: "admin@pindai.test",
@@ -1838,9 +1841,8 @@ describe("kelola penyedia dana (panel admin)", () => {
     });
     const { loanId } = await seedPengajuan(t, peminjamId);
 
-    // Pinjaman skema bulanan 3 bulan (bunga 10%/bulan). Angka panel harus memakai
-    // total Imbal Hasil selama tenor — memakai satu bulan membuat nominal yang
-    // dicatat admin untuk penyedia dana berbeda dari yang dibukukan ledger.
+    // Pinjaman skema bulanan 3 bulan (bunga 10%/bulan). Hak pendana TIDAK
+    // mengikuti tenor/bunga nasabah: tetap 30% dari pokok untuk siklus 30 hari.
     await t.run(async (ctx) => {
       await ctx.db.patch(loanId, {
         status: "didanai",
@@ -1853,28 +1855,24 @@ describe("kelola penyedia dana (panel admin)", () => {
       });
     });
 
-    const simulasi = hitungSimulasiBulanan(2_000_000, 3, { persenBungaPerBulan: 10 });
-    // Dasar potongan = UANG YANG KEMBALI (pokok + Imbal Hasil selama tenor).
-    // Biaya admin cicilan sudah menjadi pendapatan platform (dibukukan sebagai
-    // platform_fee), jadi tidak ikut dipotong.
-    const dasarPotongan =
-      simulasi.totalPengembalian - simulasi.biayaAdminCicilanTotal;
-    const potonganAdmin = Math.floor((dasarPotongan * 5) / 100);
-    expect(dasarPotongan).toBe(2_000_000 + simulasi.bungaTotal);
-    expect(dasarPotongan).toBe(2_600_000);
+    const imbal = imbalPendana(2_000_000);
+    const total = totalPengembalianPendana(2_000_000);
+    const potonganAdmin = Math.floor((total * 5) / 100);
+    expect(imbal).toBe(600_000);
+    expect(total).toBe(2_600_000);
     expect(potonganAdmin).toBe(130_000);
 
     const rincian = await admin.query(api.penyediaDana.rincianInvestor, {
       userId: penyediaId,
     });
     const baris = rincian?.pinjaman.find((p) => p.referensi === "PGD-UJI-1");
-    expect(baris?.bunga).toBe(simulasi.bungaTotal);
-    expect(baris?.totalLunas).toBe(simulasi.totalPengembalian);
+    expect(baris?.bunga).toBe(imbal);
+    expect(baris?.totalLunas).toBe(total);
+    expect(baris?.tenorPendanaHari).toBe(30);
+    expect(baris?.persenImbalPendana).toBe(30);
     expect(baris?.potonganAdmin).toBe(potonganAdmin);
-    expect(baris?.keuntunganPendana).toBe(simulasi.bungaTotal - potonganAdmin);
+    expect(baris?.keuntunganPendana).toBe(imbal - potonganAdmin);
     expect(baris?.keuntunganPendana).toBe(470_000);
-    // Bunga satu bulan jauh lebih kecil — inilah angka yang dulu tampil.
-    expect(baris?.bunga).toBeGreaterThan(simulasi.bungaPerBulan);
   });
 
   it("menyembunyikan akun peran lama tanpa jejak dana dan tanpa email", async () => {

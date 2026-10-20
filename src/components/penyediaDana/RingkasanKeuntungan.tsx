@@ -134,6 +134,8 @@ export function RingkasanKeuntungan({
       </div>
 
       <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+        Imbal Hasil pendana dihitung <strong>tetap 30%</strong> dari pokok untuk siklus
+        <strong> 30 hari</strong>; perpanjangan atau cicil pokok nasabah tidak mengubah angkanya.
         Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas. Biaya
         platform (layanan) {formatRupiah(ringkasan.totalKeuntunganAdmin)} (dibukukan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}

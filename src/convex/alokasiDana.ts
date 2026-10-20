@@ -19,7 +19,12 @@ import { formatRupiah, type Rupiah } from "../lib/money";
 import { kodeTanggalWIB } from "../lib/waktu";
 import { hitungBiayaPencairan } from "../lib/withdrawal";
 import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
-import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
+import {
+  PERSEN_IMBAL_PENDANA,
+  TENOR_PENDANA_HARI,
+  imbalPendana,
+  statusPendanaan as labelStatusPendanaan,
+} from "../lib/imbalPendana";
 import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
 import { getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
@@ -447,6 +452,10 @@ export const marketplace = query({
         sisaKebutuhan: loan.pokokPinjaman - terkumpul,
         danaBersih: ringkas.danaDiterimaPeminjam,
         bunga: ringkas.imbalHasilTotal,
+        // Proyeksi pendana memakai skema tetap, bukan tenor/bunga nasabah.
+        tenorPendanaHari: TENOR_PENDANA_HARI,
+        persenImbalPendana: PERSEN_IMBAL_PENDANA,
+        imbalPendana: imbalPendana(loan.pokokPinjaman),
         _creationTime: loan._creationTime,
       });
     }
@@ -510,12 +519,10 @@ export const allocateFunding = mutation({
       );
     }
 
-    // 4. Tulis posisi alokasi. Imbal Hasil = porsi proporsional dari total hak
-    //    penyedia dana pinjaman ini (harian: 30% pokok; bulanan: Σ bunga bulanan).
-    const ringkas = ringkasPinjaman(loan);
-    const imbalHasil = ringkas.imbalHasilTotal > 0
-      ? Math.floor((ringkas.imbalHasilTotal * args.jumlah) / loan.pokokPinjaman)
-      : 0;
+    // 4. Tulis posisi alokasi. Imbal Hasil pendana TETAP: 30% dari nominal
+    //    alokasi untuk siklus 30 hari, tidak diturunkan dari tenor/bunga nasabah.
+    //    Snapshot ini yang menjadi hak pendana sampai pelunasan.
+    const imbalHasil = imbalPendana(args.jumlah);
     const fndRef = referenceNumber("FND");
     await ctx.db.insert("fundings", {
       loanId: args.loanId,
@@ -584,29 +591,19 @@ export const allocateFunding = mutation({
         ],
       });
 
-      // Hak Imbal Hasil tiap penyedia dana: proporsional alokasi dengan alokasi
-      // terbesar menyerap dust pembulatan — SAMA PERSIS dengan distribusi saat
-      // pelunasan (lihat repayLoan di convex/loans.ts).
-      // Baca ulang alokasi dari DB — snapshot lama tidak memuat baris yang
-      // baru di-insert mutation ini (bug yang sama dengan kredit barang).
+      // Hak Imbal Hasil tiap penyedia dana memakai skema TETAP per alokasi
+      // (pokok alokasi × 30%), bukan porsi bunga nasabah. Dengan begitu
+      // perpanjangan atau cicil pokok di sisi peminjam tidak mengubah catatan
+      // hak pendana. Baca ulang alokasi dari DB — snapshot lama tidak memuat
+      // baris yang baru di-insert mutation ini.
       const fundingsTerbaru = await ctx.db
         .query("fundings")
         .withIndex("by_loan", (q2) => q2.eq("loanId", loan._id))
         .collect();
-      const aktif = fundingsTerbaru
-        .filter((x) => x.status === "dialokasikan")
-        .sort(
-          (a, b) =>
-            b.jumlahAlokasi - a.jumlahAlokasi ||
-            a.nomorReferensi.localeCompare(b.nomorReferensi),
-        );
-      const hak = hakImbalHasilPerAlokasi(
-        ringkasPenuh.imbalHasilTotal,
-        loan.pokokPinjaman,
-        aktif.map((f) => f.jumlahAlokasi),
-      );
-      for (let i = 0; i < aktif.length; i += 1) {
-        await ctx.db.patch(aktif[i]._id, { imbalHasil: hak[i] });
+      const aktif = fundingsTerbaru.filter((x) => x.status === "dialokasikan");
+      for (const f of aktif) {
+        const hak = imbalPendana(f.jumlahAlokasi);
+        if (f.imbalHasil !== hak) await ctx.db.patch(f._id, { imbalHasil: hak });
       }
 
       await ctx.db.patch(loan._id, { status: "didanai", didanaiPada: now });
@@ -758,7 +755,12 @@ export const myPortfolio = query({
         tujuan: loan.tujuan,
         pokokPinjaman: loan.pokokPinjaman,
         jumlahAlokasi: meta.jumlahAlokasi,
-        imbalHasil: meta.imbalHasil,
+        // Hak pendana selalu dihitung dari pokok alokasi, bukan dari tenor atau
+        // bunga pinjaman yang bisa berubah karena perpanjangan/cicil pokok.
+        imbalHasil: imbalPendana(meta.jumlahAlokasi),
+        tenorPendanaHari: TENOR_PENDANA_HARI,
+        persenImbalPendana: PERSEN_IMBAL_PENDANA,
+        statusPendanaan: labelStatusPendanaan(meta.statusAlokasi, loan.status),
         statusAlokasi: meta.statusAlokasi,
         statusPinjaman: loan.status,
         statusPelunasan,
@@ -816,9 +818,9 @@ export const myPortfolio = query({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
         jumlahAlokasi: loan.pokokPinjaman,
-        // Estimasi dari kebijakan yang berlaku sekarang (sama seperti ruang
-        // penyedia dana): model baru tidak menyimpan imbal hasil per alokasi.
-        imbalHasil: cobaBagi(loan, cfg.persenBunga, cfg.persenAdmin)?.keuntunganPendana ?? 0,
+        // Model 1 pinjaman = 1 pendana tidak menyimpan baris alokasi; haknya
+        // tetap memakai skema tetap dari pokok pinjaman.
+        imbalHasil: imbalPendana(loan.pokokPinjaman),
         statusAlokasi: "dialokasikan",
       });
       if (isi === null) continue;
@@ -830,30 +832,6 @@ export const myPortfolio = query({
 });
 
 /**
- * Bagi hasil tahan data warisan: pokok non-standar (atau tenor bulanan di luar
- * rentang) tidak merobohkan query. Menerima objek pinjaman agar skema bulanan
- * dihitung dari tenor penuhnya — sama dengan yang dibukukan ledger.
- */
-function cobaBagi(
-  pinjaman: { pokokPinjaman: number; tenorBulan?: number | null; persenBunga?: number | null },
-  persenBungaDefault: number,
-  persenAdmin: number,
-) {
-  try {
-    return bagiHasilPinjamanDari(
-      {
-        pokokPinjaman: pinjaman.pokokPinjaman,
-        tenorBulan: pinjaman.tenorBulan ?? null,
-        persenBunga: pinjaman.persenBunga ?? persenBungaDefault,
-      },
-      persenAdmin,
-    );
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Dokumen perjanjian pendanaan milik penyedia dana: satu entri per alokasi yang
  * sudah terikat pada pinjaman disetujui/didanai/lunas.
  */
@@ -863,7 +841,6 @@ export const myFundingContracts = query({
     const { userId } = await requireDana(ctx);
     const user = await ctx.db.get(userId);
     const namaKunci = kunciNamaPendana(user ?? {});
-    const cfg = await getConfig(ctx);
     const result = [];
     const sudahMasuk = new Set<string>();
 
@@ -891,7 +868,10 @@ export const myFundingContracts = query({
         kodePeminjam: peminjam.kodePeminjam,
         tujuan: loan.tujuan,
         jumlahAlokasi: meta.jumlahAlokasi,
-        imbalHasil: meta.imbalHasil,
+        imbalHasil: imbalPendana(meta.jumlahAlokasi),
+        tenorPendanaHari: TENOR_PENDANA_HARI,
+        persenImbalPendana: PERSEN_IMBAL_PENDANA,
+        statusPendanaan: labelStatusPendanaan(meta.statusAlokasi, loan.status),
         statusAlokasi: meta.statusAlokasi,
         statusPinjaman: loan.status,
         ...ringkasPinjaman(loan),
@@ -937,7 +917,7 @@ export const myFundingContracts = query({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
         jumlahAlokasi: loan.pokokPinjaman,
-        imbalHasil: cobaBagi(loan, cfg.persenBunga, cfg.persenAdmin)?.keuntunganPendana ?? 0,
+        imbalHasil: imbalPendana(loan.pokokPinjaman),
         statusAlokasi: "dialokasikan",
         createdAt: loan.didanaiPada ?? loan.diajukanPada ?? loan._creationTime,
       });

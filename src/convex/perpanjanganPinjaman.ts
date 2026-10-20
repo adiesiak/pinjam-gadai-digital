@@ -15,6 +15,7 @@ import { requireAdminRole, requireAdminSession } from "./adminAuthz";
 import { pastikanAngsuran } from "./angsuranJadwal";
 import { akunDompetDana, appendJournal } from "./ledger";
 import { bagiImbalHasil } from "../lib/bagiHasil";
+import { imbalPendana } from "../lib/imbalPendana";
 import { quotePinjaman } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import { audit, getConfig } from "./system";
@@ -372,14 +373,17 @@ async function catatPelunasanTotal(
     ],
   });
 
-  const totalImbal = (loan.bungaTerbayar ?? 0) + rencana.interestDue;
+  // Hak pendana TETAP, tidak mengikuti bunga akumulatif dari perpanjangan /
+  // cicil pokok. Selisih kas peminjam menjadi pendapatan atau beban platform.
   aktif.sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
   const bagian = aktif.map((f) => ({
     funding: f,
-    imbal: Math.floor((totalImbal * f.jumlahAlokasi) / totalAlokasi),
+    imbal: imbalPendana(f.jumlahAlokasi),
   }));
-  const dust = totalImbal - bagian.reduce((acc, x) => acc + x.imbal, 0);
-  bagian[0].imbal += dust;
+  const totalHakPendana = bagian.reduce(
+    (acc, x) => acc + x.funding.jumlahAlokasi + x.imbal,
+    0,
+  );
 
   let terdistribusi = 0;
   let totalPotongan = 0;
@@ -409,6 +413,7 @@ async function catatPelunasanTotal(
       ],
     });
     await ctx.db.patch(funding._id, {
+      imbalHasil: imbal,
       potonganAdmin,
       imbalHasilNet: imbalBersih,
       diselesaikanPada: receipt.tanggalTransfer,
@@ -418,8 +423,29 @@ async function catatPelunasanTotal(
     totalPotongan += potonganAdmin;
   }
 
-  const totalKas = totalAlokasi + totalImbal + rencana.lateFee;
-  if (terdistribusi + totalPotongan + rencana.lateFee !== totalKas) {
+  const kasPeminjam = rencana.principalSebelum + rencana.interestDue;
+  const selisihHak = kasPeminjam - totalHakPendana;
+  if (selisihHak !== 0) {
+    await appendJournal(ctx, {
+      jenis: "platform_fee",
+      skema: "pinjaman",
+      keterangan: `Selisih hak pendana tetap ${loan.nomorReferensi}`,
+      aktor: "platform",
+      lines:
+        selisihHak > 0
+          ? [
+              { akun: `pinjaman:${loan._id}`, arah: "debit", jumlah: selisihHak },
+              { akun: "platform:FEE", arah: "kredit", jumlah: selisihHak },
+            ]
+          : [
+              { akun: "platform:FEE", arah: "debit", jumlah: -selisihHak },
+              { akun: `pinjaman:${loan._id}`, arah: "kredit", jumlah: -selisihHak },
+            ],
+    });
+  }
+
+  const totalKas = kasPeminjam + rencana.lateFee;
+  if (terdistribusi + totalPotongan + selisihHak + rencana.lateFee !== totalKas) {
     throw new Error("Pelunasan tidak seimbang. Transaksi dibatalkan.");
   }
 

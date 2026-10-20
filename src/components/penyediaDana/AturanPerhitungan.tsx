@@ -8,8 +8,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { DEFAULT_TENOR_HARI, persenBungaHarian } from "@/lib/loan";
-import { formatRupiah, percentOf } from "@/lib/money";
+import {
+  PERSEN_IMBAL_PENDANA,
+  TENOR_PENDANA_HARI,
+  imbalPendana,
+  totalPengembalianPendana,
+} from "@/lib/imbalPendana";
+import { formatRupiah } from "@/lib/money";
 
 /**
  * Satu aturan: judul singkat + penjelasan yang boleh memuat beberapa paragraf.
@@ -30,8 +35,9 @@ type Aturan = { nomor: number; judul: string; isi: ReactNode };
  * sini, terbuka satu per satu saat pembaca benar-benar ingin tahu, dan kartu
  * angkanya kembali ringkas tanpa ikon bantuan berulang.
  *
- * Tarif harian dari matriks tenor di `lib/loan`; tarif bulanan dari Pengaturan
- * Sistem, jadi penjelasan ini tidak menjanjikan satu angka untuk semua pinjaman.
+ * Hak pendana memakai skema TETAP (`lib/imbalPendana`): tenor acuan 30 hari dan
+ * Imbal Hasil 30% flat, terpisah dari tarif harian/bulanan yang berlaku untuk
+ * pinjaman nasabah.
  *
  * Bentuk lipatan bertingkat (dan bukan dinding teks): bagiannya sendiri tertutup
  * secara bawaan dengan tarif yang berlaku tetap tercetak di kepalanya, dan di
@@ -44,12 +50,9 @@ type Aturan = { nomor: number; judul: string; isi: ReactNode };
  * markup (`AturanPerhitungan.render.test.tsx`).
  */
 export function AturanPerhitungan({
-  persenBunga,
   persenPotonganAdmin,
   bukaAwal = [],
 }: {
-  /** Tarif bulanan bawaan dari Pengaturan Sistem; tarif harian mengikuti matriks. */
-  persenBunga: number;
   /** Biaya platform (layanan) dari uang yang kembali, dari Pengaturan Sistem. */
   persenPotonganAdmin: number;
   /**
@@ -62,59 +65,29 @@ export function AturanPerhitungan({
   // Contoh memakai jalur uang yang sama dengan perhitungan sebenarnya, supaya
   // angka yang dibaca pendana tidak berbeda dari angkanya di tabel.
   const contohPokok = 1_000_000;
-  const contohTenor = 28;
-  const contohPersen = persenBungaHarian(contohPokok, contohTenor) ?? persenBunga;
-  const contohImbal = percentOf(contohPokok, contohPersen);
-  const tarifHarian = [
-    { batas: "Di bawah Rp500.000", pokok: 300_000, tenor: [7, 14, 28] },
-    { batas: "Rp500.000 sampai Rp999.999", pokok: 750_000, tenor: [14, 28] },
-    { batas: "Tepat Rp1.000.000", pokok: 1_000_000, tenor: [28] },
-  ].map((baris) => {
-    const tarif = baris.tenor.map((tenor) => ({
-      tenor,
-      persen: persenBungaHarian(baris.pokok, tenor),
-    }));
-    return {
-      batas: baris.batas,
-      teks: tarif.map(({ tenor, persen }) => `${tenor} hari ${persen}%`).join(" · "),
-      nilai: tarif
-        .map(({ persen }) => persen)
-        .filter((persen): persen is number => persen !== null),
-    };
-  });
-  const semuaTarif = tarifHarian.flatMap((baris) => baris.nilai);
-  const tarifTerendah = Math.min(...semuaTarif);
-  const tarifTertinggi = Math.max(...semuaTarif);
-  const ringkasTarif =
-    tarifTerendah === tarifTertinggi
-      ? `${tarifTerendah}%`
-      : `${tarifTerendah}–${tarifTertinggi}%`;
+  const contohImbal = imbalPendana(contohPokok);
+  const contohTotal = totalPengembalianPendana(contohPokok);
 
   const aturan: readonly Aturan[] = [
     {
       nomor: 1,
-      judul: "Bunga pinjaman dan Imbal Hasil",
+      judul: "Imbal Hasil pendana (tetap 30%)",
       isi: (
         <>
           <p>
-            Bunga pinjaman harian dihitung dari pokok dengan tarif yang mengikuti nominal dan
-            tenor, bukan satu tarif untuk semua pinjaman dan bukan bunga per bulan.
+            Setiap pendanaan memakai tenor acuan <strong>{TENOR_PENDANA_HARI} hari</strong> dan
+            Imbal Hasil <strong>{PERSEN_IMBAL_PENDANA}% flat</strong> dari nominal yang Anda danai.
+            Tenor dan bunga pinjaman nasabah (harian atau bulanan) tidak dipakai di sini.
           </p>
-          <ul className="mt-2 space-y-1.5">
-            {tarifHarian.map((baris) => (
-              <li key={baris.batas} className="flex flex-wrap gap-x-1.5">
-                <span className="font-medium text-slate-800">{baris.batas}:</span>
-                <span>{baris.teks}.</span>
-              </li>
-            ))}
-          </ul>
           <p className="mt-2">
-            Contoh: pinjaman {formatRupiah(contohPokok)} tenor {contohTenor} hari dikenai bunga{" "}
-            <strong>{contohPersen}%</strong>. Total kewajiban peminjam{" "}
-            {formatRupiah(contohPokok + contohImbal)}, dan selisihnya {formatRupiah(contohImbal)}{" "}
-            adalah Imbal Hasil yang menjadi dasar keuntungan pendana. Skema bulanan memakai tarif
-            per bulan yang tercatat pada pinjaman (bawaan Pengaturan Sistem saat ini{" "}
-            {persenBunga}%).
+            Contoh: pendanaan {formatRupiah(contohPokok)} menghasilkan Imbal Hasil{" "}
+            <strong>{formatRupiah(contohImbal)}</strong>. Total pengembalian sebelum biaya platform{" "}
+            {formatRupiah(contohTotal)}.
+          </p>
+          <p className="mt-2">
+            Angkanya <strong>tidak berubah</strong> saat nasabah memperpanjang tenor, mengubah
+            bunga, atau mencicil pokok. Hak pendana dicatat dari pokok pendanaan dan disimpan di
+            ledger terpisah dari kontrak nasabah.
           </p>
           <p className="mt-2">
             Karena modelnya <strong>satu pinjaman = satu pendana</strong>, seluruh Imbal Hasil satu
@@ -133,8 +106,8 @@ export function AturanPerhitungan({
             Biaya platform (layanan) adalah <strong>{persenPotonganAdmin}%</strong> dari{" "}
             <strong>uang yang kembali</strong> (pokok + Imbal Hasil), bukan{" "}
             {persenPotonganAdmin}% dari Imbal Hasil saja. Konsekuensinya: pokok kembali utuh,
-            sementara keuntungan bersih pendana lebih kecil daripada bunga yang tercatat pada
-            pinjaman.
+            sementara keuntungan bersih pendana lebih kecil daripada Imbal Hasil 30% yang
+            tercatat di portofolio.
           </p>
           <p className="mt-2">Biaya platform itulah yang dipakai untuk:</p>
           <ul className="mt-1.5 space-y-1.5">
@@ -206,21 +179,17 @@ export function AturanPerhitungan({
     },
     {
       nomor: 5,
-      judul: `Tenor dan jatuh tempo (satuan hari)`,
+      judul: "Tenor pendana 30 hari",
       isi: (
         <>
           <p>
-            Pinjaman baru memakai tenor <strong>7, 14, atau 28 hari</strong>, bukan tenor 30 hari
-            untuk semua pinjaman. Pilihan tenor mengikuti nominal: di bawah Rp500.000 boleh 7, 14,
-            atau 28 hari; Rp500.000 sampai Rp999.999 memakai 14 atau 28 hari; tepat Rp1.000.000
-            memakai 28 hari. Jatuh tempo dihitung dari tanggal pendanaan ditambah tenor pinjaman.
+            Tenor di tabel portofolio pendanaan selalu <strong>{TENOR_PENDANA_HARI} hari</strong>.
+            Itu tenor acuan hak pendana, bukan tenor pinjaman nasabah, jadi baris Anda tidak
+            berubah saat nasabah memilih skema tenor harian atau bulanan.
           </p>
           <p className="mt-2">
-            Angka tenor di tabel adalah tenor pinjaman itu sendiri, jadi pinjaman 7 dan 14 hari
-            tidak perlu dibaca sebagai 30 hari. Hanya catatan lama yang tenornya belum tercatat
-            yang memakai perkiraan bawaan <strong>{DEFAULT_TENOR_HARI} hari</strong> supaya masih
-            ada tanggal untuk menagih. Perkiraan itu ditandai apa adanya, tidak disamarkan sebagai
-            tenor yang disepakati.
+            Jatuh tempo pinjaman nasabah tetap dipantau sistem untuk penagihan, tetapi tidak
+            mengubah nominal maupun status hak pendana di halaman ini.
           </p>
         </>
       ),
@@ -267,7 +236,7 @@ export function AturanPerhitungan({
       id="aturan-perhitungan"
       nomor={5}
       judul="Aturan perhitungan"
-      ringkas={`bunga harian ${ringkasTarif} sesuai tenor · biaya platform (layanan) ${persenPotonganAdmin}%`}
+      ringkas={`tenor ${TENOR_PENDANA_HARI} hari · yield ${PERSEN_IMBAL_PENDANA}% p.p. · biaya platform (layanan) ${persenPotonganAdmin}%`}
       bukaAwal={bukaAwal.length > 0}
       className="mt-3"
     >

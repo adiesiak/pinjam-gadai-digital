@@ -187,25 +187,23 @@ cek(
 
 const aturanTertutup = renderToStaticMarkup(
   createElement(AturanPerhitungan, {
-    persenBunga: 1.5,
     persenPotonganAdmin: 5,
   }),
 );
 cek(
   aturanTertutup.includes(">05<") &&
     aturanTertutup.includes(
-      "bunga harian 30–40% sesuai tenor · biaya platform (layanan) 5%",
+      "tenor 30 hari · yield 30% p.p. · biaya platform (layanan) 5%",
     ),
-  "nomor bagian 05 dan rentang tarif harian tercetak saat aturannya tertutup",
+  "nomor bagian 05 dan skema tetap tercetak saat aturannya tertutup",
 );
 cek(
-  !aturanTertutup.includes("Bunga pinjaman dan Imbal Hasil"),
+  !aturanTertutup.includes("Imbal Hasil pendana (tetap 30%)"),
   "aturan yang tertutup tidak merender isinya",
 );
 
 const aturan = renderToStaticMarkup(
   createElement(AturanPerhitungan, {
-    persenBunga: 1.5,
     persenPotonganAdmin: 5,
     bukaAwal: [1, 2],
   }),
@@ -215,8 +213,8 @@ cek(
   "aturan yang dibuka memasang judulnya tiga kolom",
 );
 cek(
-  aturan.includes("Pengaturan Sistem saat ini 1.5%"),
-  "tarif bulanan tetap dibaca dari Pengaturan Sistem",
+  aturan.includes("30% flat") && aturan.includes("Tenor pendana 30 hari"),
+  "skema pendana tetap terbaca setelah aturannya dibuka",
 );
 
 const keuntungan = renderToStaticMarkup(

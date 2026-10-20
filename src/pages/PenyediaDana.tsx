@@ -54,6 +54,10 @@ import { ANCHOR_RISIKO_PENDANAAN, CATATAN_INTERNAL_SINGKAT } from "@/lib/teksRis
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
 import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
+import {
+  KalkulatorImbalPendana,
+  PortofolioPendanaanSection,
+} from "@/components/penyediaDana/KalkulatorImbalPendana";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { PortofolioPendana } from "@/components/penyediaDana/PortofolioPendana";
 import { TabelPendana } from "@/components/penyediaDana/TabelPendana";
@@ -758,11 +762,6 @@ function labelPokok(status: string): string {
     : "Pokok tercatat";
 }
 
-/** Tarif snapshot pinjaman; tarif global hanya cadangan untuk data lama. */
-function tarifBungaPinjaman(row: BarisPinjaman, tarifGlobal: number): number {
-  return row.persenBunga ?? tarifGlobal;
-}
-
 function DetailPinjaman({
   row,
   namaTampil,
@@ -778,7 +777,6 @@ function DetailPinjaman({
   persenBungaDefault: number;
 }) {
   const tenorBulan = row.tenorBulan;
-  const tarifBunga = tarifBungaPinjaman(row, persenBungaDefault);
   const persenBungaPinjaman = row.persenBunga ?? persenBungaDefault;
   const harian =
     tenorBulan === null
@@ -796,8 +794,6 @@ function DetailPinjaman({
             persenBunga: persenBungaPinjaman,
           }),
         );
-  const imbalHasil = harian?.bunga ?? bulanan?.bungaTotal ?? null;
-  const totalPelunasan = harian?.totalKewajibanPelunasan ?? bulanan?.totalPengembalian ?? null;
   const danaBersih = harian?.danaBersihDitransfer ?? bulanan?.danaDiterima ?? null;
   /**
    * Jatuh tempo memakai `lib/jatuhTempo` — modul yang sama dengan tabel dan
@@ -846,26 +842,17 @@ function DetailPinjaman({
             <BarisDetail tebal label={labelPokok(row.status)} nilai={rupiah(row.pokokPinjaman)} />
             <BarisDetail
               tebal
-              label="Tarif bunga"
-              nilai={
-                row.tenorBulan === null
-                  ? `${tarifBunga}% untuk tenor ${row.tenorHari} hari`
-                  : `${tarifBunga}% per bulan`
-              }
-            />
-            <BarisDetail tebal label="Bunga pinjaman" nilai={rupiah(row.bunga)} />
-            <BarisDetail
-              tebal
-              label="Imbal Hasil (estimasi)"
-              nilai={imbalHasil === null ? "—" : rupiah(imbalHasil)}
+              label="Skema pendana"
+              nilai={`${row.tenorPendanaHari} hari · ${row.persenImbalPendana}% p.p.`}
             />
             <BarisDetail
               tebal
-              label={
-                row.tenorBulan === null
-                  ? "Total kewajiban (pokok + bunga)"
-                  : "Total kewajiban (pokok + bunga + biaya cicilan)"
-              }
+              label={`Imbal Hasil pendana (${row.persenImbalPendana}%)`}
+              nilai={rupiah(row.bunga)}
+            />
+            <BarisDetail
+              tebal
+              label="Total pengembalian pendana (pokok + Imbal Hasil)"
               nilai={rupiah(row.totalLunas)}
             />
             <BarisDetail
@@ -902,14 +889,14 @@ function DetailPinjaman({
           nada="emerald"
         />
         <MetricKartu
-          label="Total Pelunasan"
-          nilai={totalPelunasan === null ? "—" : rupiah(totalPelunasan)}
+          label="Total Pengembalian Pendana"
+          nilai={rupiah(row.totalLunas)}
           ikon={<Wallet className="size-3.5" aria-hidden />}
           nada="slate"
           bantuan={{
-            istilah: "total pelunasan",
+            istilah: "total pengembalian pendana",
             penjelasan:
-              "Jumlah yang dibayar peminjam sampai lunas — pokok ditambah bunga/imbal hasil sesuai skema tenor.",
+              "Pokok pendanaan ditambah Imbal Hasil tetap 30% untuk siklus 30 hari, sebelum biaya platform.",
           }}
         />
       </div>
@@ -921,8 +908,8 @@ function DetailPinjaman({
           kembali, yaitu pokok + Imbal Hasil), jadi menampilkan keduanya berarti
           satu angka muncul dua kali dengan label sama. */}
       <BarisDetail
-        label="Tenor"
-        nilai={row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
+        label="Tenor pendana"
+        nilai={`${row.tenorPendanaHari} hari`}
       />
       <BarisDetail
         label="Jatuh tempo"
@@ -1404,7 +1391,6 @@ function RuangGagal({ pesan }: { pesan: string }) {
  */
 function DaftarPinjaman({
   rows,
-  persenBunga,
   sekarang,
   onDetail,
   onUbah,
@@ -1413,7 +1399,6 @@ function DaftarPinjaman({
   namaTampil,
 }: {
   rows: BarisPinjaman[];
-  persenBunga: number;
   sekarang: number;
   onDetail: (row: BarisPinjaman) => void;
   /** Hanya diisi untuk Super Admin (koreksi data pinjaman). */
@@ -1475,13 +1460,11 @@ function DaftarPinjaman({
               {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
             </InfoKartu>
             <InfoKartu label={labelPokok(row.status)}>{rupiah(row.pokokPinjaman)}</InfoKartu>
-            <InfoKartu label={`Bunga ${tarifBungaPinjaman(row, persenBunga)}%`}>
+            <InfoKartu label={`Imbal Hasil ${row.persenImbalPendana}%`}>
               {rupiah(row.bunga)}
             </InfoKartu>
-            <InfoKartu label="Total lunas">{rupiah(row.totalLunas)}</InfoKartu>
-            <InfoKartu label="Tenor">
-              {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
-            </InfoKartu>
+            <InfoKartu label="Total pengembalian">{rupiah(row.totalLunas)}</InfoKartu>
+            <InfoKartu label="Tenor pendana">{row.tenorPendanaHari} hari</InfoKartu>
             <InfoKartu label="Jatuh tempo">
               <TampilanJatuhTempoRingkas tampilan={jatuhTempo(row)} />
             </InfoKartu>
@@ -1544,7 +1527,7 @@ function DaftarPinjaman({
                   Diajukan {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} · {labelPokok(row.status)}
                 </p>
                 <p className="mt-1 text-xs text-slate-600">
-                  {row.tenorBulan === null ? `${row.tenorHari} hari` : `${row.tenorBulan} bulan`}
+                  Tenor pendana {row.tenorPendanaHari} hari
                 </p>
                 {row.pokokDiajukan > row.pokokPinjaman && (
                   <Badge variant="outline" className="mt-2 text-xs">
@@ -1555,7 +1538,7 @@ function DaftarPinjaman({
               <TableCell className="align-top tabular-nums">
                 <p className="font-medium text-slate-800">{rupiah(row.totalLunas)}</p>
                 <p className="mt-1 text-xs text-emerald-700">
-                  Bunga {tarifBungaPinjaman(row, persenBunga)}% {rupiah(row.bunga)}
+                  Yield {row.persenImbalPendana}% p.p. {rupiah(row.bunga)}
                 </p>
                 <p className="mt-1 text-xs text-amber-700">
                   Biaya platform (layanan) dari uang kembali{" "}
@@ -2524,7 +2507,6 @@ function IsiRuang() {
              * semua cara angka di halaman ini dihitung, terbuka sesuai kebutuhan.
              */}
             <AturanPerhitungan
-              persenBunga={data.ringkasan.persenBunga}
               persenPotonganAdmin={data.ringkasan.persenPotonganAdmin}
             />
 
@@ -2532,6 +2514,17 @@ function IsiRuang() {
                 ("berapa yang sudah jadi uang, berapa yang masih perkiraan")
                 dijawab di puncak halaman, bukan di tengah daftar angka. */}
             <RingkasanKeuntungan ringkasan={data.ringkasan} pribadi={isPendana} />
+
+            {/* Skema pendana TETAP: kalkulator dan portofolio per alokasi.
+                Hanya untuk akun pendana; admin memakai tabel rekap di bawah. */}
+            {isPendana && (
+              <>
+                <KalkulatorImbalPendana
+                  persenPotonganAdmin={data.ringkasan.persenPotonganAdmin}
+                />
+                <PortofolioPendanaanSection />
+              </>
+            )}
 
             {rekapPendana.length > 0 && (
               <section className="animate-masuk mt-6">
@@ -2740,7 +2733,6 @@ function IsiRuang() {
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilBaru}
-                      persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
                       onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
@@ -2770,7 +2762,6 @@ function IsiRuang() {
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilDidanai}
-                      persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
                       onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
@@ -2802,7 +2793,6 @@ function IsiRuang() {
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilLunas}
-                      persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
                       onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
@@ -2842,7 +2832,6 @@ function IsiRuang() {
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilDitolak}
-                      persenBunga={data.ringkasan.persenBunga}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
                       onUbah={role === "admin" ? (row) => setUbah(row) : undefined}

@@ -1,19 +1,13 @@
 /**
- * Uji render panel "Aturan perhitungan" di /penyedia-dana.
+ * Uji render panel "Aturan perhitungan" di ruang pendana.
  * Run: bun src/components/penyediaDana/AturanPerhitungan.render.test.tsx
  *
- * Halaman utuhnya membaca Convex, jadi panelnya dirender langsung di sini.
- *
  * Yang dijaga:
- * 1. aturan yang menentukan arti angka benar-benar ada dan bisa dibuka —
- *    termasuk bedanya "Dibukukan (lunas)" dengan "Perkiraan (belum lunas)",
- *    dasar biaya platform (layanan), dan satuan tenor;
- * 2. tarif harian yang tercetak mengikuti matriks tenor, sedangkan tarif bulanan
- *    mengikuti Pengaturan Sistem;
- * 3. klaim yang tidak bisa dibuktikan tidak kembali: tidak ada janji asuransi
- *    yang menjamin pokok/Imbal Hasil cair dalam 14 hari kerja (itu bertentangan
- *    dengan bagian "Risiko pendanaan"), dan kata "jaminan" hanya dipakai dalam
- *    bentuk penyangkalan.
+ * 1. skema pendana dinyatakan TETAP: tenor 30 hari, Imbal Hasil 30% flat, dan
+ *    angkanya tidak mengikuti tenor/bunga/perpanjangan nasabah;
+ * 2. rincian tenor nasabah (7/14/28) tidak lagi muncul di panel pendana;
+ * 3. istilah, dasar biaya platform, dan penyangkalan risiko tetap terbaca;
+ * 4. klaim yang tidak bisa dibuktikan tidak kembali.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -28,17 +22,11 @@ function ok(syarat: boolean, label: string): void {
     console.error(`FAIL ${label}`);
   }
 }
-function eq(actual: unknown, expected: unknown, label: string): void {
-  if (actual === expected) passed += 1;
-  else {
-    failed += 1;
-    console.error(
-      `FAIL ${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
-    );
-  }
-}
 function ada(html: string, teks: string, label: string): void {
   ok(html.includes(teks), `${label} (memuat "${teks}")`);
+}
+function tidakAda(html: string, teks: string, label: string): void {
+  ok(!html.includes(teks), `${label} (tidak memuat "${teks}")`);
 }
 function bersih(html: string, label: string): void {
   ok(!html.includes("undefined"), `${label} tanpa "undefined"`);
@@ -46,164 +34,136 @@ function bersih(html: string, label: string): void {
   ok(!html.includes("NaN"), `${label} tanpa "NaN"`);
 }
 
-/** Semua aturan dibuka, karena isi accordion yang tertutup tidak ada di DOM. */
 const SEMUA = [1, 2, 3, 4, 5, 6, 7];
 const html = renderToStaticMarkup(
-  <AturanPerhitungan persenBunga={30} persenPotonganAdmin={5} bukaAwal={SEMUA} />,
+  <AturanPerhitungan persenPotonganAdmin={5} bukaAwal={SEMUA} />,
 );
 
-// ===== Judul + ringkasan tarif yang berlaku =====
+// ===== Judul + ringkasan skema tetap =====
 ada(html, "Aturan perhitungan", "judul panel");
 ada(
   html,
-  "bunga harian 30–40% sesuai tenor · biaya platform (layanan) 5%",
-  "rentang tarif harian dan biaya platform disebut di kepala panel",
+  "tenor 30 hari · yield 30% p.p. · biaya platform (layanan) 5%",
+  "skema tetap dan biaya disebut di kepala panel",
 );
-// Istilah lama tidak boleh tertinggal: biaya 5% ini bukan "potongan admin" lagi.
-ok(!html.includes("potongan admin"), "istilah lama \"potongan admin\" tidak tertinggal");
-ok(!html.includes("keuntungan admin"), "istilah \"keuntungan admin\" tidak dipakai di sini");
+tidakAda(html, "potongan admin", "istilah lama tidak tertinggal");
+tidakAda(html, "keuntungan admin", "istilah keuntungan admin tidak dipakai");
 ada(html, "Buka aturan yang ingin Anda periksa", "cara memakai panel dijelaskan");
-eq(
-  (html.match(/data-slot="accordion-item"/g) ?? []).length,
-  7,
+ok(
+  (html.match(/data-slot="accordion-item"/g) ?? []).length === 7,
   "tujuh aturan, tidak lebih",
 );
 
-// ===== Tiap aturan benar-benar terisi =====
+// ===== Tiap aturan terisi =====
 for (const judul of [
-  "Bunga pinjaman dan Imbal Hasil",
+  "Imbal Hasil pendana (tetap 30%)",
   "Biaya platform (layanan)",
   "Dibukukan (lunas) vs Perkiraan (belum lunas)",
   "Dana tersalurkan dan masih berjalan",
-  "Tenor dan jatuh tempo (satuan hari)",
+  "Tenor pendana 30 hari",
   "Transfer keuntungan",
   "Cara membaca kolom dan baris total",
 ]) {
   ada(html, judul, `judul aturan "${judul}"`);
 }
 
-// 1. Bunga: matriks tenor dan contoh angkanya memakai jalur uang yang benar.
-ada(html, "Di bawah Rp500.000", "batas nominal pertama disebut");
-ada(html, "7 hari 30%", "tarif 7 hari disebut");
-ada(html, "14 hari 35%", "tarif 14 hari disebut");
-ada(html, "28 hari 40%", "tarif 28 hari untuk nominal kecil disebut");
-ada(html, "Rp500.000 sampai Rp999.999", "batas nominal kedua disebut");
-ada(html, "Tepat Rp1.000.000", "batas nominal ketiga disebut");
-ada(html, "28 hari 35%", "tarif Rp1 juta tenor 28 hari disebut");
+// 1. Skema tetap: contoh 1 juta → 300 ribu → 1,3 juta.
+ada(html, "30% flat", "imbal hasil dinyatakan flat 30%");
 ada(html, "Rp 1.000.000", "contoh pokok disebut");
-ada(html, "<strong>35%</strong>", "contoh memakai tarif tenor 28 hari");
-ada(html, "Rp 1.350.000", "contoh total kewajiban dihitung dari tarif tenor");
-ada(html, "Rp 350.000", "contoh Imbal Hasil dihitung dari tarif tenor");
-ok(!html.includes("Rp 1.300.000"), "contoh tarif dasar tidak dipakai untuk tenor 28 hari");
+ada(html, "Rp 300.000", "contoh Imbal Hasil 30% disebut");
+ada(html, "Rp 1.300.000", "contoh total pengembalian disebut");
+ada(html, "tidak berubah", "sifat tetap dinyatakan");
+ada(html, "memperpanjang tenor", "perpanjangan disebut tidak mengubah hak");
+ada(html, "mencicil pokok", "cicil pokok disebut tidak mengubah hak");
 ada(html, "satu pinjaman = satu pendana", "model alokasi disebut");
 
-// 2. Biaya platform (layanan): dasar hitungnya, keperluannya, dan
-// penyangkalannya.
-ada(html, "5%</strong> dari", "biaya platform (layanan) disebut persennya");
+// Tidak ada lagi rincian tenor/bunga nasabah di panel pendana.
+for (const teks of [
+  "7 hari 30%",
+  "14 hari 35%",
+  "28 hari 40%",
+  "Di bawah Rp500.000",
+  "Rp500.000 sampai Rp999.999",
+  "7, 14, atau 28 hari",
+]) {
+  tidakAda(html, teks, `rincian tenor nasabah "${teks}" tidak tampil`);
+}
+
+// 2. Biaya platform.
+ada(html, "5%</strong> dari", "persentase biaya platform disebut");
 ada(html, "uang yang kembali", "dasar biaya platform: uang yang kembali");
-ada(html, "bukan", "dasar biaya platform dibedakan dari Imbal Hasil saja");
 ada(html, "pokok kembali utuh", "konsekuensi biaya pada pokok dijelaskan");
-ada(html, "Server &amp; operasional PINDAI", "keperluan server & operasional");
-ada(html, "Collect / penagihan lapangan", "collect / penagihan lapangan");
-ada(html, "Penanganan pinjaman bermasalah", "keperluan penanganan pinjaman bermasalah");
 ada(html, "bukan jaminan", "biaya platform tidak diklaim sebagai jaminan");
 ada(html, "tidak dijamin oleh LPS", "status penjaminan dinyatakan apa adanya");
 ada(html, "Risiko pendanaan", "pembaca diarahkan ke bagian risikonya");
 
-// 3. Dua istilah inti halaman, lengkap dengan artinya.
-ada(html, "Dibukukan (lunas)", "istilah dibukukan memakai label yang sama dengan tabel");
-ada(html, "Perkiraan (belum lunas)", "istilah perkiraan memakai label yang sama dengan tabel");
+// 3. Istilah inti halaman.
+ada(html, "Dibukukan (lunas)", "istilah dibukukan memakai label tabel");
+ada(html, "Perkiraan (belum lunas)", "istilah perkiraan memakai label tabel");
 ada(html, "sudah final dan menjadi haknya", "arti dibukukan dijelaskan");
 ada(html, "belum menjadi uang pendana", "arti perkiraan dijelaskan");
-ada(html, "Total keuntungan", "istilah total keuntungan dijelaskan");
 
 // 4. Modal vs pokok yang belum kembali.
 ada(html, "Dana tersalurkan", "dana tersalurkan dijelaskan");
 ada(html, "Masih berjalan", "masih berjalan dijelaskan");
 ada(html, "catatan penyaluran, bukan laba", "dana tersalurkan dibedakan dari laba");
 
-// 5. Tenor produk dan tenor data lama dibedakan.
-ada(html, "7, 14, atau 28 hari", "pilihan tenor produk disebut lengkap");
-ada(html, "bukan tenor 30 hari", "tenor 30 hari tidak lagi diklaim untuk semua pinjaman");
-ada(html, "pinjaman 7 dan 14 hari", "pinjaman pendek disebut eksplisit");
-ada(html, "30 hari", "bawaan tenor untuk catatan lama disebut");
-ada(html, "tidak disamarkan sebagai tenor yang disepakati", "bawaan tenor ditandai apa adanya");
+// 5. Tenor pendana 30 hari, bukan tenor pinjaman nasabah.
+ada(html, "30 hari", "tenor acuan pendana disebut");
+ada(html, "bukan tenor pinjaman nasabah", "tenor pendana dipisahkan dari tenor nasabah");
+ada(html, "tidak mengubah nominal maupun status hak pendana", "keterpisahan dinyatakan");
 
 // 6. Transfer keuntungan.
-ada(html, "Transfer keuntungan", "transfer keuntungan dijelaskan");
 ada(html, "bukan bukti mutasi bank", "catatan transfer dibedakan dari bukti mutasi");
 
 // 7. Cara membaca tabel.
-ada(html,  "baris total menjumlahkan baris yang sedang tampil", "baris total dijelaskan");
+ada(html, "baris total menjumlahkan baris yang sedang tampil", "baris total dijelaskan");
 ada(html, "bukan klaim total sepanjang masa", "batas cakupan angka dinyatakan");
 
 bersih(html, "markup panel aturan");
 
-// ===== Klaim yang dilarang tidak boleh kembali =====
-ok(!html.includes("14 hari kerja"), "tidak ada lagi janji cair dalam 14 hari kerja");
-ok(!html.toLowerCase().includes("asuransi"), "tidak ada klaim asuransi yang menjamin pendana");
-ok(!html.includes("jaminan pokok"), "tidak ada klaim jaminan atas pokok pinjaman");
-ok(!html.includes("pasti untung"), "tidak ada klaim keuntungan pasti");
-
-// Setiap kemunculan kata "jaminan" harus bagian dari penyangkalan.
+// ===== Klaim terlarang =====
+tidakAda(html, "14 hari kerja", "tidak ada janji cair dalam 14 hari kerja");
+ok(!html.toLowerCase().includes("asuransi"), "tidak ada klaim asuransi");
+tidakAda(html, "jaminan pokok", "tidak ada klaim jaminan pokok");
+tidakAda(html, "pasti untung", "tidak ada klaim keuntungan pasti");
 {
   const kalimat = html.split(/[.!?]/).filter((s) => s.includes("jaminan"));
   ok(kalimat.length > 0, "kata jaminan masih dipakai untuk menyangkal");
   ok(
     kalimat.every((s) => s.includes("bukan jaminan") || s.includes("tidak dijamin")),
-    "kata \"jaminan\" hanya muncul dalam bentuk penyangkalan",
+    'kata "jaminan" hanya muncul dalam bentuk penyangkalan',
   );
 }
 
 // ===== Tertutup secara bawaan =====
-// Tujuh judul aturan yang selalu terbuka menghabiskan satu layar sebelum bagian
-// berikutnya terbaca, jadi bagiannya tertutup dan hanya kepalanya yang tampak —
-// lengkap dengan tarif yang berlaku, supaya angkanya tetap terbaca tanpa membuka
-// apa pun.
 {
   const tertutup = renderToStaticMarkup(
-    <AturanPerhitungan persenBunga={30} persenPotonganAdmin={5} />,
+    <AturanPerhitungan persenPotonganAdmin={5} />,
   );
-  ada(tertutup, "Aturan perhitungan", "judul tetap terlihat saat aturannya tertutup");
+  ada(tertutup, "Aturan perhitungan", "judul terlihat saat tertutup");
   ada(
     tertutup,
-    "bunga harian 30–40% sesuai tenor · biaya platform (layanan) 5%",
-    "rentang tarif tetap terbaca saat aturannya tertutup",
+    "tenor 30 hari · yield 30% p.p. · biaya platform (layanan) 5%",
+    "ringkasan skema terbaca tanpa membuka panel",
   );
-  ada(
-    tertutup,
-    'aria-expanded="false"',
-    "tombolnya menyatakan keadaan tertutup",
-  );
-  ada(tertutup, ">Buka<", "satu tindakan yang jelas untuk membukanya");
-  ok(!tertutup.includes("bukan jaminan"), "isi aturan tidak mendorong isi halaman ke bawah");
-  ok(!tertutup.includes("Bunga pinjaman dan Imbal Hasil"), "judul aturan tidak dirender saat tertutup");
-  bersih(tertutup, "markup panel aturan yang tertutup");
-
-  const terbuka = renderToStaticMarkup(
-    <AturanPerhitungan persenBunga={30} persenPotonganAdmin={5} bukaAwal={[1]} />,
-  );
-  ada(terbuka, 'aria-expanded="true"', "tombolnya menyatakan keadaan terbuka");
-  ada(terbuka, ">Tutup<", "tindakan membaliknya tersedia");
-  ada(terbuka, "lg:grid-cols-3", "tujuh judul aturan dipasang tiga kolom saat dibuka");
-  bersih(terbuka, "markup panel aturan yang terbuka");
+  ada(tertutup, 'aria-expanded="false"', "tombol menyatakan keadaan tertutup");
+  ada(tertutup, ">Buka<", "satu tindakan untuk membukanya");
+  ok(!tertutup.includes("bukan jaminan"), "isi aturan tidak mendorong halaman ke bawah");
 }
 
-// ===== Tarif bulanan dan biaya platform mengikuti Pengaturan Sistem =====
+// ===== Biaya platform mengikuti Pengaturan Sistem =====
 {
   const lain = renderToStaticMarkup(
-    <AturanPerhitungan persenBunga={12} persenPotonganAdmin={7} bukaAwal={SEMUA} />,
+    <AturanPerhitungan persenPotonganAdmin={7} bukaAwal={SEMUA} />,
   );
-  ada(lain, "Pengaturan Sistem saat ini 12%", "tarif bulanan dari pengaturan ikut tercetak");
-  ada(lain, "7%</strong> dari", "biaya platform (layanan) ikut berubah");
+  ada(lain, "7%</strong> dari", "biaya platform ikut berubah");
   ada(
     lain,
-    "bunga harian 30–40% sesuai tenor · biaya platform (layanan) 7%",
-    "tarif harian tetap mengikuti matriks, bukan tarif bulanan",
+    "tenor 30 hari · yield 30% p.p. · biaya platform (layanan) 7%",
+    "yield tetap 30% saat biaya berubah",
   );
-  ok(!lain.includes("Rp 1.120.000"), "tarif bulanan tidak dipakai untuk contoh pinjaman harian");
-  ok(!lain.includes("bunga 30% · biaya platform"), "tarif dasar lama tidak kembali di kepala panel");
-  bersih(lain, "markup panel dengan tarif bulanan lain");
+  bersih(lain, "markup panel dengan biaya lain");
 }
 
 console.log(`AturanPerhitungan.render.test: ${passed} lulus, ${failed} gagal`);

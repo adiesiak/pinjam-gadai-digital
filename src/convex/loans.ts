@@ -47,6 +47,7 @@ import {
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
 import { bagiImbalHasil } from "../lib/bagiHasil";
+import { imbalPendana } from "../lib/imbalPendana";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
@@ -2014,9 +2015,7 @@ export const repayLoan = mutation({
         ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan })
         : null;
     const q = quotePinjaman(loan);
-    const totalPokokDana = loan.pokokPinjaman;
-    const totalImbalDana = simBulanan !== null ? simBulanan.bungaTotal : q.bunga;
-    const totalKewajibanDana = totalPokokDana + totalImbalDana;
+    const totalKewajibanDana = loan.pokokPinjaman + (simBulanan !== null ? simBulanan.bungaTotal : q.bunga);
     // Potongan di muka (biaya admin 2%, biaya platform dihapus) sudah dipotong saat
     // pencairan. Yang tersisa di pelunasan hanya biaya admin cicilan 2% untuk
     // setiap pembayaran bulanan, yang memang dibayar bersama cicilan.
@@ -2069,13 +2068,16 @@ export const repayLoan = mutation({
     // 2. Bayar tiap penyedia dana: pokok bagian + imbal hasil bagian (dari akun
     //    pinjaman). Urut dari alokasi terbesar — dust pembulatan diterimanya.
     aktif.sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
+    // Hak pendana TETAP: 30% dari pokok alokasi. Perpanjangan atau cicil pokok
+    // di sisi peminjam tidak boleh mengubah angka ini.
     const imbalBagian = aktif.map((f) => ({
       funding: f,
-      imbal: Math.floor((totalImbalDana * f.jumlahAlokasi) / totalPokokDana),
+      imbal: imbalPendana(f.jumlahAlokasi),
     }));
-    const dust =
-      totalImbalDana - imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
-    imbalBagian[0].imbal += dust; // dust selalu >= 0 dan < jumlah penyedia dana
+    const totalHakPendana = imbalBagian.reduce(
+      (acc, x) => acc + x.funding.jumlahAlokasi + x.imbal,
+      0,
+    );
 
     let terdistribusi = 0;
     let totalPotonganAdmin = 0;
@@ -2118,9 +2120,33 @@ export const repayLoan = mutation({
       totalPotonganAdmin += potonganAdmin;
       // Cap bukti audit: berapa bruto, berapa dipotong, berapa dibayarkan.
       await ctx.db.patch(f._id, {
+        imbalHasil: imbal,
         potonganAdmin,
         imbalHasilNet: imbalBersih,
         diselesaikanPada: now,
+      });
+    }
+
+    // Selisih antara kas yang dibayar peminjam dan hak tetap pendana menjadi
+    // pendapatan platform (positif) atau penutup kekurangan (negatif). Jurnal
+    // tetap seimbang dan akun pinjaman kembali nol.
+    const selisihHak = totalKewajibanDana - totalHakPendana;
+    if (selisihHak !== 0) {
+      await appendJournal(ctx, {
+        jenis: "platform_fee",
+        skema: "pinjaman",
+        keterangan: `Selisih hak pendana tetap ${loan.nomorReferensi}`,
+        aktor: "platform",
+        lines:
+          selisihHak > 0
+            ? [
+                { akun: `pinjaman:${args.loanId}`, arah: "debit", jumlah: selisihHak },
+                { akun: "platform:FEE", arah: "kredit", jumlah: selisihHak },
+              ]
+            : [
+                { akun: "platform:FEE", arah: "debit", jumlah: -selisihHak },
+                { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: -selisihHak },
+              ],
       });
     }
 
@@ -2149,6 +2175,7 @@ export const repayLoan = mutation({
     const totalDibayarkan =
       terdistribusi +
       totalPotonganAdmin +
+      selisihHak +
       feePlatform +
       feeAdmin +
       pelunasan.dendaTerlambat;
