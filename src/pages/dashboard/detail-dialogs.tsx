@@ -44,7 +44,7 @@ type RincianPinjamanInput = {
  *   cicilan bulanan) = total. Baris bunga inilah yang dulu tidak pernah ditampilkan,
  *   sehingga daftarnya tampak kurang dari totalnya.
  * - "Potongan di muka": biaya admin 2% dan platform 0% yang dipotong dari dana
- *   yang Anda terima — TIDAK menambah total kewajiban, jadi dipisah.
+ *   yang Anda terima tidak menambah total kewajiban, jadi dipisah.
  *
  * Angka tidak dihitung ulang di sini: semuanya dibaca dari hasil server
  * (`quote` / `simulasiBulanan`), termasuk baris penyeimbang untuk data lama.
@@ -170,7 +170,15 @@ export function LoanDetailDialog({
 
   return (
     <>
-    <Dialog open={loanId !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={loanId !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          setBayarTerbuka(false);
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-md sm:p-6">
         {loan === undefined ? (
           /* Rangka rincian, bukan spinner: kepala dialog, baris `dl`, dan blok
@@ -271,10 +279,9 @@ export function LoanDetailDialog({
             )}
 
             {/* Footer lengket: jalan keluar selalu terlihat tanpa menggulir balik
-                ke atas, dan di ponsel tombolnya selebar dialog. Tidak ada tombol
-                "Lunasi sekarang" di sini karena pembayaran memang BELUM tersedia
-                di aplikasi (lihat catatan di blok pelunasan di atas) — tombol
-                bayar yang tidak bekerja akan menyesatkan. */}
+                ke atas, dan di ponsel tombolnya selebar dialog. Aksi pembayaran
+                tinggal di blok pelunasan supaya satu jalur tidak punya dua
+                tombol yang bersaing. */}
             <div className="sticky bottom-0 -mx-4 -mb-4 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
               <Button variant="outline" className="h-11 w-full" onClick={onClose}>
                 Tutup

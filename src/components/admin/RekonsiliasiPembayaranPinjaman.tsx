@@ -289,11 +289,12 @@ export function RekonsiliasiPembayaranPinjaman() {
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
         <div>
           <p className="text-sm font-semibold text-emerald-950">
-            Antrean perpanjangan & cicil pokok
+            Antrean pembayaran pinjaman
           </p>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-emerald-900">
-            {data.jumlah} bukti menunggu. Mencocokkan bukti memperbarui sisa pokok,
-            tier bunga, bunga periode berikut, dan jatuh tempo sesuai snapshot server.
+            {data.jumlah} bukti menunggu. Bukti bunga saja, cicil pokok, dan pelunasan
+            total dicocokkan dengan snapshot server sebelum sisa pokok, tier bunga,
+            bunga periode berikut, dan jatuh tempo berubah.
           </p>
         </div>
         <span className="rounded-full border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold tabular-nums text-emerald-900">

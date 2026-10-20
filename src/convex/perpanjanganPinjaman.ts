@@ -264,8 +264,8 @@ async function catatPerpanjangan(
         : "INTEREST_ONLY_PAYMENT",
     keterangan:
       receipt.paymentType === "cicil_pokok"
-        ? `Cicil pokok ${loan.nomorReferensi} — bunga ${formatRupiah(rencana.interestDue)}, pokok ${formatRupiah(rencana.principalPaid)}, sisa ${formatRupiah(rencana.principalSesudah)}, tenor ${rencana.extensionDays} hari`
-        : `Bayar bunga saja ${loan.nomorReferensi} — bunga ${formatRupiah(rencana.interestDue)}, pokok tetap ${formatRupiah(rencana.principalSebelum)}, tenor ${rencana.extensionDays} hari`,
+        ? `Cicil pokok ${loan.nomorReferensi}: bunga ${formatRupiah(rencana.interestDue)}, pokok ${formatRupiah(rencana.principalPaid)}, sisa ${formatRupiah(rencana.principalSesudah)}, tenor ${rencana.extensionDays} hari`
+        : `Bayar bunga saja ${loan.nomorReferensi}: bunga ${formatRupiah(rencana.interestDue)}, pokok tetap ${formatRupiah(rencana.principalSebelum)}, tenor ${rencana.extensionDays} hari`,
     aktor: adminId,
     lines,
   });
@@ -309,7 +309,7 @@ async function catatPerpanjangan(
       ? "pembayaran_cicil_pokok_dicocokkan"
       : "pembayaran_bunga_saja_dicocokkan",
     loan.nomorReferensi,
-    `Bukti ${receipt.nomorReferensi} — ${formatRupiah(rencana.totalDue)} (bunga ${formatRupiah(
+    `Bukti ${receipt.nomorReferensi}: ${formatRupiah(rencana.totalDue)} (bunga ${formatRupiah(
       rencana.interestDue,
     )}${rencana.principalPaid > 0 ? `, pokok ${formatRupiah(rencana.principalPaid)}` : ""}${
       rencana.lateFee > 0 ? `, denda ${formatRupiah(rencana.lateFee)}` : ""
@@ -347,7 +347,7 @@ async function catatPelunasanTotal(
     jenis: "repayment",
     skema: "pinjaman",
     eventType: "LOAN_REPAYMENT",
-    keterangan: `Pelunasan ${loan.nomorReferensi} — sisa pokok ${formatRupiah(
+    keterangan: `Pelunasan ${loan.nomorReferensi}: sisa pokok ${formatRupiah(
       rencana.principalSebelum,
     )} + bunga ${formatRupiah(rencana.interestDue)}${
       rencana.lateFee > 0 ? ` + denda ${formatRupiah(rencana.lateFee)}` : ""
@@ -391,7 +391,7 @@ async function catatPelunasanTotal(
       skema: "pinjaman",
       keterangan:
         potonganAdmin > 0
-          ? `Pelunasan ${loan.nomorReferensi}: pembayaran ke ${funding.nomorReferensi} — bruto ${formatRupiah(bruto)}, potongan admin ${cfg.persenAdmin}% ${formatRupiah(potonganAdmin)}, dibayarkan ${formatRupiah(imbalBersih)}`
+          ? `Pelunasan ${loan.nomorReferensi}: pembayaran ke ${funding.nomorReferensi}, bruto ${formatRupiah(bruto)}, potongan admin ${cfg.persenAdmin}% ${formatRupiah(potonganAdmin)}, dibayarkan ${formatRupiah(imbalBersih)}`
           : `Pelunasan ${loan.nomorReferensi}: pembayaran ke ${funding.nomorReferensi}`,
       aktor: "platform",
       lines: [
@@ -455,7 +455,7 @@ async function catatPelunasanTotal(
     adminLabel,
     "loan_lunas",
     loan.nomorReferensi,
-    `${loan.namaLengkap} — pelunasan total ${formatRupiah(rencana.totalDue)} dicocokkan dari bukti ${receipt.nomorReferensi}; sisa pokok 0, alokasi penyedia dana ditutup.`,
+    `${loan.namaLengkap}: pelunasan total ${formatRupiah(rencana.totalDue)} dicocokkan dari bukti ${receipt.nomorReferensi}; sisa pokok 0, alokasi penyedia dana ditutup.`,
   );
 
   if (loan.pendanaId !== undefined) {

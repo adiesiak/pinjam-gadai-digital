@@ -1,5 +1,5 @@
 /**
- * Perpanjangan pinjaman harian & pembayaran pokok sebagian — murni.
+ * Perpanjangan pinjaman harian & pembayaran pokok sebagian, murni.
  *
  * Satu sumber angka untuk pratinjau nasabah dan validasi server. Periode
  * perpanjangan mengikuti tier nominal SESUDAH pembayaran: cicilan pokok yang
@@ -147,7 +147,7 @@ function validasiTenor(
 /**
  * Susun rencana pembayaran pada satu waktu.
  *
- * `waktuTransaksi` dipakai untuk menghitung denda — sama dengan tanggal
+ * `waktuTransaksi` dipakai untuk menghitung denda, sama dengan tanggal
  * transfer yang dicocokkan admin. Jatuh tempo baru dihitung dari jatuh tempo
  * berjalan (atau tanggal transaksi bila sudah lewat), bukan dari hari ini saat
  * pratinjau dibuka, supaya tanggalnya tidak bergeser sendiri.

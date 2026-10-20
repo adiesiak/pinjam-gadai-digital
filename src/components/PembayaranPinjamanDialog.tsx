@@ -21,6 +21,7 @@ import {
   opsiPerpanjangan,
   type ModePembayaranPinjaman,
 } from "@/lib/perpanjanganPinjaman";
+import { LOAN_LIMITS } from "@/lib/loan";
 import { formatRupiah, kelompokkanDigit } from "@/lib/money";
 import { formatTanggalWIB } from "@/lib/waktu";
 
@@ -35,8 +36,6 @@ const PENJELASAN: Record<ModePembayaranPinjaman, string> = {
     "Bunga dan sebagian pokok dibayar. Bunga periode berikutnya dihitung ulang dari sisa pokok.",
 };
 
-/** Tier minimum produk: sisa pokok tidak boleh jatuh di bawah batas ini. */
-const MIN_SISA_POKOK = 100_000;
 
 export function IsiPembayaranPinjaman({
   loan,
@@ -48,11 +47,11 @@ export function IsiPembayaranPinjaman({
   const [mode, setMode] = useState<ModePembayaranPinjaman>("bunga_saja");
   const [principalText, setPrincipalText] = useState(() => {
     const sisa = loan?.sisaPokok ?? 0;
-    return String(Math.max(0, Math.min(100_000, sisa - MIN_SISA_POKOK)));
+    return String(Math.max(0, Math.min(100_000, sisa - LOAN_LIMITS.minPokok)));
   });
   const [extensionDays, setExtensionDays] = useState(0);
   // `konfirmasi` menyimpan sidik rencana yang sudah dikonfirmasi. Bila isian
-  // berubah, sidiknya ikut berubah dan formulir bukti otomatis ditutup — tanpa
+  // berubah, sidiknya ikut berubah dan formulir bukti otomatis ditutup tanpa
   // effect yang memanggil setState.
   const [konfirmasi, setKonfirmasi] = useState<string | null>(null);
   const [sekarang] = useState(() => Date.now());
@@ -68,11 +67,12 @@ export function IsiPembayaranPinjaman({
   const principalSesudah =
     mode === "cicil_pokok" ? Math.max(0, sisaPokok - principalPaid) : sisaPokok;
   const opsi = useMemo(
-    () => (principalSesudah >= MIN_SISA_POKOK ? opsiPerpanjangan(principalSesudah) : []),
+    () =>
+      principalSesudah >= LOAN_LIMITS.minPokok ? opsiPerpanjangan(principalSesudah) : [],
     [principalSesudah],
   );
   // Pilihan tenor diturunkan dari opsi yang sah. Saat sisa pokok berubah dan
-  // tenor lama tidak lagi tersedia, yang pertama dipakai — tanpa setState di
+  // tenor lama tidak lagi tersedia, yang pertama dipakai tanpa setState di
   // dalam effect.
   const extensionTerpilih = opsi.some((o) => o.hari === extensionDays)
     ? extensionDays
@@ -133,7 +133,7 @@ export function IsiPembayaranPinjaman({
     hasil.galat === null;
   const sidikRencana = `${mode}-${extensionTerpilih}-${principalPaid}-${rencana?.totalDue ?? 0}`;
   const siapBayar = bisaKirim && konfirmasi === sidikRencana;
-  const maxCicilan = Math.max(0, sisaPokok - MIN_SISA_POKOK);
+  const maxCicilan = Math.max(0, sisaPokok - LOAN_LIMITS.minPokok);
 
   const isiCepat = (persen: number) => {
     const nominal = Math.min(maxCicilan, Math.round((sisaPokok * persen) / 100));
@@ -149,7 +149,7 @@ export function IsiPembayaranPinjaman({
               ? ""
               : `${loan.nomorReferensi} · sisa pokok ${formatRupiah(loan.sisaPokok)} · jatuh tempo ${
                   loan.pelunasan === null
-                    ? "—"
+                    ? "belum tercatat"
                     : formatTanggalWIB(loan.pelunasan.jatuhTempoPada)
                 }`}
           </DialogDescription>
@@ -242,7 +242,7 @@ export function IsiPembayaranPinjaman({
                   </div>
                   <p id="cicilan-pokok-bantuan" className="text-[11px] leading-5 text-muted-foreground">
                     Maksimum {formatRupiah(maxCicilan)} agar sisa pokok tetap minimal{" "}
-                    {formatRupiah(MIN_SISA_POKOK)}. Untuk melunasi penuh, pilih tab
+                    {formatRupiah(LOAN_LIMITS.minPokok)}. Untuk melunasi penuh, pilih tab
                     pelunasan total.
                   </p>
                 </div>
