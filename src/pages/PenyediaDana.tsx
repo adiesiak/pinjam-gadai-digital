@@ -27,6 +27,7 @@ import { Component, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { kunciNama, namaHurufBesar, namaRuangan } from "@/lib/nama";
 import { VaultLogo } from "@/components/VaultLogo";
@@ -3243,6 +3244,7 @@ function IsiRuang() {
             maupun Imbal Hasil pendana tidak dijamin oleh LPS atau pihak lain, kecuali ada
             perjanjian tertulis yang menyatakannya.
           </p>
+          <p className="mt-3 max-w-3xl text-[11px] leading-5 text-white/60">{PENAFIAN_PINDAI}</p>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
             {/*
              * Warna label di atas latar navy: `gold` (#9c7b3a) hanya 3,03:1 di
@@ -3259,6 +3261,7 @@ function IsiRuang() {
             >
               Dashboard Peminjam
             </Link>
+            <span className="text-[11px] text-white/55">{HAK_CIPTA_PINDAI}</span>
           </div>
         </div>
       </footer>

@@ -36,6 +36,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCegahTinggalkan, useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import { NAMA_ENTITAS_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { adaPerubahan } from "@/lib/formInteraksi";
 import {
   KYC_FILES,
@@ -1371,7 +1372,8 @@ export function LoanForm({
               Syarat &amp; Ketentuan
             </DialogTitle>
             <DialogDescription>
-              Bacalah ringkasan ini sebelum mengirim pengajuan.
+              Bacalah ringkasan ini sebelum mengirim pengajuan. Layanan PINDAI
+              diselenggarakan oleh {NAMA_ENTITAS_PINDAI}.
             </DialogDescription>
           </DialogHeader>
 
@@ -1410,6 +1412,10 @@ export function LoanForm({
           {/* Titik GPS hanya tampil di sini: pada saat persetujuan, pengguna
               membaca titik terbaru yang ikut terkirim beserta jam ambilnya. */}
           {lokasi !== null && <BlokLokasiKirim lokasi={lokasi} />}
+
+          <p className="border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-500">
+            {PENAFIAN_PINDAI}
+          </p>
 
           <p className="text-xs text-slate-500">
             Versi {CONTRACT_TERMS_VERSION}.{" "}

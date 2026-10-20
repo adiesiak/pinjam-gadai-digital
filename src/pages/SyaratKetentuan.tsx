@@ -23,6 +23,7 @@ import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import { HAK_CIPTA_PINDAI, NAMA_ENTITAS_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { formatRupiah } from "@/lib/money";
 import {
   LOAN_LIMITS,
@@ -598,6 +599,9 @@ function IsiSyaratKetentuan() {
               Ketentuan pemakaian aplikasi PINDAI untuk pinjaman, gadai, kredit
               barang, dan ruang pendana. Harap dibaca sebelum mengajukan.
             </p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              {PENAFIAN_PINDAI}
+            </p>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium">
                 Versi {CONTRACT_TERMS_VERSION}
@@ -664,7 +668,10 @@ function IsiSyaratKetentuan() {
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs text-slate-500 sm:flex-row">
+        <p className="mt-6 text-center text-[11px] text-slate-500">
+          {HAK_CIPTA_PINDAI} · {NAMA_ENTITAS_PINDAI}
+        </p>
+        <div className="mt-3 flex flex-col items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs text-slate-500 sm:flex-row">
           <span className="flex items-center gap-1.5">
             <Lock className="size-3.5" /> Versi syarat {CONTRACT_TERMS_VERSION}{" "}
             · {TERAKHIR_DIPERBARUI}

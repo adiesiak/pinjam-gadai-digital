@@ -20,6 +20,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { VaultLogo } from "@/components/VaultLogo";
+import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { formatRupiah } from "@/lib/money";
 import {
   quoteLoanBunga,
@@ -479,20 +480,26 @@ function Baris({ label, nilai }: { label: string; nilai: string }) {
 function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-7 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <span>PINDAI · Perhitungan dan status adalah catatan aplikasi.</span>
-        <nav
-          aria-label="Tautan tambahan"
-          className="flex flex-wrap gap-x-4 gap-y-2"
-        >
-          <Link to="/">Beranda</Link>
-          <Link to="/biaya">Biaya</Link>
-          <Link to="/cara-kerja">Cara kerja</Link>
-          <Link to="/keamanan">Keamanan</Link>
-          <Link to="/faq">FAQ</Link>
-          <Link to="/aplikasi">Aplikasi</Link>
-          <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
-        </nav>
+      <div className="mx-auto max-w-6xl px-4 py-7 text-xs text-slate-600 sm:px-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <span>PINDAI · Perhitungan dan status adalah catatan aplikasi.</span>
+          <nav
+            aria-label="Tautan tambahan"
+            className="flex flex-wrap gap-x-4 gap-y-2"
+          >
+            <Link to="/">Beranda</Link>
+            <Link to="/biaya">Biaya</Link>
+            <Link to="/cara-kerja">Cara kerja</Link>
+            <Link to="/keamanan">Keamanan</Link>
+            <Link to="/faq">FAQ</Link>
+            <Link to="/aplikasi">Aplikasi</Link>
+            <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
+          </nav>
+        </div>
+        <p className="mt-4 border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-500">
+          {PENAFIAN_PINDAI}
+        </p>
+        <p className="mt-1 text-[11px] text-slate-500">{HAK_CIPTA_PINDAI}</p>
       </div>
     </footer>
   );

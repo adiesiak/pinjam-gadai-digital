@@ -51,6 +51,7 @@ import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { Reveal } from "@/components/Reveal";
 import { HeroBoundary, LandingHero } from "@/components/landing/LandingHero";
 import { VaultLogo } from "@/components/VaultLogo";
+import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { CMS_DEFAULTS } from "@/lib/cms-defaults";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import {
@@ -2232,8 +2233,11 @@ export default function Landing() {
               </ul>
             </div>
           </Reveal>
-          <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-slate-200 pt-6 text-xs text-slate-500 sm:flex-row">
-            <span>© 2026 {logoTeks}. Seluruh hak cipta.</span>
+          <p className="mt-6 max-w-3xl border-t border-slate-200 pt-5 text-xs leading-5 text-slate-500">
+            {PENAFIAN_PINDAI}
+          </p>
+          <div className="mt-4 flex flex-col items-center justify-between gap-2 pt-2 text-xs text-slate-500 sm:flex-row">
+            <span>{HAK_CIPTA_PINDAI}</span>
             <span className="flex flex-wrap items-center justify-center gap-2">
               <span>Perhitungan transparan · Status ledger internal</span>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium">

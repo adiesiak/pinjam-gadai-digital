@@ -18,6 +18,7 @@ import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import {
   JUMLAH_KARTU_LAYANAN,
   JUMLAH_PANDUAN,
@@ -469,8 +470,11 @@ export default function LandingHome() {
             <Link to="/aplikasi">Aplikasi Android</Link>
             <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
           </nav>
+          <p className="max-w-2xl text-xs leading-5 text-slate-500 md:col-span-2">
+            {PENAFIAN_PINDAI}
+          </p>
           <p className="text-xs text-slate-500 md:col-span-2">
-            © 2026 PINDAI · Ketentuan {CONTRACT_TERMS_VERSION}
+            {HAK_CIPTA_PINDAI} · Ketentuan {CONTRACT_TERMS_VERSION}
           </p>
         </div>
       </footer>

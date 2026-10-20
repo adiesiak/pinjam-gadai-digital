@@ -18,6 +18,12 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { CheckCircle2, MessageCircle, ReceiptText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  HAK_CIPTA_PINDAI,
+  NAMA_ENTITAS_PINDAI,
+  PENERBIT_KUITANSI,
+  PENAFIAN_PINDAI,
+} from "@/lib/branding";
 import type { SimulasiBulanan } from "@/lib/bulanan";
 import { urlChatCs } from "@/lib/kontak";
 import { loanPurposeLabel, loanStatusMeta, type LoanQuote } from "@/lib/loan";
@@ -242,6 +248,9 @@ function KuitansiPembayaranDialog({
               <div>
                 <p className="text-lg font-bold tracking-tight">PINDAI</p>
                 <p className="text-[11px] text-emerald-100">Kuitansi pembayaran elektronik</p>
+                <p className="mt-1 text-[10px] leading-4 text-emerald-100/90">
+                  {PENERBIT_KUITANSI}
+                </p>
               </div>
               <div className="text-left sm:text-right">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-emerald-100">
@@ -314,9 +323,15 @@ function KuitansiPembayaranDialog({
                 keperluan verifikasi. Kuitansi tidak dapat dipindahtangankan dan bukan
                 bukti kepemilikan akun.
               </p>
+              <p className="border-t border-slate-100 pt-3 text-[10px] leading-4 text-slate-500">
+                Diterbitkan oleh {NAMA_ENTITAS_PINDAI}. {PENAFIAN_PINDAI}
+              </p>
             </div>
 
-            <footer className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
+            <footer className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-end sm:px-5">
+              <p className="mr-auto text-[10px] leading-4 text-slate-500">
+                {HAK_CIPTA_PINDAI}
+              </p>
               <Button type="button" variant="outline" className="h-10" onClick={() => window.print()}>
                 Cetak kuitansi
               </Button>

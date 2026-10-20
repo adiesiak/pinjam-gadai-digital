@@ -60,6 +60,18 @@ for (const [path, expectedText] of routes) {
   );
 }
 
+const info = renderPage("/faq", <PublicInfoPageView />);
+check(
+  info.includes("© 2026 PT Pindai Digital Solusindo. All Rights Reserved."),
+  "public footer shows the operating entity copyright line",
+);
+check(
+  info.includes(
+    "PINDAI adalah platform sistem informasi pembiayaan mikro berbasis teknologi yang dikembangkan oleh PT Pindai Digital Solusindo.",
+  ),
+  "public footer carries the PINDAI entity disclaimer",
+);
+
 const biaya = renderPage("/biaya", <PublicInfoPageView />);
 check(
   biaya.includes("overflow-x-auto") && biaya.includes("min-w-[36rem]"),
@@ -115,6 +127,10 @@ check(
   "terms clarify monthly installments are illustrative",
 );
 check(syarat.includes('href="/auth"'), "terms page links to sign-in");
+check(
+  syarat.includes("PT Pindai Digital Solusindo"),
+  "terms name the company behind the PINDAI platform",
+);
 check(
   [...syarat.matchAll(/href="([^"#][^"]*)"/g)].every((match) =>
     validInternalPaths.has(match[1] ?? ""),

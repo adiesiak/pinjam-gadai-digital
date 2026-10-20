@@ -27,6 +27,12 @@ import {
   LABEL_TAMPILAN_ANGSURAN,
   type TampilanAngsuran,
 } from "@/lib/angsuran";
+import {
+  HAK_CIPTA_PINDAI,
+  NAMA_ENTITAS_PINDAI,
+  PENERBIT_KUITANSI,
+  PENAFIAN_PINDAI,
+} from "@/lib/branding";
 import { formatRupiah } from "@/lib/money";
 import { formatTanggalWIB } from "@/lib/waktu";
 import { EmptyState } from "./empty-state";
@@ -378,6 +384,7 @@ function htmlKuitansi(grup: Grup, baris: Baris): string {
         <div>
           <p class="kop-judul">PINDAI</p>
           <p class="kop-sub">Kuitansi pembayaran angsuran</p>
+          <p class="kop-sub">${PENERBIT_KUITANSI}</p>
         </div>
       </div>
       <div class="kop-kanan">
@@ -397,6 +404,7 @@ function htmlKuitansi(grup: Grup, baris: Baris): string {
       </tbody>
     </table>
     <p>Kuitansi ini dihasilkan dari jadwal angsuran PINDAI dan bukti transfer yang telah dicocokkan admin.</p>
+    <p style="margin-top:16px;font-size:10px;line-height:1.5;color:#64748b">${PENAFIAN_PINDAI}<br/>${HAK_CIPTA_PINDAI}</p>
   `;
 }
 
@@ -417,6 +425,9 @@ function KuitansiDialog({ data, onClose }: { data: Kuitansi | null; onClose: () 
             {data === null || baris === null
               ? ""
               : `${data.grup.nomorReferensi} · ${baris.dibayarPada === null ? "sudah lunas" : `dibayar ${formatTanggalWIB(baris.dibayarPada)}`}`}
+            <span className="mt-1 block text-[10px] text-muted-foreground">
+              {PENERBIT_KUITANSI}
+            </span>
           </DialogDescription>
         </DialogHeader>
         {data !== null && baris !== null && (
@@ -445,6 +456,9 @@ function KuitansiDialog({ data, onClose }: { data: Kuitansi | null; onClose: () 
             </dl>
             <p className="text-xs leading-5 text-muted-foreground">
               Angka ini dari jadwal angsuran dan bukti transfer yang sudah dicocokkan admin.
+            </p>
+            <p className="border-t border-slate-100 pt-3 text-[10px] leading-4 text-muted-foreground">
+              Diterbitkan oleh {NAMA_ENTITAS_PINDAI}. {PENAFIAN_PINDAI}
             </p>
             <div className="flex flex-wrap items-center justify-between gap-2">
               {baris.buktiUrl != null && (
