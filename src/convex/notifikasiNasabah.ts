@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
@@ -7,16 +8,30 @@ import { audit, getConfig } from "./system";
 import { kanalAktif, kanalEfektif } from "../lib/preferensiNotifikasi";
 
 /**
- * Override notifikasi PER NASABAH — hanya dapat dibaca dan diubah admin.
+ * Preferensi notifikasi PER NASABAH.
  *
- * Sakelar global di Pengaturan Sistem tetap berlaku untuk semua akun. Baris di
- * sini adalah pengecualian untuk satu nasabah, dan nilai efektifnya selalu
- * `global && override`: mematikan global tidak bisa dilawan dengan menghidupkan
- * override nasabah.
+ * Nasabah dapat mematikan pengingat WhatsApp dari tab Profil & Rekening.
+ * Admin membaca dan mengubah nilai yang sama dari panel nasabah, sehingga
+ * tidak ada dua sakelar yang bisa saling bertentangan. Sakelar global di
+ * Pengaturan Sistem tetap berlaku untuk semua akun; nilai efektifnya selalu
+ * `global && preferensi`: mematikan global tidak bisa dilawan dengan
+ * menghidupkan preferensi nasabah.
  *
  * Pengirim otomatis memakai `_kanalAktif` (internal) sehingga satu aturan yang
- * sama dipakai WhatsApp dan email — tidak ada jalur yang lupa memeriksa.
+ * sama dipakai WhatsApp dan email. OTP dan pesan keamanan tidak melewati
+ * gerbang ini.
  */
+
+async function requireNasabahSendiri(ctx: QueryCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+  const user = await ctx.db.get(userId);
+  if (user === null) throw new Error("Pengguna tidak ditemukan.");
+  if (user.isAnonymous === true) {
+    throw new Error("Akun tamu tidak dapat mengubah preferensi notifikasi.");
+  }
+  return { userId, user };
+}
 
 async function dataNasabah(ctx: QueryCtx, userId: Id<"users">) {
   const user = await ctx.db.get(userId);
@@ -25,9 +40,14 @@ async function dataNasabah(ctx: QueryCtx, userId: Id<"users">) {
     .query("kycProfil")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
+  const profil = await ctx.db
+    .query("nasabahProfil")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
   return {
     user,
-    nomorWhatsapp: kyc?.nomorWhatsApp ?? user.nomorWhatsApp ?? null,
+    nomorWhatsapp:
+      kyc?.nomorWhatsApp ?? profil?.nomorWhatsApp ?? user.nomorWhatsApp ?? null,
     emailAlamat: user.email ?? null,
   };
 }
@@ -55,7 +75,7 @@ export const preferensiNasabah = query({
   },
 });
 
-/** Simpan override satu nasabah — admin saja, dengan jejak audit. */
+/** Simpan preferensi satu nasabah lewat jalur admin, dengan jejak audit. */
 export const simpanPreferensiNasabah = mutation({
   args: {
     userId: v.id("users"),
@@ -88,6 +108,52 @@ export const simpanPreferensiNasabah = mutation({
       }`,
     );
     return { whatsapp: args.whatsapp, email: args.email };
+  },
+});
+
+/** Preferensi pengingat WhatsApp milik pengguna yang sedang masuk. */
+export const preferensiSaya = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId, user } = await requireNasabahSendiri(ctx);
+    const { nomorWhatsapp } = await dataNasabah(ctx, userId);
+    const cfg = await getConfig(ctx);
+    return {
+      whatsapp: kanalAktif(user.notifWhatsapp),
+      efektifWhatsapp: kanalEfektif(cfg.notifWhatsappAktif, user.notifWhatsapp),
+      globalWhatsapp: cfg.notifWhatsappAktif,
+      nomorWhatsapp,
+    };
+  },
+});
+
+/**
+ * Simpan preferensi pengingat WhatsApp milik sendiri.
+ *
+ * Nilai yang disimpan adalah preferensi nasabah, bukan keputusan admin. Admin
+ * melihat nilai yang sama di panel nasabah dan tetap dapat menimpanya bila
+ * perlu. Perubahan dicatat dengan aktor nasabah agar jejaknya tidak tertukar
+ * dengan tindakan admin.
+ */
+export const simpanPreferensiSaya = mutation({
+  args: { whatsapp: v.boolean() },
+  handler: async (ctx, { whatsapp }) => {
+    const { userId, user } = await requireNasabahSendiri(ctx);
+    const sebelum = kanalAktif(user.notifWhatsapp);
+    if (sebelum !== whatsapp) {
+      await ctx.db.patch(userId, { notifWhatsapp: whatsapp });
+      await audit(
+        ctx,
+        userId,
+        user.email ?? user.name ?? "nasabah",
+        "ubah_preferensi_notifikasi_saya",
+        `users:${userId}`,
+        `Pengingat WhatsApp: ${sebelum ? "aktif" : "nonaktif"} → ${
+          whatsapp ? "aktif" : "nonaktif"
+        }`,
+      );
+    }
+    return { whatsapp };
   },
 });
 

@@ -3,9 +3,11 @@
  *
  * Yang dijaga:
  *  - admin dapat membaca keadaan default dan menyimpan pilihan satu nasabah;
- *  - nilai efektif selalu `global && override`, jadi override tidak bisa
+ *  - nasabah dapat mematikan pengingat WhatsApp miliknya sendiri;
+ *  - nilai efektif selalu `global && preferensi`, jadi preferensi tidak bisa
  *    menghidupkan kanal yang dimatikan global;
- *  - non-admin tidak dapat membaca maupun mengubah pilihan nasabah lain;
+ *  - non-admin tidak dapat memakai jalur admin untuk membaca atau mengubah
+ *    pilihan nasabah lain;
  *  - perubahan tercatat di audit trail.
  *
  * Menjalankan: bunx vitest run src/convex/notifikasiNasabah.convex.test.ts
@@ -77,6 +79,86 @@ describe("override notifikasi per nasabah", () => {
     );
     expect(audit).toHaveLength(1);
     expect(audit[0].target).toBe(`users:${nasabahId}`);
+  });
+
+  it("nasabah dapat mematikan pengingat WhatsApp miliknya sendiri", async () => {
+    const t = buatKontek();
+    const { admin, nasabah, nasabahId } = await adminDanNasabah(t);
+
+    const awal = await nasabah.query(api.notifikasiNasabah.preferensiSaya, {});
+    expect(awal).toMatchObject({
+      whatsapp: true,
+      efektifWhatsapp: true,
+      globalWhatsapp: true,
+      nomorWhatsapp: null,
+    });
+
+    await nasabah.mutation(api.notifikasiNasabah.simpanPreferensiSaya, {
+      whatsapp: false,
+    });
+
+    const sesudah = await nasabah.query(api.notifikasiNasabah.preferensiSaya, {});
+    expect(sesudah).toMatchObject({
+      whatsapp: false,
+      efektifWhatsapp: false,
+      globalWhatsapp: true,
+    });
+    expect(
+      await t.query(internal.notifikasiNasabah._kanalAktif, {
+        userId: nasabahId,
+        kanal: "whatsapp",
+      }),
+    ).toBe(false);
+
+    const tersimpan = await t.run((ctx) => ctx.db.get(nasabahId));
+    expect(tersimpan?.notifWhatsapp).toBe(false);
+
+    // Admin melihat pilihan yang sama, sehingga tidak ada dua sumber kebenaran.
+    const dariAdmin = await admin.query(api.notifikasiNasabah.preferensiNasabah, {
+      userId: nasabahId,
+    });
+    expect(dariAdmin).toMatchObject({ whatsapp: false, efektifWhatsapp: false });
+
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLog")
+        .withIndex("by_aksi", (q) => q.eq("aksi", "ubah_preferensi_notifikasi_saya"))
+        .collect(),
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0].aktorUserId).toBe(nasabahId);
+    expect(audit[0].target).toBe(`users:${nasabahId}`);
+  });
+
+  it("menampilkan nomor WhatsApp dari Data Diri bila KYC belum diisi", async () => {
+    const t = buatKontek();
+    const { nasabah, nasabahId } = await adminDanNasabah(t);
+    await t.run((ctx) =>
+      ctx.db.insert("nasabahProfil", {
+        userId: nasabahId,
+        namaLengkap: "Rani Notif",
+        nik: "3201234567890003",
+        nomorWhatsApp: "628123450999",
+        diperbaruiPada: Date.now(),
+        diperbaruiOlehLabel: "nasabah",
+        sumber: "nasabah",
+      }),
+    );
+
+    const data = await nasabah.query(api.notifikasiNasabah.preferensiSaya, {});
+    expect(data.nomorWhatsapp).toBe("628123450999");
+  });
+
+  it("akun tamu tidak dapat membaca atau mengubah preferensi sendiri", async () => {
+    const t = buatKontek();
+    const { sesi: tamu } = await buatPengguna(t, "Tamu Notif", { isAnonymous: true });
+
+    await expect(
+      tamu.query(api.notifikasiNasabah.preferensiSaya, {}),
+    ).rejects.toThrow(/tamu/i);
+    await expect(
+      tamu.mutation(api.notifikasiNasabah.simpanPreferensiSaya, { whatsapp: false }),
+    ).rejects.toThrow(/tamu/i);
   });
 
   it("gerbang efektif menggabungkan sakelar global dan override nasabah", async () => {

@@ -1,10 +1,9 @@
 /**
  * Aturan sakelar notifikasi otomatis PINDAI (murni, tanpa React maupun Convex).
  *
- * Sakelar ini GLOBAL dan hanya ada di dashboard admin (`Pengaturan Sistem`).
- * Pemilik akun tidak memiliki pilihan kanal sendiri: kosong berarti aktif,
- * sehingga baris konfigurasi yang dibuat sebelum kolomnya ada tetap mengirim
- * pengingat seperti sebelumnya.
+ * Ada dua lapis: sakelar global di dashboard admin (`Pengaturan Sistem`) dan
+ * preferensi milik nasabah. Kosong berarti aktif, sehingga baris konfigurasi
+ * yang dibuat sebelum kolomnya ada tetap mengirim pengingat seperti sebelumnya.
  *
  * Yang diatur hanya pengingat tagihan. Notifikasi di dalam aplikasi tetap
  * tersimpan, dan pesan keamanan seperti kode OTP tidak pernah dimatikan oleh
@@ -29,7 +28,7 @@ export function kanalAktif(disimpan: boolean | undefined): boolean {
  *
  * Dua lapis sengaja: sakelar global adalah kebijakan operasional, sedangkan
  * sakelar nasabah adalah pengecualian. Pengecualian tidak boleh menghidupkan
- * kembali kanal yang dimatikan global — karena itu `&&`, bukan `||`.
+ * kembali kanal yang dimatikan global. Karena itu `&&`, bukan `||`.
  */
 export function kanalEfektif(
   global: boolean,
@@ -38,7 +37,7 @@ export function kanalEfektif(
   return global && kanalAktif(override);
 }
 
-/** Label keadaan sakelar — dibaca sebagai teks, bukan hanya posisi sakelar. */
+/** Label keadaan sakelar, dibaca sebagai teks dan bukan hanya posisi sakelar. */
 export function labelKanalAktif(aktif: boolean): "Aktif" | "Nonaktif" {
   return aktif ? "Aktif" : "Nonaktif";
 }

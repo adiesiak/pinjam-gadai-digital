@@ -11,7 +11,7 @@ import { labelKanalAktif, type KanalNotifikasi } from "@/lib/preferensiNotifikas
 type NilaiOverride = { whatsapp: boolean; email: boolean };
 
 /**
- * Kartu notifikasi per nasabah — bagian MURNI supaya teks dan keadaan
+ * Kartu notifikasi per nasabah, bagian MURNI supaya teks dan keadaan
  * "ditahan sakelar global" bisa diuji tanpa server.
  *
  * Dua lapis ditampilkan terpisah: pilihan nasabah dan apakah kanal itu benar-
@@ -76,8 +76,9 @@ export function KartuNotifikasiNasabah({
             <BellRing className="size-4" aria-hidden /> Notifikasi nasabah ini
           </h3>
           <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-            Pengingat tagihan lewat WhatsApp dan email. Sakelar global di Pengaturan Sistem tetap
-            berlaku untuk semua akun.
+            Pengingat tagihan lewat WhatsApp dan email. Nasabah juga dapat mengubah
+            pengingat WhatsApp dari Profil & Rekening. Sakelar global di Pengaturan
+            Sistem tetap berlaku untuk semua akun.
           </p>
         </div>
       </div>

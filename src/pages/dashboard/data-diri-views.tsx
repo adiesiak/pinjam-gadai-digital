@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PerangkatSesiSaya } from "@/components/PerangkatSesiSaya";
+import { PreferensiNotifikasiWhatsapp } from "@/components/PreferensiNotifikasi";
 import { FormDataDiri } from "@/components/DataDiriForm";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
@@ -15,7 +16,7 @@ import { MAX_FILE_BYTES } from "@/lib/kyc";
 import { namaHurufBesar } from "@/lib/nama";
 
 /**
- * Data diri nasabah — sunting mandiri dari dashboard.
+ * Data diri nasabah, disunting mandiri dari dashboard.
  *
  * Memakai form yang SAMA dengan panel admin (`components/DataDiriForm`), dan
  * server menulis lewat helper yang sama (`convex/dataDiriProfil.ts`), sehingga
@@ -146,6 +147,7 @@ export function DataDiriSection() {
         />
       </div>
     </section>
+    <PreferensiNotifikasiWhatsapp />
     <PerangkatSesiSaya />
     </div>
   );

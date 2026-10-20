@@ -1,10 +1,10 @@
 /**
- * Uji aturan sakelar notifikasi global (fungsi murni).
+ * Uji aturan sakelar notifikasi otomatis (fungsi murni).
  * Run: bun src/lib/preferensiNotifikasi.test.ts
  *
- * Yang dijaga: konfigurasi lama tanpa kolom tetap mengirim pengingat, dan hanya
- * `false` eksplisit yang mematikan kanal. Sakelar ini milik admin, bukan
- * pilihan per akun.
+ * Yang dijaga: konfigurasi lama tanpa kolom tetap mengirim pengingat, hanya
+ * `false` eksplisit yang mematikan kanal, dan preferensi nasabah tetap tunduk
+ * pada sakelar global.
  */
 import {
   PREFERENSI_BAWAAN,
