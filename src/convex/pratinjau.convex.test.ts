@@ -14,7 +14,12 @@ import { describe, expect, it } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { buatPengguna, siapkanPengguna, type KonteksUji } from "./test.helpers";
+import {
+  buatPengguna,
+  siapkanPengguna,
+  type KonteksUji,
+  type SesiUji,
+} from "./test.helpers";
 import { modules } from "./test.setup";
 
 /** Nonce uji — panjang & bentuknya sama dengan yang dibuat klien. */
@@ -572,5 +577,145 @@ describe("Mode Nasabah — pemilih akun uji", () => {
     await expect(
       pendana.sesi.query(api.pratinjau.cariNasabahUji, { kueri: "" }),
     ).rejects.toThrow(/Super Admin/i);
+  });
+});
+
+/**
+ * Pratinjau memberi peramban admin SESI NYATA akun target. Tanpa pagar di akar
+ * aktivitas, semua yang dilakukan admin terekam seolah milik nasabah: peramban
+ * admin muncul di "Perangkat sesi saya", sesi nasabah di HP-nya digugurkan
+ * aturan sesi tunggal, dan koordinat admin menimpa lokasi terakhir nasabah —
+ * peta pemantauan lalu menunjuk orang yang salah. Tes di bawah mengunci itu.
+ */
+describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
+  /** Tukar tiket jadi sesi, lalu kembalikan konteks ber-identitas sesi pratinjau. */
+  async function sesiPratinjau(
+    t: KonteksUji,
+    tiketId: Id<"pratinjauSesi">,
+    targetId: Id<"users">,
+  ): Promise<SesiUji> {
+    const hasil = await t.mutation(internal.pratinjau._pakaiTiket, { tiketId });
+    return t.withIdentity({ subject: `${targetId}|${hasil.sessionId}` });
+  }
+
+  it("tidak mencatat sesi, login, perangkat, atau lokasi peramban admin", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+
+    // Keadaan asli nasabah: satu sesi di HP-nya dan satu titik GPS terakhir.
+    await peminjam.sesi.mutation(api.security.ensureSessionPublic, {
+      sessionId: "hp-nasabah",
+      perangkat: "HP nasabah",
+      ip: "36.1.1.1",
+    });
+    await t.run((ctx) =>
+      ctx.db.insert("lokasiStatus", {
+        userId: peminjam.userId,
+        lat: -6.2,
+        lng: 106.8,
+        akurasi: 10,
+        waktu: Date.now(),
+        sumber: "web",
+      }),
+    );
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: NONCE,
+    });
+    const sesiAdmin = await sesiPratinjau(t, tiket.tiketId, peminjam.userId);
+
+    // Peramban admin menjalankan alur yang sama dengan nasabah.
+    const daftarSesi = await sesiAdmin.mutation(api.security.ensureSessionPublic, {
+      sessionId: "peramban-admin",
+      perangkat: "Chrome admin",
+      ip: "10.1.1.1",
+    });
+    expect(daftarSesi).toEqual({ ok: true, dilewati: "pratinjau" });
+
+    const login = await sesiAdmin.mutation(api.security.recordLogin, {
+      ip: "10.1.1.1",
+      userAgent: "Chrome admin",
+      metode: "pratinjau",
+    });
+    expect(login).toEqual({ ok: true, anomali: false });
+
+    const titik = await sesiAdmin.mutation(api.lokasi.catatLokasi, {
+      lat: -6.9,
+      lng: 107.6,
+      akurasi: 12,
+      sumber: "web",
+      platform: "web",
+    });
+    expect(titik.jarakLompatKm).toBeNull();
+
+    const perangkat = await sesiAdmin.mutation(api.lokasi.daftarkanPerangkat, {
+      deviceId: "perangkat-admin-1",
+      platform: "android",
+      versiApp: "1.0.0",
+    });
+    expect(perangkat).toMatchObject({ ok: true, token: null, dilewati: "pratinjau" });
+
+    // Sesi nasabah tetap satu-satunya, masih aktif, dan tidak digantikan.
+    const sesiTercatat = await t.run((ctx) =>
+      ctx.db
+        .query("sessions")
+        .withIndex("by_user", (q) => q.eq("userId", peminjam.userId))
+        .collect(),
+    );
+    expect(sesiTercatat).toHaveLength(1);
+    expect(sesiTercatat[0]).toMatchObject({ sessionId: "hp-nasabah", ip: "36.1.1.1" });
+    expect(sesiTercatat[0].waktuBerakhir).toBeUndefined();
+
+    // Riwayat login, jejak GPS, dan daftar perangkat tetap milik nasabah saja.
+    expect(await t.run((ctx) => ctx.db.query("loginLogs").collect())).toHaveLength(0);
+    expect(await t.run((ctx) => ctx.db.query("lokasiJejak").collect())).toHaveLength(0);
+    expect(await t.run((ctx) => ctx.db.query("perangkat").collect())).toHaveLength(0);
+
+    const statusLokasi = await t.run((ctx) => ctx.db.query("lokasiStatus").collect());
+    expect(statusLokasi).toHaveLength(1);
+    expect(statusLokasi[0]).toMatchObject({ lat: -6.2, lng: 106.8 });
+  });
+
+  it("nasabah tanpa pratinjau tetap tercatat seperti biasa", async () => {
+    const t = convexTest(schema, modules);
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+
+    const daftarSesi = await peminjam.sesi.mutation(api.security.ensureSessionPublic, {
+      sessionId: "hp-nasabah",
+      perangkat: "HP nasabah",
+      ip: "36.1.1.1",
+    });
+    expect(daftarSesi).toEqual({ ok: true });
+
+    const titik = await peminjam.sesi.mutation(api.lokasi.catatLokasi, {
+      lat: -6.2,
+      lng: 106.8,
+      akurasi: 10,
+      sumber: "web",
+    });
+    expect(typeof titik.waktu).toBe("number");
+
+    await peminjam.sesi.mutation(api.security.recordLogin, {
+      ip: "36.1.1.1",
+      userAgent: "Chrome",
+      metode: "email",
+    });
+
+    expect(await t.run((ctx) => ctx.db.query("sessions").collect())).toHaveLength(1);
+    expect(await t.run((ctx) => ctx.db.query("lokasiStatus").collect())).toHaveLength(1);
+    expect(
+      await t.run((ctx) => ctx.db.query("loginLogs").collect()),
+    ).toHaveLength(1);
   });
 });

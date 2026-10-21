@@ -400,8 +400,14 @@ export function LocationGate({
         // Token dipakai mengirim titik tanpa sesi (layanan lokasi), termasuk
         // saat aplikasi di latar belakang. Disimpan di penyimpanan aman
         // perangkat agar app tidak perlu mendaftar ulang setiap kali dibuka.
-        tokenRef.current = hasil.token;
-        await simpanTokenPerangkat(hasil.token);
+        //
+        // Token null berarti pendaftaran dilewati (sesi pratinjau admin):
+        // jangan menimpa token yang sudah tersimpan — itu milik perangkat
+        // admin sendiri, bukan milik akun yang sedang dipratinjau.
+        if (hasil.token !== null) {
+          tokenRef.current = hasil.token;
+          await simpanTokenPerangkat(hasil.token);
+        }
       } catch (err) {
         if (dibatalkan) return;
         setPesan(

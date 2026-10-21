@@ -10,6 +10,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { internal } from "./_generated/api";
+import { sesiPratinjauAktif } from "./adminAuthz";
 import { audit, getConfig } from "./system";
 import { jarakKm } from "../lib/geo";
 import { plafonPeminjam } from "../lib/plafon";
@@ -424,6 +425,14 @@ export const catatLokasi = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await penggunaMasuk(ctx);
+    // Pratinjau admin memakai perangkat admin, bukan perangkat nasabah. Titik
+    // GPS-nya TIDAK dicatat: kalau ikut tersimpan, lokasi nasabah asli
+    // tertimpa koordinat admin dan peta pemantauan menampilkan orang yang
+    // salah. Balasan tetap berbentuk normal supaya layar pratinjau tidak
+    // berkedip galat; yang dihapus hanya penulisannya.
+    if (await sesiPratinjauAktif(ctx)) {
+      return { waktu: Date.now(), jarakLompatKm: null, tanda: [] };
+    }
     return await simpanTitik(ctx, userId, {
       lat: args.lat,
       lng: args.lng,
@@ -451,6 +460,12 @@ export const daftarkanPerangkat = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await penggunaMasuk(ctx);
+    // Perangkat admin yang dipakai mempratinjau bukan perangkat nasabah;
+    // mendaftarkannya akan membuat gerbang "wajib aplikasi" menganggap
+    // perangkat admin sebagai perangkat resmi akun itu.
+    if (await sesiPratinjauAktif(ctx)) {
+      return { ok: true, token: null, dilewati: "pratinjau" };
+    }
     const deviceId = args.deviceId.trim();
     if (deviceId.length < 6) {
       throw new Error("ID perangkat tidak valid.");

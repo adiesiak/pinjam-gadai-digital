@@ -40,6 +40,37 @@ export async function getCurrentAuthSessionId(
   return session._id;
 }
 
+/**
+ * Apakah sesi Auth yang sedang dipakai adalah sesi PRATINJAU ("masuk sebagai").
+ *
+ * Pratinjau memberi peramban admin sesi nyata akun target, jadi tanpa
+ * pemeriksaan ini aktivitas admin terekam sebagai aktivitas nasabah: perangkat
+ * admin masuk daftar "Perangkat sesi saya", sesi asli nasabah di perangkat lain
+ * ikut digugurkan oleh aturan sesi tunggal, dan titik GPS admin tersimpan
+ * sebagai lokasi nasabah. Pemeriksaan dilakukan di server — klien tidak bisa
+ * mematikannya. Barisnya dicocokkan lewat `sesiPratinjauId`, sesi yang MEMANG
+ * dibuat untuk pratinjau itu, bukan sekadar "sesi yang dibuat setelah pratinjau
+ * dimulai".
+ */
+export async function sesiPratinjauAktif(ctx: QueryCtx): Promise<boolean> {
+  const sessionId = await getAuthSessionId(ctx);
+  if (typeof sessionId !== "string") return false;
+  const userId = await getAuthUserId(ctx);
+  if (userId === null) return false;
+
+  const baris = await ctx.db
+    .query("pratinjauSesi")
+    .withIndex("by_target", (q) => q.eq("targetId", userId))
+    .collect();
+  const sekarang = Date.now();
+  return baris.some(
+    (r) =>
+      r.sesiPratinjauId === sessionId &&
+      r.selesai === undefined &&
+      (r.berlakuHingga ?? 0) > sekarang,
+  );
+}
+
 /** Checks the signed-in user's admin role without granting access to admin data. */
 export async function requireAdminRole(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);

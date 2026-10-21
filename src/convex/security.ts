@@ -18,6 +18,7 @@ import {
   requireAdminRole,
   requireAdminSession,
   getCurrentAuthSessionId,
+  sesiPratinjauAktif,
 } from "./adminAuthz";
 
 /**
@@ -939,6 +940,9 @@ export const setWaOtpRequired = mutation({
 export const recordLogin = mutation({
   args: { ip: v.string(), userAgent: v.string(), metode: v.string() },
   handler: async (ctx, { ip, userAgent, metode }) => {
+    // Pratinjau admin BUKAN login nasabah: riwayat login dan deteksi anomali
+    // IP milik nasabah tidak boleh terisi oleh perangkat admin.
+    if (await sesiPratinjauAktif(ctx)) return { ok: true, anomali: false };
     const user = await getUser(ctx);
     if (user === null) return { ok: false };
     const sebelumnya = await ctx.db
@@ -1031,6 +1035,11 @@ export const _noop = internalQuery({ args: {}, handler: async () => null });
 export const ensureSessionPublic = mutation({
   args: { sessionId: v.string(), perangkat: v.string(), ip: v.string() },
   handler: async (ctx, { sessionId, perangkat, ip }) => {
+    // Sesi hasil pratinjau tidak didaftarkan sebagai perangkat nasabah. Selain
+    // mengotori "Perangkat sesi saya", `ensureSession` menggugurkan sesi lain
+    // (aturan sesi tunggal) — artinya pratinjau akan mengeluarkan nasabah dari
+    // perangkatnya sendiri.
+    if (await sesiPratinjauAktif(ctx)) return { ok: true, dilewati: "pratinjau" };
     const user = await getUser(ctx);
     if (user === null) return { ok: false };
     await ensureSession(ctx, user._id, sessionId, perangkat, ip);

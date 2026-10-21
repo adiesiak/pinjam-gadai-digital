@@ -71,6 +71,9 @@ async function daftarkanPerangkat(
     platform: "android",
     versiApp: "1.0.0",
   });
+  // Sesi pratinjau sengaja tidak menerbitkan token; tes di file ini memakai
+  // sesi nasabah biasa, jadi token wajib ada.
+  if (hasil.token === null) throw new Error("Token perangkat tidak diterbitkan.");
   return hasil.token;
 }
 
