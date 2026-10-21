@@ -524,3 +524,98 @@ describe("angka laporan untuk unduhan PDF manual", () => {
     ).resolves.toBeNull();
   });
 });
+
+describe("rekap pinjaman seluruh pendana", () => {
+  it("admin mengirim satu PDF rekap ke nomor yang ia tulis, dan kejadiannya tercatat", async () => {
+    const gateway = pasangGateway();
+    try {
+      const t = convexTest(schema, modules);
+      const admin = await siapkanPengguna(t, "admin", {
+        email: "admin-rekap@pindai.test",
+        role: "admin",
+      });
+      const pendana = await pendanaDenganNomor(
+        t,
+        "pendana-rekap@pindai.test",
+        NOMOR_PENDANA,
+      );
+      const peminjam = await buatPengguna(t, "rani", {
+        email: "peminjam-rekap@pindai.test",
+        role: "peminjam",
+      });
+      await seedPinjaman(t, {
+        userId: peminjam.userId,
+        status: "didanai",
+        nomorReferensi: "PND-REKAP-1",
+        pendanaId: pendana.userId,
+      });
+      await seedGateway(t, { aktif: true });
+
+      // Angka unduhan dan angka kiriman dibaca dari query yang sama.
+      const data = await admin.sesi.query(api.laporanPendana.dataRekapPendana, {});
+      expect(data?.total.jumlahPendana).toBe(1);
+      expect(data?.total.jumlahPinjaman).toBe(1);
+      expect(data?.baris.map((r) => r.nama)).toEqual(["Robert Tanaya"]);
+
+      const hasil = await admin.sesi.action(api.laporanPendana.kirimRekapPendana, {
+        nomor: "0812 3456 7890",
+      });
+      expect(hasil).toEqual({ ok: true, tujuan: NOMOR_PENDANA, jumlahPendana: 1 });
+
+      const keluar = gateway.lampiran();
+      expect(keluar).toHaveLength(1);
+      expect(keluar[0].target).toBe(NOMOR_PENDANA);
+      expect(keluar[0].filename).toMatch(/^rekap-pendana-\d{4}-\d{2}-\d{2}\.pdf$/);
+      expect(keluar[0].message).toContain("1 pendana, 1 pinjaman");
+      expect(keluar[0].message).toContain(formatRupiahAman(1_000_000));
+
+      const log = await t.run((ctx) =>
+        ctx.db.query("waLogs").collect().then((rows) =>
+          rows.find((r) => r.jenis === "rekap_pendana"),
+        ),
+      );
+      expect(log?.status).toBe("terkirim");
+      expect(log?.nomorTujuan).toBe(NOMOR_PENDANA);
+      expect(log?.olehUserId).toBe(admin.userId);
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
+  it("akun pendana tidak bisa menyusun atau mengirim rekap seluruh pendana", async () => {
+    const t = convexTest(schema, modules);
+    const pendana = await pendanaDenganNomor(t, "pendana-rekap2@pindai.test", NOMOR_PENDANA);
+    await expect(
+      pendana.sesi.query(api.laporanPendana.dataRekapPendana, {}),
+    ).resolves.toBeNull();
+
+    const gateway = pasangGateway();
+    try {
+      await expect(
+        pendana.sesi.action(api.laporanPendana.kirimRekapPendana, { nomor: NOMOR_PENDANA }),
+      ).rejects.toThrow(/hanya untuk Super Admin/);
+      expect(gateway.lampiran()).toHaveLength(0);
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+
+  it("tanpa pendana, tidak ada berkas kosong yang dikirim", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "admin", {
+      email: "admin-rekap-kosong@pindai.test",
+      role: "admin",
+    });
+    await seedGateway(t, { aktif: true });
+
+    const gateway = pasangGateway();
+    try {
+      await expect(
+        admin.sesi.action(api.laporanPendana.kirimRekapPendana, { nomor: NOMOR_PENDANA }),
+      ).rejects.toThrow(/Belum ada pendana/);
+      expect(gateway.lampiran()).toHaveLength(0);
+    } finally {
+      gateway.pulihkan();
+    }
+  });
+});

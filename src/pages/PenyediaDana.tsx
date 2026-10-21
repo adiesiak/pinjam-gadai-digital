@@ -55,6 +55,7 @@ import {
 import { ANCHOR_RISIKO_PENDANAAN, CATATAN_INTERNAL_SINGKAT } from "@/lib/teksRisikoPendanaan";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
+import { RekapPendanaUnduhan } from "@/components/penyediaDana/RekapPendanaUnduhan";
 import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
 import {
@@ -2688,6 +2689,10 @@ function IsiRuang() {
                  * ditampilkan hanya posisinya sendiri, tanpa tabel kosong satu
                  * baris.
                  */}
+                {/* Rekap seluruh pendana sebagai berkas: hanya Super Admin,
+                    karena isinya posisi keuangan semua pendana. Pendana dan
+                    sesi akses bersama tidak punya akses ke angka ini. */}
+                {role === "admin" && <RekapPendanaUnduhan className="mt-3" />}
                 <div className="mt-3">
                   {isPendana && rekapPendana[0] !== undefined ? (
                     <PortofolioPendana

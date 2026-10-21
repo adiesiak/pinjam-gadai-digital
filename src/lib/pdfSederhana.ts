@@ -363,6 +363,11 @@ function operasiLogo(x: number, atas: number): string {
     `${angka(x)} ${angka(y)} ${lebar} ${tinggi} re B`,
     "0.96 0.95 0.91 rg",
     `${angka(x + 3)} ${angka(y + 3)} ${lebar - 6} ${tinggi - 6} re f`,
+    // Dua kuping kuningan di sisi kiri: ciri lambang PINDAI, dan satu-satunya
+    // bagian yang membedakannya dari kotak berbingkai biasa saat dicetak kecil.
+    `${WARNA.emas} rg`,
+    `${angka(x - 2)} ${angka(y + 7)} 2.6 4.4 re f`,
+    `${angka(x - 2)} ${angka(y + 17)} 2.6 4.4 re f`,
     `${WARNA.tinta} rg`,
     lingkaran(cx, cy, 8.2, "f"),
     `${WARNA.emas} RG 1 w`,
