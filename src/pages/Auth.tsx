@@ -833,9 +833,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             Lanjut sebagai tamu
                           </button>
                           <p className="text-xs leading-5 text-slate-500">
-                            Sesi tamu hanya bisa melihat. Data yang sudah diisi
-                            tetap tersimpan di akun tamu dan bisa dilanjutkan
-                            setelah Anda masuk dengan email atau nomor WhatsApp.
+                            Sesi tamu hanya bisa melihat. Untuk mengajukan
+                            pinjaman atau gadai, masuk dengan email atau nomor
+                            WhatsApp.
                           </p>
 
                           {/* Pintu khusus pemantau penyedia dana — satu kode

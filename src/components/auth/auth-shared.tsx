@@ -737,8 +737,8 @@ export function MedanEmailMasuk({ isLoading }: { isLoading: boolean }) {
       />
       <p className="text-xs leading-5 text-slate-500">
         Kode dikirim ke email Anda, atau ke WhatsApp bila yang Anda isi nomor.
-        Nomor baru langsung membuat akun setelah kode diverifikasi, dan nomor
-        dari web PINDAI lama memulihkan riwayatnya.
+        Nomor baru maupun nomor dari web PINDAI lama bisa masuk di sini;
+        riwayat nomor lama ikut dipulihkan.
       </p>
     </div>
   );

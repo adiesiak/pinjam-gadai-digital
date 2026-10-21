@@ -251,8 +251,13 @@ function aturanAktif(css: string): string {
   );
   ada(
     medan,
-    "Nomor baru langsung membuat akun setelah kode diverifikasi, dan nomor dari web PINDAI lama memulihkan riwayatnya.",
+    "Nomor baru maupun nomor dari web PINDAI lama bisa masuk di sini;",
     "petunjuk menyebut nomor baru maupun nomor peminjam lama",
+  );
+  ada(
+    medan,
+    "riwayat nomor lama ikut dipulihkan.",
+    "petunjuk menjanjikan pemulihan riwayat untuk nomor lama",
   );
   bersih(medan, "medan email");
 
