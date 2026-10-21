@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "convex/react";
-import { BellRing, Mail, MessageCircle } from "lucide-react";
+import { Bell, BellOff, BellRing, Loader2, Mail, MessageCircle } from "lucide-react";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
@@ -9,6 +10,61 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { labelKanalAktif, type KanalNotifikasi } from "@/lib/preferensiNotifikasi";
 
 type NilaiOverride = { whatsapp: boolean; email: boolean };
+
+/**
+ * Tombol cepat satu baris di daftar nasabah: mematikan/menyalakan pengingat
+ * tagihan (WhatsApp dan email sekaligus) tanpa membuka profil.
+ *
+ * Keadaan dibaca dari label, bukan hanya ikon. "Matikan tagihan" hanya muncul
+ * saat kedua kanal memang menyala; bila salah satunya sudah mati, tombol
+ * menawarkan "Nyalakan tagihan" supaya tidak ada kanal yang diam-diam tetap
+ * mengirim. Penjelasan lengkap per kanal tetap ada di kartu profil nasabah.
+ */
+export function TombolNotifikasiTagihan({
+  nama,
+  aktif,
+  sibuk,
+  onUbah,
+  className,
+}: {
+  nama: string;
+  /** true = pengingat WhatsApp & email sama-sama menyala untuk nasabah ini. */
+  aktif: boolean;
+  sibuk: boolean;
+  onUbah: () => void;
+  className?: string;
+}) {
+  const label = aktif ? "Matikan tagihan" : "Nyalakan tagihan";
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={sibuk}
+      title={
+        aktif
+          ? "Hentikan pengingat tagihan WhatsApp dan email untuk nasabah ini"
+          : "Kirim lagi pengingat tagihan WhatsApp dan email untuk nasabah ini"
+      }
+      aria-label={`${label} untuk ${nama}`}
+      onClick={onUbah}
+      className={
+        aktif
+          ? `border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 ${className ?? ""}`
+          : `border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 ${className ?? ""}`
+      }
+    >
+      {sibuk ? (
+        <Loader2 className="mr-1 size-3.5 animate-spin" aria-hidden="true" />
+      ) : aktif ? (
+        <BellOff className="mr-1 size-3.5" aria-hidden="true" />
+      ) : (
+        <Bell className="mr-1 size-3.5" aria-hidden="true" />
+      )}
+      {label}
+    </Button>
+  );
+}
 
 /**
  * Kartu notifikasi per nasabah, bagian MURNI supaya teks dan keadaan

@@ -31,9 +31,11 @@ import { DataDiriDialog } from "@/components/admin/DataDiriDialog";
 import { DuplikatNasabahPanel } from "@/components/admin/DuplikatNasabahPanel";
 import { TombolMasukSebagai } from "@/components/admin/MasukSebagaiDialog";
 import { NasabahDetailDialog } from "@/components/admin/NasabahDetailDialog";
+import { TombolNotifikasiTagihan } from "@/components/admin/PengaturanNotifikasiNasabah";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
+import { sakelarTagihan } from "@/lib/preferensiNotifikasi";
 import { BARIS_PER_HALAMAN, labelRentang, potongHalaman } from "@/lib/paginasi";
 import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
 import { BUNGA_BATAS, clampPersenBunga } from "@/lib/bunga";
@@ -60,6 +62,11 @@ import { BUNGA_BATAS, clampPersenBunga } from "@/lib/bunga";
  *
  * Semua aksi lama tetap ada: Profil nasabah, Data diri (termasuk unggah KTP),
  * dan Hapus akun. Yang berubah hanya tempatnya.
+ *
+ * NOTIFIKASI TAGIHAN: tiap baris membawa tombol "Matikan/Nyalakan tagihan"
+ * yang menggerakkan kedua kanal (WhatsApp & email) sekaligus. Tombol memakai
+ * mutation yang sama dengan kartu profil (`simpanPreferensiNasabah`), sehingga
+ * audit trail dan aturan `global && nasabah` tidak punya jalur kedua.
  */
 
 /** Ambang aman pemakaian plafon sebelum bar progress berubah peringatan. */
@@ -122,6 +129,8 @@ export function PlafonPanel() {
   const [cari, setCari] = useState("");
   const [busyAturId, setBusyAturId] = useState<string | null>(null);
   const [busyHapusId, setBusyHapusId] = useState<string | null>(null);
+  /** Nasabah yang pengingat tagihannya sedang dimatikan/dinyalakan. */
+  const [busyNotifId, setBusyNotifId] = useState<string | null>(null);
   /** Nasabah yang plafon & bunganya sedang diatur lewat modal. */
   const [aturTarget, setAturTarget] = useState<NasabahPlafon | null>(null);
   /** Nasabah yang sedang dikonfirmasi penghapusannya lewat dialog. */
@@ -136,6 +145,7 @@ export function PlafonPanel() {
   const setPlafon = useMutation(api.admin.setPlafonPeminjam);
   const setBunga = useMutation(api.admin.setBungaPeminjam);
   const hapusNasabah = useMutation(api.admin.hapusNasabah);
+  const simpanNotif = useMutation(api.notifikasiNasabah.simpanPreferensiNasabah);
 
   if (data === undefined) {
     return (
@@ -196,6 +206,33 @@ export function PlafonPanel() {
   // `react-hooks` yang melarang setState di dalam effect.
   const halamanAktif = potongHalaman(data.rows, halaman, BARIS_PER_HALAMAN);
 
+  /**
+   * Satu klik di baris nasabah: matikan atau nyalakan pengingat tagihan untuk
+   * KEDUA kanal sekaligus. Ditangani mutation yang sama dengan kartu profil,
+   * jadi jejak audit dan aturan "global && nasabah" tidak punya jalur kedua.
+   */
+  const ubahNotifikasi = async (r: (typeof data.rows)[number]) => {
+    const aktifBaru = !r.notifTagihanAktif;
+    setBusyNotifId(r.userId);
+    try {
+      await simpanNotif({
+        userId: r.userId as Id<"users">,
+        ...sakelarTagihan(aktifBaru),
+      });
+      toast.success(
+        aktifBaru
+          ? `Pengingat tagihan ${r.nama.toUpperCase()} dinyalakan (WhatsApp & email).`
+          : `Pengingat tagihan ${r.nama.toUpperCase()} dimatikan (WhatsApp & email).`,
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal mengubah pengingat tagihan.",
+      );
+    } finally {
+      setBusyNotifId(null);
+    }
+  };
+
   const hapus = async () => {
     if (hapusTarget === null) return;
     // Catatan alasan pengahapusan tidak diminta lagi — penghapusan tetap
@@ -225,7 +262,8 @@ export function PlafonPanel() {
             <h2 className="text-sm font-semibold text-navy">Plafon &amp; bunga nasabah</h2>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
               Override admin menang atas default global. Bunga khusus disimpan sebagai snapshot pada
-              tiap pengajuan.
+              tiap pengajuan. Pengingat tagihan bisa dimatikan per nasabah lewat tombol{" "}
+              <strong className="text-slate-600">Matikan tagihan</strong> di kolom aksi cepat.
             </p>
             <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <MetrikKartu label="Default plafon" nilai={formatRupiah(data.default)} />
@@ -389,6 +427,14 @@ export function PlafonPanel() {
                               <Badge className="border-slate-200 bg-slate-100 text-slate-600">
                                 {r.jumlahPengajuan} pengajuan · {r.pinjamanAktif} aktif
                               </Badge>
+                              {!r.notifTagihanAktif && (
+                                <Badge
+                                  className="border-amber-200 bg-amber-100 text-amber-800"
+                                  title="Pengingat tagihan WhatsApp & email dimatikan untuk nasabah ini"
+                                >
+                                  tagihan nonaktif
+                                </Badge>
+                              )}
                               {!r.adaDataDiri ? (
                                 <Badge className="border-amber-200 bg-amber-100 text-amber-800">
                                   data diri kosong
@@ -463,6 +509,13 @@ export function PlafonPanel() {
                             <IdCard className="mr-1 size-3.5" />
                             {r.adaDataDiri ? "Data diri" : "Isi data"}
                           </Button>
+                          <TombolNotifikasiTagihan
+                            nama={r.nama}
+                            aktif={r.notifTagihanAktif}
+                            sibuk={busyNotifId === r.userId}
+                            className="h-8 px-2.5 text-xs"
+                            onUbah={() => void ubahNotifikasi(r)}
+                          />
                           <TombolMasukSebagai
                             targetId={r.userId}
                             nama={r.nama}
@@ -538,6 +591,14 @@ export function PlafonPanel() {
                       label="Plafon"
                       nilai={formatRupiah(r.plafonPribadi ?? 0)}
                     />
+                    {!r.notifTagihanAktif && (
+                      <Badge
+                        className="border-amber-200 bg-amber-100 text-amber-800"
+                        title="Pengingat tagihan WhatsApp & email dimatikan untuk nasabah ini"
+                      >
+                        tagihan nonaktif
+                      </Badge>
+                    )}
                     {!r.adaDataDiri && (
                       <Badge className="border-amber-200 bg-amber-100 text-amber-800">
                         data diri kosong
@@ -571,6 +632,12 @@ export function PlafonPanel() {
                       <IdCard className="mr-1 size-3.5" />
                       {r.adaDataDiri ? "Data diri" : "Isi data"}
                     </Button>
+                    <TombolNotifikasiTagihan
+                      nama={r.nama}
+                      aktif={r.notifTagihanAktif}
+                      sibuk={busyNotifId === r.userId}
+                      onUbah={() => void ubahNotifikasi(r)}
+                    />
                     <TombolMasukSebagai
                       targetId={r.userId}
                       nama={r.nama}

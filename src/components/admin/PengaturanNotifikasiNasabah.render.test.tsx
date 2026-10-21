@@ -4,11 +4,15 @@
  *
  * Yang dijaga: keadaan tersimpan dan keadaan EFEKTIF ditampilkan terpisah,
  * sehingga admin tahu kapan sebuah kanal ditahan sakelar global. Kartu juga
- * menyatakan bahwa hanya Super Admin yang dapat mengubahnya.
+ * menyatakan bahwa hanya Super Admin yang dapat mengubahnya. Tombol cepat di
+ * daftar nasabah diuji terpisah: labelnya harus mengikuti keadaan kedua kanal.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { KartuNotifikasiNasabah } from "./PengaturanNotifikasiNasabah";
+import {
+  KartuNotifikasiNasabah,
+  TombolNotifikasiTagihan,
+} from "./PengaturanNotifikasiNasabah";
 
 let passed = 0;
 let failed = 0;
@@ -129,6 +133,35 @@ function bersih(html: string, label: string): void {
   ada(html, 'role="alert"', "galat memakai peran alert");
   ada(html, 'aria-live="polite"', "status diumumkan ke pembaca layar");
   bersih(html, "kartu dengan galat");
+}
+
+// ===== Tombol cepat di daftar nasabah =====
+{
+  const html = renderToStaticMarkup(
+    <TombolNotifikasiTagihan nama="RANI PEMINJAM" aktif sibuk={false} onUbah={() => {}} />,
+  );
+  ada(html, "Matikan tagihan", "tombol menawarkan mematikan saat tagihan aktif");
+  tidakAda(html, "Nyalakan tagihan", "tidak menawarkan menyalakan saat sudah aktif");
+  ada(html, "Matikan tagihan untuk RANI PEMINJAM", "label aksesibel menyebut nasabah");
+  ada(html, "Hentikan pengingat tagihan", "tooltip menjelaskan akibatnya");
+  bersih(html, "tombol tagihan aktif");
+}
+{
+  const html = renderToStaticMarkup(
+    <TombolNotifikasiTagihan nama="RANI PEMINJAM" aktif={false} sibuk={false} onUbah={() => {}} />,
+  );
+  ada(html, "Nyalakan tagihan", "tombol menawarkan menyalakan saat tagihan mati");
+  tidakAda(html, "Matikan tagihan", "tidak menawarkan mematikan saat sudah mati");
+  ada(html, "Kirim lagi pengingat tagihan", "tooltip menjelaskan pemulihannya");
+  bersih(html, "tombol tagihan mati");
+}
+{
+  const html = renderToStaticMarkup(
+    <TombolNotifikasiTagihan nama="RANI PEMINJAM" aktif sibuk onUbah={() => {}} />,
+  );
+  ada(html, "disabled", "tombol tidak dapat ditekan ganda saat menyimpan");
+  ada(html, "animate-spin", "penanda proses tampil selama menyimpan");
+  bersih(html, "tombol tagihan sibuk");
 }
 
 if (failed > 0) {

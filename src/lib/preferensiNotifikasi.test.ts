@@ -11,6 +11,8 @@ import {
   kanalAktif,
   kanalEfektif,
   labelKanalAktif,
+  pengingatTagihanAktif,
+  sakelarTagihan,
 } from "./preferensiNotifikasi";
 
 let passed = 0;
@@ -50,6 +52,35 @@ eq(kanalEfektif(false, false), false, "dua-duanya mati tetap mati");
 
 eq(labelKanalAktif(true), "Aktif", "sakelar aktif berlabel teks");
 eq(labelKanalAktif(false), "Nonaktif", "sakelar mati berlabel teks");
+
+// ===== Tombol cepat tagihan di daftar nasabah =====
+eq(
+  pengingatTagihanAktif(true, true),
+  true,
+  "kedua kanal menyala = tagihan aktif",
+);
+eq(
+  pengingatTagihanAktif(true, false),
+  false,
+  "email masih mati = baris tidak boleh mengaku tagihan aktif",
+);
+eq(
+  pengingatTagihanAktif(false, true),
+  false,
+  "WhatsApp masih mati = baris tidak boleh mengaku tagihan aktif",
+);
+eq(pengingatTagihanAktif(false, false), false, "kedua kanal mati = tagihan nonaktif");
+
+eq(
+  JSON.stringify(sakelarTagihan(false)),
+  JSON.stringify({ whatsapp: false, email: false }),
+  "satu tombol mematikan WhatsApp dan email sekaligus",
+);
+eq(
+  JSON.stringify(sakelarTagihan(true)),
+  JSON.stringify({ whatsapp: true, email: true }),
+  "satu tombol menyalakan WhatsApp dan email sekaligus",
+);
 
 console.log(`preferensiNotifikasi.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

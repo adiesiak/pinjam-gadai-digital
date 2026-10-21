@@ -387,6 +387,49 @@ describe("plafon pinjaman per nasabah", () => {
     expect(cariPinjaman.rows.some((r) => r.userId === userId)).toBe(true);
   });
 
+  it("baris daftar plafon membawa keadaan pengingat tagihan per nasabah", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "dewi", {
+      email: "dewi-notif@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin-notif", {
+      email: "admin-notif@pindai.test",
+      role: "admin",
+    });
+    await siapkanPinjamanTunaiDidanai(t, userId, 1_000_000);
+
+    // Kolom kosong berarti aktif: tombol baris harus menawarkan "Matikan".
+    const awal = await admin.query(api.admin.daftarPlafonPeminjam, {});
+    const barisAwal = awal.rows.find((r) => r.userId === userId);
+    expect(barisAwal?.notifWhatsapp).toBe(true);
+    expect(barisAwal?.notifEmail).toBe(true);
+    expect(barisAwal?.notifTagihanAktif).toBe(true);
+
+    // Mematikan lewat mutation yang sama dengan kartu profil langsung terlihat
+    // di baris daftar — tanpa memuat ulang logika sakelar di komponen.
+    await admin.mutation(api.notifikasiNasabah.simpanPreferensiNasabah, {
+      userId,
+      whatsapp: false,
+      email: false,
+    });
+    const mati = await admin.query(api.admin.daftarPlafonPeminjam, {});
+    expect(mati.rows.find((r) => r.userId === userId)?.notifTagihanAktif).toBe(false);
+
+    // Satu kanal hidup belum cukup untuk disebut aktif — kalau tidak, tombol
+    // akan berbunyi "Matikan" padahal email tetap mengirim pengingat.
+    await admin.mutation(api.notifikasiNasabah.simpanPreferensiNasabah, {
+      userId,
+      whatsapp: true,
+      email: false,
+    });
+    const sebagian = await admin.query(api.admin.daftarPlafonPeminjam, {});
+    const barisSebagian = sebagian.rows.find((r) => r.userId === userId);
+    expect(barisSebagian?.notifWhatsapp).toBe(true);
+    expect(barisSebagian?.notifEmail).toBe(false);
+    expect(barisSebagian?.notifTagihanAktif).toBe(false);
+  });
+
   it("nilai di luar rentang di-clamp ke 100 ribu / 10 juta", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "dina", {

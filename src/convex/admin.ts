@@ -33,6 +33,11 @@ import {
   skorPerilaku,
 } from "../lib/plafon";
 import { clampPersenBunga, persenBungaEfektif } from "../lib/bunga";
+import {
+  kanalAktif,
+  kanalWhatsappAktif,
+  pengingatTagihanAktif,
+} from "../lib/preferensiNotifikasi";
 import { profilRisiko } from "../lib/risikoNasabah";
 import { simpanDataDiriProfil, bacaProfilUntukForm } from "./dataDiriProfil";
 import { ensureKodePeminjam } from "./peminjamCode";
@@ -165,6 +170,12 @@ export const daftarPlafonPeminjam = query({
       risikoKategori: string;
       /** false = belum ada riwayat, jadi belum layak diberi grade penilaian. */
       risikoDinilai: boolean;
+      /** Pengingat tagihan WhatsApp tersimpan untuk nasabah ini. */
+      notifWhatsapp: boolean;
+      /** Pengingat tagihan email tersimpan untuk nasabah ini. */
+      notifEmail: boolean;
+      /** true hanya bila kedua kanal menyala — keadaan tombol cepat tagihan. */
+      notifTagihanAktif: boolean;
     }> = [];
     for (const id of idPeminjam) {
       const user = (await ctx.db.get(id as never)) as
@@ -174,6 +185,9 @@ export const daftarPlafonPeminjam = query({
             role?: string;
             plafonPinjaman?: number;
             persenBunga?: number;
+            whatsappNotificationEnabled?: boolean;
+            notifWhatsapp?: boolean;
+            notifEmail?: boolean;
           }
         | null;
       if (user === null) continue;
@@ -232,6 +246,14 @@ export const daftarPlafonPeminjam = query({
       // Maksimal/terpakai/tersedia dihitung di SERVER dari master + pinjaman
       // aktif, supaya panel dan validasi pengajuan tidak mungkin berbeda angka.
       const ringkas = ringkasPlafon(plafonEfektifNilai, pinjamanUser);
+      // Keadaan pengingat tagihan dibaca di server supaya tombol cepat di tiap
+      // baris tahu apakah ia akan mematikan atau menyalakan sesuatu. Aturan
+      // kosong-berarti-aktif sama dengan pengirim pengingat (`_kanalAktif`).
+      const notifWhatsapp = kanalWhatsappAktif(
+        user.whatsappNotificationEnabled,
+        user.notifWhatsapp,
+      );
+      const notifEmail = kanalAktif(user.notifEmail);
       hasil.push({
         userId: id,
         nama,
@@ -253,6 +275,9 @@ export const daftarPlafonPeminjam = query({
         risikoSkor: risikoNasabah.skor,
         risikoKategori: risikoNasabah.kategori,
         risikoDinilai: risikoNasabah.dinilai,
+        notifWhatsapp,
+        notifEmail,
+        notifTagihanAktif: pengingatTagihanAktif(notifWhatsapp, notifEmail),
       });
     }
     hasil.sort((a, b) => b.jumlahPengajuan - a.jumlahPengajuan || a.nama.localeCompare(b.nama));

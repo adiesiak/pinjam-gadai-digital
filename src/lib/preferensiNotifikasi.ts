@@ -57,3 +57,28 @@ export function kanalEfektif(
 export function labelKanalAktif(aktif: boolean): "Aktif" | "Nonaktif" {
   return aktif ? "Aktif" : "Nonaktif";
 }
+
+/**
+ * Pengingat tagihan dianggap menyala hanya bila WhatsApp DAN email menyala.
+ * Dipakai tombol cepat di daftar nasabah: satu baris hanya punya satu keadaan,
+ * jadi kanal yang masih hidup tidak boleh tersembunyi di balik label "mati".
+ */
+export function pengingatTagihanAktif(
+  whatsapp: boolean,
+  email: boolean,
+): boolean {
+  return whatsapp && email;
+}
+
+/**
+ * Satu tombol menggerakkan kedua kanal bersama, supaya menekan "Matikan
+ * tagihan" benar-benar berhenti dari WhatsApp maupun email — bukan hanya salah
+ * satunya, yang membuat nasabah tetap menerima pesan dan admin mengira sudah
+ * mematikannya.
+ */
+export function sakelarTagihan(aktif: boolean): {
+  whatsapp: boolean;
+  email: boolean;
+} {
+  return { whatsapp: aktif, email: aktif };
+}
