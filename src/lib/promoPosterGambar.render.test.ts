@@ -1,5 +1,10 @@
 /** Run: bun src/lib/promoPosterGambar.render.test.ts */
-import { promoPosters, TAGLINE, type PromoPoster } from "./promoPosters";
+import {
+  promoPosters,
+  promoPostersDenganTarif,
+  TAGLINE,
+  type PromoPoster,
+} from "./promoPosters";
 import {
   UKURAN_POSTER,
   gambarPoster,
@@ -162,6 +167,42 @@ for (const poster of promoPosters) {
     ok(
       celah <= ukuran.tinggi * 0.15,
       `${poster.id}/${nama}: tanpa lubang kosong > 15% kanvas (terukur ${Math.round(celah)} px)`,
+    );
+  }
+}
+
+// Poster biaya versi tarif admin punya catatan lebih panjang daripada versi
+// bawaan (admin + asuransi + ekspres). Tata letaknya harus tetap di dalam
+// kanvas, tagline tetap di dasar, dan tidak menyisakan lubang kosong.
+const posterTarif = promoPostersDenganTarif({
+  adminPersen: 4,
+  asuransiPersen: 1,
+  ekspres: { tier1: 9_000, tier2: 9_000, tier3: 9_000 },
+}).find((poster) => poster.id === "biaya");
+if (posterTarif === undefined) {
+  ok(false, "poster biaya versi tarif admin tersedia");
+} else {
+  for (const [nama, ukuran] of ukuranTersedia) {
+    const tulisan = render(posterTarif, ukuran);
+    for (const item of tulisan) {
+      ok(
+        item.x >= -6 &&
+          item.x <= ukuran.lebar + 6 &&
+          item.y >= -6 &&
+          item.y <= ukuran.tinggi + 6,
+        `biaya-tarif/${nama}: teks “${item.teks.slice(0, 20)}” dalam batas kanvas`,
+      );
+    }
+    const tagline = tulisan.find((item) => item.teks === TAGLINE);
+    ok(
+      tagline !== undefined &&
+        tagline.y === Math.max(...tulisan.map((item) => item.y)),
+      `biaya-tarif/${nama}: tagline di dasar`,
+    );
+    const celah = celahTerpanjang(tulisan, ukuran.tinggi);
+    ok(
+      celah <= ukuran.tinggi * 0.15,
+      `biaya-tarif/${nama}: tanpa lubang kosong > 15% kanvas`,
     );
   }
 }

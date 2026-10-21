@@ -55,6 +55,7 @@ import {
   KATEGORI_POSTER,
   SHARE_TEKS,
   promoPostersAktif,
+  promoPostersDenganTarif,
   tautanPoster,
   type PromoPoster,
 } from "@/lib/promoPosters";
@@ -69,6 +70,7 @@ import { EASE_OUT } from "@/lib/motion";
 import { api } from "@/convex/_generated/api";
 import { PromoPinjamanKartu } from "@/components/promo/PromoPinjamanKartu";
 import type { DataPromoPinjaman } from "@/lib/promoPinjaman";
+import type { TarifBiaya } from "@/lib/loan";
 
 /** Lebar kartu setengah ukuran sumber untuk menjaga pratinjau tetap ringan. */
 const SKALA_KARTU = 0.5;
@@ -393,16 +395,27 @@ function KartuPoster({
 
 export function Promo({
   promoPinjaman = null,
+  tarifBiaya = null,
 }: {
   /** Kampanye pinjaman aktif; rute mengisinya lewat `PromoDenganKampanye`. */
   promoPinjaman?: DataPromoPinjaman | null;
+  /**
+   * Tarif potongan di muka untuk poster "Biaya"; kosong = tarif bawaan mesin,
+   * sehingga galeri tetap bisa dirender tanpa Convex di uji statis.
+   */
+  tarifBiaya?: Partial<TarifBiaya> | null;
 } = {}) {
   const reduce = useReducedMotion() ?? false;
   const [kategori, setKategori] = useState<string>("Semua");
   const [rasio, setRasio] = useState<RasioPoster>("potret");
   const [params, setParams] = useSearchParams();
 
-  const posterAktif = useMemo(() => promoPostersAktif(), []);
+  // Poster biaya ikut tarif admin supaya materi kampanye tidak menampilkan
+  // potongan lama setelah tarif diubah.
+  const posterAktif = useMemo(
+    () => promoPostersAktif(promoPostersDenganTarif(tarifBiaya)),
+    [tarifBiaya],
+  );
   const daftar = useMemo(
     () =>
       kategori === "Semua"
@@ -736,5 +749,11 @@ export function Promo({
  */
 export function PromoDenganKampanye() {
   const promo = useQuery(api.promoPinjaman.promoAktif, { penempatan: "promo" });
-  return <Promo promoPinjaman={promo ?? null} />;
+  const ketentuan = useQuery(api.system.getKetentuanBiaya, {});
+  return (
+    <Promo
+      promoPinjaman={promo ?? null}
+      tarifBiaya={ketentuan?.tarifBiaya ?? null}
+    />
+  );
 }

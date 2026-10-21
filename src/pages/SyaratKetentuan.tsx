@@ -30,8 +30,16 @@ import {
   LATE_FEE_POLICY,
   persenBungaHarian,
   PINDAI_PRICING,
+  TARIF_BIAYA_DEFAULT,
+  tarifBiayaAman,
   TENOR_OPTIONS,
+  type TarifBiaya,
 } from "@/lib/loan";
+import {
+  adaBiayaEkspres,
+  persenTeks,
+  rentangEkspres,
+} from "@/lib/tarifBiayaTeks";
 import {
   BULANAN_LIMITS,
   BULANAN_PRICING,
@@ -106,12 +114,18 @@ function Ayat({ children }: { children: ReactNode }) {
   return <li className="text-sm leading-7 text-slate-600">{children}</li>;
 }
 
-type TarifDenda = { perHari: number; maks: number };
+type TarifDenda = {
+  perHari: number;
+  maks: number;
+  /** Potongan di muka dari Pengaturan Parameter Bisnis (admin, asuransi, ekspres). */
+  tarif: TarifBiaya;
+};
 
 /** Nilai bawaan dipakai saat halaman dirender tanpa Convex (mis. test statis). */
 const TarifDendaContext = createContext<TarifDenda>({
   perHari: LATE_FEE_POLICY.percentPerDay,
   maks: LATE_FEE_POLICY.maxPercent,
+  tarif: TARIF_BIAYA_DEFAULT,
 });
 
 /**
@@ -127,6 +141,33 @@ function AyatDendaKeterlambatan() {
       Denda keterlambatan sebesar <strong>{perHari}% per hari dari pokok</strong>
       , dibatasi maksimum <strong>{maks}% dari pokok</strong>. Tidak ada masa
       tenggang: melewati satu hari penuh jatuh tempo terhitung satu hari denda.
+    </Ayat>
+  );
+}
+
+/**
+ * Ayat potongan di muka mengikuti tarif admin, bukan angka yang ditulis di
+ * halaman ini. Asuransi dan ekspres hanya disebut bila benar-benar dipungut,
+ * supaya syarat tidak menjanjikan biaya yang tidak ada di formulir.
+ */
+function AyatBiayaPotongan() {
+  const { tarif } = useContext(TarifDendaContext);
+  return (
+    <Ayat>
+      <strong>Biaya admin {persenTeks(tarif.adminPersen)}</strong> dari pokok
+      {tarif.asuransiPersen > 0 ? (
+        <> ditambah asuransi {persenTeks(tarif.asuransiPersen)}</>
+      ) : null}
+      {adaBiayaEkspres(tarif) ? (
+        <>
+          {" "}
+          dan biaya pencairan ekspres {rentangEkspres(tarif)} sekali per pinjaman
+          harian baru bila Anda mencentang cair ekspres saat mengajukan
+        </>
+      ) : null}
+      . Biaya platform {persenTeks(PINDAI_PRICING.platformFeePercent)}, sehingga
+      total potongan di muka bergantung pada nominal dan dana bersih adalah
+      pokok setelah seluruh potongan tersebut.
     </Ayat>
   );
 }
@@ -275,15 +316,7 @@ const PASAL: Pasal[] = [
             {formatRupiah(BULANAN_LIMITS.maxPokok)}, dengan pilihan tenor{" "}
             {TENOR_BULANAN_OPTIONS.join(", ")} bulan.
           </Ayat>
-          <Ayat>
-            <strong>Biaya admin {PINDAI_PRICING.adminFeePercent}%</strong> dari
-            pokok, ditambah biaya pencairan ekspres Rp5.000–Rp10.000 sekali per
-            pinjaman harian baru bila Anda mencentang cair ekspres saat
-            mengajukan. Biaya platform
-            {PINDAI_PRICING.platformFeePercent}%, sehingga total potongan di
-            muka bergantung pada nominal dan dana bersih adalah pokok setelah
-            seluruh potongan tersebut.
-          </Ayat>
+          <AyatBiayaPotongan />
           <Ayat>
             <strong>Bunga pinjaman harian mengikuti matriks nominal–tenor.</strong>{" "}
             Pokok {formatRupiah(LOAN_LIMITS.minPokok)} sampai{" "}
@@ -531,6 +564,8 @@ function Wordmark() {
 export type KetentuanDendaTampil = {
   persenDendaKeterlambatan?: number;
   maksDendaPersen?: number;
+  /** Tarif potongan di muka dari Pengaturan Parameter Bisnis. */
+  tarifBiaya?: Partial<TarifBiaya> | null;
 };
 
 /** Isi halaman tanpa query; tarif denda masuk lewat context di atas. */
@@ -545,6 +580,7 @@ export function SyaratKetentuanView({
         perHari:
           ketentuan?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
         maks: ketentuan?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent,
+        tarif: tarifBiayaAman(ketentuan?.tarifBiaya),
       }}
     >
       <IsiSyaratKetentuan />

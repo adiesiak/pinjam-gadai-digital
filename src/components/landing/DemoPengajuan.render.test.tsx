@@ -109,6 +109,31 @@ ok(tinjau.includes("di luar aplikasi"), "layar tinjau menyebut pencairan di luar
 const catatan = layar("catatan");
 ok(catatan.includes("Lunas"), "layar catatan menampilkan status lunas");
 
+// Demo ikut tarif admin: potongan yang tampil harus berubah ketika biaya
+// admin, asuransi, dan ekspres diubah dari Pengaturan Parameter Bisnis.
+const tarifDemo = {
+  adminPersen: 4,
+  asuransiPersen: 1,
+  ekspres: { tier1: 9_000, tier2: 9_000, tier3: 9_000 },
+};
+const qTarif = quoteDemo(tarifDemo);
+const formulirTarif = renderToStaticMarkup(
+  <MemoryRouter initialEntries={["/"]}>
+    <PratinjauLayar
+      langkah={LANGKAH_DEMO.find((l) => l.id === "ajukan")!}
+      tarif={tarifDemo}
+    />
+  </MemoryRouter>,
+);
+ok(
+  formatRupiah(qTarif.totalPotonganDiMuka) === "Rp 34.000",
+  "potongan demo mengikuti tarif admin (admin 4% + asuransi 1% + ekspres Rp 9.000)",
+);
+ok(
+  formulirTarif.includes("Rp 34.000") && formulirTarif.includes("Rp 466.000"),
+  "layar formulir menampilkan potongan dan dana bersih dari tarif admin",
+);
+
 ok(!markup.includes("<video"), "tidak memakai elemen video");
 ok(!markup.includes("<iframe"), "tidak memakai iframe");
 ok(!markup.includes("<img"), "tidak memuat berkas gambar");

@@ -38,8 +38,8 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   ada(sumber, "accountHref", "tombol akun memakai satu variabel tujuan");
   ada(
     sumber,
-    "<DemoPengajuan />",
-    "beranda memasang demo alur pengajuan",
+    "<DemoPengajuan tarif={tarif} />",
+    "beranda memasang demo alur pengajuan dengan tarif yang berlaku",
   );
   ada(
     sumber,

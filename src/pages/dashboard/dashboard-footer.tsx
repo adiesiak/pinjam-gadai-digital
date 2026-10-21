@@ -1,7 +1,16 @@
 /** Footer dashboard nasabah: ringkasan ketentuan layanan dan identitas entitas. */
+import { useQuery } from "convex/react";
+
+import { api } from "@/convex/_generated/api";
 import { HAK_CIPTA_PINDAI, NAMA_ENTITAS_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
+import { tarifBiayaAman } from "@/lib/loan";
+import { rincianPotonganDiMuka } from "@/lib/tarifBiayaTeks";
 
 export function DashboardFooter() {
+  // Ringkasan ini ikut tarif admin: potongan yang disebut harus sama dengan
+  // yang dipakai formulir, bukan persentase lama yang tertinggal di footer.
+  const ketentuan = useQuery(api.system.getKetentuanBiaya, {});
+  const tarif = tarifBiayaAman(ketentuan?.tarifBiaya);
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-6 text-xs leading-5 text-muted-foreground sm:px-6">
@@ -12,9 +21,8 @@ export function DashboardFooter() {
             sehingga tidak memenuhi beberapa layar ponsel dengan tembok teks. */}
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>
-            Harian (7–28 hari): potongan di muka admin 2% + biaya ekspres
-            Rp5.000–Rp10.000 bila Anda memilih cair ekspres, bunga flat 26–40%
-            sesuai nominal dan tenor.
+            Harian (7–28 hari): potongan di muka {rincianPotonganDiMuka(tarif)},
+            bunga flat 26–40% sesuai nominal dan tenor.
           </li>
           <li>
             Bulanan (1–6 bulan): DP 0%, potongan di muka 2% (biaya admin; biaya

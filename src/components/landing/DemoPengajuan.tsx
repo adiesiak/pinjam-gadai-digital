@@ -26,6 +26,7 @@ import {
   quoteDemo,
   type LangkahDemo,
 } from "@/lib/demoPengajuan";
+import type { TarifBiaya } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { fadeIn, transition, transitionReduced } from "@/lib/motion";
 import { LABEL_STATUS_PINJAMAN } from "@/lib/statusPinjaman";
@@ -118,8 +119,8 @@ function LayarVerifikasi() {
 }
 
 /** 03 — formulir pinjaman beserta rincian yang muncul sebelum dikirim. */
-function LayarAjukan() {
-  const q = useMemo(() => quoteDemo(), []);
+function LayarAjukan({ tarif }: { tarif?: Partial<TarifBiaya> | null }) {
+  const q = useMemo(() => quoteDemo(tarif), [tarif]);
   return (
     <div className="mx-auto max-w-sm">
       <JudulLayar>Form pengajuan pinjaman</JudulLayar>
@@ -196,8 +197,8 @@ function LayarTinjau() {
 }
 
 /** 05 — catatan pinjaman tetap tersimpan setelah lunas. */
-function LayarCatatan() {
-  const q = useMemo(() => quoteDemo(), []);
+function LayarCatatan({ tarif }: { tarif?: Partial<TarifBiaya> | null }) {
+  const q = useMemo(() => quoteDemo(tarif), [tarif]);
   return (
     <div className="mx-auto max-w-sm">
       <JudulLayar>Catatan pinjaman</JudulLayar>
@@ -222,22 +223,34 @@ function LayarCatatan() {
 }
 
 /** Isi satu layar contoh. Diekspor supaya tiap langkah bisa diuji statis. */
-export function PratinjauLayar({ langkah }: { langkah: LangkahDemo }) {
+export function PratinjauLayar({
+  langkah,
+  tarif,
+}: {
+  langkah: LangkahDemo;
+  /** Tarif potongan dari pengaturan admin; kosong = tarif bawaan mesin. */
+  tarif?: Partial<TarifBiaya> | null;
+}) {
   switch (langkah.id) {
     case "akun":
       return <LayarAkun />;
     case "verifikasi":
       return <LayarVerifikasi />;
     case "ajukan":
-      return <LayarAjukan />;
+      return <LayarAjukan tarif={tarif} />;
     case "tinjau":
       return <LayarTinjau />;
     case "catatan":
-      return <LayarCatatan />;
+      return <LayarCatatan tarif={tarif} />;
   }
 }
 
-export function DemoPengajuan() {
+export function DemoPengajuan({
+  tarif,
+}: {
+  /** Tarif potongan dari pengaturan admin; kosong = tarif bawaan mesin. */
+  tarif?: Partial<TarifBiaya> | null;
+} = {}) {
   const kurangiGerak = useReducedMotion() ?? false;
   const [aktif, setAktif] = useState(0);
   const [jalan, setJalan] = useState(!kurangiGerak);
@@ -382,7 +395,7 @@ export function DemoPengajuan() {
                   exit={kurangiGerak ? undefined : "hidden"}
                   transition={kurangiGerak ? transitionReduced : transition.slow}
                 >
-                  <PratinjauLayar langkah={langkah} />
+                  <PratinjauLayar langkah={langkah} tarif={tarif} />
                 </motion.div>
               </AnimatePresence>
             </div>

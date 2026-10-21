@@ -15,8 +15,10 @@ import {
   persenBungaHarian,
   PINDAI_PRICING,
   quoteLoanBunga,
+  tarifBiayaAman,
   tenorHarianDefault,
   type LoanQuote,
+  type TarifBiaya,
 } from "./loan";
 
 /** Nominal contoh pada demo — cukup kecil untuk terbaca, tetap dalam batas. */
@@ -85,10 +87,15 @@ export const LANGKAH_DEMO: readonly LangkahDemo[] = [
   },
 ];
 
-/** Rincian contoh dari mesin pinjaman — bukan angka yang ditulis di berkas ini. */
-export function quoteDemo(): LoanQuote {
+/**
+ * Rincian contoh dari mesin pinjaman — bukan angka yang ditulis di berkas ini.
+ * `tarif` berasal dari Pengaturan Parameter Bisnis supaya potongan pada demo
+ * berubah bersama formulir pengajuan; kosong berarti tarif bawaan.
+ */
+export function quoteDemo(tarif?: Partial<TarifBiaya> | null): LoanQuote {
   return quoteLoanBunga(
     DEMO_POKOK,
     persenBungaHarian(DEMO_POKOK, DEMO_TENOR_HARI) ?? PINDAI_PRICING.bungaPercent,
+    { tarif: tarifBiayaAman(tarif) },
   );
 }

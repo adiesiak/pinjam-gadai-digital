@@ -6,6 +6,7 @@ import {
   kategoriTerpakai,
   promoPosters,
   promoPostersAktif,
+  promoPostersDenganTarif,
   tautanPoster,
 } from "./promoPosters";
 import { quoteLoan } from "./loan";
@@ -118,6 +119,28 @@ eq(posterBiaya?.pemisah?.join(""), "+=", "pemisah contoh biaya");
 ok(
   posterBiaya?.catatan?.includes(formatRupiah(contoh.pokok)) ?? false,
   "catatan menyebut nominal yang dihitung",
+);
+
+// Poster biaya juga materi kampanye: saat admin mengubah tarif, angka pada
+// poster harus ikut, bukan tertinggal di 2% bawaan.
+const posterTarif = promoPostersDenganTarif({
+  adminPersen: 4,
+  asuransiPersen: 1,
+  ekspres: { tier1: 9_000, tier2: 9_000, tier3: 9_000 },
+}).find((poster) => poster.id === "biaya");
+eq(
+  posterTarif?.items?.[1]?.teks,
+  formatRupiah(20_000),
+  "poster biaya memakai persen admin yang berlaku",
+);
+ok(
+  posterTarif?.catatan?.includes("admin 4% + asuransi 1% + ekspres") ?? false,
+  "catatan poster menyebut seluruh potongan yang berlaku",
+);
+eq(
+  promoPostersDenganTarif().length,
+  promoPosters.length,
+  "semua poster tetap ada saat tarif diteruskan",
 );
 
 eq(

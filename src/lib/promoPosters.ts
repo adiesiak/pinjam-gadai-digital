@@ -19,8 +19,9 @@
  * (tanpa ikon clip-art), tagline tampil paling dulu dan paling besar di antara
  * konten poster — lihat `lib/promoPosterGambar.ts`.
  */
-import { quoteLoan } from "./loan";
+import { quoteLoan, tarifBiayaAman, type TarifBiaya } from "./loan";
 import { formatRupiah } from "./money";
+import { rincianPotonganDiMuka } from "./tarifBiayaTeks";
 
 export type KategoriPoster =
   | "Pinjaman"
@@ -287,6 +288,37 @@ export const promoPosters: PromoPoster[] = [
     disclaimer: "Informasi umum saja. Periksa ketentuan sebelum membuat pengajuan.",
   },
 ];
+
+/**
+ * Salinan poster dengan rincian biaya dari tarif yang berlaku sekarang.
+ *
+ * Poster "Biaya" adalah materi kampanye, jadi angkanya tidak boleh tertinggal
+ * saat admin mengubah biaya admin, asuransi, atau ekspres. Pemanggil yang
+ * punya akses Convex meneruskan `tarifBiaya` dari `system.getKetentuanBiaya`;
+ * uji statis dan pemakaian tanpa query memakai `promoPosters` apa adanya.
+ */
+export function promoPostersDenganTarif(
+  tarif?: Partial<TarifBiaya> | null,
+): PromoPoster[] {
+  const efektif = tarifBiayaAman(tarif);
+  const contoh = quoteLoan(contohPinjaman.pokok, { tarif: efektif });
+  return promoPosters.map((poster) =>
+    poster.id === "biaya"
+      ? {
+          ...poster,
+          items: [
+            { judul: "Pokok", teks: formatRupiah(contoh.pokok) },
+            { judul: "Biaya admin", teks: formatRupiah(contoh.biayaAdmin) },
+            {
+              judul: "Total kewajiban",
+              teks: formatRupiah(contoh.totalKewajibanPelunasan),
+            },
+          ],
+          catatan: `Contoh pokok ${formatRupiah(contoh.pokok)}. Potongan di muka: ${rincianPotonganDiMuka(efektif)}.`,
+        }
+      : poster,
+  );
+}
 
 /** Poster aktif, terurut sesuai `order` — yang tampil di halaman. */
 export function promoPostersAktif(daftar: readonly PromoPoster[] = promoPosters): PromoPoster[] {

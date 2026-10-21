@@ -32,7 +32,15 @@ import {
   tenorHarianTersedia,
   LATE_FEE_POLICY,
   PINDAI_PRICING,
+  tarifBiayaAman,
+  type TarifBiaya,
 } from "@/lib/loan";
+import {
+  adaBiayaEkspres,
+  persenTeks,
+  rentangEkspres,
+  rincianPotonganDiMuka,
+} from "@/lib/tarifBiayaTeks";
 import {
   hitungSimulasiBulanan,
   TENOR_BULANAN_OPTIONS,
@@ -64,7 +72,11 @@ const TAUTAN_MENU = [
   { href: "/aplikasi", label: "Aplikasi Android" },
 ] as const;
 
-function daftarFaq(dendaPerHari: number, maksDenda: number) {
+function daftarFaq(
+  dendaPerHari: number,
+  maksDenda: number,
+  tarif: TarifBiaya,
+) {
   return [
   {
     q: "Apakah PINDAI mengirim uang ke rekening saya?",
@@ -76,7 +88,7 @@ function daftarFaq(dendaPerHari: number, maksDenda: number) {
   },
   {
     q: "Kapan biaya pinjaman dipotong?",
-    a: `Biaya awal ${PINDAI_PRICING.adminFeePercent}% dihitung dari pokok, ditambah biaya pencairan ekspres Rp5.000–Rp10.000 bila Anda memilih cair ekspres, dan ditampilkan sebagai potongan di muka. Setiap pembayaran bulanan juga dikenai biaya admin cicilan ${BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan.`,
+    a: `Potongan di muka: ${rincianPotonganDiMuka(tarif)}, dihitung dari pokok. Setiap pembayaran bulanan juga dikenai biaya admin cicilan ${persenTeks(BULANAN_PRICING.biayaAdminCicilanPersen)} dari nominal cicilan.`,
   },
   {
     q: "Apa yang dicatat untuk gadai?",
@@ -154,7 +166,14 @@ function Header() {
  * pinjaman 3 dan 6 bulan, dashboard/form memakai bunga efektif akun per bulan
  * (bawaan 30%), sehingga angka di sini harus mengikuti angka itu.
  */
-function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
+function KalkulatorRingkas({
+  persenBunga,
+  tarif,
+}: {
+  persenBunga: number;
+  /** Tarif potongan di muka dari Pengaturan Parameter Bisnis. */
+  tarif: TarifBiaya;
+}) {
   const [pokokHarian, setPokokHarian] = useState(500_000);
   const [tenorHarian, setTenorHarian] =
     useState<(typeof TENOR_OPTIONS)[number]>(tenorHarianDefault(500_000));
@@ -174,11 +193,11 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
     )
       return null;
     try {
-      return quoteLoanBunga(pokokHarian, tarifHarian);
+      return quoteLoanBunga(pokokHarian, tarifHarian, { tarif });
     } catch {
       return null;
     }
-  }, [pokokHarian, tarifHarian]);
+  }, [pokokHarian, tarifHarian, tarif]);
 
   // Nominal berubah → tenor dan tarif ikut menyesuaikan tanpa menunggu submit.
   const pilihPokokHarian = (nilai: number) => {
@@ -253,7 +272,7 @@ function KalkulatorRingkas({ persenBunga }: { persenBunga: number }) {
           <dl className="mt-4 divide-y divide-slate-100 text-sm">
             <Baris label={`Tenor pilihan ${tenorHarianEfektif} hari`} nilai="" />
             <Baris
-              label={`Potongan awal admin ${PINDAI_PRICING.adminFeePercent}% + ekspres bila dipilih`}
+              label={`Potongan awal ${rincianPotonganDiMuka(tarif)}`}
               nilai={formatRupiah(simulasiHarian.totalPotonganDiMuka)}
             />
             <Baris
@@ -471,6 +490,8 @@ export type KetentuanDendaTampil = {
   maksDendaPersen?: number;
   /** Tarif bunga global (Pengaturan Sistem) — dipakai kalkulator publik. */
   persenBunga?: number;
+  /** Tarif potongan di muka yang dipakai mesin harga (admin, asuransi, ekspres). */
+  tarifBiaya?: Partial<TarifBiaya> | null;
 };
 
 export function PublicInfoPageView({
@@ -482,7 +503,10 @@ export function PublicInfoPageView({
   const dendaPerHari =
     ketentuan?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay;
   const maksDenda = ketentuan?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent;
-  const faqItems = daftarFaq(dendaPerHari, maksDenda);
+  // Tarif potongan di muka mengikuti pengaturan admin yang sama dengan
+  // formulir pengajuan; kosong berarti tarif bawaan mesin harga.
+  const tarif = tarifBiayaAman(ketentuan?.tarifBiaya);
+  const faqItems = daftarFaq(dendaPerHari, maksDenda, tarif);
   // Tarif bunga publik = tarif global Pengaturan Sistem (bawaan 30%). Bunga
   // khusus per nasabah bisa berbeda dan hanya terlihat setelah masuk.
   const persenBunga = ketentuan?.persenBunga ?? PINDAI_PRICING.bungaPercent;
@@ -591,7 +615,7 @@ export function PublicInfoPageView({
                 <h2 className="mb-4 text-xl font-semibold">
                   Contoh perhitungan
                 </h2>
-                <KalkulatorRingkas persenBunga={persenBunga} />
+                <KalkulatorRingkas persenBunga={persenBunga} tarif={tarif} />
               </div>
             )}
             <div>
@@ -637,8 +661,13 @@ export function PublicInfoPageView({
                         Potongan awal
                       </th>
                       <td className="px-4 py-3">
-                        Admin {PINDAI_PRICING.adminFeePercent}% dari pokok + ekspres
-                        Rp5.000–Rp10.000 bila dipilih
+                        Admin {persenTeks(tarif.adminPersen)} dari pokok
+                        {tarif.asuransiPersen > 0
+                          ? ` + asuransi ${persenTeks(tarif.asuransiPersen)}`
+                          : ""}
+                        {adaBiayaEkspres(tarif)
+                          ? ` + ekspres ${rentangEkspres(tarif)} bila dipilih`
+                          : ""}
                       </td>
                       <td className="px-4 py-3">
                         {BULANAN_PRICING.biayaLayananPersen}% dari pokok

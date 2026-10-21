@@ -109,6 +109,34 @@ check(
   "monthly calculator follows the configured global interest rate",
 );
 
+// Tarif potongan di muka diatur admin. Halaman biaya, kalkulator, FAQ, dan
+// syarat harus memakai angka itu, bukan persentase yang ditulis di JSX.
+const tarifAdmin = {
+  adminPersen: 3.5,
+  asuransiPersen: 1,
+  ekspres: { tier1: 6_000, tier2: 8_000, tier3: 12_000 },
+};
+const biayaTarif = renderPage(
+  "/biaya",
+  <PublicInfoPageView ketentuan={{ tarifBiaya: tarifAdmin }} />,
+);
+check(
+  biayaTarif.includes("admin 3,5%") && biayaTarif.includes("asuransi 1%"),
+  "pricing page shows the configured admin and insurance rates",
+);
+check(
+  biayaTarif.includes("ekspres Rp 6.000–Rp 12.000"),
+  "pricing page shows the configured express fee range",
+);
+check(
+  biayaTarif.includes("Rp 30.500") && biayaTarif.includes("Rp 469.500"),
+  "daily calculator deducts the configured admin, insurance, and express fees",
+);
+check(
+  !biaya.includes("asuransi 0%"),
+  "insurance is not advertised while its rate is zero",
+);
+
 const syarat = renderPage("/syarat-ketentuan", <SyaratKetentuanView />);
 check(
   syarat.includes("Diperbarui 19 Oktober 2026"),
@@ -136,6 +164,21 @@ check(
     validInternalPaths.has(match[1] ?? ""),
   ),
   "terms page contains only known internal destinations",
+);
+
+const syaratTarif = renderPage(
+  "/syarat-ketentuan",
+  <SyaratKetentuanView ketentuan={{ tarifBiaya: tarifAdmin }} />,
+);
+check(
+  syaratTarif.includes("Biaya admin 3,5%") &&
+    syaratTarif.includes("asuransi 1%") &&
+    syaratTarif.includes("ekspres Rp 6.000–Rp 12.000"),
+  "terms quote the configured upfront fees",
+);
+check(
+  !syaratTarif.includes("Rp5.000–Rp10.000"),
+  "terms no longer carry the old hardcoded express fee",
 );
 
 console.log(`PublicInfoPage.render.test: ${passed} lulus, ${failed} gagal`);

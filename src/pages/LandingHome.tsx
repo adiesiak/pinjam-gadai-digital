@@ -22,6 +22,8 @@ import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
+import { BiayaBerlaku } from "@/components/landing/BiayaBerlaku";
+import { tarifBiayaAman, type TarifBiaya } from "@/lib/loan";
 import {
   JUMLAH_KARTU_LAYANAN,
   JUMLAH_PANDUAN,
@@ -72,7 +74,7 @@ const DemoPengajuan = lazy(() =>
   })),
 );
 
-function DemoPengajuanTerlihat() {
+function DemoPengajuanTerlihat({ tarif }: { tarif: TarifBiaya }) {
   const wadah = useRef<HTMLDivElement>(null);
   // Peramban tanpa IntersectionObserver langsung menampilkan demo: tidak ada
   // sinyal "hampir terlihat" yang bisa ditunggu di sana.
@@ -100,7 +102,7 @@ function DemoPengajuanTerlihat() {
     <div ref={wadah}>
       {tampil ? (
         <Suspense fallback={<div aria-hidden="true" className="h-96" />}>
-          <DemoPengajuan />
+          <DemoPengajuan tarif={tarif} />
         </Suspense>
       ) : null}
     </div>
@@ -117,6 +119,14 @@ export default function LandingHome() {
    */
   const cms = useQuery(api.announcements.getPublic);
   const konten = cms?.landing ?? KONTEN_LANDING_DEFAULT;
+  /**
+   * Tarif potongan di muka dari Pengaturan Parameter Bisnis. Beranda memakai
+   * angka yang sama dengan kalkulator `/biaya`, formulir pengajuan, dan demo
+   * alur, supaya materi kampanye tidak menjanjikan tarif lama. Selama query
+   * belum termuat, tarif bawaan yang dirender, bukan angka kosong.
+   */
+  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
+  const tarif = tarifBiayaAman(ketentuanBiaya?.tarifBiaya);
   /** Teks CMS dipasangkan dengan rute/ikon tetap; CMS tidak mengubah tujuan. */
   const layanan = Array.from({ length: JUMLAH_KARTU_LAYANAN }, (_, i) => ({
     ...konten.layanan[i],
@@ -340,7 +350,9 @@ export default function LandingHome() {
           </div>
         </section>
 
-        <DemoPengajuanTerlihat />
+        <BiayaBerlaku tarif={tarif} />
+
+        <DemoPengajuanTerlihat tarif={tarif} />
 
         <DoorprizeRingkas
           accountHref={accountHref}
