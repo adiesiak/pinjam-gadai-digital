@@ -71,7 +71,7 @@ ada(aman, "PD-AMAN-1", "nomor referensi");
 ada(aman, 'aria-live="polite"', "semantik status untuk pembaca layar");
 ada(aman, 'role="status"', "peran status (alert lunak)");
 ada(aman, "pengingat-jatuh-tempo-judul", "kartu diberi nama oleh judulnya");
-ada(aman, "dark:", "kelas mode gelap hadir");
+tidakAda(aman, "dark:", "tanpa kelas mode gelap yang tidak pernah aktif");
 ada(aman, "bukan tagihan", "jujur: bukan tagihan");
 tidakAda(aman, "animate-due-breathe", "tingkat aman tidak bernapas");
 tidakAda(aman, "animate-due-ring", "tingkat aman tanpa denyut");

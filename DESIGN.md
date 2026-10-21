@@ -82,6 +82,21 @@ Card Details:
 - Card Hover State: Smooth 3D tilt effect (`hover:scale-[1.02] transition-all duration-500`) with dynamic light reflection over the glass surface.
 - Security Feedback: Password strength meters and 32-character token auto-trimmers must render in real-time with sharp emerald status indicators.
 
+### D. Radius & Elevation
+
+Radius menyatakan ukuran benda, bukan selera: makin besar permukaannya, makin besar sudutnya. Satu baris kontrol tidak boleh mencampur dua tingkat radius.
+
+| Benda | Kelas | Contoh |
+| --- | --- | --- |
+| Tombol (semua ukuran) | `rounded-md` | `components/ui/button-variants.ts` |
+| Tombol aksi utama di ruang pendana | `rounded-lg` | `KontakLaporanWhatsapp`, `RekapPendanaUnduhan` |
+| Bidang isian, pilihan, kotak catatan | `rounded-xl` | `components/ui/input.tsx`, `select.tsx` |
+| Kartu, panel, dialog, lembar | `rounded-2xl` | `components/ui/card.tsx`, `dialog.tsx` |
+| Lembar folio ruang pendana (tabel) | `rounded-lg` | `components/penyediaDana/folio.ts` |
+| Badge, chip status, tombol ikon bulat | `rounded-full` | `components/ui/badge-variants.ts` |
+
+Bayangan mengikuti §4: hanya satu titik fokus per layar. Tombol dan kartu daftar memakai garis rambut, bukan bayangan; bayangan bertinta hanya untuk permukaan fokus. Kelas `dark:` tidak dipakai di mana pun karena aplikasi hanya punya satu wajah terang (§1); varian gelap pada komponen hasil shadcn adalah cabang mati dan tidak boleh ditambah ke komponen baru.
+
 ## 4. Anti-Slop Checkpoints for PINDAI
 
 - No Generic Cards, and glass stays at the focal point (keputusan pemilik): kaca kertas cerah + garis ganda kuningan hanya untuk **satu titik fokus per layar** (mis. kartu hero, atau satu kartu angka utama). Kartu lain memakai permukaan padat, tanpa blur dan tanpa pendaran; garis emerald tipis boleh tetap ada sebagai penanda batas. Teknik kaca/glow di tempat lain harus punya alasan tertulis, bukan diulang karena resep ini ada.

@@ -3072,6 +3072,26 @@ const schema = defineSchema(
     }).index("by_diperbarui", ["diperbaruiPada"]),
 
     /**
+     * Bukti lolos Cloudflare Turnstile untuk satu akun.
+     *
+     * Verifikasi Turnstile butuh permintaan keluar (`fetch`), dan `fetch` tidak
+     * boleh berjalan di dalam mutation Convex. Karena itu verifikasi dilakukan
+     * action terpisah, lalu hasilnya dicatat di sini sebagai pas berumur pendek
+     * yang DIPAKAI SEKALI oleh `gerbangKirim.mintaIzinKirim`. Tanpa baris ini,
+     * siapa pun bisa memanggil mutation gerbang secara langsung dan melewati
+     * pemeriksaan bot.
+     *
+     * Tabel hanya terisi bila `TURNSTILE_SECRET_KEY` diisi di environment; selama
+     * kuncinya kosong, gerbang berjalan seperti sebelumnya.
+     */
+    turnstilePasses: defineTable({
+      userId: v.id("users"),
+      /** Waktu kedaluwarsa pas; pas lama tidak berguna karena sekali pakai. */
+      kedaluwarsa: v.number(),
+      dipakaiPada: v.optional(v.number()),
+    }).index("by_user", ["userId"]),
+
+    /**
      * Antrean auto-matching: pokok pinjaman 7/14 hari yang sudah lunas kembali
      * ke pool dan siap disalurkan ke peminjam berikutnya. Satu baris per
      * pelunasan; `status` berubah saat admin menandai sudah tersalurkan.

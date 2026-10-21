@@ -30,20 +30,13 @@
        lalu warna berganti setelah query Convex selesai (kilat warna). React
        memperbaruinya bila admin mengganti template. Skrip ini tidak boleh
        menunggu bundel: ia satu-satunya alasan `data-theme` sudah benar di paint
-       pertama. -->
-  <script>
-    (function () {
-      try {
-        var tema = localStorage.getItem("pindai-tema");
-        var gaya = localStorage.getItem("pindai-gaya");
-        var akar = document.documentElement;
-        if (tema) akar.setAttribute("data-theme", tema);
-        if (gaya) akar.setAttribute("data-gaya", gaya);
-      } catch (_) {
-        /* Penyimpanan diblokir (mode privat) — cukup pakai nilai bawaan. */
-      }
-    })();
-  </script>
+       pertama.
+
+       Berkasnya terpisah (`public/tema-awal.js`), bukan blok sebaris, supaya
+       Content-Security-Policy di `main.ts` dapat memakai `script-src 'self'`
+       tanpa pengecualian `'unsafe-inline'` yang juga berlaku untuk skrip
+       suntikan. -->
+  <script src="/tema-awal.js"></script>
 
   <!-- Open Graph / Twitter. Deskripsi sengaja sama dengan meta description di
        atas agar tidak ada dua janji berbeda soal produk. -->

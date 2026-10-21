@@ -277,6 +277,16 @@ export function SystemConfigPanel() {
   const tarifBerubah = KUNCI_TARIF_BULANAN.some(
     (kunci) => form[kunci] !== data.config[kunci],
   );
+  /**
+   * QRIS terbit hanya kalau gambarnya sudah TERSIMPAN.
+   *
+   * Selama `qrisImageId` kosong, pilihan QRIS disembunyikan dari formulir bukti
+   * pembayaran dan server menolak bukti bermetode QRIS. Tanpa status di sini,
+   * keadaan itu baru ketahuan dari peminjam yang bertanya kenapa QRIS tidak ada.
+   */
+  const qrisTersimpan = data.config.qrisImageId != null && data.qrisUrl !== null;
+  const qrisPilihanBelumDisimpan =
+    (form.qrisImageId ?? null) !== (data.config.qrisImageId ?? null);
   const pratinjauBulanan = (() => {
     try {
       return hitungSimulasiBulanan(1_000_000, 3, {
@@ -664,6 +674,26 @@ export function SystemConfigPanel() {
                       className="mt-1.5 shadow-none focus-visible:ring-2"
                     />
                   </div>
+                </div>
+                <div
+                  className={`mt-3 rounded-lg border px-3 py-2 text-[11px] leading-5 ${
+                    qrisTersimpan
+                      ? "border-emerald-200 bg-emerald-50/60 text-emerald-900"
+                      : "border-amber-200 bg-amber-50/70 text-amber-950"
+                  }`}
+                >
+                  <p className="font-semibold">
+                    {qrisTersimpan ? "QRIS aktif" : "QRIS belum aktif"}
+                  </p>
+                  <p className="mt-0.5">
+                    {qrisTersimpan
+                      ? qrisPilihanBelumDisimpan
+                        ? "Gambar yang tersimpan tetap dipakai. Perubahan gambar baru berlaku setelah konfigurasi disimpan."
+                        : "Pilihan QRIS tampil di formulir bukti pembayaran dan bukti setoran."
+                      : qrisPilihanBelumDisimpan
+                        ? "Gambar sudah dipilih tetapi belum disimpan. QRIS baru aktif setelah konfigurasi disimpan."
+                        : "Belum ada gambar QRIS tersimpan. Pilihan QRIS disembunyikan dari formulir pembayaran, dan server menolak bukti QRIS. Unggah gambar lalu simpan konfigurasi."}
+                  </p>
                 </div>
                 {data.qrisUrl && (
                   <img

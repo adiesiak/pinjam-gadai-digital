@@ -31,6 +31,7 @@ import { internalMutation, mutation, type MutationCtx } from "./_generated/serve
 import type { Id } from "./_generated/dataModel";
 import { periksaGerbangKirim } from "../lib/gerbangKirim";
 import { catatDenyut } from "./monitoring";
+import { turnstileAktif } from "./turnstile";
 
 /** Batas kiriman per akun dalam satu jendela laju. */
 export const MAKS_KIRIM = 5;
@@ -208,6 +209,33 @@ export async function gerbangPengajuan(
 }
 
 /**
+ * Cari pas Turnstile yang masih berlaku milik akun ini.
+ *
+ * Pas dibuat action `turnstile.verifikasiTurnstile` setelah Cloudflare menyatakan
+ * tokennya sah. Memeriksanya di sini membuat pemanggil yang melewati widget
+ * (mis. memanggil mutation langsung dari konsol) tetap ditolak selama
+ * `TURNSTILE_SECRET_KEY` terpasang.
+ *
+ * Pas hanya DIPAKAI setelah gerbang lain juga meloloskan kiriman: pengajuan yang
+ * ditolak karena jebakan atau jeda waktu tidak boleh menghabiskan verifikasi
+ * yang sudah dikerjakan pengguna sungguhan.
+ */
+async function cariPasTurnstile(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+): Promise<Id<"turnstilePasses"> | null> {
+  const pas = await ctx.db
+    .query("turnstilePasses")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .order("desc")
+    .first();
+  if (pas === null || pas.dipakaiPada !== undefined || pas.kedaluwarsa < Date.now()) {
+    return null;
+  }
+  return pas._id;
+}
+
+/**
  * MINTA IZIN KIRIM - dipanggil formulir pengajuan SEBELUM mutasi pengajuan.
  *
  * Kenapa ada padahal mutasi pengajuan sudah memeriksa hal yang sama: di Convex
@@ -240,6 +268,17 @@ export const mintaIzinKirim = mutation({
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     const kunci = kunciAkun(userId);
 
+    // Verifikasi bot diperiksa SEBELUM pembatas laju dan sengaja tidak dicatat
+    // sebagai pelanggaran: belum mengisi Turnstile bukan percobaan menyalahgunakan
+    // tombol, jadi tidak boleh ikut mengunci akun.
+    const pasTurnstile = turnstileAktif() ? await cariPasTurnstile(ctx, userId) : null;
+    if (turnstileAktif() && pasTurnstile === null) {
+      return {
+        ok: false,
+        alasan: "Selesaikan verifikasi keamanan sebelum mengirim pengajuan.",
+      };
+    }
+
     const batas = await periksaBatasGerbang(ctx, kunci);
     if (!batas.lolos) {
       if (!batas.terkunci) {
@@ -256,6 +295,11 @@ export const mintaIzinKirim = mutation({
     if (!hasil.lolos) {
       await catatPelanggaranGerbang(ctx, { kunci, sebab: hasil.alasan, userId });
       return { ok: false, alasan: hasil.alasan };
+    }
+
+    // Gerbang meloloskan kiriman: pas Turnstile baru dihabiskan di sini.
+    if (pasTurnstile !== null) {
+      await ctx.db.patch(pasTurnstile, { dipakaiPada: Date.now() });
     }
 
     return { ok: true, alasan: null };

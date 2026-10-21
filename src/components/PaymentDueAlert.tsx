@@ -49,46 +49,48 @@ import {
 } from "@/lib/pengingatJatuhTempo";
 import type { NadaJatuhTempo } from "@/lib/jatuhTempo";
 
-/** Palet per tingkat — terang & gelap. Warna mendesak tetap berarti. */
+/**
+ * Palet per tingkat. Warna mendesak tetap berarti.
+ *
+ * Hanya nada terang: aplikasi memakai satu wajah terang (DESIGN.md), tidak ada
+ * kelas `.dark` yang pernah dipasang, jadi varian `dark:` di sini hanya cabang
+ * mati yang menambah panjang kelas tanpa pernah berlaku.
+ */
 const PALET: Record<
   TingkatPengingat,
   { kotak: string; garis: string; ikon: string; judul: string; badge: string; teks: string }
 > = {
   aman: {
-    kotak: "border-emerald-200 bg-white dark:border-emerald-900/60 dark:bg-emerald-950/25",
+    kotak: "border-emerald-200 bg-white",
     garis: "bg-emerald-500",
-    ikon: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300",
-    judul: "text-emerald-900 dark:text-emerald-100",
-    badge:
-      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300",
-    teks: "text-emerald-700 dark:text-emerald-300",
+    ikon: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    judul: "text-emerald-900",
+    badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    teks: "text-emerald-700",
   },
   segera: {
-    kotak: "border-amber-300 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/25",
+    kotak: "border-amber-300 bg-amber-50/70",
     garis: "bg-amber-500",
-    ikon: "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/50 dark:text-amber-300",
-    judul: "text-amber-900 dark:text-amber-100",
-    badge:
-      "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/50 dark:text-amber-300",
-    teks: "text-amber-800 dark:text-amber-300",
+    ikon: "border-amber-300 bg-amber-100 text-amber-800",
+    judul: "text-amber-900",
+    badge: "border-amber-300 bg-amber-100 text-amber-800",
+    teks: "text-amber-800",
   },
   hari_ini: {
-    kotak: "border-gold bg-gold/10 dark:border-gold/50 dark:bg-gold/10",
+    kotak: "border-gold bg-gold/10",
     garis: "bg-gold",
-    ikon: "border-gold/60 bg-gold/20 text-gold-foreground dark:border-gold/50 dark:bg-gold/20 dark:text-gold",
-    judul: "text-gold-foreground dark:text-gold",
-    badge:
-      "border-gold/60 bg-gold/20 text-gold-foreground dark:border-gold/50 dark:bg-gold/20 dark:text-gold",
-    teks: "text-gold-foreground dark:text-gold",
+    ikon: "border-gold/60 bg-gold/20 text-gold-foreground",
+    judul: "text-gold-foreground",
+    badge: "border-gold/60 bg-gold/20 text-gold-foreground",
+    teks: "text-gold-foreground",
   },
   terlambat: {
-    kotak: "border-red-300 bg-red-50/70 dark:border-red-900/60 dark:bg-red-950/25",
+    kotak: "border-red-300 bg-red-50/70",
     garis: "bg-red-500",
-    ikon: "border-red-300 bg-red-100 text-red-700 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300",
-    judul: "text-red-900 dark:text-red-100",
-    badge:
-      "border-red-300 bg-red-100 text-red-700 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300",
-    teks: "text-red-700 dark:text-red-300",
+    ikon: "border-red-300 bg-red-100 text-red-700",
+    judul: "text-red-900",
+    badge: "border-red-300 bg-red-100 text-red-700",
+    teks: "text-red-700",
   },
 };
 
@@ -238,8 +240,8 @@ export function PaymentDueAlert({
               </p>
             ) : (
               <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                <TriangleAlert className="size-3.5 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
-                <span className="font-semibold text-red-700 dark:text-red-300">
+                <TriangleAlert className="size-3.5 shrink-0 text-red-600" aria-hidden />
+                <span className="font-semibold text-red-700">
                   Terlambat {hariTerlambat} hari
                 </span>
                 {dendaTerlambat > 0 && (

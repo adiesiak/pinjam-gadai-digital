@@ -51,21 +51,31 @@ menggantikan verifikasi KYC, pembatas laju per IP, maupun CAPTCHA pihak ketiga.
   (`*.convex.cloud`) serta host aplikasi. Penegakan HTTPS berada di lapisan
   hosting yang dikelola platform, jadi **tidak dapat diverifikasi dari repositori**
   dan tidak diklaim di sini.
-- **Header keamanan: BELUM.** Tidak ada `public/_headers`, `vercel.json`,
-  `netlify.toml`, atau konfigurasi serupa di repositori; `index.html` tidak memuat
-  CSP. Artinya `Content-Security-Policy`, `X-Frame-Options`,
-  `X-Content-Type-Options`, dan `Strict-Transport-Security` belum dipasang.
-  - Kenapa tidak dipasang dari sini: keempat header itu hanya berlaku bila
-    dikirim oleh server yang melayani dokumen HTML. Menambahkannya lewat
-    konfigurasi tebakan berisiko mematahkan aplikasi (Vite, WebSocket Convex,
-    tile peta OSM/Carto), dan CSP yang salah membuat halaman kosong.
-  - Langkah berikutnya (operator): pasang di lapisan hosting. Nilai awal yang
-    aman diverifikasi dulu di lingkungan staging, bukan langsung produksi:
-    `Strict-Transport-Security: max-age=31536000; includeSubDomains`,
-    `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-    `Referrer-Policy: strict-origin-when-cross-origin`, lalu CSP bertahap
-    (`default-src 'self'`, `connect-src` ke host Convex, `img-src 'self' data:
-    blob: https://*.convex.cloud https://*.tile.openstreetmap.org`).
+- **Header keamanan: TERPASANG di server statis repositori (`main.ts`).**
+  Server Deno + Hono itu menyajikan `dist/`, dan middleware-nya mengirim:
+  `Content-Security-Policy` (lengkap, bukan bertahap), `Strict-Transport-Security`
+  (`max-age=31536000; includeSubDomains`, tanpa `preload`), `X-Content-Type-Options:
+  nosniff`, `X-Frame-Options: DENY` beserta `frame-ancestors 'none'`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy:
+  same-origin-allow-popups` (popup masuk Google tetap bisa berkomunikasi dengan
+  halaman pembuka), dan `Permissions-Policy` yang hanya membuka kamera, mikrofon,
+  serta lokasi untuk origin sendiri.
+  - Isi CSP ditulis satu kali di `main.ts` dengan alasan tiap izin: `script-src
+    'self'` (tanpa skrip sebaris), `wasm-unsafe-eval` + `cdn.jsdelivr.net` untuk
+    mesin OCR Tesseract, `challenges.cloudflare.com` untuk Turnstile,
+    `connect-src` ke domain Convex (`.convex.cloud` dan pasangan `.convex.site`
+    untuk Convex Auth), `frame-src` ke OpenStreetMap, serta `img-src` yang
+    mengizinkan HTTPS karena avatar Google, gambar QRIS, dan berkas storage
+    Convex berasal dari host berbeda per deployment.
+  - Skrip tema sebelum paint dipindah dari blok sebaris di `index.html` ke
+    `public/tema-awal.js`; tanpa pemindahan itu CSP harus memakai
+    `'unsafe-inline'` untuk skrip, dan pengecualian itu juga berlaku bagi skrip
+    yang disuntikkan penyerang.
+  - **Belum diverifikasi:** apakah platform produksi benar-benar menjalankan
+    `main.ts` sebagai server, dan apakah respons produksi memuat header di atas.
+    Pembuktiannya hanya lewat permintaan ke URL produksi (`curl -I`), bukan dari
+    repositori. Bila host memakai server lain, nilai header yang sama harus
+    dipasang di sana.
   - Catatan: header pada endpoint JSON Convex (`src/convex/http.ts`) **tidak**
     melindungi halaman aplikasi, karena endpoint itu tidak pernah menyajikan HTML.
 
@@ -95,18 +105,27 @@ menggantikan verifikasi KYC, pembatas laju per IP, maupun CAPTCHA pihak ketiga.
 
 ### 1.3 Mitigasi bot (Cloudflare Turnstile)
 
-- **BELUM.** Tidak ada integrasi Turnstile atau CAPTCHA pihak ketiga mana pun di
-  `src`. Satu-satunya tantangan "captcha" adalah soal aritmetika ringan untuk
-  login admin setelah dua kegagalan (`src/pages/Auth.tsx`), dan itu penahan UX,
-  bukan bukti anti-bot.
-- Kenapa belum: Turnstile butuh kunci situs dan verifikasi sisi server ke
-  Cloudflare (kredensial yang harus dipasang pengelola di Keys/API keys), keputusan
-  produk tentang titik masuk mana yang diberi tantangan, dan pengecualian untuk
-  aplikasi native. Menambahkannya tanpa itu hanya menghasilkan widget yang tidak
-  dapat diverifikasi.
-- Langkah berikutnya: pasang Turnstile di tiga titik masuk yang kritis
-  (registrasi/login OTP, permintaan OTP WhatsApp, pengiriman pengajuan), verifikasi
-  token di action `use node`, simpan `TURNSTILE_SECRET_KEY` di deployment Convex.
+- **TERPASANG pada gerbang pengiriman pengajuan, nonaktif sampai kuncinya diisi.**
+  Alurnya: widget `components/GerbangTurnstile.tsx` menampilkan tantangan bila
+  `VITE_TURNSTILE_SITE_KEY` ada saat build, lalu menukar tokennya lewat action
+  `turnstile.verifikasiTurnstile`. Action itu memanggil `siteverify` Cloudflare
+  dan mencatat PAS berumur lima menit di `turnstilePasses`. `gerbangKirim.mintaIzinKirim`
+  menolak kiriman tanpa pas selama `TURNSTILE_SECRET_KEY` terpasang, dan pas itu
+  dihabiskan hanya setelah jebakan serta jeda waktu juga lolos. Widget saja tidak
+  cukup: pemanggil yang melewati UI tetap ditolak server.
+- Kenapa tidak di login/OTP: alur masuk Convex Auth ditangani provider dan tidak
+  bisa disisipi pemeriksaan tanpa menyentuh berkas auth yang dibekukan proyek ini.
+  Titik yang dijaga sekarang adalah tempat bot menghasilkan data: pengajuan
+  pinjaman (jalur cepat dan jalur klasik) dan pengajuan gadai.
+- Status verifikasi: kunci belum diisi di lingkungan ini, jadi perilakunya masih
+  seperti sebelum integrasi (semua kiriman lolos tanpa tantangan). Bukti yang ada
+  adalah tes `gerbangKirim.convex.test.ts`: tanpa kunci gerbang tetap lolos;
+  dengan kunci, kiriman tanpa pas ditolak dan TIDAK dihitung sebagai pelanggaran;
+  pas hanya berlaku sekali; pas kedaluwarsa tidak membuka gerbang. Verifikasi
+  token sungguhan ke Cloudflare belum dijalankan karena kredensialnya tidak ada.
+- Untuk mengaktifkan: isi `VITE_TURNSTILE_SITE_KEY` (kunci situs) dan
+  `TURNSTILE_SECRET_KEY` (kunci rahasia) lewat panel Keys/API keys, lalu build
+  ulang klien agar kunci situs ikut tertanam.
 
 ---
 

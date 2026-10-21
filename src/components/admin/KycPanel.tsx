@@ -807,7 +807,7 @@ function KycKepalaRingkas({ detail }: { detail: DetailKycTampil }) {
 function KycPdpRingkas({ detail }: { detail: DetailKycTampil }) {
   if (detail.persetujuanAktif) {
     return (
-      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200">
+      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900">
         Persetujuan pemrosesan data tercatat {waktu(detail.persetujuan?.pada ?? null)} (versi{" "}
         {detail.persetujuan?.versi ?? "—"}) oleh {detail.persetujuan?.olehLabel ?? "—"}.
       </p>
@@ -816,7 +816,7 @@ function KycPdpRingkas({ detail }: { detail: DetailKycTampil }) {
   return (
     <p
       role="alert"
-      className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-5 text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200"
+      className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-5 text-red-900"
     >
       Nasabah <strong>belum memiliki persetujuan pemrosesan data yang berlaku</strong>. Jangan
       verifikasi identitas sebelum dasar pemrosesan tercatat.
@@ -879,8 +879,8 @@ function KycOtpRingkas({ detail }: { detail: DetailKycTampil }) {
       <p
         className={
           detail.nomorWhatsAppTerbukti
-            ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-200"
-            : "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+            ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900"
+            : "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900"
         }
       >
         {detail.nomorWhatsAppTerbukti ? (
@@ -1144,7 +1144,7 @@ function KycAturanRingkas({ detail }: { detail: DetailKycTampil }) {
     <p
       className={
         detail.aturanUsang
-          ? "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+          ? "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900"
           : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-700"
       }
     >

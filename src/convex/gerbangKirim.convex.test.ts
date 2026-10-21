@@ -21,6 +21,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { MAKS_KIRIM, MAKS_PELANGGARAN } from "./gerbangKirim";
 import schema from "./schema";
 import {
@@ -262,5 +263,89 @@ describe("penjaga terakhir di mutasi pengajuan", () => {
       ajukan(t, sesi, { jebakan: "", formDibukaPada: Date.now() - 9_000 }),
     ).rejects.toThrow(/dikunci sementara/i);
     expect(await jumlahPinjaman(t)).toBe(0);
+  });
+});
+
+/**
+ * Verifikasi Turnstile menempel pada gerbang, bukan pada widget di klien.
+ *
+ * Yang dijaga di sini: kunci yang belum dipasang tidak mengubah perilaku,
+ * kiriman tanpa pas ditolak (dan TIDAK dihitung sebagai pelanggaran), pas
+ * hanya berlaku sekali, dan pas kedaluwarsa tidak berguna.
+ */
+describe("gerbang Turnstile", () => {
+  /** Pas yang dibuat action setelah Cloudflare menyatakan tokennya sah. */
+  async function userIdPertama(t: Tx): Promise<Id<"users">> {
+    const user = await t.run((ctx) => ctx.db.query("users").first());
+    if (user === null) throw new Error("Tidak ada pengguna uji.");
+    return user._id;
+  }
+
+  it("tanpa TURNSTILE_SECRET_KEY, gerbang berjalan seperti sebelumnya", async () => {
+    const t = convexTest(schema, modules);
+    const sesi = await peminjamSiap(t, "tanpa-turnstile@pindai.test");
+
+    await expect(mintaIzin(sesi)).resolves.toEqual({ ok: true, alasan: null });
+  });
+
+  it("kunci terpasang: kiriman tanpa pas ditolak, dan akun tidak dikunci", async () => {
+    process.env.TURNSTILE_SECRET_KEY = "uji-turnstile";
+    try {
+      const t = convexTest(schema, modules);
+      const sesi = await peminjamSiap(t, "tanpa-pas@pindai.test");
+
+      const tolak = await mintaIzin(sesi);
+      expect(tolak.ok).toBe(false);
+      expect(tolak.alasan).toMatch(/verifikasi keamanan/i);
+
+      // Belum mengisi Turnstile bukan percobaan menyalahgunakan tombol: tidak
+      // boleh ada baris pelanggaran yang bisa mengunci akun.
+      const jejak = await t.run((ctx) => ctx.db.query("gerbangKirim").collect());
+      expect(jejak).toHaveLength(0);
+    } finally {
+      delete process.env.TURNSTILE_SECRET_KEY;
+    }
+  });
+
+  it("pas Turnstile hanya bisa dipakai sekali", async () => {
+    process.env.TURNSTILE_SECRET_KEY = "uji-turnstile";
+    try {
+      const t = convexTest(schema, modules);
+      const sesi = await peminjamSiap(t, "pas-sekali@pindai.test");
+      const userId = await userIdPertama(t);
+      await t.run((ctx) =>
+        ctx.db.insert("turnstilePasses", {
+          userId,
+          kedaluwarsa: Date.now() + 60_000,
+        }),
+      );
+
+      await expect(mintaIzin(sesi)).resolves.toEqual({ ok: true, alasan: null });
+      const kedua = await mintaIzin(sesi);
+      expect(kedua.ok).toBe(false);
+      expect(kedua.alasan).toMatch(/verifikasi keamanan/i);
+    } finally {
+      delete process.env.TURNSTILE_SECRET_KEY;
+    }
+  });
+
+  it("pas kedaluwarsa tidak membuka gerbang", async () => {
+    process.env.TURNSTILE_SECRET_KEY = "uji-turnstile";
+    try {
+      const t = convexTest(schema, modules);
+      const sesi = await peminjamSiap(t, "pas-basi@pindai.test");
+      const userId = await userIdPertama(t);
+      await t.run((ctx) =>
+        ctx.db.insert("turnstilePasses", {
+          userId,
+          kedaluwarsa: Date.now() - 1_000,
+        }),
+      );
+
+      const tolak = await mintaIzin(sesi);
+      expect(tolak.ok).toBe(false);
+    } finally {
+      delete process.env.TURNSTILE_SECRET_KEY;
+    }
   });
 });

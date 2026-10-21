@@ -1,19 +1,22 @@
 # Laporan pendana lewat WhatsApp
 
 Pendana menerima angka pendanaannya dalam **satu berkas PDF** yang dikirim ke
-WhatsApp miliknya sendiri. Ada dua laporan, dan keduanya memuat dua tingkat
-pembacaan: ringkasan angka portofolio di atas, lalu rincian per pinjaman di
-bawahnya.
+WhatsApp miliknya sendiri. Ada dua laporan untuk pendana, dan keduanya memuat
+dua tingkat pembacaan: ringkasan angka portofolio di atas, lalu rincian per
+pinjaman di bawahnya. Laporan ketiga adalah rekap internal seluruh pendana.
 
 | Laporan | Dikirim saat | Penerima |
 |---|---|---|
 | **Pelunasan** (`laporan_pelunasan`) | Admin menandai satu pinjaman **lunas** (`loans.ubahStatusPinjaman`) | Pemilik kanonik pinjaman (`loans.pendanaId`) |
 | **Kinerja pendanaan** (`laporan_portofolio`) | Pendana menekan **Kirim laporan ke WhatsApp** di ruang penyedia dana | Akun yang menekannya |
+| **Rekap semua pendana** (`rekap_pendana`) | Super Admin menekan **Kirim rekap ke WhatsApp** di bagian Rekap Dana Pendana | Nomor yang ditulis admin saat itu |
 
-Nomor tujuan selalu nomor yang **tersimpan di akun penerima**. Aksi
-`laporanPendana.kirimLaporanPortofolio` tidak menerima argumen nomor sama sekali,
-jadi laporan keuangan tidak bisa dialihkan ke nomor lain oleh siapa pun yang
-menemukan tombolnya.
+Nomor tujuan dua laporan pendana selalu nomor yang **tersimpan di akun
+penerima**. Aksi `laporanPendana.kirimLaporanPortofolio` tidak menerima argumen
+nomor sama sekali, jadi laporan keuangan tidak bisa dialihkan ke nomor lain oleh
+siapa pun yang menemukan tombolnya. Rekap seluruh pendana berbeda: ia milik
+admin, bukan milik satu pendana, jadi nomor tujuannya ditulis admin setiap kali
+mengirim, dan pengirimnya tetap tercatat di `waLogs`.
 
 ## 1. Dari mana nomornya
 
@@ -39,13 +42,12 @@ kirimnya terkunci.
 
 Angka laporan diambil dari `ruangPendana` di `convex/penyediaDana.ts` — query
 yang sama dengan yang dirender di layar — sehingga tidak ada perhitungan uang
-kedua yang bisa berbeda sedikit dari tampilan.
-
-| Bagian | Laporan pelunasan | Laporan kinerja |
-|---|---|---|
-| Ringkasan | hasil satu pinjaman: pokok, tanggal tersalurkan, tanggal lunas, keuntungan dibukukan, biaya platform (layanan) | dana tersalurkan, masih berjalan, keuntungan dibukukan, keuntungan perkiraan, total keuntungan, biaya platform, jumlah pinjaman |
-| Rincian | pinjaman yang bersangkutan (referensi, peminjam) | daftar **pinjaman berjalan** dan **pinjaman lunas**, satu baris per pinjaman |
-| Keadaan transfer | apakah catatan transfer keuntungannya sudah dibuat admin | berapa pinjaman lunas yang catatan transfernya belum dibuat |
+kedua yang bisa berbeda sedikit dari tampilan.| Bagian | Laporan pelunasan | Laporan kinerja | Rekap semua pendana |
+| --- | --- | --- | --- |
+| Ringkasan | hasil satu pinjaman: pokok, tanggal tersalurkan, tanggal lunas, keuntungan dibukukan, biaya platform (layanan) | dana tersalurkan, masih berjalan, keuntungan dibukukan, keuntungan perkiraan, total keuntungan, biaya platform, jumlah pinjaman | total seluruh pendana: jumlah pendana, jumlah pinjaman, dana tersalurkan, keuntungan dibukukan, perkiraan, biaya platform, transfer belum dicatat |
+| Rincian | pinjaman yang bersangkutan (referensi, peminjam) | daftar **pinjaman berjalan** dan **pinjaman lunas**, satu baris per pinjaman | satu blok per pendana: jumlah pinjaman, dana tersalurkan, keuntungan dibukukan dan perkiraan, biaya platform |
+| Keadaan transfer | apakah catatan transfer keuntungannya sudah dibuat admin | berapa pinjaman lunas yang catatan transfernya belum dibuat | jumlah pinjaman lunas yang catatan transfernya belum dibuat, per pendana |
+| Nama peminjam | disamarkan | disamarkan | tidak dicantumkan |
 
 Istilahnya sengaja sama persis dengan ruang penyedia dana ("Dana tersalurkan",
 "Keuntungan dibukukan", "Keuntungan perkiraan", "Biaya platform (layanan)").
@@ -75,10 +77,10 @@ ikut. Penolakan itu juga muncul di kartu ruang pendana saat ia meminta laporanny
 
 ## 4. Jejak pengiriman dan umur berkas
 
-- Setiap percobaan tercatat di `waLogs` dengan `jenis` `laporan_pelunasan` atau
-  `laporan_portofolio`, `loanId` (untuk pelunasan), dan `olehUserId`. Panel
-  WhatsApp admin menampilkan label ramahnya dari `jenisRamahWa`
-  (`lib/templatePesanWa.ts`).
+- Setiap percobaan tercatat di `waLogs` dengan `jenis` `laporan_pelunasan`,
+  `laporan_portofolio`, atau `rekap_pendana`, `loanId` (untuk pelunasan), dan
+  `olehUserId`. Panel WhatsApp admin menampilkan label ramahnya dari
+  `jenisRamahWa` (`lib/templatePesanWa.ts`).
 - Status yang mungkin tercatat: `terkirim`, `gagal`, `tanpa_nomor` (nomor pemilik
   belum diisi), `dinonaktifkan` (integrasi WhatsApp belum aktif), `dilewati`
   (pinjaman tanpa pemilik kanonik).
@@ -98,5 +100,6 @@ ikut. Penolakan itu juga muncul di kartu ruang pendana saat ia meminta laporanny
 | `src/lib/laporanPendana.test.ts` | isi laporan: istilah, rupiah, batas baris, tanpa tanda pisah panjang |
 | `src/lib/pdfSederhana.test.ts` | penyusunan berkas PDF-nya |
 | `src/components/penyediaDana/KontakLaporanWhatsapp.render.test.tsx` | keadaan kartu: belum ada nomor, tombol terkunci, kegagalan tampil apa adanya |
-| `src/convex/laporanPendana.convex.test.ts` | nomor milik akun, kiriman portofolio ke nomor sendiri, lampiran PDF, retensi berkas, pemicu pelunasan otomatis |
+| `src/components/penyediaDana/RekapPendanaUnduhan.render.test.tsx` | keadaan tombol rekap: jumlah pendana, unduh tanpa nomor, kirim terkunci tanpa nomor, kegagalan tampil apa adanya |
+| `src/convex/laporanPendana.convex.test.ts` | nomor milik akun, kiriman portofolio ke nomor sendiri, lampiran PDF, retensi berkas, pemicu pelunasan otomatis, rekap hanya untuk Super Admin |
 | `scripts/qa-ruang-pendana.ts` | kartu terpasang hanya untuk pemilik portofolio, dan penjagaan nomor ada di sumbernya |

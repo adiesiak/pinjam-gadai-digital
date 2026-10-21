@@ -4,7 +4,7 @@
  * Murni presentational: seluruh status, detail, dan angka datang dari
  * `jalankanQc` (lib/qcKonsistensi) yang sudah diuji terpisah, sehingga komponen
  * ini hanya bertugas menyajikannya — tidak ada logika uang di sini. Warna
- * memakai token tema (`bg-card`, `text-muted-foreground`, `dark:`) supaya tetap
+ * memakai token tema (`bg-card`, `text-muted-foreground`) supaya tetap
  * terbaca pada mode gelap maupun tema pesisir/terakota/salju/karnival.
  */
 import {
@@ -29,22 +29,22 @@ const META_STATUS: Record<
   lulus: {
     label: "lulus",
     ikon: CheckCircle2,
-    kelas: "text-emerald-600 dark:text-emerald-400",
+    kelas: "text-emerald-600",
   },
   gagal: {
     label: "GAGAL",
     ikon: CircleX,
-    kelas: "text-red-600 dark:text-red-400",
+    kelas: "text-red-600",
   },
   awas: {
     label: "peringatan",
     ikon: TriangleAlert,
-    kelas: "text-amber-600 dark:text-amber-400",
+    kelas: "text-amber-600",
   },
   lewat: {
     label: "dilewati",
     ikon: MinusCircle,
-    kelas: "text-slate-400 dark:text-slate-500",
+    kelas: "text-slate-400",
   },
 };
 
@@ -84,10 +84,10 @@ function Kepala({ hasil }: { hasil: HasilQc | null }) {
     hasil === null
       ? "border-border bg-card"
       : gagal > 0
-        ? "border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/40"
+        ? "border-red-200 bg-red-50"
         : awas > 0
-          ? "border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40"
-          : "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/40";
+          ? "border-amber-200 bg-amber-50"
+          : "border-emerald-200 bg-emerald-50";
 
   return (
     <section className="animate-masuk space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-6">
@@ -109,7 +109,7 @@ function Kepala({ hasil }: { hasil: HasilQc | null }) {
           <span
             className={cn(
               "flex items-center gap-1.5 text-xs text-muted-foreground",
-              hasil !== null && "text-emerald-700 dark:text-emerald-400",
+              hasil !== null && "text-emerald-700",
             )}
           >
             <span
@@ -152,9 +152,9 @@ function Kepala({ hasil }: { hasil: HasilQc | null }) {
             <div className="flex flex-wrap gap-2 text-xs tabular-nums">
               {(
                 [
-                  ["lulus", hasil.ringkasan.lulus, "text-emerald-700 dark:text-emerald-400"],
-                  ["gagal", hasil.ringkasan.gagal, "text-red-700 dark:text-red-400"],
-                  ["peringatan", hasil.ringkasan.awas, "text-amber-700 dark:text-amber-400"],
+                  ["lulus", hasil.ringkasan.lulus, "text-emerald-700"],
+                  ["gagal", hasil.ringkasan.gagal, "text-red-700"],
+                  ["peringatan", hasil.ringkasan.awas, "text-amber-700"],
                   ["dilewati", hasil.ringkasan.lewat, "text-muted-foreground"],
                 ] as const
               ).map(([label, nilai, kelas]) => (
@@ -189,12 +189,12 @@ function BarisCek({ c }: { c: HasilQc["cek"][number] }) {
             className={cn(
               "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
               c.status === "gagal"
-                ? "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400"
+                ? "bg-red-100 text-red-700"
                 : c.status === "lulus"
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
+                  ? "bg-emerald-100 text-emerald-700"
                   : c.status === "awas"
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400"
-                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-slate-100 text-slate-600",
             )}
           >
             {meta.label}

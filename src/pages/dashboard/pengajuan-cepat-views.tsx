@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import SignaturePad from "signature_pad";
 import { toast } from "sonner";
 
+import { GerbangTurnstile, turnstileDipasang } from "@/components/GerbangTurnstile";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -164,6 +165,9 @@ export function PengajuanCepatSection({
   // waktu buka yang sama. Kolom jebakan selalu kosong bagi pengguna sungguhan.
   const [formDibukaPada] = useState(() => Date.now());
   const [jebakan, setJebakan] = useState("");
+  // Bila Turnstile dipasang, tombol kirim menunggu verifikasi bot. Tanpa kunci
+  // situs, nilainya langsung `true` dan formulir berjalan seperti sebelumnya.
+  const [turnstileSiap, setTurnstileSiap] = useState(!turnstileDipasang);
   // Satu kunci per formulir: percobaan ulang setelah gagal mengembalikan
   // pengajuan yang SAMA, bukan yang kedua.
   const [kunciKirim] = useState(() => kunciIdempotensiBaru());
@@ -373,6 +377,11 @@ export function PengajuanCepatSection({
     }
     // Satu pengiriman saja walau tombol ditekan berulang.
     if (!kirimSekali.kunci()) return;
+    if (!turnstileSiap) {
+      setError("Selesaikan verifikasi keamanan di bagian bawah formulir sebelum mengirim.");
+      kirimSekali.buka();
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -423,7 +432,7 @@ export function PengajuanCepatSection({
     <section className="space-y-4 rounded-3xl bg-slate-50 p-3 sm:p-4">
       <JebakanFormulir nilai={jebakan} onUbah={setJebakan} />
       {/* Gerbang identitas sudah lewat: satu halaman ini menggantikan wizard. */}
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
         <p className="flex items-center gap-1.5 font-semibold">
           <BadgeCheck className="size-3.5 shrink-0" aria-hidden /> Identitas terverifikasi — pengajuan
           cukup satu halaman
@@ -437,7 +446,7 @@ export function PengajuanCepatSection({
           <button
             type="button"
             onClick={onLihatDataKyc}
-            className="mt-1.5 font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-900 dark:text-emerald-200"
+            className="mt-1.5 font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-900"
           >
             Lihat atau perbarui data KYC →
           </button>
@@ -448,7 +457,7 @@ export function PengajuanCepatSection({
         {kurangKtp.length > 0 && (
           <div
             role="alert"
-            className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
+            className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900"
           >
             <p className="font-semibold">Sebagian data KYC belum bisa dipakai mengajukan</p>
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
@@ -644,7 +653,7 @@ export function PengajuanCepatSection({
                 </label>
               </>
             ) : (
-              <p className="mt-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+              <p className="mt-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
                 Nama bank dan nomor rekening belum lengkap di data KYC. Lengkapi dulu supaya dana bisa
                 dikirim ke rekening yang benar.
               </p>
@@ -794,6 +803,8 @@ export function PengajuanCepatSection({
           </p>
         )}
 
+        <GerbangTurnstile className="mt-4" onSiap={setTurnstileSiap} />
+
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-4">
           <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Wallet className="size-3.5 shrink-0" aria-hidden />
@@ -803,7 +814,7 @@ export function PengajuanCepatSection({
           <Button
             type="button"
             className="min-w-52 cursor-pointer gap-1.5 rounded-xl border-0 bg-emerald-800 text-white hover:bg-emerald-900 disabled:cursor-not-allowed"
-            disabled={submitting || kurangKtp.length > 0 || !batas.adaSisa}
+            disabled={submitting || kurangKtp.length > 0 || !batas.adaSisa || !turnstileSiap}
             onClick={() => void kirim()}
           >
             {submitting ? (

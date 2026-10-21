@@ -10,6 +10,7 @@ import {
   PeringatanKyc,
 } from "@/components/kyc/PeringatanKyc";
 import { BlokLokasiKirim } from "@/components/BlokLokasiKirim";
+import { GerbangTurnstile, turnstileDipasang } from "@/components/GerbangTurnstile";
 import { JebakanFormulir } from "@/components/JebakanFormulir";
 import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
 import { Button } from "@/components/ui/button";
@@ -282,6 +283,9 @@ export function LoanForm({
   // Gerbang izin server: percobaan mencurigakan tercatat dan kunci sementara
   // ditegakkan sebelum pengajuan dikirim.
   const mintaIzin = useMutation(api.gerbangKirim.mintaIzinKirim);
+  // Bila Turnstile dipasang, tombol setuju menunggu verifikasi bot. Tanpa kunci
+  // situs, nilainya langsung `true` dan formulir berjalan seperti sebelumnya.
+  const [turnstileSiap, setTurnstileSiap] = useState(!turnstileDipasang);
   const generateUploadUrl = useMutation(api.loans.generateKycUploadUrl);
   // Periksa ISI berkas (magic bytes) sesudah unggah: batas "harus gambar" yang
   // hanya hidup di form dan metadata MIME bisa dilewati dengan mengirim berkas
@@ -827,6 +831,11 @@ export function LoanForm({
     if (pad === null || !dokKtpId || !dokSelfieId || !dokSlipId || lokasi === null) return;
     // Satu pengiriman saja, walau tombol setuju ditekan berulang.
     if (!kirimSekali.kunci()) return;
+    if (!turnstileSiap) {
+      setError("Selesaikan verifikasi keamanan di bagian bawah formulir sebelum mengirim.");
+      bukaKunciKirim();
+      return;
+    }
     setSubmitting(true);
     try {
       const izin = await mintaIzin({ jebakan, formDibukaPada });
@@ -1612,11 +1621,14 @@ export function LoanForm({
 
       {kycQuery !== undefined && !kycSiap && <PeringatanKyc onBukaKyc={onBukaKyc} />}
 
+      <GerbangTurnstile className="mb-3" onSiap={setTurnstileSiap} />
+
       <Button
         type="submit"
         className="w-full"
         disabled={
           submitting ||
+          !turnstileSiap ||
           lokBusy ||
           !kycSiap ||
           !batasTerbaca ||
@@ -1683,6 +1695,7 @@ export function PawnForm({
   const createPawn = useMutation(api.loans.createPawnApplication);
   /** Gerbang izin yang sama dengan formulir pinjaman di berkas ini. */
   const mintaIzinGadai = useMutation(api.gerbangKirim.mintaIzinKirim);
+  const [turnstileSiap, setTurnstileSiap] = useState(!turnstileDipasang);
   // Lihat LoanForm: gerbang KYC dicerminkan di UI; server tetap penentu.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
   const kycSiap = isKycVerified(kycQuery?.status);
@@ -1751,6 +1764,11 @@ export function PawnForm({
       return;
     }
     if (!kirimSekali.kunci()) return;
+    if (!turnstileSiap) {
+      setError("Selesaikan verifikasi keamanan di bagian bawah formulir sebelum mengirim.");
+      bukaKunciKirim();
+      return;
+    }
     setSubmitting(true);
     try {
       const izin = await mintaIzinGadai({ jebakan, formDibukaPada });
@@ -1894,7 +1912,13 @@ export function PawnForm({
 
       {kycQuery !== undefined && !kycSiap && <PeringatanKyc onBukaKyc={onBukaKyc} />}
 
-      <Button type="submit" className="w-full" disabled={submitting || !kycSiap}>
+      <GerbangTurnstile className="mb-3" onSiap={setTurnstileSiap} />
+
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={submitting || !kycSiap || !turnstileSiap}
+      >
         {submitting ? (
           <>
             <Loader2 className="mr-2 size-4 animate-spin" /> Mengirim…
