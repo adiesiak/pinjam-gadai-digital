@@ -9,6 +9,7 @@ import {
   Lock,
   Landmark,
   Map as MapIcon,
+  Megaphone,
   MessageSquare,
   Newspaper,
   Package,
@@ -51,6 +52,7 @@ import { PanelBiKesehatan } from "@/components/admin/PanelBiKesehatan";
 import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { UndianPanel } from "@/components/admin/UndianPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
+import { PromoPinjamanPanel } from "@/components/admin/PromoPinjamanPanel";
 import { RekonsiliasiAngsuran } from "@/components/admin/RekonsiliasiAngsuran";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
@@ -338,6 +340,14 @@ export function AdminTabs({
           Icon: MessageSquare,
         },
         {
+          value: "promo",
+          label: "Promo Pinjaman",
+          hint: "Atur teks kampanye pinjaman dan pilih tempat tampilnya: beranda, dashboard, /promo, atau form pengajuan.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Megaphone,
+        },
+        {
           value: "whatsapp",
           label: "WhatsApp",
           hint: "Template pesan dan status kanal WhatsApp.",
@@ -503,6 +513,7 @@ export function AdminTabs({
     akses: <AksesPenyediaDanaPanel />,
     landing: <LandingCmsPanel />,
     pengumuman: <AnnouncementCms />,
+    promo: <PromoPinjamanPanel />,
     whatsapp: <WhatsAppPanel />,
     config: <SystemConfigPanel />,
     template: <WebsiteTemplatePanel />,

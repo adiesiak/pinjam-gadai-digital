@@ -37,6 +37,7 @@ import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
+import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 
 /**
  * Rangka pemuatan dashboard: bentuknya mengikuti kartu ringkasan + daftar
@@ -427,6 +428,15 @@ export default function Dashboard() {
                     ke pengajuan. Riwayat dan formulir punya halamannya sendiri,
                     jadi tidak ada bagian yang muncul dua kali di layar. */}
                 <TabsContent value="ringkasan" className="mt-6 animate-masuk">
+                  {/* Promo pinjaman bukan untuk pendana; dashboard mereka ada di
+                      ruang pendana. Admin tetap melihatnya saat memantau. */}
+                  {role === "dana" ? null : (
+                    <PromoPinjamanAktif
+                      penempatan="dashboard"
+                      onAjukan={() => bukaPengajuan("pinjaman")}
+                      className="mb-4"
+                    />
+                  )}
                   <ActiveLoanSection
                     schedule={schedule ?? []}
                     onOpenDetail={setLoanDetailId}

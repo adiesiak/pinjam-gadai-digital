@@ -28,7 +28,7 @@ import { api } from "@/convex/_generated/api";
 // beranda, yang tidak membutuhkan satu pun dari berkas itu.
 const Promo = lazy(
   denganPercobaan(() =>
-    import("./pages/Promo").then((m) => ({ default: m.Promo })),
+    import("./pages/Promo").then((m) => ({ default: m.PromoDenganKampanye })),
   ),
 );
 const PublicInfoPage = lazy(

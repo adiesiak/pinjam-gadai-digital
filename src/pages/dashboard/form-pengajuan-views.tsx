@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import {
   JENIS_PENGAJUAN,
   jenisPengajuanAktif,
@@ -188,6 +189,8 @@ export function FormPengajuanSection({
           {JENIS_PENGAJUAN.length} jenis pengajuan
         </span>
       </div>
+
+      <PromoPinjamanAktif penempatan="pengajuan" className="mt-4" />
 
       <Separator className="my-4" />
 

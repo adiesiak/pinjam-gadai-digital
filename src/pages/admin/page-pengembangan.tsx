@@ -19,7 +19,7 @@ type Kelompok = { judul: string; modul: readonly string[] };
 const RINGKASAN = [
   { angka: "16", label: "halaman publik" },
   { angka: "6", label: "tab peminjam" },
-  { angka: "25", label: "modul admin" },
+  { angka: "26", label: "modul admin" },
   { angka: "3", label: "produk pembiayaan" },
 ] as const;
 
@@ -82,6 +82,7 @@ const MODUL_ADMIN: readonly Kelompok[] = [
       "Template Website",
       "Konten Beranda",
       "Banner & Pengumuman",
+      "Promo Pinjaman",
       "WhatsApp",
       "Aplikasi Android",
     ],
@@ -311,7 +312,7 @@ export function PagePengembangan() {
       <Bagian
         nomor="03"
         judul="Modul panel admin"
-        keterangan="Dua puluh lima modul, dikelompokkan seperti sidebar. Beberapa di antaranya membawa lencana angka untuk pekerjaan yang benar-benar menunggu."
+        keterangan="Dua puluh enam modul, dikelompokkan seperti sidebar. Beberapa di antaranya membawa lencana angka untuk pekerjaan yang benar-benar menunggu."
       >
         <div className="space-y-3">
           {MODUL_ADMIN.map((kelompok) => (

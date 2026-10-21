@@ -2969,6 +2969,37 @@ const schema = defineSchema(
       .index("by_periode", ["periode"]),
 
     /**
+     * Kampanye promo pinjaman yang tampil di empat permukaan: beranda publik,
+     * dashboard nasabah, halaman /promo, dan form pengajuan.
+     *
+     * Teksnya murni kampanye. Bunga, biaya, dan plafon tetap dibaca dari
+     * konfigurasi dan plafon nasabah, jadi promo tidak pernah mengubah angka
+     * pinjaman. Beberapa baris boleh aktif bersamaan; tiap penempatan memilih
+     * satu yang paling baru diperbarui dan sedang dalam masa berlaku.
+     */
+    promoPinjaman: defineTable({
+      /** Label kecil di atas judul; string kosong berarti tidak ditampilkan. */
+      badge: v.string(),
+      judul: v.string(),
+      deskripsi: v.string(),
+      /** Awal hari pertama (00.00 WIB) dan akhir hari terakhir (WIB). */
+      mulai: v.number(),
+      selesai: v.number(),
+      penempatan: v.array(
+        v.union(
+          v.literal("beranda"),
+          v.literal("dashboard"),
+          v.literal("promo"),
+          v.literal("pengajuan"),
+        ),
+      ),
+      aktif: v.boolean(),
+      dibuatPada: v.number(),
+      diperbaruiPada: v.number(),
+      diperbaruiOleh: v.string(),
+    }).index("by_diperbarui", ["diperbaruiPada"]),
+
+    /**
      * Antrean auto-matching: pokok pinjaman 7/14 hari yang sudah lunas kembali
      * ke pool dan siap disalurkan ke peminjam berikutnya. Satu baris per
      * pelunasan; `status` berubah saat admin menandai sudah tersalurkan.

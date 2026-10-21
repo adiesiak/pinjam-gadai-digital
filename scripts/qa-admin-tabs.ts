@@ -267,6 +267,9 @@ Object.defineProperty(globalThis, "window", {
   // jadi jendela tiruannya harus punya API peristiwa kosong juga.
   value: {
     localStorage: { getItem: () => "0", setItem: () => undefined },
+    // `AdminTabs` membaca `?tab=` saat keadaan awal; tanpa ini render melempar
+    // sebelum satu pun kontrak tata letak bisa diperiksa.
+    location: { search: "" },
     addEventListener: () => {},
     removeEventListener: () => {},
     matchMedia: () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }),

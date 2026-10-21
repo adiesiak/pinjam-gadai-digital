@@ -62,6 +62,7 @@ const LABEL: Record<string, string> = {
   template: "Template Website",
   landing: "Konten Beranda",
   pengumuman: "Banner & Pengumuman Sistem",
+  promo: "Promo Pinjaman",
   whatsapp: "WhatsApp",
   aplikasi: "Aplikasi Android",
   config: "Pengaturan Parameter Bisnis (Bunga/Limit/Biaya)",

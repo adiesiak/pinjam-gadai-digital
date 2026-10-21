@@ -21,6 +21,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { useQuery } from "convex/react";
 import {
   AnimatePresence,
   motion,
@@ -65,6 +66,9 @@ import {
 } from "@/lib/promoPosterGambar";
 import { ASET_ANDROID } from "@/lib/asetAndroid";
 import { EASE_OUT } from "@/lib/motion";
+import { api } from "@/convex/_generated/api";
+import { PromoPinjamanKartu } from "@/components/promo/PromoPinjamanKartu";
+import type { DataPromoPinjaman } from "@/lib/promoPinjaman";
 
 /** Lebar kartu setengah ukuran sumber untuk menjaga pratinjau tetap ringan. */
 const SKALA_KARTU = 0.5;
@@ -387,7 +391,12 @@ function KartuPoster({
   );
 }
 
-export function Promo() {
+export function Promo({
+  promoPinjaman = null,
+}: {
+  /** Kampanye pinjaman aktif; rute mengisinya lewat `PromoDenganKampanye`. */
+  promoPinjaman?: DataPromoPinjaman | null;
+} = {}) {
   const reduce = useReducedMotion() ?? false;
   const [kategori, setKategori] = useState<string>("Semua");
   const [rasio, setRasio] = useState<RasioPoster>("potret");
@@ -475,6 +484,14 @@ export function Promo() {
             </a>
           </motion.div>
         </motion.header>
+
+        {promoPinjaman === null ? null : (
+          <PromoPinjamanKartu
+            promo={promoPinjaman}
+            penempatan="promo"
+            className="mt-6"
+          />
+        )}
 
         {/* Aset aplikasi Android lebih dulu: yang datang ke sini untuk menyiapkan
             build Android harus bisa langsung mengunduh tanpa menggulir galeri. */}
@@ -711,4 +728,13 @@ export function Promo() {
       </Dialog>
     </div>
   );
+}
+
+/**
+ * Pintu rute /promo. `Promo` sendiri tetap bebas hook Convex agar galeri
+ * posternya bisa dirender di uji; kampanye diambil di sini, sekali saja.
+ */
+export function PromoDenganKampanye() {
+  const promo = useQuery(api.promoPinjaman.promoAktif, { penempatan: "promo" });
+  return <Promo promoPinjaman={promo ?? null} />;
 }

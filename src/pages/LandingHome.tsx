@@ -18,6 +18,7 @@ import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
+import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
@@ -278,6 +279,12 @@ export default function LandingHome() {
           }}
           mikro={konten.heroMikro}
           sudahMasuk={isAuthenticated}
+        />
+
+        {/* Kampanye hanya muncul saat admin benar-benar menerbitkannya. */}
+        <PromoPinjamanAktif
+          penempatan="beranda"
+          className="mx-auto mt-8 w-full max-w-6xl px-4 sm:px-6"
         />
 
         <section

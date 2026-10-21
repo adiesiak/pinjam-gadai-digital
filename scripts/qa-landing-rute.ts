@@ -28,11 +28,26 @@ let sesi: Sesi = { isAuthenticated: false, user: undefined };
  * benar-benar dipakai.
  */
 let cmsUji: { landing: typeof KONTEN_LANDING_DEFAULT } | undefined;
+/** Kampanye promo untuk penempatan beranda; kosong berarti tidak ada promo. */
+let promoUji:
+  | {
+      badge: string;
+      judul: string;
+      deskripsi: string;
+      mulai: number;
+      selesai: number;
+    }
+  | undefined;
 
 const convexReact = await import("convex/react");
 mock.module("convex/react", () => ({
   ...convexReact,
-  useQuery: () => cmsUji,
+  // Banner promo memakai hook yang sama; tanpa kampanye ia harus kosong,
+  // bukan menerima teks CMS beranda.
+  useQuery: (_query: unknown, args?: { penempatan?: string }) => {
+    if (args?.penempatan === undefined) return cmsUji;
+    return args.penempatan === "beranda" ? promoUji : undefined;
+  },
 }));
 
 mock.module("@/hooks/use-auth", () => ({
@@ -152,6 +167,31 @@ for (const role of ["peminjam", "dana"]) {
   tidakAda(markup, "Imbal hasil", "beranda tidak menyebut imbal hasil pendana");
   tidakAda(markup, "30% p.p.", "beranda tidak menyebut yield pendana");
   tidakAda(markup, "siklus 30 hari", "beranda tidak menyebut siklus pendana");
+}
+
+// 8. Kampanye promo dari admin benar-benar muncul di beranda, dan tidak ada
+//    saat admin belum menerbitkannya.
+{
+  const tanpaPromo = render({ isAuthenticated: false, user: undefined });
+  tidakAda(
+    tanpaPromo,
+    "promo-pinjaman-beranda",
+    "beranda tanpa promo tidak menampilkan banner",
+  );
+
+  const sekarang = Date.now();
+  promoUji = {
+    badge: "Promo uji beranda",
+    judul: "Kampanye dari panel admin",
+    deskripsi: "Teks ini datang dari kampanye yang diterbitkan admin.",
+    mulai: sekarang - 86_400_000,
+    selesai: sekarang + 86_400_000,
+  };
+  const denganPromo = render({ isAuthenticated: false, user: undefined });
+  ada(denganPromo, "Kampanye dari panel admin", "beranda menampilkan kampanye aktif");
+  ada(denganPromo, "Promo uji beranda", "label kampanye ikut tampil");
+  ada(denganPromo, 'href="/auth?returnTo=/dashboard"', "CTA kampanye menuju pendaftaran");
+  promoUji = undefined;
 }
 
 console.log(`qa-landing-rute: ${lulus} lulus, ${gagal} gagal`);
