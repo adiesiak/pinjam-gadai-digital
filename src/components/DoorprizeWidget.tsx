@@ -112,13 +112,13 @@ export function DoorprizeWidget({
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
             <Ikon className="size-3.5" aria-hidden /> Hadiah kuartal
           </p>
+          {/* Rincian hadiah (berat emas dan nilai rupiahnya) sengaja tidak
+              ditampilkan ke publik: itu urusan anggaran admin, bukan janji
+              nominal yang harus ditulis di setiap halaman. */}
           <p className="mt-0.5 text-sm font-semibold leading-5 text-slate-900">
-            {data.hadiah.nama}
+            {data.hadiah.labelKategori}
           </p>
-          <p className="text-[11px] text-slate-500">
-            {data.hadiah.labelKategori} · nilai perkiraan{" "}
-            {formatRupiah(data.hadiah.nilaiPerkiraan)}
-          </p>
+          <p className="text-[11px] text-slate-500">Rincian diumumkan saat pengundian</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
@@ -145,7 +145,7 @@ export function DoorprizeWidget({
             ? `Saldo tiket kembali 0 saat ${data.labelPeriode} berakhir. ${sumberPeran}`
             : `Pemenang ${data.labelPeriode}: ${data.pemenang.nama} (${
                 data.pemenang.peran === "peminjam" ? "peminjam" : "pendana"
-              }) — ${data.pemenang.hadiah}.`}
+              }).`}
         </p>
       </div>
     </section>
@@ -154,7 +154,7 @@ export function DoorprizeWidget({
 
 /**
  * Satu baris ringkas untuk ruang pendana, tanpa kartu besar.
- * Menyebut kuartal, hadiah yang sedang berlaku, dan tanggal pengundian.
+ * Menyebut kuartal, jenis hadiah, dan tanggal pengundian — tanpa nominal.
  */
 export function BarisDoorprizePendana() {
   const data = useQuery(api.doorprize.ringkasanSaya, {});
@@ -165,7 +165,7 @@ export function BarisDoorprizePendana() {
       <span>
         <strong className="font-semibold">{data.tiketPendana} tiket doorprize</strong> aktif di{" "}
         {data.labelPeriode} — satu tiket per {formatRupiah(1_000_000)} penempatan dana.
-        Hadiah kuartal: {data.hadiah.nama}. Undian {data.labelTanggalUndian}.
+        Hadiah kuartal: {data.hadiah.labelKategori}. Undian {data.labelTanggalUndian}.
       </span>
     </p>
   );

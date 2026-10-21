@@ -141,6 +141,9 @@ import {
 import { batasPelunasan, ringkasJatuhTempo } from "@/lib/jatuhTempo";
 import type { RingkasKepercayaan } from "@/lib/kepercayaanPeminjam";
 import { formatRupiahAman } from "@/lib/money";
+import { laporanPortofolio, namaBerkasPortofolio } from "@/lib/laporanPendana";
+import { susunPdf } from "@/lib/pdfSederhana";
+import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
 import {
   adaFilter,
   daftarPendana,
@@ -2079,8 +2082,15 @@ function IsiRuang() {
   );
   const simpanKontak = useMutation(api.penyediaDana.simpanKontakLaporan);
   const kirimLaporan = useAction(api.laporanPendana.kirimLaporanPortofolio);
+  // Angka PDF unduhan dibaca dari query yang sama dengan laporan WhatsApp,
+  // sehingga salinan manual dan salinan terkirim tidak pernah berbeda.
+  const dataLaporan = useQuery(
+    api.laporanPendana.dataLaporanPortofolio,
+    user === undefined ? ("skip" as const) : {},
+  );
   const [menyimpanKontak, setMenyimpanKontak] = useState(false);
   const [mengirimLaporan, setMengirimLaporan] = useState(false);
+  const [mengunduhLaporan, setMengunduhLaporan] = useState(false);
   const [galatLaporan, setGalatLaporan] = useState<string | null>(null);
 
   /** Simpan nomor laporan milik akun yang sedang masuk. */
@@ -2117,6 +2127,42 @@ function IsiRuang() {
       );
     } finally {
       setMengirimLaporan(false);
+    }
+  }
+
+  /**
+   * Susun laporan portofolio yang sama sebagai PDF di perangkat pendana.
+   *
+   * Berbeda dari jalur WhatsApp, berkas ini tidak pernah disimpan di server:
+   * angkanya diambil dari query laporan, lalu byte PDF disusun di peramban dan
+   * langsung diunduh. Tidak perlu nomor WhatsApp, dan tidak ada tautan laporan
+   * yang tertinggal di penyimpanan.
+   */
+  async function unduhLaporanPdf() {
+    if (dataLaporan === undefined || dataLaporan === null) return;
+    setMengunduhLaporan(true);
+    setGalatLaporan(null);
+    try {
+      const byte = susunPdf(laporanPortofolio(dataLaporan));
+      const blob = new Blob([new Uint8Array(byte)], { type: "application/pdf" });
+      const nama = namaBerkasPortofolio(dataLaporan.dicetakPada);
+      // Di aplikasi Android, unduhan blob: tidak ditangani WebView.
+      if (await unduhLewatAplikasi(nama, "application/pdf", blob)) return;
+      const url = URL.createObjectURL(blob);
+      const tautan = document.createElement("a");
+      tautan.href = url;
+      tautan.download = nama;
+      tautan.rel = "noopener";
+      document.body.appendChild(tautan);
+      tautan.click();
+      tautan.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (err) {
+      setGalatLaporan(
+        err instanceof Error ? err.message : "Laporan PDF gagal disiapkan. Coba lagi.",
+      );
+    } finally {
+      setMengunduhLaporan(false);
     }
   }
 
@@ -2673,9 +2719,12 @@ function IsiRuang() {
                 nomor={kontakLaporan.nomorWhatsApp}
                 menyimpan={menyimpanKontak}
                 mengirim={mengirimLaporan}
+                mengunduh={mengunduhLaporan}
+                bolehUnduh={dataLaporan !== undefined && dataLaporan !== null}
                 galat={galatLaporan}
                 onSimpan={simpanNomorLaporan}
                 onKirim={kirimLaporanWhatsapp}
+                onUnduh={() => void unduhLaporanPdf()}
               />
             )}
 

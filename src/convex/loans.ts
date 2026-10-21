@@ -1339,6 +1339,32 @@ async function requireAdmin(ctx: MutationCtx) {
  * itu portofolio pribadi. Pemiliknya bisa datang dari penetapan admin
  * (`pendanaId`), nama warisan, atau baris alokasi lama.
  */
+/**
+ * Catat persetujuan perjanjian dari persetujuan pengajuan yang sudah ada.
+ *
+ * Sengaja TIDAK membuat tanda tangan atau waktu baru: gambar tanda tangan dan
+ * `persetujuanPengajuanPada`/versi dipakai apa adanya, sehingga panel admin
+ * menampilkan kapan peminjam benar-benar menyetujui, bukan kapan admin
+ * mencairkan. Pemanggil hanya memakai ini pada jalur pencairan.
+ */
+async function catatPersetujuanPerjanjianDariPengajuan(
+  ctx: MutationCtx,
+  loan: Doc<"loans">,
+): Promise<void> {
+  if (loan.persetujuanSyaratPada !== undefined) return;
+  if (
+    loan.tandaTanganPeminjam === undefined ||
+    loan.persetujuanPengajuanPada === undefined
+  ) {
+    return;
+  }
+  await ctx.db.patch(loan._id, {
+    persetujuanSyaratPada: loan.persetujuanPengajuanPada,
+    persetujuanSyaratVersi:
+      loan.persetujuanPengajuanVersi ?? CONTRACT_TERMS_VERSION,
+  });
+}
+
 async function pastikanPunyaPendana(ctx: MutationCtx, loan: Doc<"loans">): Promise<void> {
   if (loan.pendanaId !== undefined || (loan.pendanaNama ?? "").trim() !== "") return;
   const alokasi = await ctx.db
@@ -1416,6 +1442,10 @@ async function setLoanStatus(
 
   if (status === "didanai") {
     await pastikanPunyaPendana(ctx, loan);
+    // Pencairan mencatat perjanjian dari persetujuan yang MEMANG sudah
+    // diberikan peminjam saat mengajukan (tanggal & versi aslinya). Bila
+    // pinjaman tidak punya keduanya, perjanjian dibiarkan belum bertanda tangan.
+    await catatPersetujuanPerjanjianDariPengajuan(ctx, loan);
   }
   if (status === "disetujui") {
     await ensureKodePeminjam(ctx, loan.userId);
@@ -1655,6 +1685,43 @@ export const batalkanPengajuan = mutation({
 });
 
 /**
+ * Tandai pinjaman tersalurkan setelah admin menetapkan pendananya.
+ *
+ * Dipakai tombol "Simpan pendana" di dialog review: memilih pendana pada
+ * pinjaman yang nominalnya sudah disetujui berarti pencairan siap jalan, jadi
+ * admin tidak perlu menekan tombol kedua.
+ *
+ * Perjanjian TIDAK ditandatangani ulang atas nama peminjam. Yang dicatat adalah
+ * persetujuan yang MEMANG sudah diberikan saat pengajuan: gambar tanda tangan
+ * dan `persetujuanPengajuanPada` dipakai apa adanya, termasuk versi syaratnya.
+ * Tanggalnya tidak dikarang, sehingga jejak audit tetap jujur. Bila pinjaman
+ * tidak punya tanda tangan/persetujuan pengajuan (mis. catatan manual),
+ * perjanjian dibiarkan belum bertanda tangan dan hanya pencairannya yang jalan.
+ *
+ * Hanya berjalan pada status `disetujui` — tahap ketika keputusan nominal sudah
+ * tercatat dan satu-satunya langkah tersisa memang pencairan. Pinjaman yang
+ * masih `diajukan`/`sedang_direview` tidak boleh melompati persetujuan admin.
+ */
+export async function cairkanSetelahPendana(
+  ctx: MutationCtx,
+  loanId: Id<"loans">,
+): Promise<{ dicairkan: boolean }> {
+  const loan = await ctx.db.get(loanId);
+  if (loan === null || loan.status !== "disetujui") return { dicairkan: false };
+  if (loan.pendanaId === undefined && (loan.pendanaNama ?? "").trim() === "") {
+    return { dicairkan: false };
+  }
+
+  await setLoanStatus(
+    ctx,
+    loanId,
+    "didanai",
+    "Pendana ditetapkan; perjanjian mengikuti persetujuan pengajuan peminjam.",
+  );
+  return { dicairkan: true };
+}
+
+/**
  * Admin menandai pinjaman yang masih ditinjau sebagai berjalan pada ledger
  * internal (status Disalurkan + tanggal acuan). Tidak ada perpindahan dana di
  * aplikasi — pencairan dan transfer ditangani di luar aplikasi.
@@ -1676,6 +1743,9 @@ export const danaiPinjaman = mutation({
       );
     }
     await pastikanPunyaPendana(ctx, loan);
+    // Pencairan manual juga mencatat perjanjian dari persetujuan pengajuan,
+    // sehingga status perjanjian tidak bergantung pada tombol mana yang dipakai.
+    await catatPersetujuanPerjanjianDariPengajuan(ctx, loan);
     await ctx.db.patch(loanId, {
       status: "didanai",
       didanaiPada: Date.now(),

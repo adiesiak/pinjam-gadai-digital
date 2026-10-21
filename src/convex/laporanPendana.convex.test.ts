@@ -485,3 +485,42 @@ describe("laporan pelunasan otomatis", () => {
     }
   });
 });
+
+describe("angka laporan untuk unduhan PDF manual", () => {
+  it("mengembalikan angka portofolio yang sama untuk akun pendana", async () => {
+    const t = convexTest(schema, modules);
+    const pendana = await pendanaDenganNomor(
+      t,
+      "pendana-unduh@pindai.test",
+      NOMOR_PENDANA,
+    );
+    const peminjam = await buatPengguna(t, "rani", {
+      email: "peminjam-unduh@pindai.test",
+      role: "peminjam",
+    });
+    await seedPinjaman(t, {
+      userId: peminjam.userId,
+      status: "didanai",
+      nomorReferensi: "PND-UNDUH-1",
+      pendanaId: pendana.userId,
+    });
+
+    const data = await pendana.sesi.query(api.laporanPendana.dataLaporanPortofolio, {});
+    expect(data).not.toBeNull();
+    expect(data?.totalDisalurkan).toBe(1_000_000);
+    expect(data?.jumlahBerjalan).toBe(1);
+    expect(data?.pinjamanBerjalan.map((p) => p.nomorReferensi)).toEqual(["PND-UNDUH-1"]);
+    expect(data?.dicetakPada).toBeGreaterThan(0);
+  });
+
+  it("tidak menyusun laporan untuk akun yang bukan penyedia dana", async () => {
+    const t = convexTest(schema, modules);
+    const peminjam = await siapkanPengguna(t, "rani", {
+      email: "bukan-pendana@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      peminjam.sesi.query(api.laporanPendana.dataLaporanPortofolio, {}),
+    ).resolves.toBeNull();
+  });
+});

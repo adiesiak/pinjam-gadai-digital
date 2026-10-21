@@ -57,22 +57,27 @@ function terkunci(html: string, label: string): boolean {
 const dasar = {
   menyimpan: false,
   mengirim: false,
+  mengunduh: false,
+  bolehUnduh: true,
   galat: null,
   onSimpan: () => {},
   onKirim: () => {},
+  onUnduh: () => {},
 };
 
 // ===== Belum ada nomor tersimpan =====
 const belum = tanpaKomentar(
   renderToStaticMarkup(<KontakLaporanWhatsapp {...dasar} nomor={null} />),
 );
-ada(belum, "Laporan ke WhatsApp", "judul kartu tampil");
+ada(belum, "Laporan pendanaan", "judul kartu tampil");
 ada(belum, "Nomor WhatsApp untuk laporan", "kolom nomor punya label");
 ada(belum, "Belum ada nomor tersimpan", "keadaan tanpa nomor dinyatakan");
 ada(belum, "tidak ada laporan yang dikirim ke mana pun", "akibat tanpa nomor dinyatakan jujur");
 ok(terkunci(belum, "Kirim laporan ke WhatsApp"), "tombol kirim terkunci sebelum nomornya ada");
 ok(terkunci(belum, "Simpan nomor"), "tombol simpan terkunci selama isian masih kosong");
 ada(belum, "Isi nomor lebih dulu", "tombol kirim menjelaskan cara mengaktifkannya");
+ada(belum, "Unduh PDF", "unduhan manual tersedia tanpa nomor WhatsApp");
+ok(!terkunci(belum, "Unduh PDF"), "tombol unduh hidup tanpa nomor");
 bersih(belum, "markup tanpa nomor");
 
 // ===== Nomor sudah tersimpan =====
@@ -103,6 +108,20 @@ const mengirim = tanpaKomentar(
 ada(mengirim, "Mengirim laporan", "keadaan mengirim tampil di tombol");
 ok(terkunci(mengirim, "Mengirim laporan"), "tombol kirim terkunci selama pengiriman berjalan");
 ok(terkunci(mengirim, "Simpan nomor"), "tombol simpan terkunci selama pengiriman berjalan");
+ok(terkunci(mengirim, "Unduh PDF"), "unduhan terkunci selama pengiriman berjalan");
+
+const menyiapkan = tanpaKomentar(
+  renderToStaticMarkup(<KontakLaporanWhatsapp {...dasar} nomor={null} mengunduh />),
+);
+ada(menyiapkan, "Menyiapkan PDF", "keadaan menyiapkan PDF tampil di tombol");
+ok(terkunci(menyiapkan, "Menyiapkan PDF"), "tombol unduh terkunci selama PDF disusun");
+
+const belumSiap = tanpaKomentar(
+  renderToStaticMarkup(
+    <KontakLaporanWhatsapp {...dasar} nomor={null} bolehUnduh={false} />,
+  ),
+);
+ok(terkunci(belumSiap, "Unduh PDF"), "unduhan terkunci sebelum angkanya tersedia");
 
 // ===== Kegagalan server tampil apa adanya =====
 const gagal = tanpaKomentar(

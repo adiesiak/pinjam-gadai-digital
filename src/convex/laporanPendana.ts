@@ -20,7 +20,14 @@
  * tautan ke laporan keuangan yang tidak bisa dicabut.
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { action, internalAction, internalQuery, type ActionCtx } from "./_generated/server";
+import {
+  action,
+  internalAction,
+  internalQuery,
+  query,
+  type ActionCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -120,20 +127,69 @@ export const _dataPelunasan = internalQuery({
   },
 });
 
-/** Data laporan portofolio satu akun pendana. */
+/**
+ * Data mentah portofolio satu akun pendana — dipakai jalur PDF manual maupun
+ * pengiriman WhatsApp, supaya keduanya membaca angka yang sama.
+ */
+async function ambilDataPortofolio(ctx: QueryCtx, userId: Id<"users">) {
+  const user = await ctx.db.get(userId);
+  if (user === null || !peranPenyedia(user.role as string | undefined)) return null;
+  const ruang = await ruangPendana(ctx, user);
+  return {
+    nomor: user.nomorWhatsApp ?? null,
+    namaPendana: namaPendana(user),
+    ringkasan: ruang.ringkasan,
+    rekap: ruang.rekapPendana,
+    pinjaman: ruang.pinjaman,
+  };
+}
+
+/** Data laporan portofolio satu akun pendana (jalur internal/WhatsApp). */
 export const _dataPortofolio = internalQuery({
   args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const user = await ctx.db.get(userId);
-    if (user === null || !peranPenyedia(user.role as string | undefined)) return null;
-    const ruang = await ruangPendana(ctx, user);
-    return {
-      nomor: user.nomorWhatsApp ?? null,
-      namaPendana: namaPendana(user),
-      ringkasan: ruang.ringkasan,
-      rekap: ruang.rekapPendana,
-      pinjaman: ruang.pinjaman,
-    };
+  handler: (ctx, { userId }) => ambilDataPortofolio(ctx, userId),
+});
+
+/**
+ * Angka laporan portofolio dari data ruang pendana. Satu-satunya tempat
+ * penjumlahan laporan, supaya PDF unduhan dan lampiran WhatsApp tidak pernah
+ * berbeda dari angka di layar.
+ */
+function angkaPortofolio(
+  data: NonNullable<Awaited<ReturnType<typeof ambilDataPortofolio>>>,
+  dicetakPada: number,
+): DataPortofolioPendana {
+  const berjalan = data.pinjaman.filter((p) => p.status === "didanai");
+  const lunas = data.pinjaman.filter((p) => p.status === "lunas");
+  return {
+    namaPendana: data.namaPendana,
+    dicetakPada,
+    totalDisalurkan: jumlahkan(data.rekap, (r) => r.totalDisalurkan),
+    saldoBerjalan: jumlahkan(data.rekap, (r) => r.saldoBerjalan),
+    keuntunganDibukukan: data.ringkasan.totalKeuntunganPendanaLunas,
+    keuntunganPerkiraan: data.ringkasan.totalKeuntunganPendanaBelumLunas,
+    totalKeuntungan: data.ringkasan.totalKeuntunganPendana,
+    potonganAdmin: data.ringkasan.totalKeuntunganAdmin,
+    jumlahBerjalan: berjalan.length,
+    jumlahLunas: lunas.length,
+    pinjamanBerjalan: berjalan.map(keBarisLaporan),
+    pinjamanLunas: lunas.map(keBarisLaporan),
+    transferBelumDicatat: data.ringkasan.totalTransferBelumDicatat,
+  };
+}
+
+/**
+ * Angka laporan portofolio milik akun yang sedang masuk — untuk unduhan PDF
+ * manual dari ruang penyedia dana. Tidak menyimpan berkas dan tidak mengirim
+ * apa pun, jadi tidak meninggalkan tautan laporan di penyimpanan.
+ */
+export const dataLaporanPortofolio = query({
+  args: {},
+  handler: async (ctx): Promise<DataPortofolioPendana | null> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+    const data = await ambilDataPortofolio(ctx, userId);
+    return data === null ? null : angkaPortofolio(data, Date.now());
   },
 });
 
@@ -320,25 +376,8 @@ export const kirimLaporanPortofolio = action({
     const data = await ctx.runQuery(internal.laporanPendana._dataPortofolio, { userId });
     if (data === null) throw new Error("Laporan kinerja hanya untuk akun penyedia dana.");
 
-    const berjalan = data.pinjaman.filter((p) => p.status === "didanai");
-    const lunas = data.pinjaman.filter((p) => p.status === "lunas");
     const dicetakPada = Date.now();
-
-    const angka: DataPortofolioPendana = {
-      namaPendana: data.namaPendana,
-      dicetakPada,
-      totalDisalurkan: jumlahkan(data.rekap, (r) => r.totalDisalurkan),
-      saldoBerjalan: jumlahkan(data.rekap, (r) => r.saldoBerjalan),
-      keuntunganDibukukan: data.ringkasan.totalKeuntunganPendanaLunas,
-      keuntunganPerkiraan: data.ringkasan.totalKeuntunganPendanaBelumLunas,
-      totalKeuntungan: data.ringkasan.totalKeuntunganPendana,
-      potonganAdmin: data.ringkasan.totalKeuntunganAdmin,
-      jumlahBerjalan: berjalan.length,
-      jumlahLunas: lunas.length,
-      pinjamanBerjalan: berjalan.map(keBarisLaporan),
-      pinjamanLunas: lunas.map(keBarisLaporan),
-      transferBelumDicatat: data.ringkasan.totalTransferBelumDicatat,
-    };
+    const angka = angkaPortofolio(data, dicetakPada);
 
     const hasil = await kirimLaporanPdf(ctx, {
       jenis: "laporan_portofolio",

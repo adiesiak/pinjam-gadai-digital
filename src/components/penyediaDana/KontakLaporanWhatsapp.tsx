@@ -1,4 +1,4 @@
-import { Loader2, Send } from "lucide-react";
+import { FileDown, Loader2, Send } from "lucide-react";
 import { useState } from "react";
 
 import { FOLIO } from "@/components/penyediaDana/folio";
@@ -25,17 +25,24 @@ export function KontakLaporanWhatsapp({
   nomor,
   menyimpan,
   mengirim,
+  mengunduh,
+  bolehUnduh,
   galat,
   onSimpan,
   onKirim,
+  onUnduh,
   className,
 }: {
   nomor: string | null;
   menyimpan: boolean;
   mengirim: boolean;
+  mengunduh: boolean;
+  /** Angka laporan sudah tersedia; tanpa itu PDF tidak bisa disusun. */
+  bolehUnduh: boolean;
   galat: string | null;
   onSimpan: (nomor: string) => void;
   onKirim: () => void;
+  onUnduh: () => void;
   className?: string;
 }) {
   const [isian, setIsian] = useState("");
@@ -46,13 +53,14 @@ export function KontakLaporanWhatsapp({
 
   return (
     <section
-      aria-label="Laporan ke WhatsApp"
+      aria-label="Laporan pendanaan"
       className={cn("animate-masuk px-4 py-3 sm:px-5", FOLIO.kertas, className)}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-slate-200 pb-2">
-        <h2 className={FOLIO.judul}>Laporan ke WhatsApp</h2>
+        <h2 className={FOLIO.judul}>Laporan pendanaan</h2>
         <p className="max-w-md text-xs leading-5 text-muted-foreground">
-          Salinan angka di halaman ini dalam satu berkas PDF.
+          Salinan angka di halaman ini dalam satu berkas PDF. Unduh langsung, atau minta
+          dikirim ke WhatsApp Anda.
         </p>
       </div>
 
@@ -100,23 +108,39 @@ export function KontakLaporanWhatsapp({
 
         <div className="sm:border-l sm:border-slate-200 sm:pl-3">
           <p className="text-xs font-semibold text-navy">Laporan kinerja pendanaan</p>
-          <Button
-            type="button"
-            disabled={!bolehKirim}
-            onClick={onKirim}
-            className="mt-1.5 min-h-11 rounded-lg bg-[#064E3B] px-4 text-sm font-semibold text-white hover:bg-[#021E17]"
-          >
-            {mengirim ? (
-              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
-            ) : (
-              <Send className="mr-2 size-4" aria-hidden />
-            )}
-            {mengirim ? "Mengirim laporan" : "Kirim laporan ke WhatsApp"}
-          </Button>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!bolehUnduh || mengunduh || mengirim}
+              onClick={onUnduh}
+              className="min-h-11 rounded-lg px-4 text-sm font-semibold"
+            >
+              {mengunduh ? (
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+              ) : (
+                <FileDown className="mr-2 size-4" aria-hidden />
+              )}
+              {mengunduh ? "Menyiapkan PDF" : "Unduh PDF"}
+            </Button>
+            <Button
+              type="button"
+              disabled={!bolehKirim}
+              onClick={onKirim}
+              className="min-h-11 rounded-lg bg-[#064E3B] px-4 text-sm font-semibold text-white hover:bg-[#021E17]"
+            >
+              {mengirim ? (
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+              ) : (
+                <Send className="mr-2 size-4" aria-hidden />
+              )}
+              {mengirim ? "Mengirim laporan" : "Kirim laporan ke WhatsApp"}
+            </Button>
+          </div>
           <p className={cn("mt-1.5 text-xs leading-5", FOLIO.catatan)}>
             {adaNomor
-              ? "Berisi seluruh pinjaman atas nama Anda: dana tersalurkan, keuntungan yang sudah dibukukan, dan perkiraan dari pinjaman berjalan."
-              : "Isi nomor lebih dulu untuk mengaktifkan tombol ini."}
+              ? "Berisi seluruh pinjaman atas nama Anda: dana tersalurkan, keuntungan yang sudah dibukukan, dan perkiraan dari pinjaman berjalan. Unduh PDF tidak memerlukan nomor."
+              : "Isi nomor lebih dulu untuk mengaktifkan tombol WhatsApp. Tombol Unduh PDF tetap bisa dipakai tanpa nomor."}
           </p>
         </div>
       </div>
@@ -131,9 +155,9 @@ export function KontakLaporanWhatsapp({
       )}
 
       <p className={cn("mt-3 border-t border-slate-200 pt-2", FOLIO.catatan)}>
-        Laporan berisi angka pendanaan Anda dan dikirim lewat gateway WhatsApp yang diatur admin.
-        Setelah terkirim, salinannya berada di riwayat percakapan WhatsApp Anda, di luar aplikasi
-        ini.
+        Laporan berisi angka pendanaan Anda. Unduhan PDF disimpan di perangkat ini. Kiriman
+        WhatsApp memakai gateway yang diatur admin, dan salinannya berada di riwayat percakapan
+        WhatsApp Anda, di luar aplikasi ini.
       </p>
     </section>
   );

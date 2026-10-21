@@ -276,6 +276,10 @@ export function LoanReviewDialog({
     setBusy("pendana");
     setError(null);
     try {
+      // Memilih pendana pada pinjaman yang nominalnya sudah disetujui adalah
+      // langkah terakhir sebelum pencairan: server mencatat perjanjian dari
+      // persetujuan pengajuan peminjam lalu menandai dana tersalurkan.
+      const memilihPendana = pendana !== PENDANA_TETAP && pendana !== PENDANA_LEPAS;
       const hasil = await simpanPendana({
         loanId: row._id,
         ...(pendana === PENDANA_TETAP
@@ -286,12 +290,19 @@ export function LoanReviewDialog({
         ...(pokokBaru !== null && pokokBaru !== row.pokokPinjaman
           ? { pokokDisetujui: pokokBaru }
           : {}),
+        ...(row.status === "disetujui" && memilihPendana ? { cairkanSekarang: true } : {}),
       });
-      toast.success(
-        hasil.perubahan.length === 0
-          ? "Tidak ada perubahan pendana atau nominal."
-          : `Tersimpan: ${hasil.perubahan.join(", ")}`,
-      );
+      if (hasil.dicairkan) {
+        toast.success(
+          "Pendana tersimpan. Perjanjian mengikuti persetujuan pengajuan dan dana ditandai tersalurkan.",
+        );
+      } else {
+        toast.success(
+          hasil.perubahan.length === 0
+            ? "Tidak ada perubahan pendana atau nominal."
+            : `Tersimpan: ${hasil.perubahan.join(", ")}`,
+        );
+      }
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan pendana.");
@@ -719,6 +730,13 @@ export function LoanReviewDialog({
               )}
             </div>
 
+            {!nominalTerkunci(row.status) && (
+              <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
+                {row.status === "disetujui"
+                  ? "Menyimpan pendana sekaligus mencatat perjanjian dari persetujuan pengajuan peminjam, lalu menandai dana tersalurkan."
+                  : "Pencairan baru dicatat setelah nominal pinjaman disetujui."}
+              </p>
+            )}
             <Button
               disabled={busy !== null}
               onClick={() => void runPendana()}

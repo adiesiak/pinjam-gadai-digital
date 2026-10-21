@@ -83,6 +83,7 @@ import { bulatkanTitikWilayah } from "../lib/geo";
 import { normalisasiNomorWa } from "../lib/otpWa";
 import { audit, getConfig } from "./system";
 import { tautanBerkas } from "./berkas";
+import { cairkanSetelahPendana } from "./loans";
 
 /** Batas baris per kategori; daftar selalu diurutkan dari yang terbaru. */
 export const BATAS_BARIS = 200;
@@ -2186,6 +2187,12 @@ export const ubahDataPinjaman = mutation({
     /** `null` = kembalikan ke skema harian. */
     tenorBulan: v.optional(v.union(v.number(), v.null())),
     pokokDisetujui: v.optional(v.number()),
+    /**
+     * Setelah perubahan disimpan, tandai dana tersalurkan bila pinjaman sudah
+     * di tahap `disetujui`. Dialog review mengirim `true` saat admin memilih
+     * pendana. Pencairan tetap ditolak server bila tahapnya belum tepat.
+     */
+    cairkanSekarang: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { userId: adminId, user: admin } = await requireAdminSession(ctx);
@@ -2354,7 +2361,13 @@ export const ubahDataPinjaman = mutation({
         }
       }
 
-      if (perubahan.length === 0) return { ok: true, perubahan: [] as string[] };
+      if (perubahan.length === 0) {
+        const dicairkan =
+          args.cairkanSekarang === true
+            ? (await cairkanSetelahPendana(ctx, loan._id)).dicairkan
+            : false;
+        return { ok: true, perubahan: [] as string[], dicairkan };
+      }
 
       await ctx.db.patch(loan._id, patch);
       await audit(
@@ -2369,7 +2382,16 @@ export const ubahDataPinjaman = mutation({
       if (danaIdLama !== undefined && danaIdBaru !== undefined && danaIdLama !== danaIdBaru) {
         await pindahAlokasiWarisan(ctx, loan._id, danaIdLama, danaIdBaru);
       }
-      return { ok: true, perubahan };
+
+      // Pendana sudah ditetapkan: pada pinjaman yang nominalnya disetujui,
+      // pencairan langsung dicatat supaya admin tidak perlu menekan tombol
+      // kedua. Perjanjian mengikuti persetujuan pengajuan yang sudah ada.
+      const dicairkan =
+        args.cairkanSekarang === true
+          ? (await cairkanSetelahPendana(ctx, loan._id)).dicairkan
+          : false;
+
+      return { ok: true, perubahan, dicairkan };
   },
 });
 
