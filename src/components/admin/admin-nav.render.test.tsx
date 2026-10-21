@@ -66,6 +66,7 @@ const LABEL: Record<string, string> = {
   aplikasi: "Aplikasi Android",
   config: "Pengaturan Parameter Bisnis (Bunga/Limit/Biaya)",
   backup: "Backup & Snapshot Database",
+  pengembangan: "Peta Sistem & Logika Bisnis",
   audit: "Audit Trail (Timeline Log)",
   loglogin: "Session & Keamanan Login",
   killswitch: "Kill Switch Darurat",

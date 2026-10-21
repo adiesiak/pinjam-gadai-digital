@@ -57,7 +57,7 @@ const GRUP: Array<{ judul: string; modul: string[] }> = [
     judul: "Konten",
     modul: ["template", "landing", "pengumuman", "whatsapp", "aplikasi"],
   },
-  { judul: "Sistem", modul: ["config", "backup"] },
+  { judul: "Sistem", modul: ["config", "backup", "pengembangan"] },
   { judul: "Keamanan & audit", modul: ["audit", "loglogin", "killswitch"] },
 ];
 
@@ -83,6 +83,7 @@ const LABEL: Record<string, string> = {
   aplikasi: "Aplikasi Android",
   config: "Pengaturan Parameter Bisnis (Bunga/Limit/Biaya)",
   backup: "Backup & Snapshot Database",
+  pengembangan: "Peta Sistem & Logika Bisnis",
   audit: "Audit Trail (Timeline Log)",
   loglogin: "Session & Keamanan Login",
   killswitch: "Kill Switch Darurat",

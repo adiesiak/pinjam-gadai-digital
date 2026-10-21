@@ -63,10 +63,12 @@ import { SkeletonKartu } from "@/components/ui/loading";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { RingkasanAnalitik } from "@/components/admin/RingkasanAnalitik";
-import { hitungMenunggu, NILAI_MODUL_ADMIN, type NilaiModulAdmin } from "@/lib/admin-queue";import { MejaKerja } from "./meja-kerja";
+import { hitungMenunggu, NILAI_MODUL_ADMIN, type NilaiModulAdmin } from "@/lib/admin-queue";
+import { MejaKerja } from "./meja-kerja";
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
 import { PagePengembangan } from "./page-pengembangan";
-import { AdminStats,
+import {
+  AdminStats,
   type AdminStatsData,
   type KendaliMenuPonsel,
   type ProdukAdmin,
@@ -352,7 +354,8 @@ export function AdminTabs({
           badge: null,
           hitung: "tidak",
           Icon: Settings2,
-        },        {
+        },
+        {
           value: "backup",
           label: "Backup & Snapshot Database",
           hint: "Cadangan data dan pemulihan sistem.",
@@ -362,14 +365,14 @@ export function AdminTabs({
         },
         {
           value: "pengembangan",
-          label: "Halaman Pengembangan",
-          hint: "Ringkasan halaman, fitur, logika bisnis, alur peminjam, dan alur admin.",
+          label: "Peta Sistem & Logika Bisnis",
+          hint: "Halaman, fitur, aturan bisnis, dan alur kerja yang berjalan di PINDAI.",
           badge: null,
           hitung: "tidak",
           Icon: Landmark,
         },
       ],
-      },
+    },
     {
       judul: "Keamanan & audit",
       items: [
@@ -397,14 +400,6 @@ export function AdminTabs({
           hitung: "tidak",
           Icon: Power,
         },
-        {
-          value: "pengembangan",
-          label: "Halaman Pengembangan",
-          hint: "Ringkasan halaman, fitur, logika bisnis, alur peminjam, dan alur admin.",
-          badge: null,
-          hitung: "tidak",
-          Icon: Landmark,
-        },
       ],
     },
   ];
@@ -424,7 +419,7 @@ export function AdminTabs({
   /** Isi setiap menu — satu entri per nilai tab. */
   // `Record<NilaiModulAdmin, ReactNode>` yang ekshaustif: menambah nilai modul
   // tanpa isinya langsung menjadi galat kompilasi — menutup R2 di akarnya.
-  const panel: Record<NilaiModulAdmin | "pengembangan", ReactNode> = {
+  const panel: Record<NilaiModulAdmin, ReactNode> = {
     "hari-ini": (
       <div className="space-y-4">
         {/* Sapaan satu baris menggantikan banner gelap "Ringkasan sistem hari

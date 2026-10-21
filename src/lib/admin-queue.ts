@@ -22,6 +22,8 @@
  * `killswitch` ditambahkan agar pintu darurat punya tempat di sidebar
  * (Keamanan & audit) selain tombol di header — memakai mutation
  * `system.setKillSwitch` yang sudah ada, tanpa backend baru.
+ * `pengembangan` adalah halaman dokumentasi internal: peta halaman, fitur, dan
+ * logika bisnis yang hanya dibaca admin. Ia tidak menyimpan data apa pun.
  * Menambah modul di sini akan memaksa `panel` di `admin-tabs.tsx` menambahkan isinya.
  */
 export const NILAI_MODUL_ADMIN = [
@@ -49,6 +51,7 @@ export const NILAI_MODUL_ADMIN = [
   "backup",
   "bi",
   "killswitch",
+  "pengembangan",
 ] as const;
 
 export type NilaiModulAdmin = (typeof NILAI_MODUL_ADMIN)[number];
@@ -109,7 +112,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
   {
     id: "sistem",
     label: "Sistem",
-    modul: ["config", "backup", "audit", "loglogin", "killswitch"],
+    modul: ["config", "backup", "pengembangan", "audit", "loglogin", "killswitch"],
     default: "config",
   },
 ];
