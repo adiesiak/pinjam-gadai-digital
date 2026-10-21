@@ -83,9 +83,13 @@ export function BarisRingkas({
           ? "font-semibold text-navy"
           : "text-navy";
   return (
-    <div className="flex items-baseline justify-between gap-3">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
       <dt className="min-w-0 text-[11px] leading-4 text-muted-foreground">{label}</dt>
-      <dd className={`shrink-0 text-right text-xs tabular-nums ${kelasNilai}`}>{nilai}</dd>
+      {/* Nilai boleh turun ke baris sendiri dan dibungkus — nama panjang tidak
+          lagi terpotong, sedangkan angka tetap utuh karena hanya pecah di spasi. */}
+      <dd className={`ml-auto max-w-[70%] break-words text-right text-xs tabular-nums ${kelasNilai}`}>
+        {nilai}
+      </dd>
     </div>
   );
 }
@@ -230,9 +234,9 @@ export function KotakProfilNasabah({
         variant="outline"
         disabled={!lampiranSiap}
         onClick={onLihatLampiran}
-        className="h-8 w-fit gap-1.5 rounded-lg px-2.5 text-[11px]"
+        className="h-auto min-h-8 w-fit max-w-full gap-1.5 whitespace-normal rounded-lg px-2.5 py-1.5 text-left text-[11px]"
       >
-        <ShieldCheck className="size-3.5" aria-hidden="true" />
+        <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
         Lihat Lampiran Foto KTP/Selfie
         {lampiranSiap && jumlahLampiran > 0 ? ` (${jumlahLampiran})` : ""}
       </Button>

@@ -354,7 +354,7 @@ export function LoanReviewDialog({
   // diri, KYC, koordinat, kontrak, aliran dana) tetap tersedia di bawah, tetapi
   // TERTUTUP — supaya layar pertama bukan dinding data.
   const kotakRingkas = (
-    <div className="grid gap-3 lg:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <KotakMetrikPengajuan
         pokok={row.pokokPinjaman}
         tenorTeks={tenorTeks}
@@ -555,7 +555,9 @@ export function LoanReviewDialog({
 
   // ── Tab 2: Aliran Uang & Pendana ───────────────────────────────────────
   const tabAliran = (
-    <div className="grid gap-4 md:grid-cols-2 md:gap-5">
+    // Dua kolom hanya di layar sangat lebar: matriks aliran punya empat kolom
+    // sendiri, jadi membelah panel lebih awal membuat angkanya pecah per digit.
+    <div className="grid gap-4 2xl:grid-cols-2 2xl:gap-5">
       {/* Kolom kiri: matriks aliran uang — rapat, tanpa gulir horizontal */}
       <div className="flex min-w-0 flex-col gap-3">
         <p className="rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
@@ -957,12 +959,14 @@ export function LoanReviewDialog({
   return (
     <>
     <Sheet open onOpenChange={(open) => !open && onClose()}>
-      {/* Panel samping selebar separuh layar, bukan modal 5xl: tabel antrean di
-          belakangnya tetap terlihat, dan tidak ada dialog bertingkat. Header &
-          footer menempel; hanya area tab yang menggulir. */}
+      {/* Panel samping yang lebar di desktop — bukan modal 5xl: tabel antrean di
+          belakangnya tetap terlihat, tetapi angka rupiah, nama, dan tombol tidak
+          lagi dipaksa muat ke dalam ~640px. Lebar 52vw lama membuat tiga kotak
+          ringkas dan matriks aliran dana terpotong per digit. Header & footer
+          menempel; hanya area tab yang menggulir. */}
       <SheetContent
         side="right"
-        className="w-full gap-0 border-l border-slate-200 bg-white p-0 shadow-2xl sm:w-[52vw] sm:max-w-none xl:w-[48vw]"
+        className="w-full gap-0 border-l border-slate-200 bg-white p-0 shadow-2xl sm:w-[92vw] sm:max-w-[1100px] xl:w-[78vw] xl:max-w-[1240px]"
       >
         {/* Header fixed */}
         {header}

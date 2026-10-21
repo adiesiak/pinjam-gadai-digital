@@ -86,11 +86,13 @@ export function AliranDanaPinjaman({
             className="border-slate-200/80 bg-white/80 shadow-xs backdrop-blur-md transition-all duration-[var(--motion-normal)] hover:border-emerald-500/40"
             label={b.label}
             nilai={
-              b.arah === "potongan" ? (
-                <span className="text-amber-700">{labelPotonganRincian(b.nilai)}</span>
-              ) : (
-                formatRupiah(b.nilai)
-              )
+              <span className="whitespace-nowrap tabular-nums">
+                {b.arah === "potongan" ? (
+                  <span className="text-amber-700">{labelPotonganRincian(b.nilai)}</span>
+                ) : (
+                  formatRupiah(b.nilai)
+                )}
+              </span>
             }
           />
         ))}
