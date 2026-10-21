@@ -13,7 +13,7 @@
  * Σ total = total kewajiban yang tampil di kontrak.
  */
 
-import { hitungSimulasiBulanan } from "./bulanan";
+import { hitungSimulasiBulanan, type TarifBulanan } from "./bulanan";
 import { LATE_FEE_POLICY, quotePinjaman } from "./loan";
 import { percentOf, type Rupiah } from "./money";
 
@@ -48,6 +48,8 @@ export type PinjamanUntukJadwal = {
   tenorBulan?: number;
   didanaiPada?: number;
   persenBunga?: number;
+  /** Snapshot tarif bulanan pinjaman; kosong = tarif bawaan. */
+  tarifBulanan?: TarifBulanan | null;
 };
 
 /**
@@ -63,11 +65,10 @@ export function jadwalAngsuranPinjaman(
   const mulai = loan.didanaiPada!;
 
   if (loan.tenorBulan !== undefined) {
-    const sim = hitungSimulasiBulanan(
-      loan.pokokPinjaman,
-      loan.tenorBulan,
-      loan.persenBunga === undefined ? {} : { persenBungaPerBulan: loan.persenBunga },
-    );
+    const sim = hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan, {
+      ...(loan.persenBunga === undefined ? {} : { persenBungaPerBulan: loan.persenBunga }),
+      tarif: loan.tarifBulanan ?? null,
+    });
     return sim.jadwal.map((row) => ({
       nomor: row.bulan,
       jatuhTempoPada: mulai + row.bulan * BULAN_MS,

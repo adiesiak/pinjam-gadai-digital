@@ -86,18 +86,23 @@ import {
   LTV_HINTS,
   type CollateralCategory,
 } from "@/lib/pawn";
+import type { TarifBulanan } from "@/lib/bulanan";
 
 /**
  * Ringkasan bulanan yang tidak melempar error saat input belum valid —
  * slider bergerak cepat, jadi nilai di luar rentang cukup tampil kosong.
  */
-function simulasiBulananAman(pokok: number, tenorBulan: number, persenBunga?: number) {
+function simulasiBulananAman(
+  pokok: number,
+  tenorBulan: number,
+  persenBunga?: number,
+  tarif?: Partial<TarifBulanan> | null,
+) {
   try {
-    return hitungSimulasiBulanan(
-      pokok,
-      tenorBulan,
-      persenBunga === undefined ? {} : { persenBungaPerBulan: persenBunga },
-    );
+    return hitungSimulasiBulanan(pokok, tenorBulan, {
+      ...(persenBunga === undefined ? {} : { persenBungaPerBulan: persenBunga }),
+      tarif: tarif ?? null,
+    });
   } catch {
     return null;
   }
@@ -451,12 +456,20 @@ export function LoanForm({
 
   const bulanan = skema === "bulanan";
   const tenorBulanNum = Number(tenorBulan);
+  // Tarif potongan & tarif bulanan dari Pengaturan Parameter Bisnis. Angka di
+  // layar harus sama dengan yang nanti dihitung server saat pengajuan disimpan.
+  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
+  const tarifBiaya = ketentuanBiaya?.tarifBiaya;
+  const tarifBulananConfig = ketentuanBiaya?.tarifBulanan ?? null;
   // Bunga mengikuti tabel tenor website, bukan angka per akun: harian dari
-  // matriks nominal/tenor 7/14/28, bulanan dari tarif tenor (30/25/20%).
+  // matriks nominal/tenor 7/14/28, bulanan dari tarif tenor yang berlaku.
   const tarifBulanan = persenBungaPerBulan(
     Number.isSafeInteger(tenorBulanNum) && tenorBulanNum > 0 ? tenorBulanNum : 1,
+    tarifBulananConfig,
   );
-  const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum, tarifBulanan) : null;
+  const sim = bulanan
+    ? simulasiBulananAman(pokok, tenorBulanNum, undefined, tarifBulananConfig)
+    : null;
   // Tenor harian mengikuti matriks nominal. Pilihan yang tidak sah digeser ke
   // tenor terdekat supaya dropdown dan rincian tidak pernah berbeda dari yang
   // diterima server.
@@ -467,10 +480,6 @@ export function LoanForm({
   const tenorHarianOpsi = tenorHarianTersedia(pokok);
   const tarifHarian =
     persenBungaHarian(pokok, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
-  // Tarif potongan dari Pengaturan Parameter Bisnis. Angka di layar harus sama
-  // dengan yang nanti dihitung server saat pengajuan disimpan.
-  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
-  const tarifBiaya = ketentuanBiaya?.tarifBiaya;
   const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifHarian, {
     ekspres: !bulanan && cairEkspres,
     ...(tarifBiaya !== undefined ? { tarif: tarifBiaya } : {}),

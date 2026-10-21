@@ -43,6 +43,53 @@ export const TENOR_BULANAN_OPTIONS = [1, 3, 6] as const;
  */
 export const TENOR_BIAYA_ADMIN_PLATFORM_DEFAULT = [3, 6] as const;
 
+/**
+ * Tarif skema bulanan yang bisa diatur admin.
+ *
+ * Nama kolomnya sengaja sama dengan kolom di Pengaturan Sistem supaya
+ * snapshot yang disimpan di pinjaman bisa dikirim balik apa adanya tanpa
+ * penerjemahan nama — satu kesalahan ketik nama kolom berarti angka kontrak
+ * berubah diam-diam.
+ */
+export interface TarifBulanan {
+  /** Bunga flat tenor 1 bulan (% dari pokok penuh, per bulan). */
+  persenBungaBulanan1: number;
+  /** Bunga flat tenor 3–5 bulan (% dari pokok penuh, per bulan). */
+  persenBungaBulanan3: number;
+  /** Bunga flat tenor 6 bulan ke atas (% dari pokok penuh, per bulan). */
+  persenBungaBulanan6: number;
+  /** Biaya layanan yang dipotong di muka (% dari pokok), semua tenor bulanan. */
+  persenBiayaLayananBulanan: number;
+  /** Biaya admin yang dibayar bersama SETIAP cicilan (% dari nominal cicilan). */
+  persenBiayaAdminCicilanBulanan: number;
+}
+
+/**
+ * Lengkapi tarif sebagian dengan nilai bawaan, dan jepit tiap angka ke 0–100%.
+ *
+ * Dipakai untuk membaca snapshot pinjaman lama (kolomnya belum ada) maupun
+ * masukan admin yang belum lengkap: pinjaman tidak boleh gagal dihitung hanya
+ * karena satu kolom tarif kosong.
+ */
+export function tarifBulananAman(
+  nilai?: Partial<TarifBulanan> | null,
+): TarifBulanan {
+  const ambil = (kunci: keyof TarifBulanan): number => {
+    const angka = nilai?.[kunci];
+    if (angka === undefined || !Number.isFinite(angka)) {
+      return TARIF_BULANAN_DEFAULT[kunci];
+    }
+    return Math.min(100, Math.max(0, angka));
+  };
+  return {
+    persenBungaBulanan1: ambil("persenBungaBulanan1"),
+    persenBungaBulanan3: ambil("persenBungaBulanan3"),
+    persenBungaBulanan6: ambil("persenBungaBulanan6"),
+    persenBiayaLayananBulanan: ambil("persenBiayaLayananBulanan"),
+    persenBiayaAdminCicilanBulanan: ambil("persenBiayaAdminCicilanBulanan"),
+  };
+}
+
 /** Opsi biaya skema bulanan (dipakai skema kredit barang & bunga per nasabah). */
 export interface OpsiBiayaBulanan {
   /** Tenor yang memakai biaya admin 2% (platform 0%) dipotong di muka. */
@@ -52,6 +99,11 @@ export interface OpsiBiayaBulanan {
    * dengan bunga khusus admin. Kosong = pakai tarif tenor bawaan.
    */
   persenBungaPerBulan?: number;
+  /**
+   * Tarif bulanan yang berlaku (dari Pengaturan Sistem atau snapshot pinjaman).
+   * Kosong = tarif bawaan. Angka yang tidak diisi memakai nilai bawaan.
+   */
+  tarif?: Partial<TarifBulanan> | null;
 }
 
 export const BULANAN_PRICING = {
@@ -88,20 +140,39 @@ export const BULANAN_PRICING = {
   maxProfitTotalPersen: 130,
 } as const;
 
+/** Tarif bulanan bawaan — sama dengan angka yang berlaku sebelum bisa diatur. */
+export const TARIF_BULANAN_DEFAULT: TarifBulanan = {
+  persenBungaBulanan1: BULANAN_PRICING.bungaTenor1PersenPerBulan,
+  persenBungaBulanan3: BULANAN_PRICING.bungaTenor3_5PersenPerBulan,
+  persenBungaBulanan6: BULANAN_PRICING.bungaMin6PersenPerBulan,
+  persenBiayaLayananBulanan: BULANAN_PRICING.biayaLayananPersen,
+  persenBiayaAdminCicilanBulanan: BULANAN_PRICING.biayaAdminCicilanPersen,
+};
+
 /** Batas pokok/harga untuk skema bulanan (di luar skema 1 jt/28 hari). */
 export const BULANAN_LIMITS = {
   minPokok: 100_000,
   maxPokok: 500_000_000,
 } as const;
 
-/** Tarif bunga per bulan (% dari sisa pokok) sesuai tenor. */
-export function persenBungaPerBulan(tenorBulan: number): number {
+/**
+ * Tarif bunga per bulan (% dari pokok penuh) sesuai tenor.
+ *
+ * `tarif` kosong memakai angka bawaan; server selalu mengirim tarif dari
+ * Pengaturan Sistem (atau snapshot pinjaman) supaya halaman, kontrak, dan
+ * mesin harga tidak pernah berbeda pendapat.
+ */
+export function persenBungaPerBulan(
+  tenorBulan: number,
+  tarif: Partial<TarifBulanan> | null | undefined = TARIF_BULANAN_DEFAULT,
+): number {
   if (!Number.isSafeInteger(tenorBulan) || tenorBulan <= 0) {
     throw new Error("Tenor harus bilangan bulan positif.");
   }
-  if (tenorBulan >= 6) return BULANAN_PRICING.bungaMin6PersenPerBulan;
-  if (tenorBulan >= 3) return BULANAN_PRICING.bungaTenor3_5PersenPerBulan;
-  return BULANAN_PRICING.bungaTenor1PersenPerBulan;
+  const angka = tarifBulananAman(tarif);
+  if (tenorBulan >= 6) return angka.persenBungaBulanan6;
+  if (tenorBulan >= 3) return angka.persenBungaBulanan3;
+  return angka.persenBungaBulanan1;
 }
 
 /**
@@ -168,6 +239,8 @@ export interface SimulasiBulanan {
   pokokDibiayai: Rupiah;
   /** Tenor dalam bulan. */
   tenorBulan: number;
+  /** Tarif bulanan lengkap yang dipakai hitungan ini (untuk snapshot/tampilan). */
+  tarif: TarifBulanan;
   /** Tarif bunga per bulan (% dari sisa pokok atau pokok penuh) sesuai tenor. */
   persenBungaPerBulan: number;
   /** Metode bunga: menurun dari sisa pokok, atau flat dari pokok penuh. */
@@ -214,8 +287,12 @@ export interface SimulasiBulanan {
  * Validasi pokok + tenor skema bulanan — melempar pesan Indonesia yang jelas.
  * Dipakai server untuk menolak pengajuan di luar rentang sebelum menghitung.
  */
-export function assertSimulasiBulananValid(pokok: Rupiah, tenorBulan: number): void {
-  hitungSimulasiBulanan(pokok, tenorBulan);
+export function assertSimulasiBulananValid(
+  pokok: Rupiah,
+  tenorBulan: number,
+  opsi: OpsiBiayaBulanan = {},
+): void {
+  hitungSimulasiBulanan(pokok, tenorBulan, opsi);
 }
 
 /**
@@ -254,10 +331,11 @@ export function hitungSimulasiBulanan(
 
   const dp = 0;
   const pokokDibiayai = pokok - dp;
+  const tarif = tarifBulananAman(opsi.tarif);
   const persen =
     opsi.persenBungaPerBulan !== undefined && Number.isFinite(opsi.persenBungaPerBulan)
       ? Math.min(100, Math.max(0, opsi.persenBungaPerBulan))
-      : persenBungaPerBulan(tenorBulan);
+      : persenBungaPerBulan(tenorBulan, tarif);
   const metode = metodeBungaBulanan(tenorBulan);
 
   // Komponen biaya — semua HALF-UP per rupiah via percentOf (BigInt), dan
@@ -272,14 +350,14 @@ export function hitungSimulasiBulanan(
     opsi.tenorBiayaAdminPlatform ?? TENOR_BIAYA_ADMIN_PLATFORM_DEFAULT
   ).includes(tenorBulan);
   const biayaAdminTotal = tenorAdminPlatform
-    ? percentOf(pokokDibiayai, BULANAN_PRICING.biayaAdminPersen)
+    ? percentOf(pokokDibiayai, tarif.persenBiayaLayananBulanan)
     : 0;
   const biayaPlatformTotal = tenorAdminPlatform
     ? percentOf(pokokDibiayai, BULANAN_PRICING.biayaPlatformPersen)
     : 0;
   const biayaLayananTotal = tenorAdminPlatform
     ? biayaAdminTotal + biayaPlatformTotal
-    : percentOf(pokokDibiayai, BULANAN_PRICING.biayaLayananPersen);
+    : percentOf(pokokDibiayai, tarif.persenBiayaLayananBulanan);
   const potonganDiMuka = biayaLayananTotal;
   const danaDiterima = pokokDibiayai - potonganDiMuka;
 
@@ -297,7 +375,7 @@ export function hitungSimulasiBulanan(
       bungaFlatPerBulan > 0 ? bungaFlatPerBulan : percentOf(sisaPokok, persen);
     // Biaya admin cicilan dihitung dari cicilan bulan itu (pokok + bunga).
     const rowBiayaAdminCicilan = tenorBiayaAdminCicilan
-      ? percentOf(rowPokok + rowBunga, BULANAN_PRICING.biayaAdminCicilanPersen)
+      ? percentOf(rowPokok + rowBunga, tarif.persenBiayaAdminCicilanBulanan)
       : 0;
     sisaPokok -= rowPokok;
     jadwal.push({
@@ -334,6 +412,7 @@ export function hitungSimulasiBulanan(
     dp,
     pokokDibiayai,
     tenorBulan,
+    tarif,
     persenBungaPerBulan: persen,
     metodeBunga: metode,
     biayaAdminTotal,

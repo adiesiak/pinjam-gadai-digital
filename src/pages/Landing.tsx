@@ -58,6 +58,7 @@ import {
   BULANAN_LIMITS,
   hitungSimulasiBulanan,
   TENOR_BULANAN_OPTIONS,
+  type TarifBulanan,
 } from "@/lib/bulanan";
 import {
   LATE_FEE_POLICY,
@@ -706,9 +707,14 @@ function rupiahToSlider(r: Rupiah, min: number, max: number, steps: number): num
 
 /**
  * Kalkulator landing: tenor harian mengikuti matriks nominal–tenor, sedangkan
- * skema bulanan memakai tarif akun per bulan dari Pengaturan Sistem.
+ * skema bulanan memakai tarif per tenor dari Pengaturan Sistem — angka yang
+ * sama dengan tabel biaya publik dan mesin pengajuan.
  */
-export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
+export function LiveCalculator({
+  tarifBulanan,
+}: {
+  tarifBulanan?: Partial<TarifBulanan> | null;
+}) {
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const bulanan = skema === "bulanan";
   const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);
@@ -726,12 +732,12 @@ export function LiveCalculator({ persenBunga }: { persenBunga: number }) {
     if (!bulanan) return null;
     try {
       return hitungSimulasiBulanan(amount, tenorBulan, {
-        persenBungaPerBulan: persenBunga,
+        tarif: tarifBulanan ?? null,
       });
     } catch {
       return null;
     }
-  }, [bulanan, amount, tenorBulan, persenBunga]);
+  }, [bulanan, amount, tenorBulan, tarifBulanan]);
 
   const min = bulanan ? BULANAN_LIMITS.minPokok : MIN_SLIDER;
   const max = bulanan ? MAX_SLIDER_BULANAN : MAX_SLIDER;
@@ -1874,11 +1880,7 @@ export default function Landing() {
           />
           <div className="relative grid gap-10 lg:grid-cols-2">
             <Reveal>
-              <LiveCalculator
-                persenBunga={
-                  ketentuanBiaya?.persenBunga ?? PINDAI_PRICING.bungaPercent
-                }
-              />
+              <LiveCalculator tarifBulanan={ketentuanBiaya?.tarifBulanan} />
             </Reveal>
             <div>
               <Reveal>

@@ -20,6 +20,7 @@ import {
   simpanHasilIdempoten,
 } from "./idempotensi";
 import { formatRupiah } from "../lib/money";
+import { tarifBulananDariConfig } from "../lib/system-config";
 import { kodeTanggalWIB } from "../lib/waktu";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -66,6 +67,7 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
       dpPersen: row.dpPersen,
       tenorBulan: row.tenorBulan,
       marginPersenPerBulan: row.marginPersenPerBulan,
+      tarif: row.tarifBulanan ?? null,
     });
   } catch {
     quote = null;
@@ -167,6 +169,7 @@ export const ajukanKreditBarang = mutation({
       dpPersen: args.dpPersen,
       tenorBulan: args.tenorBulan,
       marginPersenPerBulan: args.marginPersenPerBulan,
+      tarif: tarifBulananDariConfig(sys),
     });
     if (!pokokKreditBarangDalamBatas(quote.pokokDibiayai)) {
       throw new Error(`Pokok dibiayai kredit barang maksimal ${formatRupiah(KREDIT_BARANG_POKOK_MAKS)}.`);
@@ -208,6 +211,7 @@ export const ajukanKreditBarang = mutation({
       dpPersen: args.dpPersen,
       tenorBulan: args.tenorBulan,
       marginPersenPerBulan: args.marginPersenPerBulan,
+      tarifBulanan: quote.tarifBulanan,
       status: "diajukan",
       namaLengkap: nama,
       nik,

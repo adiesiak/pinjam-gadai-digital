@@ -1,4 +1,5 @@
 /** Konfigurasi sistem PINDAI — tipe + default bersama (server & client). */
+import { TARIF_BULANAN_DEFAULT, type TarifBulanan } from "./bulanan";
 import { LOKASI_RETENSI } from "./lokasi";
 import { PLAFON_DEFAULT } from "./plafon";
 import { gayaAman, type GayaPreset } from "./template-gaya";
@@ -90,6 +91,16 @@ export type SystemConfig = {
   persenBiayaAdmin: number;
   /** Biaya asuransi yang dipotong di muka (% dari pokok); 0 = tidak dipotong. */
   persenAsuransi: number;
+  /**
+   * Tarif skema BULANAN (pinjaman tunai tenor 1/3/6 bulan dan kredit barang).
+   * Dibaca mesin harga saat pengajuan baru dibuat, lalu DIBEKUKAN pada pinjaman
+   * itu — perubahan di sini tidak pernah mengubah kontrak yang sudah terbit.
+   */
+  persenBungaBulanan1: number;
+  persenBungaBulanan3: number;
+  persenBungaBulanan6: number;
+  persenBiayaLayananBulanan: number;
+  persenBiayaAdminCicilanBulanan: number;
   /** Nominal biaya pencairan ekspres per tier pokok (Rupiah). */
   biayaEkspresTier1: number;
   biayaEkspresTier2: number;
@@ -158,6 +169,17 @@ export type SystemConfig = {
   manualDepositEnabled: boolean;
 };
 
+/** Tarif bulanan yang berlaku dari satu konfigurasi — bentuk siap pakai mesin. */
+export function tarifBulananDariConfig(cfg: SystemConfig): TarifBulanan {
+  return {
+    persenBungaBulanan1: cfg.persenBungaBulanan1,
+    persenBungaBulanan3: cfg.persenBungaBulanan3,
+    persenBungaBulanan6: cfg.persenBungaBulanan6,
+    persenBiayaLayananBulanan: cfg.persenBiayaLayananBulanan,
+    persenBiayaAdminCicilanBulanan: cfg.persenBiayaAdminCicilanBulanan,
+  };
+}
+
 export const DEFAULT_CONFIG: SystemConfig = {
   versi: 1,
   tema: "tinta",
@@ -184,6 +206,13 @@ export const DEFAULT_CONFIG: SystemConfig = {
   biayaEkspresTier2: 7_500,
   biayaEkspresTier3: 10_000,
   persenDendaKeterlambatan: 2,
+  // Tarif bulanan bawaan = angka yang sudah dipakai mesin sebelum bisa diatur.
+  persenBungaBulanan1: TARIF_BULANAN_DEFAULT.persenBungaBulanan1,
+  persenBungaBulanan3: TARIF_BULANAN_DEFAULT.persenBungaBulanan3,
+  persenBungaBulanan6: TARIF_BULANAN_DEFAULT.persenBungaBulanan6,
+  persenBiayaLayananBulanan: TARIF_BULANAN_DEFAULT.persenBiayaLayananBulanan,
+  persenBiayaAdminCicilanBulanan:
+    TARIF_BULANAN_DEFAULT.persenBiayaAdminCicilanBulanan,
   /** Biaya integrasi default saat membukukan pinjaman lama ke ledger. */
   persenBiayaIntegrasi: 2,
   maxLtvPersen: 70,

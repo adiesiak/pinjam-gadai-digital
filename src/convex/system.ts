@@ -7,6 +7,7 @@ import {
   RETENSI_LOKASI_BATAS,
   THEME_PRESETS,
   gayaAman,
+  tarifBulananDariConfig,
   temaAman,
   type SystemConfig,
   type ThemePreset,
@@ -90,6 +91,17 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     persenPlatform: row.persenPlatform ?? DEFAULT_CONFIG.persenPlatform,
     persenBunga: row.persenBunga ?? DEFAULT_CONFIG.persenBunga,
     persenBiayaAdmin: row.persenBiayaAdmin ?? DEFAULT_CONFIG.persenBiayaAdmin,
+    persenBungaBulanan1:
+      row.persenBungaBulanan1 ?? DEFAULT_CONFIG.persenBungaBulanan1,
+    persenBungaBulanan3:
+      row.persenBungaBulanan3 ?? DEFAULT_CONFIG.persenBungaBulanan3,
+    persenBungaBulanan6:
+      row.persenBungaBulanan6 ?? DEFAULT_CONFIG.persenBungaBulanan6,
+    persenBiayaLayananBulanan:
+      row.persenBiayaLayananBulanan ?? DEFAULT_CONFIG.persenBiayaLayananBulanan,
+    persenBiayaAdminCicilanBulanan:
+      row.persenBiayaAdminCicilanBulanan ??
+      DEFAULT_CONFIG.persenBiayaAdminCicilanBulanan,
     persenAsuransi: row.persenAsuransi ?? DEFAULT_CONFIG.persenAsuransi,
     biayaEkspresTier1: row.biayaEkspresTier1 ?? DEFAULT_CONFIG.biayaEkspresTier1,
     biayaEkspresTier2: row.biayaEkspresTier2 ?? DEFAULT_CONFIG.biayaEkspresTier2,
@@ -242,6 +254,9 @@ export const getKetentuanBiaya = query({
         ekspres2: cfg.biayaEkspresTier2,
         ekspres3: cfg.biayaEkspresTier3,
       }),
+      // Tarif bulanan yang dipakai mesin untuk pengajuan BARU. Pinjaman yang
+      // sudah terbit memakai snapshot miliknya sendiri (loans.tarifBulanan).
+      tarifBulanan: tarifBulananDariConfig(cfg),
     };
   },
 });
@@ -421,6 +436,26 @@ async function bersihkanConfigMasuk(
     );
   }
   for (const [label, nilai] of [
+    ["Bunga bulanan tenor 1 bulan", input.persenBungaBulanan1],
+    ["Bunga bulanan tenor 3 bulan", input.persenBungaBulanan3],
+    ["Bunga bulanan tenor 6 bulan", input.persenBungaBulanan6],
+    ["Biaya layanan bulanan", input.persenBiayaLayananBulanan],
+    ["Biaya admin cicilan", input.persenBiayaAdminCicilanBulanan],
+  ] as const) {
+    if (!Number.isFinite(nilai) || nilai < 0 || nilai > 100) {
+      throw new Error(`${label} harus 0–100%.`);
+    }
+  }
+  if (
+    input.persenBiayaLayananBulanan +
+      input.persenBiayaAdminCicilanBulanan >
+    50
+  ) {
+    throw new Error(
+      "Total biaya layanan bulanan + admin cicilan maksimal 50%.",
+    );
+  }
+  for (const [label, nilai] of [
     ["Tier 1", input.biayaEkspresTier1],
     ["Tier 2", input.biayaEkspresTier2],
     ["Tier 3", input.biayaEkspresTier3],
@@ -581,6 +616,17 @@ export const saveConfig = mutation({
     biayaEkspresTier3: v.number(),
     persenDendaKeterlambatan: v.number(),
     persenBiayaIntegrasi: v.number(),
+    /** Opsional: pemanggil lama tidak mengirimnya — nilai berlaku dipertahankan. */
+    persenBungaBulanan1: v.optional(v.number()),
+    persenBungaBulanan3: v.optional(v.number()),
+    persenBungaBulanan6: v.optional(v.number()),
+    persenBiayaLayananBulanan: v.optional(v.number()),
+    persenBiayaAdminCicilanBulanan: v.optional(v.number()),
+    /**
+     * Alasan perubahan. WAJIB bila salah satu tarif bulanan berubah: angka itu
+     * membentuk kontrak baru, jadi riwayat versi harus menyebut alasannya.
+     */
+    catatan: v.optional(v.string()),
     maxLtvPersen: v.number(),
     sessionTimeoutMenit: v.number(),
     vaultLat: v.number(),
@@ -608,6 +654,10 @@ export const saveConfig = mutation({
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdmin(ctx);
     const label = user.email ?? user.name ?? "admin";
+    // Dibaca SEBELUM validasi: kolom tarif bulanan yang tidak dikirim pemanggil
+    // lama (mis. snapshot rollback) mempertahankan nilai yang sedang berlaku,
+    // bukan diam-diam kembali ke bawaan.
+    const prev = await getConfig(ctx);
     const bersih = await bersihkanConfigMasuk(ctx, {
       tema: args.tema,
       gaya: args.gaya,
@@ -624,6 +674,14 @@ export const saveConfig = mutation({
       biayaEkspresTier3: args.biayaEkspresTier3,
       persenDendaKeterlambatan: args.persenDendaKeterlambatan,
       persenBiayaIntegrasi: args.persenBiayaIntegrasi,
+      persenBungaBulanan1: args.persenBungaBulanan1 ?? prev.persenBungaBulanan1,
+      persenBungaBulanan3: args.persenBungaBulanan3 ?? prev.persenBungaBulanan3,
+      persenBungaBulanan6: args.persenBungaBulanan6 ?? prev.persenBungaBulanan6,
+      persenBiayaLayananBulanan:
+        args.persenBiayaLayananBulanan ?? prev.persenBiayaLayananBulanan,
+      persenBiayaAdminCicilanBulanan:
+        args.persenBiayaAdminCicilanBulanan ??
+        prev.persenBiayaAdminCicilanBulanan,
       maxLtvPersen: args.maxLtvPersen,
       sessionTimeoutMenit: args.sessionTimeoutMenit,
       vaultLat: args.vaultLat,
@@ -648,7 +706,26 @@ export const saveConfig = mutation({
       qrisImageId: args.qrisImageId,
       manualDepositEnabled: args.manualDepositEnabled,
     });
-    const prev = await getConfig(ctx);
+    const catatan = (args.catatan ?? "").trim();
+    // Tarif bulanan membentuk kontrak baru: perubahannya wajib beralasan dan
+    // alasannya ikut tersimpan di riwayat versi. Pinjaman yang sudah terbit
+    // tidak terpengaruh (angka dibekukan pada snapshot pinjaman).
+    const tarifSebelum = tarifBulananDariConfig(prev);
+    const tarifSesudah = {
+      persenBungaBulanan1: bersih.persenBungaBulanan1,
+      persenBungaBulanan3: bersih.persenBungaBulanan3,
+      persenBungaBulanan6: bersih.persenBungaBulanan6,
+      persenBiayaLayananBulanan: bersih.persenBiayaLayananBulanan,
+      persenBiayaAdminCicilanBulanan: bersih.persenBiayaAdminCicilanBulanan,
+    };
+    const tarifBerubah = (
+      Object.keys(tarifSebelum) as (keyof typeof tarifSebelum)[]
+    ).some((kunci) => tarifSebelum[kunci] !== tarifSesudah[kunci]);
+    if (tarifBerubah && catatan === "") {
+      throw new Error(
+        "Isi catatan perubahan tarif bulanan — jelaskan alasan angka baru sebelum menyimpan.",
+      );
+    }
     const now = Date.now();
     const versi = prev.versi + 1;
     await tulisConfigBerlaku(ctx, bersih, versi, now);
@@ -660,6 +737,7 @@ export const saveConfig = mutation({
       berlakuSejak: now,
       diubahOleh: label,
       diubahOlehUserId: userId,
+      ...(catatan === "" ? {} : { catatan }),
     });
     const killBerubah = bersih.killSwitch !== prev.killSwitch;
     await audit(

@@ -300,6 +300,22 @@ const schema = defineSchema(
        */
       persenBunga: v.optional(v.number()),
       /**
+       * Snapshot TARIF skema bulanan yang berlaku saat pinjaman ini dibuat:
+       * bunga tenor 1/3/6, biaya layanan di muka, dan biaya admin cicilan.
+       * Kosong pada pinjaman harian dan pada data lama (pakai tarif bawaan).
+       * Semua hitung ulang jadwal, kontrak, dan bagi hasil bulanan membaca
+       * snapshot ini — bukan Pengaturan Sistem yang berlaku hari ini.
+       */
+      tarifBulanan: v.optional(
+        v.object({
+          persenBungaBulanan1: v.number(),
+          persenBungaBulanan3: v.number(),
+          persenBungaBulanan6: v.number(),
+          persenBiayaLayananBulanan: v.number(),
+          persenBiayaAdminCicilanBulanan: v.number(),
+        }),
+      ),
+      /**
        * Sisa pokok setelah cicilan pokok atau perpanjangan. Kosong pada pinjaman
        * yang belum pernah memakai jalur perpanjangan = `pokokPinjaman`.
        */
@@ -1153,6 +1169,14 @@ const schema = defineSchema(
       persenBunga: v.optional(v.number()),
       /** Biaya admin pinjaman yang dipotong di muka (% dari pokok). */
       persenBiayaAdmin: v.optional(v.number()),
+      /** Bunga flat skema bulanan tenor 1/3/6 bulan (% per bulan). */
+      persenBungaBulanan1: v.optional(v.number()),
+      persenBungaBulanan3: v.optional(v.number()),
+      persenBungaBulanan6: v.optional(v.number()),
+      /** Biaya layanan skema bulanan yang dipotong di muka (% dari pokok). */
+      persenBiayaLayananBulanan: v.optional(v.number()),
+      /** Biaya admin cicilan bulanan (% dari nominal cicilan tiap pembayaran). */
+      persenBiayaAdminCicilanBulanan: v.optional(v.number()),
       /** Biaya asuransi yang dipotong di muka (% dari pokok); 0 = mati. */
       persenAsuransi: v.optional(v.number()),
       /** Nominal biaya pencairan ekspres per tier pokok. */
@@ -1487,6 +1511,20 @@ const schema = defineSchema(
       tenorBulan: v.number(),
       /** Imbal Hasil pendana per bulan (% dari pokok dibiayai, 1,5–4). */
       marginPersenPerBulan: v.number(),
+      /**
+       * Snapshot tarif bulanan saat pengajuan dibuat — jadwal & rincian kontrak
+       * ini dihitung ulang dari angka ini, bukan dari Pengaturan Sistem.
+       * Kosong pada kontrak 12/24 bulan (tidak memakai tarif bulanan).
+       */
+      tarifBulanan: v.optional(
+        v.object({
+          persenBungaBulanan1: v.number(),
+          persenBungaBulanan3: v.number(),
+          persenBungaBulanan6: v.number(),
+          persenBiayaLayananBulanan: v.number(),
+          persenBiayaAdminCicilanBulanan: v.number(),
+        }),
+      ),
       status: kreditStatusValidator,
       /** Catatan keputusan reviewer (wajib saat ditolak). */
       catatanReview: v.optional(v.string()),

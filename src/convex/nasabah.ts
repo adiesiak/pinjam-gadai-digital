@@ -120,6 +120,7 @@ function turunanPelunasan(loan: LoanDoc, now: number, tarifDenda?: number) {
       tenorBulan: loan.tenorBulan,
       didanaiPada: loan.didanaiPada,
       persenBunga: loan.persenBunga,
+      tarifBulanan: loan.tarifBulanan ?? null,
     },
     now,
     tarifDenda,
@@ -144,6 +145,7 @@ function finansialPengajuan(loan: LoanDoc) {
       pokokPinjaman: loan.pokokPinjaman,
       tenorBulan: loan.tenorBulan,
       ...(loan.persenBunga !== undefined ? { persenBunga: loan.persenBunga } : {}),
+      tarifBulanan: loan.tarifBulanan ?? null,
     });
     return {
       skema: "bulanan" as const,

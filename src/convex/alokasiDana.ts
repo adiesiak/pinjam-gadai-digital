@@ -1069,6 +1069,7 @@ export const marketplaceKredit = query({
           dpPersen: k.dpPersen,
           tenorBulan: k.tenorBulan,
           marginPersenPerBulan: k.marginPersenPerBulan,
+          tarif: k.tarifBulanan ?? null,
         });
       } catch {
         continue; // data warisan di luar rentang skema — lewati
@@ -1085,6 +1086,7 @@ export const marketplaceKredit = query({
       ).includes(k.tenorBulan)
         ? hitungSimulasiBulanan(quote.pokokDibiayai, k.tenorBulan, {
             tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
+            tarif: k.tarifBulanan ?? null,
           })
         : null;
       const jadwalPembayaran = quote.jadwal.map((c) => ({
@@ -1177,6 +1179,7 @@ export const alokasiKreditBarang = mutation({
         dpPersen: kredit.dpPersen,
         tenorBulan: kredit.tenorBulan,
         marginPersenPerBulan: kredit.marginPersenPerBulan,
+        tarif: kredit.tarifBulanan ?? null,
       });
     } catch {
       throw new Error(
@@ -1346,6 +1349,7 @@ export const myKreditFundings = query({
           dpPersen: kredit.dpPersen,
           tenorBulan: kredit.tenorBulan,
           marginPersenPerBulan: kredit.marginPersenPerBulan,
+          tarif: kredit.tarifBulanan ?? null,
         });
       } catch {
         quote = null;
@@ -1355,6 +1359,7 @@ export const myKreditFundings = query({
         (TENOR_BULANAN_OPTIONS as readonly number[]).includes(kredit.tenorBulan)
           ? hitungSimulasiBulanan(quote.pokokDibiayai, kredit.tenorBulan, {
               tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
+              tarif: kredit.tarifBulanan ?? null,
             })
           : null;
       const jadwalPembayaran =

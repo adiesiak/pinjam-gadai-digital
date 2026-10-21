@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
+import { hitungSimulasiBulanan } from "@/lib/bulanan";
 import { formatRupiah } from "@/lib/money";
 import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
 import {
@@ -24,6 +26,18 @@ import { RiwayatConfigPanel } from "./RiwayatConfigPanel";
 import type { ReactNode } from "react";
 
 type ConfigForm = Omit<SystemConfig, "versi">;
+
+/**
+ * Kolom tarif bulanan. Perubahannya membentuk kontrak baru, jadi panel ini
+ * mewajibkan catatan alasan sebelum menyimpan (server menolak tanpa catatan).
+ */
+const KUNCI_TARIF_BULANAN = [
+  "persenBungaBulanan1",
+  "persenBungaBulanan3",
+  "persenBungaBulanan6",
+  "persenBiayaLayananBulanan",
+  "persenBiayaAdminCicilanBulanan",
+] as const satisfies readonly (keyof ConfigForm)[];
 
 function DividerLabel({ children }: { children: ReactNode }) {
   return (
@@ -224,6 +238,8 @@ export function SystemConfigPanel() {
   const [uploadingQr, setUploadingQr] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
+  /** Alasan perubahan tarif bulanan — wajib bila salah satu angkanya berubah. */
+  const [catatanTarif, setCatatanTarif] = useState("");
   // Tab aktif disimpan di state — sebelumnya `value` dipatok sehingga tab lain
   // tidak bisa dibuka.
   const [tab, setTab] = useState("finansial");
@@ -256,9 +272,41 @@ export function SystemConfigPanel() {
     }
   };
 
+  // Perubahan tarif bulanan dibanding nilai tersimpan — dasar kewajiban catatan
+  // dan pratinjau dampak di bawah.
+  const tarifBerubah = KUNCI_TARIF_BULANAN.some(
+    (kunci) => form[kunci] !== data.config[kunci],
+  );
+  const pratinjauBulanan = (() => {
+    try {
+      return hitungSimulasiBulanan(1_000_000, 3, {
+        tarif: {
+          persenBungaBulanan1: form.persenBungaBulanan1,
+          persenBungaBulanan3: form.persenBungaBulanan3,
+          persenBungaBulanan6: form.persenBungaBulanan6,
+          persenBiayaLayananBulanan: form.persenBiayaLayananBulanan,
+          persenBiayaAdminCicilanBulanan: form.persenBiayaAdminCicilanBulanan,
+        },
+      });
+    } catch {
+      return null;
+    }
+  })();
+
   const simpan = async () => {
+    if (tarifBerubah && catatanTarif.trim() === "") {
+      toast.error(
+        "Isi catatan perubahan tarif bulanan sebelum menyimpan — jelaskan alasan angka baru.",
+      );
+      setTab("finansial");
+      return;
+    }
     await wrapBusyStatus("Konfigurasi", async () => {
-      await save(tanpaVersiConfig(form));
+      await save({
+        ...tanpaVersiConfig(form),
+        ...(catatanTarif.trim() === "" ? {} : { catatan: catatanTarif.trim() }),
+      });
+      setCatatanTarif("");
     });
   };
 
@@ -442,6 +490,136 @@ export function SystemConfigPanel() {
                   onChange={(v) => upd("plafonPinjaman", clampPlafon(v))}
                   hint={`Rentang ${formatRupiah(PLAFON_BATAS.min)}–${formatRupiah(PLAFON_BATAS.maks)}.`}
                 />
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Tarif pinjaman bulanan & kredit barang
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                  Dipakai untuk pengajuan BARU tenor 1/3/6 bulan. Pinjaman dan
+                  kredit yang sudah terbit memakai tarif yang dibekukan saat
+                  pengajuan, jadi tidak ikut berubah.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <SuffixInput
+                    id="cfg-bunga-bulanan-1"
+                    label="Bunga tenor 1 bulan (%/bulan)"
+                    value={form.persenBungaBulanan1}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    suffix="%"
+                    onChange={(v) => upd("persenBungaBulanan1", Number(v) || 0)}
+                    hint="Flat dari pokok penuh."
+                    withHint
+                  />
+                  <SuffixInput
+                    id="cfg-bunga-bulanan-3"
+                    label="Bunga tenor 3 bulan (%/bulan)"
+                    value={form.persenBungaBulanan3}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    suffix="%"
+                    onChange={(v) => upd("persenBungaBulanan3", Number(v) || 0)}
+                    hint="Flat dari pokok penuh."
+                    withHint
+                  />
+                  <SuffixInput
+                    id="cfg-bunga-bulanan-6"
+                    label="Bunga tenor 6 bulan (%/bulan)"
+                    value={form.persenBungaBulanan6}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    suffix="%"
+                    onChange={(v) => upd("persenBungaBulanan6", Number(v) || 0)}
+                    hint="Flat dari pokok penuh."
+                    withHint
+                  />
+                  <SuffixInput
+                    id="cfg-biaya-layanan-bulanan"
+                    label="Biaya layanan di muka (%)"
+                    value={form.persenBiayaLayananBulanan}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    suffix="%"
+                    onChange={(v) =>
+                      upd("persenBiayaLayananBulanan", Number(v) || 0)
+                    }
+                    hint="Dipotong dari pokok semua tenor bulanan."
+                    withHint
+                  />
+                  <SuffixInput
+                    id="cfg-admin-cicilan"
+                    label="Biaya admin cicilan (%)"
+                    value={form.persenBiayaAdminCicilanBulanan}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    suffix="%"
+                    onChange={(v) =>
+                      upd("persenBiayaAdminCicilanBulanan", Number(v) || 0)
+                    }
+                    hint="Dari nominal cicilan, tiap pembayaran bulanan."
+                    withHint
+                  />
+                </div>
+
+                {pratinjauBulanan !== null && (
+                  <dl className="mt-3 grid gap-x-4 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[11px] sm:grid-cols-2">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">
+                        Potongan di muka (Rp1.000.000)
+                      </dt>
+                      <dd className="tabular-nums font-semibold text-slate-900">
+                        {formatRupiah(pratinjauBulanan.potonganDiMuka)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">
+                        Cicilan tenor 3 bulan
+                      </dt>
+                      <dd className="tabular-nums font-semibold text-slate-900">
+                        {formatRupiah(pratinjauBulanan.cicilanPerBulan)}/bulan
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">Bunga tenor 3 bulan</dt>
+                      <dd className="tabular-nums font-semibold text-slate-900">
+                        {pratinjauBulanan.persenBungaPerBulan}%/bulan
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">Total dibayar 3 bulan</dt>
+                      <dd className="tabular-nums font-semibold text-slate-900">
+                        {formatRupiah(pratinjauBulanan.totalPengembalian)}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+
+                {tarifBerubah && (
+                  <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                    <Label htmlFor="cfg-catatan-tarif" className="text-amber-900">
+                      Catatan perubahan tarif (wajib)
+                    </Label>
+                    <Textarea
+                      id="cfg-catatan-tarif"
+                      value={catatanTarif}
+                      onChange={(e) => setCatatanTarif(e.target.value)}
+                      rows={2}
+                      placeholder="mis. penyesuaian harga per 1 November 2026"
+                      className="mt-1.5 bg-white"
+                    />
+                    <p className="mt-1 text-[11px] leading-5 text-amber-900">
+                      Tersimpan di riwayat versi. Kontrak yang sudah terbit
+                      tetap memakai tarif lamanya.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">

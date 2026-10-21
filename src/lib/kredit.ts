@@ -23,8 +23,10 @@
 import { isRupiah, percentOf, type Rupiah } from "./money";
 import {
   hitungSimulasiBulanan,
+  tarifBulananAman,
   TENOR_BULANAN_OPTIONS,
   type CicilanBulananRow,
+  type TarifBulanan,
 } from "./bulanan";
 
 /** Batas pokok dibiayai untuk setiap pengajuan baru kredit barang. */
@@ -115,6 +117,11 @@ export interface KreditBarangInput {
   marginPersenPerBulan: number;
   /** Porsi pokok yang didanai penyedia dana (%, 10–100). Default 100. */
   porsiDanaPersen?: number;
+  /**
+   * Tarif bulanan yang berlaku (Pengaturan Sistem). Hanya dipakai tenor
+   * 1/3/6 bulan; kosong = tarif bawaan.
+   */
+  tarif?: Partial<TarifBulanan> | null;
 }
 
 export interface KreditBarangJadwalRow {
@@ -159,6 +166,8 @@ export interface KreditBarangQuote {
   cicilanPerBulan: Rupiah;
   /** Cicilan terakhir (menyerap pembulatan pokok). */
   cicilanTerakhir: Rupiah;
+  /** Tarif bulanan yang dipakai hitungan (snapshot untuk kontrak & tampilan). */
+  tarifBulanan: TarifBulanan;
   /** DP + seluruh biaya model + pokok dibiayai + total Imbal Hasil. */
   totalDibayarKonsumen: Rupiah;
   jadwal: KreditBarangJadwalRow[];
@@ -255,6 +264,7 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     // (termasuk tenor 1 bulan) — potongan di muka 2%, dana diterima 98%.
     const sim = hitungSimulasiBulanan(hargaBarang, tenorBulan, {
       tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
+      tarif: input.tarif ?? null,
     });
     const jadwal: KreditBarangJadwalRow[] = sim.jadwal.map(
       (r: CicilanBulananRow) => ({
@@ -291,6 +301,7 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       marginTotal: sim.bungaTotal,
       cicilanPerBulan: sim.cicilanPerBulan,
       cicilanTerakhir: sim.cicilanTerakhir,
+      tarifBulanan: sim.tarif,
       // Konsumen membayar cicilan (pokok + Imbal Hasil) PLUS biaya di muka.
       totalDibayarKonsumen: sim.totalPengembalian + sim.potonganDiMuka,
       jadwal,
@@ -362,6 +373,9 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     marginTotal,
     cicilanPerBulan: pokokPerBulan + marginPerBulan,
     cicilanTerakhir: jadwal[jadwal.length - 1].total,
+    // Kontrak warisan 12/24 bulan tidak memakai tarif bulanan; nilai bawaan
+    // dikirim agar bentuk hasilnya tetap satu.
+    tarifBulanan: tarifBulananAman(input.tarif),
     totalDibayarKonsumen: dp + biayaLayanan + pokokDibiayai + marginTotal,
     jadwal,
     porsiDanaPersen,

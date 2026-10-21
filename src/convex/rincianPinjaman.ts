@@ -37,6 +37,7 @@ async function dokumenRincian(ctx: QueryCtx, loan: Doc<"loans">) {
       tenorHari: loan.tenorHari,
       tenorBulan: loan.tenorBulan ?? null,
       persenBunga: loan.persenBunga ?? null,
+      tarifBulanan: loan.tarifBulanan ?? null,
       cairEkspres: loan.cairEkspres ?? null,
       tarifBiaya: loan.tarifBiaya ?? null,
       didanaiPada: loan.didanaiPada ?? null,

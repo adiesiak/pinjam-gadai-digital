@@ -4,7 +4,7 @@
  * Rule 3 of the guardrails: no float money math. Every derived value is an
  * exact integer rupiah computed with BigInt half-up rounding.
  */
-import { hitungSimulasiBulanan } from "./bulanan";
+import { hitungSimulasiBulanan, type TarifBulanan } from "./bulanan";
 import {
   biayaEkspres,
   TARIF_EKSPRES_DEFAULT,
@@ -372,12 +372,13 @@ export function simulasiBulananPinjaman(loan: {
   pokokPinjaman: Rupiah;
   tenorBulan: number;
   persenBunga?: number;
+  /** Snapshot tarif bulanan pinjaman; kosong = tarif bawaan. */
+  tarifBulanan?: TarifBulanan | null;
 }): ReturnType<typeof hitungSimulasiBulanan> {
-  return hitungSimulasiBulanan(
-    loan.pokokPinjaman,
-    loan.tenorBulan,
-    loan.persenBunga === undefined ? {} : { persenBungaPerBulan: loan.persenBunga },
-  );
+  return hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan, {
+    ...(loan.persenBunga === undefined ? {} : { persenBungaPerBulan: loan.persenBunga }),
+    tarif: loan.tarifBulanan ?? null,
+  });
 }
 
 /**
@@ -530,6 +531,8 @@ export function pelunasanPinjaman(
     didanaiPada?: number;
     /** Snapshot bunga per nasabah; kosong = default global. */
     persenBunga?: number;
+    /** Snapshot tarif bulanan pinjaman; kosong = tarif bawaan. */
+    tarifBulanan?: TarifBulanan | null;
     /** State perpanjangan: sisa pokok, jatuh tempo, dan bunga periode berjalan. */
     remainingPrincipal?: number;
     currentTierRate?: number;

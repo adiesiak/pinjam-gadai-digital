@@ -51,6 +51,7 @@ import { bacaDataDiri } from "../lib/dataDiri";
 import { formatRupiah } from "../lib/money";
 import { namaTampil } from "../lib/nama";
 import { persenBungaPerBulan } from "../lib/bulanan";
+import { tarifBulananDariConfig } from "../lib/system-config";
 import { persenBungaHarian } from "../lib/loan";
 import {
   cariNasabahKembar,
@@ -282,6 +283,9 @@ export const catatPinjamanManual = mutation({
     }
 
     const cfg = await getConfig(ctx);
+    // Tarif bulanan dibekukan pada pinjaman ini, sama seperti jalur pengajuan
+    // nasabah — perubahan tarif admin berikutnya tidak menyentuh kontrak ini.
+    const tarifBulanan = tarifBulananDariConfig(cfg);
     await pastikanPeranPeminjam(ctx, args.userIdTarget, user);
     await ensureKodePeminjam(ctx, args.userIdTarget);
 
@@ -307,7 +311,8 @@ export const catatPinjamanManual = mutation({
       persenBunga:
         bersih.tenorBulan === undefined
           ? persenBungaHarian(bersih.pokokPinjaman, bersih.tenorHari) ?? cfg.persenBunga
-          : persenBungaPerBulan(bersih.tenorBulan),
+          : persenBungaPerBulan(bersih.tenorBulan, tarifBulanan),
+      tarifBulanan: bersih.tenorBulan === undefined ? undefined : tarifBulanan,
       // Identitas dari data diri tersimpan, tidak diketik ulang admin.
       nik: profil?.nik,
       nomorWhatsApp: profil?.nomorWhatsApp,
@@ -446,13 +451,15 @@ export const catatKreditManual = mutation({
       nomorRekening: args.nomorRekening ?? profil.nomorRekening ?? "",
       catatanPeminjam: args.catatanPeminjam,
     });
-    // Mesin kredit yang sama dengan jalur nasabah: DP 0% dan margin tenor
-    // bawaan untuk skema bulanan, sehingga rincian tidak bisa berbeda.
+    // Mesin kredit yang sama dengan jalur nasabah: DP 0%, tarif bulanan dari
+    // Pengaturan Sistem, sehingga rincian tidak bisa berbeda.
+    const tarifBulanan = tarifBulananDariConfig(await getConfig(ctx));
     const quote = quoteKreditBarang({
       hargaBarang: bersih.hargaBarang,
       dpPersen: KREDIT_ASUMSI_AWAL.dpPersen,
       tenorBulan: bersih.tenorBulan,
       marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
+      tarif: tarifBulanan,
     });
     if (!pokokKreditBarangDalamBatas(quote.pokokDibiayai)) {
       throw new Error(
@@ -476,6 +483,7 @@ export const catatKreditManual = mutation({
       dpPersen: KREDIT_ASUMSI_AWAL.dpPersen,
       tenorBulan: bersih.tenorBulan,
       marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
+      tarifBulanan: quote.tarifBulanan,
       status: "diajukan",
       // Nama mengikuti CATATAN pinjaman/kredit terbaru (sumber yang sama dengan
       // ruang penyedia dana), baru data diri — supaya satu orang tidak tampil

@@ -244,10 +244,10 @@ function rincianKeuanganBulanan(bulanan: SimulasiBulanan): string {
     <tbody>
       <tr><td>Pokok acuan</td><td class="angka">${formatRupiah(bulanan.pokokDibiayai)}</td></tr>
       <tr><td>Uang muka (0%)</td><td class="angka">${formatRupiah(bulanan.dp)}</td></tr>
-      <tr><td>Potongan di muka (2%)</td><td class="angka">${formatRupiah(bulanan.potonganDiMuka)}</td></tr>
+      <tr><td>Potongan di muka (${bulanan.tarif.persenBiayaLayananBulanan}%)</td><td class="angka">${formatRupiah(bulanan.potonganDiMuka)}</td></tr>
       <tr><td>Dana bersih diterima</td><td class="angka">${formatRupiah(bulanan.danaDiterima)}</td></tr>
       <tr><td>Bunga/margin total (${bulanan.persenBungaPerBulan}%/bulan, flat)</td><td class="angka">${formatRupiah(bulanan.bungaTotal)}</td></tr>
-      ${bulanan.biayaAdminCicilanTotal > 0 ? `<tr><td>Biaya admin cicilan 2% (${bulanan.tenorBulan} kali bayar)</td><td class="angka">${formatRupiah(bulanan.biayaAdminCicilanTotal)}</td></tr>` : ""}
+      ${bulanan.biayaAdminCicilanTotal > 0 ? `<tr><td>Biaya admin cicilan ${bulanan.tarif.persenBiayaAdminCicilanBulanan}% (${bulanan.tenorBulan} kali bayar)</td><td class="angka">${formatRupiah(bulanan.biayaAdminCicilanTotal)}</td></tr>` : ""}
       <tr class="total"><td>Total pengembalian (${bulanan.tenorBulan} bulan)</td><td class="angka">${formatRupiah(bulanan.totalPengembalian)}</td></tr>
     </tbody>
   </table>`;
@@ -286,11 +286,11 @@ export function buildPinjamanContract(
     bulanan === null
       ? ""
       : (bulanan.tenorBulan === 3 || bulanan.tenorBulan === 6
-          ? `<li>Biaya admin 2%: ${formatRupiah(bulanan.biayaAdminTotal)}.</li>
-      <li>Total potongan di muka 2% (${formatRupiah(bulanan.biayaLayananTotal)}) dipotong di muka dari dana yang diterima — biaya platform dihapus (0%).</li>`
-          : `<li>Biaya layanan 2% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dipotong di muka dari dana yang diterima.</li>`) +
+          ? `<li>Biaya admin ${bulanan.tarif.persenBiayaLayananBulanan}%: ${formatRupiah(bulanan.biayaAdminTotal)}.</li>
+      <li>Total potongan di muka ${bulanan.tarif.persenBiayaLayananBulanan}% (${formatRupiah(bulanan.biayaLayananTotal)}) dipotong di muka dari dana yang diterima — biaya platform dihapus (0%).</li>`
+          : `<li>Biaya layanan ${bulanan.tarif.persenBiayaLayananBulanan}% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dipotong di muka dari dana yang diterima.</li>`) +
         (bulanan.biayaAdminCicilanTotal > 0
-          ? `<li>Biaya admin layanan cicilan 2% dari nominal cicilan: ${formatRupiah(bulanan.biayaAdminCicilanTotal)} selama ${bulanan.tenorBulan} bulan (bulan pertama ${formatRupiah(bulanan.biayaAdminCicilanPerBulan)}), dibayar bersama setiap cicilan.</li>`
+          ? `<li>Biaya admin layanan cicilan ${bulanan.tarif.persenBiayaAdminCicilanBulanan}% dari nominal cicilan: ${formatRupiah(bulanan.biayaAdminCicilanTotal)} selama ${bulanan.tenorBulan} bulan (bulan pertama ${formatRupiah(bulanan.biayaAdminCicilanPerBulan)}), dibayar bersama setiap cicilan.</li>`
           : "");
   const pasalFinansial =
     bulanan === null

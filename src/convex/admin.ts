@@ -11,6 +11,7 @@ import {
   simulasiBulananPinjaman,
 } from "../lib/loan";
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
+import { tarifBulananDariConfig } from "../lib/system-config";
 import {
   AKUN_PLATFORM_DIRECT_REVENUE,
   AKUN_PLATFORM_SPREAD,
@@ -1060,6 +1061,7 @@ export const adminStats = query({
               dpPersen: k.dpPersen,
               tenorBulan: k.tenorBulan,
               marginPersenPerBulan: k.marginPersenPerBulan,
+              tarif: k.tarifBulanan ?? null,
             }).pokokDibiayai
           );
         } catch {
@@ -1225,15 +1227,19 @@ export const adminLoanQuote = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     if (args.tenorBulan !== undefined) {
-      const sim = hitungSimulasiBulanan(
-        args.pokokPinjaman,
-        args.tenorBulan,
-        args.persenBunga === undefined ? {} : { persenBungaPerBulan: args.persenBunga },
-      );
+      // Pratinjau admin memakai tarif yang SAMA dengan mesin pengajuan baru.
+      const tarifBulanan = tarifBulananDariConfig(await getConfig(ctx));
+      const sim = hitungSimulasiBulanan(args.pokokPinjaman, args.tenorBulan, {
+        ...(args.persenBunga === undefined
+          ? {}
+          : { persenBungaPerBulan: args.persenBunga }),
+        tarif: tarifBulanan,
+      });
       return {
         skema: "bulanan" as const,
         tenorBulan: args.tenorBulan,
         tenorBulanTersedia: TENOR_BULANAN_OPTIONS,
+        tarifBulanan,
         pokokDibiayai: sim.pokokDibiayai,
         dp: sim.dp,
         biayaLayanan: sim.biayaLayananTotal,

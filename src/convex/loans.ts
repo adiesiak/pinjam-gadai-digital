@@ -47,6 +47,7 @@ import {
   persenBungaPerBulan,
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
+import { tarifBulananDariConfig } from "../lib/system-config";
 import { bagiImbalHasil } from "../lib/bagiHasil";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah, type Rupiah } from "../lib/money";
@@ -612,6 +613,10 @@ export const createLoanApplication = mutation({
           : pesanPlafonTerlampaui(ringkas.maksimal),
       );
     }
+    // Tarif bulanan dibaca SEKALI di sini dari Pengaturan Parameter Bisnis,
+    // dipakai menghitung, lalu dibekukan pada pinjaman. Pinjaman yang sudah
+    // terbit tidak berubah walau admin mengubah tarif kemudian.
+    const tarifBulanan = tarifBulananDariConfig(sys);
     let tenorBulanSim: number | undefined;
     if (args.tenorBulan !== undefined) {
       if (!(TENOR_BULANAN_OPTIONS as readonly number[]).includes(args.tenorBulan)) {
@@ -619,7 +624,9 @@ export const createLoanApplication = mutation({
           `Tenor bulanan harus salah satu dari ${TENOR_BULANAN_OPTIONS.join(" / ")} bulan.`,
         );
       }
-      assertSimulasiBulananValid(args.pokokPinjaman, args.tenorBulan);
+      assertSimulasiBulananValid(args.pokokPinjaman, args.tenorBulan, {
+        tarif: tarifBulanan,
+      });
       tenorBulanSim = args.tenorBulan;
     } else {
       // Batas atas = plafon TERSEDIA nasabah, bukan batas produk Rp1 juta:
@@ -658,9 +665,9 @@ export const createLoanApplication = mutation({
       persenBungaSimpanan =
         persenBungaHarian(args.pokokPinjaman, args.tenorHari) ?? PINDAI_PRICING.bungaPercent;
     } else {
-      // Skema bulanan: bunga per bulan mengikuti tenor (1 bulan 30%, 3–5 bulan
-      // 25%, 6 bulan ke atas 20%), sama dengan tabel di halaman ketentuan.
-      persenBungaSimpanan = persenBungaPerBulan(tenorBulanSim);
+      // Skema bulanan: bunga per bulan mengikuti tenor dan tarif yang berlaku
+      // (bawaan 30/25/20% per bulan), sama dengan tabel di halaman ketentuan.
+      persenBungaSimpanan = persenBungaPerBulan(tenorBulanSim, tarifBulanan);
     }
 
     // Nama peminjam selalu disimpan UPPERCASE agar konsisten di dashboard.
@@ -776,6 +783,9 @@ export const createLoanApplication = mutation({
       // setelahnya. Untuk tenor harian, nilai ini sudah dihitung dari matriks
       // di atas; untuk bulanan tetap memakai tarif akun per bulan.
       persenBunga: persenBungaSimpanan,
+      // Snapshot TARIF bulanan lengkap: jadwal, kontrak, dan bagi hasil pinjaman
+      // ini dihitung ulang dari angka ini, bukan dari konfigurasi hari ini.
+      tarifBulanan: tenorBulanSim === undefined ? undefined : tarifBulanan,
       nik,
       nomorWhatsApp: wa,
       penghasilanBulanan: args.penghasilanBulanan,
@@ -1468,6 +1478,7 @@ async function setLoanStatus(
       : loan.tenorBulan !== undefined
         ? hitungSimulasiBulanan(pokokPinjaman, loan.tenorBulan, {
             ...(loan.persenBunga === undefined ? {} : { persenBungaPerBulan: loan.persenBunga }),
+            tarif: loan.tarifBulanan ?? null,
           }).totalPengembalian
         : loan.persenBunga === undefined
           ? quoteLoan(pokokPinjaman).totalKewajibanPelunasan

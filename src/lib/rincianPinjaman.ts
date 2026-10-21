@@ -7,6 +7,7 @@
  * dihitung ulang di sini. Dua tempat yang menghitung sendiri cepat atau lambat
  * akan berbeda angka dengan yang dilihat peminjam di layarnya.
  */
+import type { TarifBulanan } from "./bulanan";
 import {
   loanPurposeLabel,
   pelunasanPinjaman,
@@ -67,6 +68,8 @@ export type PinjamanUntukRincian = {
   tenorHari: number;
   tenorBulan?: number | null;
   persenBunga?: number | null;
+  /** Snapshot tarif skema bulanan; null/kosong = tarif bawaan. */
+  tarifBulanan?: TarifBulanan | null;
   /** Centang cair ekspres peminjam; null/kosong = data lama (ekspres dipakai). */
   cairEkspres?: boolean | null;
   /** Snapshot tarif potongan di muka; null/kosong = tarif bawaan. */
@@ -107,12 +110,12 @@ function tanggal(ms: number): string {
   return formatTanggalWIB(ms);
 }
 
-/** Label komponen potongan di muka mengikuti tenor yang memakainya. */
-function labelPotonganDiMuka(tenorBulan: number): string {
+/** Label komponen potongan di muka mengikuti tenor & tarif yang dipakainya. */
+function labelPotonganDiMuka(tenorBulan: number, persen: number): string {
   const adminPlatform = tenorBulan === 3 || tenorBulan === 6;
   return adminPlatform
-    ? "Biaya admin (2%, dipotong di muka)"
-    : "Biaya layanan (2%, dipotong di muka)";
+    ? `Biaya admin (${persen}%, dipotong di muka)`
+    : `Biaya layanan (${persen}%, dipotong di muka)`;
 }
 
 /**
@@ -140,6 +143,7 @@ export function susunRincianPinjaman(
       ...(loan.persenBunga === null || loan.persenBunga === undefined
         ? {}
         : { persenBunga: loan.persenBunga }),
+      tarifBulanan: loan.tarifBulanan ?? null,
     },
     opsi.sekarang,
     opsi.dendaPerHari,
@@ -172,10 +176,17 @@ export function susunRincianPinjaman(
       ...(loan.persenBunga === null || loan.persenBunga === undefined
         ? {}
         : { persenBunga: loan.persenBunga }),
+      tarifBulanan: loan.tarifBulanan ?? null,
     });
     const dana: BarisRincian[] = [
       { label: "Pokok dibiayai", nilai: rp(sim.pokokDibiayai) },
-      { label: labelPotonganDiMuka(tenorBulan), nilai: rp(sim.potonganDiMuka) },
+      {
+        label: labelPotonganDiMuka(
+          tenorBulan,
+          sim.tarif.persenBiayaLayananBulanan,
+        ),
+        nilai: rp(sim.potonganDiMuka),
+      },
       { label: "Dana bersih ke rekening", nilai: rp(sim.danaDiterima), tegas: true },
     ];
     const rekening = rekeningTujuan(loan);
@@ -195,7 +206,7 @@ export function susunRincianPinjaman(
       nilai: rp(sim.bungaTotal),
     });
     bayar.push({
-      label: "Biaya admin tiap cicilan (2% dari nominal cicilan)",
+      label: `Biaya admin tiap cicilan (${sim.tarif.persenBiayaAdminCicilanBulanan}% dari nominal cicilan)`,
       nilai: rp(sim.biayaAdminCicilanTotal),
     });
     bayar.push({

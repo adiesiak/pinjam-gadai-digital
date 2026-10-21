@@ -43,10 +43,12 @@ import {
 } from "@/lib/tarifBiayaTeks";
 import {
   hitungSimulasiBulanan,
+  tarifBulananAman,
   TENOR_BULANAN_OPTIONS,
   BULANAN_LIMITS,
   BULANAN_PRICING,
   persenBungaPerBulan,
+  type TarifBulanan,
 } from "@/lib/bulanan";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,6 +78,7 @@ function daftarFaq(
   dendaPerHari: number,
   maksDenda: number,
   tarif: TarifBiaya,
+  tarifBulanan: TarifBulanan,
 ) {
   return [
   {
@@ -88,7 +91,7 @@ function daftarFaq(
   },
   {
     q: "Kapan biaya pinjaman dipotong?",
-    a: `Potongan di muka: ${rincianPotonganDiMuka(tarif)}, dihitung dari pokok. Setiap pembayaran bulanan juga dikenai biaya admin cicilan ${persenTeks(BULANAN_PRICING.biayaAdminCicilanPersen)} dari nominal cicilan.`,
+    a: `Potongan di muka: ${rincianPotonganDiMuka(tarif)}, dihitung dari pokok. Setiap pembayaran bulanan juga dikenai biaya admin cicilan ${persenTeks(tarifBulanan.persenBiayaAdminCicilanBulanan)} dari nominal cicilan.`,
   },
   {
     q: "Apa yang dicatat untuk gadai?",
@@ -161,16 +164,17 @@ function Header() {
 }
 
 /**
- * Kalkulator publik memakai tarif bunga yang sama dengan dashboard Peminjam
- * (`system.getKetentuanBiaya`), bukan tarif tenor bawaan mesin bulanan. Untuk
- * pinjaman 3 dan 6 bulan, dashboard/form memakai bunga efektif akun per bulan
- * (bawaan 30%), sehingga angka di sini harus mengikuti angka itu.
+ * Kalkulator publik memakai tarif yang sama dengan mesin pengajuan
+ * (`system.getKetentuanBiaya`): potongan di muka dan tarif bulanan per tenor.
+ * Bunga bulanan TIDAK dipatok 30% untuk semua tenor — 3 dan 6 bulan memakai
+ * tarifnya sendiri, sama seperti tabel di halaman ini.
  */
 function KalkulatorRingkas({
-  persenBunga,
+  tarifBulanan,
   tarif,
 }: {
-  persenBunga: number;
+  /** Tarif bulanan dari Pengaturan Parameter Bisnis. */
+  tarifBulanan: TarifBulanan;
   /** Tarif potongan di muka dari Pengaturan Parameter Bisnis. */
   tarif: TarifBiaya;
 }) {
@@ -207,12 +211,12 @@ function KalkulatorRingkas({
   const simulasiBulanan = useMemo(() => {
     try {
       return hitungSimulasiBulanan(pokokBulanan, tenorBulanan, {
-        persenBungaPerBulan: persenBunga,
+        tarif: tarifBulanan,
       });
     } catch {
       return null;
     }
-  }, [pokokBulanan, tenorBulanan, persenBunga]);
+  }, [pokokBulanan, tenorBulanan, tarifBulanan]);
   const simulasiGadai = useMemo(() => {
     try {
       return quoteGadai(pokokGadai, GADAI_PRICING.sewaModalMinPercent);
@@ -343,7 +347,7 @@ function KalkulatorRingkas({
         {simulasiBulanan ? (
           <dl className="mt-4 divide-y divide-slate-100 text-sm">
             <Baris
-              label={`Potongan awal ${BULANAN_PRICING.biayaLayananPersen}%`}
+              label={`Potongan awal ${tarifBulanan.persenBiayaLayananBulanan}%`}
               nilai={formatRupiah(simulasiBulanan.potonganDiMuka)}
             />
             <Baris
@@ -492,6 +496,8 @@ export type KetentuanDendaTampil = {
   persenBunga?: number;
   /** Tarif potongan di muka yang dipakai mesin harga (admin, asuransi, ekspres). */
   tarifBiaya?: Partial<TarifBiaya> | null;
+  /** Tarif skema bulanan (bunga 1/3/6 bulan, biaya layanan, admin cicilan). */
+  tarifBulanan?: Partial<TarifBulanan> | null;
 };
 
 export function PublicInfoPageView({
@@ -506,10 +512,10 @@ export function PublicInfoPageView({
   // Tarif potongan di muka mengikuti pengaturan admin yang sama dengan
   // formulir pengajuan; kosong berarti tarif bawaan mesin harga.
   const tarif = tarifBiayaAman(ketentuan?.tarifBiaya);
-  const faqItems = daftarFaq(dendaPerHari, maksDenda, tarif);
-  // Tarif bunga publik = tarif global Pengaturan Sistem (bawaan 30%). Bunga
+  // Tarif bulanan publik = tarif yang dipakai mesin pengajuan baru. Bunga
   // khusus per nasabah bisa berbeda dan hanya terlihat setelah masuk.
-  const persenBunga = ketentuan?.persenBunga ?? PINDAI_PRICING.bungaPercent;
+  const tarifBulanan = tarifBulananAman(ketentuan?.tarifBulanan);
+  const faqItems = daftarFaq(dendaPerHari, maksDenda, tarif, tarifBulanan);
   const biaya = pathname === "/biaya";
   const cara = pathname === "/cara-kerja";
   const gadai = pathname === "/layanan/gadai";
@@ -615,7 +621,7 @@ export function PublicInfoPageView({
                 <h2 className="mb-4 text-xl font-semibold">
                   Contoh perhitungan
                 </h2>
-                <KalkulatorRingkas persenBunga={persenBunga} tarif={tarif} />
+                <KalkulatorRingkas tarifBulanan={tarifBulanan} tarif={tarif} />
               </div>
             )}
             <div>
@@ -670,7 +676,7 @@ export function PublicInfoPageView({
                           : ""}
                       </td>
                       <td className="px-4 py-3">
-                        {BULANAN_PRICING.biayaLayananPersen}% dari pokok
+                        {tarifBulanan.persenBiayaLayananBulanan}% dari pokok
                       </td>
                     </tr>
                     <tr>
@@ -691,8 +697,11 @@ export function PublicInfoPageView({
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {persenBunga}% per bulan dari pokok penuh untuk semua
-                        tenor (tarif dasar; bunga khusus akun dapat berbeda)
+                        {tarifBulanan.persenBungaBulanan1}%/{" "}
+                        {tarifBulanan.persenBungaBulanan3}%/{" "}
+                        {tarifBulanan.persenBungaBulanan6}% per bulan dari pokok
+                        penuh untuk tenor 1/3/6 bulan (tarif dasar; bunga khusus
+                        akun dapat berbeda)
                       </td>
                     </tr>
                     <tr>
@@ -703,8 +712,9 @@ export function PublicInfoPageView({
                         Tidak ada skema cicilan bulanan
                       </td>
                       <td className="px-4 py-3">
-                        {BULANAN_PRICING.biayaAdminCicilanPersen}% dari cicilan
-                        pada setiap pembayaran bulanan (tenor 1, 3, dan 6 bulan)
+                        {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari
+                        cicilan pada setiap pembayaran bulanan (tenor 1, 3, dan 6
+                        bulan)
                       </td>
                     </tr>
                   </tbody>
@@ -747,11 +757,13 @@ export function PublicInfoPageView({
                 {formatRupiah(KREDIT_BARANG_POKOK_MAKS)}. Tenor{" "}
                 {TENOR_BULANAN_OPTIONS.join("/")} bulan, DP{" "}
                 {BULANAN_PRICING.dpPersen}%, potongan awal{" "}
-                {BULANAN_PRICING.biayaLayananPersen}%, bunga flat{" "}
-                {persenBungaPerBulan(1)}/{persenBungaPerBulan(3)}/
-                {persenBungaPerBulan(6)}% per bulan; setiap cicilan bulanan
-                dikenai biaya admin cicilan{" "}
-                {BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan.{" "}
+                {tarifBulanan.persenBiayaLayananBulanan}%, bunga flat{" "}
+                {persenBungaPerBulan(1, tarifBulanan)}/
+                {persenBungaPerBulan(3, tarifBulanan)}/
+                {persenBungaPerBulan(6, tarifBulanan)}% per bulan; setiap
+                cicilan bulanan dikenai biaya admin cicilan{" "}
+                {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari nominal
+                cicilan.{" "}
                 <Link
                   to="/layanan/kredit-barang"
                   className="font-semibold text-emerald-900 underline underline-offset-4"
@@ -797,15 +809,16 @@ export function PublicInfoPageView({
               <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
                 <li>Tenor baru 1, 3, atau 6 bulan dengan DP 0%.</li>
                 <li>
-                  Biaya awal {BULANAN_PRICING.biayaAdminPersen}% dan bunga flat
-                  dari pokok penuh: {persenBungaPerBulan(1)}%,{" "}
-                  {persenBungaPerBulan(3)}%, atau {persenBungaPerBulan(6)}% per
-                  bulan sesuai tenor.
+                  Biaya awal {tarifBulanan.persenBiayaLayananBulanan}% dan bunga
+                  flat dari pokok penuh: {persenBungaPerBulan(1, tarifBulanan)}%,{" "}
+                  {persenBungaPerBulan(3, tarifBulanan)}%, atau{" "}
+                  {persenBungaPerBulan(6, tarifBulanan)}% per bulan sesuai tenor.
                 </li>
                 <li>
-                  Biaya admin cicilan {BULANAN_PRICING.biayaAdminCicilanPersen}%
-                  dari nominal cicilan berlaku pada setiap pembayaran bulanan
-                  (tenor 1, 3, dan 6 bulan).
+                  Biaya admin cicilan{" "}
+                  {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari nominal
+                  cicilan berlaku pada setiap pembayaran bulanan (tenor 1, 3, dan
+                  6 bulan).
                 </li>
                 <li>
                   Pokok pembiayaan maksimal{" "}

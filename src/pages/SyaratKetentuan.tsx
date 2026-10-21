@@ -43,8 +43,11 @@ import {
 import {
   BULANAN_LIMITS,
   BULANAN_PRICING,
+  TARIF_BULANAN_DEFAULT,
   TENOR_BULANAN_OPTIONS,
   persenBungaPerBulan,
+  tarifBulananAman,
+  type TarifBulanan,
 } from "@/lib/bulanan";
 import { GADAI_PRICING } from "@/lib/gadai";
 import { KREDIT_BARANG_POKOK_MAKS } from "@/lib/kredit";
@@ -119,6 +122,8 @@ type TarifDenda = {
   maks: number;
   /** Potongan di muka dari Pengaturan Parameter Bisnis (admin, asuransi, ekspres). */
   tarif: TarifBiaya;
+  /** Tarif skema bulanan (bunga 1/3/6 bulan, biaya layanan, admin cicilan). */
+  tarifBulanan: TarifBulanan;
 };
 
 /** Nilai bawaan dipakai saat halaman dirender tanpa Convex (mis. test statis). */
@@ -126,6 +131,7 @@ const TarifDendaContext = createContext<TarifDenda>({
   perHari: LATE_FEE_POLICY.percentPerDay,
   maks: LATE_FEE_POLICY.maxPercent,
   tarif: TARIF_BIAYA_DEFAULT,
+  tarifBulanan: TARIF_BULANAN_DEFAULT,
 });
 
 /**
@@ -168,6 +174,39 @@ function AyatBiayaPotongan() {
       . Biaya platform {persenTeks(PINDAI_PRICING.platformFeePercent)}, sehingga
       total potongan di muka bergantung pada nominal dan dana bersih adalah
       pokok setelah seluruh potongan tersebut.
+    </Ayat>
+  );
+}
+
+/**
+ * Ayat tarif bulanan — dibaca dari Pengaturan Parameter Bisnis supaya syarat
+ * tidak pernah menyebut angka berbeda dengan yang dipakai mesin pengajuan.
+ *
+ * `kredit` hanya mengganti kalimat pembuka: tarifnya sama, karena kredit barang
+ * memakai mesin bulanan yang sama.
+ */
+function AyatTarifBulanan({ kredit = false }: { kredit?: boolean }) {
+  const { tarifBulanan } = useContext(TarifDendaContext);
+  return (
+    <Ayat>
+      {kredit ? (
+        <>
+          Biaya awal {tarifBulanan.persenBiayaLayananBulanan}% dipotong di muka.
+          Bunga flat per bulan dari pokok penuh mengikuti tenor:{" "}
+        </>
+      ) : (
+        <>
+          Untuk pinjaman bulanan, bunga flat dari pokok penuh mengikuti tenor:{" "}
+        </>
+      )}
+      <strong>{tarifBulanan.persenBungaBulanan1}%</strong> untuk tenor 1 bulan,{" "}
+      <strong>{tarifBulanan.persenBungaBulanan3}%</strong> untuk tenor 3 bulan,
+      dan <strong>{tarifBulanan.persenBungaBulanan6}%</strong> untuk tenor 6
+      bulan. Bunga khusus akun dapat berbeda. Potongan awal{" "}
+      {tarifBulanan.persenBiayaLayananBulanan}% berlaku pada skema bulanan;
+      setiap pembayaran bulanan juga dikenai biaya admin cicilan{" "}
+      {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari nominal cicilan.
+      Periksa angka khusus pada pengajuan dan perjanjian Anda.
     </Ayat>
   );
 }
@@ -333,15 +372,7 @@ const PASAL: Pasal[] = [
             {persenBungaHarian(2_000_000, 28)}%). Bunga dihitung flat dari pokok;
             total kewajiban pelunasan = pokok + bunga.
           </Ayat>
-          <Ayat>
-            Untuk pinjaman bulanan, bunga flat dari pokok penuh mengikuti tarif
-            akun (bawaan {PINDAI_PRICING.bungaPercent}% per bulan) untuk semua
-            tenor. Potongan awal {BULANAN_PRICING.biayaLayananPersen}% berlaku
-            pada skema bulanan; setiap pembayaran bulanan juga memiliki biaya
-            admin cicilan {BULANAN_PRICING.biayaAdminCicilanPersen}% dari
-            nominal cicilan. Periksa angka khusus pada pengajuan dan perjanjian
-            Anda.
-          </Ayat>
+          <AyatTarifBulanan />
         </ul>
       </>
     ),
@@ -419,14 +450,7 @@ const PASAL: Pasal[] = [
           }).format(KREDIT_BARANG_POKOK_MAKS)}
           .
         </Ayat>
-        <Ayat>
-          Biaya awal {BULANAN_PRICING.biayaLayananPersen}% dipotong di muka.
-          Bunga flat per bulan dari pokok penuh adalah {persenBungaPerBulan(1)}
-          %, {persenBungaPerBulan(3)}%, atau {persenBungaPerBulan(6)}% sesuai
-          tenor. Biaya admin cicilan{" "}
-          {BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan
-          dibayar pada setiap pembayaran bulanan.
-        </Ayat>
+        <AyatTarifBulanan kredit />
         <Ayat>
           Jadwal cicilan per bulan adalah ilustrasi, bukan catatan pembayaran
           tiap angsuran. Tim PINDAI memperbarui status pelunasan penuh pada
@@ -566,6 +590,8 @@ export type KetentuanDendaTampil = {
   maksDendaPersen?: number;
   /** Tarif potongan di muka dari Pengaturan Parameter Bisnis. */
   tarifBiaya?: Partial<TarifBiaya> | null;
+  /** Tarif skema bulanan dari Pengaturan Parameter Bisnis. */
+  tarifBulanan?: Partial<TarifBulanan> | null;
 };
 
 /** Isi halaman tanpa query; tarif denda masuk lewat context di atas. */
@@ -581,6 +607,7 @@ export function SyaratKetentuanView({
           ketentuan?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
         maks: ketentuan?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent,
         tarif: tarifBiayaAman(ketentuan?.tarifBiaya),
+        tarifBulanan: tarifBulananAman(ketentuan?.tarifBulanan),
       }}
     >
       <IsiSyaratKetentuan />
