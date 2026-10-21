@@ -606,13 +606,21 @@ export function ChecklistVerifikasi({
   nonaktif?: boolean;
 }) {
   const kurang = checklistKurang(nilai);
+  const tercentang = CHECKLIST_KYC.length - kurang.length;
   return (
-    <fieldset className="min-w-0" disabled={nonaktif}>
-      <legend className="text-[11px] font-semibold text-slate-800">
-        Checklist pemeriksaan berkas ({CHECKLIST_KYC.length - kurang.length}/
-        {CHECKLIST_KYC.length} tercentang)
-      </legend>
-      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+    // Judul dipindah ke `aria-label` dan label ringkas di baris yang sama dengan
+    // kotaknya: sebelumnya judul satu baris + empat label berulang "(wajib)"
+    // memakan dua baris dan mendesak area bukti. Keempat butir memang wajib,
+    // jadi penandanya cukup sekali di sini — bukan diulang tiap butir.
+    <fieldset
+      className="min-w-0"
+      disabled={nonaktif}
+      aria-label={`Checklist pemeriksaan berkas (${tercentang}/${CHECKLIST_KYC.length} tercentang). Semua butir wajib.`}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span aria-hidden className="text-[11px] font-semibold text-slate-800">
+          Checklist ({tercentang}/{CHECKLIST_KYC.length}):
+        </span>
         {CHECKLIST_KYC.map((item) => (
           <label
             key={item.id}
@@ -624,7 +632,6 @@ export function ChecklistVerifikasi({
               onCheckedChange={(v) => onUbah(item.id, v === true)}
             />
             {item.label}
-            {item.wajib ? <span className="text-slate-500">(wajib)</span> : null}
           </label>
         ))}
       </div>

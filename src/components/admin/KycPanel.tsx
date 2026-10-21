@@ -971,12 +971,10 @@ function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
         </div>
       )}
 
-      {/* Satu baris alat: cara membuka penampil + mode bandingkan. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] leading-4 text-slate-700">
-          Klik foto untuk membuka penampil ber-zoom: gulir untuk zoom, tombol putar 90°, seret untuk
-          menggeser, dan panah untuk pindah berkas.
-        </p>
+      {/* Alat bandingkan duduk satu baris saja; petunjuk penampil ber-zoom
+          dipindah ke bawah foto supaya bingkai berkas mulai lebih tinggi dan
+          tidak terdorong ke bawah area baca yang pendek. */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1005,16 +1003,18 @@ function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
         </TooltipProvider>
       </div>
 
-      {/* Area bukti diberi tinggi minimum 60% viewport dan minimal DUA kolom
-          foto (tiga berkas = 2 + 1). Satu berkas pun tetap satu kolom penuh:
-          memaksa dua kolom saat berkasnya tinggal satu hanya mengecilkan foto. */}
+      {/* Tinggi bingkai mengikuti rasio berkasnya, BUKAN tinggi viewport: panel
+          ini punya area baca sendiri, dan paksaan 60dvh dulu membuat foto
+          memakan seluruh ruang sampai checklist dan OCR terdorong ke bawah.
+          Kolom kedua baru dibuka bila lebar panelnya cukup (container query),
+          jadi foto tidak mengecil hanya karena jendela selebar 1366px. */}
       {bandingkan && ktp !== undefined && selfie !== undefined ? (
         <BandingkanBukti kiri={ktp.bukti} kanan={selfie.bukti} />
       ) : (
         <div
           className={cn(
-            "grid min-h-[60dvh] content-start gap-3",
-            slot.length > 1 ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1",
+            "grid content-start gap-3",
+            slot.length > 1 ? "grid-cols-1 @xl:grid-cols-2" : "grid-cols-1",
           )}
         >
           {slot.map(({ meta, bukti, url }) => (
@@ -1065,6 +1065,10 @@ function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
           ))}
         </div>
       )}
+      <p className="text-[10px] leading-4 text-slate-600">
+        Klik foto untuk membuka penampil ber-zoom: gulir untuk zoom, tombol putar 90°, seret untuk
+        menggeser, dan panah untuk pindah berkas.
+      </p>
       <p className="text-[10px] leading-4 text-muted-foreground">
         Dokumen ini privat: URL-nya bertanda tangan & berumur pendek, hanya keluar untuk admin
         ber-TOTP, dan tidak pernah ditampilkan ke pendana atau pemantau.
@@ -1535,7 +1539,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
   };
 
   return (
-    <div className="animate-masuk flex flex-col gap-3 lg:h-[calc(100dvh-8.5rem)] lg:overflow-hidden">
+    <div className="animate-masuk flex flex-col gap-3 lg:h-[calc(100dvh-7.5rem)] lg:overflow-hidden">
       {/* ===== Baris ringkas: pintasan antrean (kiri) + cacah antrean (kanan).
           Kartu judul modul sengaja tidak diulang di sini: namanya sudah ada di
           breadcrumb kepala panel, dan tinggi layar lebih berharga untuk bukti. */}
@@ -1733,11 +1737,13 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                   </TabsList>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                <div className="@container min-h-0 flex-1 overflow-y-auto p-3">
                   {/* Bukti di KIRI, hasil OCR di KANAN: petugas mencocokkan teks
-                      mesin dengan fotonya tanpa berpindah tab. */}
+                      mesin dengan fotonya tanpa berpindah tab. Samping-ke-samping
+                      hanya saat panelnya benar-benar lebar; di jendela 1280–1536
+                      dua kolom justru membuat keduanya terjepit. */}
                   <TabsContent value="berkas" className="mt-0">
-                    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+                    <div className="grid gap-3 @5xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
                       <div className="min-w-0">
                         <KycDokumenRingkas detail={detail} />
                       </div>
@@ -1781,7 +1787,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
 
               {/* ===== BAR AKSI: checklist, catatan, dan tiga keputusan. Menempel
                   di bawah panel sehingga selalu terlihat tanpa menggulir. ===== */}
-              <footer className="sticky bottom-0 z-20 shrink-0 space-y-2 border-t border-slate-200 bg-white p-3 shadow-[0_-2px_10px_rgba(15,23,42,0.06)] lg:static">
+              <footer className="sticky bottom-0 z-20 shrink-0 space-y-2 border-t border-slate-200 bg-white px-3 py-2 shadow-[0_-2px_10px_rgba(15,23,42,0.06)] lg:static">
                 <ChecklistVerifikasi
                   nilai={checklist}
                   onUbah={ubahChecklist}
@@ -1874,11 +1880,30 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                   </div>
                 </div>
 
-                {/* Microcopy yang tidak boleh hilang: VERIFIED bukan persetujuan pinjaman. */}
-                <p className="text-[11px] leading-4 text-slate-600">
-                  Status VERIFIED berarti identitas sudah diperiksa — bukan persetujuan pinjaman dan
-                  bukan bukti dana cair.
-                </p>
+                {/* Satu baris penutup: microcopy yang tidak boleh hilang (VERIFIED
+                    bukan persetujuan pinjaman), pintasan papan tombol, dan aksi
+                    tagihan. Dulu tiga blok terpisah; digabung supaya area bukti
+                    di atasnya tidak terjepit di layar 768px. */}
+                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                  <p className="min-w-0 max-w-[34rem] text-[11px] leading-4 text-slate-600">
+                    Status VERIFIED berarti identitas sudah diperiksa — bukan persetujuan pinjaman dan
+                    bukan bukti dana cair.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {/* Petunjuk pintasan disembunyikan di layar sempit/laptop:
+                        bar aksi menempel, dan baris tambahan di sana justru
+                        memakan tinggi area bukti. Pintasannya tetap berfungsi. */}
+                    <p className="hidden min-w-0 items-center gap-1.5 text-[11px] text-slate-600 2xl:flex">
+                      <Keyboard className="size-3.5 shrink-0" aria-hidden />
+                      Pintasan: {PINTASAN_KYC.map((p) => `${p.tombol} ${p.arti}`).join(" · ")}
+                    </p>
+                    <AksiNotifikasiTagihan
+                      userId={dipilih}
+                      nama={detail.namaLengkap ?? "Nasabah"}
+                      className="h-7 shrink-0 px-2 text-[11px]"
+                    />
+                  </div>
+                </div>
 
                 {alasanNonaktif.length > 0 && (
                   <ul className="space-y-0.5 text-[11px] leading-4 text-slate-700">
@@ -1887,23 +1912,6 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                     ))}
                   </ul>
                 )}
-
-                {/* Baris bantu: pintasan papan tombol (kiri) dan satu aksi
-                    tagihan per nasabah (kanan). Aksi tagihan ditaruh di sini —
-                    bukan di kepala identitas — supaya nama lengkap dan kode
-                    nasabah tetap satu baris, sementara tombol ini selalu
-                    terlihat karena bar aksi menempel di bawah panel. */}
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-                  <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-slate-600">
-                    <Keyboard className="size-3.5 shrink-0" aria-hidden />
-                    Pintasan: {PINTASAN_KYC.map((p) => `${p.tombol} ${p.arti}`).join(" · ")}
-                  </p>
-                  <AksiNotifikasiTagihan
-                    userId={dipilih}
-                    nama={detail.namaLengkap ?? "Nasabah"}
-                    className="h-7 shrink-0 px-2 text-[11px]"
-                  />
-                </div>
               </footer>
             </>
           )}

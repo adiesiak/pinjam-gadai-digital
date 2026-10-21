@@ -797,7 +797,11 @@ for (const status of KYC_STATUS) {
     ada(html, item.label, `checklist memuat "${item.label}"`);
   }
   ada(html, "(0/4 tercentang)", "cacah checklist tampil");
-  ada(html, "(wajib)", "item wajib ditandai sebagai wajib");
+  ada(html, "Semua butir wajib.", "status wajib dinyatakan sekali untuk seluruh checklist");
+  ok(
+    !html.includes("(wajib)"),
+    "penanda wajib tidak diulang di tiap butir (makan tinggi bar aksi)",
+  );
   bersih(html, "checklist kosong");
 
   ok(!checklistLengkap(CHECKLIST_KYC_KOSONG), "checklist kosong belum lengkap");
@@ -873,8 +877,18 @@ for (const status of KYC_STATUS) {
 
   ok(LEBAR_DAFTAR_KYC === 320, "lebar kolom daftar antrean 320px");
   ada(panel, "xl:grid-cols-[320px_minmax(0,1fr)]", "daftar 320px dan detail mengambil sisa lebar");
-  ada(panel, "min-h-[60dvh]", "area bukti minimal 60% tinggi viewport");
-  ada(panel, "lg:grid-cols-2", "foto berkas minimal dua kolom di layar lebar");
+  // Tinggi bukti mengikuti rasio berkas, bukan tinggi viewport: panel ini punya
+  // area baca sendiri, dan 60dvh dulu mendorong checklist keluar layar.
+  ok(
+    !panel.includes("min-h-[60dvh]"),
+    "area bukti tidak dipaksa setinggi 60% layar",
+  );
+  ada(panel, "@xl:grid-cols-2", "foto berkas dua kolom saat lebar panel mencukupi");
+  ada(
+    panel,
+    "@5xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]",
+    "hasil OCR pindah ke samping hanya pada panel yang lebar",
+  );
   ada(panel, "sticky bottom-0", "bar aksi menempel di bawah panel detail");
   ada(panel, "KUERI_LAYAR_SEMPIT_KYC", "daftar antrean punya ambang laci untuk layar sempit");
 
