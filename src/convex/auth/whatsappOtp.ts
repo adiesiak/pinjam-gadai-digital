@@ -1,24 +1,25 @@
 /**
- * PROVIDER LOGIN WHATSAPP OTP untuk PEMINJAM LAMA PINDAI.
+ * PROVIDER LOGIN WHATSAPP OTP untuk peminjam lama DAN peminjam baru PINDAI.
  *
  * Kenapa provider kredensial khusus, bukan `Phone` bawaan Convex Auth: provider
  * `Phone` memasangkan akun lewat `authAccounts` (provider + nomor), sehingga
- * nomor yang sudah ada di data impor akan membuat akun BARU yang kosong —
- * justru masalah yang mau diselesaikan. Di sini kode OTP diverifikasi oleh
- * `klaimPeminjam._klaimUntukMasuk`, dan yang dikembalikan adalah akun pemilik
- * data lama itu sendiri: peminjam masuk ke portofolionya, bukan ke akun baru.
+ * nomor yang sudah ada di data impor akan membuat akun BARU yang kosong. Di
+ * sini kode OTP diverifikasi oleh `klaimPeminjam._klaimUntukMasuk`: nomor
+ * pemilik data lama masuk ke akun pemiliknya sendiri, sedangkan nomor baru
+ * memakai akun yang sudah terhubung ke nomor itu atau mendapat akun peminjam
+ * baru setelah kode benar.
  *
  * Alur lengkap:
  *  1. Klien meminta kode: `POST klaimPeminjam.mintaKodeKlaim({ nomor })`.
- *     Nomor dicari lewat indeks `by_nomorWhatsApp`; tidak ada data lama =
- *     permintaan ditolak jujur (tidak ada akun kosong yang dikarang).
+ *     Nomor lama maupun baru sama-sama menerima kode; balasannya tidak
+ *     mengungkap apakah nomor itu sudah punya akun.
  *  2. Klien memanggil `signIn("whatsapp-otp", { phoneNumber, otpCode })`.
- *  3. `authorize` menjalankan verifikasi + penautan di satu mutation internal,
- *     lalu mengembalikan `userId` akun pemilik data lama.
+ *  3. `authorize` menjalankan verifikasi di satu mutation internal, lalu
+ *     mengembalikan `userId` akun yang berhak atas nomor tersebut.
  *
  * Tidak ada kode yang melewati provider ini: verifikasi, pembatas percobaan,
- * sekali pakai, dan penautan semuanya hidup di `convex/klaimPeminjam.ts` supaya
- * hitungan percobaan tidak bisa dilewati lewat jalur lain.
+ * sekali pakai, dan penentuan akun semuanya hidup di `convex/klaimPeminjam.ts`
+ * supaya hitungan percobaan tidak bisa dilewati lewat jalur lain.
  */
 import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import type { AuthProviderConfig } from "@convex-dev/auth/server";

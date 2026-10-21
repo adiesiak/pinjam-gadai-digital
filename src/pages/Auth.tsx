@@ -183,8 +183,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     authMode === "admin" || searchParams.get("returnTo") === ADMIN_ROUTE;
   // Langkah jalur nasabah — satu medan, dua jalur kode:
   //  - `{ email }`: kode 6 angka ke email (provider `email-otp`);
-  //  - `{ nomor }`: kode 6 angka ke WhatsApp peminjam LAMA, dan kode yang benar
-  //    memberi sesi akun PEMILIK data lama (provider `whatsapp-otp`).
+  //  - `{ nomor }`: kode 6 angka ke WhatsApp. Nomor peminjam lama memberi sesi
+  //    akun pemilik datanya; nomor baru membuat akun peminjam (provider
+  //    `whatsapp-otp`).
   const [clientStep, setClientStep] = useState<
     | "signIn"
     | { email: string }
@@ -383,10 +384,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
    * Keduanya lewat kolom yang sama sehingga peminjam lama tidak perlu
    * menemukan tombol khusus dulu:
    *  - berisi `@` → provider `email-otp` mengirim kode ke email itu;
-   *  - berbentuk nomor → `klaimPeminjam.mintaKodeKlaim` mengirim kode WhatsApp
-   *    ke nomor tersebut, dan kode yang benar nanti memberi sesi akun PEMILIK
-   *    data lama (`whatsapp-otp`), bukan akun baru yang kosong.
-   * Nomor yang tidak dikenali ditolak di sini, sebelum ada permintaan terkirim.
+   *  - berbentuk nomor → `klaimPeminjam.mintaKodeKlaim` mengirim kode WhatsApp.
+   *    Kode yang benar memberi sesi akun pemilik data lama, atau akun peminjam
+   *    yang sudah terhubung ke nomor itu, atau akun peminjam baru.
+   * Nomor yang bentuknya tidak sah ditolak di sini, sebelum ada permintaan
+   * terkirim.
    */
   const handleMasukSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -464,16 +466,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setError("Jawaban verifikasi anti-bot salah.");
       return;
     }
-    // Kode dari dua jalur: email (`email-otp`) atau WhatsApp peminjam lama
-    // (`whatsapp-otp`). Keduanya memakai medan kode yang sama.
+    // Kode dari dua jalur: email (`email-otp`) atau WhatsApp, baik nomor lama
+    // maupun baru (`whatsapp-otp`). Keduanya memakai medan kode yang sama.
     if (typeof clientStep !== "object") return;
     setIsLoading(true);
     const ip = await getClientIp();
     try {
       if ("nomor" in clientStep) {
-        // Verifikasi + penautan terjadi di dalam provider
+        // Verifikasi dan penentuan akun terjadi di dalam provider
         // (`convex/auth/whatsappOtp.ts`): kode yang benar menghasilkan sesi akun
-        // pemilik data lama, dan satu-satunya syarat adalah nomor itu sendiri.
+        // pemilik nomor, atau akun peminjam baru bila nomornya belum terhubung.
         await signIn("whatsapp-otp", {
           phoneNumber: clientStep.nomor,
           otpCode: otp,
@@ -495,8 +497,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         "nomor" in clientStep ? clientStep.nomor : clientStep.email.toLowerCase(),
       );
       // Pesan seragam untuk kedua jalur: kode salah dan kode kedaluwarsa tidak
-      // bisa dibedakan dari luar, dan sebab lain (nomor tanpa data lama) sudah
-      // dijawab jujur di langkah pertama.
+      // bisa dibedakan dari luar, begitu pula sebab lain yang ditolak server.
       setError("Kode verifikasi salah atau kedaluwarsa.");
       setIsLoading(false);
       setOtp("");
@@ -834,7 +835,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           <p className="text-xs leading-5 text-slate-500">
                             Sesi tamu hanya bisa melihat. Data yang sudah diisi
                             tetap tersimpan di akun tamu dan bisa dilanjutkan
-                            setelah Anda masuk dengan email.
+                            setelah Anda masuk dengan email atau nomor WhatsApp.
                           </p>
 
                           {/* Pintu khusus pemantau penyedia dana — satu kode

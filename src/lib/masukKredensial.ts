@@ -2,11 +2,11 @@
  * Deteksi jenis kredensial di medan masuk TUNGGAL halaman `/auth`: EMAIL atau
  * NOMOR WhatsApp.
  *
- * Satu kolom dipakai dua pintu — kode email (`email-otp`) dan kode WhatsApp
- * untuk peminjam lama (`whatsapp-otp`, lihat `convex/auth/whatsappOtp.ts`) —
- * supaya pengguna tidak perlu menemukan tombol khusus lebih dulu. Aturannya
- * murni dan diuji di `masukKredensial.test.ts`; halaman masuk hanya menjalankan
- * hasilnya.
+ * Satu kolom dipakai dua pintu: kode email (`email-otp`) dan kode WhatsApp
+ * (`whatsapp-otp`, lihat `convex/auth/whatsappOtp.ts`) untuk peminjam lama
+ * maupun baru, supaya pengguna tidak perlu menemukan tombol khusus lebih dulu.
+ * Aturannya murni dan diuji di `masukKredensial.test.ts`; halaman masuk hanya
+ * menjalankan hasilnya.
  */
 import { normalisasiNomorWa } from "./otpWa";
 

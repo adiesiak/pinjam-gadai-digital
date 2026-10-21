@@ -177,14 +177,13 @@ const schema = defineSchema(
       /** Waktu sesi tamu terakhir diaktifkan dengan kode akses bersama. */
       aksesBersamaPada: v.optional(v.number()),
       /**
-       * Nomor WhatsApp pemilik akun untuk LAPORAN pendana (format 62…, tanpa
-       * tanda +), diisi sendiri oleh akun pendana di ruang pendana.
+       * Nomor WhatsApp pemilik akun (format 62…, tanpa tanda +).
        *
-       * Kenapa di `users` dan bukan di `kycProfil`: kolom KYC adalah milik alur
-       * verifikasi nasabah, sementara pendana tidak melewati alur itu. Nomor ini
-       * dipakai HANYA untuk mengirim salinan laporan kinerja ke WhatsApp milik
-       * pemiliknya; kosong berarti laporan tidak dikirim, bukan dikirim ke
-       * nomor lain.
+       * Dipakai sebagai nomor kontak untuk laporan pendana, pengingat, dan
+       * salinan dokumen. Sejak login WhatsApp dibuka untuk peminjam baru, nomor
+       * yang sudah diverifikasi lewat OTP juga disimpan di sini supaya orang
+       * yang sama masuk ke akun yang sama pada kunjungan berikutnya. Akun
+       * buatan admin tanpa kredensial tidak pernah dipakai jalur ini.
        */
       nomorWhatsApp: v.optional(v.string()),
       /**
@@ -213,7 +212,9 @@ const schema = defineSchema(
       dibuatAdminPada: v.optional(v.number()),
     })
       .index("email", ["email"]) // index for the email. do not remove or modify
-      .index("by_kodePeminjam", ["kodePeminjam"]),
+      .index("by_kodePeminjam", ["kodePeminjam"])
+      // Login WhatsApp mencari akun lewat nomor yang sudah diverifikasi.
+      .index("by_nomorWhatsApp", ["nomorWhatsApp"]),
 
     /**
      * Aplikasi pinjaman tunai Peminjam.
@@ -2743,12 +2744,12 @@ const schema = defineSchema(
       .index("by_pengaduan_dibuatPada", ["pengaduanId", "dibuatPada"]),
 
     /**
-     * TANTANGAN OTP KLAIM PEMINJAM LAMA — kode yang dikirim ke NOMOR WhatsApp.
+     * TANTANGAN OTP LOGIN WHATSAPP — kode yang dikirim ke NOMOR WhatsApp, baik
+     * untuk peminjam lama maupun nomor baru.
      *
      * Kenapa tabel ini terpisah dari `waOtpChallenges`: tantangan di sana
-     * SELALU milik pengguna yang sedang masuk (`userId` wajib), sedangkan klaim
-     * peminjam lama justru terjadi SEBELUM ada sesi — pemiliknya adalah nomor
-     * itu sendiri. Menumpangkan baris tanpa pemilik ke tabel ber-`userId` akan
+     * SELALU milik pengguna yang sedang masuk (`userId` wajib), sedangkan login
+     * nomor terjadi SEBELUM ada sesi — pemiliknya adalah nomor itu sendiri. Menumpangkan baris tanpa pemilik ke tabel ber-`userId` akan
      * membuat setiap pembaca lama ikut membaca baris yang bukan miliknya.
      *
      * Aturan yang tetap sama dengan OTP lain: hanya HASH + salt yang disimpan

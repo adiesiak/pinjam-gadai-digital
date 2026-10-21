@@ -5,8 +5,8 @@
  * (action pengiriman kode, mutation klaim, query ringkasan), bukan memanggil
  * aturan murni langsung:
  *
- *  - nomor yang TIDAK punya data lama ditolak jujur (tidak ada akun kosong yang
- *    dikarang, tidak ada satu pun permintaan yang dikirim);
+ *  - nomor baru juga menerima kode; kode yang benar membuat akun peminjam (atau
+ *    memakai akun yang nomornya sudah tersimpan), bukan akun ganda tiap masuk;
  *  - kode yang benar memulihkan AKUN PEMILIK data lama (login peminjam lama),
  *    dan tidak memindahkan berkas ke mana-mana karena pemiliknya sudah tepat;
  *  - kode yang benar pada jalur SESI AKTIF memindahkan KEPEMILIKAN berkas
@@ -151,17 +151,156 @@ async function seedPeminjamLama(
 }
 
 describe("mintaKodeKlaim", () => {
-  it("menolak nomor tanpa data lama dan tidak mengirim apa pun", async () => {
+  it("mengirim kode ke nomor baru tanpa membuat akun sebelum kode diverifikasi", async () => {
     const t = convexTest(schema, modules);
     const fonnte = pasangFonnte();
     try {
       const hasil = await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR_BARU });
-      expect(hasil.ok).toBe(false);
-      expect(hasil.terkirim).toBe(false);
-      expect(hasil.pesan).toMatch(/belum terdaftar/i);
-      expect(fonnte.keluar).toHaveLength(0);
+      expect(hasil.ok).toBe(true);
+      expect(hasil.terkirim).toBe(true);
+      expect(hasil.berkasLama).toBe(0);
+      expect(hasil.pesan).not.toMatch(/data lama/i);
+      expect(fonnte.keluar).toHaveLength(1);
+      expect(fonnte.keluar[0]?.target).toBe(NOMOR_BARU);
+
       const tantangan = await t.run((ctx) => ctx.db.query("klaimOtp").collect());
-      expect(tantangan).toHaveLength(0);
+      expect(tantangan).toHaveLength(1);
+      expect(tantangan[0].berkasLama).toBe(0);
+      // Akun belum dikarang sebelum nomor terbukti dikuasai pemohon.
+      const pengguna = await t.run((ctx) => ctx.db.query("users").collect());
+      expect(pengguna).toHaveLength(0);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
+  it("kode benar dari nomor baru membuat satu akun peminjam yang dipakai lagi", async () => {
+    const t = convexTest(schema, modules);
+    const fonnte = pasangFonnte();
+    try {
+      await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR_BARU });
+      const pertama = await t.mutation(internal.klaimPeminjam._klaimUntukMasuk, {
+        nomor: NOMOR_BARU,
+        kode: kodeTerkirim(fonnte.keluar),
+      });
+      expect(pertama.ok).toBe(true);
+      if (!pertama.ok) throw new Error("masuk nomor baru seharusnya berhasil");
+
+      const pengguna = await t.run((ctx) => ctx.db.query("users").collect());
+      expect(pengguna).toHaveLength(1);
+      expect(pengguna[0]._id).toBe(pertama.userId);
+      expect(pengguna[0].role).toBe("peminjam");
+      expect(pengguna[0].nomorWhatsApp).toBe(NOMOR_BARU);
+      expect(pengguna[0].dibuatAdminPada).toBeUndefined();
+
+      // Bukan klaim data lama: tidak ada baris klaim yang dikarang.
+      const jejak = await t.run((ctx) => ctx.db.query("klaimPeminjam").collect());
+      expect(jejak).toHaveLength(0);
+
+      const auditRows = await t.run((ctx) => ctx.db.query("auditLog").collect());
+      expect(auditRows.some((a) => a.aksi === "masuk_otp_whatsapp")).toBe(true);
+
+      // Masuk kedua: kode baru, akun yang SAMA (bukan akun ganda).
+      await t.run(async (ctx) => {
+        for (const baris of await ctx.db.query("klaimOtp").collect()) {
+          await ctx.db.delete(baris._id);
+        }
+      });
+      await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR_BARU });
+      const kedua = await t.mutation(internal.klaimPeminjam._klaimUntukMasuk, {
+        nomor: NOMOR_BARU,
+        kode: kodeTerkirim(fonnte.keluar.slice(1)),
+      });
+      expect(kedua.ok).toBe(true);
+      if (!kedua.ok) throw new Error("masuk kedua seharusnya berhasil");
+      expect(kedua.userId).toBe(pertama.userId);
+
+      const akhir = await t.run((ctx) => ctx.db.query("users").collect());
+      expect(akhir).toHaveLength(1);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
+  it("memakai akun yang nomornya sudah tersimpan, bukan membuat akun kedua", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "Peminjam Baru", { role: "peminjam" });
+    await t.run((ctx) => ctx.db.patch(userId, { nomorWhatsApp: NOMOR_BARU }));
+
+    const fonnte = pasangFonnte();
+    try {
+      await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR_BARU });
+      const masuk = await t.mutation(internal.klaimPeminjam._klaimUntukMasuk, {
+        nomor: NOMOR_BARU,
+        kode: kodeTerkirim(fonnte.keluar),
+      });
+      expect(masuk.ok).toBe(true);
+      if (!masuk.ok) throw new Error("masuk seharusnya berhasil");
+      expect(masuk.userId).toBe(userId);
+
+      const pengguna = await t.run((ctx) => ctx.db.query("users").collect());
+      expect(pengguna).toHaveLength(1);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
+  it("nomor pada akun admin tidak memberi sesi admin lewat WhatsApp", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "Admin Uji", { role: "admin" });
+    await t.run((ctx) => ctx.db.patch(userId, { nomorWhatsApp: NOMOR_BARU }));
+
+    const fonnte = pasangFonnte();
+    try {
+      await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR_BARU });
+      const masuk = await t.mutation(internal.klaimPeminjam._klaimUntukMasuk, {
+        nomor: NOMOR_BARU,
+        kode: kodeTerkirim(fonnte.keluar),
+      });
+      expect(masuk.ok).toBe(false);
+      if (masuk.ok) throw new Error("akun admin tidak boleh masuk lewat WhatsApp");
+      expect(masuk.pesan).toMatch(/akun tim/i);
+
+      const pengguna = await t.run((ctx) => ctx.db.query("users").collect());
+      expect(pengguna).toHaveLength(1);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
+  it("akun ber-KYC tanpa pinjaman tetap bisa masuk lewat nomornya", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "Peminjam Tanpa Pinjaman", {
+      role: "peminjam",
+    });
+    await t.run((ctx) =>
+      ctx.db.insert("kycProfil", {
+        userId,
+        status: "IN_PROGRESS",
+        namaLengkap: "PEMINJAM TANPA PINJAMAN",
+        nik: "3201234567890002",
+        nomorWhatsApp: NOMOR_BARU,
+        dibuatPada: Date.now(),
+        diperbaruiPada: Date.now(),
+      }),
+    );
+
+    const fonnte = pasangFonnte();
+    try {
+      const minta = await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR_BARU });
+      expect(minta.ok).toBe(true);
+      expect(minta.berkasLama).toBe(0);
+
+      const masuk = await t.mutation(internal.klaimPeminjam._klaimUntukMasuk, {
+        nomor: NOMOR_BARU,
+        kode: kodeTerkirim(fonnte.keluar),
+      });
+      expect(masuk.ok).toBe(true);
+      if (!masuk.ok) throw new Error("masuk seharusnya berhasil");
+      expect(masuk.userId).toBe(userId);
+
+      const pengguna = await t.run((ctx) => ctx.db.query("users").collect());
+      expect(pengguna).toHaveLength(1);
     } finally {
       fonnte.pulihkan();
     }

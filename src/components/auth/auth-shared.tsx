@@ -712,8 +712,8 @@ export function PesanKesalahan({
  *
  * `type="text"`, bukan `email`: validasi bawaan peramban untuk `type="email"`
  * menolak nomor telepon SEBELUM formulir sempat dikirim, padahal nomor itulah
- * pintu peminjam lama. Jalur email atau WhatsApp ditentukan
- * `lib/masukKredensial.ts` di sisi halaman, bukan oleh peramban.
+ * pintu peminjam lama maupun pendaftar baru. Jalur email atau WhatsApp
+ * ditentukan `lib/masukKredensial.ts` di sisi halaman, bukan oleh peramban.
  */
 export function MedanEmailMasuk({ isLoading }: { isLoading: boolean }) {
   return (
@@ -736,8 +736,9 @@ export function MedanEmailMasuk({ isLoading }: { isLoading: boolean }) {
         required
       />
       <p className="text-xs leading-5 text-slate-500">
-        Kode dikirim ke email Anda, atau ke WhatsApp bila yang Anda isi nomor —
-        termasuk nomor yang dipakai meminjam di web PINDAI lama.
+        Kode dikirim ke email Anda, atau ke WhatsApp bila yang Anda isi nomor.
+        Nomor baru langsung membuat akun setelah kode diverifikasi, dan nomor
+        dari web PINDAI lama memulihkan riwayatnya.
       </p>
     </div>
   );
@@ -810,8 +811,8 @@ function LambangGoogle() {
 /**
  * Tombol pintu GOOGLE.
  *
- * Untuk peminjam LAMA (`TombolWhatsappPeminjamLama`) jalurnya nomor WhatsApp;
- * di sini yang dibuktikan adalah EMAIL yang sudah diverifikasi Google, dan
+ * Jalur nomor WhatsApp ditangani medan masuk bersama (peminjam lama maupun
+ * baru); di sini yang dibuktikan adalah EMAIL yang sudah diverifikasi Google, dan
  * akun lama ber-email terverifikasi otomatis memakai sesi akun itu (lihat
  * `convex/auth/google.ts`) — jadi tidak ada akun kosong kedua.
  */

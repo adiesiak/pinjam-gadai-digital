@@ -277,7 +277,7 @@ export default function Dashboard() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Mode tamu · baca saja</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">Kenali PINDAI sebelum membuat akun.</h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
-              Sebagai tamu, Anda dapat membaca informasi umum. Setelah masuk dengan email, Anda dapat mengelola data akun dan catatan pengajuan di PINDAI; perpindahan dana ditangani di luar aplikasi.
+              Sebagai tamu, Anda dapat membaca informasi umum. Setelah masuk dengan email atau nomor WhatsApp, Anda dapat mengelola data akun dan catatan pengajuan di PINDAI; perpindahan dana ditangani di luar aplikasi.
             </p>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">

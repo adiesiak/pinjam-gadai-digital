@@ -9,19 +9,19 @@
  *
  * JALAN KELUAR (dua pintu, satu mesin):
  *
- *  1. `mintaKodeKlaim` (action, TANPA sesi) — peminjam mengetik nomor WhatsApp
- *     lamanya. Nomor itu dicari sebagai PEMILIK data lama lewat indeks
- *     `by_nomorWhatsApp` (loans / nasabahProfil / kycProfil). Kalau memang ada
- *     data lama, kode 6 digit dikirim ke nomor itu lewat gateway WhatsApp yang
- *     diatur admin (Fonnte langsung hanya sebagai cadangan bila panel belum
- *     diisi). Kalau tidak
- *     ada, permintaan dijawab jujur "nomor belum terdaftar" — bukan dibuatkan
- *     akun kosong.
+ *  1. `mintaKodeKlaim` (action, TANPA sesi) — peminjam mengetik nomor WhatsApp.
+ *     Nomor itu dicari sebagai PEMILIK data lama lewat indeks
+ *     `by_nomorWhatsApp` (loans / nasabahProfil / kycProfil). Kode 6 digit
+ *     selalu dikirim ke nomor itu lewat gateway WhatsApp yang diatur admin
+ *     (Fonnte langsung hanya sebagai cadangan bila panel belum diisi), baik
+ *     nomornya punya data lama maupun belum. Balasan tidak menyebut apakah
+ *     nomor itu sudah punya akun.
  *  2. Kode itu dipakai di salah satu dari dua jalur:
  *     - `_klaimUntukMasuk` (internal): dipakai provider Convex Auth
- *       (`auth/whatsappOtp.ts`) sehingga peminjam MASUK ke akun lamanya
- *       sendiri. Karena akun tujuan = pemilik data, dashboardnya langsung
- *       berisi riwayat — tidak ada form kosong.
+ *       (`auth/whatsappOtp.ts`). Nomor pemilik data lama MASUK ke akunnya
+ *       sendiri, sedangkan nomor tanpa data lama memakai akun yang sudah
+ *       terhubung ke nomor itu atau membuat akun peminjam baru setelah kode
+ *       benar.
  *     - `claimOrLoginBorrower` (publik, butuh sesi): pemakai yang sudah masuk
  *       (mis. lewat email, atau sesi tamu yang kemudian dia klaim) menautkan
  *       data lama ke akun sesi aktifnya.
@@ -376,13 +376,11 @@ type HasilMintaKode = {
 };
 
 /**
- * Minta kode klaim untuk nomor WhatsApp lama — TANPA sesi.
+ * Minta kode masuk WhatsApp — TANPA sesi, untuk nomor lama maupun baru.
  *
- * Sengaja bisa dipanggil sebelum masuk: pemilik nomor membuktikan dirinya
- * lewat kode, bukan lewat sesi. Yang dibatasi bukan hanya laju kirim, tetapi
- * juga kerahasiaan: permintaan hanya dijawab "ada data lama" bila nomornya
- * memang terdaftar, dan jawabannya TIDAK memuat satu pun detail portofolio
- * (hanya jumlah berkas) — detail baru terbuka setelah kode diverifikasi.
+ * Pemilik nomor membuktikan dirinya lewat kode, bukan lewat sesi. Jawaban
+ * hanya memuat jumlah berkas lama (0 untuk nomor baru), tanpa satu pun detail
+ * portofolio; detail baru terbuka setelah kode diverifikasi.
  */
 export const mintaKodeKlaim = action({
   args: {
@@ -435,18 +433,11 @@ export const mintaKodeKlaim = action({
         berkasLama: 0,
       };
     }
-    if (utama === null || !adaDataLama(utama.berkas)) {
-      return {
-        ok: false,
-        terkirim: false,
-        pesan:
-          "Nomor ini belum terdaftar sebagai nasabah lama PINDAI. " +
-          "Daftar akun baru lewat email, atau hubungi admin bila Anda yakin pernah mengajukan dari web lama.",
-        sisaDetik: 0,
-        nomorTampil: topengNomor(bersih),
-        berkasLama: 0,
-      };
-    }
+    // Nomor tanpa data lama tetap dilayani: setelah kode benar, pemilik nomor
+    // masuk ke akun yang sudah terhubung atau mendapat akun peminjam baru.
+    // Pesan balasan tidak membedakan keduanya, jadi keberadaan akun tidak bisa
+    // ditebak dari respons.
+    const berkasLama = utama === null ? 0 : totalBerkas(utama.berkas);
 
     const kode = kodeOtpEnamDigit();
     const salt = buatSaltOtp();
@@ -456,7 +447,7 @@ export const mintaKodeKlaim = action({
       kodeHash,
       salt,
       maksPercobaan: OTP_MAKS_PERCOBAAN,
-      berkasLama: totalBerkas(utama.berkas),
+      berkasLama,
       ip: ip?.trim().slice(0, 64),
       userAgent: userAgent?.trim().slice(0, 200),
     });
@@ -490,11 +481,13 @@ export const mintaKodeKlaim = action({
       ok: hasil.terkirim,
       terkirim: hasil.terkirim,
       pesan: hasil.terkirim
-        ? `Kode dikirim ke ${topengNomor(bersih)}. Data lama Anda siap dipulihkan.`
+        ? berkasLama > 0
+          ? `Kode dikirim ke ${topengNomor(bersih)}. Data lama Anda siap dipulihkan.`
+          : `Kode dikirim ke ${topengNomor(bersih)}. Masukkan kodenya untuk masuk atau membuat akun.`
         : hasil.pesan,
       sisaDetik: 0,
       nomorTampil: topengNomor(bersih),
-      berkasLama: totalBerkas(utama.berkas),
+      berkasLama,
     };
   },
 });
@@ -638,6 +631,11 @@ async function selesaikanKlaim(
     metode: string;
     ip?: string;
     userAgent?: string;
+    /**
+     * Login provider boleh membuat akun peminjam baru untuk nomor yang belum
+     * punya data lama. Jalur sesi aktif tidak: ia hanya menautkan berkas impor.
+     */
+    izinkanAkunBaru?: boolean;
   },
 ): Promise<HasilKlaim> {
   const kosong: BerkasLama = { ...BERKAS_LAMA_KOSONG };
@@ -661,17 +659,19 @@ async function selesaikanKlaim(
 
   const kepemilikan = await kepemilikanNomor(ctx, bersih);
   const utama = pemilikUtama(kepemilikan);
-  if (utama === null) {
+  if (utama === null && args.izinkanAkunBaru !== true) {
     return gagal(
       "Nomor ini belum terdaftar sebagai nasabah lama PINDAI. Daftar akun baru lewat email, atau hubungi admin.",
     );
   }
 
-  // Akun yang berhak: sesi aktif bila ada, dan bila tidak — pemilik data lama.
-  const tujuan = args.userId ?? utama.userId;
+  // Akun yang berhak: sesi aktif bila ada, lalu pemilik data lama. `null` hanya
+  // mungkin pada login provider nomor baru, yang akunnya ditentukan setelah
+  // kode terbukti benar.
+  const tujuan: Id<"users"> | null = args.userId ?? utama?.userId ?? null;
   // Lapis kedua: sesi aktif pun tidak boleh memakai jalur ini untuk masuk ke
   // akun tim, walau nomornya menempel di sana karena data impor lama.
-  const akunTujuan = await ctx.db.get(tujuan);
+  const akunTujuan = tujuan === null ? null : await ctx.db.get(tujuan);
   if (akunTujuan !== null && akunTujuan.role === ROLES.ADMIN) {
     return gagal(
       "Nomor ini menempel pada akun tim PINDAI. Akun tim masuk dengan kata sandi dan TOTP, bukan lewat WhatsApp.",
@@ -681,7 +681,8 @@ async function selesaikanKlaim(
   // LEBIH DARI SATU di antaranya menyimpan berkas keuangan: akun sisa yang cuma
   // punya master identitas/KYC tidak dapat memindahkan uang apa pun, jadi aman
   // ditautkan otomatis alih-alih mengunci pemilik nomor dari akunnya sendiri.
-  const lain = kepemilikan.pemilik.filter((p) => p.userId !== tujuan);
+  const lain =
+    tujuan === null ? [] : kepemilikan.pemilik.filter((p) => p.userId !== tujuan);
   const bentrok = lain.filter((p) => punyaBerkasKeuangan(p.berkas));
   if (bentrok.length > 1) return gagal(pesanDataGanda(bentrok.length));
 
@@ -702,12 +703,12 @@ async function selesaikanKlaim(
     .reduce((total, b) => total + b.percobaanGagal, 0);
   if (gagalSatuJendela >= KLAIM_MAKS_GAGAL) {
     await catatLogin(ctx, {
-      userId: tujuan,
+      ...(tujuan === null ? {} : { userId: tujuan }),
       status: "diblokir",
       metode: args.metode,
       ip: (args.ip ?? "").slice(0, 64),
       userAgent: (args.userAgent ?? "").slice(0, 200),
-      keterangan: "Batas percobaan kode klaim peminjam lama tercapai",
+      keterangan: "Batas percobaan kode masuk WhatsApp tercapai",
     });
     return gagal("Terlalu banyak percobaan kode. Minta kode baru, lalu coba lagi nanti.");
   }
@@ -727,12 +728,12 @@ async function selesaikanKlaim(
     const baru = tantangan.percobaanGagal + 1;
     await ctx.db.patch(tantangan._id, { percobaanGagal: baru });
     await catatLogin(ctx, {
-      userId: tujuan,
+      ...(tujuan === null ? {} : { userId: tujuan }),
       status: "gagal",
       metode: args.metode,
       ip: (args.ip ?? "").slice(0, 64),
       userAgent: (args.userAgent ?? "").slice(0, 200),
-      keterangan: `Kode klaim salah (ke-${baru})`,
+      keterangan: `Kode masuk WhatsApp salah (ke-${baru})`,
     });
     return gagal("Kode OTP salah.");
   }
@@ -740,8 +741,82 @@ async function selesaikanKlaim(
   // Sekali pakai: kode dihabiskan terlepas dari apa pun setelah ini.
   await ctx.db.patch(tantangan._id, {
     dipakaiPada: sekarang,
-    dipakaiOlehUserId: tujuan,
+    ...(tujuan === null ? {} : { dipakaiOlehUserId: tujuan }),
   });
+
+  if (tujuan === null) {
+    // Nomor baru: akun ditentukan setelah kode terbukti benar. Akun buatan admin
+    // tanpa kredensial sengaja dilewati karena pemiliknya memang diminta
+    // mendaftar sendiri (lihat catatan `dibuatAdminPada` di schema).
+    const kandidat = await ctx.db
+      .query("users")
+      .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", bersih))
+      .collect();
+
+    if (kandidat.some((u) => u.role === ROLES.ADMIN)) {
+      return gagal(
+        "Nomor ini menempel pada akun tim PINDAI. Akun tim masuk dengan kata sandi dan TOTP, bukan lewat WhatsApp.",
+      );
+    }
+
+    const calon = kandidat
+      .filter(
+        (u) =>
+          u.isAnonymous !== true &&
+          u.dibuatAdminPada === undefined &&
+          u.role !== ROLES.ADMIN,
+      )
+      .sort(
+        (a, b) =>
+          Number(b.role === ROLES.PEMINJAM) - Number(a.role === ROLES.PEMINJAM) ||
+          a._creationTime - b._creationTime,
+      )[0];
+
+    const userId =
+      calon?._id ??
+      (await ctx.db.insert("users", {
+        role: ROLES.PEMINJAM,
+        nomorWhatsApp: bersih,
+      }));
+
+    await ctx.db.patch(userId, {
+      nomorWhatsApp: bersih,
+      ...(calon === undefined || calon.role === undefined
+        ? { role: ROLES.PEMINJAM }
+        : {}),
+    });
+
+    await audit(
+      ctx,
+      String(userId),
+      labelAkun(await ctx.db.get(userId), userId),
+      "masuk_otp_whatsapp",
+      `users/${userId}`,
+      `Nomor ${topengNomor(bersih)} diverifikasi lewat OTP WhatsApp; ${
+        calon === undefined
+          ? "akun peminjam baru dibuat"
+          : "akun yang sudah terhubung ke nomor ini dipakai"
+      }.`,
+    );
+    await catatLogin(ctx, {
+      userId,
+      status: "berhasil",
+      metode: args.metode,
+      ip: (args.ip ?? "").slice(0, 64),
+      userAgent: (args.userAgent ?? "").slice(0, 200),
+      keterangan: "Masuk lewat OTP WhatsApp nomor terverifikasi",
+    });
+
+    return {
+      ok: true,
+      pesan: "Nomor berhasil diverifikasi. Akun siap dipakai.",
+      userId,
+      akunLama: null,
+      berkas: kosong,
+      dipindahkan: kosong,
+      metode: args.metode,
+    };
+  }
 
   // Semua akun sisa ditautkan; master identitas hanya berpindah bila akun tujuan
   // belum punya master sendiri (lihat `tautkanBerkas`).
@@ -770,6 +845,11 @@ async function selesaikanKlaim(
   // masuk harus tetap sah sebagai Peminjam supaya portalnya terbuka.
   const user = akunTujuan;
   const patchUser: Partial<Doc<"users">> = {};
+  // Simpan nomor yang baru diverifikasi supaya kunjungan berikutnya menemukan
+  // akun ini walau data lamanya kelak tidak lagi menempel pada nomor tersebut.
+  if (user !== null && user.nomorWhatsApp === undefined) {
+    patchUser.nomorWhatsApp = bersih;
+  }
   if (user !== null && user.role === undefined) patchUser.role = ROLES.PEMINJAM;
   if (user !== null && (user.name === undefined || user.name.trim() === "")) {
     const profil = await ctx.db
@@ -834,7 +914,7 @@ async function selesaikanKlaim(
     pesan: `Berhasil! Data lama Anda sudah tersambung: ${ringkas}.`,
     userId: tujuan,
     akunLama: akunLamaList.length === 0 ? null : akunLama,
-    berkas: utama.berkas,
+    berkas: utama?.berkas ?? kosong,
     dipindahkan,
     metode: args.metode,
   };
@@ -892,12 +972,13 @@ export const claimOrLoginBorrower = mutation({
 });
 
 /**
- * PINTU 2 — LOGIN peminjam lama lewat provider `whatsapp-otp`.
+ * PINTU 2 — LOGIN/MASUK lewat provider `whatsapp-otp`.
  *
  * Dijalankan di dalam `authorize` provider (`auth/whatsappOtp.ts`): kode
- * diverifikasi di sini, dan yang dikembalikan adalah AKUN PEMILIK data lama.
- * Karena akun tujuan = pemilik berkas, peminjam langsung melihat riwayatnya —
- * tanpa memindahkan apa pun dan tanpa membuat akun duplikat.
+ * diverifikasi di sini. Nomor pemilik data lama masuk ke akun pemilik berkas
+ * (tanpa memindahkan apa pun), sedangkan nomor baru memakai akun yang sudah
+ * terhubung atau mendapat akun peminjam baru setelah kode benar. Dengan begitu
+ * peminjam baru tidak lagi dipaksa mendaftar lewat email dulu.
  */
 export const _klaimUntukMasuk = internalMutation({
   args: {
@@ -923,6 +1004,7 @@ export const _klaimUntukMasuk = internalMutation({
       metode: "otp_whatsapp",
       ip: args.ip,
       userAgent: args.userAgent,
+      izinkanAkunBaru: true,
     });
     if (!hasil.ok || hasil.userId === null) return { ok: false as const, pesan: hasil.pesan };
     return {

@@ -12,7 +12,8 @@
  *     — pintu email tetap yang pertama dilihat pengunjung.
  *  3. `pages/Auth.tsx` memakai potongan ini sambil TETAP memanggil logika
  *     submit yang sama (`signIn("email-otp")`, `signIn("whatsapp-otp")` untuk
- *     peminjam lama dari medan yang sama, tamu, dan pintu kode akses bersama) —
+ *     peminjam lama maupun baru dari medan yang sama, tamu, dan pintu kode
+ *     akses bersama) —
  *     merapikan tampilan tidak boleh menyentuh autentikasi.
  *  4. Navigasi bawah kartu menuju rute publik `/`, dan rute `/auth` tetap
  *     mendarat di `/dashboard` setelah berhasil masuk.
@@ -250,8 +251,8 @@ function aturanAktif(css: string): string {
   );
   ada(
     medan,
-    "termasuk nomor yang dipakai meminjam di web PINDAI lama",
-    "peminjam lama diarahkan ke medan yang sama, tanpa tombol khusus",
+    "Nomor baru langsung membuat akun setelah kode diverifikasi, dan nomor dari web PINDAI lama memulihkan riwayatnya.",
+    "petunjuk menyebut nomor baru maupun nomor peminjam lama",
   );
   bersih(medan, "medan email");
 
