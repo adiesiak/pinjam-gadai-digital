@@ -1,5 +1,5 @@
 /**
- * Uji render dua bagian baru beranda: ringkasan doorprize dan ruang pendana.
+ * Uji render ringkasan doorprize di beranda.
  * Run: bun src/components/landing/RingkasanBeranda.render.test.tsx
  *
  * Yang dijaga (tanpa browser, render statis):
@@ -9,16 +9,14 @@
  *  3. Batas anggaran hadiah tidak dibocorkan ke pengunjung: itu urusan admin.
  *  4. Tautan mengikuti keadaan sesi: dashboard bila sudah masuk, halaman masuk
  *     bila belum.
- *  5. Ruang pendana menampilkan skema tetap dari `lib/imbalPendana` dan tidak
- *     menautkan ke ruangan yang masih dibatasi akses.
+ *  5. Skema imbal hasil pendana tidak ikut tampil: itu hanya untuk pendana yang
+ *     sudah diberi akses, bukan untuk halaman publik.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
-import { RuangPendanaRingkas } from "@/components/landing/RuangPendanaRingkas";
 import { KELIPATAN_TIKET_PENDANA } from "@/lib/doorprize";
-import { PERSEN_IMBAL_PENDANA, TENOR_PENDANA_HARI } from "@/lib/imbalPendana";
 import { formatRupiah } from "@/lib/money";
 
 let passed = 0;
@@ -89,29 +87,18 @@ ok(
   "label tombol untuk pengunjung",
 );
 
-// ── 5. Ruang pendana: angka dari skema tetap, tanpa tautan ruangan ──
-const pendana = renderToStaticMarkup(
-  <MemoryRouter initialEntries={["/"]}>
-    <RuangPendanaRingkas />
-  </MemoryRouter>,
+// ── 5. Skema imbal hasil pendana tidak diumumkan di beranda ──
+// Bagian yang tersisa hanya menyebut tiket doorprize; angka 30% dan siklus
+// pendana tidak boleh ikut terbawa ke halaman publik.
+ok(
+  !doorprize.toLowerCase().includes("imbal hasil"),
+  "imbal hasil pendana tidak disebut di beranda",
 );
 ok(
-  pendana.includes(`Imbal hasil tetap ${PERSEN_IMBAL_PENDANA}%`),
-  "imbal hasil dibaca dari PERSEN_IMBAL_PENDANA",
+  !doorprize.toLowerCase().includes("yield") &&
+    !doorprize.includes("30 hari"),
+  "siklus dan yield pendana tidak disebut di beranda",
 );
-ok(
-  pendana.includes(`${TENOR_PENDANA_HARI} hari`),
-  "siklus dibaca dari TENOR_PENDANA_HARI",
-);
-ok(
-  pendana.includes("Akses ruang pendana dibuka oleh tim PINDAI"),
-  "syarat akses ditulis jujur",
-);
-ok(
-  !pendana.includes("penyedia-dana"),
-  "tidak menautkan ke ruangan yang masih dibatasi",
-);
-ok(pendana.includes('id="pendana-ringkas-judul"'), "section menunjuk judulnya");
 
 console.log(
   `RingkasanBeranda.render.test: ${passed} lulus, ${failed} gagal`,

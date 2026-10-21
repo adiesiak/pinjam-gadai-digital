@@ -166,7 +166,7 @@ export function TabelPortofolioPendanaan({
             <th scope="col" className="px-3 py-2 font-semibold">Pinjaman</th>
             <th scope="col" className="px-3 py-2 font-semibold">Nominal</th>
             <th scope="col" className="px-3 py-2 font-semibold">Tenor</th>
-            <th scope="col" className="px-3 py-2 font-semibold">Bunga / Yield</th>
+            <th scope="col" className="px-3 py-2 font-semibold">Yield pendana</th>
             <th scope="col" className="px-3 py-2 font-semibold">Estimasi Return</th>
             <th scope="col" className="px-3 py-2 font-semibold">Status</th>
           </tr>

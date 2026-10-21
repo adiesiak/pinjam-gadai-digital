@@ -53,9 +53,13 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   // tidak tertutup oleh Escape. Perilakunya kini satu komponen bersama.
   tidakAda(sumber, "<details className", "beranda tidak memakai <details>");
   ada(sumber, "<MenuInformasiPonsel", "beranda memakai menu ponsel bersama");
-  // Dua keunggulan yang sudah berjalan di backend harus tampil di beranda.
+  // Doorprize triwulanan boleh diumumkan; skema imbal hasil pendana tidak.
   ada(sumber, "<DoorprizeRingkas", "beranda menjelaskan doorprize triwulanan");
-  ada(sumber, "<RuangPendanaRingkas", "beranda menjelaskan skema pendana");
+  tidakAda(
+    sumber,
+    "<RuangPendanaRingkas",
+    "beranda tidak membuka skema imbal hasil pendana ke publik",
+  );
   // Angka kartu layanan tidak boleh ditulis di halaman.
   ada(sumber, "SOROTAN_LAYANAN", "kartu layanan memakai angka dari lib");
 }

@@ -77,7 +77,7 @@ function bersih(html: string, label: string): void {
       ]}
     />,
   );
-  for (const judul of ["Pinjaman", "Nominal", "Tenor", "Bunga / Yield", "Estimasi Return", "Status"]) {
+  for (const judul of ["Pinjaman", "Nominal", "Tenor", "Yield pendana", "Estimasi Return", "Status"]) {
     ada(html, judul, `kolom "${judul}" ada`);
   }
   ok((html.match(/30 Hari/g) ?? []).length >= 2, "setiap baris memakai tenor 30 Hari");

@@ -18,7 +18,6 @@ import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
-import { RuangPendanaRingkas } from "@/components/landing/RuangPendanaRingkas";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
@@ -340,8 +339,6 @@ export default function LandingHome() {
           accountHref={accountHref}
           sudahMasuk={isAuthenticated}
         />
-
-        <RuangPendanaRingkas />
 
         <section
           aria-labelledby="panduan-title"

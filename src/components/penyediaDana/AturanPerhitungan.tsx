@@ -241,7 +241,7 @@ export function AturanPerhitungan({
       className="mt-3"
     >
       <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
-        Cara semua angka di halaman ini dihitung: dari bunga pinjaman sampai baris total tabel
+        Cara semua angka di halaman ini dihitung: dari pokok pendanaan sampai baris total tabel
         pendana. Buka aturan yang ingin Anda periksa.
       </p>
 

@@ -144,5 +144,15 @@ for (const role of ["peminjam", "dana"]) {
   ada(markup, "Aplikasi Android", "menu menyebut aplikasi Android");
 }
 
+// 7. Skema imbal hasil pendana tidak diumumkan di beranda. Angka itu hanya
+//    untuk pendana yang sudah diberi akses lewat ruang pendana, bukan halaman
+//    publik yang juga dibaca calon peminjam.
+{
+  const markup = render({ isAuthenticated: false, user: undefined });
+  tidakAda(markup, "Imbal hasil", "beranda tidak menyebut imbal hasil pendana");
+  tidakAda(markup, "30% p.p.", "beranda tidak menyebut yield pendana");
+  tidakAda(markup, "siklus 30 hari", "beranda tidak menyebut siklus pendana");
+}
+
 console.log(`qa-landing-rute: ${lulus} lulus, ${gagal} gagal`);
 if (gagal > 0) process.exit(1);
