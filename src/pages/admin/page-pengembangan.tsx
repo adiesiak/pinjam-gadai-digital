@@ -2,6 +2,27 @@
 
 import type { ReactNode } from "react";
 
+import { TENOR_BULANAN_OPTIONS, BULANAN_PRICING } from "@/lib/bulanan";
+import { BIAYA_EKSPRES_TIER, BIAYA_ROLLOVER } from "@/lib/ekonomiPlatform";
+import { GADAI_PRICING } from "@/lib/gadai";
+import {
+  KREDIT_BARANG_POKOK_MAKS,
+  KREDIT_PRICING,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
+} from "@/lib/kredit";
+import {
+  LATE_FEE_POLICY,
+  LOAN_LIMITS,
+  PINDAI_PRICING,
+  TENOR_OPTIONS,
+  persenBungaHarian,
+} from "@/lib/loan";
+import { formatRupiah } from "@/lib/money";
+import { PLAFON_BARU, PLAFON_BATAS, PLAFON_TERUJI } from "@/lib/plafon";
+import { BATAS_RESTRUKTURISASI } from "@/lib/restrukturisasi";
+import { LABEL_STATUS_PINJAMAN, STATUS_PINJAMAN } from "@/lib/statusPinjaman";
+import { DEFAULT_CONFIG } from "@/lib/system-config";
+
 /**
  * Peta sistem PINDAI — dokumentasi internal untuk admin.
  *
@@ -12,6 +33,39 @@ import type { ReactNode } from "react";
 
 /** Satu baris dokumentasi: judul pendek + penjelasan. */
 type Baris = { judul: string; isi: string };
+
+/** Rupiah dengan pemisah ribuan, sama dengan yang dicetak aplikasi. */
+const rp = formatRupiah;
+
+/** "7, 14, atau 28" — bentuk daftar yang dipakai kalimat halaman ini. */
+function daftarAtau(nilai: readonly number[]): string {
+  return `${nilai.slice(0, -1).join(", ")}, atau ${nilai[nilai.length - 1]}`;
+}
+
+/** "30%, 35%, dan 40%" untuk satu tier pokok pada tenor resmi. */
+function tarifHarian(pokok: number): string {
+  const tarif = TENOR_OPTIONS.flatMap((hari) => {
+    const persen = persenBungaHarian(pokok, hari);
+    return persen === null ? [] : [`${persen}%`];
+  });
+  return `${tarif.slice(0, -1).join(", ")}, dan ${tarif[tarif.length - 1]}`;
+}
+
+/**
+ * Biaya pencairan ekspres per tier, dirangkai dari tabel yang sama dengan
+ * mesin harga supaya halaman ini tidak menyimpan salinan angkanya.
+ */
+const BIAYA_EKSPRES_NARASI = BIAYA_EKSPRES_TIER.map((tier, i) => {
+  const berikut = BIAYA_EKSPRES_TIER[i + 1];
+  return berikut === undefined
+    ? `${rp(tier.biaya)} mulai ${rp(tier.batasBawah)}`
+    : `${rp(tier.biaya)} untuk pokok di bawah ${rp(berikut.batasBawah)}`;
+}).join(", ");
+
+/** Label status kanonik, urut seperti yang ditampilkan aplikasi. */
+const DAFTAR_STATUS = STATUS_PINJAMAN.map(
+  (status) => LABEL_STATUS_PINJAMAN[status],
+).join(", ");
 
 /** Satu kelompok modul admin beserta isinya. */
 type Kelompok = { judul: string; modul: readonly string[] };
@@ -71,7 +125,7 @@ const MODUL_ADMIN: readonly Kelompok[] = [
     judul: "Pemantauan",
     modul: [
       "Peta lokasi nasabah",
-      "Jatuh Tempo & restrukturisasi",
+      "Jatuh Tempo",
       "Kalkulator Lelang Jaminan",
       "Catatan Internal & Kesehatan Sistem",
     ],
@@ -80,8 +134,7 @@ const MODUL_ADMIN: readonly Kelompok[] = [
     judul: "Konten",
     modul: [
       "Template Website",
-      "Konten Beranda",
-      "Banner & Pengumuman",
+      "Konten Beranda",          "Banner & Pengumuman Sistem",
       "Promo Pinjaman",
       "WhatsApp",
       "Aplikasi Android",
@@ -108,42 +161,95 @@ const MODUL_ADMIN: readonly Kelompok[] = [
 const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
   {
     judul: "Batas pinjaman tunai",
-    isi: "Pokok Rp100.000 sampai Rp1.000.000. Tenor resmi 7, 14, atau 28 hari. Kombinasi di luar matriks ditolak server, bukan sekadar disembunyikan di layar.",
-    rujukan: "src/lib/loan.ts",
+    isi: `Pokok ${rp(LOAN_LIMITS.minPokok)} sampai ${rp(LOAN_LIMITS.maxPokok)}. Plafon khusus dari admin membuka pokok sampai ${rp(
+      LOAN_LIMITS.maxPokokPlafon,
+    )}; angka itu sama dengan batas penyimpanan plafon, bukan pagar kedua yang terpisah. Tenor resmi ${daftarAtau(
+      TENOR_OPTIONS,
+    )} hari, dan kombinasi di luar matriks ditolak server, bukan sekadar disembunyikan di layar.`,
+    rujukan: "src/lib/loan.ts, plafon.ts",
   },
   {
     judul: "Bunga harian per tier pokok",
-    isi: "Bunga flat dari pokok: di bawah Rp500.000 tarifnya 30/35/40%, Rp500.000–999.999 tarifnya 28/32/35%, dan tepat Rp1.000.000 tarifnya 26/28/30% untuk tenor 7/14/28 hari.",
+    isi: `Bunga flat dari pokok, per tenor ${TENOR_OPTIONS.join(", ")} hari. Di bawah ${rp(
+      PLAFON_BARU,
+    )} tarifnya ${tarifHarian(
+      LOAN_LIMITS.minPokok,
+    )}. ${rp(PLAFON_BARU)} sampai ${rp(
+      LOAN_LIMITS.maxPokok - 1,
+    )} tarifnya ${tarifHarian(PLAFON_BARU)}. Mulai ${rp(
+      LOAN_LIMITS.maxPokok,
+    )} tarifnya ${tarifHarian(
+      LOAN_LIMITS.maxPokok,
+    )}, berlaku sampai plafon khusus tertinggi.`,
     rujukan: "src/lib/loan.ts",
   },
   {
     judul: "Bunga khusus per nasabah",
-    isi: "Bawaan 30% dari Pengaturan Parameter Bisnis. Override admin (0–100%) menang atas default dan disimpan sebagai snapshot di pinjaman, jadi pinjaman lama tidak ikut berubah saat tarif global diubah.",
+    isi: `Bawaan ${DEFAULT_CONFIG.persenBunga}% dari Pengaturan Parameter Bisnis. Override admin (0–100%) menang atas default dan disimpan sebagai snapshot di pinjaman, jadi pinjaman lama tidak ikut berubah saat tarif global diubah.`,
     rujukan: "src/lib/bunga.ts",
   },
   {
     judul: "Potongan di muka",
-    isi: "Biaya admin 2% dan platform 0% dipotong dari pokok, sehingga dana diterima peminjam 98%. Bunga tidak ikut dipotong di muka, melainkan masuk total kewajiban.",
-    rujukan: "src/lib/loan.ts",
+    isi: `Biaya admin ${PINDAI_PRICING.adminFeePercent}% dan platform ${PINDAI_PRICING.platformFeePercent}% dipotong dari pokok. Skema harian juga dikenai biaya pencairan ekspres sekali per pinjaman baru: ${BIAYA_EKSPRES_NARASI}. Bunga tidak ikut dipotong di muka, melainkan masuk total kewajiban.`,
+    rujukan: "src/lib/loan.ts, ekonomiPlatform.ts",
   },
   {
-    judul: "Skema bulanan & kredit barang",
-    isi: "Tenor 1, 3, atau 6 bulan. Margin flat 30%, 25%, dan 20% per bulan dari pokok penuh. Biaya 2% dipotong di muka, ditambah biaya layanan 2% dari nominal cicilan setiap bulan. Angsuran pokok dibagi rata dan bulan terakhir menyerap sisa pembulatan.",
+    judul: "Skema bulanan",
+    isi: `Tenor ${daftarAtau(
+      TENOR_BULANAN_OPTIONS,
+    )} bulan. Margin flat ${BULANAN_PRICING.bungaTenor1PersenPerBulan}%, ${BULANAN_PRICING.bungaTenor3_5PersenPerBulan}%, dan ${BULANAN_PRICING.bungaMin6PersenPerBulan}% per bulan dari pokok penuh. Biaya ${BULANAN_PRICING.biayaLayananPersen}% dipotong di muka, ditambah biaya layanan ${BULANAN_PRICING.biayaAdminCicilanPersen}% dari nominal cicilan setiap bulan. Angsuran pokok dibagi rata dan bulan terakhir menyerap sisa pembulatan.`,
     rujukan: "src/lib/bulanan.ts",
   },
   {
+    judul: "Kredit barang",
+    isi: `Pengajuan baru memakai tenor ${daftarAtau(
+      KREDIT_TENOR_PENGAJUAN_OPTIONS,
+    )} bulan dengan DP ${BULANAN_PRICING.dpPersen}%. Harga barang ${rp(
+      KREDIT_PRICING.minHargaBarang,
+    )} sampai ${rp(KREDIT_PRICING.maxHargaBarang)}, dan pokok yang dibiayai dibatasi ${rp(
+      KREDIT_BARANG_POKOK_MAKS,
+    )}. Di atas itu pengajuan ditolak server.`,
+    rujukan: "src/lib/kredit.ts",
+  },
+  {
+    judul: "Gadai",
+    isi: `Plafon gadai ${GADAI_PRICING.ltvMaxPercent}% dari harga pasar barang. Potongan di muka ${GADAI_PRICING.upfrontDeductionPercent}%, jadi dana bersih ${GADAI_PRICING.netDisbursementPercent}%. Sewa modal ${GADAI_PRICING.sewaModalMinPercent}–${GADAI_PRICING.sewaModalMaxPercent}% per ${GADAI_PRICING.periodeHari} hari dihitung dari sisa pokok, sehingga cicilan pokok menurunkan sewa periode berikutnya. Sisa pokok nol menandai barang siap diambil; catatan itu tidak membuktikan barang disimpan.`,
+    rujukan: "src/lib/gadai.ts",
+  },
+  {
     judul: "Plafon per nasabah",
-    isi: "Nasabah baru dibatasi Rp500.000. Satu pelunasan tepat waktu membuka Rp1.000.000. Keterlambatan tidak menaikkan plafon, dan override admin selalu menang atas hasil perilaku.",
+    isi: `Nasabah baru dibatasi ${rp(PLAFON_BARU)}. Satu pelunasan tepat waktu membuka ${rp(
+      PLAFON_TERUJI,
+    )}; tunggakan aktif menahannya kembali. Keterlambatan tidak menaikkan plafon. Override admin menang atas perilaku dan dapat disetel sampai ${rp(
+      PLAFON_BATAS.maks,
+    )}, dan angka itulah yang membuka pokok harian di atas ${rp(PLAFON_TERUJI)}. Pinjaman berjalan mengurangi plafon tersedia.`,
     rujukan: "src/lib/plafon.ts",
   },
   {
+    judul: "Persetujuan sebagian",
+    isi: "Admin boleh menyetujui lebih kecil dari nominal pengajuan, tidak pernah lebih besar. Nominal disetujui disimpan terpisah dari pokok diajukan, dan terkunci setelah dana ditandai tersalurkan.",
+    rujukan: "src/lib/statusPinjaman.ts",
+  },
+  {
     judul: "Denda keterlambatan",
-    isi: "2% per hari dari pokok angsuran yang telat, dibatasi 100% atau setara 50 hari. Dasarnya angsuran yang terlambat, bukan pokok pinjaman penuh, supaya denda tidak menumpuk di akhir tenor.",
-    rujukan: "src/lib/angsuran.ts",
+    isi: `Bawaan ${DEFAULT_CONFIG.persenDendaKeterlambatan}% per hari dari pokok angsuran yang telat, dibatasi ${LATE_FEE_POLICY.maxPercent}% dari pokok. Pengaturan Parameter Bisnis dapat mengubah tarifnya; nilai nol mematikan denda tanpa mengubah tenor atau bunga.`,
+    rujukan: "src/lib/loan.ts, angsuran.ts",
+  },
+  {
+    judul: "Perpanjangan & roll-over",
+    isi: `Pinjaman harian dapat diperpanjang tanpa membuat pinjaman baru: pelunasan total, bayar bunga saja, atau cicil pokok. Bayar bunga saja dikenai biaya roll-over ${rp(
+      BIAYA_ROLLOVER,
+    )}. Bunga periode baru mengikuti tier nominal setelah cicilan pokok; jatuh tempo baru dihitung dari jatuh tempo berjalan atau tanggal transaksi, mana yang lebih akhir.`,
+    rujukan: "src/lib/perpanjanganPinjaman.ts",
+  },
+  {
+    judul: "Restrukturisasi",
+    isi: `Nasabah mengajukan perpanjangan tenor (tambahan ${BATAS_RESTRUKTURISASI.minTambahan}–${BATAS_RESTRUKTURISASI.maxTambahan} hari, tenor maksimal ${BATAS_RESTRUKTURISASI.maxTenor} hari) atau usulan cicilan, dengan alasan minimal ${BATAS_RESTRUKTURISASI.minAlasan} karakter. Perpanjangan hanya untuk pinjaman harian dan menggeser jatuh tempo tanpa mengubah pokok, bunga, atau kewajiban tercatat. Keputusan admin ber-TOTP dan setiap langkah masuk audit trail.`,
+    rujukan: "src/lib/restrukturisasi.ts",
   },
   {
     judul: "Status pinjaman",
-    isi: "Lima status kanonik: ditinjau, didanai, ditolak, dibatalkan, lunas. Lunas dan dibatalkan terkunci. Ejaan lama diajukan, sedang_direview, dan disetujui dibaca sebagai ditinjau.",
+    isi: `Status kanonik yang dipakai aplikasi ada ${STATUS_PINJAMAN.length}: ${DAFTAR_STATUS}. Lunas dan dibatalkan terkunci. Ejaan lama diajukan, sedang_direview, dan disetujui dibaca sebagai Ditinjau.`,
     rujukan: "src/lib/statusPinjaman.ts",
   },
   {
@@ -186,8 +292,7 @@ const ALUR_ADMIN: readonly string[] = [
   "Tinjau pengajuan pinjaman, gadai, atau kredit barang beserta dokumen dan riwayat nasabah, lalu putuskan.",
   "Verifikasi KYC. Keputusan dan alasannya masuk audit trail.",
   "Catat pencairan dan alokasi dana ke rekening penyedia dana.",
-  "Cocokkan bukti transfer di Rekonsiliasi Angsuran, isi referensi mutasi, lalu tandai lunas.",
-  "Tangani jatuh tempo: kirim pengingat, susun somasi, atau setujui restrukturisasi.",
+  "Cocokkan bukti transfer di Rekonsiliasi Angsuran, isi referensi mutasi, lalu tandai lunas.",          "Tangani jatuh tempo: kirim pengingat, catat perpanjangan, susun somasi, atau setujui restrukturisasi.",
   "Atur plafon, bunga khusus, dan catatan risiko per nasabah bila perilakunya berbeda dari default.",
   "Rekonsiliasi transfer penyedia dana dan pantau kesehatan portofolio di Catatan Internal.",
   "Kelola konten publik, template WhatsApp, versi aplikasi Android, serta backup dan kill switch.",
@@ -344,7 +449,7 @@ export function PagePengembangan() {
       <Bagian
         nomor="04"
         judul="Logika bisnis yang dijalankan server"
-        keterangan="Angka di bawah adalah nilai yang berlaku sekarang, bukan contoh. Mengubahnya berarti mengubah Pengaturan Parameter Bisnis, bukan halaman ini."
+        keterangan="Angka di bawah dibaca langsung dari konstanta yang sama dengan server, bukan disalin. Sebagian dapat diubah lewat Pengaturan Parameter Bisnis, sisanya hanya lewat kode."
       >
         <div className="grid gap-3 lg:grid-cols-2">
           {LOGIKA.map((aturan) => (
@@ -408,8 +513,10 @@ export function PagePengembangan() {
           perhitungan uang yang dipakai bersama klien dan server.
         </p>
         <p>
-          Kalau sebuah aturan berubah di kode, perbarui halaman ini pada commit yang
-          sama supaya admin tidak membaca angka lama.
+          Angka di halaman ini mengikuti konstanta kode, jadi perubahan tarif tidak
+          perlu disalin ulang. Yang perlu disunting saat aturan berubah adalah daftar
+          dan kalimatnya. Halaman ini tidak boleh menjanjikan perilaku yang tidak
+          dijalankan server.
         </p>
       </section>
     </div>

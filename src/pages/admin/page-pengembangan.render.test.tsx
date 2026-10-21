@@ -13,7 +13,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { LATE_FEE_POLICY, LOAN_LIMITS, TENOR_OPTIONS } from "@/lib/loan";
 import { TENOR_BULANAN_OPTIONS } from "@/lib/bulanan";
-import { PLAFON_BARU, PLAFON_TERUJI } from "@/lib/plafon";
+import { PLAFON_BARU, PLAFON_BATAS, PLAFON_TERUJI } from "@/lib/plafon";
+import { BIAYA_EKSPRES_TIER, BIAYA_ROLLOVER } from "@/lib/ekonomiPlatform";
+import { GADAI_PRICING } from "@/lib/gadai";
+import { KREDIT_BARANG_POKOK_MAKS, KREDIT_PRICING } from "@/lib/kredit";
+import { formatRupiah } from "@/lib/money";
 
 import { PagePengembangan } from "./page-pengembangan";
 
@@ -43,6 +47,8 @@ cek(
 );
 cek("1e tanpa NaN", !html.includes("NaN"));
 cek("1f tanpa undefined", !html.includes("undefined"));
+// R-02 antislop: em dash dilarang pada teks yang dibaca admin.
+cek("1g tanpa em dash", !html.includes("\u2014"));
 
 // ===== 2. Angka ringkasan =====
 const modulChips = cacah(html, "rounded-md border border-slate-200 bg-slate-50");
@@ -60,8 +66,12 @@ for (const rute of ["/dashboard", "/auth", "/cek-status/:token", "/verifikasi-ko
 // ===== 4. Angka di halaman sama dengan kode =====
 cek(
   "4a batas pokok tunai",
-  html.includes(`Rp${new Intl.NumberFormat("id-ID").format(LOAN_LIMITS.minPokok)}`) &&
-    html.includes(`Rp${new Intl.NumberFormat("id-ID").format(LOAN_LIMITS.maxPokok)}`),
+  html.includes(formatRupiah(LOAN_LIMITS.minPokok)) &&
+    html.includes(formatRupiah(LOAN_LIMITS.maxPokok)),
+);
+cek(
+  "4a2 plafon khusus menaikkan batas pokok",
+  html.includes(formatRupiah(LOAN_LIMITS.maxPokokPlafon)),
 );
 /** "7, 14, 28" → "7, 14, atau 28", bentuk yang dipakai kalimat halaman. */
 const daftarAtau = (nilai: readonly number[]) =>
@@ -70,15 +80,41 @@ const daftarAtau = (nilai: readonly number[]) =>
 cek("4b tenor harian resmi", html.includes(daftarAtau(TENOR_OPTIONS)));
 cek("4c tenor bulanan resmi", html.includes(daftarAtau(TENOR_BULANAN_OPTIONS)));
 cek(
-  "4d plafon baru dan plafon teruji",
-  html.includes(new Intl.NumberFormat("id-ID").format(PLAFON_BARU)) &&
-    html.includes(new Intl.NumberFormat("id-ID").format(PLAFON_TERUJI)),
+  "4d plafon baru, plafon teruji, dan batas override admin",
+  html.includes(formatRupiah(PLAFON_BARU)) &&
+    html.includes(formatRupiah(PLAFON_TERUJI)) &&
+    html.includes(formatRupiah(PLAFON_BATAS.maks)),
 );
 cek(
   "4e tarif denda harian dan batasnya",
   html.includes(`${LATE_FEE_POLICY.percentPerDay}% per hari`) &&
     html.includes(`${LATE_FEE_POLICY.maxPercent}%`),
 );
+cek(
+  "4f biaya pencairan ekspres per tier",
+  BIAYA_EKSPRES_TIER.every((tier) => html.includes(formatRupiah(tier.biaya))),
+);
+cek(
+  "4g gadai: LTV dan sewa modal",
+  html.includes(`${GADAI_PRICING.ltvMaxPercent}%`) &&
+    html.includes(
+      `${GADAI_PRICING.sewaModalMinPercent}–${GADAI_PRICING.sewaModalMaxPercent}% per ${GADAI_PRICING.periodeHari} hari`,
+    ),
+);
+cek(
+  "4h kredit barang: harga dan pokok maksimum",
+  html.includes(formatRupiah(KREDIT_PRICING.minHargaBarang)) &&
+    html.includes(formatRupiah(KREDIT_BARANG_POKOK_MAKS)),
+);
+cek("4i biaya roll-over", html.includes(formatRupiah(BIAYA_ROLLOVER)));
+cek(
+  "4j lima status kanonik",
+  html.includes("Ditinjau, Disalurkan, Ditolak, Dibatalkan, Lunas"),
+);
+// Kalimat lama yang sudah tidak benar: tier 3 hanya "tepat Rp1.000.000" dan
+// dana bersih selalu "98%" padahal skema harian juga dipotong biaya ekspres.
+cek("4k tanpa klaim tier lama", !html.includes("tepat Rp1.000.000"));
+cek("4l tanpa klaim dana bersih 98%", !html.includes("98%"));
 
 console.log(`page-pengembangan.render: ${lulus} lulus, ${gagal} gagal`);
 if (gagal > 0) process.exit(1);
