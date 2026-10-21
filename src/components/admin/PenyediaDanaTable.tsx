@@ -1,9 +1,16 @@
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, UserCheck } from "lucide-react";
+import { IdCard, Loader2, MoreHorizontal, UserCheck, UserRoundCog } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SkeletonBarisDaftar } from "@/components/ui/loading";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -33,6 +40,10 @@ import { TombolUbahAkunPendana } from "./UbahAkunPendanaDialog";
  *  - `penyediaDana.ubahAkunPendana` — isi/perbaiki nama & email login akun;
  *  - pratinjau "masuk sebagai" — sesi nyata akun itu, lihat
  *    `components/admin/MasukSebagaiDialog.tsx`.
+ *
+ * Keduanya diringkas menjadi satu menu "Kelola", pola yang sama dengan tombol
+ * Kelola di Plafon Nasabah: dua tombol lebar per baris mendorong kolom lain
+ * sampai terpotong di layar 1366, sedangkan isinya tetap sama.
  *
  * Akun pemantau bersama (peran `pengamat`) tidak punya sakelar maupun tindakan:
  * masa berlakunya ditentukan oleh kode akses bersama (terbit/nonaktif), bukan
@@ -232,6 +243,84 @@ export function TabelAkunPendana({
   );
 }
 
+/**
+ * Satu menu aksi per akun pendana.
+ *
+ * Isinya dua pekerjaan yang sebelumnya tampil sebagai dua tombol terpisah.
+ * Dialognya tetap komponen yang sama; menu hanya menjadi pemicunya, jadi alur
+ * konfirmasi, pemulihan sesi, dan pesan gagal tidak bercabang. Tiap baris punya
+ * instance sendiri, sehingga state dialog tidak berpindah antar akun.
+ */
+function MenuKelolaPendana({
+  targetId,
+  nama,
+  email,
+}: {
+  targetId: string;
+  nama: string;
+  email: string | null;
+}) {
+  const [ubahTerbuka, setUbahTerbuka] = useState(false);
+  const [masukTerbuka, setMasukTerbuka] = useState(false);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 gap-1.5 rounded-lg bg-emerald-700 px-2.5 text-xs text-white hover:bg-emerald-800"
+            aria-label={`Kelola ${nama}`}
+          >
+            <MoreHorizontal className="size-4" aria-hidden="true" />
+            Kelola
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem
+            onSelect={() => setUbahTerbuka(true)}
+            className="gap-2 py-2"
+          >
+            <IdCard
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            {email === null ? "Isi data login" : "Ubah data login"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => setMasukTerbuka(true)}
+            className="gap-2 py-2"
+          >
+            <UserRoundCog
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            Masuk sebagai
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <TombolUbahAkunPendana
+        targetId={targetId}
+        nama={nama}
+        email={email}
+        terbuka={ubahTerbuka}
+        onTerbukaChange={setUbahTerbuka}
+        tampilkanTombol={false}
+      />
+      <TombolMasukSebagai
+        targetId={targetId}
+        nama={nama}
+        tujuan="ruang pendana"
+        terbuka={masukTerbuka}
+        onTerbukaChange={setMasukTerbuka}
+        tampilkanTombol={false}
+      />
+    </>
+  );
+}
+
 export function PenyediaDanaTable() {
   const daftar = useQuery(api.penyediaDana.daftarInvestor, {});
   const ubahAkses = useMutation(api.penyediaDana.ubahAkses);
@@ -272,10 +361,11 @@ export function PenyediaDanaTable() {
         r.akunBersama ? (
           <span className="text-[11px] text-muted-foreground">—</span>
         ) : (
-          <span className="flex flex-wrap items-center justify-end gap-2">
-            <TombolUbahAkunPendana targetId={r.userId} nama={r.nama} email={r.email} />
-            <TombolMasukSebagai targetId={r.userId} nama={r.nama} tujuan="ruang pendana" />
-          </span>
+          <MenuKelolaPendana
+            targetId={r.userId}
+            nama={r.nama}
+            email={r.email}
+          />
         )
       }
     />
