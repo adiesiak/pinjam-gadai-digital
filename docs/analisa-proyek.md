@@ -17,7 +17,7 @@ status perbaikan; bagian 1–7 adalah temuan dan tindakannya.
 | 7 | Rute mati `/penyedia-dana` → dirinya sendiri; `/pendana` 404 | **Diperbaiki** | `main.tsx` mengarahkan `/pendana` → `/penyedia-dana` |
 | 8 | `.env.keys` tidak masuk `.gitignore` | **Diperbaiki** | `.gitignore` memuat `.env.keys` |
 | 9 | Skrip QA yang menunjuk modul Convex yang sudah pindah | **Diperbaiki sebagian** | `api.pendana.*` → `api.alokasiDana.*`; skrip QA tidak bisa dijalankan di sandbox ini (butuh deployment + token admin) |
-| 10 | Berkas besar (Landing 2.075 baris, PenyediaDana 2.074, …) | **Terbuka** | Belum dipecah — tidak mendesak |
+| 10 | Berkas besar (Landing, PenyediaDana, …) | **Diperbaiki sebagian** | `pages/Landing.tsx` 1.946 → **1.290 baris**: seksi brankas, promo, serta dialog/mengambang pengumuman pindah ke `components/landing/`. `pages/PenyediaDana.tsx` 3.407 → **2.973 baris**: helper format dan primitif tampilan pindah ke `pages/penyedia-dana/`. Sisa: badan tab `IsiRuang` masih satu berkas karena seluruh state halaman ada di sana |
 | 11 | Copy kebijakan masih menyebut "5% dari total kewajiban" (halaman penyedia dana + Syarat & Ketentuan) | **Diperbaiki** | Kini "5% dari uang yang kembali (pokok + Imbal Hasil), bukan dari pokok" — sesuai kebijakan #16 |
 | 12 | Kartu "Pendapatan tercatat" / tren melewatkan potongan admin (jurnal `payout`) | **Diperbaiki** | Predikat bersama + tes baru di `integrasiLedger.convex.test.ts` |
 | 13 | Label "Biaya platform" dipakai untuk potongan admin (dua tempat) | **Diperbaiki** | Menjadi "Potongan admin", seragam dengan panel admin & akad. Dibalik lagi atas keputusan pemilik: ruang pendana kini menyebutnya "Biaya platform (layanan)" — istilah yang sama dengan akad & Pengaturan Sistem |
@@ -169,9 +169,12 @@ mengarahkan ke dirinya sendiri sehingga tidak pernah terpakai. Sasaran aslinya
   `.env.keys` ada di akar proyek). Status lacak berkas itu tidak dapat saya
   periksa dari sandbox ini — akses berkas sensitif diblokir dan perintah git
   tidak tersedia — jadi mohon pastikan sendiri berkas itu tidak ikut ter-commit.
-- Berkas terbesar: `pages/Landing.tsx` (2.075 baris), `pages/PenyediaDana.tsx`
-  (2.074), `convex/penyediaDana.ts` (1.874), `convex/loans.ts` (1.734),
-  `convex/admin.ts` (1.651). Layak dipecah, bukan mendesak.
+- Berkas terbesar sekarang: `pages/PenyediaDana.tsx` (2.973 baris),
+  `convex/penyediaDana.ts` (1.874), `convex/loans.ts` (1.734), `convex/admin.ts`
+  (1.651), `pages/Landing.tsx` (1.290). Landing dan primitif ruang pendana
+  sudah dipecah; badan tab `IsiRuang` sengaja belum — state halaman, dialog, dan
+  tabelnya saling bergantung, jadi pemecahan berikutnya perlu dilakukan sambil
+  menguji alur tab satu per satu, bukan sekadar memindahkan JSX.
 - `scripts/qa-pendana.ts`, `qa-penalty.ts`, `qa-repay.ts` sempat menunjuk modul
   `api.pendana.*` yang sudah tidak ada; referensinya diperbarui ke
   `api.alokasiDana.*` (termasuk `becomePendana` → `naikPeranDana`). Skrip ini
@@ -188,16 +191,22 @@ mengarahkan ke dirinya sendiri sehingga tidak pernah terpakai. Sasaran aslinya
 - Otorisasi diperiksa di server (`requireAdmin`, `requireDana`, `requirePengamat`;
   peran `pengamat` sengaja dipisah dari `dana`), ledger append-only dengan
   pengecekan keseimbangan, dan gerbang lokasi/TOTP untuk pergerakan uang.
-- 148 tes integrasi Convex lulus.
+- Seluruh tes integrasi Convex lulus (`bunx vitest run`: 64 berkas / 581 tes),
+  termasuk alur manual setor → alokasi → bayar di `alurManual.convex.test.ts`.
 
 ## 9. Batasan verifikasi
 
 - Tidak ada akses browser/PDF, jadi seluruh temuan berbasis pembacaan kode dan
   perhitungan langsung (skrip probe sementara, sudah dihapus), bukan pengamatan
   visual. Perubahan `index.html` dan kartu dashboard belum dilihat dengan mata.
-- Skrip QA di `scripts/` tidak dapat dijalankan (butuh deployment + token admin
-  + `VITE_CONVEX_URL`), jadi perbaikan referensinya hanya diverifikasi lewat
-  pencocokan nama ekspor di `src/convex/_generated/api.d.ts`.
+- Skrip QA di `scripts/` yang memanggil deployment (butuh `VITE_CONVEX_URL` +
+  token admin) tetap tidak dapat dijalankan di sini. Kebutuhan bukti
+  end-to-end untuk bagian uang karena itu dipenuhi lewat jalur lain: wajah
+  halaman (`scripts/qa-*`) dijalankan sebagai bagian dari `bun run test`, dan
+  alur setor → alokasi → bayar diuji di server tanpa deployment lewat
+  `bun run qa:lokal` (`alurManual.convex.test.ts` dan tes Convex terkait).
+  Rantai penuh `bun run test` hijau: 64 berkas / 581 tes vitest, termasuk seluruh
+  tes integrasi Convex.
 - Status lacak `.env.keys` tidak dapat diperiksa (akses berkas sensitif diblokir;
   perintah git tidak tersedia di sandbox ini).
 - `bun run build` sengaja tidak dijalankan.

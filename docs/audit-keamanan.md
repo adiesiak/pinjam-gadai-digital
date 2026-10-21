@@ -71,6 +71,11 @@ menggantikan verifikasi KYC, pembatas laju per IP, maupun CAPTCHA pihak ketiga.
     `public/tema-awal.js`; tanpa pemindahan itu CSP harus memakai
     `'unsafe-inline'` untuk skrip, dan pengecualian itu juga berlaku bagi skrip
     yang disuntikkan penyerang.
+  - **`public/_headers`** memuat nilai header yang sama untuk hosting statis
+    yang membaca berkas itu (Cloudflare Pages, Netlify). Vite menyalinnya ke
+    `dist/`, jadi host yang tidak menjalankan `main.ts` tetap mendapat HSTS,
+    `nosniff`, dan CSP yang sama. Dua tempat itu harus diubah bersama —
+    tidak ada mekanisme yang menyamakannya otomatis.
   - **Belum diverifikasi:** apakah platform produksi benar-benar menjalankan
     `main.ts` sebagai server, dan apakah respons produksi memuat header di atas.
     Pembuktiannya hanya lewat permintaan ke URL produksi (`curl -I`), bukan dari

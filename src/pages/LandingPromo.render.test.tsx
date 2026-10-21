@@ -18,7 +18,7 @@ import { MemoryRouter } from "react-router";
 
 import { promoPostersAktif } from "@/lib/promoPosters";
 
-import { PromoSection } from "./Landing";
+import { PromoSection } from "@/components/landing/PromoLanding";
 
 let passed = 0;
 let failed = 0;

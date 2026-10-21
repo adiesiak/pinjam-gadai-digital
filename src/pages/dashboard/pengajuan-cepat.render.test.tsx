@@ -91,9 +91,16 @@ ada(
 // Cair ekspres adalah PILIHAN peminjam, bukan biaya otomatis: centangnya
 // mengubah quote yang dikirim dan nilai `cairEkspres` ikut ke server.
 ada(cepat, 'id="cepat-cair-ekspres"', "centang cair ekspres ada di formulir");
+// Panggilan kuotasinya kini membawa tarif potongan dari pengaturan admin, jadi
+// yang dijaga adalah parameternya: ekspres dari centang, bukan konstanta.
 ada(
   cepat,
-  "quoteLoanBunga(pokokHitung, tarifBunga, { ekspres: cairEkspres })",
+  "quoteLoanBunga(pokokHitung, tarifBunga, {",
+  "kuotasi di layar memakai tarif pokok dari matriks nominal–tenor",
+);
+ada(
+  cepat,
+  "ekspres: cairEkspres",
   "angka di layar mengikuti centang, bukan selalu memakai ekspres",
 );
 ada(cepat, "\n        cairEkspres,\n", "pilihan dikirim ke mutasi pengajuan");
@@ -113,8 +120,8 @@ ada(cepat, "kalimatBatasPlafon", "kalimat batas memakai sumber kata yang sama de
 ada(cepat, "batasNominalCepat(sisaBatas)", "batas nominal mengikuti sisa batas pinjaman");
 ada(
   cepat,
-  "disabled={submitting || kurangKtp.length > 0 || !batas.adaSisa}",
-  "tombol terkunci saat data KYC kurang atau sisa batas habis",
+  "disabled={submitting || kurangKtp.length > 0 || !batas.adaSisa || !turnstileSiap}",
+  "tombol terkunci saat data KYC kurang, sisa batas habis, atau Turnstile belum siap",
 );
 
 // ===== 3. Perkabelan di modul KYC: wizard dilewati saat TERVERIFIKASI =====

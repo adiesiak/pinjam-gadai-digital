@@ -492,7 +492,10 @@ function Footer() {
 export type KetentuanDendaTampil = {
   persenDendaKeterlambatan?: number;
   maksDendaPersen?: number;
-  /** Tarif bunga global (Pengaturan Sistem) — dipakai kalkulator publik. */
+  /**
+   * Bunga harian global (Pengaturan Sistem). Skema bulanan tidak memakainya:
+   * tarifnya per tenor dan datang lewat `tarifBulanan` di bawah.
+   */
   persenBunga?: number;
   /** Tarif potongan di muka yang dipakai mesin harga (admin, asuransi, ekspres). */
   tarifBiaya?: Partial<TarifBiaya> | null;

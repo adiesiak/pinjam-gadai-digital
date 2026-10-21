@@ -35,6 +35,8 @@ const cacah = (teks: string, pola: RegExp) => (teks.match(pola) ?? []).length;
 // 1. Tidak ada sisa kosakata lama di berkas ruang pendana.
 const BERKAS = [
   "src/pages/PenyediaDana.tsx",
+  "src/pages/penyedia-dana/bagian-umum.tsx",
+  "src/pages/penyedia-dana/format.ts",
   "src/components/penyediaDana/KesehatanPortofolio.tsx",
   "src/components/penyediaDana/RingkasanKeuntungan.tsx",
   "src/components/penyediaDana/RisikoPendanaan.tsx",
@@ -65,10 +67,13 @@ for (const jalur of BERKAS) {
   cek(!isi.includes("shadow-sm"), `${jalur} tidak lagi memakai shadow-sm`);
 }
 
-// 2. Satu titik fokus, dan hanya satu.
+// 2. Satu titik fokus, dan hanya satu. Sejak halaman dipecah, permukaan fokus
+// bisa tinggal di modul bagian; yang dijaga adalah jumlahnya di seluruh
+// penyusun halaman, bukan di satu berkas saja.
 const halaman = baca("src/pages/PenyediaDana.tsx");
+const bagianUmum = baca("src/pages/penyedia-dana/bagian-umum.tsx");
 cek(
-  cacah(halaman, /FOLIO\.fokus/g) === 1,
+  cacah(halaman, /FOLIO\.fokus/g) + cacah(bagianUmum, /FOLIO\.fokus/g) === 1,
   "halaman punya tepat satu permukaan fokus",
 );
 

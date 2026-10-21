@@ -53,7 +53,13 @@ const sumber = readFileSync(
   fileURLToPath(new URL("../components/admin/SystemConfigPanel.tsx", import.meta.url)),
   "utf8",
 );
-ok("tombol Simpan mengirim payload bersih", sumber.includes("save(tanpaVersiConfig(form))"));
+// Tombol Simpan kini menambahkan `catatan` tarif di samping konfigurasi, jadi
+// yang dijaga adalah bentuknya: `versi` dibuang lewat helper, dan `form` mentah
+// tidak pernah dikirim langsung.
+ok(
+  "tombol Simpan mengirim payload bersih",
+  sumber.includes("...tanpaVersiConfig(form)") && !/save\(\s*form\s*\)/.test(sumber),
+);
 ok(
   "kill switch mengirim payload bersih",
   sumber.includes("tanpaVersiConfig({ ...form, killSwitch"),

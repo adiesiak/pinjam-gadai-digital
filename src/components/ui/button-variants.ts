@@ -18,18 +18,18 @@ import { cva } from "class-variance-authority"
  * Perbesaran sengaja dibatasi 2% supaya tidak terasa memantul.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium touch-manipulation transition-[color,background-color,border-color,box-shadow,transform] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)] disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium touch-manipulation transition-[color,background-color,border-color,box-shadow,transform] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)] disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
         default:
           "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:brightness-110 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] active:bg-primary/95",
         destructive:
-          "bg-destructive text-white shadow-sm hover:bg-destructive/90 hover:brightness-110 hover:shadow-lg hover:shadow-destructive/20 active:scale-[0.98] active:bg-destructive/95 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-white shadow-sm hover:bg-destructive/90 hover:brightness-110 hover:shadow-lg hover:shadow-destructive/20 active:scale-[0.98] active:bg-destructive/95 focus-visible:ring-destructive/20",
         // Nada positif permanen (mis. tombol "Simpan" setelah data valid).
         // `emerald` dipetakan ke kuningan di tema PINDAI = warna status positif.
         sukses:
-          "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 hover:brightness-110 hover:shadow-lg hover:shadow-emerald-900/20 active:scale-[0.98] active:bg-emerald-800 dark:bg-emerald-700",
+          "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 hover:brightness-110 hover:shadow-lg hover:shadow-emerald-900/20 active:scale-[0.98] active:bg-emerald-800",
         // Varian garis: saat disorot tepinya ikut nada utama tema (= aksen
         // emerald PINDAI) dan latarnya diberi tint tipis — bukan diisi pejal,
         // supaya tombol garis tetap terlihat sebagai aksi sekunder.
@@ -38,7 +38,7 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-[0.98] active:bg-secondary/70",
         ghost:
-          "hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98] active:bg-secondary/70 dark:hover:bg-accent/50",
+          "hover:bg-secondary hover:text-secondary-foreground active:scale-[0.98] active:bg-secondary/70",
         // Tautan: garis bawah juga muncul saat fokus keyboard, bukan hanya hover.
         link: "text-primary underline-offset-4 hover:underline focus-visible:underline active:opacity-80",
         primary:

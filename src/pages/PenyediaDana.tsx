@@ -10,7 +10,6 @@ import {
   Loader2,
   Lock,
   HandCoins,
-  Inbox,
   MapPin,
   MoreHorizontal,
   Package,
@@ -24,7 +23,7 @@ import {
   Wallet,
   XCircle,
 } from "lucide-react";
-import { Component, useEffect, useState, type ReactNode } from "react";
+import { Component, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -71,10 +70,7 @@ import {
   DialogCatatKeuntungan,
   type TargetKeuntungan,
 } from "@/components/penyediaDana/DialogKeuntunganPendana";
-import {
-  CatatanKebijakan,
-  KepalaFolio,
-} from "@/components/penyediaDana/bagian-folio";
+import { KepalaFolio } from "@/components/penyediaDana/bagian-folio";
 import { FOLIO, nomorFolio } from "@/components/penyediaDana/folio";
 import { PersetujuanRisikoPendana } from "@/components/penyediaDana/PersetujuanRisikoPendana";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -96,14 +92,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KerangkaRuangPendana, MemuatBaris } from "@/components/ui/loading";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableCell, TableRow } from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -124,7 +113,7 @@ import {
   type StatusPinjaman,
 } from "@/lib/statusPinjaman";
 import type { RincianPerkiraan } from "@/lib/tabelPendana";
-import { aksiKeuntunganPinjaman, type RingkasTransfer } from "@/lib/transferPendana";
+import { aksiKeuntunganPinjaman } from "@/lib/transferPendana";
 import type {
   BarisGadai,
   BarisKredit,
@@ -140,8 +129,6 @@ import {
   simulasiBulananPinjaman,
 } from "@/lib/loan";
 import { batasPelunasan, ringkasJatuhTempo } from "@/lib/jatuhTempo";
-import type { RingkasKepercayaan } from "@/lib/kepercayaanPeminjam";
-import { formatRupiahAman } from "@/lib/money";
 import { laporanPortofolio, namaBerkasPortofolio } from "@/lib/laporanPendana";
 import { susunPdf } from "@/lib/pdfSederhana";
 import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
@@ -153,6 +140,30 @@ import {
   saringPengajuan,
   type FilterPengajuan,
 } from "@/lib/saringanPengajuan";
+import {
+  BadgeKredit,
+  BadgePseudonim,
+  BadgeTransferPendana,
+  BarisAngka,
+  CatatanTab,
+  CatatanTerpotong,
+  InfoKartu,
+  KartuRingkasan,
+  KeadaanKosong,
+  KeadaanKosongDaftar,
+  SelLokasi,
+  SelPeminjam,
+  SelPendana,
+  Tabel,
+} from "@/pages/penyedia-dana/bagian-umum";
+import {
+  coba,
+  labelUmur,
+  rupiah,
+  tanggalRingkas,
+  tautanPeta,
+  useJamBerjalan,
+} from "@/pages/penyedia-dana/format";
 
 /**
  * Ruang Pendana — HANYA BACA.
@@ -177,451 +188,6 @@ import {
  * dashboard peminjam terbuka (±60 detik). Pelacakan saat aplikasi ditutup butuh
  * aplikasi native, jadi yang tampil di sini selalu "terakhir dikirim kapan".
  */
-
-function tanggalRingkas(ms: number): string {
-  return new Date(ms).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-/** Jalankan perhitungan kuotasi tanpa pernah merobohkan halaman (data warisan). */
-function coba<T>(fn: () => T): T | null {
-  try {
-    return fn();
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Format rupiah defensif: halaman baca-saja tidak boleh gagal total hanya
- * karena satu baris data warisan bernilai bukan rupiah bulat.
- */
-/** Format rupiah defensif — satu angka warisan non-bulat tidak boleh
- * merobohkan halaman ini (lihat `formatRupiahAman`). */
-function rupiah(nilai: number): string {
-  return formatRupiahAman(nilai);
-}
-
-/**
- * Umur titik lokasi dalam bahasa manusia. Selalu relatif terhadap waktu
- * sekarang, sehingga klaim "live" tidak pernah menyesatkan: titik yang berhenti
- * dikirim akan terlihat makin tua sendiri.
- */
-function labelUmur(waktu: number, sekarang: number): string {
-  const detik = Math.max(0, Math.round((sekarang - waktu) / 1000));
-  if (detik < 90) return "baru saja";
-  const menit = Math.round(detik / 60);
-  if (menit < 60) return `${menit} menit lalu`;
-  const jam = Math.round(menit / 60);
-  if (jam < 24) return `${jam} jam lalu`;
-  return `${Math.round(jam / 24)} hari lalu`;
-}
-
-/**
- * Jam berjalan untuk label umur lokasi. Tanpa ini, label "3 menit lalu" akan
- * membeku di layar ketika tidak ada data baru yang masuk (Convex hanya
- * merender ulang saat data berubah).
- */
-function useJamBerjalan(intervalMs = 60_000): number {
-  const [sekarang, setSekarang] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setSekarang(Date.now()), intervalMs);
-    return () => window.clearInterval(id);
-  }, [intervalMs]);
-  return sekarang;
-}
-
-/** Tautan peta eksternal + embed OpenStreetMap untuk satu koordinat. */
-function tautanPeta(lat: number, lng: number): { embed: string; penuh: string } {
-  const d = 0.008;
-  return {
-    embed: `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d}%2C${lat - d}%2C${
-      lng + d
-    }%2C${lat + d}&layer=mapnik&marker=${lat}%2C${lng}`,
-    penuh: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`,
-  };
-}
-
-/** Sel lokasi: umur titik terakhir atau tanda belum ada titik. */
-function SelLokasi({ lokasi, sekarang }: { lokasi: LokasiTitik | null; sekarang: number }) {
-  if (lokasi === null) {
-    return (
-      <TableCell className="whitespace-nowrap align-top text-xs text-slate-600">
-        belum ada titik
-      </TableCell>
-    );
-  }
-  return (
-    <TableCell className="whitespace-nowrap align-top text-xs text-slate-600">
-      <span className="inline-flex items-center gap-1.5">
-        <MapPin className="size-3.5 text-primary" aria-hidden />
-        {labelUmur(lokasi.waktu, sekarang)}
-      </span>
-      {lokasi.tanda.length > 0 && (
-        <span className="mt-1 block text-xs font-medium text-amber-700">
-          pola koordinat ditandai
-        </span>
-      )}
-    </TableCell>
-  );
-}
-
-/**
- * Kelas bersama chip status: pil lembut bergaris tipis.
- *
- * Dipakai semua badge status di ruang ini supaya "Disalurkan/Lunas" selalu
- * hijau, "Ditinjau/Menunggu" selalu kuning, dan "Ditolak" selalu merah muda —
- * warna yang sama untuk arti yang sama, di tabel maupun di kartu.
- */
-const KELAS_PIL_STATUS = "inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-semibold";
-
-const LABEL_KREDIT: Record<string, { label: string; kelas: string }> = {
-  diajukan: { label: "Menunggu review", kelas: "border-amber-200 bg-amber-50 text-amber-900" },
-  sedang_ditinjau: {
-    label: "Sedang ditinjau",
-    kelas: "border-amber-200 bg-amber-50 text-amber-900",
-  },
-  disetujui: {
-    label: "Disetujui tim PINDAI",
-    kelas: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  },
-  ditolak: { label: "Tidak disetujui", kelas: "border-rose-200 bg-rose-50 text-rose-800" },
-  didanai: {
-    label: "Pendanaan tercatat penuh",
-    kelas: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  },
-  lunas: { label: "Lunas (ledger)", kelas: "border-emerald-200 bg-emerald-50 text-emerald-800" },
-};
-
-function BadgeKredit({ status }: { status: string }) {
-  const meta = LABEL_KREDIT[status] ?? {
-    label: status,
-    kelas: "border-slate-300 bg-slate-100 text-slate-700",
-  };
-  return <span className={`${KELAS_PIL_STATUS} ${meta.kelas}`}>{meta.label}</span>;
-}
-
-/**
- * Badge status catatan transfer keuntungan pendana.
- *
- * Super Admin dapat mencatat atau membatalkan catatan ini dari tab Lunas. Istilah
- * sengaja berbunyi "dicatat", bukan "terbayar": PINDAI tidak memindahkan uang,
- * jadi yang bisa dibaca di sini adalah catatan admin, bukan bukti mutasi bank.
- */
-function BadgeTransferPendana({ ringkas }: { ringkas: RingkasTransfer }) {
-  const meta =
-    ringkas.status === "dicatat"
-      ? { label: "sudah dicatat", kelas: "border-emerald-200 bg-emerald-50 text-emerald-800" }
-      : ringkas.status === "dibatalkan"
-        ? { label: "catatan dibatalkan", kelas: "border-amber-200 bg-amber-50 text-amber-900" }
-        : { label: "belum dicatat", kelas: "border-slate-200 bg-slate-100 text-slate-800" };
-  return (
-    <span className="inline-flex flex-col items-start gap-0.5">
-      <span className={`${KELAS_PIL_STATUS} gap-1 text-xs ${meta.kelas}`}>
-        {ringkas.status === "dicatat" && <BadgeCheck className="mr-1 size-2.5" />}
-        {meta.label}
-      </span>
-      {ringkas.status === "dicatat" && ringkas.dicatatPada !== null && (
-        <span className="text-xs text-muted-foreground">
-          {tanggalRingkas(ringkas.dicatatPada)}
-        </span>
-      )}
-    </span>
-  );
-}
-
-function BadgePseudonim({ kode }: { kode: string | null }) {
-  return (
-    <Badge
-      variant="outline"
-      className="border-slate-200 bg-slate-50 font-mono text-xs font-medium tracking-tight text-slate-600"
-    >
-      {kode ?? "kode belum terbit"}
-    </Badge>
-  );
-}
-
-/**
- * Satu angka pokok di lembar folio halaman.
- *
- * Angka ini berdiri sendiri sebagai lembar bertepi kuningan ganda: satu-satunya
- * angka di halaman yang perlu menangkap mata lebih dulu. Angka pendukungnya tidak
- * ikut ke sini; ia duduk di daftar bergaris (`BarisAngka`) di sebelahnya.
- */
-/**
- * Satu warna untuk satu makna.
- *
- * Sebelumnya semua kartu memakai garis emerald yang sama, sehingga "dana
- * tersalurkan", "masih berjalan", "sudah dibukukan", dan "masih perkiraan"
- * terbaca sebagai empat angka setara padahal maknanya berbeda. Sekarang:
- * dibukukan = hijau tua penuh, perkiraan = pucat bergaris (bukan oranye yang
- * terbaca seperti peringatan), tersalurkan = navy, berjalan = hijau separuh.
- */
-/*
- * Tanda makna satu angka: kotak kecil di depan labelnya, bukan garis warna di
- * tepi kartu. Sekarang angkanya berdiri sendiri di lembar folio, jadi yang perlu
- * dibedakan adalah labelnya, bukan kotaknya.
- */
-const AKSEN_RINGKASAN = {
-  tersalurkan: { garis: "bg-navy" },
-  berjalan: { garis: "bg-emerald-700/50" },
-  dibukukan: { garis: "bg-emerald-700" },
-  perkiraan: {
-    garis: "bg-[repeating-linear-gradient(135deg,var(--color-slate-400)_0_3px,transparent_3px_6px)]",
-  },
-} as const;
-
-function KartuRingkasan({
-  label,
-  nilai,
-  detail,
-  icon,
-  aksen = "dibukukan",
-  catatanRisiko,
-}: {
-  label: string;
-  nilai: string;
-  detail: string;
-  icon: React.ReactNode;
-  /** Warna tanda makna: satu warna untuk satu makna. */
-  aksen?: keyof typeof AKSEN_RINGKASAN;
-  /** Catatan mikro risiko tepat di bawah angkanya. */
-  catatanRisiko?: string;
-}) {
-  const gaya = AKSEN_RINGKASAN[aksen];
-  return (
-    /*
-     * Satu-satunya permukaan bermewah di halaman ini: tepi kuningan ganda dan
-     * bayangan bertinta (DESIGN.md §2). Angka pokok memang satu-satunya yang
-     * perlu menangkap mata sebelum yang lain.
-     */
-    <div className={`${FOLIO.fokus} min-w-0 p-5`}>
-      <div className="flex items-center gap-2">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-gold/40 bg-white/70 text-emerald-800">
-          {icon}
-        </span>
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
-          <span aria-hidden className={`size-2 shrink-0 rounded-[2px] ${gaya.garis}`} />
-          {label}
-        </p>
-      </div>
-      <p className={`mt-3 text-3xl font-semibold leading-none text-navy ${FOLIO.kode}`}>
-        {nilai}
-      </p>
-      <p className="mt-2 text-xs leading-5 text-slate-600">{detail}</p>
-      {catatanRisiko !== undefined && (
-        <p className="mt-2 flex items-start gap-1.5 border-t border-slate-200 pt-2 text-xs leading-5 text-amber-900">
-          <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden />
-          <span>{catatanRisiko}</span>
-        </p>
-      )}
-    </div>
-  );
-}
-
-/**
- * Satu baris angka pendukung di lembar folio: tanda makna dan label di kiri,
- * angkanya di kanan pada garis rambut.
- *
- * Dipakai untuk angka yang bukan titik fokus: angkanya tetap terbaca jelas
- * tanpa ikut bersaing dengan angka pokok di sebelahnya.
- */
-function BarisAngka({
-  label,
-  nilai,
-  detail,
-  tanda,
-  catatanRisiko,
-}: {
-  label: string;
-  nilai: string;
-  detail: string;
-  tanda: keyof typeof AKSEN_RINGKASAN;
-  catatanRisiko?: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-slate-200 py-3 last:border-b-0">
-      <dt className="min-w-0">
-        <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-          <span
-            aria-hidden
-            className={`size-2 shrink-0 rounded-[2px] ${AKSEN_RINGKASAN[tanda].garis}`}
-          />
-          {label}
-        </span>
-        <span className="mt-1 block text-xs leading-5 text-slate-600">{detail}</span>
-        {catatanRisiko !== undefined && (
-          <span className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-amber-900">
-            <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden />
-            <span>{catatanRisiko}</span>
-          </span>
-        )}
-      </dt>
-      <dd className={`text-right text-lg font-semibold leading-tight text-navy ${FOLIO.kode}`}>
-        {nilai}
-      </dd>
-    </div>
-  );
-}
-
-/**
- * Keadaan kosong satu daftar.
- *
- * Diberi penanda visual (kotak ikon) dan bidang putus-putus yang lebih terang
- * daripada kotak data, supaya "tidak ada baris" tidak pernah terbaca seperti
- * tabel yang gagal termuat. Kalimatnya tetap datang dari pemanggil.
- */
-function KeadaanKosong({ pesan }: { pesan: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50/70 px-6 py-12 text-center">
-      <span className="mx-auto flex size-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600">
-        <Inbox className="size-5" aria-hidden />
-      </span>
-      <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">{pesan}</p>
-    </div>
-  );
-}
-
-/**
- * Catatan kebijakan satu tab.
- *
- * Sebelumnya kotak penuh berwarna muda; sekarang hanya garis warna di tepi kiri
- * supaya peringatan tetap menonjol tanpa bersaing dengan angka di tabel.
- */
-function CatatanTab({
-  nada,
-  label,
-  children,
-}: {
-  nada: "amber" | "emerald" | "red";
-  /** Nama keadaan yang dijelaskan catatan ini, ditulis apa adanya. */
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <CatatanKebijakan label={label} nada={nada} className="mb-4">
-      {children}
-    </CatatanKebijakan>
-  );
-}
-
-/**
- * Keadaan kosong yang jujur saat saringan aktif: "belum ada pengajuan" akan
- * menyesatkan bila datanya sebenarnya ada, hanya tersaring.
- */
-function KeadaanKosongDaftar({ aktif, pesan }: { aktif: boolean; pesan: string }) {
-  if (!aktif) return <KeadaanKosong pesan={pesan} />;
-  return (
-    <KeadaanKosong pesan="Tidak ada pengajuan yang cocok dengan saringan nama / pendana di atas. Kosongkan saringan untuk menampilkan semuanya." />
-  );
-}
-
-function CatatanTerpotong({ terpotong, batas }: { terpotong: boolean; batas: number }) {
-  if (!terpotong) return null;
-  return (
-    <p className="px-5 py-3 text-center text-xs text-muted-foreground">
-      Menampilkan {batas} pengajuan terbaru — urutkan dari yang paling baru.
-    </p>
-  );
-}
-
-/**
- * Kerangka tabel — dirancang agar muat TANPA geser mendatar.
- * `TableHead`/`TableCell` bawaan memaksa `whitespace-nowrap` (itulah yang
- * membuat tabel melebar dan harus digeser); di sini penekanan itu dilonggarkan
- * lewat varian `[&_th]`/`[&_td]` supaya judul dan isi boleh turun ke baris
- * kedua, sehingga tabel pas di lebar kontainer. Nomor referensi sudah memakai
- * `break-all` di SelPeminjam. Wadah bawaan `Table` (`data-slot="table-container"`)
- * juga di-set `overflow-x-clip` agar tidak pernah menampilkan geser mendatar.
- */
-function Tabel({ head, children }: { head: string[]; children: React.ReactNode }) {
-  return (
-    <div className={`overflow-hidden ${FOLIO.kertas} [&>[data-slot=table-container]]:overflow-x-clip`}>
-      <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal [&_td]:break-words">
-        <TableHeader>
-          {/* Judul kolom diberi garis kuningan di bawahnya: batas antara kepala
-              dan isi tabel jadi terbaca sekali pandang. */}
-          <TableRow className={`${FOLIO.kepalaTabel} hover:bg-slate-50`}>
-            {head.map((judul) => (
-              <TableHead
-                key={judul}
-                className="h-11 align-bottom text-xs font-semibold uppercase tracking-[0.14em] text-slate-600"
-              >
-                {judul}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        {/* Baris zebra + sorot saat disorot: tabel berkolom banyak jauh lebih
-            mudah diikuti mata ketika barisnya punya irama. */}
-        <TableBody className="[&_tr:nth-child(even)]:bg-slate-50/60 [&_tr:hover]:bg-emerald-50/60 [&_tr]:transition-colors">
-          {children}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-/**
- * Sel peminjam: nama, nomor referensi, dan kode pseudonim dalam satu kolom.
- * Digabung supaya tabel tidak perlu digeser mendatar di layar kerja.
- */
-function SelPeminjam({
-  nama,
-  kode,
-  referensi,
-  kepercayaan,
-}: {
-  nama: string;
-  kode: string | null;
-  referensi: string;
-  /** Hanya diisi untuk pengajuan pinjaman — indeks kepercayaan peminjam. */
-  kepercayaan?: RingkasKepercayaan;
-}) {
-  return (
-    <TableCell className="align-top">
-      <p className="font-medium uppercase text-slate-900">{nama}</p>
-      <p className="mt-1 break-all font-mono text-xs text-slate-600">{referensi}</p>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        <BadgePseudonim kode={kode} />
-        {kepercayaan !== undefined && (
-          <>
-            <BadgeKepercayaan kepercayaan={kepercayaan} tanpaSkor />
-            <ChipSkorRisiko skor={kepercayaan.skor} />
-          </>
-        )}
-      </div>
-    </TableCell>
-  );
-}
-
-function SelPendana({ pendana }: { pendana: string | null }) {
-  if (pendana === null) {
-    return <TableCell className="align-top text-slate-600">—</TableCell>;
-  }
-  return (
-    <TableCell className="align-top">
-      <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium uppercase text-slate-800">
-        <Wallet className="size-3" aria-hidden /> {pendana}
-      </span>
-    </TableCell>
-  );
-}
-
-/** Satu baris label/nilai pada kartu pengajuan (tampilan layar sempit). */
-function InfoKartu({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs font-medium uppercase tracking-[0.1em] text-slate-600">
-        {label}
-      </dt>
-      <dd className="mt-0.5 text-sm font-medium text-slate-800">{children}</dd>
-    </div>
-  );
-}
 
 /**
  * Aksi satu baris pinjaman dalam SATU pemicu.
