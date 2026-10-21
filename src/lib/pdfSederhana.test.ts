@@ -197,5 +197,57 @@ function offsetXref(teks: string): number[] {
   eq(dibagi.length, 1, "tiga baris pendek muat di satu halaman");
 }
 
+/* ===== 6. Kop surat dan baris angka dua kolom ===== */
+{
+  const byte = susunPdf({
+    kop: {
+      nama: "PINJAM GADAI DIGITAL (PINDAI)",
+      keterangan: "Laporan keuangan pendana",
+      referensi: "LAPORAN PENDANAAN",
+    },
+    kaki: "PINDAI - dokumen dibuat otomatis oleh sistem",
+    baris: [
+      { teks: "Laporan kinerja pendanaan", gaya: "judul" },
+      { label: "Dana tersalurkan", nilai: "Rp 10.000.000" },
+      { label: "Masih berjalan", nilai: "Rp 7.000.000" },
+    ],
+  });
+  const teks = teksPdf(byte);
+  ok(teks.includes("PINJAM GADAI DIGITAL \\(PINDAI\\)"), "nama layanan masuk ke kop");
+  ok(teks.includes("Laporan keuangan pendana"), "keterangan kop tercetak");
+  ok(teks.includes("LAPORAN PENDANAAN"), "rujukan dokumen tercetak di kanan kop");
+  ok((teks.match(/ re B/g) ?? []).length >= 1, "lambang digambar sebagai vektor bertepi");
+  ok(teks.includes("PINDAI - dokumen dibuat otomatis oleh sistem"), "kaki dokumen tercetak");
+  ok(teks.includes("Halaman 1 dari 1"), "nomor halaman tercetak terpisah di kaki");
+
+  // Label di kiri dan nilainya di kanan harus berada pada garis dasar yang SAMA.
+  const posisiTeks = [
+    ...teks.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) Tm \(([^)]*)\) Tj/g),
+  ].map((m) => ({ x: Number(m[1]), y: Number(m[2]), isi: m[3] ?? "" }));
+  const label = posisiTeks.find((t) => t.isi === "Dana tersalurkan");
+  const nilai = posisiTeks.find((t) => t.isi === "Rp 10.000.000");
+  ok(label !== undefined && nilai !== undefined, "label dan nilai sama-sama tercetak");
+  eq(label?.y, nilai?.y, "label dan nilai berada pada garis dasar yang sama");
+  ok((nilai?.x ?? 0) > (label?.x ?? 0), "nilai diletakkan di kanan label");
+  ok((nilai?.x ?? 0) + 80 < 595, "nilai rata kanan tidak melewati margin kanan");
+
+  // Kop mengulang di halaman kedua dan isi tidak menimpanya.
+  const panjang = susunPdf({
+    kop: { nama: "PINJAM GADAI DIGITAL (PINDAI)" },
+    baris: Array.from({ length: 90 }, (_, i) => ({ teks: `Baris ${i + 1}`, gaya: "biasa" as const })),
+  });
+  const teksPanjang = teksPdf(panjang);
+  const halaman = Number(/\/Count (\d+)/.exec(teksPanjang)?.[1]);
+  eq(
+    teksPanjang.split("PINJAM GADAI DIGITAL \\(PINDAI\\)").length - 1,
+    halaman,
+    "kop dicetak di setiap halaman berkop",
+  );
+  ok(
+    teksPanjang.includes(`Halaman ${halaman} dari ${halaman}`),
+    "nomor halaman terakhir benar pada dokumen berkop",
+  );
+}
+
 console.log(`pdfSederhana.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

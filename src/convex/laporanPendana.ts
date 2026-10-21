@@ -34,14 +34,21 @@ import type { Id } from "./_generated/dataModel";
 import {
   laporanPelunasan,
   laporanPortofolio,
+  laporanRekapPendana,
   namaBerkasPelunasan,
   namaBerkasPortofolio,
+  namaBerkasRekapPendana,
   pesanPelunasan,
   pesanPortofolio,
+  pesanRekapPendana,
   type BarisPortofolioPendana,
   type DataPortofolioPendana,
+  type DataRekapPendana,
 } from "../lib/laporanPendana";
+import { normalisasiNomorWa } from "../lib/otpWa";
 import { susunPdf } from "../lib/pdfSederhana";
+import { totalPendana } from "../lib/tabelPendana";
+import { ROLES } from "./schema";
 import { apiKeyGatewayWa, kirimViaGateway, type WaSettings } from "./whatsapp";
 import {
   namaTampilPendana,
@@ -68,7 +75,7 @@ const BATAS_LAMPIRAN_BYTE = 3_500_000;
  */
 const RETENSI_BERKAS_MS = 60 * 60 * 1000;
 
-type JenisLaporan = "laporan_pelunasan" | "laporan_portofolio";
+type JenisLaporan = "laporan_pelunasan" | "laporan_portofolio" | "rekap_pendana";
 
 /**
  * Hasil pengiriman satu laporan. Ditulis sebagai tipe bernama dan SELALU
@@ -191,6 +198,44 @@ export const dataLaporanPortofolio = query({
     const data = await ambilDataPortofolio(ctx, userId);
     return data === null ? null : angkaPortofolio(data, Date.now());
   },
+});
+
+/**
+ * Rekap seluruh pendana — hanya untuk Super Admin.
+ *
+ * Satu fungsi untuk query publik (unduhan PDF di peramban) dan query internal
+ * (lampiran WhatsApp), supaya kedua jalur membaca angka yang sama. Pemantau
+ * akun bersama sengaja tidak dilayani: rekap ini memuat posisi keuangan semua
+ * pendana, dan sesi itu hanya punya akses lihat-saja ke satu portofolio.
+ */
+async function rekapSeluruhPendana(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<DataRekapPendana | null> {
+  const user = await ctx.db.get(userId);
+  if (user === null || user.role !== ROLES.ADMIN) return null;
+  const ruang = await ruangPendana(ctx, user);
+  return {
+    dicetakPada: Date.now(),
+    baris: ruang.rekapPendana,
+    total: totalPendana(ruang.rekapPendana),
+  };
+}
+
+/** Angka rekap seluruh pendana untuk unduhan PDF di perangkat admin. */
+export const dataRekapPendana = query({
+  args: {},
+  handler: async (ctx): Promise<DataRekapPendana | null> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+    return await rekapSeluruhPendana(ctx, userId);
+  },
+});
+
+/** Jalur internal rekap, dipakai aksi pengiriman WhatsApp. */
+export const _dataRekapPendana = internalQuery({
+  args: { userId: v.id("users") },
+  handler: (ctx, { userId }) => rekapSeluruhPendana(ctx, userId),
 });
 
 /** Hapus berkas laporan setelah gateway selesai mengambilnya. */
@@ -390,5 +435,50 @@ export const kirimLaporanPortofolio = action({
 
     if (!hasil.ok) throw new Error(hasil.respon);
     return { ok: true, jumlahBerjalan: angka.jumlahBerjalan, jumlahLunas: angka.jumlahLunas };
+  },
+});
+
+/**
+ * Kirim rekap seluruh pendana ke nomor WhatsApp yang ditulis admin.
+ *
+ * Berbeda dari dua laporan lain, tujuannya tidak bisa diambil dari akun:
+ * laporan ini milik admin, bukan milik pendana, dan admin perlu bisa mengirim
+ * salinannya ke nomor kerja atau ke admin lain. Karena itu nomor tujuan datang
+ * dari pemanggil — tetapi hanya setelah peran admin diperiksa lewat query
+ * internal, dan pengirimnya tetap dicatat di `waLogs`.
+ */
+export const kirimRekapPendana = action({
+  args: { nomor: v.string() },
+  handler: async (
+    ctx,
+    { nomor },
+  ): Promise<{ ok: true; tujuan: string; jumlahPendana: number }> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+
+    const tujuan = normalisasiNomorWa(nomor);
+    if (tujuan === null) {
+      throw new Error(
+        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
+      );
+    }
+
+    const data = await ctx.runQuery(internal.laporanPendana._dataRekapPendana, { userId });
+    if (data === null) throw new Error("Rekap seluruh pendana hanya untuk Super Admin.");
+    if (data.total.jumlahPendana === 0) {
+      throw new Error("Belum ada pendana yang bisa direkap.");
+    }
+
+    const hasil = await kirimLaporanPdf(ctx, {
+      jenis: "rekap_pendana",
+      nomor: tujuan,
+      namaBerkas: namaBerkasRekapPendana(data.dicetakPada),
+      byte: susunPdf(laporanRekapPendana(data)),
+      pesan: pesanRekapPendana(data),
+      olehUserId: userId,
+    });
+
+    if (!hasil.ok) throw new Error(hasil.respon);
+    return { ok: true, tujuan, jumlahPendana: data.total.jumlahPendana };
   },
 });

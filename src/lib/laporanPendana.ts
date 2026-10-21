@@ -1,26 +1,34 @@
 /**
- * Isi laporan pendana: dua laporan yang dikirim sebagai PDF ke WhatsApp pemilik
- * akun pendana.
+ * Isi laporan pendana: tiga dokumen PDF yang keluar dari ruang penyedia dana.
  *
  * Fungsi di berkas ini MURNI (tanpa Convex, React, maupun jaringan) supaya
  * kalimat dan angkanya bisa diuji sebagai skrip biasa, dan supaya tidak ada
  * salinan aturan kedua di dalam aksi pengiriman.
  *
- * Dua laporan, dua pertanyaan:
+ * Tiga laporan, tiga pertanyaan:
  *  1. `laporanPelunasan` menjawab "pinjaman saya yang mana yang baru lunas, dan
  *     berapa yang dibukukan" untuk SATU pinjaman, dikirim otomatis saat admin
  *     menandai lunas.
  *  2. `laporanPortofolio` menjawab "bagaimana posisi seluruh pendanaan saya"
  *     untuk SEMUA pinjaman atas nama pendana itu, dikirim saat ia memintanya.
+ *  3. `laporanRekapPendana` menjawab "bagaimana posisi semua pendana" untuk
+ *     Super Admin: satu berkas berisi angka seluruh pendana, bisa diunduh atau
+ *     dikirim ke WhatsApp.
  *
  * Istilahnya sengaja sama persis dengan ruang penyedia dana (Dana tersalurkan,
  * Keuntungan dibukukan, Keuntungan perkiraan, Biaya platform). Laporan ini
  * salinan angka yang sudah dibaca pendana di layar, jadi memakai kata lain akan
  * memaksa pembaca mencocokkan dua istilah untuk satu angka yang sama.
+ *
+ * Nama peminjam SELALU disamarkan di laporan yang dibaca pendana. Penyamaran
+ * dilakukan di sini, bukan di pemanggil, supaya jalur unduhan, lampiran
+ * WhatsApp, dan pesan teks tidak pernah memakai aturan yang berbeda.
  */
 import { formatRupiahAman } from "./money";
 import { tanggalRingkas } from "./jatuhTempo";
-import type { BarisPdf, DokumenPdf } from "./pdfSederhana";
+import { samarkanNama } from "./nama";
+import type { BarisPdf, DokumenPdf, KopPdf } from "./pdfSederhana";
+import type { SumberPendana, TotalPendana } from "./tabelPendana";
 
 /**
  * Batas jumlah baris pinjaman yang dicetak per bagian.
@@ -80,6 +88,31 @@ export type DataPortofolioPendana = {
   transferBelumDicatat: number;
 };
 
+/**
+ * Data rekap seluruh pendana.
+ *
+ * `total` datang dari fungsi yang sama dengan baris total tabel di ruang
+ * pendana (`totalPendana`), jadi jumlah di PDF tidak mungkin berbeda dari
+ * jumlah yang bisa dibaca admin di layar.
+ */
+export type DataRekapPendana = {
+  dicetakPada: number;
+  baris: SumberPendana[];
+  total: TotalPendana;
+};
+
+/**
+ * Kaki halaman semua laporan berkop.
+ *
+ * Berisi identitas penerbit, bukan nomor halaman: nomor halaman dicetak
+ * terpisah di kanan oleh penulis PDF, dan menyebutnya dua kali hanya membuat
+ * baris kaki penuh.
+ */
+const KAKI_LAPORAN = "PINDAI - dokumen dibuat otomatis oleh sistem";
+
+/** Nama layanan pada kop. Satu tempat, dipakai semua laporan. */
+const NAMA_LAYANAN = "PINJAM GADAI DIGITAL (PINDAI)";
+
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
 }
@@ -105,6 +138,11 @@ function slug(teks: string): string {
   return bersih === "" ? "pinjaman" : bersih;
 }
 
+/** Kop surat laporan: lambang dari penulis PDF, keterangan, dan rujukan. */
+function kopLaporan(keterangan: string, referensi: string): KopPdf {
+  return { nama: NAMA_LAYANAN, keterangan, referensi };
+}
+
 /** Nama berkas lampiran laporan pelunasan. */
 export function namaBerkasPelunasan(nomorReferensi: string): string {
   return `laporan-pelunasan-${slug(nomorReferensi)}.pdf`;
@@ -115,6 +153,11 @@ export function namaBerkasPortofolio(dicetakPada: number): string {
   return `laporan-pendanaan-${tanggalIso(dicetakPada)}.pdf`;
 }
 
+/** Nama berkas rekap seluruh pendana. */
+export function namaBerkasRekapPendana(dicetakPada: number): string {
+  return `rekap-pendana-${tanggalIso(dicetakPada)}.pdf`;
+}
+
 /** Judul laporan pelunasan, dipakai di PDF dan di keterangan pesan. */
 export function judulPelunasan(): string {
   return "Laporan pelunasan pinjaman";
@@ -123,27 +166,31 @@ export function judulPelunasan(): string {
 /**
  * Susun laporan pelunasan satu pinjaman.
  *
- * Urutan bagiannya mengikuti pertanyaan pendana: apa yang terjadi, kapan, lalu
- * berapa hasilnya. Status transfer disebut di akhir karena itu langkah
- * berikutnya yang bukan tanggung jawabnya, tetapi perlu ia ketahui.
+ * Urutan bagiannya mengikuti pertanyaan pendana: berapa hasilnya, pinjaman mana
+ * yang melunasinya, lalu apa langkah berikutnya. Status transfer disebut di
+ * akhir karena itu bukan tanggung jawabnya, tetapi perlu ia ketahui.
  */
 export function laporanPelunasan(data: DataPelunasanPendana): DokumenPdf {
   const baris: BarisPdf[] = [
     { teks: judulPelunasan(), gaya: "judul" },
-    { teks: `${data.nomorReferensi} - ${data.namaPendana}`, gaya: "biasa" },
+    { teks: `${data.nomorReferensi} - ${data.namaPendana}`, gaya: "subjudul" },
     { teks: `Dicetak ${tanggal(data.dicetakPada)} dari ruang penyedia dana`, gaya: "kecil" },
     { garis: true },
-    { teks: "Pinjaman", gaya: "seksi" },
-    { teks: `Nomor referensi: ${data.nomorReferensi}`, gaya: "biasa" },
-    { teks: `Peminjam: ${data.namaPeminjam}`, gaya: "biasa" },
-    { teks: `Dana tersalurkan (pokok): ${rupiah(data.pokokPinjaman)}`, gaya: "biasa" },
-    { teks: `Tanggal dana tersalurkan: ${tanggal(data.didanaiPada)}`, gaya: "biasa" },
-    { teks: `Tanggal lunas: ${tanggal(data.lunasPada)}`, gaya: "biasa" },
-    { kosong: true },
     { teks: "Hasil untuk Anda", gaya: "seksi" },
-    { teks: `Keuntungan pendana (dibukukan): ${rupiah(data.keuntunganPendana)}`, gaya: "tebal" },
-    { teks: `Total kewajiban peminjam: ${rupiah(data.totalLunas)}`, gaya: "biasa" },
-    { teks: `Biaya platform (layanan): ${rupiah(data.potonganAdmin)}`, gaya: "biasa" },
+    {
+      label: "Keuntungan pendana (dibukukan)",
+      nilai: rupiah(data.keuntunganPendana),
+      tebal: true,
+    },
+    { label: "Total kewajiban peminjam", nilai: rupiah(data.totalLunas) },
+    { label: "Biaya platform (layanan)", nilai: rupiah(data.potonganAdmin) },
+    { kosong: true },
+    { teks: "Pinjaman", gaya: "seksi" },
+    { label: "Nomor referensi", nilai: data.nomorReferensi },
+    { label: "Peminjam", nilai: samarkanNama(data.namaPeminjam) },
+    { label: "Dana tersalurkan (pokok)", nilai: rupiah(data.pokokPinjaman) },
+    { label: "Tanggal dana tersalurkan", nilai: tanggal(data.didanaiPada) },
+    { label: "Tanggal lunas", nilai: tanggal(data.lunasPada) },
     { kosong: true },
     {
       teks: data.transferDicatat
@@ -152,15 +199,33 @@ export function laporanPelunasan(data: DataPelunasanPendana): DokumenPdf {
       gaya: "kecil",
     },
     {
-      teks: "Angka di laporan ini dihitung dari pinjaman yang alokasinya atas nama akun penerima, sama dengan yang tampil di ruang penyedia dana.",
+      teks: "Nama peminjam disamarkan. Angka di laporan ini dihitung dari pinjaman yang alokasinya atas nama akun penerima, sama dengan yang tampil di ruang penyedia dana.",
       gaya: "kecil",
     },
   ];
-  return { kaki: "PINDAI", baris };
+  return {
+    kop: kopLaporan(
+      "Layanan gadai digital - laporan keuangan pendana",
+      "LAPORAN PELUNASAN",
+    ),
+    kaki: KAKI_LAPORAN,
+    baris,
+  };
 }
 
-/** Potongan baris pinjaman untuk bagian daftar (berjalan atau lunas). */
-function barisDaftar(judul: string, nominal: string, kumpulan: BarisPortofolioPendana[]): BarisPdf[] {
+/**
+ * Baris satu pinjaman pada bagian daftar (berjalan atau lunas).
+ *
+ * Satu pinjaman memakai dua baris: baris kecil berisi identitas dan pokok,
+ * baris kedua berisi nama yang disamarkan dengan angkanya rata kanan. Bentuk
+ * ini membuat kolom keuntungan sejajar antarbaris, dan nama peminjam tetap
+ * terbaca sebagai identitas baris tanpa membocorkan nama lengkap.
+ */
+function barisDaftar(
+  judul: string,
+  nominal: string,
+  kumpulan: BarisPortofolioPendana[],
+): BarisPdf[] {
   const hasil: BarisPdf[] = [{ teks: judul, gaya: "seksi" }];
   if (kumpulan.length === 0) {
     hasil.push({ teks: "Belum ada pinjaman pada bagian ini.", gaya: "biasa" });
@@ -168,8 +233,12 @@ function barisDaftar(judul: string, nominal: string, kumpulan: BarisPortofolioPe
   }
   for (const p of kumpulan.slice(0, BATAS_PINJAMAN_LAPORAN)) {
     hasil.push({
-      teks: `${p.nomorReferensi} - ${p.namaPeminjam} - pokok ${rupiah(p.pokokPinjaman)} - ${nominal} ${rupiah(p.keuntunganPendana)} - ${tanggal(p.tanggal)}`,
+      teks: `${p.nomorReferensi} - ${tanggal(p.tanggal)} - pokok ${rupiah(p.pokokPinjaman)}`,
       gaya: "kecil",
+    });
+    hasil.push({
+      label: samarkanNama(p.namaPeminjam),
+      nilai: `${nominal} ${rupiah(p.keuntunganPendana)}`,
     });
   }
   if (kumpulan.length > BATAS_PINJAMAN_LAPORAN) {
@@ -191,20 +260,30 @@ function barisDaftar(judul: string, nominal: string, kumpulan: BarisPortofolioPe
 export function laporanPortofolio(data: DataPortofolioPendana): DokumenPdf {
   const baris: BarisPdf[] = [
     { teks: "Laporan kinerja pendanaan", gaya: "judul" },
-    { teks: `Pendana: ${data.namaPendana}`, gaya: "biasa" },
+    { teks: `Pendana: ${data.namaPendana}`, gaya: "subjudul" },
     { teks: `Dicetak ${tanggal(data.dicetakPada)} dari ruang penyedia dana`, gaya: "kecil" },
     { garis: true },
     { teks: "Ringkasan", gaya: "seksi" },
-    { teks: `Dana tersalurkan: ${rupiah(data.totalDisalurkan)}`, gaya: "biasa" },
-    { teks: `Masih berjalan: ${rupiah(data.saldoBerjalan)} (${data.jumlahBerjalan} pinjaman)`, gaya: "biasa" },
-    { teks: `Keuntungan dibukukan (lunas): ${rupiah(data.keuntunganDibukukan)}`, gaya: "biasa" },
+    { label: "Dana tersalurkan", nilai: rupiah(data.totalDisalurkan) },
     {
-      teks: `Keuntungan perkiraan (belum lunas): ${rupiah(data.keuntunganPerkiraan)}`,
-      gaya: "biasa",
+      label: "Masih berjalan",
+      nilai: `${rupiah(data.saldoBerjalan)} (${data.jumlahBerjalan} pinjaman)`,
     },
-    { teks: `Total keuntungan pendana: ${rupiah(data.totalKeuntungan)}`, gaya: "tebal" },
-    { teks: `Biaya platform (layanan): ${rupiah(data.potonganAdmin)}`, gaya: "biasa" },
-    { teks: `Pinjaman lunas: ${data.jumlahLunas}`, gaya: "biasa" },
+    { label: "Keuntungan dibukukan (lunas)", nilai: rupiah(data.keuntunganDibukukan) },
+    {
+      label: "Keuntungan perkiraan (belum lunas)",
+      nilai: rupiah(data.keuntunganPerkiraan),
+    },
+    {
+      label: "Total keuntungan pendana",
+      nilai: rupiah(data.totalKeuntungan),
+      tebal: true,
+    },
+    { label: "Biaya platform (layanan)", nilai: rupiah(data.potonganAdmin) },
+    {
+      label: "Jumlah pinjaman",
+      nilai: `${data.jumlahBerjalan} berjalan - ${data.jumlahLunas} lunas`,
+    },
     { kosong: true },
     ...barisDaftar("Pinjaman berjalan", "perkiraan", data.pinjamanBerjalan),
     { kosong: true },
@@ -221,8 +300,117 @@ export function laporanPortofolio(data: DataPortofolioPendana): DokumenPdf {
           : "Seluruh keuntungan yang sudah dibukukan memiliki catatan transfer dari admin.",
       gaya: "kecil",
     },
+    {
+      teks: "Nama peminjam disamarkan. Daftar lengkap pinjaman dan statusnya ada di ruang penyedia dana.",
+      gaya: "kecil",
+    },
   ];
-  return { kaki: "PINDAI", baris };
+  return {
+    kop: kopLaporan(
+      "Layanan gadai digital - laporan keuangan pendana",
+      "LAPORAN PENDANAAN",
+    ),
+    kaki: KAKI_LAPORAN,
+    baris,
+  };
+}
+
+/**
+ * Susun rekap pinjaman seluruh pendana untuk Super Admin.
+ *
+ * Dokumen ini menjawab pertanyaan yang sama dengan tabel "Rekap Dana Pendana",
+ * dalam bentuk yang bisa disimpan dan diteruskan. Tidak ada nama peminjam di
+ * sini: rekap ini tentang posisi pendana, dan rincian pinjamannya sudah punya
+ * dokumen sendiri di ruang masing-masing.
+ */
+export function laporanRekapPendana(data: DataRekapPendana): DokumenPdf {
+  const total = data.total;
+  const baris: BarisPdf[] = [
+    { teks: "Rekap pinjaman semua pendana", gaya: "judul" },
+    { teks: `Dicetak ${tanggal(data.dicetakPada)} dari ruang penyedia dana`, gaya: "kecil" },
+    { garis: true },
+    { teks: "Total seluruh pendana", gaya: "seksi" },
+    { label: "Jumlah pendana", nilai: String(total.jumlahPendana) },
+    {
+      label: "Jumlah pinjaman",
+      nilai: `${total.jumlahPinjaman} (${total.jumlahAktif} berjalan, ${total.jumlahLunas} lunas)`,
+    },
+    { label: "Dana tersalurkan", nilai: rupiah(total.totalDisalurkan), tebal: true },
+    { label: "Masih berjalan", nilai: rupiah(total.saldoBerjalan) },
+    {
+      label: "Keuntungan dibukukan (lunas)",
+      nilai: rupiah(total.keuntunganPendanaLunas),
+    },
+    {
+      label: "Keuntungan perkiraan (belum lunas)",
+      nilai: rupiah(total.keuntunganPendanaBelumLunas),
+    },
+    {
+      label: "Total keuntungan pendana",
+      nilai: rupiah(total.keuntunganPendana),
+      tebal: true,
+    },
+    { label: "Biaya platform (layanan)", nilai: rupiah(total.keuntunganAdmin) },
+    {
+      label: "Transfer keuntungan belum dicatat",
+      nilai: `${total.transferBelumDicatat} pinjaman - ${rupiah(total.keuntunganBelumDicatat)}`,
+    },
+    { kosong: true },
+    { teks: "Rincian per pendana", gaya: "seksi" },
+  ];
+
+  data.baris.forEach((r, i) => {
+    baris.push({ teks: `${i + 1}. ${r.nama}`, gaya: "tebal" });
+    baris.push({
+      teks: `${r.jumlahPinjaman} pinjaman - ${r.jumlahAktif} berjalan - ${r.jumlahLunas} lunas`,
+      gaya: "kecil",
+    });
+    baris.push({ label: "Dana tersalurkan", nilai: rupiah(r.totalDisalurkan) });
+    baris.push({ label: "Masih berjalan", nilai: rupiah(r.saldoBerjalan) });
+    baris.push({
+      label: "Keuntungan dibukukan (lunas)",
+      nilai: rupiah(r.keuntunganPendanaLunas),
+    });
+    baris.push({
+      label: "Keuntungan perkiraan (belum lunas)",
+      nilai: rupiah(r.keuntunganPendanaBelumLunas),
+    });
+    baris.push({
+      label: "Total keuntungan pendana",
+      nilai: rupiah(r.keuntunganPendana),
+      tebal: true,
+    });
+    baris.push({ label: "Biaya platform (layanan)", nilai: rupiah(r.keuntunganAdmin) });
+    if (r.transferBelumDicatat > 0) {
+      baris.push({
+        teks: `${r.transferBelumDicatat} pinjaman lunas belum memiliki catatan transfer keuntungan.`,
+        gaya: "kecil",
+      });
+    }
+    baris.push({ kosong: true });
+  });
+
+  baris.push(
+    { teks: "Cara membaca", gaya: "seksi" },
+    {
+      teks: "Model 1 pinjaman = 1 pendana. Setiap angka dihitung dari pinjaman yang tercatat atas nama pendana itu.",
+      gaya: "kecil",
+    },
+    {
+      teks: "Keuntungan perkiraan berasal dari pinjaman yang masih berjalan dan baru menjadi uang saat pinjaman lunas.",
+      gaya: "kecil",
+    },
+    {
+      teks: "Nama peminjam tidak dicantumkan di rekap ini. Rincian pinjaman per pendana ada di dokumen laporan pendana masing-masing.",
+      gaya: "kecil",
+    },
+  );
+
+  return {
+    kop: kopLaporan("Rekap internal - seluruh pendana", "KHUSUS SUPER ADMIN"),
+    kaki: KAKI_LAPORAN,
+    baris,
+  };
 }
 
 /**
@@ -237,7 +425,7 @@ export function pesanPelunasan(data: DataPelunasanPendana): string {
     ? "Catatan transfer keuntungannya sudah dibuat admin."
     : "Catatan transfer keuntungannya belum dibuat admin.";
   return (
-    `Halo ${data.namaPendana}, pinjaman ${data.nomorReferensi} atas nama ${data.namaPeminjam} ` +
+    `Halo ${data.namaPendana}, pinjaman ${data.nomorReferensi} atas nama ${samarkanNama(data.namaPeminjam)} ` +
     `tercatat lunas pada ${tanggal(data.lunasPada)}. ` +
     `Keuntungan yang dibukukan untuk Anda ${rupiah(data.keuntunganPendana)}. ` +
     `${transfer} Rincian lengkapnya ada di lampiran PDF.`
@@ -251,5 +439,17 @@ export function pesanPortofolio(data: DataPortofolioPendana): string {
     `Dana tersalurkan ${rupiah(data.totalDisalurkan)}, keuntungan dibukukan ${rupiah(data.keuntunganDibukukan)}, ` +
     `perkiraan dari pinjaman berjalan ${rupiah(data.keuntunganPerkiraan)}. ` +
     `Angka lengkap per pinjaman ada di lampiran PDF.`
+  );
+}
+
+/** Keterangan pesan WhatsApp untuk rekap seluruh pendana. */
+export function pesanRekapPendana(data: DataRekapPendana): string {
+  const total = data.total;
+  return (
+    `Rekap pinjaman seluruh pendana per ${tanggal(data.dicetakPada)}: ` +
+    `${total.jumlahPendana} pendana, ${total.jumlahPinjaman} pinjaman. ` +
+    `Dana tersalurkan ${rupiah(total.totalDisalurkan)}, keuntungan dibukukan ${rupiah(total.keuntunganPendanaLunas)}, ` +
+    `perkiraan ${rupiah(total.keuntunganPendanaBelumLunas)}. ` +
+    `Rincian per pendana ada di lampiran PDF.`
   );
 }
