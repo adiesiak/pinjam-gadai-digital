@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import {
+  BellOff,
   ChevronLeft,
   ChevronRight,
   IdCard,
@@ -133,6 +134,11 @@ export function PlafonPanel() {
   const [busyNotifId, setBusyNotifId] = useState<string | null>(null);
   /** Nasabah yang plafon & bunganya sedang diatur lewat modal. */
   const [aturTarget, setAturTarget] = useState<NasabahPlafon | null>(null);
+  /** Nasabah yang pengingat tagihannya sedang dikonfirmasi untuk dimatikan. */
+  const [matikanNotifTarget, setMatikanNotifTarget] = useState<{
+    userId: Id<"users">;
+    nama: string;
+  } | null>(null);
   /** Nasabah yang sedang dikonfirmasi penghapusannya lewat dialog. */
   const [hapusTarget, setHapusTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
   /** Nasabah yang data dirinya sedang diisi/disunting lewat dialog. */
@@ -207,23 +213,40 @@ export function PlafonPanel() {
   const halamanAktif = potongHalaman(data.rows, halaman, BARIS_PER_HALAMAN);
 
   /**
-   * Satu klik di baris nasabah: matikan atau nyalakan pengingat tagihan untuk
-   * KEDUA kanal sekaligus. Ditangani mutation yang sama dengan kartu profil,
-   * jadi jejak audit dan aturan "global && nasabah" tidak punya jalur kedua.
+   * Menyalakan pengingat berlaku langsung (aman & reversibel). Mematikannya
+   * lewat dialog konfirmasi dulu: satu salah klik berarti nasabah berhenti
+   * diingatkan dan tunggakan baru ketahuan belakangan.
    */
-  const ubahNotifikasi = async (r: (typeof data.rows)[number]) => {
-    const aktifBaru = !r.notifTagihanAktif;
-    setBusyNotifId(r.userId);
+  const mintaUbahNotifikasi = (r: (typeof data.rows)[number]) => {
+    if (r.notifTagihanAktif) {
+      setMatikanNotifTarget({ userId: r.userId as Id<"users">, nama: r.nama });
+      return;
+    }
+    void ubahNotifikasi({ userId: r.userId as Id<"users">, nama: r.nama }, true);
+  };
+
+  /**
+   * Satu tindakan untuk KEDUA kanal. Ditangani mutation yang sama dengan kartu
+   * profil, jadi jejak audit dan aturan "global && nasabah" tidak punya jalur
+   * kedua. Target dipisah dari baris tabel supaya dialog konfirmasi tetap bisa
+   * menyelesaikan aksinya walau daftar sudah berubah di belakang layar.
+   */
+  const ubahNotifikasi = async (
+    target: { userId: Id<"users">; nama: string },
+    aktifBaru: boolean,
+  ) => {
+    setBusyNotifId(target.userId);
     try {
       await simpanNotif({
-        userId: r.userId as Id<"users">,
+        userId: target.userId,
         ...sakelarTagihan(aktifBaru),
       });
       toast.success(
         aktifBaru
-          ? `Pengingat tagihan ${r.nama.toUpperCase()} dinyalakan (WhatsApp & email).`
-          : `Pengingat tagihan ${r.nama.toUpperCase()} dimatikan (WhatsApp & email).`,
+          ? `Pengingat tagihan ${target.nama.toUpperCase()} dinyalakan (WhatsApp & email).`
+          : `Pengingat tagihan ${target.nama.toUpperCase()} dimatikan (WhatsApp & email).`,
       );
+      setMatikanNotifTarget(null);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Gagal mengubah pengingat tagihan.",
@@ -514,7 +537,7 @@ export function PlafonPanel() {
                             aktif={r.notifTagihanAktif}
                             sibuk={busyNotifId === r.userId}
                             className="h-8 px-2.5 text-xs"
-                            onUbah={() => void ubahNotifikasi(r)}
+                            onUbah={() => mintaUbahNotifikasi(r)}
                           />
                           <TombolMasukSebagai
                             targetId={r.userId}
@@ -636,7 +659,7 @@ export function PlafonPanel() {
                       nama={r.nama}
                       aktif={r.notifTagihanAktif}
                       sibuk={busyNotifId === r.userId}
-                      onUbah={() => void ubahNotifikasi(r)}
+                      onUbah={() => mintaUbahNotifikasi(r)}
                     />
                     <TombolMasukSebagai
                       targetId={r.userId}
@@ -747,6 +770,47 @@ export function PlafonPanel() {
           onClose={() => setDetailTarget(null)}
         />
       )}
+
+      {/* Konfirmasi sebelum menghentikan pengingat tagihan. Mematikan
+          notifikasi bukan tindakan yang bisa ditebak akibatnya, jadi admin
+          melihat siapa yang terdampak dan apa yang tetap berjalan. */}
+      <AlertDialog
+        open={matikanNotifTarget !== null}
+        onOpenChange={(terbuka) => {
+          if (!terbuka) setMatikanNotifTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Matikan pengingat tagihan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Pengingat tagihan WhatsApp dan email untuk{" "}
+              <strong className="text-navy">{matikanNotifTarget?.nama.toUpperCase()}</strong>{" "}
+              akan berhenti dikirim. Tagihan tetap tampil di dashboard nasabah dan pesan
+              keamanan seperti kode OTP tidak terpengaruh. Pengingat bisa dinyalakan lagi
+              kapan saja dari baris ini atau dari kartu Profil.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busyNotifId !== null}>Batal</AlertDialogCancel>
+            <Button
+              className="bg-amber-600 text-white hover:bg-amber-700"
+              disabled={busyNotifId !== null}
+              onClick={() => {
+                if (matikanNotifTarget === null) return;
+                void ubahNotifikasi(matikanNotifTarget, false);
+              }}
+            >
+              {busyNotifId !== null ? (
+                <Loader2 className="mr-1 size-4 animate-spin" />
+              ) : (
+                <BellOff className="mr-1 size-4" />
+              )}
+              Matikan tagihan
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Konfirmasi hapus diketik di dialog, bukan di `window.prompt` yang
           memblokir layar. Kolom alasan tidak lagi diminta. */}
