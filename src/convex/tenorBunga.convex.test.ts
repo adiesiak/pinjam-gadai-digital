@@ -130,6 +130,25 @@ describe("matriks tenor & bunga harian", () => {
     expect(loan?.persenBunga).toBe(30);
   });
 
+  it("plafon khusus Rp2 juta membuka pokok harian Rp2 juta", async () => {
+    const t = convexTest(schema, modules);
+    const sesi = await peminjamSiap(t, "tenor-plafon-khusus@pindai.test", 2_000_000);
+    await ajukan(t, sesi, 2_000_000, 28, "plafon-khusus");
+
+    const loan = await pinjamanTerakhir(t);
+    expect(loan?.pokokPinjaman).toBe(2_000_000);
+    expect(loan?.persenBunga).toBe(30);
+  });
+
+  it("tanpa plafon khusus, pokok harian di atas Rp1 juta ditolak", async () => {
+    const t = convexTest(schema, modules);
+    const sesi = await peminjamSiap(t, "tenor-plafon-bawaan@pindai.test", 1_000_000);
+
+    await expect(ajukan(t, sesi, 1_500_000, 28, "plafon-bawaan")).rejects.toThrow(
+      /Batas pinjaman Anda/,
+    );
+  });
+
   it("Rp1 juta tenor 14 hari memakai bunga 28%", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-penuh-mid@pindai.test", 1_000_000);

@@ -72,10 +72,15 @@ function validasiDraf(args: {
   if (!Number.isSafeInteger(args.pokokPinjaman) || args.pokokPinjaman <= 0) {
     throw new Error("Nominal draf harus rupiah bulat positif.");
   }
-  const batas = skema === "bulanan" ? BULANAN_LIMITS : LOAN_LIMITS;
-  if (args.pokokPinjaman < batas.minPokok || args.pokokPinjaman > batas.maxPokok) {
+  // Draf harian memakai langit-langit plafon khusus, bukan batas produk Rp1
+  // juta: isian Rp2 juta dari nasabah berplafon khusus tidak boleh hilang
+  // hanya karena draf disimpan sebelum dikirim.
+  const minPokok = skema === "bulanan" ? BULANAN_LIMITS.minPokok : LOAN_LIMITS.minPokok;
+  const maksPokok =
+    skema === "bulanan" ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokokPlafon;
+  if (args.pokokPinjaman < minPokok || args.pokokPinjaman > maksPokok) {
     throw new Error(
-      `Nominal draf harus antara ${batas.minPokok} dan ${batas.maxPokok} untuk skema ${skema}.`,
+      `Nominal draf harus antara ${minPokok} dan ${maksPokok} untuk skema ${skema}.`,
     );
   }
 

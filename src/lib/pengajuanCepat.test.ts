@@ -74,7 +74,12 @@ const SIAP: IsianPengajuanCepat = {
 // Batas atas selalu = SISA batas nasabah, dipotong batas produk.
 eq(batasNominalCepat(null).min, LOAN_LIMITS.minPokok, "batas bawah = batas produk");
 eq(batasNominalCepat(null).maks, 500_000, "sisa belum termuat memakai plafon nasabah baru");
-eq(batasNominalCepat(3_000_000).maks, LOAN_LIMITS.maxPokok, "sisa besar tetap dipotong batas produk");
+eq(batasNominalCepat(3_000_000).maks, 3_000_000, "plafon khusus menaikkan batas nominal");
+eq(
+  batasNominalCepat(20_000_000).maks,
+  LOAN_LIMITS.maxPokokPlafon,
+  "sisa besar tetap dipotong langit-langit plafon",
+);
 eq(batasNominalCepat(600_000).maks, 600_000, "sisa kecil menjadi batas atas");
 eq(batasNominalCepat(Number.NaN).maks, 500_000, "sisa tidak wajar memakai plafon nasabah baru");
 
@@ -135,9 +140,15 @@ ada(tolak({ pokokPinjaman: 50_000 }), "minimal", "nominal di bawah minimum ditol
 ada(tolak({ pokokPinjaman: 2_000_000 }), "maksimal", "nominal di atas batas ditolak");
 ada(tolak({ pokokPinjaman: 700_000 }, KTP, 600_000), "Sisa batas pinjaman Anda", "sisa batas nasabah disebut saat jadi batas");
 ada(tolak({ pokokPinjaman: 700_000 }, KTP, 600_000), "600.000", "angka sisa batas yang sama ikut disebut");
-ok(
-  !tolak({ pokokPinjaman: 2_000_000 }, KTP, 5_000_000).includes("Sisa batas pinjaman Anda"),
-  "saat batas produk yang berlaku, sisa batas tidak perlu disebut",
+ada(
+  tolak({ pokokPinjaman: 2_000_000 }, KTP, 1_500_000),
+  "Sisa batas pinjaman Anda",
+  "plafon khusus di atas Rp1 juta tetap disebut sebagai batas nasabah",
+);
+eq(
+  validasiPengajuanCepat({ ...SIAP, pokokPinjaman: 2_000_000, tenorHari: 28 }, KTP, 2_000_000),
+  null,
+  "plafon khusus Rp2 juta membuka pengajuan harian Rp2 juta",
 );
 // Sisa habis: disarankan melunasi, bukan disuruh mengurangi nominal.
 ada(tolak({ pokokPinjaman: 500_000 }, KTP, 0), "Sisa batas pinjaman Anda belum cukup", "sisa habis dijelaskan alasannya");
@@ -210,9 +221,16 @@ for (const [pokok, tenor] of [
   [1_000_000, 7],
   [1_000_000, 14],
   [1_000_000, 28],
+  [2_000_000, 7],
+  [2_000_000, 14],
+  [2_000_000, 28],
 ] as const) {
   eq(
-    validasiPengajuanCepat({ ...SIAP, pokokPinjaman: pokok, tenorHari: tenor }, KTP, 1_000_000),
+    validasiPengajuanCepat(
+      { ...SIAP, pokokPinjaman: pokok, tenorHari: tenor },
+      KTP,
+      Math.max(1_000_000, pokok),
+    ),
     null,
     `kombinasi ${pokok}/${tenor} hari diterima`,
   );

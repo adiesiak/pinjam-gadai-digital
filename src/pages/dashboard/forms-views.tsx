@@ -580,10 +580,11 @@ export function LoanForm({
       setDraftBusy(false);
     }
   };
-  // Batas per skema: harian Rp100 ribu–Rp1 juta / bulanan mengikuti aturan skema,
-  // keduanya tidak boleh melebihi SISA batas pinjaman nasabah.
+  // Batas per skema: harian mengikuti plafon nasabah (plafon khusus admin bisa
+  // melewati batas bawaan Rp1 juta, sampai `maxPokokPlafon`), bulanan mengikuti
+  // aturan skema. Keduanya tidak boleh melebihi SISA batas pinjaman nasabah.
   const MIN = bulanan ? BULANAN_LIMITS.minPokok : LOAN_LIMITS.minPokok;
-  const BATAS_SKEMA = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok;
+  const BATAS_SKEMA = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokokPlafon;
   // Sisa yang boleh ditawarkan = TERSEDIA dari server, dipotong batas skema.
   // Belum termuat → batas awal hanya menahan penggeser; angkanya tidak dicetak.
   const sisaBatas = batasDiajukan(ringkas?.tersedia ?? PLAFON_DEFAULT, BATAS_SKEMA);
@@ -633,7 +634,7 @@ export function LoanForm({
     setPokok((p) => {
       const batasAtas = batasDiajukan(
         ringkas?.tersedia ?? PLAFON_DEFAULT,
-        next === "bulanan" ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokok,
+        next === "bulanan" ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokokPlafon,
       );
       return Math.min(Math.max(p, LOAN_LIMITS.minPokok), Math.max(batasAtas, LOAN_LIMITS.minPokok));
     });

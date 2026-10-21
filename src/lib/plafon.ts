@@ -185,9 +185,10 @@ export const PLAFON_NAIK_SETELAH_LUNAS = PLAFON_TERUJI;
 /** Rentang plafon tunai yang boleh disimpan admin (rupiah bulat). */
 export const PLAFON_BATAS = {
   min: 100_000,
-  // Batas penyimpanan admin sengaja lebih tinggi dari plafon otomatis: tim
-  // dapat memberi limit khusus, sedangkan produk tunai tetap maksimal Rp1 juta.
-  maks: 10_000_000 as Rupiah,
+  // Batas penyimpanan admin sengaja lebih tinggi dari plafon otomatis: plafon
+  // khusus inilah yang membuka pokok harian di atas Rp1 juta, sampai
+  // `LOAN_LIMITS.maxPokokPlafon` — satu angka, bukan dua yang bisa berbeda.
+  maks: LOAN_LIMITS.maxPokokPlafon as Rupiah,
 } as const;
 
 /** Langkah slider kelipatan (rupiah). */

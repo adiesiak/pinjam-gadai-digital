@@ -33,8 +33,16 @@ export const PINDAI_PRICING = {
  */
 export const LOAN_LIMITS = {
   minPokok: 100_000,
-  /** Pinjaman tunai baru dibatasi maksimum Rp 1 juta. */
+  /** Batas bawaan produk harian — plafon nasabah baru dan nasabah teruji. */
   maxPokok: 1_000_000,
+  /**
+   * Langit-langit pokok harian saat admin memberi plafon khusus.
+   *
+   * Batas per nasabah tetap PLAFON TERSEDIA (`lib/plafon.ts`); angka ini hanya
+   * pagar teratasnya dan sama dengan batas penyimpanan plafon admin. Tanpa
+   * plafon khusus, `maxPokok` yang berlaku.
+   */
+  maxPokokPlafon: 10_000_000,
   /** Tenor pinjaman harian maksimum 28 hari (4 minggu). */
   maxTenorHari: 28,
 } as const;
@@ -50,7 +58,11 @@ export type Tenor = (typeof TENOR_OPTIONS)[number];
  *  - Tier 1, pokok di bawah Rp500.000: 7 hari 30%, 14 hari 35%, 28 hari 40%.
  *  - Tier 2, pokok Rp500.000 sampai di bawah Rp1.000.000: 7 hari 28%,
  *    14 hari 32%, 28 hari 35%.
- *  - Tier 3, pokok tepat Rp1.000.000: 7 hari 26%, 14 hari 28%, 28 hari 30%.
+ *  - Tier 3, pokok Rp1.000.000 ke atas: 7 hari 26%, 14 hari 28%, 28 hari 30%.
+ *
+ * Tier teratas terbuka sampai `maxPokokPlafon` karena admin dapat memberi
+ * plafon khusus di atas batas bawaan Rp1 juta. Tanpa plafon khusus, plafon
+ * nasabah sendiri (Rp500 ribu/Rp1 juta) yang menahan pokoknya lebih dulu.
  *
  * Tenor 30 hari bukan pilihan produk; tenor resmi hanya 7, 14, dan 28 hari.
  * Kombinasi di luar baris matriks ditolak server, bukan sekadar disembunyikan.
@@ -85,7 +97,7 @@ const MATRIKS_HARIAN: readonly {
   },
   {
     minPokok: 1_000_000,
-    maksPokok: 1_000_000,
+    maksPokok: LOAN_LIMITS.maxPokokPlafon,
     tenorDefault: 28,
     tarif: [
       { tenor: 7, persenBunga: 26 },
@@ -138,8 +150,13 @@ export function persenBungaHarian(pokok: number, tenor: number): number | null {
  * Validasi kombinasi nominal & tenor versi server — mengembalikan pesan siap
  * tampil, atau `null` bila kombinasi sah.
  */
-export function validasiTenorHarian(pokok: number, tenor: number): string | null {
-  assertPokokPinjamanValid(pokok);
+export function validasiTenorHarian(
+  pokok: number,
+  tenor: number,
+  /** Batas atas pokok yang berlaku (plafon tersedia); bawaan batas produk. */
+  maks: Rupiah = LOAN_LIMITS.maxPokok as Rupiah,
+): string | null {
+  assertPokokPinjamanValid(pokok, maks);
   const opsi = tenorHarianTersedia(pokok);
   if (!(opsi as readonly number[]).includes(tenor)) {
     return `Untuk nominal ${formatRupiah(pokok)}, tenor yang tersedia ${opsi.join(
@@ -152,14 +169,21 @@ export function validasiTenorHarian(pokok: number, tenor: number): string | null
 /**
  * Validasi pokok pinjaman terhadap batas bisnis — satu sumber kebenaran untuk
  * form Peminjam dan mutation createLoanApplication.
+ *
+ * `maks` diisi PLAFON TERSEDIA nasabah oleh pemanggil yang sudah membacanya,
+ * sehingga pokok di atas batas bawaan Rp1 juta hanya lolos bila plafon khusus
+ * memang menutupnya. Tanpa `maks`, batas produk bawaan yang berlaku.
  */
-export function assertPokokPinjamanValid(pokok: Rupiah): void {
+export function assertPokokPinjamanValid(
+  pokok: Rupiah,
+  maks: Rupiah = LOAN_LIMITS.maxPokok as Rupiah,
+): void {
   if (!Number.isSafeInteger(pokok) || pokok <= 0) {
     throw new Error("Pokok pinjaman harus rupiah bulat positif (tanpa desimal).");
   }
-  if (pokok < LOAN_LIMITS.minPokok || pokok > LOAN_LIMITS.maxPokok) {
+  if (pokok < LOAN_LIMITS.minPokok || pokok > maks) {
     throw new Error(
-      `Pokok pinjaman harus antara ${formatRupiah(LOAN_LIMITS.minPokok)} dan ${formatRupiah(LOAN_LIMITS.maxPokok)}.`,
+      `Pokok pinjaman harus antara ${formatRupiah(LOAN_LIMITS.minPokok)} dan ${formatRupiah(maks)}.`,
     );
   }
 }

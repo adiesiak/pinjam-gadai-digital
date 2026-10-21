@@ -616,7 +616,9 @@ export const createLoanApplication = mutation({
       assertSimulasiBulananValid(args.pokokPinjaman, args.tenorBulan);
       tenorBulanSim = args.tenorBulan;
     } else {
-      assertPokokPinjamanValid(args.pokokPinjaman);
+      // Batas atas = plafon TERSEDIA nasabah, bukan batas produk Rp1 juta:
+      // plafon khusus dari admin membuka pokok harian yang lebih besar.
+      assertPokokPinjamanValid(args.pokokPinjaman, ringkas.tersedia);
     }
     // Server-side pricing engine — fee fields are never accepted from the client.
     const quote = quoteLoan(args.pokokPinjaman);
@@ -625,7 +627,11 @@ export const createLoanApplication = mutation({
     // Tenor di luar daftar itu—termasuk 30 hari—ditolak.
     let persenBungaSimpanan: number;
     if (tenorBulanSim === undefined) {
-      const pesanTenor = validasiTenorHarian(args.pokokPinjaman, args.tenorHari);
+      const pesanTenor = validasiTenorHarian(
+        args.pokokPinjaman,
+        args.tenorHari,
+        ringkas.tersedia,
+      );
       if (pesanTenor !== null) throw new Error(pesanTenor);
       // Bunga pinjaman harian SELALU dari matriks tenor/nominal — bukan angka
       // global 30% dan bukan override akun. Tarif mengikuti tenor 7/14/28 hari

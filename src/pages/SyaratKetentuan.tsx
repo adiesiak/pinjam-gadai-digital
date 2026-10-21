@@ -267,7 +267,9 @@ const PASAL: Pasal[] = [
           <Ayat>
             Pokok pinjaman tunai mengikuti batas aplikasi, saat ini{" "}
             {formatRupiah(LOAN_LIMITS.minPokok)}
-            sampai {formatRupiah(LOAN_LIMITS.maxPokok)}, dengan pilihan tenor{" "}
+            sampai {formatRupiah(LOAN_LIMITS.maxPokok)}. Bila tim PINDAI menetapkan
+            plafon khusus untuk akun Anda, pokok hariannya dapat lebih tinggi,
+            sampai {formatRupiah(LOAN_LIMITS.maxPokokPlafon)}, dengan pilihan tenor{" "}
             {TENOR_OPTIONS.join(", ")} hari. Pinjaman bulanan menggunakan pokok{" "}
             {formatRupiah(BULANAN_LIMITS.minPokok)} sampai{" "}
             {formatRupiah(BULANAN_LIMITS.maxPokok)}, dengan pilihan tenor{" "}
@@ -287,12 +289,14 @@ const PASAL: Pasal[] = [
             {formatRupiah(499_999)}: tenor 7 hari (bunga{" "}
             {persenBungaHarian(100_000, 7)}%, bawaan), 14 hari ({" "}
             {persenBungaHarian(100_000, 14)}%), atau 28 hari ({" "}
-            {persenBungaHarian(100_000, 28)}%). Pokok {formatRupiah(500_000)}{" "}
+            {persenBungaHarian(100_000, 28)}%). Pokok            {formatRupiah(500_000)}{" "}
             sampai {formatRupiah(999_999)}: tenor 14 hari ({" "}
             {persenBungaHarian(500_000, 14)}%) atau 28 hari ({" "}
             {persenBungaHarian(500_000, 28)}%). Pokok{" "}
-            {formatRupiah(1_000_000)}: tenor 28 hari ({" "}
-            {persenBungaHarian(1_000_000, 28)}%). Bunga dihitung flat dari pokok;
+            {formatRupiah(1_000_000)} ke atas: tenor 7 hari ({" "}
+            {persenBungaHarian(2_000_000, 7)}%), 14 hari ({" "}
+            {persenBungaHarian(2_000_000, 14)}%), atau 28 hari ({" "}
+            {persenBungaHarian(2_000_000, 28)}%). Bunga dihitung flat dari pokok;
             total kewajiban pelunasan = pokok + bunga.
           </Ayat>
           <Ayat>

@@ -47,7 +47,6 @@ import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
 import { maskRekening } from "@/lib/kycTahapan";
 import {
   LATE_FEE_POLICY,
-  LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
   persenBungaHarian,
   PINDAI_PRICING,
@@ -529,15 +528,10 @@ export function PengajuanCepatSection({
                   Antara {formatRupiah(batas.min)} dan {formatRupiah(batas.maks)}. Sisa batas pinjaman
                   Anda sedang dibaca dari server.
                 </>
-              ) : batas.maks < LOAN_LIMITS.maxPokok ? (
+              ) : (
                 <>
                   Antara {formatRupiah(batas.min)} dan {formatRupiah(batas.maks)}.{" "}
                   {kalimatBatasPlafon(ringkas)}
-                </>
-              ) : (
-                <>
-                  Antara {formatRupiah(batas.min)} dan {formatRupiah(batas.maks)} (batas pengajuan
-                  cepat).
                 </>
               )}
             </p>

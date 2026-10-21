@@ -7,10 +7,10 @@
  * lama, untuk apa, dan ke rekening mana dana dikirim.
  *
  * Batas yang dijaga di sini:
- * - Nominal tidak pernah melewati batas produk (Rp 100.000–Rp 1 juta) MAUPUN
- *   SISA batas pinjaman nasabah (plafon master dipotong pokok pinjaman berjalan).
- *   Server memakai sisa yang sama (`ringkasPlafon`), jadi UI tidak menawarkan
- *   angka yang pasti ditolak.
+ * - Nominal tidak pernah melewati SISA batas pinjaman nasabah (plafon master
+ *   dipotong pokok pinjaman berjalan) — termasuk plafon khusus dari admin yang
+ *   membuka pokok di atas Rp1 juta. Server memakai sisa yang sama
+ *   (`ringkasPlafon`), jadi UI tidak menawarkan angka yang pasti ditolak.
  * - Data identitas TIDAK diketik ulang: syarat yang diperiksa server diambil
  *   dari baris KYC yang sudah terverifikasi. Kalau salah satu bagiannya kosong
  *   (mis. rekening belum diisi), pengajuan ditolak di klien dengan kalimat yang
@@ -29,10 +29,10 @@ import {
   validasiTenorHarian,
   type Tenor,
 } from "./loan";
-import { formatRupiah } from "./money";
+import { formatRupiah, type Rupiah } from "./money";
 import { PLAFON_DEFAULT } from "./plafon";
 
-/** Batas nominal pengajuan cepat: batas produk ∧ SISA batas pinjaman nasabah. */
+/** Batas nominal pengajuan cepat: SISA batas pinjaman nasabah (plafon). */
 export type BatasNominalCepat = {
   min: number;
   /** Batas atas yang boleh diketik atau dipilih. `0` saat tidak ada sisa. */
@@ -50,6 +50,9 @@ export type BatasNominalCepat = {
  * pernah kosong, dan angka itu hanya bisa lebih kecil dari yang berlaku — bukan
  * lebih besar. Sisa nol dikembalikan apa adanya supaya layar menampilkan
  * "belum ada sisa", bukan tawaran yang pasti ditolak server.
+ *
+ * Plafon khusus dari admin ikut menaikkan batas ini sampai
+ * `LOAN_LIMITS.maxPokokPlafon`; batas bawaan Rp1 juta BUKAN pagar teratas.
  */
 export function batasNominalCepat(sisaBatas?: number | null): BatasNominalCepat {
   const min = LOAN_LIMITS.minPokok;
@@ -57,7 +60,7 @@ export function batasNominalCepat(sisaBatas?: number | null): BatasNominalCepat 
     typeof sisaBatas === "number" && Number.isFinite(sisaBatas)
       ? Math.max(0, Math.floor(sisaBatas))
       : PLAFON_DEFAULT;
-  const maks = Math.min(LOAN_LIMITS.maxPokok, angka);
+  const maks = Math.min(LOAN_LIMITS.maxPokokPlafon, angka);
   const adaSisa = maks >= min;
   return { min, maks: adaSisa ? maks : 0, adaSisa };
 }
@@ -197,19 +200,22 @@ export function validasiPengajuanCepat(
     return `Jumlah pinjaman minimal ${formatRupiah(min)}.`;
   }
   if (isian.pokokPinjaman > maks) {
-    // Sisa batas nasabah yang lebih kecil dari batas produk disebut angkanya, supaya
-    // nasabah tahu batas itu miliknya sendiri — bukan batas umum yang dirahasiakan.
+    // Batas atas di sini SELALU berasal dari sisa plafon nasabah (termasuk
+    // plafon khusus admin), jadi angkanya disebut supaya nasabah tahu itu
+    // batas miliknya sendiri — bukan batas umum yang dirahasiakan.
     const sebutSisa =
-      typeof sisaBatas === "number" &&
-      Number.isFinite(sisaBatas) &&
-      maks < LOAN_LIMITS.maxPokok;
+      typeof sisaBatas === "number" && Number.isFinite(sisaBatas);
     return `Jumlah pinjaman maksimal ${formatRupiah(maks)} untuk pengajuan ini.${
       sebutSisa ? ` Sisa batas pinjaman Anda ${formatRupiah(maks)}.` : ""
     }`;
   }
   // Tenor resmi 7/14/28 hari. Matriks tetap menjadi satu-satunya sumber
   // kebenaran bila aturan produk berubah.
-  const pesanTenor = validasiTenorHarian(isian.pokokPinjaman, isian.tenorHari);
+  const pesanTenor = validasiTenorHarian(
+    isian.pokokPinjaman,
+    isian.tenorHari,
+    maks as Rupiah,
+  );
   if (pesanTenor !== null) {
     return `${pesanTenor} Pilih lama pinjaman: ${tenorHarianTersedia(
       isian.pokokPinjaman,
