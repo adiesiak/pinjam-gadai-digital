@@ -6,12 +6,12 @@ import { toast } from "sonner";
 import { FormDataDiri, type PerubahanFotoKtp } from "@/components/DataDiriForm";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { MemuatBaris } from "@/components/ui/loading";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,21 +62,26 @@ export function DataDiriDialog({
   };
 
   return (
-    <Dialog
+    <Sheet
       open
       onOpenChange={(terbuka) => {
         if (!terbuka) onClose();
       }}
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      {/* Form identitas panjang: laci samping selebar separuh layar, bukan
+          modal yang menggulir sendiri. Daftar nasabah tetap terlihat. */}
+      <SheetContent
+        side="right"
+        className="w-full gap-0 overflow-y-auto border-l border-slate-200 bg-white px-4 pb-8 sm:w-[50vw] sm:max-w-none sm:px-6 xl:w-[46vw]"
+      >
+        <SheetHeader className="px-0 pt-4 pb-2 pr-10">
+          <SheetTitle className="flex items-center gap-2">
             <IdCard className="size-4" aria-hidden /> Data diri nasabah
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             Lengkapi identitas nasabah — termasuk foto KTP. Perubahan tercatat di Audit Trail.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {data === undefined ? (
           <MemuatBaris teks="Memuat data diri…" className="py-8" />
@@ -130,8 +135,8 @@ export function DataDiriDialog({
             }}
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 

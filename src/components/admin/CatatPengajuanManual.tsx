@@ -8,12 +8,12 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { namaHurufBesar } from "@/lib/nama";
@@ -203,18 +203,23 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
       >
         <Plus className="mr-1.5 size-4" /> {info.cta}
       </Button>
-      <Dialog
+      <Sheet
         open={terbuka}
         onOpenChange={(nilai) => {
           if (!nilai) tutup();
           else setTerbuka(true);
         }}
       >
-        <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
-          <DialogHeader>
-            <DialogTitle>{info.judul}</DialogTitle>
-            <DialogDescription>{info.deskripsi}</DialogDescription>
-          </DialogHeader>
+        {/* Pencatatan manual berisi pencarian nasabah + form panjang: laci
+            samping, bukan modal yang menggulir di dalam kotak sempit. */}
+        <SheetContent
+          side="right"
+          className="w-full gap-0 overflow-y-auto border-l border-slate-200 bg-white px-4 pb-8 sm:w-[50vw] sm:max-w-none sm:px-6 xl:w-[46vw]"
+        >
+          <SheetHeader className="px-0 pt-4 pb-2 pr-10">
+            <SheetTitle>{info.judul}</SheetTitle>
+            <SheetDescription>{info.deskripsi}</SheetDescription>
+          </SheetHeader>
 
           {nasabah === null && mode === "terdaftar" ? (
             <div className="space-y-3">
@@ -280,8 +285,8 @@ export function CatatPengajuanManualButton({ jenis }: { jenis: JenisPengajuan })
               )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

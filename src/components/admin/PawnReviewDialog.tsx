@@ -8,12 +8,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import { formatRupiah } from "@/lib/money";
@@ -109,19 +109,25 @@ export function PawnReviewDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:max-w-5xl sm:p-6">
-        <DialogHeader>
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      {/* Perbandingan bukti ↔ keputusan tetap 50/50, tetapi di dalam ruang kerja
+          lebar — bukan modal 5xl yang menggulir sendiri. Antrean gadai di
+          belakangnya masih terlihat di tepi kiri layar. */}
+      <SheetContent
+        side="right"
+        className="w-full gap-0 overflow-y-auto border-l border-slate-200 bg-white px-4 pb-8 sm:w-[92vw] sm:max-w-none sm:px-6 xl:w-[78vw]"
+      >
+        <SheetHeader className="px-0 pt-4 pb-2 pr-10">
           <div className="flex items-center justify-between gap-3">
-            <DialogTitle className="max-w-72 text-base leading-snug">
+            <SheetTitle className="max-w-72 text-base leading-snug">
               {row.deskripsiBarang}
-            </DialogTitle>
+            </SheetTitle>
             <StatusBadge status={row.status} kind="pawn" />
           </div>
-          <DialogDescription className="tabular-nums">
+          <SheetDescription className="tabular-nums">
             Catatan pengajuan internal · {row.nomorReferensi} · {formatDate(row._creationTime)}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {/* ── SPLIT-SCREEN: bukti (kiri) ↔ keputusan (kanan) ── */}
         <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
@@ -336,7 +342,7 @@ export function PawnReviewDialog({
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -16,12 +16,12 @@ import { WatermarkedDoc } from "@/components/WatermarkedDoc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { LABEL_STATUS_KYC, NADA_STATUS_KYC, type StatusKyc } from "@/lib/kycStatus";
@@ -63,19 +63,22 @@ export function NasabahDetailDialog({
   const navigate = useNavigate();
 
   return (
-    <Dialog
+    <Sheet
       open
       onOpenChange={(terbuka) => {
         if (!terbuka) onClose();
       }}
     >
-      {/* `sm:max-w-3xl` menimpa bawaan `sm:max-w-lg`; tanpa varian `sm:`
-          bawaan itu tetap menang di layar lebar dan dialog terjepit selebar
-          form pendek. `overflow-x-hidden` menjaga baris kode panjang tidak
-          memunculkan gulir horizontal di dalam modal. */}
-      <DialogContent className="overflow-x-hidden sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2">
+      {/* Profil nasabah dibuka sebagai panel samping, bukan modal 3xl: daftar
+          nasabah di belakangnya tetap terbaca, dan isi panjang tidak terjebak
+          di dialog sempit. `overflow-x-hidden` hanya mencegah gulir mendatar
+          dari nomor referensi yang panjang. */}
+      <SheetContent
+        side="right"
+        className="w-full gap-0 overflow-x-hidden overflow-y-auto border-l border-slate-200 bg-white px-4 pb-8 sm:w-[50vw] sm:max-w-none sm:px-6 xl:w-[46vw]"
+      >
+        <SheetHeader className="px-0 pt-4 pb-2 pr-10">
+          <SheetTitle className="flex flex-wrap items-center gap-2">
             Profil &amp; Data Diri
             {detail?.kyc && (
               <Badge className={NADA_STATUS_KYC[detail.kyc.status as StatusKyc]}>
@@ -97,12 +100,12 @@ export function NasabahDetailDialog({
                 {detail.profilRisiko.skor}/100
               </Badge>
             )}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             Master nasabah (profil, KYC, plafon) dipisahkan dari transaksi pengajuan. Riwayat di
             bawah dibaca langsung dari database.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {detail === undefined ? (
           <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
@@ -402,8 +405,8 @@ export function NasabahDetailDialog({
             </section>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 

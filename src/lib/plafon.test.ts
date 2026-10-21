@@ -20,6 +20,7 @@ import {
   skorPerilaku,
   pokokDalamPlafon,
   ringkasPlafon,
+  sumberPlafon,
   tanggalJatuhTempoPinjaman,
 } from "./plafon";
 import {
@@ -230,6 +231,12 @@ eq(
   plafonEfektifDariPerilaku(7_500_000, PLAFON_DEFAULT, perilakuTiga),
   7_500_000,
 );
+
+// Sumber angka yang ditampilkan panel admin: override > progresif > global.
+eq("angka khusus dibaca sebagai override", sumberPlafon(2_000_000, 2_000_000, 500_000), "override");
+eq("tanpa override di Rp500 ribu = default global", sumberPlafon(null, 500_000, 500_000), "global");
+eq("tanpa override di Rp1 juta = progresif", sumberPlafon(null, 1_000_000, 500_000), "progresif");
+eq("undefined juga berarti tanpa override", sumberPlafon(undefined, 500_000, 500_000), "global");
 
 console.log(`plafon tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

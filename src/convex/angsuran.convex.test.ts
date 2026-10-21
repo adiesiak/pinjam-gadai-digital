@@ -103,13 +103,13 @@ async function siapkanSemua(t: ReturnType<typeof convexTest>) {
     role: "dana",
   });
   const bukti = await siapkanBukti(t, userId, danaId);
-  return { admin, ...bukti };
+  return { admin, userId, ...bukti };
 }
 
 describe("verifikasi bukti angsuran", () => {
   it("menandai lunas, mencatat jurnal pokok/bunga/biaya, dan menjaga ledger seimbang", async () => {
     const t = convexTest(schema, modules);
-    const { admin, loanId, angsuranId, receiptId } = await siapkanSemua(t);
+    const { admin, loanId, angsuranId, receiptId, userId } = await siapkanSemua(t);
 
     await expect(
       admin.mutation(api.angsuran.verifikasiBuktiAngsuran, {
@@ -132,6 +132,17 @@ describe("verifikasi bukti angsuran", () => {
 
     expect(hasil.loan?.status).toBe("lunas");
     expect(hasil.audit.some((a) => a.aksi === "plafon_naik_otomatis")).toBe(true);
+
+    // Menutup pinjaman lewat jadwal angsuran juga menerbitkan tiket doorprize
+    // kuartal — jalur ini tidak boleh ketinggalan dari pelunasan satu kali.
+    const tiket = await t.run((ctx) => ctx.db.query("doorprizeTiket").collect());
+    expect(tiket).toHaveLength(1);
+    expect(tiket[0]).toMatchObject({
+      peran: "peminjam",
+      pemilikId: userId,
+      sumber: "pelunasan_tepat_waktu",
+      referensi: "PINJAMAN:PGD-ANGSURAN-UJI",
+    });
     expect(hasil.row?.status).toBe("lunas");
     expect(hasil.row?.dendaDibayar).toBe(0);
     expect(hasil.row?.dibayarPada).toBe(now);

@@ -886,8 +886,8 @@ for (const status of KYC_STATUS) {
   ada(panel, "@xl:grid-cols-2", "foto berkas dua kolom saat lebar panel mencukupi");
   ada(
     panel,
-    "@5xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]",
-    "hasil OCR pindah ke samping hanya pada panel yang lebar",
+    "@5xl:grid-cols-2",
+    "bukti dan hasil OCR berbagi lebar seimbang saat panelnya lebar",
   );
   ada(panel, "sticky bottom-0", "bar aksi menempel di bawah panel detail");
   ada(panel, "KUERI_LAYAR_SEMPIT_KYC", "daftar antrean punya ambang laci untuk layar sempit");

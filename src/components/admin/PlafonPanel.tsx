@@ -40,7 +40,12 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
 import { sakelarTagihan } from "@/lib/preferensiNotifikasi";
 import { BARIS_PER_HALAMAN, labelRentang, potongHalaman } from "@/lib/paginasi";
-import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
+import {
+  clampPlafon,
+  LABEL_SUMBER_PLAFON,
+  PLAFON_BATAS,
+  sumberPlafon,
+} from "@/lib/plafon";
 
 /**
  * Panel Plafon Nasabah — naikkan/turunkan batas pinjaman satu orang.
@@ -121,6 +126,26 @@ function LencanaOverride({ pribadi, label, nilai }: { pribadi: boolean; label: s
     </Badge>
   ) : (
     <Badge className="border-slate-200 bg-slate-100 text-slate-600">{label} ikut global</Badge>
+  );
+}
+
+/**
+ * Lencana sumber angka plafon: override admin menang, lalu progresif, lalu
+ * default global. Angkanya datang dari server — panel ini tidak menghitung
+ * ulang plafon, hanya menamai asalnya supaya admin tahu kenapa batasnya segitu.
+ */
+function LencanaSumber({ pribadi, efektif, global }: { pribadi: number | null; efektif: number; global: number }) {
+  const sumber = sumberPlafon(pribadi, efektif, global);
+  const kelas =
+    sumber === "override"
+      ? "border-amber-300 bg-amber-50 text-amber-800"
+      : sumber === "progresif"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        : "border-slate-200 bg-slate-50 text-slate-600";
+  return (
+    <Badge className={kelas} title="Urutan: override admin › plafon progresif › default global">
+      {LABEL_SUMBER_PLAFON[sumber]}
+    </Badge>
   );
 }
 
@@ -275,7 +300,9 @@ export function PlafonPanel() {
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-navy">Plafon nasabah</h2>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              Override admin menang atas default global. Bunga pinjaman mengikuti tabel tenor website
+              Plafon efektif dibaca berurutan: <strong className="text-slate-600">override admin</strong> ›{" "}
+              <strong className="text-slate-600">plafon progresif</strong> hasil pelunasan tepat waktu ›{" "}
+              <strong className="text-slate-600">default global</strong>. Bunga pinjaman mengikuti tabel tenor website
               dan tidak bisa ditimpa dari sini. Pengingat tagihan bisa dimatikan per nasabah lewat
               tombol <strong className="text-slate-600">Matikan tagihan</strong> di kolom aksi cepat.
             </p>
@@ -466,6 +493,13 @@ export function PlafonPanel() {
                       {/* Progress plafon */}
                       <td className="px-4 py-3">
                         <BarPlafon terpakai={r.plafonTerpakai} efektif={r.plafonEfektif} />
+                        <div className="mt-1.5">
+                          <LencanaSumber
+                            pribadi={r.plafonPribadi}
+                            efektif={r.plafonEfektif}
+                            global={data.default}
+                          />
+                        </div>
                       </td>
 
                       {/* Aksi cepat */}
@@ -573,6 +607,11 @@ export function PlafonPanel() {
                       pribadi={r.plafonPribadi !== null}
                       label="Plafon"
                       nilai={formatRupiah(r.plafonPribadi ?? 0)}
+                    />
+                    <LencanaSumber
+                      pribadi={r.plafonPribadi}
+                      efektif={r.plafonEfektif}
+                      global={data.default}
                     />
                     {!r.notifTagihanAktif && (
                       <Badge

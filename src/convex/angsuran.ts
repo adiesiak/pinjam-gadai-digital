@@ -16,6 +16,7 @@ import {
   type AngsuranTampil,
   type RingkasanAngsuran,
 } from "../lib/angsuran";
+import { beriTiketPelunasan } from "./doorprize";
 import { akunDompetDana, appendJournal, catatMarginSpread } from "./ledger";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah } from "../lib/money";
@@ -390,6 +391,18 @@ async function selesaikanBilaLunas(
       `Seluruh angsuran lunas tepat waktu; plafon dasar bertambah Rp1.000.000. Override admin tetap berlaku.`,
     );
   }
+
+  // Tiket doorprize diterbitkan di sini, bukan saat admin menekan tombol lain:
+  // pelunasan lewat jadwal angsuran juga menutup pinjaman, jadi jalur ini harus
+  // memberi tiket yang sama dengan pelunasan satu kali. Idempotensinya dijaga
+  // `beriTiket` lewat referensi `PINJAMAN:<nomor>`, sehingga verifikasi ulang
+  // atau pelunasan manual tidak menggandakan tiket.
+  await beriTiketPelunasan(ctx, {
+    pemilikId: loan.userId,
+    nomorReferensi: loan.nomorReferensi,
+    tepatWaktu: !adaTelat,
+    waktu: dibayarPada,
+  });
 
   if (loan.pendanaId !== undefined) {
     await ctx.scheduler.runAfter(0, internal.laporanPendana.kirimLaporanPelunasan, {

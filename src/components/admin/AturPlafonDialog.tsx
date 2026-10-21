@@ -12,10 +12,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
-import { clampPlafon, PLAFON_BATAS, PLAFON_LANGKAH } from "@/lib/plafon";
+import {
+  clampPlafon,
+  LABEL_SUMBER_PLAFON,
+  PLAFON_BATAS,
+  PLAFON_LANGKAH,
+  sumberPlafon,
+} from "@/lib/plafon";
 
 /**
  * MODAL ATUR PLAFON — satu angka, satu sumber.
@@ -101,6 +108,12 @@ export function AturPlafonDialog({
 
   const targetPlafon: number | null = pakaiGlobal ? null : angkaPlafon;
   const adaPerubahan = targetPlafon !== nasabah.plafonPribadi;
+  /** Sumber angka yang SEDANG berlaku — sama dengan lencana di daftar nasabah. */
+  const sumberSekarang = sumberPlafon(
+    nasabah.plafonPribadi,
+    nasabah.plafonEfektif,
+    global.plafon,
+  );
 
   return (
     <Dialog
@@ -119,6 +132,33 @@ export function AturPlafonDialog({
             Trail.
           </DialogDescription>
         </DialogHeader>
+
+        {/* ── Urutan sumber angka: override → progresif → global ── */}
+        <ol
+          aria-label="Urutan sumber plafon"
+          className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em]"
+        >
+          {(Object.keys(LABEL_SUMBER_PLAFON) as Array<keyof typeof LABEL_SUMBER_PLAFON>).map(
+            (kunci, i) => (
+              <li key={kunci} className="flex items-center gap-1.5">
+                {i > 0 && (
+                  <span aria-hidden className="text-slate-300">
+                    ›
+                  </span>
+                )}
+                <span
+                  className={
+                    sumberSekarang === kunci
+                      ? "rounded-md border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-emerald-800"
+                      : "rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-slate-500"
+                  }
+                >
+                  {LABEL_SUMBER_PLAFON[kunci]}
+                </span>
+              </li>
+            ),
+          )}
+        </ol>
 
         {/* ── Sumber angka: global atau khusus ── */}
         <RadioGroup
@@ -187,7 +227,23 @@ export function AturPlafonDialog({
                 onBlur={() => setPlafon(formatAngka(clampPlafon(parseAngka(plafon))))}
               />
             </div>
-            <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground">
+            {/* Slider dan kolom isian menggerakkan state yang sama: admin bisa
+                menggeser kasar lalu mengetik angka tepat, tanpa dua nilai. */}
+            <Slider
+              className="mt-3"
+              aria-label="Geser plafon maksimal"
+              min={PLAFON_BATAS.min}
+              max={PLAFON_BATAS.maks}
+              step={PLAFON_LANGKAH}
+              value={[pakaiGlobal ? clampPlafon(global.plafon) : angkaPlafon]}
+              disabled={pakaiGlobal || busy}
+              onValueChange={([nilai]) => setPlafon(String(nilai))}
+            />
+            <div className="mt-2 flex items-center justify-between text-[10px] tabular-nums text-muted-foreground">
+              <span>{formatRupiah(PLAFON_BATAS.min)}</span>
+              <span>{formatRupiah(PLAFON_BATAS.maks)}</span>
+            </div>
+            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
               Kelipatan {formatRupiah(PLAFON_LANGKAH)} · rentang{" "}
               {formatRupiah(PLAFON_BATAS.min)}–{formatRupiah(PLAFON_BATAS.maks)}
             </p>

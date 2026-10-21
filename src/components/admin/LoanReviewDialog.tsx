@@ -13,7 +13,6 @@ import {
   Trash2,
   Users,
   Wallet,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -28,6 +27,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -327,12 +332,12 @@ export function LoanReviewDialog({
       <div className="min-w-0 flex-1">
         {/* Tanpa `truncate`: nominal dan nama pemohon dibaca utuh, termasuk pada
             nama panjang — admin memverifikasi identitas dari baris ini. */}
-        <DialogTitle className="break-words text-base font-semibold text-slate-900 tabular-nums">
+        <SheetTitle className="break-words text-base font-semibold text-slate-900 tabular-nums">
           {formatRupiah(row.pokokPinjaman)} · {namaHurufBesar(row.namaLengkap)}
-        </DialogTitle>
-        <DialogDescription className="mt-0.5 break-words text-xs text-muted-foreground tabular-nums">
+        </SheetTitle>
+        <SheetDescription className="mt-0.5 break-words text-xs text-muted-foreground tabular-nums">
           {row.nomorReferensi} · diajukan {formatDate(row._creationTime)}
-        </DialogDescription>
+        </SheetDescription>
       </div>
       <span
         className={`inline-flex shrink-0 items-center rounded-full border px-3 py-1 text-xs font-semibold shadow-sm ${statusKelas}`}
@@ -340,14 +345,6 @@ export function LoanReviewDialog({
       >
         {statusLabel}
       </span>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Tutup modal"
-        className="absolute right-3 top-3.5 inline-flex size-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <X className="size-4" />
-      </button>
     </div>
   );
 
@@ -959,20 +956,13 @@ export function LoanReviewDialog({
 
   return (
     <>
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      {/* Lebar (`max-w-5xl`) + tinggi (`max-h-[88vh]`) tetap: header & footer
-          menempel, hanya area tab yang menggulir. Tombol tutup bawaan dimatikan
-          karena header memakai tombol X-nya sendiri agar tetap terlihat saat isi
-          digulir.
-
-          Permukaan kacanya (`bg-white/85 backdrop-blur-xl border border-white/80
-          shadow-2xl`) datang dari kelas `glass-modal` di `index.css` — nilainya
-          setara, jadi tidak ditulis ulang sebagai utilitas di sini supaya tidak
-          ada dua sumber kebenaran. Utilitas kaca di bawah tetap ditulis sebagai
-          penanda niat bila kelas itu kelak diubah. */}
-      <DialogContent
-        showCloseButton={false}
-        className="glass-modal flex max-h-[88vh] w-full max-w-5xl flex-col gap-0 overflow-hidden rounded-3xl border border-white/80 bg-white/85 p-0 shadow-2xl backdrop-blur-xl sm:max-w-5xl sm:p-0"
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      {/* Panel samping selebar separuh layar, bukan modal 5xl: tabel antrean di
+          belakangnya tetap terlihat, dan tidak ada dialog bertingkat. Header &
+          footer menempel; hanya area tab yang menggulir. */}
+      <SheetContent
+        side="right"
+        className="w-full gap-0 border-l border-slate-200 bg-white p-0 shadow-2xl sm:w-[52vw] sm:max-w-none xl:w-[48vw]"
       >
         {/* Header fixed */}
         {header}
@@ -1016,8 +1006,8 @@ export function LoanReviewDialog({
 
         {/* Footer menempel */}
         {footerAksi}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
 
     {/* Lampiran foto: dibuka dari kotak Profil Nasabah sebagai MODAL, supaya
         gambar dokumen tidak memenuhi layar review (angka & keputusan tetap

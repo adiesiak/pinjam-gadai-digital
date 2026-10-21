@@ -17,13 +17,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -309,15 +309,20 @@ export function PromoPinjamanPanel() {
         </ul>
       )}
 
-      <Dialog open={terbuka} onOpenChange={setTerbuka}>
-        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{draf.id === undefined ? "Buat promo" : "Sunting promo"}</DialogTitle>
-            <DialogDescription>
+      <Sheet open={terbuka} onOpenChange={setTerbuka}>
+        {/* Form promo berisi banyak kolom teks + pratinjau: laci samping supaya
+            daftar promo di belakangnya tetap terlihat. */}
+        <SheetContent
+          side="right"
+          className="w-full gap-0 overflow-y-auto border-l border-slate-200 bg-white px-4 pb-8 sm:w-[50vw] sm:max-w-none sm:px-6 xl:w-[46vw]"
+        >
+          <SheetHeader className="px-0 pt-4 pb-2 pr-10">
+            <SheetTitle>{draf.id === undefined ? "Buat promo" : "Sunting promo"}</SheetTitle>
+            <SheetDescription>
               Teks ini tampil sebagai pengumuman kampanye, bukan penawaran suku bunga.
               Sebutkan syarat yang benar-benar berlaku di deskripsi.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
           <div className="space-y-4">
             <div>
@@ -461,7 +466,7 @@ export function PromoPinjamanPanel() {
             )}
           </div>
 
-          <DialogFooter>
+          <SheetFooter className="px-0">
             <Button type="button" variant="outline" onClick={() => setTerbuka(false)}>
               Batal
             </Button>
@@ -469,9 +474,9 @@ export function PromoPinjamanPanel() {
               {sibuk ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
               {draf.id === undefined ? "Simpan promo" : "Simpan perubahan"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <AlertDialog open={dihapus !== null} onOpenChange={(buka) => !buka && setDihapus(null)}>
         <AlertDialogContent>

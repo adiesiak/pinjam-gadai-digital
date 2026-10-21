@@ -1738,12 +1738,12 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                 </div>
 
                 <div className="@container min-h-0 flex-1 overflow-y-auto p-3">
-                  {/* Bukti di KIRI, hasil OCR di KANAN: petugas mencocokkan teks
-                      mesin dengan fotonya tanpa berpindah tab. Samping-ke-samping
-                      hanya saat panelnya benar-benar lebar; di jendela 1280–1536
-                      dua kolom justru membuat keduanya terjepit. */}
+                  {/* Bukti di KIRI, hasil OCR di KANAN dengan lebar seimbang:
+                      petugas mencocokkan teks mesin dengan fotonya tanpa
+                      berpindah tab, dan tidak ada sisi yang terjepit. Baru
+                      berlaku saat panelnya benar-benar lebar (50/50). */}
                   <TabsContent value="berkas" className="mt-0">
-                    <div className="grid gap-3 @5xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+                    <div className="grid gap-3 @5xl:grid-cols-2">
                       <div className="min-w-0">
                         <KycDokumenRingkas detail={detail} />
                       </div>

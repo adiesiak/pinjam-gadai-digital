@@ -47,13 +47,13 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SkeletonKartu, SkeletonTabel } from "@/components/ui/loading";
@@ -413,18 +413,24 @@ function KasusDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(terbuka) => (terbuka ? undefined : onTutup())}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2">
+    <Sheet open onOpenChange={(terbuka) => (terbuka ? undefined : onTutup())}>
+      {/* Kasus penagihan adalah berkas kerja panjang (riwayat, janji bayar,
+          pengaduan): dibuka sebagai laci samping agar daftar kasus tetap
+          terlihat dan tidak ada gulir ganda di dalam modal. */}
+      <SheetContent
+        side="right"
+        className="w-full gap-0 overflow-y-auto border-l border-slate-200 bg-white px-4 pb-8 sm:w-[58vw] sm:max-w-none sm:px-6 xl:w-[52vw]"
+      >
+        <SheetHeader className="px-0 pt-4 pb-2 pr-10">
+          <SheetTitle className="flex flex-wrap items-center gap-2">
             {baris.namaLengkap}
             <LabelTahap tingkat={baris.tahapTingkat} label={baris.tahapLabel} />
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             {baris.nomorReferensi} · terlambat {baris.hariTerlambat} hari · kasus{" "}
             {baris.statusKasusLabel} · petugas {baris.petugasLabel ?? "belum ditugaskan"}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {/* --- Ringkasan ledger internal --- */}
         <dl className="grid gap-2 sm:grid-cols-3">
@@ -1139,13 +1145,13 @@ function KasusDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <SheetFooter className="px-0">
           <Button variant="outline" onClick={onTutup}>
             <XCircle className="mr-2 size-4" /> Tutup
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 

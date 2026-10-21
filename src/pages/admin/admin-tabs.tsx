@@ -62,6 +62,7 @@ import {
   type PawnRow,
 } from "@/components/admin/admin-shared";
 import { SkeletonKartu } from "@/components/ui/loading";
+import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { RingkasanAnalitik } from "@/components/admin/RingkasanAnalitik";
@@ -612,6 +613,17 @@ export function AdminTabs({
           </div>
         </div>
       </main>
+
+      {/* Footer panel: identitas badan hukum + penafian. Dulu panel admin tidak
+          menyebut entitas sama sekali, sehingga tangkapan layar meja kerja bisa
+          dibaca sebagai produk tanpa pemilik. `pb-24` memberi ruang bilah menu
+          bawah di ponsel. */}
+      <footer className="mx-auto w-full max-w-7xl px-3 pb-24 pt-6 sm:px-6 lg:pb-8">
+        <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 text-[11px] leading-5 text-muted-foreground sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <p className="shrink-0 font-medium text-slate-600">{HAK_CIPTA_PINDAI}</p>
+          <p className="max-w-xl sm:text-right">{PENAFIAN_PINDAI}</p>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -115,6 +115,33 @@ export function plafonDariPerilaku(
   return p.tepatWaktu >= 1 ? PLAFON_TERUJI : dasar;
 }
 
+/**
+ * Dari mana angka plafon efektif berasal — dipakai lencana di panel admin.
+ *
+ * Urutannya sama dengan `plafonEfektifDariPerilaku`: override admin menang,
+ * lalu plafon progresif hasil riwayat pelunasan, lalu default global. Nilai
+ * yang lebih tinggi dari dasar global hanya mungkin datang dari progresi,
+ * karena default global tidak pernah dinaikkan oleh kode lain.
+ */
+export type SumberPlafon = "override" | "progresif" | "global";
+
+export function sumberPlafon(
+  override: number | null | undefined,
+  efektif: number,
+  globalDefault: number,
+): SumberPlafon {
+  if (override !== null && override !== undefined) return "override";
+  const dasar = Math.min(clampPlafon(globalDefault), PLAFON_BARU);
+  return clampPlafon(efektif) > dasar ? "progresif" : "global";
+}
+
+/** Label sumber plafon untuk UI admin. */
+export const LABEL_SUMBER_PLAFON: Record<SumberPlafon, string> = {
+  override: "Override admin",
+  progresif: "Plafon progresif",
+  global: "Default global",
+};
+
 /** Plafon efektif: override admin, lalu perilaku bayar, lalu default global. */
 export function plafonEfektifDariPerilaku(
   override: number | null | undefined,
