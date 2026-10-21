@@ -17,6 +17,9 @@ import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
+import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
+import { RuangPendanaRingkas } from "@/components/landing/RuangPendanaRingkas";
+import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import {
@@ -293,32 +296,52 @@ export default function LandingHome() {
               {konten.layananJudul}
             </h2>
             <div className="mt-7 grid gap-4 md:grid-cols-3">
-              {layanan.map((item) => (
-                <article
-                  key={item.href}
-                  className="shadow-kartu flex h-full flex-col rounded-kartu border border-border bg-card p-5 sm:p-6"
-                >
-                  <h3 className="text-lg font-semibold">{item.judul}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
-                    {item.ringkasan}
-                  </p>
-                  <p className="mt-4 border-t border-border pt-3 text-xs font-medium text-muted-foreground">
-                    {item.detail}
-                  </p>
-                  <Link
-                    className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    to={item.href}
+              {layanan.map((item, i) => {
+                // Angka utama tiap kartu datang dari konstanta mesin, sehingga
+                // tiga kartu tidak lagi tampak seragam tanpa isi.
+                const sorotan = SOROTAN_LAYANAN[i];
+                return (
+                  <article
+                    key={item.href}
+                    className="shadow-kartu flex h-full flex-col rounded-kartu border border-border bg-card p-5 sm:p-6"
                   >
-                    {konten.layananCta}{" "}
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </Link>
-                </article>
-              ))}
+                    <h3 className="text-lg font-semibold">{item.judul}</h3>
+                    <p className="mt-4 font-display text-3xl leading-none tabular-nums text-slate-900">
+                      {sorotan.angka}
+                      <span className="ml-1.5 text-sm font-medium text-slate-600">
+                        {sorotan.satuan}
+                      </span>
+                    </p>
+                    <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                      {sorotan.label}
+                    </p>
+                    <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">
+                      {item.ringkasan}
+                    </p>
+                    <p className="mt-4 border-t border-border pt-3 text-xs font-medium text-muted-foreground">
+                      {item.detail}
+                    </p>
+                    <Link
+                      className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      to={item.href}
+                    >
+                      {konten.layananCta}
+                    </Link>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </section>
 
         <DemoPengajuanTerlihat />
+
+        <DoorprizeRingkas
+          accountHref={accountHref}
+          sudahMasuk={isAuthenticated}
+        />
+
+        <RuangPendanaRingkas />
 
         <section
           aria-labelledby="panduan-title"

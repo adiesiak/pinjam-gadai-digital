@@ -5,8 +5,8 @@
  * Yang dijaga (tanpa browser — render statis):
  *  1. Kartu 3D tetap dibuat lokal tanpa WebGL, dan memakai panggung tilt CSS
  *     yang sudah ada, bukan template adegan terpisah.
- *  2. Permukaan terang dengan latar hijau-kertas dan tiga bubble emerald,
- *     tanpa panggung gelap.
+ *  2. Permukaan terang dengan motif ombak yang sama dengan kartu, tanpa orb
+ *     blur dan tanpa panggung gelap.
  *  3. Konten tidak bergantung pada apa pun yang bisa gagal dimuat: judul, dua
  *     CTA, catatan mikro, dan poin kepercayaan semuanya ada di markup.
  *  4. Objek merek tetap ada (kartu contoh) berikut pernyataan bahwa nomornya
@@ -140,19 +140,33 @@ ok(
   !html.includes("Kartu contoh · bukan alat bayar"),
   "label kartu contoh yang dihapus tidak tampil di hero",
 );
+// Latar hero: satu bidang motif ombak dari kartu, bukan orb blur yang tidak
+// dijelaskan arah desain.
 ok(
-  html.includes("bg-emerald-200/65"),
-  "bubble besar emerald terlihat di latar",
+  html.includes("ombak-pindai-"),
+  "motif ombak kartu dipakai sebagai latar hero",
 );
 ok(
-  html.includes("bg-emerald-100/70"),
-  "bubble emerald kedua hadir di kiri atas",
+  html.includes('preserveAspectRatio="xMidYMid slice"'),
+  "motif dipotong rapi, bukan diregangkan di kotak lebar",
 );
-ok(html.includes("relative z-10"), "konten hero berada di atas bubble");
+ok(
+  !html.includes("bg-emerald-200/65") && !html.includes("bg-emerald-100/70"),
+  "orb blur lama tidak lagi dipasang",
+);
+ok(html.includes("relative z-10"), "konten hero berada di atas motif");
 ok(
   html.includes("bg-hero relative w-full overflow-hidden"),
-  "bubble dibatasi rapi dalam hero",
+  "motif dibatasi rapi dalam hero",
 );
+
+// Ikon lencana harus menyatakan isi halaman (hitungan biaya), bukan percikan.
+ok(html.includes("lucide-calculator"), "lencana memakai ikon kalkulator");
+ok(!html.includes("lucide-sparkles"), "ikon percikan tidak dipakai lagi");
+
+// Panah hanya menandai satu aksi utama: CTA sekunder tidak ikut memakainya.
+const jumlahPanah = (html.match(/lucide-arrow-right/g) ?? []).length;
+ok(jumlahPanah === 1, `hanya CTA utama memakai panah (ada ${jumlahPanah})`);
 ok(
   !html.includes("text-[#064e3b]") && !html.includes("bg-[#065f46]"),
   "tidak ada warna brand hardcoded di markup hero",

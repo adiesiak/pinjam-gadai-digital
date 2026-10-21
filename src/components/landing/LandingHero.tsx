@@ -1,9 +1,9 @@
-import { ArrowRight, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Calculator, Lock, ShieldCheck } from "lucide-react";
 import { Component, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
-import { PindaiCard3D } from "./KartuHeroPindai";
+import { GelombangPattern, PindaiCard3D } from "./KartuHeroPindai";
 
 export interface LandingHeroProps {
   eyebrow: string;
@@ -24,16 +24,7 @@ export interface LandingHeroProps {
 
 export function LandingHero(props: LandingHeroProps) {
   const kelasSekunder =
-    "group h-12 rounded-tombol border-border bg-card px-6 text-foreground hover:bg-muted";
-  const isiSekunder = (
-    <>
-      {props.ctaSekunder.label}
-      <ArrowRight
-        className="ml-2 size-4 transition-transform group-hover:translate-x-0.5"
-        aria-hidden="true"
-      />
-    </>
-  );
+    "h-12 rounded-tombol border-border bg-card px-6 text-foreground hover:bg-muted";
 
   return (
     // Warna dan bentuk datang dari token tema/gaya: `bg-hero` memasang warna
@@ -43,19 +34,31 @@ export function LandingHero(props: LandingHeroProps) {
       aria-labelledby="hero-judul"
       className="bg-hero relative w-full overflow-hidden"
     >
+      {/* Satu bidang motif ombak yang sama dengan kartu, bukan tiga orb blur.
+          Identitas PINDAI dibawa motif batik; pendaran tidak diulang di latar.
+          Mask mengaburkannya ke bawah supaya teks tetap di atas kertas polos. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
       >
-        <span className="absolute -right-28 top-[8%] size-[220px] rounded-full bg-emerald-200/65 blur-2xl sm:right-[4%] sm:top-[8%] sm:size-[480px]" />
-        <span className="absolute -left-16 -top-12 size-[150px] rounded-full bg-emerald-100/70 blur-xl sm:-left-20 sm:-top-24 sm:size-[280px]" />
-        <span className="absolute -bottom-16 left-[8%] size-[110px] rounded-full bg-emerald-200/55 blur-2xl sm:bottom-4 sm:left-[34%] sm:size-[160px]" />
+        <GelombangPattern
+          opacity={0.18}
+          preserveAspectRatio="xMidYMid slice"
+          style={{
+            // Watermark di sisi judul, bukan bidang penuh: kartu di kanan sudah
+            // membawa motif yang sama, jadi latar tidak boleh bersaing dengannya.
+            maskImage:
+              "radial-gradient(140% 100% at 18% 0%, rgba(0,0,0,0.95), transparent 72%)",
+            WebkitMaskImage:
+              "radial-gradient(140% 100% at 18% 0%, rgba(0,0,0,0.95), transparent 72%)",
+          }}
+        />
       </div>
 
       <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-10 px-4 pb-12 pt-12 sm:gap-12 sm:px-6 sm:pb-16 sm:pt-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:pb-20 lg:pt-20">
         <div className="max-w-xl">
           <p className="motion-slide-up inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-            <Sparkles className="size-3.5" aria-hidden="true" />
+            <Calculator className="size-3.5" aria-hidden="true" />
             {props.eyebrow}
           </p>
 
@@ -109,7 +112,9 @@ export function LandingHero(props: LandingHeroProps) {
                 di tab baru dan perpindahan rute tidak memuat ulang halaman. */}
             {"href" in props.ctaSekunder ? (
               <Button asChild variant="outline" className={kelasSekunder}>
-                <Link to={props.ctaSekunder.href}>{isiSekunder}</Link>
+                <Link to={props.ctaSekunder.href}>
+                  {props.ctaSekunder.label}
+                </Link>
               </Button>
             ) : (
               <Button
@@ -118,7 +123,7 @@ export function LandingHero(props: LandingHeroProps) {
                 onClick={props.ctaSekunder.onClick}
                 className={kelasSekunder}
               >
-                {isiSekunder}
+                {props.ctaSekunder.label}
               </Button>
             )}
           </div>

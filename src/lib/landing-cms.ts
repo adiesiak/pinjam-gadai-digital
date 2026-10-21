@@ -120,18 +120,18 @@ export const KONTEN_LANDING_DEFAULT: KontenLanding = {
       judul: "Pinjaman tunai",
       ringkasan:
         "Tinjau skema harian dan bulanan, termasuk rincian potongan dan bunga.",
-      detail: "Harian 7 hingga 28 hari · Bulanan 1/3/6 bulan",
+      detail: "Bunga dan potongan tampil sebelum pengajuan dikirim."
     },
     {
       judul: "Gadai",
       ringkasan: "Catat informasi barang, nilai taksiran, dan skema sewa modal.",
-      detail: "Taksiran dan status dicatat di aplikasi",
+      detail: "Nilai taksiran mengikuti harga pasar yang dicantumkan."
     },
     {
       judul: "Kredit barang",
       ringkasan:
         "Lihat cara aplikasi menghitung pembiayaan barang dan cicilannya.",
-      detail: "Pilihan tenor 1, 3, atau 6 bulan",
+      detail: "Pembiayaan barang dengan cicilan bulanan."
     },
   ],
   panduanEyebrow: "Sebelum mengajukan",

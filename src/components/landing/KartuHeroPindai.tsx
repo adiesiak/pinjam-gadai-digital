@@ -1,5 +1,12 @@
 import { useReducedMotion } from "framer-motion";
-import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+} from "react";
 
 import { cn } from "@/lib/utils";
 import { DEMO_CARD_NUMBER } from "@/lib/demoCardNumber";
@@ -11,6 +18,14 @@ export interface GelombangPatternProps {
   warna?: string;
   opacity?: number;
   className?: string;
+  /**
+   * `none` meregangkan motif ke seluruh kotak (kartu, agar ubinnya pas).
+   * `xMidYMid slice` memotong rapi di kotak lebar (latar hero) tanpa
+   * memanjangkan ombaknya.
+   */
+  preserveAspectRatio?: "none" | "xMidYMid slice";
+  /** Gaya tambahan (mis. mask gradien) untuk memakai motif sebagai latar. */
+  style?: CSSProperties;
 }
 
 /**
@@ -24,6 +39,8 @@ export function GelombangPattern({
   warna = "#326eb1",
   opacity = 0.56,
   className,
+  preserveAspectRatio = "none",
+  style,
 }: GelombangPatternProps) {
   const id = `ombak-pindai-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const opacityAman = Math.min(0.56, Math.max(0, opacity));
@@ -45,8 +62,9 @@ export function GelombangPattern({
         className,
       )}
       opacity={opacityAman}
+      style={style}
       viewBox="0 0 420 265"
-      preserveAspectRatio="none"
+      preserveAspectRatio={preserveAspectRatio}
     >
       <defs>
         <pattern id={id} width="64" height="40" patternUnits="userSpaceOnUse">
