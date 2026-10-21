@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
 import {
-  BellOff,
   ChevronLeft,
   ChevronRight,
   IdCard,
@@ -32,7 +31,10 @@ import { DataDiriDialog } from "@/components/admin/DataDiriDialog";
 import { DuplikatNasabahPanel } from "@/components/admin/DuplikatNasabahPanel";
 import { TombolMasukSebagai } from "@/components/admin/MasukSebagaiDialog";
 import { NasabahDetailDialog } from "@/components/admin/NasabahDetailDialog";
-import { TombolNotifikasiTagihan } from "@/components/admin/PengaturanNotifikasiNasabah";
+import {
+  DialogMatikanTagihan,
+  TombolNotifikasiTagihan,
+} from "@/components/admin/PengaturanNotifikasiNasabah";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -771,46 +773,18 @@ export function PlafonPanel() {
         />
       )}
 
-      {/* Konfirmasi sebelum menghentikan pengingat tagihan. Mematikan
-          notifikasi bukan tindakan yang bisa ditebak akibatnya, jadi admin
-          melihat siapa yang terdampak dan apa yang tetap berjalan. */}
-      <AlertDialog
-        open={matikanNotifTarget !== null}
-        onOpenChange={(terbuka) => {
-          if (!terbuka) setMatikanNotifTarget(null);
+      {/* Konfirmasi sebelum menghentikan pengingat tagihan — komponen yang
+          sama dipakai layar Verifikasi KYC agar kalimatnya tidak bercabang. */}
+      <DialogMatikanTagihan
+        nama={matikanNotifTarget?.nama ?? null}
+        terbuka={matikanNotifTarget !== null}
+        sibuk={busyNotifId !== null}
+        onBatal={() => setMatikanNotifTarget(null)}
+        onKonfirmasi={() => {
+          if (matikanNotifTarget === null) return;
+          void ubahNotifikasi(matikanNotifTarget, false);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Matikan pengingat tagihan?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Pengingat tagihan WhatsApp dan email untuk{" "}
-              <strong className="text-navy">{matikanNotifTarget?.nama.toUpperCase()}</strong>{" "}
-              akan berhenti dikirim. Tagihan tetap tampil di dashboard nasabah dan pesan
-              keamanan seperti kode OTP tidak terpengaruh. Pengingat bisa dinyalakan lagi
-              kapan saja dari baris ini atau dari kartu Profil.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busyNotifId !== null}>Batal</AlertDialogCancel>
-            <Button
-              className="bg-amber-600 text-white hover:bg-amber-700"
-              disabled={busyNotifId !== null}
-              onClick={() => {
-                if (matikanNotifTarget === null) return;
-                void ubahNotifikasi(matikanNotifTarget, false);
-              }}
-            >
-              {busyNotifId !== null ? (
-                <Loader2 className="mr-1 size-4 animate-spin" />
-              ) : (
-                <BellOff className="mr-1 size-4" />
-              )}
-              Matikan tagihan
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      />
 
       {/* Konfirmasi hapus diketik di dialog, bukan di `window.prompt` yang
           memblokir layar. Kolom alasan tidak lagi diminta. */}

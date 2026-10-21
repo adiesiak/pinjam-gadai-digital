@@ -1,13 +1,27 @@
 import { useMutation, useQuery } from "convex/react";
 import { Bell, BellOff, BellRing, Loader2, Mail, MessageCircle } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { labelKanalAktif, type KanalNotifikasi } from "@/lib/preferensiNotifikasi";
+import {
+  labelKanalAktif,
+  sakelarTagihan,
+  type KanalNotifikasi,
+} from "@/lib/preferensiNotifikasi";
 
 type NilaiOverride = { whatsapp: boolean; email: boolean };
 
@@ -63,6 +77,66 @@ export function TombolNotifikasiTagihan({
       )}
       {label}
     </Button>
+  );
+}
+
+/**
+ * Dialog konfirmasi sebelum pengingat tagihan dihentikan.
+ *
+ * Dipakai dua layar (Plafon Nasabah dan Verifikasi KYC) supaya kalimat dan
+ * akibatnya tidak berbeda tergantung halaman. Mematikan pengingat bukan
+ * tindakan yang bisa ditebak akibatnya: admin melihat siapa yang terdampak dan
+ * apa yang tetap berjalan sebelum menekan tombol kuningnya.
+ */
+export function DialogMatikanTagihan({
+  nama,
+  terbuka,
+  sibuk,
+  onBatal,
+  onKonfirmasi,
+}: {
+  /** Nama tampil nasabah; null saat dialog tertutup. */
+  nama: string | null;
+  terbuka: boolean;
+  sibuk: boolean;
+  onBatal: () => void;
+  onKonfirmasi: () => void;
+}) {
+  return (
+    <AlertDialog
+      open={terbuka}
+      onOpenChange={(buka) => {
+        if (!buka) onBatal();
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Matikan pengingat tagihan?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Pengingat tagihan WhatsApp dan email untuk{" "}
+            <strong className="text-navy">{nama?.toUpperCase() ?? "nasabah ini"}</strong>{" "}
+            akan berhenti dikirim. Tagihan tetap tampil di dashboard nasabah dan pesan
+            keamanan seperti kode OTP tidak terpengaruh. Pengingat bisa dinyalakan lagi
+            kapan saja dari tombol yang sama.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={sibuk}>Batal</AlertDialogCancel>
+          <Button
+            className="bg-amber-600 text-white hover:bg-amber-700"
+            disabled={sibuk}
+            onClick={onKonfirmasi}
+          >
+            {sibuk ? (
+              <Loader2 className="mr-1 size-4 animate-spin" />
+            ) : (
+              <BellOff className="mr-1 size-4" />
+            )}
+            Matikan tagihan
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -201,6 +275,74 @@ export function KartuNotifikasiNasabah({
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * Tombol tagihan lengkap untuk satu nasabah: membaca preferensi dari server,
+ * menyalakan langsung, dan meminta konfirmasi sebelum mematikan.
+ *
+ * Untuk layar yang hanya menampilkan SATU nasabah (mis. Verifikasi KYC), jadi
+ * panel tidak perlu membawa kolom preferensi di setiap baris antrean.
+ */
+export function AksiNotifikasiTagihan({
+  userId,
+  nama,
+  className,
+}: {
+  userId: Id<"users">;
+  nama: string;
+  className?: string;
+}) {
+  const data = useQuery(api.notifikasiNasabah.preferensiNasabah, { userId });
+  const simpan = useMutation(api.notifikasiNasabah.simpanPreferensiNasabah);
+  const [konfirmasi, setKonfirmasi] = useState(false);
+  const [sibuk, setSibuk] = useState(false);
+
+  // Preferensi belum terbaca: jangan menebak keadaan, cukup belum tampil.
+  if (data === undefined) return null;
+
+  const aktif = data.whatsapp && data.email;
+
+  const ubah = async (aktifBaru: boolean) => {
+    setSibuk(true);
+    try {
+      await simpan({ userId, ...sakelarTagihan(aktifBaru) });
+      toast.success(
+        aktifBaru
+          ? `Pengingat tagihan ${nama.toUpperCase()} dinyalakan (WhatsApp & email).`
+          : `Pengingat tagihan ${nama.toUpperCase()} dimatikan (WhatsApp & email).`,
+      );
+      setKonfirmasi(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal mengubah pengingat tagihan.",
+      );
+    } finally {
+      setSibuk(false);
+    }
+  };
+
+  return (
+    <>
+      <TombolNotifikasiTagihan
+        nama={nama}
+        aktif={aktif}
+        sibuk={sibuk}
+        className={className}
+        onUbah={() => {
+          if (aktif) setKonfirmasi(true);
+          else void ubah(true);
+        }}
+      />
+      <DialogMatikanTagihan
+        nama={nama}
+        terbuka={konfirmasi}
+        sibuk={sibuk}
+        onBatal={() => setKonfirmasi(false)}
+        onKonfirmasi={() => void ubah(false)}
+      />
+    </>
   );
 }
 

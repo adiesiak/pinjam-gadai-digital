@@ -36,6 +36,7 @@ import {
   type BuktiTampil,
   type IdChecklistKyc,
 } from "@/components/admin/BuktiKyc";
+import { AksiNotifikasiTagihan } from "@/components/admin/PengaturanNotifikasiNasabah";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
 import {
   AlertDialog,
@@ -1463,7 +1464,16 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
       ) {
         return;
       }
-      if (document.querySelector('[role="dialog"][data-state="open"]') !== null) return;
+      // Radix memakai `alertdialog` untuk konfirmasi (keputusan KYC dan
+      // matikan tagihan), jadi kedua peran harus ditahan — bukan hanya dialog
+      // biasa — supaya huruf A/R/X tidak memutuskan apa pun di balik dialog.
+      if (
+        document.querySelector(
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+        ) !== null
+      ) {
+        return;
+      }
       const tombol = e.key.toUpperCase();
       if (tombol === "J") {
         e.preventDefault();
@@ -1680,9 +1690,19 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                       )}
                     </Button>
                   </span>
-                  <span className="ml-auto shrink-0 whitespace-nowrap text-[11px] tabular-nums text-slate-600">
-                    diajukan {waktu(detail.diajukanPada)}
-                  </span>
+                  {/* Aksi tagihan untuk nasabah yang sedang diperiksa. Satu
+                      tombol, sama dengan daftar Plafon Nasabah: menyalakan
+                      langsung, mematikan lewat dialog konfirmasi. */}
+                  <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                    <AksiNotifikasiTagihan
+                      userId={dipilih}
+                      nama={detail.namaLengkap ?? "Nasabah"}
+                      className="h-7 px-2 text-[11px]"
+                    />
+                    <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-600">
+                      diajukan {waktu(detail.diajukanPada)}
+                    </span>
+                  </div>
                 </div>
                 {galat !== null && (
                   <p role="alert" className="mt-1 text-[11px] leading-4 text-red-700">
