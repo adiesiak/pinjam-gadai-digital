@@ -118,6 +118,14 @@ export default function LandingHome() {
    * ada di halaman masuk (kata sandi + TOTP).
    */
   const [showAdminShortcut, setShowAdminShortcut] = useState(false);
+  /**
+   * Menu informasi ponsel dikelola state, bukan `<details>`. Dengan `<details>`
+   * menu tetap terbuka setelah satu tautan dipilih dan tidak bisa ditutup
+   * dengan Escape, sehingga satu tujuan butuh dua ketukan di layar kecil.
+   */
+  const [menuTerbuka, setMenuTerbuka] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const tutupMenu = () => setMenuTerbuka(false);
   const logoClickCountRef = useRef(0);
   const logoClickTimerRef = useRef<number | null>(null);
 
@@ -142,6 +150,25 @@ export default function LandingHome() {
       if (logoClickTimerRef.current !== null) window.clearTimeout(logoClickTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuTerbuka) return;
+    const saatTombol = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuTerbuka(false);
+    };
+    const saatKlikLuar = (event: PointerEvent) => {
+      const sasaran = event.target as Node | null;
+      if (sasaran !== null && menuRef.current?.contains(sasaran) !== true) {
+        setMenuTerbuka(false);
+      }
+    };
+    window.addEventListener("keydown", saatTombol);
+    window.addEventListener("pointerdown", saatKlikLuar);
+    return () => {
+      window.removeEventListener("keydown", saatTombol);
+      window.removeEventListener("pointerdown", saatKlikLuar);
+    };
+  }, [menuTerbuka]);
 
   // Jalur kedua: Ctrl+Alt+A. Diabaikan saat fokus di medan isian supaya tidak
   // mencuri pintasan dari pengguna yang sedang mengetik.
@@ -221,76 +248,98 @@ export default function LandingHome() {
                 <ShieldCheck className="size-5" aria-hidden="true" />
               </Link>
             )}
-            <details className="group relative lg:hidden">
-              <summary
-                className="flex size-11 cursor-pointer list-none items-center justify-center rounded-lg border border-border text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label="Buka menu informasi"
+            <div ref={menuRef} className="relative lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMenuTerbuka((terbuka) => !terbuka)}
+                aria-expanded={menuTerbuka}
+                aria-controls="menu-informasi-ponsel"
+                aria-label={menuTerbuka ? "Tutup menu informasi" : "Buka menu informasi"}
+                className="flex size-11 items-center justify-center rounded-lg border border-border text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Menu className="size-5" aria-hidden="true" />
-              </summary>
-              <nav
-                aria-label="Menu informasi"
-                className="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
+              </button>
+              {menuTerbuka && (
+                <nav
+                  id="menu-informasi-ponsel"
+                  aria-label="Menu informasi"
+                  className="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
+                >
+                  <Link
+                    className="rounded-lg px-3 py-3 hover:bg-muted"
+                    to="/layanan/pinjaman-tunai"
+                    onClick={tutupMenu}
+                  >
+                    Pinjaman tunai
+                  </Link>
+                  <Link
+                    className="rounded-lg px-3 py-3 hover:bg-muted"
+                    to="/layanan/gadai"
+                    onClick={tutupMenu}
+                  >
+                    Gadai
+                  </Link>
+                  <Link
+                    className="rounded-lg px-3 py-3 hover:bg-muted"
+                    to="/layanan/kredit-barang"
+                    onClick={tutupMenu}
+                  >
+                    Kredit barang
+                  </Link>
+                  <Link
+                    className="rounded-lg px-3 py-3 hover:bg-muted"
+                    to="/biaya"
+                    onClick={tutupMenu}
+                  >
+                    Biaya
+                  </Link>
+                  <Link
+                    className="rounded-lg px-3 py-3 hover:bg-muted"
+                    to="/cara-kerja"
+                    onClick={tutupMenu}
+                  >
+                    Cara kerja
+                  </Link>
+                  <Link
+                    className="rounded-lg px-3 py-3 hover:bg-muted"
+                    to="/keamanan"
+                    onClick={tutupMenu}
+                  >
+                    Keamanan
+                  </Link>
+                  <Link
+                    className="rounded-lg px-3 py-3 hover:bg-muted"
+                    to="/faq"
+                    onClick={tutupMenu}
+                  >
+                    FAQ
+                  </Link>
+                  <Link
+                    className="rounded-lg px-3 py-3 hover:bg-muted"
+                    to="/aplikasi"
+                    onClick={tutupMenu}
+                  >
+                    Aplikasi Android
+                  </Link>
+                </nav>
+              )}
+            </div>
+            {isLoading ? (
+              <Button
+                disabled
+                aria-busy="true"
+                className="min-h-11 bg-primary text-primary-foreground"
               >
-                <Link
-                  className="rounded-lg px-3 py-3 hover:bg-muted"
-                  to="/layanan/pinjaman-tunai"
-                >
-                  Pinjaman tunai
-                </Link>
-                <Link
-                  className="rounded-lg px-3 py-3 hover:bg-muted"
-                  to="/layanan/gadai"
-                >
-                  Gadai
-                </Link>
-                <Link
-                  className="rounded-lg px-3 py-3 hover:bg-muted"
-                  to="/layanan/kredit-barang"
-                >
-                  Kredit barang
-                </Link>
-                <Link
-                  className="rounded-lg px-3 py-3 hover:bg-muted"
-                  to="/biaya"
-                >
-                  Biaya
-                </Link>
-                <Link
-                  className="rounded-lg px-3 py-3 hover:bg-muted"
-                  to="/cara-kerja"
-                >
-                  Cara kerja
-                </Link>
-                <Link
-                  className="rounded-lg px-3 py-3 hover:bg-muted"
-                  to="/keamanan"
-                >
-                  Keamanan
-                </Link>
-                <Link
-                  className="rounded-lg px-3 py-3 hover:bg-muted"
-                  to="/faq"
-                >
-                  FAQ
-                </Link>
-                <Link
-                  className="rounded-lg px-3 py-3 hover:bg-muted"
-                  to="/aplikasi"
-                >
-                  Aplikasi Android
-                </Link>
-              </nav>
-            </details>
-            <Button
-              asChild
-              disabled={isLoading}
-              className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Link to={accountHref}>
-                {isLoading ? "Memuat…" : accountLabel}
-              </Link>
-            </Button>
+                Memuat…
+              </Button>
+            ) : (
+              <Button
+                asChild
+                className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Link to={accountHref}>{accountLabel}</Link>
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -308,9 +357,7 @@ export default function LandingHome() {
           }}
           ctaSekunder={{
             label: konten.heroCtaSekunder,
-            onClick: () => {
-              window.location.assign("/biaya");
-            },
+            href: "/biaya",
           }}
           mikro={konten.heroMikro}
           sudahMasuk={isAuthenticated}

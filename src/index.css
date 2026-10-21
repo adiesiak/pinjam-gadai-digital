@@ -76,7 +76,9 @@
   --color-slate-200: #e3ddd0;
   --color-slate-300: #cdc5b3;
   --color-slate-400: #a79e8b;
-  --color-slate-500: #827a68;
+  /* Teks sekunder 10–12px memakai tingkat ini, jadi nilainya dijaga ≥4.5:1
+     di atas ketiga permukaan kertas (putih, slate-50, slate-100). */
+  --color-slate-500: #6f6858;
   --color-slate-600: #655e4d;
   --color-slate-700: #4a4538;
   --color-slate-800: #333028;
@@ -313,8 +315,8 @@
   --color-slate-200: #dce7e9;
   --color-slate-300: #c5d4d8;
   --color-slate-400: #9aadb2;
-  --color-slate-500: #71858b;
-  --color-slate-600: #586d74;
+  --color-slate-500: #586d74;
+  --color-slate-600: #4f656c;
   --color-slate-700: #405860;
   --color-slate-800: #2b4149;
   --color-slate-900: #1b3038;
@@ -372,7 +374,7 @@
   --color-slate-200: #e9ded5;
   --color-slate-300: #d7c8bd;
   --color-slate-400: #b6a295;
-  --color-slate-500: #927b6e;
+  --color-slate-500: #766054;
   --color-slate-600: #725d52;
   --color-slate-700: #57463d;
   --color-slate-800: #40332d;
@@ -432,8 +434,8 @@
   --color-slate-200: #d8e2e9;
   --color-slate-300: #c1cfd9;
   --color-slate-400: #94a7b4;
-  --color-slate-500: #6d8190;
-  --color-slate-600: #546674;
+  --color-slate-500: #546977;
+  --color-slate-600: #4a5d6b;
   --color-slate-700: #3f4f5c;
   --color-slate-800: #2d3a45;
   --color-slate-900: #1f2a33;
@@ -492,8 +494,8 @@
   --color-slate-200: #eed9e8;
   --color-slate-300: #dcbdd6;
   --color-slate-400: #c09ab4;
-  --color-slate-500: #a37793;
-  --color-slate-600: #855d74;
+  --color-slate-500: #855d74;
+  --color-slate-600: #785064;
   --color-slate-700: #6c4a5f;
   --color-slate-800: #573d4d;
   --color-slate-900: #48333f;

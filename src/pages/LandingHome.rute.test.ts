@@ -46,6 +46,13 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
     "<PasangAplikasi />",
     "beranda memasang tombol pemasangan aplikasi",
   );
+  // CTA sekunder pernah memanggil `window.location.assign("/biaya")`, yang
+  // memuat ulang seluruh halaman dan tidak bisa dibuka di tab baru.
+  tidakAda(sumber, "window.location.assign", "CTA hero memakai navigasi router");
+  // Menu ponsel berbasis `<details>` tetap terbuka setelah tautan dipilih dan
+  // tidak tertutup oleh Escape.
+  tidakAda(sumber, "<details className", "menu informasi ponsel dikelola state");
+  ada(sumber, "aria-expanded", "tombol menu mengumumkan keadaannya");
 }
 
 // Shell aplikasi: sinkronisasi tema memakai `useLocation`, jadi ia harus

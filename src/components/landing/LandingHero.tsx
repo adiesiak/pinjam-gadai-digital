@@ -11,12 +11,30 @@ export interface LandingHeroProps {
   judul2: string;
   deskripsi: string;
   ctaUtama: { label: string; href: string; disabled?: boolean };
-  ctaSekunder: { label: string; onClick: () => void };
+  /**
+   * Tautan rute bila tujuannya halaman lain; `onClick` hanya untuk halaman yang
+   * memang menggulir ke bagian di layar yang sama (mis. landing lama).
+   */
+  ctaSekunder:
+    | { label: string; href: string }
+    | { label: string; onClick: () => void };
   mikro: string;
   sudahMasuk: boolean;
 }
 
 export function LandingHero(props: LandingHeroProps) {
+  const kelasSekunder =
+    "group h-12 rounded-tombol border-border bg-card px-6 text-foreground hover:bg-muted";
+  const isiSekunder = (
+    <>
+      {props.ctaSekunder.label}
+      <ArrowRight
+        className="ml-2 size-4 transition-transform group-hover:translate-x-0.5"
+        aria-hidden="true"
+      />
+    </>
+  );
+
   return (
     // Warna dan bentuk datang dari token tema/gaya: `bg-hero` memasang warna
     // dasar + pola permukaan, `font-display` memilih tipografi judul. Tidak ada
@@ -64,28 +82,45 @@ export function LandingHero(props: LandingHeroProps) {
             className="motion-slide-up mt-8 flex flex-wrap items-center gap-3"
             style={{ animationDelay: "0.18s" }}
           >
-            <Button
-              asChild
-              disabled={props.ctaUtama.disabled}
-              className="h-12 rounded-tombol bg-primary px-6 text-primary-foreground hover:bg-primary/90"
-            >
-              <Link to={props.ctaUtama.href}>
+            {/* `disabled` tidak berlaku pada elemen <a>, jadi selama sesi masih
+                dimuat CTA dirender sebagai tombol mati. Kalau tetap memakai
+                Link, tautan "Memuat…" masih bisa membawa pengunjung ke /auth
+                sebelum keadaannya diketahui. */}
+            {props.ctaUtama.disabled ? (
+              <Button
+                disabled
+                aria-busy="true"
+                className="h-12 rounded-tombol bg-primary px-6 text-primary-foreground"
+              >
                 {props.ctaUtama.label}
-                <ArrowRight className="ml-2 size-4" aria-hidden="true" />
-              </Link>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={props.ctaSekunder.onClick}
-              className="group h-12 rounded-tombol border-border bg-card px-6 text-foreground hover:bg-muted"
-            >
-              {props.ctaSekunder.label}
-              <ArrowRight
-                className="ml-2 size-4 transition-transform group-hover:translate-x-0.5"
-                aria-hidden="true"
-              />
-            </Button>
+              </Button>
+            ) : (
+              <Button
+                asChild
+                className="h-12 rounded-tombol bg-primary px-6 text-primary-foreground hover:bg-primary/90"
+              >
+                <Link to={props.ctaUtama.href}>
+                  {props.ctaUtama.label}
+                  <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            )}
+            {/* CTA sekunder ke halaman lain adalah tautan sungguhan: bisa dibuka
+                di tab baru dan perpindahan rute tidak memuat ulang halaman. */}
+            {"href" in props.ctaSekunder ? (
+              <Button asChild variant="outline" className={kelasSekunder}>
+                <Link to={props.ctaSekunder.href}>{isiSekunder}</Link>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={props.ctaSekunder.onClick}
+                className={kelasSekunder}
+              >
+                {isiSekunder}
+              </Button>
+            )}
           </div>
 
           <p

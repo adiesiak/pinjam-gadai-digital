@@ -32,7 +32,13 @@ function ok(syarat: boolean, label: string): void {
   }
 }
 
-function render(sudahMasuk = false): string {
+function render(
+  sudahMasuk = false,
+  ctaUtama: { label: string; href: string; disabled?: boolean } = {
+    label: "Ajukan Sekarang",
+    href: "/auth",
+  },
+): string {
   return renderToStaticMarkup(
     <MemoryRouter initialEntries={["/"]}>
       <LandingHero
@@ -40,8 +46,8 @@ function render(sudahMasuk = false): string {
         judul1="Solusi Finansial, Lebih Jelas"
         judul2="dalam Genggaman."
         deskripsi="Deskripsi hero."
-        ctaUtama={{ label: "Ajukan Sekarang", href: "/auth" }}
-        ctaSekunder={{ label: "Pelajari Cara Kerja", onClick: () => {} }}
+        ctaUtama={ctaUtama}
+        ctaSekunder={{ label: "Pelajari Cara Kerja", href: "/biaya" }}
         mikro="Informasi biaya mengikuti produk yang berlaku."
         sudahMasuk={sudahMasuk}
       />
@@ -103,6 +109,25 @@ ok(html.includes("dalam Genggaman."), "baris kedua judul ada");
 ok(html.includes('href="/auth"'), "CTA utama menuju rute akun");
 ok(html.includes("Ajukan Sekarang"), "label CTA utama tampil");
 ok(html.includes("Pelajari Cara Kerja"), "CTA sekunder tampil");
+// CTA sekunder dulu memanggil `window.location.assign`, sehingga halaman dimuat
+// ulang penuh dan tautannya tidak bisa dibuka di tab baru.
+ok(
+  html.includes('href="/biaya"'),
+  "CTA sekunder adalah tautan sungguhan ke /biaya",
+);
+
+// Selama sesi dimuat, CTA utama tidak boleh tetap berupa tautan: `disabled` pada
+// <a> tidak mengunci apa pun.
+const htmlMemuat = render(false, {
+  label: "Memuat…",
+  href: "/auth",
+  disabled: true,
+});
+ok(htmlMemuat.includes("Memuat…"), "label memuat tampil saat sesi belum siap");
+ok(
+  !htmlMemuat.includes('href="/auth"'),
+  "CTA utama tidak menjadi tautan selama sesi dimuat",
+);
 ok(html.includes("Rincian biaya terbuka"), "poin kepercayaan pertama ada");
 ok(html.includes("Verifikasi OTP WhatsApp"), "poin kepercayaan kedua ada");
 
