@@ -349,6 +349,57 @@ export function SystemConfigPanel() {
                   withHint
                 />
                 <SuffixInput
+                  id="cfg-biaya-admin"
+                  label="Biaya Admin Pinjaman (%)"
+                  value={form.persenBiayaAdmin}
+                  min={0}
+                  max={50}
+                  step={0.5}
+                  suffix="%"
+                  onChange={(v) => upd("persenBiayaAdmin", Number(v) || 0)}
+                  hint="Dipotong di muka dari pokok; tampil di landing page & formulir."
+                  withHint
+                />
+                <SuffixInput
+                  id="cfg-asuransi"
+                  label="Biaya Asuransi (%)"
+                  value={form.persenAsuransi}
+                  min={0}
+                  max={50}
+                  step={0.5}
+                  suffix="%"
+                  onChange={(v) => upd("persenAsuransi", Number(v) || 0)}
+                  hint="Dipotong di muka. Isi 0 kalau asuransi tidak dipungut."
+                  withHint
+                />
+                <RpInput
+                  id="cfg-ekspres-1"
+                  label="Biaya Ekspres Tier 1 (Rp)"
+                  value={form.biayaEkspresTier1}
+                  min={0}
+                  max={100_000}
+                  onChange={(v) => upd("biayaEkspresTier1", v)}
+                  hint={`Pokok ${formatRupiah(100_000)}–${formatRupiah(499_999)}.`}
+                />
+                <RpInput
+                  id="cfg-ekspres-2"
+                  label="Biaya Ekspres Tier 2 (Rp)"
+                  value={form.biayaEkspresTier2}
+                  min={0}
+                  max={100_000}
+                  onChange={(v) => upd("biayaEkspresTier2", v)}
+                  hint={`Pokok ${formatRupiah(500_000)}–${formatRupiah(999_999)}.`}
+                />
+                <RpInput
+                  id="cfg-ekspres-3"
+                  label="Biaya Ekspres Tier 3 (Rp)"
+                  value={form.biayaEkspresTier3}
+                  min={0}
+                  max={100_000}
+                  onChange={(v) => upd("biayaEkspresTier3", v)}
+                  hint={`Pokok ${formatRupiah(1_000_000)} ke atas.`}
+                />
+                <SuffixInput
                   id="cfg-persen-denda"
                   label="Denda Keterlambatan (%/hari)"
                   value={form.persenDendaKeterlambatan}
@@ -590,6 +641,31 @@ export function SystemConfigPanel() {
                     Bunga Flat
                   </dt>
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.persenBunga}%</dd>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-800">
+                    Biaya Admin Pinjaman
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-emerald-900">
+                    {form.persenBiayaAdmin}%
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-800">
+                    Asuransi
+                  </dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-emerald-900">
+                    {form.persenAsuransi > 0 ? `${form.persenAsuransi}%` : "Tidak dipungut"}
+                  </dd>
+                </div>
+                <div className="col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-800">
+                    Biaya Ekspres per Tier
+                  </dt>
+                  <dd className="mt-1 text-sm font-semibold tabular-nums text-emerald-900">
+                    {formatRupiah(form.biayaEkspresTier1)} · {formatRupiah(form.biayaEkspresTier2)} ·{" "}
+                    {formatRupiah(form.biayaEkspresTier3)}
+                  </dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">

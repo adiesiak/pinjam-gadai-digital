@@ -43,6 +43,8 @@ import {
   PINDAI_PRICING,
   assertPokokPinjamanValid,
   quoteLoan,
+  tarifBiayaAman,
+  type TarifBiaya,
 } from "./loan";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
 
@@ -80,8 +82,10 @@ export type RincianAliranDana = {
    * 2,000003% pada pokok yang pembulatannya tidak pas.
    */
   persenPotonganDiMuka: number;
-  /** Potongan di muka dalam rupiah (biaya admin, dibayar dari pokok). */
+  /** Potongan di muka dalam rupiah (biaya admin + asuransi, dibayar dari pokok). */
   potonganDiMuka: Rupiah;
+  /** Bagian asuransi dari potongan di muka; 0 bila asuransi tidak dipakai. */
+  biayaAsuransi: Rupiah;
   /** Dana yang benar-benar diterima peminjam = pokok − potongan di muka. */
   diterimaPeminjam: Rupiah;
   /** Imbal Hasil (bunga) pendana, persen flat dari pokok (30%). */
@@ -167,6 +171,7 @@ export function rincianAliranDana(
     pokok: q.pokok,
     persenPotonganDiMuka: PINDAI_PRICING.upfrontDeductionPercent,
     potonganDiMuka: q.totalPotonganDiMuka,
+    biayaAsuransi: q.biayaAsuransi,
     diterimaPeminjam: q.danaBersihDitransfer,
     persenImbalHasil: PINDAI_PRICING.bungaPercent,
     imbalHasil: bagi.bunga,
@@ -230,7 +235,7 @@ export function barisRincianAliran(
   return [
     { label: "Pokok pinjaman", nilai: r.pokok, arah: "kotor" },
     {
-      label: `Potongan di muka (admin ${r.persenPotonganDiMuka}%${r.adaEkspres ? " + ekspres" : ""})`,
+      label: `Potongan di muka (admin ${r.persenPotonganDiMuka}%${r.biayaAsuransi > 0 ? " + asuransi" : ""}${r.adaEkspres ? " + ekspres" : ""})`,
       nilai: r.potonganDiMuka,
       arah: "potongan",
     },
@@ -263,11 +268,14 @@ export function rincianPinjamanNyata(
     persenBunga?: number | null;
     /** Centang cair ekspres peminjam; kosong = data lama (ekspres dipakai). */
     cairEkspres?: boolean | null;
+    /** Snapshot tarif potongan di muka; kosong = tarif bawaan. */
+    tarifBiaya?: Partial<TarifBiaya> | null;
   },
   persenPotonganPenyedia: number = POTONGAN_ADMIN_DEFAULT_PERSEN,
 ): RincianAliranDana {
   const pokok = pinjaman.pokokPinjaman;
   const harian = pinjaman.tenorBulan === null || pinjaman.tenorBulan === undefined;
+  const tarif = tarifBiayaAman(pinjaman.tarifBiaya);
   const pakaiEkspres = harian && pinjaman.cairEkspres !== false;
   // Data warisan dengan pokok tidak sah tetap ditampilkan apa adanya (tanpa
   // perhitungan), sama seperti ruang pendana — satu baris aneh tidak
@@ -276,8 +284,9 @@ export function rincianPinjamanNyata(
     const nol = 0;
     return {
       pokok,
-      persenPotonganDiMuka: PINDAI_PRICING.upfrontDeductionPercent,
+      persenPotonganDiMuka: tarif.adminPersen,
       potonganDiMuka: nol,
+      biayaAsuransi: nol,
       diterimaPeminjam: pokok,
       persenImbalHasil: pinjaman.persenBunga ?? PINDAI_PRICING.bungaPercent,
       imbalHasil: nol,
@@ -292,14 +301,17 @@ export function rincianPinjamanNyata(
   }
   // Pinjaman harian dikenai biaya pencairan ekspres bila peminjam mencentangnya;
   // skema bulanan tidak pernah. Dihitung dari mesin yang sama dengan pencairan.
+  const biayaAsuransi = percentOf(pokok, tarif.asuransiPersen);
   const potonganDiMuka =
-    percentOf(pokok, PINDAI_PRICING.upfrontDeductionPercent) +
-    (pakaiEkspres ? biayaEkspres(pokok) : 0);
+    percentOf(pokok, tarif.adminPersen) +
+    biayaAsuransi +
+    (pakaiEkspres ? biayaEkspres(pokok, tarif.ekspres) : 0);
   const bagi = bagiHasilPinjamanDari(pinjaman, persenPotonganPenyedia);
   return {
     pokok,
-    persenPotonganDiMuka: PINDAI_PRICING.upfrontDeductionPercent,
+    persenPotonganDiMuka: tarif.adminPersen,
     potonganDiMuka,
+    biayaAsuransi,
     diterimaPeminjam: pokok - potonganDiMuka,
     persenImbalHasil: pinjaman.persenBunga ?? PINDAI_PRICING.bungaPercent,
     imbalHasil: bagi.bunga,

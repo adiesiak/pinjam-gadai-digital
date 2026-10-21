@@ -264,6 +264,23 @@ const schema = defineSchema(
        */
       cairEkspres: v.optional(v.boolean()),
       /**
+       * Snapshot tarif potongan di muka yang berlaku saat pengajuan: biaya
+       * admin, asuransi, dan nominal ekspres per tier. Kosong pada data lama =
+       * tarif bawaan (admin 2%, asuransi 0%, ekspres Rp5.000/7.500/10.000),
+       * sehingga kontrak lama tidak berubah saat admin mengubah tarif.
+       */
+      tarifBiaya: v.optional(
+        v.object({
+          adminPersen: v.number(),
+          asuransiPersen: v.number(),
+          ekspres: v.object({
+            tier1: v.number(),
+            tier2: v.number(),
+            tier3: v.number(),
+          }),
+        }),
+      ),
+      /**
        * Waktu pengajuan tercatat bila berbeda dari `_creationTime` — dipakai
        * untuk data yang dimigrasikan/di-seed agar tanggal historisnya jujur.
        * Kosong = pakai `_creationTime`.
@@ -1134,6 +1151,14 @@ const schema = defineSchema(
       persenAdmin: v.optional(v.number()),
       persenPlatform: v.optional(v.number()),
       persenBunga: v.optional(v.number()),
+      /** Biaya admin pinjaman yang dipotong di muka (% dari pokok). */
+      persenBiayaAdmin: v.optional(v.number()),
+      /** Biaya asuransi yang dipotong di muka (% dari pokok); 0 = mati. */
+      persenAsuransi: v.optional(v.number()),
+      /** Nominal biaya pencairan ekspres per tier pokok. */
+      biayaEkspresTier1: v.optional(v.number()),
+      biayaEkspresTier2: v.optional(v.number()),
+      biayaEkspresTier3: v.optional(v.number()),
       /** Denda keterlambatan per hari (% dari pokok); total dibatasi 100%. */
       persenDendaKeterlambatan: v.optional(v.number()),
       /** Persentase biaya admin & platform saat integrasi pinjaman lama ke ledger. */

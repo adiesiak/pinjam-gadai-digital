@@ -39,6 +39,12 @@ export function MyContractsSection({
           persenBunga: number | null;
           /** Centang cair ekspres; null = data lama (ekspres dipakai). */
           cairEkspres: boolean | null;
+          /** Snapshot tarif potongan di muka; null = tarif bawaan. */
+          tarifBiaya: {
+            adminPersen: number;
+            asuransiPersen: number;
+            ekspres: { tier1: number; tier2: number; tier3: number };
+          } | null;
           status: string;
           tandaTanganAda: boolean;
           tandaTanganDataUrl: string | null;
@@ -133,6 +139,12 @@ function LoanContractCard({
     persenBunga: number | null;
     /** Centang cair ekspres; null = data lama (ekspres dipakai). */
     cairEkspres: boolean | null;
+    /** Snapshot tarif potongan di muka; null = tarif bawaan. */
+    tarifBiaya: {
+      adminPersen: number;
+      asuransiPersen: number;
+      ekspres: { tier1: number; tier2: number; tier3: number };
+    } | null;
     status: string;
     tandaTanganAda: boolean;
     tandaTanganDataUrl: string | null;
@@ -154,6 +166,7 @@ function LoanContractCard({
     pokokPinjaman: c.pokokPinjaman,
     persenBunga: c.persenBunga ?? undefined,
     cairEkspres: c.cairEkspres ?? undefined,
+    tarifBiaya: c.tarifBiaya ?? undefined,
   });
   // Ringkasan bulanan: data warisan di luar rentang skema dilewati dengan aman.
   const bulanan = useMemo(() => {

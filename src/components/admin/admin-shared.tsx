@@ -26,6 +26,12 @@ export type LoanRow = {
   persenBunga: number | null;
   /** Centang cair ekspres peminjam; null/kosong = data lama (ekspres dipakai). */
   cairEkspres?: boolean | null;
+  /** Snapshot tarif potongan di muka; null/kosong = tarif bawaan. */
+  tarifBiaya?: {
+    adminPersen: number;
+    asuransiPersen: number;
+    ekspres: { tier1: number; tier2: number; tier3: number };
+  } | null;
   tujuan: string;
   status:
     | "diajukan"

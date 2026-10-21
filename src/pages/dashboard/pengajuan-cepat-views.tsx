@@ -301,7 +301,17 @@ export function PengajuanCepatSection({
   // ditegakkan server, tanpa angka khusus per akun.
   const tarifBunga =
     persenBungaHarian(pokokHitung, tenor) ?? PINDAI_PRICING.bungaPercent;
-  const q = quoteLoanBunga(pokokHitung, tarifBunga, { ekspres: cairEkspres });
+  // Tarif potongan dari pengaturan admin — angka di layar = angka server.
+  const tarifBiaya = ketentuanBiaya?.tarifBiaya;
+  const q = quoteLoanBunga(pokokHitung, tarifBunga, {
+    ekspres: cairEkspres,
+    ...(tarifBiaya !== undefined ? { tarif: tarifBiaya } : {}),
+  });
+  const ekspresTeks = tarifBiaya
+    ? tarifBiaya.ekspres.tier1 === tarifBiaya.ekspres.tier3
+      ? formatRupiah(tarifBiaya.ekspres.tier1)
+      : `${formatRupiah(tarifBiaya.ekspres.tier1)}–${formatRupiah(tarifBiaya.ekspres.tier3)}`
+    : "Rp5.000–Rp10.000";
   const peringatanBayar = peringatanKemampuanBayar({
     penghasilanBulanan: ktp.penghasilanBulanan ?? 0,
     kewajiban: q.totalKewajibanPelunasan,
@@ -656,7 +666,7 @@ export function PengajuanCepatSection({
               />
               <span>
                 <span className="font-semibold text-slate-900">Cair ekspres</span> — biaya
-                Rp5.000–Rp10.000 sekali, dipotong dari dana yang Anda terima. Lepas centangnya
+                {ekspresTeks} sekali, dipotong dari dana yang Anda terima. Lepas centangnya
                 kalau tidak memilih cair ekspres.
               </span>
             </label>
@@ -670,6 +680,7 @@ export function PengajuanCepatSection({
                 <dd className="font-semibold tabular-nums">{formatRupiah(q.totalPotonganDiMuka)}</dd>
                 <dd className="text-[10px] leading-4 text-muted-foreground">
                   Admin {formatRupiah(q.biayaAdmin)}
+                  {q.biayaAsuransi > 0 && ` + asuransi ${formatRupiah(q.biayaAsuransi)}`}
                   {q.biayaPlatform > 0 && ` + platform ${formatRupiah(q.biayaPlatform)}`}
                   {q.biayaExpress > 0 && ` + ekspres ${formatRupiah(q.biayaExpress)}`}
                 </dd>

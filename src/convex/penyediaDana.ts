@@ -166,6 +166,12 @@ export type BarisPinjaman = {
   persenBunga: number | null;
   /** Centang cair ekspres dari peminjam; null = data lama (ekspres dipakai). */
   cairEkspres: boolean | null;
+  /** Snapshot tarif potongan di muka; null = data lama (tarif bawaan). */
+  tarifBiaya: {
+    adminPersen: number;
+    asuransiPersen: number;
+    ekspres: { tier1: number; tier2: number; tier3: number };
+  } | null;
   /** State perpanjangan: sisa pokok dan akumulasi bunga. */
   remainingPrincipal: number | null;
   bungaTerbayar: number | null;
@@ -705,6 +711,7 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         tenorBulan: loan.tenorBulan ?? null,
         persenBunga: loan.persenBunga ?? null,
         cairEkspres: loan.cairEkspres ?? null,
+        tarifBiaya: loan.tarifBiaya ?? null,
         remainingPrincipal: loan.remainingPrincipal ?? null,
         bungaTerbayar: loan.bungaTerbayar ?? null,
         nextInterestAmount: loan.nextInterestAmount ?? null,

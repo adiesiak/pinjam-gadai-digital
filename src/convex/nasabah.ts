@@ -159,6 +159,7 @@ function finansialPengajuan(loan: LoanDoc) {
     ...(loan.persenBunga !== undefined ? { persenBunga: loan.persenBunga } : {}),
     // Pinjaman lama tanpa kolom ini tetap dihitung ekspres (perilaku lama).
     ...(loan.cairEkspres !== undefined ? { cairEkspres: loan.cairEkspres } : {}),
+    ...(loan.tarifBiaya !== undefined ? { tarifBiaya: loan.tarifBiaya } : {}),
   });
   return {
     skema: "harian" as const,

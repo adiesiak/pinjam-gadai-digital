@@ -5,7 +5,11 @@
  * exact integer rupiah computed with BigInt half-up rounding.
  */
 import { hitungSimulasiBulanan } from "./bulanan";
-import { biayaEkspres } from "./ekonomiPlatform";
+import {
+  biayaEkspres,
+  TARIF_EKSPRES_DEFAULT,
+  type TarifEkspres,
+} from "./ekonomiPlatform";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
 
 export const PINDAI_PRICING = {
@@ -228,14 +232,19 @@ export interface LoanQuote {
   /** Biaya Layanan Platform — 0% dari pokok (dihapus dari potongan di muka) */
   biayaPlatform: Rupiah;
   /**
+   * Biaya asuransi — persen dari pokok, dipotong di muka. Bawaan 0% (tidak
+   * dipotong); admin dapat menyalakannya dari Pengaturan Parameter Bisnis.
+   */
+  biayaAsuransi: Rupiah;
+  /**
    * Biaya pencairan ekspres — flat Rp5.000–Rp10.000 sekali per pinjaman baru.
    * Hanya dikenakan bila peminjam mencentang cair ekspres; tanpa centang
    * nilainya 0. Bukan bunga dan tidak menambah kewajiban.
    */
   biayaExpress: Rupiah;
-  /** Total Potongan di Muka — biaya admin 2% + biaya ekspres (bila dipilih) */
+  /** Total Potongan di Muka — admin + asuransi + biaya ekspres (bila dipilih) */
   totalPotonganDiMuka: Rupiah;
-  /** Dana Bersih Ditransfer — pokok − (biaya admin + biaya ekspres) */
+  /** Dana Bersih Ditransfer — pokok − seluruh potongan di muka */
   danaBersihDitransfer: Rupiah;
   /** Bunga Pinjaman — 30% (hak finansial penyedia dana) */
   bunga: Rupiah;
@@ -244,13 +253,64 @@ export interface LoanQuote {
 }
 
 /**
+ * Tarif potongan di muka yang berlaku untuk satu pinjaman.
+ *
+ * Disimpan sebagai snapshot pada pinjaman saat pengajuan, sama seperti
+ * `persenBunga`: perubahan tarif admin hanya berlaku untuk pengajuan BERIKUTNYA,
+ * bukan mengubah kontrak yang sudah terbit.
+ */
+export type TarifBiaya = {
+  /** Biaya admin (% dari pokok). */
+  adminPersen: number;
+  /** Biaya asuransi (% dari pokok); 0 = tidak dipotong. */
+  asuransiPersen: number;
+  /** Nominal biaya pencairan ekspres per tier pokok. */
+  ekspres: TarifEkspres;
+};
+
+/** Tarif bawaan = perilaku sebelum tarif bisa diatur admin. */
+export const TARIF_BIAYA_DEFAULT: TarifBiaya = {
+  adminPersen: PINDAI_PRICING.adminFeePercent,
+  asuransiPersen: 0,
+  ekspres: TARIF_EKSPRES_DEFAULT,
+};
+
+/** Lengkapi tarif tersimpan yang dibuat sebelum kolom baru ada. */
+export function tarifBiayaAman(tarif: Partial<TarifBiaya> | null | undefined): TarifBiaya {
+  return {
+    adminPersen: tarif?.adminPersen ?? TARIF_BIAYA_DEFAULT.adminPersen,
+    asuransiPersen: tarif?.asuransiPersen ?? TARIF_BIAYA_DEFAULT.asuransiPersen,
+    ekspres: {
+      tier1: tarif?.ekspres?.tier1 ?? TARIF_BIAYA_DEFAULT.ekspres.tier1,
+      tier2: tarif?.ekspres?.tier2 ?? TARIF_BIAYA_DEFAULT.ekspres.tier2,
+      tier3: tarif?.ekspres?.tier3 ?? TARIF_BIAYA_DEFAULT.ekspres.tier3,
+    },
+  };
+}
+
+/** Susun tarif dari angka konfigurasi admin. */
+export function tarifBiayaDariAngka(angka: {
+  adminPersen: number;
+  asuransiPersen: number;
+  ekspres1: number;
+  ekspres2: number;
+  ekspres3: number;
+}): TarifBiaya {
+  return tarifBiayaAman({
+    adminPersen: angka.adminPersen,
+    asuransiPersen: angka.asuransiPersen,
+    ekspres: { tier1: angka.ekspres1, tier2: angka.ekspres2, tier3: angka.ekspres3 },
+  });
+}
+
+/**
  * Pilihan yang mengubah komponen potongan di muka.
  *
  * `ekspres` berasal dari centang peminjam: `false` berarti pencairan biasa,
- * jadi tidak ada biaya ekspres. Kosong = perilaku lama (ekspres dipakai),
- * supaya pinjaman dan dokumen yang sudah terbit tidak berubah angkanya.
+ * jadi tidak ada biaya ekspres. Kosong = perilaku lama (ekspres dipakai).
+ * `tarif` berasal dari Pengaturan Parameter Bisnis (atau snapshot pinjaman).
  */
-export type OpsiQuote = { ekspres?: boolean };
+export type OpsiQuote = { ekspres?: boolean; tarif?: TarifBiaya };
 
 export function quoteLoan(pokok: Rupiah, opsi: OpsiQuote = {}): LoanQuote {
   return quoteLoanDenganPersen(
@@ -290,10 +350,15 @@ export function quotePinjaman(loan: {
   persenBunga?: number;
   /** Centang "cair ekspres" saat pengajuan; kosong = data lama (ekspres). */
   cairEkspres?: boolean;
+  /** Tarif potongan yang dibekukan saat pengajuan; kosong = tarif bawaan. */
+  tarifBiaya?: Partial<TarifBiaya> | null;
 }): LoanQuote {
   // Data lama tidak punya kolom ini dan dulu selalu dikenai biaya ekspres —
   // `!== false` menjaga angka kontrak lama tetap sama.
-  const opsi: OpsiQuote = { ekspres: loan.cairEkspres !== false };
+  const opsi: OpsiQuote = {
+    ekspres: loan.cairEkspres !== false,
+    tarif: tarifBiayaAman(loan.tarifBiaya),
+  };
   return loan.persenBunga === undefined
     ? quoteLoan(loan.pokokPinjaman, opsi)
     : quoteLoanBunga(loan.pokokPinjaman, loan.persenBunga, opsi);
@@ -327,10 +392,13 @@ export function quoteLoanDenganPersen(
   if (!Number.isSafeInteger(pokok) || pokok <= 0) {
     throw new Error("Pokok pinjaman harus rupiah bulat positif.");
   }
-  const biayaAdmin = percentOf(pokok, persen.admin);
+  const tarif = opsi.tarif ?? TARIF_BIAYA_DEFAULT;
+  const biayaAdmin = percentOf(pokok, tarif.adminPersen ?? persen.admin);
   const biayaPlatform = percentOf(pokok, persen.platform);
-  const biayaExpress = opsi.ekspres === false ? 0 : biayaEkspres(pokok);
-  const totalPotonganDiMuka = biayaAdmin + biayaPlatform + biayaExpress;
+  const biayaAsuransi = percentOf(pokok, tarif.asuransiPersen);
+  const biayaExpress =
+    opsi.ekspres === false ? 0 : biayaEkspres(pokok, tarif.ekspres);
+  const totalPotonganDiMuka = biayaAdmin + biayaPlatform + biayaAsuransi + biayaExpress;
   const danaBersihDitransfer = pokok - totalPotonganDiMuka;
   if (danaBersihDitransfer <= 0) {
     throw new Error("Potongan di muka melebihi pokok pinjaman.");
@@ -342,6 +410,7 @@ export function quoteLoanDenganPersen(
     pokok,
     biayaAdmin,
     biayaPlatform,
+    biayaAsuransi,
     biayaExpress,
     totalPotonganDiMuka,
     danaBersihDitransfer,

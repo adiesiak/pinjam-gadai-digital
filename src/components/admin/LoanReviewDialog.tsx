@@ -182,6 +182,7 @@ export function LoanReviewDialog({
     tenorBulan: row.tenorBulan,
     persenBunga: rowWithOptional.persenBunga ?? null,
     cairEkspres: row.cairEkspres,
+    tarifBiaya: row.tarifBiaya,
   });
   const tenorTeks =
     row.tenorBulan !== null ? `${row.tenorBulan} bulan` : `${row.tenorHari ?? 30} hari`;
@@ -572,6 +573,7 @@ export function LoanReviewDialog({
           tenorHari={row.tenorHari}
           persenBunga={rowWithOptional.persenBunga}
           cairEkspres={row.cairEkspres}
+          tarifBiaya={row.tarifBiaya}
           sudahLunas={row.status === "lunas"}
         />
 

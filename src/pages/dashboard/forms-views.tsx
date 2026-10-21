@@ -467,9 +467,21 @@ export function LoanForm({
   const tenorHarianOpsi = tenorHarianTersedia(pokok);
   const tarifHarian =
     persenBungaHarian(pokok, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
+  // Tarif potongan dari Pengaturan Parameter Bisnis. Angka di layar harus sama
+  // dengan yang nanti dihitung server saat pengajuan disimpan.
+  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
+  const tarifBiaya = ketentuanBiaya?.tarifBiaya;
   const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifHarian, {
     ekspres: !bulanan && cairEkspres,
+    ...(tarifBiaya !== undefined ? { tarif: tarifBiaya } : {}),
   });
+  const adminPersen = tarifBiaya?.adminPersen ?? PINDAI_PRICING.adminFeePercent;
+  const asuransiPersen = tarifBiaya?.asuransiPersen ?? 0;
+  const ekspresTeks = tarifBiaya
+    ? tarifBiaya.ekspres.tier1 === tarifBiaya.ekspres.tier3
+      ? formatRupiah(tarifBiaya.ekspres.tier1)
+      : `${formatRupiah(tarifBiaya.ekspres.tier1)}–${formatRupiah(tarifBiaya.ekspres.tier3)}`
+    : "Rp5.000–Rp10.000";
 
   // Nominal berubah → tarif tier ikut berubah. Pilihan tenor lama tetap sah
   // selama termasuk 7/14/28 hari, jadi hanya tenor asing yang digeser.
@@ -503,7 +515,6 @@ export function LoanForm({
   const kycSiap = isKycVerified(kycQuery?.status);
   // Tarif denda yang berlaku — ringkasan syarat di dialog memakai angka ini,
   // bukan persentase tetap, supaya sama dengan perhitungan server.
-  const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
   const tarifDenda = {
     perHari: ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
     maks: ketentuanBiaya?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent,
@@ -961,9 +972,9 @@ export function LoanForm({
             <span className="min-w-0">
               <span className="block text-xs font-semibold text-slate-900">Cair ekspres</span>
               <span className="mt-0.5 block text-[11px] leading-5 text-muted-foreground">
-                Biaya Rp5.000–Rp10.000 sekali, dipotong dari dana yang Anda terima. Lepas
+                Biaya {ekspresTeks} sekali, dipotong dari dana yang Anda terima. Lepas
                 centangnya kalau tidak memilih cair ekspres; potongan di muka tinggal biaya admin
-                2%.
+                {adminPersen}%{asuransiPersen > 0 ? ` + asuransi ${asuransiPersen}%` : ""}.
               </span>
             </span>
           </label>
@@ -1035,10 +1046,18 @@ export function LoanForm({
             </div>
             <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-medium text-slate-700">
-                Biaya admin {PINDAI_PRICING.adminFeePercent}% (dipotong di muka)
+                Biaya admin {adminPersen}% (dipotong di muka)
               </dt>
               <dd className="font-medium tabular-nums">{formatRupiah(q.biayaAdmin)}</dd>
             </div>
+            {q.biayaAsuransi > 0 && (
+              <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                <dt className="font-medium text-slate-700">
+                  Biaya asuransi {asuransiPersen}% (dipotong di muka)
+                </dt>
+                <dd className="font-medium tabular-nums">{formatRupiah(q.biayaAsuransi)}</dd>
+              </div>
+            )}
             {q.biayaPlatform > 0 && (
               <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
                 <dt className="font-medium text-slate-700">Biaya layanan platform (dipotong di muka)</dt>

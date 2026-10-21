@@ -787,6 +787,7 @@ function DetailPinjaman({
             pokokPinjaman: row.pokokPinjaman,
             persenBunga: persenBungaPinjaman,
             cairEkspres: row.cairEkspres ?? undefined,
+            tarifBiaya: row.tarifBiaya ?? undefined,
           }),
         )
       : null;

@@ -82,6 +82,19 @@ export type SystemConfig = {
   persenPlatform: number;
   persenBunga: number;
   /**
+   * Biaya admin pinjaman yang dipotong di muka (% dari pokok). Terpisah dari
+   * `persenAdmin` (potongan atas uang yang kembali milik penyedia dana).
+   * Nilai ini dipakai mesin harga untuk SEMUA pengajuan baru dan ikut
+   * ditampilkan di landing page.
+   */
+  persenBiayaAdmin: number;
+  /** Biaya asuransi yang dipotong di muka (% dari pokok); 0 = tidak dipotong. */
+  persenAsuransi: number;
+  /** Nominal biaya pencairan ekspres per tier pokok (Rupiah). */
+  biayaEkspresTier1: number;
+  biayaEkspresTier2: number;
+  biayaEkspresTier3: number;
+  /**
    * Denda keterlambatan per hari, dalam persen dari pokok pinjaman. Dipakai
    * `lib/loan` untuk menghitung kewajiban terlambat; totalnya tetap dibatasi
    * 100% dari pokok (lihat `LATE_FEE_POLICY.maxPercent`). Nilai 0 mematikan
@@ -163,6 +176,13 @@ export const DEFAULT_CONFIG: SystemConfig = {
   persenAdmin: 5,
   persenPlatform: 3,
   persenBunga: 30,
+  /** Bawaan sama dengan harga yang berlaku sebelum bisa diatur admin. */
+  persenBiayaAdmin: 2,
+  /** Asuransi mati secara bawaan; admin menyalakannya bila produk memakainya. */
+  persenAsuransi: 0,
+  biayaEkspresTier1: 5_000,
+  biayaEkspresTier2: 7_500,
+  biayaEkspresTier3: 10_000,
   persenDendaKeterlambatan: 2,
   /** Biaya integrasi default saat membukukan pinjaman lama ke ledger. */
   persenBiayaIntegrasi: 2,

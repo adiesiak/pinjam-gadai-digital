@@ -12,6 +12,7 @@ import {
   pelunasanPinjaman,
   quotePinjaman,
   simulasiBulananPinjaman,
+  type TarifBiaya,
 } from "./loan";
 import { formatRupiahAman } from "./money";
 import { labelStatusPinjaman } from "./statusPinjaman";
@@ -68,6 +69,8 @@ export type PinjamanUntukRincian = {
   persenBunga?: number | null;
   /** Centang cair ekspres peminjam; null/kosong = data lama (ekspres dipakai). */
   cairEkspres?: boolean | null;
+  /** Snapshot tarif potongan di muka; null/kosong = tarif bawaan. */
+  tarifBiaya?: Partial<TarifBiaya> | null;
   didanaiPada?: number | null;
   diajukanPada: number;
   tujuan?: string;
@@ -85,6 +88,12 @@ export type OpsiRincian = {
 /** Rupiah tanpa melempar pada baris warisan yang tidak bulat. */
 function rp(nilai: number): string {
   return formatRupiahAman(nilai);
+}
+
+/** Persentase satu komponen terhadap pokok, satu desimal gaya Indonesia. */
+function persenDari(nilai: number, pokok: number): string {
+  if (!Number.isFinite(nilai) || !Number.isFinite(pokok) || pokok <= 0) return "0";
+  return (Math.round((nilai / pokok) * 1000) / 10).toLocaleString("id-ID");
 }
 
 /** Nomor rekening disamarkan sampai empat angka terakhir. */
@@ -220,10 +229,24 @@ export function susunRincianPinjaman(
       ...(loan.cairEkspres === null || loan.cairEkspres === undefined
         ? {}
         : { cairEkspres: loan.cairEkspres }),
+      ...(loan.tarifBiaya === null || loan.tarifBiaya === undefined
+        ? {}
+        : { tarifBiaya: loan.tarifBiaya }),
     });
     const dana: BarisRincian[] = [
       { label: "Pokok pinjaman", nilai: rp(quote.pokok) },
-      { label: "Biaya admin (2%, dipotong di muka)", nilai: rp(quote.biayaAdmin) },
+      ...(quote.biayaAsuransi > 0
+        ? [
+            {
+              label: `Biaya asuransi (${persenDari(quote.biayaAsuransi, quote.pokok)}%, dipotong di muka)`,
+              nilai: rp(quote.biayaAsuransi),
+            },
+          ]
+        : []),
+      {
+        label: `Biaya admin (${persenDari(quote.biayaAdmin, quote.pokok)}%, dipotong di muka)`,
+        nilai: rp(quote.biayaAdmin),
+      },
       { label: "Biaya platform (0%, dipotong di muka)", nilai: rp(quote.biayaPlatform) },
       ...(quote.biayaExpress > 0
         ? [{ label: "Biaya pencairan ekspres", nilai: rp(quote.biayaExpress) }]

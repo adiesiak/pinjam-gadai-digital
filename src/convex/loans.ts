@@ -37,6 +37,7 @@ import {
   quoteLoanBunga,
   quotePinjaman,
   simulasiBulananPinjaman,
+  tarifBiayaDariAngka,
   validasiTenorHarian,
 } from "../lib/loan";
 import { kodeTanggalWIB } from "../lib/waktu";
@@ -629,7 +630,17 @@ export const createLoanApplication = mutation({
     // Satu-satunya pilihan klien yang memengaruhi potongan adalah centang
     // ekspres; nominal biayanya tetap dihitung server.
     const cairEkspres = args.cairEkspres ?? true;
-    const quote = quoteLoan(args.pokokPinjaman, { ekspres: cairEkspres });
+    // Tarif potongan di muka dibaca dari Pengaturan Parameter Bisnis dan
+    // dibekukan pada pinjaman ini, jadi perubahan tarif admin berikutnya tidak
+    // mengubah kontrak yang sudah terbit.
+    const tarifBiaya = tarifBiayaDariAngka({
+      adminPersen: sys.persenBiayaAdmin,
+      asuransiPersen: sys.persenAsuransi,
+      ekspres1: sys.biayaEkspresTier1,
+      ekspres2: sys.biayaEkspresTier2,
+      ekspres3: sys.biayaEkspresTier3,
+    });
+    const quote = quoteLoan(args.pokokPinjaman, { ekspres: cairEkspres, tarif: tarifBiaya });
     // Matriks tenor harian ditegakkan di server, bukan hanya disembunyikan di
     // UI: tenor resmi 7/14/28 hari, dan tarif mengikuti tier nominal (26–40%).
     // Tenor di luar daftar itu—termasuk 30 hari—ditolak.
@@ -759,6 +770,7 @@ export const createLoanApplication = mutation({
       // Hanya skema harian yang punya biaya ekspres; skema bulanan memakai
       // potongan 2% tetap, jadi pilihan ini tidak disimpan di sana.
       cairEkspres: tenorBulanSim === undefined ? cairEkspres : undefined,
+      tarifBiaya: tenorBulanSim === undefined ? tarifBiaya : undefined,
       tenorBulan: tenorBulanSim,
       // Snapshot bunga efektif nasabah/matriks — angka pinjaman ini stabil
       // setelahnya. Untuk tenor harian, nilai ini sudah dihitung dari matriks
@@ -996,6 +1008,7 @@ export const myContracts = query({
           tenorBulan: l.tenorBulan ?? null,
           persenBunga: l.persenBunga ?? null,
           cairEkspres: l.cairEkspres ?? null,
+          tarifBiaya: l.tarifBiaya ?? null,
           status: l.status,
           tandaTanganAda: l.tandaTanganPeminjam !== undefined,
           tandaTanganDataUrl: l.tandaTanganPeminjam ?? null,

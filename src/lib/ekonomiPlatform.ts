@@ -24,6 +24,22 @@ export const BIAYA_EKSPRES_TIER = [
   { batasBawah: 1_000_000, batasAtas: 1_000_000, biaya: 10_000 },
 ] as const;
 
+/**
+ * Nominal biaya ekspres per tier — bentuknya bisa diubah admin dari
+ * Pengaturan Parameter Bisnis. Batas tier-nya tetap seperti `BIAYA_EKSPRES_TIER`.
+ */
+export type TarifEkspres = {
+  tier1: Rupiah;
+  tier2: Rupiah;
+  tier3: Rupiah;
+};
+
+export const TARIF_EKSPRES_DEFAULT: TarifEkspres = {
+  tier1: 5_000 as Rupiah,
+  tier2: 7_500 as Rupiah,
+  tier3: 10_000 as Rupiah,
+};
+
 /** Biaya roll-over flat untuk mode "bayar bunga saja". */
 export const BIAYA_ROLLOVER: Rupiah = 5_000 as Rupiah;
 
@@ -37,7 +53,10 @@ export const PERSEN_DANA_PROTEKSI_RISIKO = 2.5;
  * melempar: pinjaman warisan/gadai bisa lebih besar dari plafon tunai dan tetap
  * harus bisa ditampilkan. Nominal tidak sah tetap ditolak.
  */
-export function biayaEkspres(pokok: Rupiah): Rupiah {
+export function biayaEkspres(
+  pokok: Rupiah,
+  tarif: TarifEkspres = TARIF_EKSPRES_DEFAULT,
+): Rupiah {
   if (!Number.isSafeInteger(pokok) || pokok <= 0) {
     throw new Error(
       `Biaya ekspres tidak tersedia untuk pokok ${formatRupiah(pokok)}.`,
@@ -46,9 +65,9 @@ export function biayaEkspres(pokok: Rupiah): Rupiah {
   // Di bawah pokok minimum tunai tidak ada pencairan nyata: data warisan/uji
   // kecil tidak dikenai biaya ekspres supaya potongan tidak melebihi pokok.
   if (pokok < 100_000) return 0 as Rupiah;
-  if (pokok >= 1_000_000) return 10_000 as Rupiah;
-  if (pokok >= 500_000) return 7_500 as Rupiah;
-  return 5_000 as Rupiah;
+  if (pokok >= 1_000_000) return tarif.tier3;
+  if (pokok >= 500_000) return tarif.tier2;
+  return tarif.tier1;
 }
 
 /** Biaya roll-over flat; nol untuk mode lain. */

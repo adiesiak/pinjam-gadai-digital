@@ -2,6 +2,7 @@ import { Coins } from "lucide-react";
 
 import { IstilahBantuan } from "@/components/penyediaDana/IstilahBantuan";
 import { MetrikKartu } from "./admin-shared";
+import type { TarifBiaya } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
   barisRincianAliran,
@@ -33,12 +34,15 @@ export function AliranDanaPinjaman({
   tenorHari = null,
   persenBunga = null,
   cairEkspres = null,
+  tarifBiaya = null,
   sudahLunas = false,
   persenPotonganPenyedia,
 }: {
   pokokPinjaman: number;
   /** Centang cair ekspres peminjam; null = data lama (ekspres dipakai). */
   cairEkspres?: boolean | null;
+  /** Snapshot tarif potongan di muka; null = tarif bawaan. */
+  tarifBiaya?: Partial<TarifBiaya> | null;
   /** Terisi = skema bulanan; Imbal Hasil dihitung dari tenor penuhnya. */
   tenorBulan?: number | null;
   tenorHari?: number | null;
@@ -48,7 +52,7 @@ export function AliranDanaPinjaman({
   persenPotonganPenyedia?: number;
 }) {
   const rincian = rincianPinjamanNyata(
-    { pokokPinjaman, tenorBulan, persenBunga, cairEkspres },
+    { pokokPinjaman, tenorBulan, persenBunga, cairEkspres, tarifBiaya },
     persenPotonganPenyedia,
   );
   const baris = barisRincianAliran(rincian, { tenorBulan });

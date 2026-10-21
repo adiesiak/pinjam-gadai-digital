@@ -14,7 +14,7 @@ import {
 import { GAYA_PRESETS, type GayaPreset } from "../lib/template-gaya";
 import { clampPlafon } from "../lib/plafon";
 import { kanalAktif } from "../lib/preferensiNotifikasi";
-import { LATE_FEE_POLICY } from "../lib/loan";
+import { LATE_FEE_POLICY, tarifBiayaDariAngka } from "../lib/loan";
 import { bandingkanConfig, type PerubahanConfig } from "../lib/bandingkanConfig";
 import {
   AKSI_PER_JENIS,
@@ -89,6 +89,11 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     persenAdmin: row.persenAdmin ?? DEFAULT_CONFIG.persenAdmin,
     persenPlatform: row.persenPlatform ?? DEFAULT_CONFIG.persenPlatform,
     persenBunga: row.persenBunga ?? DEFAULT_CONFIG.persenBunga,
+    persenBiayaAdmin: row.persenBiayaAdmin ?? DEFAULT_CONFIG.persenBiayaAdmin,
+    persenAsuransi: row.persenAsuransi ?? DEFAULT_CONFIG.persenAsuransi,
+    biayaEkspresTier1: row.biayaEkspresTier1 ?? DEFAULT_CONFIG.biayaEkspresTier1,
+    biayaEkspresTier2: row.biayaEkspresTier2 ?? DEFAULT_CONFIG.biayaEkspresTier2,
+    biayaEkspresTier3: row.biayaEkspresTier3 ?? DEFAULT_CONFIG.biayaEkspresTier3,
     persenDendaKeterlambatan:
       row.persenDendaKeterlambatan ?? DEFAULT_CONFIG.persenDendaKeterlambatan,
     persenBiayaIntegrasi:
@@ -227,6 +232,16 @@ export const getKetentuanBiaya = query({
       persenPlatform: cfg.persenPlatform,
       persenDendaKeterlambatan: cfg.persenDendaKeterlambatan,
       maksDendaPersen: LATE_FEE_POLICY.maxPercent,
+      // Tarif potongan di muka yang dipakai mesin harga. Dikirim sebagai satu
+      // objek supaya landing page dan formulir memakai angka yang SAMA dengan
+      // server, bukan menyalin persentase ke JSX.
+      tarifBiaya: tarifBiayaDariAngka({
+        adminPersen: cfg.persenBiayaAdmin,
+        asuransiPersen: cfg.persenAsuransi,
+        ekspres1: cfg.biayaEkspresTier1,
+        ekspres2: cfg.biayaEkspresTier2,
+        ekspres3: cfg.biayaEkspresTier3,
+      }),
     };
   },
 });
@@ -397,6 +412,25 @@ async function bersihkanConfigMasuk(
   if (input.persenBiayaIntegrasi > 100) {
     throw new Error("Biaya integrasi pinjaman lama tidak boleh lebih dari 100%.");
   }
+  if (input.persenBiayaAdmin > 100 || input.persenAsuransi > 100) {
+    throw new Error("Biaya admin dan asuransi tidak boleh lebih dari 100%.");
+  }
+  if (input.persenBiayaAdmin + input.persenAsuransi > 50) {
+    throw new Error(
+      "Total biaya admin + asuransi di muka maksimal 50% dari pokok.",
+    );
+  }
+  for (const [label, nilai] of [
+    ["Tier 1", input.biayaEkspresTier1],
+    ["Tier 2", input.biayaEkspresTier2],
+    ["Tier 3", input.biayaEkspresTier3],
+  ] as const) {
+    if (!Number.isSafeInteger(nilai) || nilai < 0 || nilai > 100_000) {
+      throw new Error(
+        `Biaya ekspres ${label} harus rupiah bulat Rp0–Rp100.000.`,
+      );
+    }
+  }
   if (!Number.isSafeInteger(input.lokasiMaxUmurMenit) || input.lokasiMaxUmurMenit < 1) {
     throw new Error("Batas umur lokasi harus minimal 1 menit.");
   }
@@ -431,6 +465,10 @@ async function bersihkanConfigMasuk(
   }
   return {
     ...input,
+    // Nominal ekspres disimpan sebagai rupiah bulat.
+    biayaEkspresTier1: Math.round(input.biayaEkspresTier1),
+    biayaEkspresTier2: Math.round(input.biayaEkspresTier2),
+    biayaEkspresTier3: Math.round(input.biayaEkspresTier3),
     qrisImageId: input.qrisImageId ?? null,
     plafonPinjaman: clampPlafon(input.plafonPinjaman),
     rekeningUsahaNama: (input.rekeningUsahaNama ?? "").trim(),
@@ -536,6 +574,11 @@ export const saveConfig = mutation({
     persenAdmin: v.number(),
     persenPlatform: v.number(),
     persenBunga: v.number(),
+    persenBiayaAdmin: v.number(),
+    persenAsuransi: v.number(),
+    biayaEkspresTier1: v.number(),
+    biayaEkspresTier2: v.number(),
+    biayaEkspresTier3: v.number(),
     persenDendaKeterlambatan: v.number(),
     persenBiayaIntegrasi: v.number(),
     maxLtvPersen: v.number(),
@@ -574,6 +617,11 @@ export const saveConfig = mutation({
       persenAdmin: args.persenAdmin,
       persenPlatform: args.persenPlatform,
       persenBunga: args.persenBunga,
+      persenBiayaAdmin: args.persenBiayaAdmin,
+      persenAsuransi: args.persenAsuransi,
+      biayaEkspresTier1: args.biayaEkspresTier1,
+      biayaEkspresTier2: args.biayaEkspresTier2,
+      biayaEkspresTier3: args.biayaEkspresTier3,
       persenDendaKeterlambatan: args.persenDendaKeterlambatan,
       persenBiayaIntegrasi: args.persenBiayaIntegrasi,
       maxLtvPersen: args.maxLtvPersen,
