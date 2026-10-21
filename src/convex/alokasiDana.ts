@@ -35,6 +35,7 @@ import {
 import { getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { pastikanAngsuran } from "./angsuranJadwal";
+import { beriTiketPendanaan } from "./doorprize";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
 export const MIN_ALOKASI = 100_000;
@@ -542,6 +543,17 @@ export const allocateFunding = mutation({
       ...siklus,
       status: "dialokasikan",
       nomorReferensi: fndRef,
+    });
+
+    // Tiket doorprize triwulanan: satu per kelipatan Rp1 juta penempatan dana.
+    // Diberikan saat dana ditempatkan (pendanaan aktif), bukan menunggu
+    // pelunasan; pemanggilan lama di jalur pelunasan tetap idempoten pada
+    // referensi yang sama sehingga tiket tidak pernah berlipat.
+    await beriTiketPendanaan(ctx, {
+      pemilikId: userId,
+      nomorReferensi: fndRef,
+      jumlahAlokasi: args.jumlah,
+      waktu: Date.now(),
     });
 
     // 5. Jurnal: dana pindah dari dompet penyedia dana ke akun pinjaman.

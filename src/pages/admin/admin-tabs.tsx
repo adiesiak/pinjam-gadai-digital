@@ -225,7 +225,7 @@ export function AdminTabs({
         {
           value: "undian",
           label: "Doorprize & Antrean Dana",
-          hint: "Undi pemenang Doorprize Emas dan cocokkan dana yang kembali ke pool auto-matching.",
+          hint: "Kelola hadiah doorprize triwulanan, undi pemenang akhir kuartal, dan cocokkan dana yang kembali ke pool auto-matching.",
           badge: null,
           hitung: "tidak",
           Icon: Trophy,

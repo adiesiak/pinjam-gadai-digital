@@ -2517,7 +2517,8 @@ function IsiRuang() {
                 dijawab di puncak halaman, bukan di tengah daftar angka. */}
             <RingkasanKeuntungan ringkasan={data.ringkasan} pribadi={isPendana} />
 
-            {/* Tiket doorprize pendana: satu per kelipatan Rp1 juta per siklus. */}
+            {/* Tiket doorprize pendana: satu per kelipatan Rp1 juta penempatan dana,
+                diakumulasi selama kuartal berjalan. */}
             {isPendana && <DoorprizeWidget peran="pendana" />}
 
             {/* Skema pendana TETAP: kalkulator dan portofolio per alokasi.

@@ -2900,11 +2900,40 @@ const schema = defineSchema(
       .index("by_nonce", ["nonce"]),
 
     /**
-     * Tiket Doorprize Emas — diterbitkan otomatis, tidak bisa diklaim manual.
+     * Hadiah satu kuartal Doorprize (3 bulan sekali).
+     *
+     * Satu baris per kuartal yang sudah diatur admin; kuartal tanpa baris
+     * memakai preset bawaan di `lib/doorprize.ts`. `kode` berbentuk `2026-Q4`
+     * dan menjadi kunci periode yang sama dengan `doorprizeTiket.periode`.
+     */
+    doorprizePeriode: defineTable({
+      kode: v.string(),
+      quarter: v.number(),
+      year: v.number(),
+      /** Awal kuartal (00.00 WIB hari pertama). */
+      startDate: v.number(),
+      /** Momen terakhir kuartal; pengundian resmi pada tanggal ini. */
+      endDate: v.number(),
+      prizeCategory: v.union(
+        v.literal("GOLD"),
+        v.literal("ELECTRONICS"),
+        v.literal("VOUCHER"),
+        v.literal("OTHER"),
+      ),
+      prizeName: v.string(),
+      /** Nilai perkiraan rupiah; divalidasi server < Rp1.000.000. */
+      prizeEstimatedValue: v.number(),
+      updatedAt: v.number(),
+      updatedBy: v.string(),
+    }).index("by_kode", ["kode"]),
+
+    /**
+     * Tiket Doorprize triwulanan — diterbitkan otomatis, tidak bisa diklaim manual.
      *
      * `referensi` adalah kunci idempotensi: satu pelunasan hanya menghasilkan
-     * satu tiket peminjam, satu alokasi pendana hanya menghasilkan tiketnya
-     * sekali. `periode` (YYYY-MM WIB) memisahkan undian bulanan.
+     * satu tiket peminjam, satu penempatan dana hanya menghasilkan tiketnya
+     * sekali. `periode` berbentuk `YYYY-Qn` (WIB); tiket periode lama `YYYY-MM`
+     * tetap dibaca untuk kuartal yang sama lewat `kunciPeriodeKuartal`.
      */
     doorprizeTiket: defineTable({
       pemilikId: v.id("users"),
@@ -2924,7 +2953,7 @@ const schema = defineSchema(
       .index("by_referensi", ["referensi"])
       .index("by_pemilik_periode", ["pemilikId", "periode"]),
 
-    /** Satu pemenang per periode undian; catatan permanen, tidak dihapus. */
+    /** Satu pemenang per kuartal; catatan permanen, tidak dihapus. */
     doorprizeUndian: defineTable({
       periode: v.string(),
       pemilikId: v.id("users"),

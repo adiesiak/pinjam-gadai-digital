@@ -1,26 +1,51 @@
 /**
- * Doorprize Emas — tiket otomatis dan pengundian oleh admin.
+ * Doorprize triwulanan — tiket otomatis, hadiah per kuartal, dan pengundian admin.
  *
- * Tiket tidak pernah diklaim manual: pelunasan tepat waktu dan pendanaan
- * Rp1 juta menerbitkannya sendiri lewat `beriTiket` (dipanggil dari mutation
- * pelunasan). Semua penulisan idempoten pada `referensi`, sehingga pelunasan
- * yang dicocokkan dua kali tidak menggandakan tiket.
+ * Tiket tidak pernah diklaim manual: pelunasan tepat waktu dan penempatan dana
+ * Rp1 juta menerbitkannya sendiri lewat `beriTiket`. Semua penulisan idempoten
+ * pada `referensi`, sehingga pencatatan ulang tidak menggandakan tiket.
+ *
+ * Kuartal adalah unit hidup modul ini:
+ * - tiket ditulis dengan kode periode `YYYY-Qn`;
+ * - ringkasan hanya menghitung tiket kuartal berjalan (kuartal baru = 0 tiket);
+ * - hadiah disimpan per kuartal dan dipakai saat mengundi;
+ * - pengundian baru dibuka pada hari pengundian resmi (hari terakhir kuartal).
+ *
+ * Tiket lama berperiode `YYYY-MM` tetap dibaca untuk kuartal yang sama lewat
+ * `kunciPeriodeKuartal`, jadi perubahan penamaan tidak menghapus tiket yang
+ * sudah dikumpulkan nasabah pada kuartal berjalan.
  */
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminRole } from "./adminAuthz";
+import { audit } from "./system";
 import {
-  HADIAH_HIBURAN_DOORPRIZE,
-  HADIAH_UTAMA_DOORPRIZE,
-  akhirPeriodeUndian,
-  labelTanggalUndian,
-  periodeUndian,
+  BATAS_NILAI_HADIAH_DOORPRIZE,
+  CATATAN_ANGGARAN_DOORPRIZE,
+  HADIAH_DOORPRIZE_BAWAAN,
+  LABEL_KATEGORI_HADIAH,
+  NILAI_HADIAH_MINIMUM,
+  TEKS_KETENTUAN_DOORPRIZE,
+  akhirKuartal,
+  awalKuartal,
+  bulanKuartal,
+  judulDoorprizeKuartal,
+  kodeKuartal,
+  kuartalDariWaktu,
+  kunciPeriodeKuartal,
+  labelPeriodeKuartal,
+  labelRentangKuartal,
+  labelTanggalUndianKuartal,
+  nilaiHadiahValid,
+  pembukaanUndianKuartal,
   tiketPendana,
   tiketPeminjam,
+  type KategoriHadiah,
+  type Kuartal,
 } from "../lib/doorprize";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 /** Label akun yang aman ditampilkan di papan pemenang. */
 function labelPemilik(user: { name?: string; email?: string } | null): string {
@@ -31,9 +56,81 @@ function labelPemilik(user: { name?: string; email?: string } | null): string {
   return "Nasabah PINDAI";
 }
 
+type HadiahKuartal = {
+  kategori: KategoriHadiah;
+  nama: string;
+  nilaiPerkiraan: number;
+  /** true bila admin sudah menyimpan pilihan untuk kuartal ini. */
+  diatur: boolean;
+};
+
+/** Hadiah kuartal: baris tersimpan bila ada, selain itu preset bawaan. */
+async function hadiahKuartal(ctx: QueryCtx, kuartal: Kuartal): Promise<HadiahKuartal> {
+  const baris = await ctx.db
+    .query("doorprizePeriode")
+    .withIndex("by_kode", (q) => q.eq("kode", kodeKuartal(kuartal)))
+    .first();
+  if (baris === null) {
+    return {
+      kategori: HADIAH_DOORPRIZE_BAWAAN.kategori,
+      nama: HADIAH_DOORPRIZE_BAWAAN.nama,
+      nilaiPerkiraan: HADIAH_DOORPRIZE_BAWAAN.nilai,
+      diatur: false,
+    };
+  }
+  return {
+    kategori: baris.prizeCategory,
+    nama: baris.prizeName,
+    nilaiPerkiraan: baris.prizeEstimatedValue,
+    diatur: true,
+  };
+}
+
 /**
- * Terbitkan satu tiket bila `referensi` belum pernah menghasilkan tiket.
- * Mengembalikan `true` hanya saat baris baru benar-benar ditulis.
+ * Tiket satu kuartal, termasuk tiket lama berperiode bulanan.
+ * Dikumpulkan per kunci lalu di-dedup berdasarkan id agar satu baris tidak
+ * terhitung dua kali bila suatu saat kuncinya tumpang tindih.
+ */
+async function tiketKuartal(
+  ctx: QueryCtx,
+  kuartal: Kuartal,
+): Promise<Doc<"doorprizeTiket">[]> {
+  const peta = new Map<string, Doc<"doorprizeTiket">>();
+  for (const kunci of kunciPeriodeKuartal(kuartal)) {
+    const baris = await ctx.db
+      .query("doorprizeTiket")
+      .withIndex("by_periode", (q) => q.eq("periode", kunci))
+      .collect();
+    for (const row of baris) peta.set(row._id, row);
+  }
+  return [...peta.values()];
+}
+
+/** Tiket aktif milik satu akun pada satu kuartal dan satu peran. */
+async function tiketAktifPengguna(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  kuartal: Kuartal,
+  peran: "peminjam" | "pendana",
+): Promise<number> {
+  const peta = new Map<string, Doc<"doorprizeTiket">>();
+  for (const kunci of kunciPeriodeKuartal(kuartal)) {
+    const baris = await ctx.db
+      .query("doorprizeTiket")
+      .withIndex("by_pemilik_periode", (q) =>
+        q.eq("pemilikId", userId).eq("periode", kunci),
+      )
+      .collect();
+    for (const row of baris) peta.set(row._id, row);
+  }
+  return [...peta.values()].filter(
+    (row) => row.status === "aktif" && row.peran === peran,
+  ).length;
+}
+
+/**
+ * Terbitkan tiket bila `referensi` belum pernah menghasilkan tiket.
+ * Mengembalikan jumlah baris yang benar-benar ditulis.
  */
 export async function beriTiket(
   ctx: MutationCtx,
@@ -53,7 +150,7 @@ export async function beriTiket(
     .withIndex("by_referensi", (q) => q.eq("referensi", args.referensi))
     .first();
   if (sudah !== null) return 0;
-  const periode = periodeUndian(args.waktu);
+  const periode = kodeKuartal(kuartalDariWaktu(args.waktu));
   let dibuat = 0;
   for (let i = 1; i <= jumlah; i += 1) {
     // Referensi tiket ke-i berbeda supaya kelipatan pendanaan tercatat satu
@@ -98,7 +195,7 @@ export async function beriTiketPelunasan(
   });
 }
 
-/** Tiket pendana: satu per kelipatan Rp1 juta alokasi yang selesai siklus. */
+/** Tiket pendana: satu per kelipatan Rp1 juta penempatan dana. */
 export async function beriTiketPendanaan(
   ctx: MutationCtx,
   args: {
@@ -120,142 +217,229 @@ export async function beriTiketPendanaan(
   });
 }
 
-async function tiketAktifPeriode(
-  ctx: QueryCtx,
-  userId: Id<"users">,
-  periode: string,
-  peran: "peminjam" | "pendana",
-): Promise<number> {
-  const rows = await ctx.db
-    .query("doorprizeTiket")
-    .withIndex("by_pemilik_periode", (q) =>
-      q.eq("pemilikId", userId).eq("periode", periode),
-    )
-    .collect();
-  return rows.filter((row) => row.status === "aktif" && row.peran === peran).length;
+/** Pemenang satu kuartal, bila undiannya sudah dijalankan. */
+async function pemenangKuartal(ctx: QueryCtx, kuartal: Kuartal) {
+  const undian = await ctx.db
+    .query("doorprizeUndian")
+    .withIndex("by_periode", (q) => q.eq("periode", kodeKuartal(kuartal)))
+    .first();
+  if (undian === null) return null;
+  return {
+    nama: labelPemilik(await ctx.db.get(undian.pemilikId)),
+    peran: undian.peran,
+    hadiah: undian.hadiah,
+    diundiPada: undian.diundiPada,
+    jumlahPeserta: undian.jumlahPeserta,
+    jumlahTiket: undian.jumlahTiket,
+  };
 }
 
 /**
- * Ringkasan widget untuk akun yang sedang masuk: jumlah tiket aktif bulan ini,
- * tanggal undian, hadiah utama, dan pemenang terakhir (bila ada).
+ * Ringkasan widget untuk akun yang sedang masuk: tiket kuartal berjalan,
+ * hadiah yang dipilih admin, tanggal pengundian, dan pemenang kuartal ini.
  */
 export const ringkasanSaya = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return null;
-    }
+    if (userId === null) return null;
+
     const sekarang = Date.now();
-    const periode = periodeUndian(sekarang);
-    const [tiketPeminjamAktif, tiketPendanaAktif, undian] = await Promise.all([
-      tiketAktifPeriode(ctx, userId, periode, "peminjam"),
-      tiketAktifPeriode(ctx, userId, periode, "pendana"),
-      ctx.db
-        .query("doorprizeUndian")
-        .withIndex("by_periode", (q) => q.eq("periode", periode))
-        .first(),
+    const kuartal = kuartalDariWaktu(sekarang);
+    const kode = kodeKuartal(kuartal);
+    const [tiketPeminjamAktif, tiketPendanaAktif, hadiah, pemenang] = await Promise.all([
+      tiketAktifPengguna(ctx, userId, kuartal, "peminjam"),
+      tiketAktifPengguna(ctx, userId, kuartal, "pendana"),
+      hadiahKuartal(ctx, kuartal),
+      pemenangKuartal(ctx, kuartal),
     ]);
-    let pemenang: { nama: string; peran: "peminjam" | "pendana"; hadiah: string } | null =
-      null;
-    if (undian !== null) {
-      const pemilik = await ctx.db.get(undian.pemilikId);
-      pemenang = {
-        nama: labelPemilik(pemilik),
-        peran: undian.peran,
-        hadiah: undian.hadiah,
-      };
-    }
+
     return {
-      periode,
+      kode,
+      quarter: kuartal.quarter,
+      year: kuartal.year,
+      labelPeriode: labelPeriodeKuartal(kuartal),
+      labelRentang: labelRentangKuartal(kuartal),
+      bulan: bulanKuartal(kuartal),
+      judul: judulDoorprizeKuartal(kuartal),
+      startDate: awalKuartal(kuartal),
+      endDate: akhirKuartal(kuartal),
+      tanggalUndian: pembukaanUndianKuartal(kuartal),
+      labelTanggalUndian: labelTanggalUndianKuartal(kuartal),
+      bisaDiundi: sekarang >= pembukaanUndianKuartal(kuartal),
       tiketPeminjam: tiketPeminjamAktif,
       tiketPendana: tiketPendanaAktif,
       tiketAktif: tiketPeminjamAktif + tiketPendanaAktif,
-      tanggalUndian: akhirPeriodeUndian(periode),
-      labelTanggalUndian: labelTanggalUndian(periode),
-      hadiahUtama: HADIAH_UTAMA_DOORPRIZE,
-      hadiahHiburan: HADIAH_HIBURAN_DOORPRIZE,
+      hadiah: {
+        ...hadiah,
+        labelKategori: LABEL_KATEGORI_HADIAH[hadiah.kategori],
+      },
+      teksKetentuan: TEKS_KETENTUAN_DOORPRIZE,
       pemenang,
     };
   },
 });
 
-/** Data papan admin: rekap tiket periode berjalan + pemenang terakhir. */
+/** Data papan admin: rekap tiket kuartal berjalan, hadiah, dan pemenang. */
 export const ringkasanAdmin = query({
   args: {},
   handler: async (ctx) => {
     await requireAdminRole(ctx);
     const sekarang = Date.now();
-    const periode = periodeUndian(sekarang);
-    const tiket = await ctx.db
-      .query("doorprizeTiket")
-      .withIndex("by_periode", (q) => q.eq("periode", periode))
-      .collect();
+    const kuartal = kuartalDariWaktu(sekarang);
+    const kode = kodeKuartal(kuartal);
+    const [tiket, hadiah, pemenang] = await Promise.all([
+      tiketKuartal(ctx, kuartal),
+      hadiahKuartal(ctx, kuartal),
+      pemenangKuartal(ctx, kuartal),
+    ]);
     const aktif = tiket.filter((row) => row.status === "aktif");
     const peserta = new Set(aktif.map((row) => row.pemilikId as string));
-    const pemenang = await ctx.db
-      .query("doorprizeUndian")
-      .withIndex("by_periode", (q) => q.eq("periode", periode))
-      .first();
-    let pemenangNama: string | null = null;
-    if (pemenang !== null) {
-      pemenangNama = labelPemilik(await ctx.db.get(pemenang.pemilikId));
-    }
     return {
-      periode,
-      labelTanggalUndian: labelTanggalUndian(periode),
+      kode,
+      quarter: kuartal.quarter,
+      year: kuartal.year,
+      labelPeriode: labelPeriodeKuartal(kuartal),
+      labelRentang: labelRentangKuartal(kuartal),
+      bulan: bulanKuartal(kuartal),
+      startDate: awalKuartal(kuartal),
+      endDate: akhirKuartal(kuartal),
+      tanggalUndian: pembukaanUndianKuartal(kuartal),
+      labelTanggalUndian: labelTanggalUndianKuartal(kuartal),
+      bisaDiundi: sekarang >= pembukaanUndianKuartal(kuartal),
       jumlahTiket: tiket.length,
       tiketAktif: aktif.length,
       jumlahPeserta: peserta.size,
       tiketPeminjam: aktif.filter((row) => row.peran === "peminjam").length,
       tiketPendana: aktif.filter((row) => row.peran === "pendana").length,
-      hadiahUtama: HADIAH_UTAMA_DOORPRIZE,
-      pemenang:
-        pemenang === null
-          ? null
-          : {
-              nama: pemenangNama,
-              peran: pemenang.peran,
-              hadiah: pemenang.hadiah,
-              diundiPada: pemenang.diundiPada,
-              jumlahPeserta: pemenang.jumlahPeserta,
-              jumlahTiket: pemenang.jumlahTiket,
-            },
+      hadiah: {
+        ...hadiah,
+        labelKategori: LABEL_KATEGORI_HADIAH[hadiah.kategori],
+      },
+      pemenang,
+      teksKetentuan: TEKS_KETENTUAN_DOORPRIZE,
+      catatanAnggaran: CATATAN_ANGGARAN_DOORPRIZE,
     };
   },
 });
 
 /**
- * Admin mengundi satu pemenang dari tiket aktif periode berjalan.
+ * Simpan/ubah hadiah kuartal berjalan. Hanya Super Admin.
  *
- * Satu periode hanya punya satu undian: tombol kedua tidak mengundi ulang
- * diam-diam, melainkan memberi tahu pemenang yang sudah tercatat. Tiket
- * pemenang ditandai `menang`, tiket lain tetap `aktif` sebagai jejak.
+ * Nilai dijaga di `NILAI_HADIAH_MINIMUM`–`BATAS_NILAI_HADIAH_DOORPRIZE - 1`,
+ * sehingga permintaan "hadiah di bawah Rp1 juta" tidak bergantung pada UI.
+ * Tanggal kuartal dihitung server; klien tidak boleh mengirimnya.
+ */
+export const simpanHadiahKuartal = mutation({
+  args: {
+    kategori: v.union(
+      v.literal("GOLD"),
+      v.literal("ELECTRONICS"),
+      v.literal("VOUCHER"),
+      v.literal("OTHER"),
+    ),
+    nama: v.string(),
+    nilai: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requireAdminRole(ctx);
+    const nama = args.nama.trim();
+    if (nama.length < 3 || nama.length > 80) {
+      throw new Error("Nama hadiah harus 3–80 karakter.");
+    }
+    if (!nilaiHadiahValid(args.nilai)) {
+      throw new Error(
+        `Nilai hadiah harus Rp${NILAI_HADIAH_MINIMUM.toLocaleString("id-ID")} sampai di bawah Rp${BATAS_NILAI_HADIAH_DOORPRIZE.toLocaleString("id-ID")}.`,
+      );
+    }
+
+    const sekarang = Date.now();
+    const kuartal = kuartalDariWaktu(sekarang);
+    const kode = kodeKuartal(kuartal);
+    const patch = {
+      quarter: kuartal.quarter,
+      year: kuartal.year,
+      startDate: awalKuartal(kuartal),
+      endDate: akhirKuartal(kuartal),
+      prizeCategory: args.kategori,
+      prizeName: nama,
+      prizeEstimatedValue: args.nilai,
+      updatedAt: sekarang,
+      updatedBy: user.email ?? user.name ?? "admin",
+    } as const;
+
+    const baris = await ctx.db
+      .query("doorprizePeriode")
+      .withIndex("by_kode", (q) => q.eq("kode", kode))
+      .first();
+    if (baris === null) {
+      await ctx.db.insert("doorprizePeriode", { kode, ...patch });
+    } else {
+      await ctx.db.patch(baris._id, patch);
+    }
+
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "ubah_hadiah_doorprize",
+      kode,
+      `Hadiah ${kode}: ${nama} (${LABEL_KATEGORI_HADIAH[args.kategori]}) senilai Rp${args.nilai.toLocaleString("id-ID")}, di bawah Rp${BATAS_NILAI_HADIAH_DOORPRIZE.toLocaleString("id-ID")}.`,
+    );
+
+    return {
+      kode,
+      kategori: args.kategori,
+      labelKategori: LABEL_KATEGORI_HADIAH[args.kategori],
+      nama,
+      nilaiPerkiraan: args.nilai,
+      diatur: true,
+    };
+  },
+});
+
+/**
+ * Admin mengundi satu pemenang dari tiket aktif kuartal berjalan.
+ *
+ * Satu kuartal hanya punya satu undian; tombol kedua tidak mengundi ulang
+ * diam-diam. Pengundian baru dibuka pada hari pengundian resmi, sehingga
+ * tiket tidak bisa diputuskan sebelum kuartal selesai. Tiket pemenang ditandai
+ * `menang`, tiket lain tetap `aktif` sebagai jejak; kuartal berikutnya mulai
+ * dari nol karena periodenya berbeda.
  */
 export const acakPemenang = mutation({
   args: {},
   handler: async (ctx) => {
     const { user } = await requireAdminRole(ctx);
     const sekarang = Date.now();
-    const periode = periodeUndian(sekarang);
+    const kuartal = kuartalDariWaktu(sekarang);
+    const kode = kodeKuartal(kuartal);
+    const pembukaan = pembukaanUndianKuartal(kuartal);
+    if (sekarang < pembukaan) {
+      throw new Error(
+        `Pengundian ${labelPeriodeKuartal(kuartal)} baru dibuka pada ${labelTanggalUndianKuartal(kuartal)}.`,
+      );
+    }
+
     const sudah = await ctx.db
       .query("doorprizeUndian")
-      .withIndex("by_periode", (q) => q.eq("periode", periode))
+      .withIndex("by_periode", (q) => q.eq("periode", kode))
       .first();
     if (sudah !== null) {
       const nama = labelPemilik(await ctx.db.get(sudah.pemilikId));
       throw new Error(
-        `Undian periode ${periode} sudah diundi: ${nama} (${sudah.hadiah}). Satu periode hanya punya satu pemenang.`,
+        `Undian ${kode} sudah diundi: ${nama} (${sudah.hadiah}). Satu kuartal hanya punya satu pemenang.`,
       );
     }
-    const tiket = await ctx.db
-      .query("doorprizeTiket")
-      .withIndex("by_periode", (q) => q.eq("periode", periode))
-      .collect();
-    const aktif = tiket.filter((row) => row.status === "aktif");
+
+    const aktif = (await tiketKuartal(ctx, kuartal)).filter(
+      (row) => row.status === "aktif",
+    );
     if (aktif.length === 0) {
-      throw new Error(`Belum ada tiket aktif untuk periode ${periode}.`);
+      throw new Error(`Belum ada tiket aktif untuk ${kode}.`);
     }
+
+    const hadiah = await hadiahKuartal(ctx, kuartal);
     const pemenang = aktif[Math.floor(Math.random() * aktif.length)];
     await ctx.db.patch(pemenang._id, {
       status: "menang",
@@ -263,23 +447,23 @@ export const acakPemenang = mutation({
     });
     const jumlahPeserta = new Set(aktif.map((row) => row.pemilikId as string)).size;
     await ctx.db.insert("doorprizeUndian", {
-      periode,
+      periode: kode,
       pemilikId: pemenang.pemilikId,
       tiketId: pemenang._id,
       peran: pemenang.peran,
-      hadiah: HADIAH_UTAMA_DOORPRIZE,
+      hadiah: hadiah.nama,
       jumlahPeserta,
       jumlahTiket: aktif.length,
       diundiPada: sekarang,
       diundiOleh: user.email ?? user.name ?? "admin",
       diundiOlehId: user._id,
     });
-    const pemilik = await ctx.db.get(pemenang.pemilikId);
+
     return {
-      periode,
-      nama: labelPemilik(pemilik),
+      kode,
+      nama: labelPemilik(await ctx.db.get(pemenang.pemilikId)),
       peran: pemenang.peran,
-      hadiah: HADIAH_UTAMA_DOORPRIZE,
+      hadiah: hadiah.nama,
       jumlahPeserta,
       jumlahTiket: aktif.length,
     };
