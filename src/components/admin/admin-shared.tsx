@@ -24,6 +24,8 @@ export type LoanRow = {
   pokokDiajukan?: number;
   /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
   persenBunga: number | null;
+  /** Centang cair ekspres peminjam; null/kosong = data lama (ekspres dipakai). */
+  cairEkspres?: boolean | null;
   tujuan: string;
   status:
     | "diajukan"

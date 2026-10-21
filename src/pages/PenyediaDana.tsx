@@ -783,7 +783,11 @@ function DetailPinjaman({
   const harian =
     tenorBulan === null
       ? coba(() =>
-          quotePinjaman({ pokokPinjaman: row.pokokPinjaman, persenBunga: persenBungaPinjaman }),
+          quotePinjaman({
+            pokokPinjaman: row.pokokPinjaman,
+            persenBunga: persenBungaPinjaman,
+            cairEkspres: row.cairEkspres ?? undefined,
+          }),
         )
       : null;
   const bulanan =

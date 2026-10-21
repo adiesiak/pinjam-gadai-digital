@@ -718,6 +718,8 @@ export const adminOverview = query({
             pokokPinjaman: l.pokokPinjaman,
             pokokDiajukan: l.pokokDiajukan ?? l.pokokPinjaman,
             persenBunga: l.persenBunga ?? null,
+            // Null = data lama yang dulu selalu dikenai biaya ekspres.
+            cairEkspres: l.cairEkspres ?? null,
             tujuan: l.tujuan,
             status: l.status,
             catatanReview: l.catatanReview,

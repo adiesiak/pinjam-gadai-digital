@@ -232,5 +232,21 @@ ok(
     sumberForm.includes("formatRupiah(q.biayaExpress)"),
 );
 
+// Cair ekspres dipilih peminjam lewat centang; lepas centang = tanpa biaya
+// ekspres, dan pilihan itu ikut dikirim ke server (bukan hanya di layar).
+ok("centang cair ekspres ada di formulir", sumberForm.includes('id="loan-cair-ekspres"'));
+ok(
+  "quote formulir menghormati centang ekspres",
+  sumberForm.includes("ekspres: !bulanan && cairEkspres"),
+);
+ok(
+  "pilihan ekspres dikirim ke mutasi (bulanan tidak memakai ekspres)",
+  sumberForm.includes("cairEkspres: bulanan ? undefined : cairEkspres"),
+);
+ok(
+  "centang hanya tampil pada skema harian",
+  sumberForm.includes("{!bulanan && (\n          <label\n            htmlFor=\"loan-cair-ekspres\""),
+);
+
 console.log(`form-pengajuan render tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

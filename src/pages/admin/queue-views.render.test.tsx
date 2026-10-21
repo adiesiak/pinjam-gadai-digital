@@ -57,6 +57,7 @@ function baris(status: LoanRow["status"], index: number): LoanRow {
     nomorReferensi: `PGD-TEST-${index}`,
     pokokPinjaman: 1_000_000,
     persenBunga: null,
+    cairEkspres: null,
     tujuan: "kebutuhan_pribadi",
     status,
     namaLengkap: `PEMINJAM ${status.toUpperCase()}`,

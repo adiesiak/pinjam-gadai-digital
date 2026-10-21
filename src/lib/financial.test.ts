@@ -10,7 +10,7 @@ import {
   parseRupiah,
   percentOf,
 } from "./money";
-import { calculateRepayment, quoteLoan, requote } from "./loan";
+import { calculateRepayment, quoteLoan, quotePinjaman, requote } from "./loan";
 
 let passed = 0;
 let failed = 0;
@@ -86,6 +86,40 @@ eq(
   q1.pokok - q1.totalPotonganDiMuka,
   q1.danaBersihDitransfer,
   "identitas dana bersih",
+);
+
+// ---- pilihan cair ekspres: biaya hanya bila dipilih ----
+const tanpaEkspres = quoteLoan(1_000_000, { ekspres: false });
+eq(tanpaEkspres.biayaAdmin, 20_000, "tanpa ekspres: admin 2% tetap");
+eq(tanpaEkspres.biayaExpress, 0, "tanpa ekspres: biaya ekspres nol");
+eq(tanpaEkspres.totalPotonganDiMuka, 20_000, "tanpa ekspres: potongan di muka 2% saja");
+eq(tanpaEkspres.danaBersihDitransfer, 980_000, "tanpa ekspres: dana bersih Rp980.000");
+eq(
+  tanpaEkspres.totalKewajibanPelunasan,
+  quoteLoan(1_000_000).totalKewajibanPelunasan,
+  "tanpa ekspres: kewajiban pelunasan tidak berubah",
+);
+eq(
+  quoteLoan(1_000_000, { ekspres: true }).biayaExpress,
+  quoteLoan(1_000_000).biayaExpress,
+  "ekspres eksplisit sama dengan bawaan",
+);
+
+// Pilihan yang tersimpan pada pinjaman harus dipakai ulang saat membaca quote.
+eq(
+  quotePinjaman({ pokokPinjaman: 1_000_000, cairEkspres: false }).biayaExpress,
+  0,
+  "quotePinjaman menghormati cairEkspres=false",
+);
+eq(
+  quotePinjaman({ pokokPinjaman: 1_000_000 }).biayaExpress,
+  10_000,
+  "pinjaman lama tanpa kolom cairEkspres tetap memakai ekspres",
+);
+eq(
+  quotePinjaman({ pokokPinjaman: 1_000_000, cairEkspres: true }).danaBersihDitransfer,
+  970_000,
+  "cairEkspres=true: dana bersih sama dengan sebelum pilihan ini ada",
 );
 
 // ---- requote: simulasi kalkulator landing ----

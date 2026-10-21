@@ -150,6 +150,9 @@ export function PengajuanCepatSection({
   const [tenorHari, setTenorHari] = useState<string>(String(TENOR_CEPAT[TENOR_CEPAT.length - 1]));
   const [tujuan, setTujuan] = useState<string>("");
   const [rekeningBenar, setRekeningBenar] = useState(false);
+  // Centang cair ekspres: peminjam boleh melepas biaya ekspres. Bawaan menyala
+  // supaya perilakunya sama dengan sebelum pilihan ini ada.
+  const [cairEkspres, setCairEkspres] = useState(true);
   const [setujuSyarat, setSetujuSyarat] = useState(false);
   const [lokasi, setLokasi] = useState<TitikLokasi | null>(null);
   const [lokBusy, setLokBusy] = useState(false);
@@ -298,7 +301,7 @@ export function PengajuanCepatSection({
   // ditegakkan server, tanpa angka khusus per akun.
   const tarifBunga =
     persenBungaHarian(pokokHitung, tenor) ?? PINDAI_PRICING.bungaPercent;
-  const q = quoteLoanBunga(pokokHitung, tarifBunga);
+  const q = quoteLoanBunga(pokokHitung, tarifBunga, { ekspres: cairEkspres });
   const peringatanBayar = peringatanKemampuanBayar({
     penghasilanBulanan: ktp.penghasilanBulanan ?? 0,
     kewajiban: q.totalKewajibanPelunasan,
@@ -372,6 +375,7 @@ export function PengajuanCepatSection({
       const hasil = await createLoan({
         pokokPinjaman: pokok,
         tenorHari: tenor,
+        cairEkspres,
         tujuan,
         namaLengkap: ktp.namaLengkap,
         namaBank: ktp.namaBank,
@@ -395,6 +399,7 @@ export function PengajuanCepatSection({
       setTtdKosong(true);
       setSetujuSyarat(false);
       setRekeningBenar(false);
+      setCairEkspres(true);
       toast.success(`Pengajuan tersimpan: referensi ${hasil.nomorReferensi}.`);
       onCreated?.(hasil.nomorReferensi);
     } catch (err) {
@@ -638,6 +643,23 @@ export function PengajuanCepatSection({
 
           {/* Perkiraan hitungan — angka dari mesin harga yang sama dengan server. */}
           <div className="min-w-0 sm:col-span-2">
+            <label
+              htmlFor="cepat-cair-ekspres"
+              className="mb-2 flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5"
+            >
+              <Checkbox
+                id="cepat-cair-ekspres"
+                checked={cairEkspres}
+                disabled={submitting}
+                onCheckedChange={(nilai) => setCairEkspres(nilai === true)}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="font-semibold text-slate-900">Cair ekspres</span> — biaya
+                Rp5.000–Rp10.000 sekali, dipotong dari dana yang Anda terima. Lepas centangnya
+                kalau tidak memilih cair ekspres.
+              </span>
+            </label>
             <dl className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-[11px] leading-5 sm:grid-cols-4">
               <div>
                 <dt className="text-muted-foreground">Bunga {tarifBunga}% · {tenor} hari</dt>

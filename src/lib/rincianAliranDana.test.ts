@@ -303,6 +303,27 @@ eq(
   "baris harian tetap seperti semula",
 );
 
+// Peminjam yang melepas cair ekspres: hanya biaya admin yang dipotong, dan
+// label baris tidak boleh menyebut "+ ekspres" untuk angka yang tidak ada.
+const tanpaEkspres = rincianPinjamanNyata({
+  pokokPinjaman: 500_000,
+  persenBunga: 30,
+  cairEkspres: false,
+});
+eq(tanpaEkspres.potonganDiMuka, 10_000, "tanpa ekspres: hanya admin 2% dari Rp500.000");
+eq(tanpaEkspres.diterimaPeminjam, 490_000, "tanpa ekspres: diterima peminjam Rp490.000");
+eq(tanpaEkspres.adaEkspres, false, "tanpa ekspres: penanda ekspres mati");
+eq(
+  barisRincianAliran(tanpaEkspres)[1]?.label,
+  "Potongan di muka (admin 2%)",
+  "label potongan tidak menyebut ekspres bila tidak dipakai",
+);
+eq(
+  rincianPinjamanNyata({ pokokPinjaman: 500_000, persenBunga: 30 }).adaEkspres,
+  true,
+  "data lama tanpa pilihan tetap dihitung ekspres",
+);
+
 // Data warisan: pokok tidak sah tidak merobohkan detail pinjaman (tanpa hitungan).
 const warisan = rincianPinjamanNyata({ pokokPinjaman: 0 });
 eq(warisan.potonganPenyedia, 0, "pokok warisan 0: tidak ada potongan");

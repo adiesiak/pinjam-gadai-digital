@@ -157,6 +157,8 @@ function finansialPengajuan(loan: LoanDoc) {
   const q = quotePinjaman({
     pokokPinjaman: loan.pokokPinjaman,
     ...(loan.persenBunga !== undefined ? { persenBunga: loan.persenBunga } : {}),
+    // Pinjaman lama tanpa kolom ini tetap dihitung ekspres (perilaku lama).
+    ...(loan.cairEkspres !== undefined ? { cairEkspres: loan.cairEkspres } : {}),
   });
   return {
     skema: "harian" as const,

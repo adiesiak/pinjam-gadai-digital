@@ -48,11 +48,13 @@ async function ajukan(
   pokokPinjaman: number,
   tenorHari: number,
   urutan: string,
+  opsi: { cairEkspres?: boolean } = {},
 ) {
   const ktp = await simpanBerkasUji(t, `ktp-${urutan}`);
   const selfie = await simpanBerkasUji(t, `selfie-${urutan}`);
   const slip = await simpanBerkasUji(t, `slip-${urutan}`);
   return sesi.mutation(api.loans.createLoanApplication, {
+    ...opsi,
     pokokPinjaman,
     tujuan: "Modal usaha kecil",
     namaLengkap: "Rani Peminjam",
@@ -207,5 +209,46 @@ describe("matriks tenor & bunga harian", () => {
     await expect(ajukan(t, sesi, 500_000, 30, "tolak-tigapuluh")).rejects.toThrow(
       /tenor yang tersedia 7 \/ 14 \/ 28 hari/,
     );
+  });
+});
+
+describe("pilihan cair ekspres dari peminjam", () => {
+  it("tanpa centang: biaya ekspres nol dan dana bersih 98%", async () => {
+    const t = convexTest(schema, modules);
+    const sesi = await peminjamSiap(t, "ekspres-tidak@pindai.test", 1_000_000);
+    await ajukan(t, sesi, 1_000_000, 28, "ekspres-tidak", { cairEkspres: false });
+
+    const loan = await pinjamanTerakhir(t);
+    expect(loan?.cairEkspres).toBe(false);
+
+    const admin = await buatSesi(t, "admin-ekspres", {
+      email: "admin-ekspres@pindai.test",
+      role: "admin",
+    });
+    const detail = await admin.query(api.admin.contractDetail, { loanId: loan!._id });
+    expect(detail?.quote.biayaAdmin).toBe(20_000);
+    expect(detail?.quote.biayaExpress).toBe(0);
+    expect(detail?.quote.totalPotonganDiMuka).toBe(20_000);
+    expect(detail?.quote.danaBersihDitransfer).toBe(980_000);
+    // Bunga tetap ditagih penuh: pilihan ekspres tidak mengubah kewajiban.
+    expect(detail?.quote.totalKewajibanPelunasan).toBe(1_300_000);
+  });
+
+  it("dengan centang: biaya ekspres tetap dipotong seperti sebelumnya", async () => {
+    const t = convexTest(schema, modules);
+    const sesi = await peminjamSiap(t, "ekspres-ya@pindai.test", 1_000_000);
+    await ajukan(t, sesi, 1_000_000, 28, "ekspres-ya", { cairEkspres: true });
+
+    const loan = await pinjamanTerakhir(t);
+    expect(loan?.cairEkspres).toBe(true);
+
+    const admin = await buatSesi(t, "admin-ekspres-ya", {
+      email: "admin-ekspres-ya@pindai.test",
+      role: "admin",
+    });
+    const detail = await admin.query(api.admin.contractDetail, { loanId: loan!._id });
+    expect(detail?.quote.biayaExpress).toBe(10_000);
+    expect(detail?.quote.totalPotonganDiMuka).toBe(30_000);
+    expect(detail?.quote.danaBersihDitransfer).toBe(970_000);
   });
 });

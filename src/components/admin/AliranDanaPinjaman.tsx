@@ -32,10 +32,13 @@ export function AliranDanaPinjaman({
   tenorBulan = null,
   tenorHari = null,
   persenBunga = null,
+  cairEkspres = null,
   sudahLunas = false,
   persenPotonganPenyedia,
 }: {
   pokokPinjaman: number;
+  /** Centang cair ekspres peminjam; null = data lama (ekspres dipakai). */
+  cairEkspres?: boolean | null;
   /** Terisi = skema bulanan; Imbal Hasil dihitung dari tenor penuhnya. */
   tenorBulan?: number | null;
   tenorHari?: number | null;
@@ -45,7 +48,7 @@ export function AliranDanaPinjaman({
   persenPotonganPenyedia?: number;
 }) {
   const rincian = rincianPinjamanNyata(
-    { pokokPinjaman, tenorBulan, persenBunga },
+    { pokokPinjaman, tenorBulan, persenBunga, cairEkspres },
     persenPotonganPenyedia,
   );
   const baris = barisRincianAliran(rincian, { tenorBulan });

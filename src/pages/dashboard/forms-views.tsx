@@ -13,6 +13,7 @@ import { BlokLokasiKirim } from "@/components/BlokLokasiKirim";
 import { JebakanFormulir } from "@/components/JebakanFormulir";
 import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { BilahTakTentu } from "@/components/ui/loading";
 import {
   Dialog,
@@ -129,6 +130,9 @@ export function LoanForm({
     String(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]),
   );
   const [tenorBulan, setTenorBulan] = useState<string>("3");
+  // Centang cair ekspres (hanya skema harian): peminjam boleh melepasnya dan
+  // tidak dikenai biaya ekspres. Bawaan menyala, sama dengan perilaku lama.
+  const [cairEkspres, setCairEkspres] = useState(true);
   const [tujuan, setTujuan] = useState<string>("");
   const [namaLengkap, setNamaLengkap] = useState("");
   const [namaBank, setNamaBank] = useState("");
@@ -463,7 +467,9 @@ export function LoanForm({
   const tenorHarianOpsi = tenorHarianTersedia(pokok);
   const tarifHarian =
     persenBungaHarian(pokok, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
-  const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifHarian);
+  const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifHarian, {
+    ekspres: !bulanan && cairEkspres,
+  });
 
   // Nominal berubah → tarif tier ikut berubah. Pilihan tenor lama tetap sah
   // selama termasuk 7/14/28 hari, jadi hanya tenor asing yang digeser.
@@ -816,6 +822,7 @@ export function LoanForm({
         // tenorHari tetap dikirim (diabaikan server) saat skema bulanan aktif.
         tenorHari: bulanan ? 30 : tenorHarian,
         tenorBulan: bulanan ? tenorBulanNum : undefined,
+        cairEkspres: bulanan ? undefined : cairEkspres,
         tujuan,
         namaLengkap: namaPengajuan,
         namaBank,
@@ -854,6 +861,7 @@ export function LoanForm({
       setNamaBank("");
       setNomorRekening("");
       setCatatanPeminjam("");
+      setCairEkspres(true);
       padRef.current?.clear();
       setTtdKosong(true);
       setSetujuOpen(false);
@@ -936,6 +944,30 @@ export function LoanForm({
           </>
         )}
         <p className="mt-2 text-xs leading-5 text-muted-foreground">{keteranganNominal}</p>
+
+        {/* Pilihan peminjam: biaya ekspres hanya dikenakan bila dicentang. */}
+        {!bulanan && (
+          <label
+            htmlFor="loan-cair-ekspres"
+            className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+          >
+            <Checkbox
+              id="loan-cair-ekspres"
+              checked={cairEkspres}
+              disabled={submitting}
+              onCheckedChange={(nilai) => setCairEkspres(nilai === true)}
+              className="mt-0.5"
+            />
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold text-slate-900">Cair ekspres</span>
+              <span className="mt-0.5 block text-[11px] leading-5 text-muted-foreground">
+                Biaya Rp5.000–Rp10.000 sekali, dipotong dari dana yang Anda terima. Lepas
+                centangnya kalau tidak memilih cair ekspres; potongan di muka tinggal biaya admin
+                2%.
+              </span>
+            </span>
+          </label>
+        )}
 
         {/* Ringkasan peminjam: nilai bersih dan total pembayaran. */}
         {bulanan && sim !== null ? (

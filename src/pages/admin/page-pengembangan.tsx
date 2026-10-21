@@ -190,7 +190,7 @@ const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
   },
   {
     judul: "Potongan di muka",
-    isi: `Biaya admin ${PINDAI_PRICING.adminFeePercent}% dan platform ${PINDAI_PRICING.platformFeePercent}% dipotong dari pokok. Skema harian juga dikenai biaya pencairan ekspres sekali per pinjaman baru: ${BIAYA_EKSPRES_NARASI}. Bunga tidak ikut dipotong di muka, melainkan masuk total kewajiban.`,
+    isi: `Biaya admin ${PINDAI_PRICING.adminFeePercent}% dan platform ${PINDAI_PRICING.platformFeePercent}% dipotong dari pokok. Skema harian dikenai biaya pencairan ekspres sekali per pinjaman baru bila peminjam mencentang cair ekspres: ${BIAYA_EKSPRES_NARASI}. Tanpa centang, potongan di muka hanya biaya admin. Bunga tidak ikut dipotong di muka, melainkan masuk total kewajiban.`,
     rujukan: "src/lib/loan.ts, ekonomiPlatform.ts",
   },
   {

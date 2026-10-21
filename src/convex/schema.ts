@@ -257,6 +257,13 @@ const schema = defineSchema(
       /** Tenor pinjaman dalam hari (30/60/90) — dipilih saat pengajuan. */
       tenorHari: v.number(),
       /**
+       * Peminjam mencentang pencairan ekspres saat mengajukan. `false` = memilih
+       * pencairan biasa, sehingga `biayaExpress` pada quote menjadi 0. Kosong =
+       * data lama yang dulu selalu dikenai biaya ekspres, jadi tetap dihitung
+       * ekspres supaya angka kontrak lama tidak berubah.
+       */
+      cairEkspres: v.optional(v.boolean()),
+      /**
        * Waktu pengajuan tercatat bila berbeda dari `_creationTime` — dipakai
        * untuk data yang dimigrasikan/di-seed agar tanggal historisnya jujur.
        * Kosong = pakai `_creationTime`.

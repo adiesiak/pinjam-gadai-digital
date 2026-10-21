@@ -37,6 +37,8 @@ export function MyContractsSection({
           tenorBulan: number | null;
           /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
           persenBunga: number | null;
+          /** Centang cair ekspres; null = data lama (ekspres dipakai). */
+          cairEkspres: boolean | null;
           status: string;
           tandaTanganAda: boolean;
           tandaTanganDataUrl: string | null;
@@ -129,6 +131,8 @@ function LoanContractCard({
     tenorBulan: number | null;
     /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
     persenBunga: number | null;
+    /** Centang cair ekspres; null = data lama (ekspres dipakai). */
+    cairEkspres: boolean | null;
     status: string;
     tandaTanganAda: boolean;
     tandaTanganDataUrl: string | null;
@@ -146,7 +150,11 @@ function LoanContractCard({
   const ketentuan = useQuery(api.system.getKetentuanBiaya);
   const digital = useQuery(api.kontrakDigital.infoPinjaman, { loanId: c._id });
   const qr = useQrDataUrl(digital ? urlVerifikasi(digital.kode) : null);
-  const q = quotePinjaman({ pokokPinjaman: c.pokokPinjaman, persenBunga: c.persenBunga ?? undefined });
+  const q = quotePinjaman({
+    pokokPinjaman: c.pokokPinjaman,
+    persenBunga: c.persenBunga ?? undefined,
+    cairEkspres: c.cairEkspres ?? undefined,
+  });
   // Ringkasan bulanan: data warisan di luar rentang skema dilewati dengan aman.
   const bulanan = useMemo(() => {
     if (c.tenorBulan === null) return null;

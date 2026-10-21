@@ -278,7 +278,8 @@ const PASAL: Pasal[] = [
           <Ayat>
             <strong>Biaya admin {PINDAI_PRICING.adminFeePercent}%</strong> dari
             pokok, ditambah biaya pencairan ekspres Rp5.000–Rp10.000 sekali per
-            pinjaman harian baru. Biaya platform
+            pinjaman harian baru bila Anda mencentang cair ekspres saat
+            mengajukan. Biaya platform
             {PINDAI_PRICING.platformFeePercent}%, sehingga total potongan di
             muka bergantung pada nominal dan dana bersih adalah pokok setelah
             seluruh potongan tersebut.

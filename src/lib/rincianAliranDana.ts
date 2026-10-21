@@ -100,6 +100,11 @@ export type RincianAliranDana = {
   imbalBersihPenyedia: Rupiah;
   /** Total jasa platform satu pinjaman = potongan di muka + potongan penyedia. */
   pendapatanPlatform: Rupiah;
+  /**
+   * Pinjaman ini dikenai biaya pencairan ekspres? Peminjam boleh melepasnya,
+   * jadi label rincian tidak boleh selalu menyebut "+ ekspres".
+   */
+  adaEkspres: boolean;
 };
 
 /** Bentuk minimal pinjaman yang dibutuhkan rincian ini. */
@@ -171,6 +176,8 @@ export function rincianAliranDana(
     diterimaPenyedia: bagi.pendanaTerima,
     imbalBersihPenyedia: bagi.keuntunganPendana,
     pendapatanPlatform: q.totalPotonganDiMuka + bagi.potonganAdmin,
+    // Contoh kebijakan memakai pinjaman yang mencentang cair ekspres.
+    adaEkspres: true,
   };
 }
 
@@ -223,7 +230,7 @@ export function barisRincianAliran(
   return [
     { label: "Pokok pinjaman", nilai: r.pokok, arah: "kotor" },
     {
-      label: `Potongan di muka (admin ${r.persenPotonganDiMuka}% + ekspres)`,
+      label: `Potongan di muka (admin ${r.persenPotonganDiMuka}%${r.adaEkspres ? " + ekspres" : ""})`,
       nilai: r.potonganDiMuka,
       arah: "potongan",
     },
@@ -254,10 +261,14 @@ export function rincianPinjamanNyata(
     pokokPinjaman: Rupiah;
     tenorBulan?: number | null;
     persenBunga?: number | null;
+    /** Centang cair ekspres peminjam; kosong = data lama (ekspres dipakai). */
+    cairEkspres?: boolean | null;
   },
   persenPotonganPenyedia: number = POTONGAN_ADMIN_DEFAULT_PERSEN,
 ): RincianAliranDana {
   const pokok = pinjaman.pokokPinjaman;
+  const harian = pinjaman.tenorBulan === null || pinjaman.tenorBulan === undefined;
+  const pakaiEkspres = harian && pinjaman.cairEkspres !== false;
   // Data warisan dengan pokok tidak sah tetap ditampilkan apa adanya (tanpa
   // perhitungan), sama seperti ruang pendana — satu baris aneh tidak
   // boleh merobohkan detail pinjaman admin.
@@ -276,15 +287,14 @@ export function rincianPinjamanNyata(
       diterimaPenyedia: pokok,
       imbalBersihPenyedia: nol,
       pendapatanPlatform: nol,
+      adaEkspres: pakaiEkspres,
     };
   }
-  // Pinjaman harian juga dikenai biaya pencairan ekspres; skema bulanan tidak.
-  // Dihitung dari mesin yang sama dengan pencairan, bukan ditulis ulang.
+  // Pinjaman harian dikenai biaya pencairan ekspres bila peminjam mencentangnya;
+  // skema bulanan tidak pernah. Dihitung dari mesin yang sama dengan pencairan.
   const potonganDiMuka =
     percentOf(pokok, PINDAI_PRICING.upfrontDeductionPercent) +
-    (pinjaman.tenorBulan === null || pinjaman.tenorBulan === undefined
-      ? biayaEkspres(pokok)
-      : 0);
+    (pakaiEkspres ? biayaEkspres(pokok) : 0);
   const bagi = bagiHasilPinjamanDari(pinjaman, persenPotonganPenyedia);
   return {
     pokok,
@@ -299,5 +309,6 @@ export function rincianPinjamanNyata(
     diterimaPenyedia: bagi.pendanaTerima,
     imbalBersihPenyedia: bagi.keuntunganPendana,
     pendapatanPlatform: potonganDiMuka + bagi.potonganAdmin,
+    adaEkspres: pakaiEkspres,
   };
 }

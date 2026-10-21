@@ -515,6 +515,11 @@ export const createLoanApplication = mutation({
      */
     tenorHari: v.number(),
     /**
+     * Centang "cair ekspres" dari peminjam. `false` = pencairan biasa tanpa
+     * biaya ekspres. Kosong diperlakukan sebagai ekspres (perilaku lama).
+     */
+    cairEkspres: v.optional(v.boolean()),
+    /**
      * Tenor bulanan (DP 0%, potongan di muka 2% — biaya admin 2% untuk tenor
      * 3/6, biaya layanan 2% untuk tenor 1, biaya platform dihapus; bunga flat
      * dari pokok penuh mengikuti tarif akun, bawaan 30% per bulan; biaya admin
@@ -621,7 +626,10 @@ export const createLoanApplication = mutation({
       assertPokokPinjamanValid(args.pokokPinjaman, ringkas.tersedia);
     }
     // Server-side pricing engine — fee fields are never accepted from the client.
-    const quote = quoteLoan(args.pokokPinjaman);
+    // Satu-satunya pilihan klien yang memengaruhi potongan adalah centang
+    // ekspres; nominal biayanya tetap dihitung server.
+    const cairEkspres = args.cairEkspres ?? true;
+    const quote = quoteLoan(args.pokokPinjaman, { ekspres: cairEkspres });
     // Matriks tenor harian ditegakkan di server, bukan hanya disembunyikan di
     // UI: tenor resmi 7/14/28 hari, dan tarif mengikuti tier nominal (26–40%).
     // Tenor di luar daftar itu—termasuk 30 hari—ditolak.
@@ -748,6 +756,9 @@ export const createLoanApplication = mutation({
       status: "diajukan",
       nomorReferensi,
       tenorHari: args.tenorHari,
+      // Hanya skema harian yang punya biaya ekspres; skema bulanan memakai
+      // potongan 2% tetap, jadi pilihan ini tidak disimpan di sana.
+      cairEkspres: tenorBulanSim === undefined ? cairEkspres : undefined,
       tenorBulan: tenorBulanSim,
       // Snapshot bunga efektif nasabah/matriks — angka pinjaman ini stabil
       // setelahnya. Untuk tenor harian, nilai ini sudah dihitung dari matriks
@@ -984,6 +995,7 @@ export const myContracts = query({
           tenorHari: l.tenorHari ?? DEFAULT_TENOR_HARI,
           tenorBulan: l.tenorBulan ?? null,
           persenBunga: l.persenBunga ?? null,
+          cairEkspres: l.cairEkspres ?? null,
           status: l.status,
           tandaTanganAda: l.tandaTanganPeminjam !== undefined,
           tandaTanganDataUrl: l.tandaTanganPeminjam ?? null,

@@ -66,6 +66,8 @@ export type PinjamanUntukRincian = {
   tenorHari: number;
   tenorBulan?: number | null;
   persenBunga?: number | null;
+  /** Centang cair ekspres peminjam; null/kosong = data lama (ekspres dipakai). */
+  cairEkspres?: boolean | null;
   didanaiPada?: number | null;
   diajukanPada: number;
   tujuan?: string;
@@ -215,12 +217,17 @@ export function susunRincianPinjaman(
       ...(loan.persenBunga === null || loan.persenBunga === undefined
         ? {}
         : { persenBunga: loan.persenBunga }),
+      ...(loan.cairEkspres === null || loan.cairEkspres === undefined
+        ? {}
+        : { cairEkspres: loan.cairEkspres }),
     });
     const dana: BarisRincian[] = [
       { label: "Pokok pinjaman", nilai: rp(quote.pokok) },
       { label: "Biaya admin (2%, dipotong di muka)", nilai: rp(quote.biayaAdmin) },
       { label: "Biaya platform (0%, dipotong di muka)", nilai: rp(quote.biayaPlatform) },
-      { label: "Biaya pencairan ekspres", nilai: rp(quote.biayaExpress) },
+      ...(quote.biayaExpress > 0
+        ? [{ label: "Biaya pencairan ekspres", nilai: rp(quote.biayaExpress) }]
+        : [{ label: "Pencairan ekspres", nilai: "Tidak dipakai" }]),
       { label: "Dana bersih ke rekening", nilai: rp(quote.danaBersihDitransfer), tegas: true },
     ];
     const rekening = rekeningTujuan(loan);

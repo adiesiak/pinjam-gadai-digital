@@ -88,6 +88,16 @@ ada(
   "biaya ekspres ikut dirinci saat ada",
 );
 
+// Cair ekspres adalah PILIHAN peminjam, bukan biaya otomatis: centangnya
+// mengubah quote yang dikirim dan nilai `cairEkspres` ikut ke server.
+ada(cepat, 'id="cepat-cair-ekspres"', "centang cair ekspres ada di formulir");
+ada(
+  cepat,
+  "quoteLoanBunga(pokokHitung, tarifBunga, { ekspres: cairEkspres })",
+  "angka di layar mengikuti centang, bukan selalu memakai ekspres",
+);
+ada(cepat, "\n        cairEkspres,\n", "pilihan dikirim ke mutasi pengajuan");
+
 // Aturan validasi berasal dari modul murni, bukan ditulis ulang di JSX — dan
 // parameternya SISA batas pinjaman dari server, bukan plafon maksimal: batas
 // yang tertulis di layar harus sama dengan yang diterima validasi pengajuan.

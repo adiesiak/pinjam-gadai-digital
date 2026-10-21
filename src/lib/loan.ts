@@ -229,10 +229,11 @@ export interface LoanQuote {
   biayaPlatform: Rupiah;
   /**
    * Biaya pencairan ekspres — flat Rp5.000–Rp10.000 sekali per pinjaman baru.
-   * Bukan bunga dan tidak menambah kewajiban; hanya mengurangi dana bersih.
+   * Hanya dikenakan bila peminjam mencentang cair ekspres; tanpa centang
+   * nilainya 0. Bukan bunga dan tidak menambah kewajiban.
    */
   biayaExpress: Rupiah;
-  /** Total Potongan di Muka — biaya admin 2% + biaya ekspres */
+  /** Total Potongan di Muka — biaya admin 2% + biaya ekspres (bila dipilih) */
   totalPotonganDiMuka: Rupiah;
   /** Dana Bersih Ditransfer — pokok − (biaya admin + biaya ekspres) */
   danaBersihDitransfer: Rupiah;
@@ -242,21 +243,42 @@ export interface LoanQuote {
   totalKewajibanPelunasan: Rupiah;
 }
 
-export function quoteLoan(pokok: Rupiah): LoanQuote {
-  return quoteLoanDenganPersen(pokok, {
-    admin: PINDAI_PRICING.adminFeePercent,
-    platform: PINDAI_PRICING.platformFeePercent,
-    bunga: PINDAI_PRICING.bungaPercent,
-  });
+/**
+ * Pilihan yang mengubah komponen potongan di muka.
+ *
+ * `ekspres` berasal dari centang peminjam: `false` berarti pencairan biasa,
+ * jadi tidak ada biaya ekspres. Kosong = perilaku lama (ekspres dipakai),
+ * supaya pinjaman dan dokumen yang sudah terbit tidak berubah angkanya.
+ */
+export type OpsiQuote = { ekspres?: boolean };
+
+export function quoteLoan(pokok: Rupiah, opsi: OpsiQuote = {}): LoanQuote {
+  return quoteLoanDenganPersen(
+    pokok,
+    {
+      admin: PINDAI_PRICING.adminFeePercent,
+      platform: PINDAI_PRICING.platformFeePercent,
+      bunga: PINDAI_PRICING.bungaPercent,
+    },
+    opsi,
+  );
 }
 
 /** Quote skema harian dengan bunga khusus nasabah (persen, mis. 30 → 130%). */
-export function quoteLoanBunga(pokok: Rupiah, persenBunga: number): LoanQuote {
-  return quoteLoanDenganPersen(pokok, {
-    admin: PINDAI_PRICING.adminFeePercent,
-    platform: PINDAI_PRICING.platformFeePercent,
-    bunga: persenBunga,
-  });
+export function quoteLoanBunga(
+  pokok: Rupiah,
+  persenBunga: number,
+  opsi: OpsiQuote = {},
+): LoanQuote {
+  return quoteLoanDenganPersen(
+    pokok,
+    {
+      admin: PINDAI_PRICING.adminFeePercent,
+      platform: PINDAI_PRICING.platformFeePercent,
+      bunga: persenBunga,
+    },
+    opsi,
+  );
 }
 
 /**
@@ -266,10 +288,15 @@ export function quoteLoanBunga(pokok: Rupiah, persenBunga: number): LoanQuote {
 export function quotePinjaman(loan: {
   pokokPinjaman: Rupiah;
   persenBunga?: number;
+  /** Centang "cair ekspres" saat pengajuan; kosong = data lama (ekspres). */
+  cairEkspres?: boolean;
 }): LoanQuote {
+  // Data lama tidak punya kolom ini dan dulu selalu dikenai biaya ekspres —
+  // `!== false` menjaga angka kontrak lama tetap sama.
+  const opsi: OpsiQuote = { ekspres: loan.cairEkspres !== false };
   return loan.persenBunga === undefined
-    ? quoteLoan(loan.pokokPinjaman)
-    : quoteLoanBunga(loan.pokokPinjaman, loan.persenBunga);
+    ? quoteLoan(loan.pokokPinjaman, opsi)
+    : quoteLoanBunga(loan.pokokPinjaman, loan.persenBunga, opsi);
 }
 
 /**
@@ -295,13 +322,14 @@ export function simulasiBulananPinjaman(loan: {
 export function quoteLoanDenganPersen(
   pokok: Rupiah,
   persen: { admin: number; platform: number; bunga: number },
+  opsi: OpsiQuote = {},
 ): LoanQuote {
   if (!Number.isSafeInteger(pokok) || pokok <= 0) {
     throw new Error("Pokok pinjaman harus rupiah bulat positif.");
   }
   const biayaAdmin = percentOf(pokok, persen.admin);
   const biayaPlatform = percentOf(pokok, persen.platform);
-  const biayaExpress = biayaEkspres(pokok);
+  const biayaExpress = opsi.ekspres === false ? 0 : biayaEkspres(pokok);
   const totalPotonganDiMuka = biayaAdmin + biayaPlatform + biayaExpress;
   const danaBersihDitransfer = pokok - totalPotonganDiMuka;
   if (danaBersihDitransfer <= 0) {
@@ -326,8 +354,8 @@ export function quoteLoanDenganPersen(
  * Re-derive a quote from a stored principal. Used by getLoan / listMyLoans to
  * avoid storing duplicated fee fields; pricing is computed, never guessed.
  */
-export function requote(pokok: Rupiah): LoanQuote {
-  return quoteLoan(pokok);
+export function requote(pokok: Rupiah, opsi: OpsiQuote = {}): LoanQuote {
+  return quoteLoan(pokok, opsi);
 }
 
 export interface RepaymentQuote extends LoanQuote {
