@@ -501,6 +501,34 @@ cek(
   "uji laporan pendana ikut dijalankan oleh `bun run test`",
 );
 
+// 6. Aksi baris ringkas: Detail + Ubah (+ keuntungan) dalam satu menu Kelola.
+{
+  const kodeHalaman = baca("src/pages/PenyediaDana.tsx")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  cek(
+    cacah(kodeHalaman, /<AksiPinjaman/g) === 2,
+    "aksi baris dipakai di kartu ponsel dan tabel desktop",
+  );
+  cek(
+    kodeHalaman.includes("aria-label={`Kelola ${nama}`}"),
+    "pemicu menu menyebut nama peminjam untuk pembaca layar",
+  );
+  cek(
+    cacah(kodeHalaman, /<DropdownMenuItem/g) === 4,
+    "Detail, Ubah, Catat untung, dan Batalkan catatan berada di dalam menu",
+  );
+  cek(
+    kodeHalaman.includes("jumlahAksi === 1"),
+    "baris yang hanya punya Detail tetap memakai satu tombol",
+  );
+  cek(
+    !kodeHalaman.includes('<div className="flex flex-col gap-2">') &&
+      !kodeHalaman.includes('<Pencil className="mr-1.5 size-3.5"'),
+    "tumpukan tombol Detail/Ubah lama sudah tidak dirender",
+  );
+}
+
 const jumlah = lulus + gagal;
 console.log(`qa-ruang-pendana: ${lulus}/${jumlah} lulus`);
 if (gagal > 0) process.exit(1);

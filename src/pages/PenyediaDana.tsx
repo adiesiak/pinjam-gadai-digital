@@ -12,6 +12,7 @@ import {
   HandCoins,
   Inbox,
   MapPin,
+  MoreHorizontal,
   Package,
   Pencil,
   ShoppingBag,
@@ -78,6 +79,13 @@ import { PersetujuanRisikoPendana } from "@/components/penyediaDana/PersetujuanR
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -612,11 +620,105 @@ function InfoKartu({ label, children }: { label: string; children: React.ReactNo
 }
 
 /**
+ * Aksi satu baris pinjaman dalam SATU pemicu.
+ *
+ * Sebelumnya kolom Aksi menumpuk dua sampai empat tombol (Detail, Ubah, Catat
+ * untung, Batalkan catatan), sehingga kolom lain terdesak. Isinya dipindahkan
+ * ke satu menu "Kelola" dengan pola yang sama seperti Plafon Nasabah. Baris
+ * yang hanya punya satu pekerjaan (pendana tanpa hak koreksi, gadai, kredit)
+ * tetap memakai tombol Detail tunggal: menu berisi satu item hanya menambah
+ * satu klik tanpa menghemat ruang.
+ */
+function AksiPinjaman({
+  nama,
+  onDetail,
+  onUbah,
+  onCatatUntung,
+  onBatalkanCatatan,
+  penuh = false,
+}: {
+  nama: string;
+  onDetail: () => void;
+  onUbah?: () => void;
+  onCatatUntung?: () => void;
+  onBatalkanCatatan?: () => void;
+  /** Kartu layar sempit: pemicu memenuhi lebar kartu. */
+  penuh?: boolean;
+}) {
+  const jumlahAksi =
+    1 +
+    (onUbah === undefined ? 0 : 1) +
+    (onCatatUntung === undefined ? 0 : 1) +
+    (onBatalkanCatatan === undefined ? 0 : 1);
+
+  if (jumlahAksi === 1) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className={penuh ? "h-11 w-full justify-center" : undefined}
+        onClick={onDetail}
+      >
+        <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
+      </Button>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          size="sm"
+          className={`gap-1.5 rounded-lg bg-emerald-700 px-2.5 text-xs text-white hover:bg-emerald-800 ${
+            penuh ? "h-11 w-full justify-center" : "h-9"
+          }`}
+          aria-label={`Kelola ${nama}`}
+        >
+          <MoreHorizontal className="size-4" aria-hidden="true" />
+          Kelola
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onSelect={onDetail} className="gap-2 py-2">
+          <Eye className="size-4 text-muted-foreground" aria-hidden="true" />
+          Detail
+        </DropdownMenuItem>
+        {onUbah !== undefined && (
+          <DropdownMenuItem onSelect={onUbah} className="gap-2 py-2">
+            <Pencil className="size-4 text-muted-foreground" aria-hidden="true" />
+            Ubah data pinjaman
+          </DropdownMenuItem>
+        )}
+        {(onCatatUntung !== undefined || onBatalkanCatatan !== undefined) && (
+          <DropdownMenuSeparator />
+        )}
+        {onCatatUntung !== undefined && (
+          <DropdownMenuItem onSelect={onCatatUntung} className="gap-2 py-2">
+            <Coins className="size-4 text-muted-foreground" aria-hidden="true" />
+            Catat untung
+          </DropdownMenuItem>
+        )}
+        {onBatalkanCatatan !== undefined && (
+          <DropdownMenuItem
+            onSelect={onBatalkanCatatan}
+            className="gap-2 py-2 text-red-700 focus:bg-red-50 focus:text-red-800"
+          >
+            <XCircle className="size-4" aria-hidden="true" />
+            Batalkan catatan
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
  * Kartu pengajuan untuk layar sempit.
  *
  * Di HP tabel 13 kolom tidak mungkin muat tanpa geser mendatar, jadi setiap
- * baris ditampilkan sebagai kartu berisi semua kolom penting, plus tombol
- * Detail untuk rincian lengkap. Di layar lebar tabel aslinya tetap dipakai.
+ * baris ditampilkan sebagai kartu berisi semua kolom penting, plus satu tombol
+ * aksi untuk rincian lengkap. Di layar lebar tabel aslinya tetap dipakai.
  */
 function KartuPengajuan({
   nama,
@@ -655,31 +757,16 @@ function KartuPengajuan({
         <BadgePseudonim kode={kode} />
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">{children}</dl>
-      <div className="mt-4 flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={onDetail}>
-          <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
-        </Button>
-        {onUbah !== undefined && (
-          <Button variant="outline" size="sm" className="flex-1" onClick={onUbah}>
-            <Pencil className="mr-1.5 size-3.5" aria-hidden /> Ubah
-          </Button>
-        )}
+      <div className="mt-4">
+        <AksiPinjaman
+          nama={nama}
+          onDetail={onDetail}
+          onUbah={onUbah}
+          onCatatUntung={onCatatKeuntungan}
+          onBatalkanCatatan={onBatalkanKeuntungan}
+          penuh
+        />
       </div>
-      {onCatatKeuntungan !== undefined && (
-        <Button variant="outline" size="sm" className="mt-2 w-full" onClick={onCatatKeuntungan}>
-          <Coins className="mr-1.5 size-3.5" aria-hidden /> Catat untung
-        </Button>
-      )}
-      {onBatalkanKeuntungan !== undefined && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2 w-full text-red-700 hover:bg-red-50 hover:text-red-800"
-          onClick={onBatalkanKeuntungan}
-        >
-          <XCircle className="mr-1.5 size-3.5" aria-hidden /> Batalkan catatan
-        </Button>
-      )}
     </article>
   );
 }
@@ -1585,31 +1672,13 @@ function DaftarPinjaman({
               </TableCell>
               <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
               <TableCell className="align-top">
-                <div className="flex flex-col gap-2">
-                  <Button variant="outline" size="sm" onClick={() => onDetail(row)}>
-                    <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
-                  </Button>
-                  {onUbah !== undefined && (
-                    <Button variant="outline" size="sm" onClick={() => onUbah(row)}>
-                      <Pencil className="mr-1.5 size-3.5" aria-hidden /> Ubah
-                    </Button>
-                  )}
-                  {aksiKeuntungan(row).catat !== undefined && (
-                    <Button variant="outline" size="sm" onClick={() => aksiKeuntungan(row).catat?.()}>
-                      <Coins className="mr-1.5 size-3.5" aria-hidden /> Catat untung
-                    </Button>
-                  )}
-                  {aksiKeuntungan(row).batal !== undefined && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-700 hover:bg-red-50 hover:text-red-800"
-                      onClick={() => aksiKeuntungan(row).batal?.()}
-                    >
-                      <XCircle className="mr-1.5 size-3.5" aria-hidden /> Batalkan catatan
-                    </Button>
-                  )}
-                </div>
+                <AksiPinjaman
+                  nama={namaTampil(row.namaLengkap)}
+                  onDetail={() => onDetail(row)}
+                  onUbah={onUbah === undefined ? undefined : () => onUbah(row)}
+                  onCatatUntung={aksiKeuntungan(row).catat}
+                  onBatalkanCatatan={aksiKeuntungan(row).batal}
+                />
               </TableCell>
             </TableRow>
           ))}
