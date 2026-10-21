@@ -1440,9 +1440,10 @@ describe("konsol pemeriksaan KYC di panel petugas", () => {
     expect(ktp?.ukuranByte ?? 0).toBeGreaterThan(0);
     expect(ktp?.sidikJari).toMatch(/^[A-Za-z0-9+/]{43}=$/);
 
-    // URL bertanda tangan: hanya dari rincian ini.
-    expect(detail.url.ktp).toContain("http");
-    expect(detail.url.selfie).toContain("http");
+    // Tautan bertanda tangan & berumur pendek: hanya dari rincian ini.
+    expect(detail.url.ktp).toContain("/berkas?id=");
+    expect(detail.url.ktp).toContain("&sig=");
+    expect(detail.url.selfie).toContain("/berkas?id=");
 
     // Dasar aturan, hasil mesin, riwayat status, dan JEJAK AUDIT nasabah ini.
     expect(detail.versiAturan).toBe(VERSI_ATURAN_KYC);
@@ -1491,14 +1492,15 @@ describe("konsol pemeriksaan KYC di panel petugas", () => {
       expect(milikLain).not.toContain(rahasia);
     }
 
-    // Antrean petugas memuat METADATA saja: tidak pernah URL bertanda tangan.
+    // Antrean petugas memuat METADATA saja: tidak pernah tautan berkas.
     const antrean = await admin.sesi.query(api.kyc.daftarKycAdmin, {});
     expect(antrean.item).toHaveLength(1);
-    expect(JSON.stringify(antrean)).not.toContain("http");
+    expect(JSON.stringify(antrean)).not.toContain("/berkas?");
 
     // Gerbangnya bukan tombol mati: admin ber-TOTP tetap bisa membukanya.
     const detail = await admin.sesi.query(api.kyc.detailKycAdmin, { userId: nasabah.userId });
-    expect(detail?.url.ktp).toContain("http");
+    expect(detail?.url.ktp).toContain("/berkas?id=");
+    expect(detail?.url.ktp).toContain("&sig=");
   });
 });
 

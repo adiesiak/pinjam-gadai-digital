@@ -2,7 +2,9 @@ import { httpRouter } from "convex/server";
 
 import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
+import { periksaTautanBerkas } from "./berkas";
 
 const http = httpRouter();
 
@@ -322,6 +324,60 @@ http.route({
       const pesan = err instanceof Error ? err.message : "Gagal menyimpan verifikasi.";
       return balas(400, { ok: false, error: pesan });
     }
+  }),
+});
+
+/**
+ * Penyaji berkas sensitif (KTP, selfie, slip, foto jaminan).
+ *
+ * Bukan `ctx.storage.getUrl()`: URL penyimpanan Convex permanen dan terbuka
+ * bagi siapa pun yang memegangnya. Tautan di sini harus membawa tanda tangan
+ * berumur pendek yang dibuat `berkas.tautanBerkas`, jadi tautan yang pernah
+ * diteruskan berhenti bekerja setelah satu jam.
+ */
+http.route({
+  path: "/berkas",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id") ?? "";
+    const exp = Number(url.searchParams.get("exp"));
+    const sig = url.searchParams.get("sig") ?? "";
+
+    const sah = await periksaTautanBerkas({ id, exp, sig });
+    if (!sah) {
+      return new Response("Tautan berkas tidak valid atau sudah kedaluwarsa.", {
+        status: 403,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
+
+    // Bentuk ID disaring sebelum menyentuh penyimpanan; tanda tangan di atas
+    // sudah memastikan ID ini yang diterbitkan server, bukan tebakan pemanggil.
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(id)) {
+      return new Response("Berkas tidak ditemukan.", {
+        status: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
+
+    const blob = await ctx.storage.get(id as Id<"_storage">);
+    if (blob === null) {
+      return new Response("Berkas tidak ditemukan.", {
+        status: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    }
+
+    return new Response(blob, {
+      headers: {
+        "Content-Type": blob.type || "application/octet-stream",
+        "Content-Disposition": "inline",
+        // Jangan disimpan di cache publik: tautannya pribadi dan berumur pendek.
+        "Cache-Control": "private, max-age=60",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
   }),
 });
 

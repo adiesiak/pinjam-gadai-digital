@@ -2093,10 +2093,11 @@ const schema = defineSchema(
      *
      * PENYIMPANAN DOKUMEN: KTP/selfie/bukti penghasilan hidup di Convex
      * `_storage` sebagai id, BUKAN di kolom ini dan BUKAN di bucket publik.
-     * Convex tidak menyediakan URL publik permanen: `ctx.storage.getUrl()`
-     * menghasilkan URL bertanda tangan yang hanya diberikan lewat query yang
-     * sudah melewati gerbang otorisasi — pemiliknya sendiri (`kycSaya`) atau
-     * petugas ber-TOTP (`detailKycAdmin`). Berkas tidak pernah ditulis ke tabel
+     * URL mentah `ctx.storage.getUrl()` PERMANEN dan bisa dibuka siapa pun yang
+     * memegangnya, jadi URL itu tidak pernah dikirim ke klien. Query yang lolos
+     * gerbang otorisasi — pemiliknya sendiri (`kycSaya`) atau petugas ber-TOTP
+     * (`detailKycAdmin`) — mengirim tautan `/berkas` bertanda tangan yang mati
+     * setelah satu jam (`convex/berkas.ts`). Berkas tidak pernah ditulis ke tabel
      * yang bisa dibaca publik, dan tidak ada URL dokumen yang masuk laporan,
      * log, atau pengumuman.
      */

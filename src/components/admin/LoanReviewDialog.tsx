@@ -46,6 +46,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { rincianPinjamanNyata } from "@/lib/rincianAliranDana";
@@ -752,20 +753,40 @@ export function LoanReviewDialog({
             </p>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {[
             {
               label: "Tanda tangan peminjam",
-              value: (row as { tandaTanganPeminjam?: string }).tandaTanganPeminjam
-                ? "Ada"
-                : "Belum ada",
+              value: row.tandaTanganAda === true ? "Ada" : "Belum ada",
+              detail:
+                row.tandaTanganAda === true && row.tandaTanganPada != null
+                  ? `Dicatat ${formatDate(row.tandaTanganPada)}`
+                  : "Belum ada gambar tanda tangan tersimpan",
               icon: FileCheck,
             },
             {
-              label: "Status persetujuan",
-              value: (row as { persetujuanSyarat?: boolean }).persetujuanSyarat
-                ? "Tersetujui"
-                : "Belum",
+              label: "Persetujuan pengajuan",
+              value: row.persetujuanPengajuanPada != null ? "Tercatat" : "Belum",
+              detail:
+                row.persetujuanPengajuanPada != null
+                  ? `Syarat ${row.persetujuanPengajuanVersi ?? "lama"} · ${formatDate(row.persetujuanPengajuanPada)}`
+                  : "Checkbox syarat belum dicentang saat mengajukan",
+              icon: ShieldCheck,
+            },
+            {
+              label: "Persetujuan perjanjian",
+              value:
+                row.persetujuanSyaratPada == null
+                  ? "Belum"
+                  : row.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION
+                    ? "Tersetujui"
+                    : "Versi lama",
+              detail:
+                row.persetujuanSyaratPada == null
+                  ? "Perjanjian belum ditandatangani peminjam"
+                  : row.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION
+                    ? `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)}`
+                    : `Disetujui pada syarat ${row.persetujuanSyaratVersi ?? "lama"} — perlu tanda tangan ulang`,
               icon: ShieldCheck,
             },
           ].map((item) => (
@@ -778,9 +799,17 @@ export function LoanReviewDialog({
                 <span className="text-xs font-medium text-slate-500">{item.label}</span>
               </div>
               <p className="mt-1 text-sm font-semibold text-slate-800">{item.value}</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{item.detail}</p>
             </div>
           ))}
         </div>
+        {row.persetujuanSyaratPada == null && (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+            Perjanjian ini belum ditandatangani peminjam. Pencairan tetap bisa berjalan,
+            tetapi tanda tangan dan checkbox syarat perjanjian baru tercatat saat peminjam
+            membuka menu Perjanjian di dashboard — atau lewat widget kontrak di bawah ini.
+          </p>
+        )}
       </div>
 
       {/* Pratinjau WhatsApp */}

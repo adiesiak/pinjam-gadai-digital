@@ -44,6 +44,7 @@ import { simpanDataDiriProfil, bacaProfilUntukForm } from "./dataDiriProfil";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { hapusTurunanAkun, totalTurunanAkun } from "./hapusAkunTurunan";
+import { tautanBerkas } from "./berkas";
 import { quoteKreditBarang } from "../lib/kredit";
 import { STATUS_MENUNGGU } from "../lib/admin-queue";
 import {
@@ -425,7 +426,7 @@ export const setBungaPeminjam = mutation({
  *
  * Mengembalikan isian siap-pakai (kosong bila belum pernah diisi) plus URL
  * foto KTP yang sudah tersimpan, sehingga form bisa menampilkan kondisi nyata
- * alih-alih menebak. URL bersifat sementara (ditandatangani storage).
+ * alih-alih menebak. URL bertanda tangan dan berumur pendek.
  */
 export const dataDiriNasabah = query({
   args: { userId: v.id("users") },
@@ -448,7 +449,7 @@ export const dataDiriNasabah = query({
         ...bacaProfilUntukForm(row),
         namaLengkap: row?.namaLengkap ?? user.name ?? "",
       },
-      fotoKtpUrl: row?.fotoKtpId !== undefined ? await ctx.storage.getUrl(row.fotoKtpId) : null,
+      fotoKtpUrl: await tautanBerkas(row?.fotoKtpId),
       diperbaruiPada: row?.diperbaruiPada ?? null,
       diperbaruiOlehLabel: row?.diperbaruiOlehLabel ?? null,
       /** Siapa yang terakhir menyunting (null untuk data lama). */
@@ -753,6 +754,16 @@ export const adminOverview = query({
             dokSelfieKtpId: l.dokSelfieKtpId ?? null,
             dokSlipGajiId: l.dokSlipGajiId ?? null,
             lokasiAjukan: l.lokasiAjukan ?? null,
+            // Status perjanjian dibaca panel review admin. Tanpa ini, panel
+            // selalu menulis "Belum ada" walau peminjam sudah menandatangani.
+            tandaTanganAda: l.tandaTanganPeminjam !== undefined,
+            tandaTanganPada: l.tandaTanganPada ?? null,
+            persetujuanSyaratPada: l.persetujuanSyaratPada ?? null,
+            persetujuanSyaratVersi: l.persetujuanSyaratVersi ?? null,
+            // Persetujuan saat MENGAJUKAN berbeda dari persetujuan perjanjian;
+            // panel menampilkan keduanya agar tidak terkesan hilang.
+            persetujuanPengajuanPada: l.persetujuanPengajuanPada ?? null,
+            persetujuanPengajuanVersi: l.persetujuanPengajuanVersi ?? null,
             jatuhTempoPada: pelunasan?.jatuhTempoPada ?? null,
             sisaHari: pelunasan?.sisaHari ?? null,
             hariTerlambat: pelunasan?.hariTerlambat ?? null,
@@ -846,7 +857,8 @@ export const backfillKodePeminjam = mutation({
 
 /**
  * URL dokumen KYC untuk dialog review pinjaman — admin saja.
- * URL Convex storage bertanda tangan & berkedaluwarsa.
+ * Tautan bertanda tangan & berumur pendek (lihat `berkas.tautanBerkas`),
+ * bukan URL penyimpanan Convex yang permanen.
  */
 export const dokumenKycUrls = query({
   args: { loanId: v.id("loans") },
@@ -855,9 +867,9 @@ export const dokumenKycUrls = query({
     const loan = await ctx.db.get(loanId);
     if (loan === null) return null;
     const [ktp, selfie, slip] = await Promise.all([
-      loan.dokKtpId ? ctx.storage.getUrl(loan.dokKtpId) : null,
-      loan.dokSelfieKtpId ? ctx.storage.getUrl(loan.dokSelfieKtpId) : null,
-      loan.dokSlipGajiId ? ctx.storage.getUrl(loan.dokSlipGajiId) : null,
+      tautanBerkas(loan.dokKtpId),
+      tautanBerkas(loan.dokSelfieKtpId),
+      tautanBerkas(loan.dokSlipGajiId),
     ]);
     return {
       ktpUrl: ktp,

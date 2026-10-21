@@ -11,6 +11,7 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
+import { tautanBerkas } from "./berkas";
 import { ROLES } from "./schema";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { bacaDataDiri, galatDataDiri, type DataDiriForm } from "../lib/dataDiri";
@@ -769,10 +770,12 @@ export const kycSaya = query({
       };
     }
 
+    // Tautan berumur pendek, bukan URL penyimpanan permanen: dokumen ini
+    // identitas pribadi dan tidak boleh tetap hidup setelah sesi pemiliknya.
     const [ktp, selfie, bukti] = await Promise.all([
-      row.ktpId ? ctx.storage.getUrl(row.ktpId) : null,
-      row.selfieKtpId ? ctx.storage.getUrl(row.selfieKtpId) : null,
-      row.buktiPenghasilanId ? ctx.storage.getUrl(row.buktiPenghasilanId) : null,
+      tautanBerkas(row.ktpId),
+      tautanBerkas(row.selfieKtpId),
+      tautanBerkas(row.buktiPenghasilanId),
     ]);
     const riwayat = await ctx.db
       .query("kycRiwayat")
@@ -1582,8 +1585,8 @@ export const daftarKycAdmin = query({
  *
  * URL dokumen KTP/selfie keluar HANYA dari sini (dan `admin.dokumenKycUrls`):
  * keduanya menuntut admin ber-TOTP, dan URL-nya bertanda tangan + berumur
- * pendek dari Convex storage. Tidak ada query sisi penyedia dana / pemantau
- * yang mengembalikan berkas identitas.
+ * pendek (`berkas.tautanBerkas`), bukan URL penyimpanan permanen. Tidak ada
+ * query sisi penyedia dana / pemantau yang mengembalikan berkas identitas.
  */
 export const detailKycAdmin = query({
   args: { userId: v.id("users") },
@@ -1598,10 +1601,12 @@ export const detailKycAdmin = query({
     ]);
     if (row === null) return null;
 
+    // Tautan berumur pendek, bukan URL penyimpanan permanen: dokumen ini
+    // identitas pribadi dan tidak boleh tetap hidup setelah sesi pemiliknya.
     const [ktp, selfie, bukti] = await Promise.all([
-      row.ktpId ? ctx.storage.getUrl(row.ktpId) : null,
-      row.selfieKtpId ? ctx.storage.getUrl(row.selfieKtpId) : null,
-      row.buktiPenghasilanId ? ctx.storage.getUrl(row.buktiPenghasilanId) : null,
+      tautanBerkas(row.ktpId),
+      tautanBerkas(row.selfieKtpId),
+      tautanBerkas(row.buktiPenghasilanId),
     ]);
     const riwayat = await ctx.db
       .query("kycRiwayat")

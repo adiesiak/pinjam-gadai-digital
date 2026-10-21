@@ -82,6 +82,7 @@ import { ROLES } from "./schema";
 import { bulatkanTitikWilayah } from "../lib/geo";
 import { normalisasiNomorWa } from "../lib/otpWa";
 import { audit, getConfig } from "./system";
+import { tautanBerkas } from "./berkas";
 
 /** Batas baris per kategori; daftar selalu diurutkan dari yang terbaru. */
 export const BATAS_BARIS = 200;
@@ -1154,7 +1155,7 @@ export const berkasPengajuan = query({
       if (pawnId === null) return null;
       const pawn = await ctx.db.get(pawnId);
       if (pawn === null) return null;
-      const foto = pawn.fotoBarangId ? await ctx.storage.getUrl(pawn.fotoBarangId) : null;
+      const foto = await tautanBerkas(pawn.fotoBarangId);
       const berkas = foto === null ? [] : [{ label: "Foto barang", url: foto }];
       return {
         jenis,

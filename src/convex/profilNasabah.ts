@@ -4,6 +4,7 @@ import { v } from "convex/values";
 
 import { bacaProfilUntukForm, simpanDataDiriProfil } from "./dataDiriProfil";
 import { audit } from "./system";
+import { tautanBerkas } from "./berkas";
 import type { Id } from "./_generated/dataModel";
 
 /**
@@ -61,7 +62,8 @@ export const dataDiriSaya = query({
         ...bacaProfilUntukForm(row),
         namaLengkap: row?.namaLengkap ?? user?.name ?? "",
       },
-      fotoKtpUrl: row?.fotoKtpId !== undefined ? await ctx.storage.getUrl(row.fotoKtpId) : null,
+      // Tautan berumur pendek, bukan URL penyimpanan permanen (lihat convex/berkas.ts).
+      fotoKtpUrl: await tautanBerkas(row?.fotoKtpId),
       diperbaruiPada: row?.diperbaruiPada ?? null,
       /** "admin" bila admin yang terakhir mengubah, "nasabah" bila pemiliknya. */
       sumber: row?.sumber ?? null,

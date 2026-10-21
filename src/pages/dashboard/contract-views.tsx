@@ -20,6 +20,7 @@ import { useQrDataUrl } from "@/hooks/use-qr";
 import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
 import { urlVerifikasi } from "@/lib/kontrakDigital";
 import { quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
+import { lengkapiQrCetak } from "@/lib/qrDokumen";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
 
@@ -259,23 +260,25 @@ function LoanContractCard({
 
 /** Buka pratinjau catatan HTML di tab baru — tanpa renderer PDF eksternal. */
 function ContractPreviewButton({ html }: { html: string }) {
+  const buka = async () => {
+    // Lengkapi QR yang belum sempat dibuat hook sebelum dokumen dibuka.
+    const dokumen = wrapContractHtml(await lengkapiQrCetak(html));
+    // Aplikasi Android: tampilkan lewat dialog cetak (sekaligus pratinjau).
+    if (cetakLewatAplikasi(dokumen)) return;
+    const w = window.open("", "_blank");
+    if (!w) {
+      toast.error("Popup diblokir browser. Izinkan popup untuk melihat dokumen.");
+      return;
+    }
+    w.document.write(dokumen);
+    w.document.close();
+  };
   return (
     <Button
       size="sm"
       variant="outline"
       className="rounded-full"
-      onClick={() => {
-        const dokumen = wrapContractHtml(html);
-        // Aplikasi Android: tampilkan lewat dialog cetak (sekaligus pratinjau).
-        if (cetakLewatAplikasi(dokumen)) return;
-        const w = window.open("", "_blank");
-        if (!w) {
-          toast.error("Popup diblokir browser. Izinkan popup untuk melihat dokumen.");
-          return;
-        }
-        w.document.write(dokumen);
-        w.document.close();
-      }}
+      onClick={() => void buka()}
     >
       <FileText className="mr-1.5 size-4" /> Lihat
     </Button>

@@ -2,7 +2,11 @@
 
 import type { ReactNode } from "react";
 
-import { TENOR_BULANAN_OPTIONS, BULANAN_PRICING } from "@/lib/bulanan";
+import {
+  TENOR_BULANAN_OPTIONS,
+  BULANAN_PRICING,
+  TARIF_BULANAN_DEFAULT,
+} from "@/lib/bulanan";
 import { BIAYA_EKSPRES_TIER, BIAYA_ROLLOVER } from "@/lib/ekonomiPlatform";
 import { GADAI_PRICING } from "@/lib/gadai";
 import {

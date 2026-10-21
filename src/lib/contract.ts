@@ -194,9 +194,12 @@ function blokVerifikasi(meta: ContractMeta): string {
     minute: "2-digit",
     hour12: false,
   });
+  // Saat QR belum selesai dibuat, alamatnya tetap disimpan pada kotak kosong.
+  // `lengkapiQrCetak` (lib/qrDokumen) memakainya untuk membuat QR tepat sebelum
+  // dokumen dicetak, sehingga PDF tidak pernah keluar dengan kotak kosong.
   const qr = v.qrDataUrl
     ? `<img class="verif-qr" src="${escapeHtml(v.qrDataUrl)}" alt="QR halaman verifikasi dokumen"/>`
-    : `<div class="verif-qr verif-qr-kosong">QR</div>`;
+    : `<div class="verif-qr verif-qr-kosong" data-qr-url="${escapeHtml(v.url)}">QR</div>`;
   return `<section class="verif">
     ${qr}
     <div class="verif-teks">

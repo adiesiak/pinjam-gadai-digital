@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
+import { lengkapiQrCetak } from "@/lib/qrDokumen";
 
 import { wrapContractHtml } from "./contract-doc";
 
@@ -15,8 +16,10 @@ export function ContractPrintButton({
   html: string;
   label?: string;
 }) {
-  const cetak = () => {
-    const dokumen = wrapContractHtml(html);
+  const cetak = async () => {
+    // QR bisa belum selesai dibuat saat tombol ditekan; isi dulu sebelum
+    // dokumen ditulis ke jendela cetak agar PDF memuat QR verifikasi.
+    const dokumen = wrapContractHtml(await lengkapiQrCetak(html));
     // Di aplikasi Android, window.open diblokir; dialog cetak Android dipakai.
     if (cetakLewatAplikasi(dokumen)) return;
     const w = window.open("", "_blank");
@@ -30,7 +33,7 @@ export function ContractPrintButton({
     w.print();
   };
   return (
-    <Button size="sm" variant="outline" className="rounded-full" onClick={cetak}>
+    <Button size="sm" variant="outline" className="rounded-full" onClick={() => void cetak()}>
       <FileDown className="mr-1.5 size-4" />
       {label}
     </Button>

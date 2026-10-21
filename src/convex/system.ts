@@ -974,8 +974,9 @@ export const setKillSwitch = mutation({
  * pembayaran, log WA, jejak lokasi, pengingat, peringatan lokasi, pengumuman,
  * ledger, audit) dan seluruh baris `users` apa adanya, plus daftar dokumen
  * storage (KTP, selfie, slip gaji, foto barang, bukti setoran/pembayaran, QRIS)
- * dengan URL bertanda tangan agar berkas ikut tercakup. BERISI DATA PRIBADI —
- * perlakuan sebagai rahasia.
+ * dengan URL penyimpanan permanen agar berkas bisa diambil kembali dari backup.
+ * BERISI DATA PRIBADI — URL itu tidak kedaluwarsa, jadi berkas backup harus
+ * diperlakukan sebagai rahasia dan tidak dibagikan.
  */
 export const snapshotData = query({
   args: {},
@@ -1024,8 +1025,9 @@ export const snapshotData = query({
     ]);
     const config = await getConfig(ctx);
 
-    // Dokumen storage + URL bertanda tangan: tanpa ini berkas KYC dan bukti
-    // tidak ikut ter-backup meski barisnya ada.
+    // Dokumen storage + URL permanen: tanpa ini berkas KYC dan bukti tidak ikut
+    // ter-backup meski barisnya ada. URL-nya sengaja permanen agar pemulihan
+    // masih mungkin; jangan pernah membagikan berkas hasil backup ini.
     const dokumen: Array<{
       jenis: string;
       pemilik: string;

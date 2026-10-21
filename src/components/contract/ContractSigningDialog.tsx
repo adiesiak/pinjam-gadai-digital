@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
+import { lengkapiQrCetak } from "@/lib/qrDokumen";
 import {
   bolehKirimPerjanjian,
   KELAS_TOMBOL_SETUJU_PERJANJIAN,
@@ -55,6 +56,8 @@ export function ContractSigningDialog({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const padRef = useRef<SignaturePad | null>(null);
+  /** HTML pratinjau ber-QR, disimpan bersama sumbernya (pola `useQrDataUrl`). */
+  const [pratinjauQr, setPratinjauQr] = useState<{ sumber: string; hasil: string } | null>(null);
   const [consentChecked, setConsentChecked] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -85,6 +88,22 @@ export function ContractSigningDialog({
   // Ada goresan baru di kanvas, atau gambar tanda tangan lama yang sudah
   // termuat — lihat `tandaTanganSiap()` di `@/lib/perjanjianTtd`.
   const siapTandaTangan = tandaTanganSiap(hasSignature, signature);
+
+  // Pratinjau di dalam dialog juga memakai QR yang sudah lengkap. Tanpa ini,
+  // iframe bisa menampilkan kotak "QR" kosong saat pembuatan QR belum selesai.
+  useEffect(() => {
+    if (!html.includes("verif-qr-kosong")) return;
+    let aktif = true;
+    void lengkapiQrCetak(html).then((hasil) => {
+      if (aktif) setPratinjauQr({ sumber: html, hasil });
+    });
+    return () => {
+      aktif = false;
+    };
+  }, [html]);
+
+  const pratinjau =
+    pratinjauQr !== null && pratinjauQr.sumber === html ? pratinjauQr.hasil : html;
 
   useEffect(() => {
     if (!open || fullySigned || signingDisabledReason !== null) return;
@@ -205,7 +224,7 @@ export function ContractSigningDialog({
             </div>
             <iframe
               title={`Pratinjau ${title}`}
-              srcDoc={wrapContractHtml(html)}
+              srcDoc={wrapContractHtml(pratinjau)}
               sandbox=""
               className="h-96 w-full rounded-xl border border-slate-200 bg-white sm:h-[30rem]"
             />

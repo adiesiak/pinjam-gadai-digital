@@ -66,6 +66,13 @@ export type LoanRow = {
   dokSelfieKtpId: Id<"_storage"> | null;
   dokSlipGajiId: Id<"_storage"> | null;
   lokasiAjukan: { lat: number; lng: number; akurasi: number } | null;
+  /** Status perjanjian: dibaca panel review dari `admin.adminOverview`. */
+  tandaTanganAda?: boolean;
+  tandaTanganPada?: number | null;
+  persetujuanSyaratPada?: number | null;
+  persetujuanSyaratVersi?: string | null;
+  persetujuanPengajuanPada?: number | null;
+  persetujuanPengajuanVersi?: string | null;
   jatuhTempoPada: number | null;
   sisaHari: number | null;
   hariTerlambat: number | null;
