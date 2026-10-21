@@ -6,7 +6,7 @@
  *  1. Doorprize menyebut kuartal dan tanggal undian yang dihitung dari waktu,
  *     bukan tanggal yang ditulis di komponen.
  *  2. Sumber tiket memakai tenor dan kelipatan yang sama dengan `lib/doorprize`.
- *  3. Batas hadiah tampil sebagai nominal, bukan klaim tanpa angka.
+ *  3. Batas anggaran hadiah tidak dibocorkan ke pengunjung: itu urusan admin.
  *  4. Tautan mengikuti keadaan sesi: dashboard bila sudah masuk, halaman masuk
  *     bila belum.
  *  5. Ruang pendana menampilkan skema tetap dari `lib/imbalPendana` dan tidak
@@ -17,10 +17,7 @@ import { MemoryRouter } from "react-router";
 
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
 import { RuangPendanaRingkas } from "@/components/landing/RuangPendanaRingkas";
-import {
-  BATAS_NILAI_HADIAH_DOORPRIZE,
-  KELIPATAN_TIKET_PENDANA,
-} from "@/lib/doorprize";
+import { KELIPATAN_TIKET_PENDANA } from "@/lib/doorprize";
 import { PERSEN_IMBAL_PENDANA, TENOR_PENDANA_HARI } from "@/lib/imbalPendana";
 import { formatRupiah } from "@/lib/money";
 
@@ -67,10 +64,16 @@ ok(
   "kelipatan tiket pendana tampil sebagai rupiah",
 );
 
-// ── 3. Batas hadiah ditampilkan sebagai nominal ──
+// ── 3. Batas anggaran hadiah tidak tampil ke peminjam dan pendana ──
+// Nominal Rp1.000.000 tetap muncul sebagai kelipatan tiket pendana, jadi yang
+// diperiksa kalimatnya, bukan angkanya.
 ok(
-  doorprize.includes(formatRupiah(BATAS_NILAI_HADIAH_DOORPRIZE)),
-  "batas hadiah tampil sebagai nominal",
+  !doorprize.toLowerCase().includes("hadiah tiap kuartal"),
+  "kalimat batas hadiah tidak tersisa",
+);
+ok(
+  !doorprize.toLowerCase().includes("dijaga di bawah"),
+  "ambang anggaran hadiah tidak disebut",
 );
 
 // ── 4. Tautan mengikuti keadaan sesi ──

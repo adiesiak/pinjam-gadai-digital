@@ -1,7 +1,6 @@
 import { Link } from "react-router";
 
 import {
-  BATAS_NILAI_HADIAH_DOORPRIZE,
   KELIPATAN_TIKET_PENDANA,
   judulDoorprizeKuartal,
   kuartalDariWaktu,
@@ -36,8 +35,10 @@ const TENOR_TIKET = `${TENOR_OPTIONS.slice(0, -1).join(", ")}, atau ${
 /**
  * Ringkasan doorprize triwulanan.
  *
- * Periode, tanggal undian, kelipatan tiket, dan batas hadiah semuanya dihitung
- * dari `lib/doorprize`; tidak ada tanggal atau nominal yang ditulis di sini.
+ * Periode, tanggal undian, dan kelipatan tiket semuanya dihitung dari
+ * `lib/doorprize`; tidak ada tanggal atau nominal yang ditulis di sini. Batas
+ * anggaran hadiah sengaja tidak disebut: itu urusan admin, bukan alasan orang
+ * meminjam atau menempatkan dana.
  */
 export function DoorprizeRingkas({
   accountHref,
@@ -97,13 +98,9 @@ export function DoorprizeRingkas({
           <p className="mt-2 font-display text-xl leading-7 text-slate-900">
             {tanggalUndian}
           </p>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Hadiah tiap kuartal dijaga di bawah{" "}
-            {formatRupiah(BATAS_NILAI_HADIAH_DOORPRIZE)}.
-          </p>
           <Link
             to={accountHref}
-            className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {sudahMasuk ? "Buka tiket di dashboard" : "Masuk untuk melihat tiket"}
           </Link>
