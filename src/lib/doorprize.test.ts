@@ -115,6 +115,19 @@ for (const preset of PRESET_HADIAH_DOORPRIZE) {
 }
 ok(HADIAH_DOORPRIZE_BAWAAN.nilai < BATAS_NILAI_HADIAH_DOORPRIZE, "hadiah bawaan di bawah Rp1 juta");
 
+// Emas disediakan dalam dua merek (Antam & Lotus Archi) dan tiga pecahan,
+// supaya admin punya pilihan anggaran tanpa keluar dari batas Rp1 juta.
+for (const merek of ["Emas Antam", "Lotus Archi"]) {
+  for (const gram of ["0,5", "0,25", "0,1"]) {
+    ok(
+      PRESET_HADIAH_DOORPRIZE.some(
+        (preset) => preset.kategori === "GOLD" && preset.nama === `${merek} ${gram} gram`,
+      ),
+      `preset emas ${merek} ${gram} gram tersedia`,
+    );
+  }
+}
+
 eq(nilaiHadiahValid(999_999), true, "Rp999.999 sah");
 eq(nilaiHadiahValid(1_000_000), false, "Rp1.000.000 ditolak");
 eq(nilaiHadiahValid(NILAI_HADIAH_MINIMUM - 1), false, "di bawah nilai minimum ditolak");

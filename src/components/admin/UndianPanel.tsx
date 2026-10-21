@@ -170,7 +170,8 @@ export function UndianPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">
-              <Trophy className="size-3.5" aria-hidden /> Periode triwulan
+              <Trophy className="size-3.5" aria-hidden /> Periode triwulan (
+              {ringkasan === undefined ? "…" : ringkasan.labelPeriode})
             </p>
             <h2 className="mt-1 font-display text-lg leading-6 text-slate-900">
               Doorprize {ringkasan === undefined ? "…" : ringkasan.labelPeriode}
@@ -178,7 +179,7 @@ export function UndianPanel() {
             <p className="mt-0.5 text-xs leading-5 text-slate-600">
               {ringkasan === undefined
                 ? "Memuat periode…"
-                : `${ringkasan.labelRentang} · undian ${ringkasan.labelTanggalUndian}`}
+                : `${ringkasan.labelRentang} · Undian Kuartal ${ringkasan.quarter}: ${ringkasan.labelTanggalUndian}`}
             </p>
           </div>
 

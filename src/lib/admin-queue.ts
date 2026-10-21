@@ -266,3 +266,20 @@ export function saringModul<T extends ModulCari>(
     ),
   );
 }
+
+/**
+ * Modul yang dibuka dari parameter `?tab=` pada panel admin.
+ *
+ * Panel admin sengaja hidup di rute tersembunyi (lihat `ADMIN_ROUTE`), jadi
+ * tautan langsung ke satu modul memakai parameter, bukan sub-path publik.
+ * `doorprize` dipetakan ke `undian` supaya tautan yang mengikuti nama modul di
+ * dokumen tetap membuka panel yang benar. Nilai kosong/asing jatuh ke meja
+ * kerja, bukan halaman kosong.
+ */
+export function modulDariParameter(nilai: string | null): NilaiModulAdmin {
+  if (nilai === null) return "hari-ini";
+  const bersih = nilai.trim().toLowerCase();
+  if (bersih === "doorprize") return "undian";
+  const cocok = NILAI_MODUL_ADMIN.find((modul) => modul === bersih);
+  return cocok ?? "hari-ini";
+}

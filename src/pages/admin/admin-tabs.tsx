@@ -63,7 +63,12 @@ import { SkeletonKartu } from "@/components/ui/loading";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { RingkasanAnalitik } from "@/components/admin/RingkasanAnalitik";
-import { hitungMenunggu, NILAI_MODUL_ADMIN, type NilaiModulAdmin } from "@/lib/admin-queue";
+import {
+  hitungMenunggu,
+  modulDariParameter,
+  NILAI_MODUL_ADMIN,
+  type NilaiModulAdmin,
+} from "@/lib/admin-queue";
 import { MejaKerja } from "./meja-kerja";
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
 import { PagePengembangan } from "./page-pengembangan";
@@ -125,7 +130,13 @@ export function AdminTabs({
 }) {
   // Default "Hari Ini": ini meja kerja, bukan satu antrean. Mendarat di
   // ringkasan dulu berarti admin melihat apa yang menunggu sebelum memilih modul.
-  const [activeTab, setActiveTab] = useState<NilaiModulAdmin>("hari-ini");
+  // `?tab=` membuka satu modul langsung (mis. `?tab=doorprize` untuk doorprize
+  // triwulanan) tanpa menambah sub-path publik di samping rute admin tersembunyi.
+  const [activeTab, setActiveTab] = useState<NilaiModulAdmin>(() =>
+    typeof window === "undefined"
+      ? "hari-ini"
+      : modulDariParameter(new URLSearchParams(window.location.search).get("tab")),
+  );
 
   // Sidebar: bawaan terbuka, dan pilihan petugas yang tersimpan selalu menang.
   // Laci ponsel sebaliknya — ia pintu yang dibuka dengan sengaja, bukan tempat
@@ -411,6 +422,15 @@ export function AdminTabs({
   const pilihMenu = (value: NilaiModulAdmin) => {
     setActiveTab(value);
     setDrawerTerbuka(false);
+    // Simpan modul aktif di URL supaya muat ulang atau tautan yang dibagikan
+    // membuka modul yang sama. `replaceState` tidak menambah entri riwayat.
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tab") !== value) {
+        url.searchParams.set("tab", value);
+        window.history.replaceState(window.history.state, "", url);
+      }
+    }
   };
 
   const semuaItem = menu.flatMap((g) => g.items);

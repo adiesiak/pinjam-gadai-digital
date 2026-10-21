@@ -106,13 +106,18 @@ async function tiketKuartal(
   return [...peta.values()];
 }
 
-/** Tiket aktif milik satu akun pada satu kuartal dan satu peran. */
-async function tiketAktifPengguna(
+/**
+ * Tiket milik satu akun pada satu kuartal dan satu peran.
+ * `aktif` = masih berpeluang menang; `terkumpul` = seluruh tiket kuartal itu
+ * (termasuk yang sudah menang), dipakai untuk menampilkan riwayat setelah
+ * undian selesai. Tiket `batal` tidak dihitung sama sekali.
+ */
+async function tiketPenggunaKuartal(
   ctx: QueryCtx,
   userId: Id<"users">,
   kuartal: Kuartal,
   peran: "peminjam" | "pendana",
-): Promise<number> {
+): Promise<{ aktif: number; terkumpul: number }> {
   const peta = new Map<string, Doc<"doorprizeTiket">>();
   for (const kunci of kunciPeriodeKuartal(kuartal)) {
     const baris = await ctx.db
@@ -123,9 +128,13 @@ async function tiketAktifPengguna(
       .collect();
     for (const row of baris) peta.set(row._id, row);
   }
-  return [...peta.values()].filter(
-    (row) => row.status === "aktif" && row.peran === peran,
-  ).length;
+  const milik = [...peta.values()].filter(
+    (row) => row.peran === peran && row.status !== "batal",
+  );
+  return {
+    aktif: milik.filter((row) => row.status === "aktif").length,
+    terkumpul: milik.length,
+  };
 }
 
 /**
@@ -247,12 +256,20 @@ export const ringkasanSaya = query({
     const sekarang = Date.now();
     const kuartal = kuartalDariWaktu(sekarang);
     const kode = kodeKuartal(kuartal);
-    const [tiketPeminjamAktif, tiketPendanaAktif, hadiah, pemenang] = await Promise.all([
-      tiketAktifPengguna(ctx, userId, kuartal, "peminjam"),
-      tiketAktifPengguna(ctx, userId, kuartal, "pendana"),
+    const [tiketPeminjamKuartal, tiketPendanaKuartal, hadiah, pemenang] = await Promise.all([
+      tiketPenggunaKuartal(ctx, userId, kuartal, "peminjam"),
+      tiketPenggunaKuartal(ctx, userId, kuartal, "pendana"),
       hadiahKuartal(ctx, kuartal),
       pemenangKuartal(ctx, kuartal),
     ]);
+
+    // Setelah undian kuartal ini dijalankan, saldo tiket ditampilkan 0 supaya
+    // jelas tidak ada tiket yang terbawa ke kuartal berikutnya. Jumlah yang
+    // ikut undian tetap dikirim sebagai `tiketTerkumpul` agar riwayatnya jujur.
+    const tiketPeminjamAktif = tiketPeminjamKuartal.aktif;
+    const tiketPendanaAktif = tiketPendanaKuartal.aktif;
+    const terkumpul = tiketPeminjamKuartal.terkumpul + tiketPendanaKuartal.terkumpul;
+    const sudahDiundi = pemenang !== null;
 
     return {
       kode,
@@ -267,9 +284,11 @@ export const ringkasanSaya = query({
       tanggalUndian: pembukaanUndianKuartal(kuartal),
       labelTanggalUndian: labelTanggalUndianKuartal(kuartal),
       bisaDiundi: sekarang >= pembukaanUndianKuartal(kuartal),
-      tiketPeminjam: tiketPeminjamAktif,
-      tiketPendana: tiketPendanaAktif,
-      tiketAktif: tiketPeminjamAktif + tiketPendanaAktif,
+      sudahDiundi,
+      tiketPeminjam: sudahDiundi ? 0 : tiketPeminjamAktif,
+      tiketPendana: sudahDiundi ? 0 : tiketPendanaAktif,
+      tiketAktif: sudahDiundi ? 0 : terkumpul,
+      tiketTerkumpul: terkumpul,
       hadiah: {
         ...hadiah,
         labelKategori: LABEL_KATEGORI_HADIAH[hadiah.kategori],
@@ -293,8 +312,12 @@ export const ringkasanAdmin = query({
       hadiahKuartal(ctx, kuartal),
       pemenangKuartal(ctx, kuartal),
     ]);
-    const aktif = tiket.filter((row) => row.status === "aktif");
-    const peserta = new Set(aktif.map((row) => row.pemilikId as string));
+    // Ringkasan kuartal tetap utuh setelah undian: peserta dan jumlah tiket
+    // dihitung dari seluruh tiket sah (aktif + menang), sedangkan `tiketAktif`
+    // khusus tiket yang masih berpeluang menang.
+    const sah = tiket.filter((row) => row.status !== "batal");
+    const aktif = sah.filter((row) => row.status === "aktif");
+    const peserta = new Set(sah.map((row) => row.pemilikId as string));
     return {
       kode,
       quarter: kuartal.quarter,
@@ -307,7 +330,7 @@ export const ringkasanAdmin = query({
       tanggalUndian: pembukaanUndianKuartal(kuartal),
       labelTanggalUndian: labelTanggalUndianKuartal(kuartal),
       bisaDiundi: sekarang >= pembukaanUndianKuartal(kuartal),
-      jumlahTiket: tiket.length,
+      jumlahTiket: sah.length,
       tiketAktif: aktif.length,
       jumlahPeserta: peserta.size,
       tiketPeminjam: aktif.filter((row) => row.peran === "peminjam").length,

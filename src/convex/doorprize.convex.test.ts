@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "./_generated/api";
 import { beriTiket, beriTiketPendanaan } from "./doorprize";
 import schema from "./schema";
-import { siapkanPengguna } from "./test.helpers";
+import { buatSesiLain, siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 import {
   HADIAH_DOORPRIZE_BAWAAN,
@@ -266,6 +266,17 @@ describe("doorprize triwulanan", () => {
 
     const tiket = await t.run((ctx) => ctx.db.query("doorprizeTiket").collect());
     expect(tiket[0].status).toBe("menang");
+
+    // Saldo tiket pengguna kembali 0 setelah undian, tetapi jumlah yang ikut
+    // undian tetap terbaca agar riwayatnya tidak hilang.
+    const sesiPeminjam = await buatSesiLain(t, "Pemenang Uji", peminjam.userId);
+    const ringkasanPemenang = await sesiPeminjam.sesi.query(api.doorprize.ringkasanSaya, {});
+    expect(ringkasanPemenang?.sudahDiundi).toBe(true);
+    expect(ringkasanPemenang?.tiketPeminjam).toBe(0);
+    expect(ringkasanPemenang?.tiketAktif).toBe(0);
+    expect(ringkasanPemenang?.tiketTerkumpul).toBe(1);
+    expect(ringkasanPemenang?.pemenang?.nama).toBe("Pemenang Uji");
+
     const undian = await t.run((ctx) => ctx.db.query("doorprizeUndian").collect());
     expect(undian).toHaveLength(1);
     expect(undian[0]).toMatchObject({

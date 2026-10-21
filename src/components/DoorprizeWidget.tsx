@@ -65,8 +65,8 @@ export function DoorprizeWidget({
   const tiketSendiri = peran === "peminjam" ? data.tiketPeminjam : data.tiketPendana;
   const sumberPeran =
     peran === "peminjam"
-      ? "Tiket Anda berasal dari pelunasan pinjaman yang tepat waktu."
-      : "Tiket Anda berasal dari penempatan dana Rp1 juta ke atas.";
+      ? "Tiket Anda berasal dari pelunasan tepat waktu (tenor 7, 14, atau 28 hari)."
+      : "Tiket Anda berasal dari setiap kelipatan Rp1 juta penempatan dana aktif.";
 
   return (
     <section
@@ -85,7 +85,7 @@ export function DoorprizeWidget({
             {data.judul}
           </h2>
           <p className="mt-0.5 text-[11px] leading-5 text-slate-600">
-            {data.labelRentang} · undian {data.labelTanggalUndian}
+            {data.labelRentang} · Undian Kuartal {data.quarter}: {data.labelTanggalUndian}
           </p>
         </div>
         <p className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
@@ -96,13 +96,15 @@ export function DoorprizeWidget({
       <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
         <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5">
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-            <Ticket className="size-3.5" aria-hidden /> Tiket saya
+            <Ticket className="size-3.5" aria-hidden /> Jumlah tiket saya
           </p>
           <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">
             {tiketSendiri}
           </p>
           <p className="text-[11px] text-slate-500">
-            {data.tiketAktif} tiket terkumpul kuartal ini
+            {data.sudahDiundi
+              ? `${data.tiketTerkumpul} tiket ikut undian ${data.labelPeriode}; saldo direset`
+              : `${data.tiketAktif} tiket terkumpul kuartal ini`}
           </p>
         </div>
 
@@ -127,9 +129,11 @@ export function DoorprizeWidget({
             {data.labelTanggalUndian}
           </p>
           <p className="text-[11px] tabular-nums text-slate-500">
-            {data.bisaDiundi
-              ? "Pengundian dibuka — pemenang diumumkan admin"
-              : sisaWaktu(data.tanggalUndian, sekarang)}
+            {data.sudahDiundi
+              ? "Undian selesai — pemenang sudah diumumkan"
+              : data.bisaDiundi
+                ? "Pengundian dibuka — pemenang diumumkan admin"
+                : sisaWaktu(data.tanggalUndian, sekarang)}
           </p>
         </div>
       </div>

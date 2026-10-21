@@ -13,6 +13,7 @@ import {
   hitungMenunggu,
   jumlahPerhatianLokasi,
   jumlahPerluKeputusan,
+  modulDariParameter,
   ringkasGrup,
   saringModul,
   type ItemRingkas,
@@ -452,6 +453,18 @@ eq(
 // `ItemRingkas` yang dipakai UI harus lolos tanpa `as`.
 const contohItem: ItemRingkas = { badge: "1", hitung: "menunggu" };
 eq(ringkasGrup([contohItem]), "1", "ItemRingkas kompatibel");
+
+// ===== Tautan langsung `?tab=` =====
+eq(modulDariParameter(null), "hari-ini", "tanpa parameter → meja kerja");
+eq(modulDariParameter("doorprize"), "undian", "alias doorprize → modul undian");
+eq(modulDariParameter(" Doorprize "), "undian", "alias tidak peduli spasi/huruf besar");
+eq(modulDariParameter("undian"), "undian", "nilai modul sah dibuka apa adanya");
+eq(modulDariParameter("kyc"), "kyc", "modul lain tetap bisa ditautkan");
+eq(modulDariParameter("entah"), "hari-ini", "nilai asing jatuh ke meja kerja");
+eq(modulDariParameter(""), "hari-ini", "parameter kosong jatuh ke meja kerja");
+for (const modul of NILAI_MODUL_ADMIN) {
+  eq(modulDariParameter(modul), modul, `setiap modul bisa dibuka lewat ?tab=${modul}`);
+}
 
 console.log(`admin-queue.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

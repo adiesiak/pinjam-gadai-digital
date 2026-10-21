@@ -53,15 +53,33 @@ export const PRESET_HADIAH_DOORPRIZE: readonly PresetHadiah[] = [
   },
   {
     kategori: "GOLD",
+    nama: "Lotus Archi 0,5 gram",
+    nilai: 780_000,
+    ringkas: "Alternatif logam mulia bersertifikat dengan selisih harga yang lebih ringan.",
+  },
+  {
+    kategori: "GOLD",
     nama: "Emas Antam 0,25 gram",
     nilai: 450_000,
     ringkas: "Nominal lebih ringan untuk anggaran kuartal yang ketat.",
   },
   {
     kategori: "GOLD",
+    nama: "Lotus Archi 0,25 gram",
+    nilai: 390_000,
+    ringkas: "Pecahan kecil logam mulia; tetap mudah dikirim.",
+  },
+  {
+    kategori: "GOLD",
     nama: "Emas Antam 0,1 gram",
     nilai: 190_000,
     ringkas: "Hadiah emas termurah; tetap benda fisik bernilai.",
+  },
+  {
+    kategori: "GOLD",
+    nama: "Lotus Archi 0,1 gram",
+    nilai: 175_000,
+    ringkas: "Pilihan paling hemat untuk kuartal yang anggarannya tipis.",
   },
   {
     kategori: "ELECTRONICS",
