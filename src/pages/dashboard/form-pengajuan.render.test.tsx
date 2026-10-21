@@ -205,5 +205,32 @@ ok(
   sumberForm.includes("{lokasi !== null && <BlokLokasiKirim lokasi={lokasi} />}"),
 );
 
+// --- Ringkasan biaya menjabarkan potongan ------------------------------------
+// "Rp 970.000 dari Rp 1.000.000" tanpa rincian terbaca seperti potongan 3%,
+// padahal biaya admin 2% + ekspres 1% diambil di muka dan bunga 30% tetap
+// ditagih di akhir. Kedua potongan harus tampil sebagai barisnya sendiri.
+const mulaiRingkasanHarian = sumberForm.indexOf("Bunga {tarifHarian}");
+const posisiRingkasanHarian = sumberForm.indexOf(
+  "Total potongan di muka ({persenDariPokok",
+  mulaiRingkasanHarian,
+);
+ok("ringkasan biaya punya baris total potongan", posisiRingkasanHarian !== -1);
+for (const label of ["Biaya admin", "Biaya pencairan ekspres"]) {
+  const posisi = sumberForm.indexOf(label, mulaiRingkasanHarian);
+  ok(
+    `baris "${label}" tampil sebelum total`,
+    posisi > mulaiRingkasanHarian && posisi < posisiRingkasanHarian,
+  );
+}
+ok(
+  "total potongan menyebut persentasenya dari pokok",
+  sumberForm.includes("persenDariPokok(q.totalPotonganDiMuka, q.pokok)"),
+);
+ok(
+  "angka rincian diambil dari mesin harga, bukan dihitung di JSX",
+  sumberForm.includes("formatRupiah(q.biayaAdmin)") &&
+    sumberForm.includes("formatRupiah(q.biayaExpress)"),
+);
+
 console.log(`form-pengajuan render tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

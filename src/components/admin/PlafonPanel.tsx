@@ -1,12 +1,16 @@
 import { useMutation, useQuery } from "convex/react";
 import {
+  Bell,
+  BellOff,
   ChevronLeft,
   ChevronRight,
   IdCard,
   Loader2,
+  MoreHorizontal,
   Search,
   SlidersHorizontal,
   Trash2,
+  UserRoundCog,
   Users,
   X,
 } from "lucide-react";
@@ -16,6 +20,13 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -31,10 +42,7 @@ import { DataDiriDialog } from "@/components/admin/DataDiriDialog";
 import { DuplikatNasabahPanel } from "@/components/admin/DuplikatNasabahPanel";
 import { TombolMasukSebagai } from "@/components/admin/MasukSebagaiDialog";
 import { NasabahDetailDialog } from "@/components/admin/NasabahDetailDialog";
-import {
-  DialogMatikanTagihan,
-  TombolNotifikasiTagihan,
-} from "@/components/admin/PengaturanNotifikasiNasabah";
+import { DialogMatikanTagihan } from "@/components/admin/PengaturanNotifikasiNasabah";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
@@ -46,6 +54,7 @@ import {
   PLAFON_BATAS,
   sumberPlafon,
 } from "@/lib/plafon";
+import { cn } from "@/lib/utils";
 
 /**
  * Panel Plafon Nasabah — naikkan/turunkan batas pinjaman satu orang.
@@ -67,8 +76,12 @@ import {
  * Semua aksi lama tetap ada: Profil nasabah, Data diri (termasuk unggah KTP),
  * dan Hapus akun. Yang berubah hanya tempatnya.
  *
- * NOTIFIKASI TAGIHAN: tiap baris membawa tombol "Matikan/Nyalakan tagihan"
- * yang menggerakkan kedua kanal (WhatsApp & email) sekaligus. Tombol memakai
+ * AKSI: seluruh aksi satu baris hidup di menu "Kelola" (`MenuKelolaNasabah`):
+ * atur plafon, profil, data diri, masuk sebagai, sakelar tagihan, dan hapus.
+ * Di layar 1366 deret tombol lama mendorong kolom plafon sampai terpotong.
+ *
+ * NOTIFIKASI TAGIHAN: menu itu memuat "Matikan/Nyalakan tagihan" yang
+ * menggerakkan kedua kanal (WhatsApp & email) sekaligus. Aksinya memakai
  * mutation yang sama dengan kartu profil (`simpanPreferensiNasabah`), sehingga
  * audit trail dan aturan `global && nasabah` tidak punya jalur kedua.
  */
@@ -149,6 +162,108 @@ function LencanaSumber({ pribadi, efektif, global }: { pribadi: number | null; e
   );
 }
 
+/**
+ * Satu menu aksi per nasabah.
+ *
+ * Sebelumnya tiap baris menampilkan lima tombol berdampingan (Atur, Profil,
+ * Data diri, tagihan, Masuk sebagai, hapus). Di layar 1366 deret itu berdesakan
+ * dan mendorong kolom plafon sampai terpotong. Isinya tidak dikurangi, hanya
+ * dipindahkan ke satu pemicu dengan urutan kerja yang sama.
+ */
+function MenuKelolaNasabah({
+  nama,
+  adaDataDiri,
+  notifAktif,
+  sibukNotif,
+  sibukHapus,
+  onAtur,
+  onProfil,
+  onDataDiri,
+  onMasukSebagai,
+  onTagihan,
+  onHapus,
+  className,
+}: {
+  nama: string;
+  adaDataDiri: boolean;
+  notifAktif: boolean;
+  sibukNotif: boolean;
+  sibukHapus: boolean;
+  onAtur: () => void;
+  onProfil: () => void;
+  onDataDiri: () => void;
+  onMasukSebagai: () => void;
+  onTagihan: () => void;
+  onHapus: () => void;
+  className?: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          size="sm"
+          className={cn(
+            "h-9 gap-1.5 rounded-lg bg-emerald-700 px-2.5 text-xs text-white hover:bg-emerald-800",
+            className,
+          )}
+          aria-label={`Kelola ${nama}`}
+        >
+          <MoreHorizontal className="size-4" aria-hidden="true" />
+          Kelola
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuItem onSelect={onAtur} className="gap-2 py-2">
+          <SlidersHorizontal className="size-4 text-muted-foreground" aria-hidden="true" />
+          Atur plafon dan bunga
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onProfil} className="gap-2 py-2">
+          <Users className="size-4 text-muted-foreground" aria-hidden="true" />
+          Profil nasabah
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onDataDiri} className="gap-2 py-2">
+          <IdCard className="size-4 text-muted-foreground" aria-hidden="true" />
+          {adaDataDiri ? "Sunting data diri" : "Isi data diri"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onMasukSebagai} className="gap-2 py-2">
+          <UserRoundCog className="size-4 text-muted-foreground" aria-hidden="true" />
+          Masuk sebagai
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={onTagihan}
+          disabled={sibukNotif}
+          className="gap-2 py-2"
+        >
+          {sibukNotif ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          ) : notifAktif ? (
+            <BellOff className="size-4 text-muted-foreground" aria-hidden="true" />
+          ) : (
+            <Bell className="size-4 text-muted-foreground" aria-hidden="true" />
+          )}
+          {notifAktif ? "Matikan tagihan" : "Nyalakan tagihan"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={onHapus}
+          disabled={sibukHapus}
+          className="gap-2 py-2"
+        >
+          {sibukHapus ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Trash2 className="size-4" aria-hidden="true" />
+          )}
+          Hapus akun
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function PlafonPanel() {
   const [cari, setCari] = useState("");
   const [busyAturId, setBusyAturId] = useState<string | null>(null);
@@ -168,6 +283,8 @@ export function PlafonPanel() {
   const [dataDiriTarget, setDataDiriTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
   /** Nasabah yang profil lengkapnya (KYC, plafon, riwayat) sedang dibuka. */
   const [detailTarget, setDetailTarget] = useState<{ userId: Id<"users"> } | null>(null);
+  /** Nasabah yang dialog "Masuk sebagai"-nya dibuka dari menu Kelola. */
+  const [masukTarget, setMasukTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
   /** Halaman daftar nasabah yang sedang dilihat (10 baris per halaman). */
   const [halaman, setHalaman] = useState(0);
   const data = useQuery(api.admin.daftarPlafonPeminjam, { cari: cari || undefined });
@@ -304,7 +421,7 @@ export function PlafonPanel() {
               <strong className="text-slate-600">plafon progresif</strong> hasil pelunasan tepat waktu ›{" "}
               <strong className="text-slate-600">default global</strong>. Bunga pinjaman mengikuti tabel tenor website
               dan tidak bisa ditimpa dari sini. Pengingat tagihan bisa dimatikan per nasabah lewat
-              tombol <strong className="text-slate-600">Matikan tagihan</strong> di kolom aksi cepat.
+              menu <strong className="text-slate-600">Kelola</strong> di kolom aksi cepat.
             </p>
             <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               <MetrikKartu label="Default plafon" nilai={formatRupiah(data.default)} />
@@ -321,7 +438,7 @@ export function PlafonPanel() {
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-muted-foreground">
                 <li>
                   Default plafon awal diambil dari Pengaturan Sistem dan bisa ditimpa per nasabah
-                  lewat tombol <strong className="text-slate-600">Atur</strong> di kolom aksi cepat.
+                  lewat menu <strong className="text-slate-600">Kelola</strong> di kolom aksi cepat.
                 </li>
                 <li>
                   Nasabah baru dibatasi Rp500.000. Satu pinjaman tunai yang lunas tepat waktu
@@ -502,65 +619,28 @@ export function PlafonPanel() {
                         </div>
                       </td>
 
-                      {/* Aksi cepat */}
+                      {/* Aksi: satu menu, isi tetap lengkap. */}
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap justify-end gap-1.5">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-8 rounded-lg bg-emerald-700 px-2.5 text-xs text-white hover:bg-emerald-800"
-                            onClick={() => setAturTarget(dataAtur(r))}
-                          >
-                            Atur
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 px-2.5 text-xs"
-                            title="Profil, KYC, risiko, dan riwayat nasabah"
-                            onClick={() => setDetailTarget({ userId: r.userId as Id<"users"> })}
-                          >
-                            <Users className="mr-1 size-3.5" /> Profil
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 px-2.5 text-xs"
-                            title={r.adaDataDiri ? "Sunting data diri nasabah" : "Isi data diri nasabah"}
-                            onClick={() => setDataDiriTarget({ userId: r.userId as Id<"users">, nama: r.nama })}
-                          >
-                            <IdCard className="mr-1 size-3.5" />
-                            {r.adaDataDiri ? "Data diri" : "Isi data"}
-                          </Button>
-                          <TombolNotifikasiTagihan
+                        <div className="flex justify-end">
+                          <MenuKelolaNasabah
                             nama={r.nama}
-                            aktif={r.notifTagihanAktif}
-                            sibuk={busyNotifId === r.userId}
-                            className="h-8 px-2.5 text-xs"
-                            onUbah={() => mintaUbahNotifikasi(r)}
+                            adaDataDiri={r.adaDataDiri}
+                            notifAktif={r.notifTagihanAktif}
+                            sibukNotif={busyNotifId === r.userId}
+                            sibukHapus={sedangHapus}
+                            onAtur={() => setAturTarget(dataAtur(r))}
+                            onProfil={() => setDetailTarget({ userId: r.userId as Id<"users"> })}
+                            onDataDiri={() =>
+                              setDataDiriTarget({ userId: r.userId as Id<"users">, nama: r.nama })
+                            }
+                            onMasukSebagai={() =>
+                              setMasukTarget({ userId: r.userId as Id<"users">, nama: r.nama })
+                            }
+                            onTagihan={() => mintaUbahNotifikasi(r)}
+                            onHapus={() =>
+                              setHapusTarget({ userId: r.userId as Id<"users">, nama: r.nama })
+                            }
                           />
-                          <TombolMasukSebagai
-                            targetId={r.userId}
-                            nama={r.nama}
-                            tujuan="dashboard nasabah"
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 border-destructive/30 px-2.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            disabled={sedangHapus}
-                            title="Hapus akun (riwayat keuangan tetap tersimpan)"
-                            onClick={() => setHapusTarget({ userId: r.userId as Id<"users">, nama: r.nama })}
-                          >
-                            {sedangHapus ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="size-3.5" />
-                            )}
-                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -628,58 +708,27 @@ export function PlafonPanel() {
                     )}
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-1.5">
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="rounded-lg bg-emerald-700 text-white hover:bg-emerald-800"
-                      onClick={() => setAturTarget(dataAtur(r))}
-                    >
-                      Atur plafon
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setDetailTarget({ userId: r.userId as Id<"users"> })}
-                    >
-                      <Users className="mr-1 size-3.5" /> Profil
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setDataDiriTarget({ userId: r.userId as Id<"users">, nama: r.nama })}
-                    >
-                      <IdCard className="mr-1 size-3.5" />
-                      {r.adaDataDiri ? "Data diri" : "Isi data"}
-                    </Button>
-                    <TombolNotifikasiTagihan
+                  <div className="mt-3">
+                    <MenuKelolaNasabah
                       nama={r.nama}
-                      aktif={r.notifTagihanAktif}
-                      sibuk={busyNotifId === r.userId}
-                      onUbah={() => mintaUbahNotifikasi(r)}
+                      adaDataDiri={r.adaDataDiri}
+                      notifAktif={r.notifTagihanAktif}
+                      sibukNotif={busyNotifId === r.userId}
+                      sibukHapus={sedangHapus}
+                      onAtur={() => setAturTarget(dataAtur(r))}
+                      onProfil={() => setDetailTarget({ userId: r.userId as Id<"users"> })}
+                      onDataDiri={() =>
+                        setDataDiriTarget({ userId: r.userId as Id<"users">, nama: r.nama })
+                      }
+                      onMasukSebagai={() =>
+                        setMasukTarget({ userId: r.userId as Id<"users">, nama: r.nama })
+                      }
+                      onTagihan={() => mintaUbahNotifikasi(r)}
+                      onHapus={() =>
+                        setHapusTarget({ userId: r.userId as Id<"users">, nama: r.nama })
+                      }
+                      className="h-11 w-full justify-center"
                     />
-                    <TombolMasukSebagai
-                      targetId={r.userId}
-                      nama={r.nama}
-                      tujuan="dashboard nasabah"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      disabled={sedangHapus}
-                      onClick={() => setHapusTarget({ userId: r.userId as Id<"users">, nama: r.nama })}
-                    >
-                      {sedangHapus ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="mr-1 size-3.5" />
-                      )}
-                      Hapus
-                    </Button>
                   </div>
                 </li>
               );
@@ -767,6 +816,22 @@ export function PlafonPanel() {
         <NasabahDetailDialog
           userId={detailTarget.userId}
           onClose={() => setDetailTarget(null)}
+        />
+      )}
+
+      {/* Dialog "Masuk sebagai" dibuka dari menu Kelola. Komponennya tetap
+          memegang seluruh konfirmasi dan pemulihan sesi; hanya pemicunya yang
+          dipindahkan ke menu. */}
+      {masukTarget !== null && (
+        <TombolMasukSebagai
+          targetId={masukTarget.userId}
+          nama={masukTarget.nama}
+          tujuan="dashboard nasabah"
+          terbuka
+          tampilkanTombol={false}
+          onTerbukaChange={(buka) => {
+            if (!buka) setMasukTarget(null);
+          }}
         />
       )}
 

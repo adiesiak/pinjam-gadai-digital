@@ -102,6 +102,16 @@ function simulasiBulananAman(pokok: number, tenorBulan: number, persenBunga?: nu
   }
 }
 
+/**
+ * Persentase satu potongan terhadap pokok, satu desimal gaya Indonesia.
+ * Dipakai ringkasan peminjam supaya angka bersih tidak muncul tanpa asal:
+ * Rp 970.000 dari Rp 1.000.000 berarti potongan 3%, bukan 30%.
+ */
+function persenDariPokok(potongan: number, pokok: number): string {
+  if (!Number.isFinite(potongan) || !Number.isFinite(pokok) || pokok <= 0) return "0";
+  return (Math.round((potongan / pokok) * 1000) / 10).toLocaleString("id-ID");
+}
+
 /** Formulir pengajuan pinjaman. */
 export function LoanForm({
   onCreated,
@@ -947,7 +957,7 @@ export function LoanForm({
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaPlatformTotal)}</dd>
                 </div>
                 <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-                  <dt className="font-medium text-slate-700">Total potongan di muka (admin + ekspres)</dt>
+                  <dt className="font-medium text-slate-700">Total potongan di muka</dt>
                   <dd className="font-medium tabular-nums">{formatRupiah(sim.biayaLayananTotal)}</dd>
                 </div>
               </>
@@ -991,6 +1001,35 @@ export function LoanForm({
               </dt>
               <dd className="font-medium tabular-nums">{formatRupiah(q.bunga)}</dd>
             </div>
+            <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+              <dt className="font-medium text-slate-700">
+                Biaya admin {PINDAI_PRICING.adminFeePercent}% (dipotong di muka)
+              </dt>
+              <dd className="font-medium tabular-nums">{formatRupiah(q.biayaAdmin)}</dd>
+            </div>
+            {q.biayaPlatform > 0 && (
+              <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                <dt className="font-medium text-slate-700">Biaya layanan platform (dipotong di muka)</dt>
+                <dd className="font-medium tabular-nums">{formatRupiah(q.biayaPlatform)}</dd>
+              </div>
+            )}
+            {q.biayaExpress > 0 && (
+              <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                <dt className="font-medium text-slate-700">
+                  Biaya pencairan ekspres (sekali, bukan bunga)
+                </dt>
+                <dd className="font-medium tabular-nums">{formatRupiah(q.biayaExpress)}</dd>
+              </div>
+            )}
+            <div className="flex flex-col gap-1 bg-amber-50 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+              <dt className="font-medium text-amber-900">
+                Total potongan di muka ({persenDariPokok(q.totalPotonganDiMuka, q.pokok)}% dari
+                pokok)
+              </dt>
+              <dd className="font-semibold tabular-nums text-amber-900">
+                {formatRupiah(q.totalPotonganDiMuka)}
+              </dd>
+            </div>
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold text-emerald-800">Perkiraan uang yang diterima (belum dikirim)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>
@@ -1000,6 +1039,13 @@ export function LoanForm({
               <dd className="font-semibold tabular-nums">{formatRupiah(q.totalKewajibanPelunasan)}</dd>
             </div>
           </dl>
+        )}
+        {!bulanan && (
+          <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+            Bunga {formatRupiah(q.bunga)} TIDAK dipotong di muka; bunga itu ditagih saat
+            pelunasan. Jadi yang dikirim ke rekening Anda {formatRupiah(q.danaBersihDitransfer)},
+            dan yang Anda bayar nanti {formatRupiah(q.totalKewajibanPelunasan)}.
+          </p>
         )}
       </div>
 

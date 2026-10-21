@@ -33,15 +33,33 @@ export function TombolMasukSebagai({
   targetId,
   nama,
   tujuan,
+  terbuka: terbukaKendali,
+  onTerbukaChange,
+  tampilkanTombol = true,
 }: {
   targetId: string;
   nama: string;
   /** Ruang tujuan dalam kata-kata pemilik akun (mis. "ruang pendana"). */
   tujuan: string;
+  /**
+   * Mode terkendali: menu aksi di luar komponen ini yang membuka dialognya.
+   * Dialog tetap tinggal di sini supaya alur konfirmasi dan pemulihan sesi tidak
+   * bercabang; yang dipindahkan hanya pemicunya.
+   */
+  terbuka?: boolean;
+  onTerbukaChange?: (terbuka: boolean) => void;
+  /** Sembunyikan tombol pemicu saat dialog dibuka dari menu lain. */
+  tampilkanTombol?: boolean;
 }) {
   const { user } = useAuth();
   const { busy, mulai, tersangkut, akhiriTersangkut } = usePratinjau();
-  const [terbuka, setTerbuka] = useState(false);
+  const [terbukaLokal, setTerbukaLokal] = useState(false);
+  const terbuka = terbukaKendali ?? terbukaLokal;
+  /** Satu pintu ubah: state lokal untuk pemakaian biasa, pemanggil untuk menu. */
+  const ubahTerbuka = (buka: boolean) => {
+    if (terbukaKendali === undefined) setTerbukaLokal(buka);
+    onTerbukaChange?.(buka);
+  };
   const [alasan, setAlasan] = useState("");
   const [pesanGagal, setPesanGagal] = useState<string | null>(null);
 
@@ -79,25 +97,27 @@ export function TombolMasukSebagai({
 
   return (
     <>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="min-h-11 gap-2 rounded-xl sm:min-h-9"
-        onClick={() => {
-          setPesanGagal(null);
-          setTerbuka(true);
-        }}
-      >
-        <UserRoundCog className="size-3.5" aria-hidden="true" />
-        Masuk sebagai
-      </Button>
+      {tampilkanTombol && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="min-h-11 gap-2 rounded-xl sm:min-h-9"
+          onClick={() => {
+            setPesanGagal(null);
+            ubahTerbuka(true);
+          }}
+        >
+          <UserRoundCog className="size-3.5" aria-hidden="true" />
+          Masuk sebagai
+        </Button>
+      )}
 
       <Dialog
         open={terbuka}
         onOpenChange={(buka) => {
           if (busy) return;
-          if (!buka) setTerbuka(false);
+          if (!buka) ubahTerbuka(false);
         }}
       >
         <DialogContent className="max-w-lg">
@@ -164,7 +184,7 @@ export function TombolMasukSebagai({
               variant="outline"
               className="rounded-xl"
               disabled={busy}
-              onClick={() => setTerbuka(false)}
+              onClick={() => ubahTerbuka(false)}
             >
               Batal
             </Button>

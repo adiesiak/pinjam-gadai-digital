@@ -79,6 +79,15 @@ tidakAda(cepat, '"Ambil lokasi"', "tidak ada tombol lokasi terpisah");
 tidakAda(cepat, '"Perbarui lokasi"', "tidak ada tombol perbarui lokasi terpisah");
 ada(cepat, "dokKtpId,", "id dokumen KYC dipakai ulang, tidak diunggah lagi");
 
+// Potongan di muka dipecah: total saja membuat "Rp 970.000" terbaca seperti
+// potongan 3%, padahal isinya biaya admin 2% + ekspres 1%.
+ada(cepat, "Admin {formatRupiah(q.biayaAdmin)}", "rincian biaya admin tampil di bawah total potongan");
+ada(
+  cepat,
+  "ekspres ${formatRupiah(q.biayaExpress)}",
+  "biaya ekspres ikut dirinci saat ada",
+);
+
 // Aturan validasi berasal dari modul murni, bukan ditulis ulang di JSX — dan
 // parameternya SISA batas pinjaman dari server, bukan plafon maksimal: batas
 // yang tertulis di layar harus sama dengan yang diterima validasi pengajuan.

@@ -646,6 +646,11 @@ export function PengajuanCepatSection({
               <div>
                 <dt className="text-muted-foreground">Potongan di muka</dt>
                 <dd className="font-semibold tabular-nums">{formatRupiah(q.totalPotonganDiMuka)}</dd>
+                <dd className="text-[10px] leading-4 text-muted-foreground">
+                  Admin {formatRupiah(q.biayaAdmin)}
+                  {q.biayaPlatform > 0 && ` + platform ${formatRupiah(q.biayaPlatform)}`}
+                  {q.biayaExpress > 0 && ` + ekspres ${formatRupiah(q.biayaExpress)}`}
+                </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Dana bersih diterima</dt>
