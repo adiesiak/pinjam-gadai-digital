@@ -364,6 +364,47 @@ describe("plafon pinjaman per nasabah", () => {
     expect(baris?.plafonEfektif).toBe(8_200_000);
   });
 
+  it("akun nasabah tanpa pengajuan tidak hilang dari panel plafon", async () => {
+    const t = convexTest(schema, modules);
+    // Nasabah yang mendaftar tetapi belum pernah mengajukan apa pun. Dulu akun
+    // seperti ini tidak masuk daftar karena daftarnya dibangun dari catatan
+    // pinjaman/kredit, sehingga jumlahnya berbeda dengan pemilih Mode Nasabah.
+    const { userId: belumMengajukan } = await siapkanPengguna(t, "nasabah baru", {
+      email: "belum-mengajukan@pindai.test",
+      role: "peminjam",
+    });
+    // Pendaftar yang belum punya peran juga dihitung nasabah, sama dengan
+    // `pratinjau.cariNasabahUji`.
+    const pendaftarId = await t.run((ctx) =>
+      ctx.db.insert("users", {
+        name: "pendaftar baru",
+        email: "pendaftar-baru@pindai.test",
+      }),
+    );
+    // Pendana punya ruangnya sendiri dan tidak boleh ikut daftar plafon.
+    const { userId: pendanaId } = await siapkanPengguna(t, "pendana", {
+      email: "pendana-plafon@pindai.test",
+      role: "dana",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin-plafon", {
+      email: "admin-plafon@pindai.test",
+      role: "admin",
+    });
+
+    const daftar = await admin.query(api.admin.daftarPlafonPeminjam, {});
+    const id = daftar.rows.map((r) => r.userId);
+    expect(id).toContain(belumMengajukan);
+    expect(id).toContain(pendaftarId);
+    expect(id).not.toContain(pendanaId);
+
+    const baris = daftar.rows.find((r) => r.userId === belumMengajukan);
+    expect(baris?.jumlahPengajuan).toBe(0);
+    expect(baris?.pinjamanAktif).toBe(0);
+    expect(baris?.plafonEfektif).toBe(PLAFON_DEFAULT);
+    expect(baris?.plafonTersedia).toBe(PLAFON_DEFAULT);
+    expect(baris?.risikoDinilai).toBe(false);
+  });
+
   it("nama nasabah di panel plafon mengikuti catatan pinjaman (sama dengan ruang penyedia dana)", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "nina akun", {

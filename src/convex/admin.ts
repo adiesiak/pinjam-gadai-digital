@@ -67,9 +67,13 @@ async function requireAdmin(ctx: QueryCtx) {
 // ===== Plafon pinjaman per nasabah (lihat lib/plafon.ts) =====
 
 /**
- * Daftar Peminjam + plafon efektifnya — untuk panel atur plafon.
- * Menampilkan peminjam yang pernah bertransaksi (pernah mengajukan apa pun)
- * ditambah pengguna dengan override; bukan seluruh tabel users.
+ * Daftar nasabah + plafon efektifnya — untuk panel atur plafon.
+ *
+ * Memuat SEMUA akun nasabah, termasuk yang belum pernah mengajukan apa pun:
+ * akun seperti itu sudah tampil di pemilih Mode Nasabah dan plafon awalnya
+ * tetap perlu bisa dibaca serta diatur. Dulu daftar ini hanya berisi pemilik
+ * catatan pinjaman/kredit, sehingga kedua layar berbeda jumlah. Akun pendana,
+ * pemantau, admin, dan sesi anonim tidak ikut.
  */
 export const daftarPlafonPeminjam = query({
   args: { cari: v.optional(v.string()) },
@@ -119,9 +123,15 @@ export const daftarPlafonPeminjam = query({
         (pelunasanTepatWaktuPerUser.get(loan.userId) ?? 0) + 1,
       );
     }
-    const idPeminjam = new Set<string>();
-    for (const l of loans) idPeminjam.add(l.userId);
-    for (const k of kredits) idPeminjam.add(k.userId);
+    const semuaUser = await ctx.db.query("users").collect();
+    const userPer = new Map(semuaUser.map((u) => [u._id, u]));
+    const idNasabah = new Set<string>();
+    for (const l of loans) idNasabah.add(l.userId);
+    for (const k of kredits) idNasabah.add(k.userId);
+    for (const u of semuaUser) {
+      if (u.isAnonymous === true) continue;
+      if (u.role === undefined || u.role === ROLES.PEMINJAM) idNasabah.add(u._id);
+    }
 
     // Nama peminjam mengikuti CATATAN PINJAMAN (`loans.namaLengkap` /
     // `kreditBarang.namaLengkap`) — sumber yang sama dengan baris di ruang
@@ -177,20 +187,11 @@ export const daftarPlafonPeminjam = query({
       /** true hanya bila kedua kanal menyala — keadaan tombol cepat tagihan. */
       notifTagihanAktif: boolean;
     }> = [];
-    for (const id of idPeminjam) {
-      const user = (await ctx.db.get(id as never)) as
-        | {
-            name?: string;
-            email?: string;
-            role?: string;
-            plafonPinjaman?: number;
-            persenBunga?: number;
-            whatsappNotificationEnabled?: boolean;
-            notifWhatsapp?: boolean;
-            notifEmail?: boolean;
-          }
-        | null;
-      if (user === null) continue;
+    for (const id of idNasabah) {
+      // Dibaca dari peta yang sudah dimuat di atas: menambah seluruh akun
+      // nasabah tidak boleh berubah menjadi satu query per baris.
+      const user = userPer.get(id as Id<"users">);
+      if (user === undefined) continue;
       const pinjamanUser = loans.filter((l) => l.userId === id);
       const kreditUser = kredits.filter((k) => k.userId === id);
       // Grade risiko memakai MODEL YANG SAMA dengan detail nasabah
