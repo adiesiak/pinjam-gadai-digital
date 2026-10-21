@@ -1665,7 +1665,14 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                     {detail.namaLengkap ?? "Nasabah"}
                   </p>
                   <StatusKycBadge status={detail.status} className="shrink-0" />
-                  <span className="flex min-w-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 pl-1.5 pr-0.5">
+                  <span
+                    className={cn(
+                      "flex min-w-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 pl-1.5",
+                      // Tanpa kode tidak ada yang bisa disalin: jangan tampilkan
+                      // tombol salin yang tidak berbuat apa-apa.
+                      detail.kodePeminjam === null ? "pr-1.5" : "pr-0.5",
+                    )}
+                  >
                     <code
                       className="truncate font-mono text-[11px] text-slate-700"
                       title={detail.kodePeminjam ?? "tanpa kode nasabah"}
@@ -1674,35 +1681,27 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                         ? "tanpa kode nasabah"
                         : potongTengah(detail.kodePeminjam, 20)}
                     </code>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="size-6"
-                      aria-label="Salin kode pengajuan"
-                      title="Salin kode pengajuan"
-                      onClick={() => void salinKode(detail.kodePeminjam)}
-                    >
-                      {tersalin ? (
-                        <Check className="size-3.5 text-emerald-800" aria-hidden />
-                      ) : (
-                        <Copy className="size-3.5" aria-hidden />
-                      )}
-                    </Button>
+                    {detail.kodePeminjam !== null && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="size-6"
+                        aria-label="Salin kode pengajuan"
+                        title="Salin kode pengajuan"
+                        onClick={() => void salinKode(detail.kodePeminjam)}
+                      >
+                        {tersalin ? (
+                          <Check className="size-3.5 text-emerald-800" aria-hidden />
+                        ) : (
+                          <Copy className="size-3.5" aria-hidden />
+                        )}
+                      </Button>
+                    )}
                   </span>
-                  {/* Aksi tagihan untuk nasabah yang sedang diperiksa. Satu
-                      tombol, sama dengan daftar Plafon Nasabah: menyalakan
-                      langsung, mematikan lewat dialog konfirmasi. */}
-                  <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                    <AksiNotifikasiTagihan
-                      userId={dipilih}
-                      nama={detail.namaLengkap ?? "Nasabah"}
-                      className="h-7 px-2 text-[11px]"
-                    />
-                    <span className="whitespace-nowrap text-[11px] tabular-nums text-slate-600">
-                      diajukan {waktu(detail.diajukanPada)}
-                    </span>
-                  </div>
+                  <span className="ml-auto shrink-0 whitespace-nowrap text-[11px] tabular-nums text-slate-600">
+                    diajukan {waktu(detail.diajukanPada)}
+                  </span>
                 </div>
                 {galat !== null && (
                   <p role="alert" className="mt-1 text-[11px] leading-4 text-red-700">
@@ -1889,10 +1888,22 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                   </ul>
                 )}
 
-                <p className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                  <Keyboard className="size-3.5 shrink-0" aria-hidden />
-                  Pintasan: {PINTASAN_KYC.map((p) => `${p.tombol} ${p.arti}`).join(" · ")}
-                </p>
+                {/* Baris bantu: pintasan papan tombol (kiri) dan satu aksi
+                    tagihan per nasabah (kanan). Aksi tagihan ditaruh di sini —
+                    bukan di kepala identitas — supaya nama lengkap dan kode
+                    nasabah tetap satu baris, sementara tombol ini selalu
+                    terlihat karena bar aksi menempel di bawah panel. */}
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                  <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-slate-600">
+                    <Keyboard className="size-3.5 shrink-0" aria-hidden />
+                    Pintasan: {PINTASAN_KYC.map((p) => `${p.tombol} ${p.arti}`).join(" · ")}
+                  </p>
+                  <AksiNotifikasiTagihan
+                    userId={dipilih}
+                    nama={detail.namaLengkap ?? "Nasabah"}
+                    className="h-7 shrink-0 px-2 text-[11px]"
+                  />
+                </div>
               </footer>
             </>
           )}
