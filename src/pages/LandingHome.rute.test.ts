@@ -50,9 +50,32 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   // memuat ulang seluruh halaman dan tidak bisa dibuka di tab baru.
   tidakAda(sumber, "window.location.assign", "CTA hero memakai navigasi router");
   // Menu ponsel berbasis `<details>` tetap terbuka setelah tautan dipilih dan
-  // tidak tertutup oleh Escape.
-  tidakAda(sumber, "<details className", "menu informasi ponsel dikelola state");
-  ada(sumber, "aria-expanded", "tombol menu mengumumkan keadaannya");
+  // tidak tertutup oleh Escape. Perilakunya kini satu komponen bersama.
+  tidakAda(sumber, "<details className", "beranda tidak memakai <details>");
+  ada(sumber, "<MenuInformasiPonsel", "beranda memakai menu ponsel bersama");
+}
+
+// Tiga halaman publik memakai menu ponsel yang sama; tidak boleh ada satu pun
+// yang kembali ke `<details>`.
+for (const berkas of ["./PublicInfoPage.tsx", "./UnduhAplikasi.tsx"]) {
+  const sumber = readFileSync(
+    fileURLToPath(new URL(berkas, import.meta.url)),
+    "utf8",
+  );
+  ada(sumber, "<MenuInformasiPonsel", `${berkas} memakai menu ponsel bersama`);
+  tidakAda(sumber, "<details className", `${berkas} tidak memakai <details>`);
+}
+
+// Komponen bersama: keadaan diumumkan, Escape menutup, dan klik di luar menutup.
+{
+  const komponen = readFileSync(
+    fileURLToPath(new URL("../components/MenuInformasiPonsel.tsx", import.meta.url)),
+    "utf8",
+  );
+  ada(komponen, "aria-expanded", "tombol menu mengumumkan keadaannya");
+  ada(komponen, '"Escape"', "Escape menutup menu");
+  ada(komponen, "pointerdown", "klik di luar menu ditangani");
+  ada(komponen, "onClick={tutup}", "tautan menutup menu setelah dipilih");
 }
 
 // Shell aplikasi: sinkronisasi tema memakai `useLocation`, jadi ia harus

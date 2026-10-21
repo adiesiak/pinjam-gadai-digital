@@ -11,11 +11,12 @@
  *  - siap: versi, ukuran, dan tautan unduhan;
  *  - gagal: alasan yang bisa dibaca, tombol coba lagi, dan tautan APK cadangan.
  */
-import { ChevronDown, Download, Menu, MessageCircle, RefreshCw } from "lucide-react";
+import { ChevronDown, Download, MessageCircle, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
+import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { VaultLogo } from "@/components/VaultLogo";
 import { bukaLuarJendela } from "@/lib/jembatanAndroid";
 import {
@@ -45,6 +46,12 @@ const tautanInformasi = [
   { href: "/cara-kerja", label: "Cara kerja" },
   { href: "/keamanan", label: "Keamanan" },
   { href: "/faq", label: "FAQ" },
+] as const;
+
+/** Menu ponsel menambahkan halaman ini sendiri, ditandai sebagai halaman aktif. */
+const TAUTAN_MENU = [
+  ...tautanInformasi,
+  { href: "/aplikasi", label: "Aplikasi Android", aktif: true },
 ] as const;
 
 const langkahPasang = [
@@ -218,35 +225,13 @@ export function UnduhAplikasiView({
           </nav>
 
           <div className="flex items-center gap-2">
-            <details className="group relative lg:hidden">
-              <summary
-                className="flex size-11 cursor-pointer list-none items-center justify-center rounded-lg border border-[#d5e1d8] text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
-                aria-label="Buka menu informasi"
-              >
-                <Menu className="size-5" aria-hidden="true" />
-              </summary>
-              <nav
-                aria-label="Menu informasi"
-                className="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-[#d5e1d8] bg-[#fbfcfa] p-2 text-sm shadow-lg"
-              >
-                {tautanInformasi.map((item) => (
-                  <Link
-                    key={item.href}
-                    to={item.href}
-                    className="rounded-lg px-3 py-3 hover:bg-[#edf4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                <Link
-                  to="/aplikasi"
-                  aria-current="page"
-                  className="rounded-lg px-3 py-3 font-semibold text-[#065f46] hover:bg-[#edf4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
-                >
-                  Aplikasi Android
-                </Link>
-              </nav>
-            </details>
+            <MenuInformasiPonsel
+              tautan={TAUTAN_MENU}
+              kelasTombol="flex size-11 items-center justify-center rounded-lg border border-[#d5e1d8] text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+              kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-[#d5e1d8] bg-[#fbfcfa] p-2 text-sm shadow-lg"
+              kelasTautan="rounded-lg px-3 py-3 hover:bg-[#edf4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+              kelasTautanAktif="font-semibold text-[#065f46]"
+            />
 
             <Button asChild variant="outline" className="min-h-11">
               <Link to="/auth">Masuk</Link>
@@ -689,7 +674,6 @@ export default function UnduhAplikasi() {
 
   useEffect(() => {
     let dibatalkan = false;
-    setHasil(null);
     void muatInfoUnduhan().then((jawaban) => {
       if (!dibatalkan) setHasil(jawaban);
     });
@@ -708,7 +692,12 @@ export default function UnduhAplikasi() {
       alasan={hasil?.ok === false ? hasil.alasan : null}
       terpasang={terpasang}
       perangkat={perangkat}
-      onMuatUlang={() => setPercobaan((n) => n + 1)}
+      onMuatUlang={() => {
+        // Kembalikan ke keadaan memuat SEBELUM mencoba lagi, supaya alasan
+        // kegagalan yang lama tidak tetap tampil selama permintaan berjalan.
+        setHasil(null);
+        setPercobaan((n) => n + 1);
+      }}
     />
   );
 }

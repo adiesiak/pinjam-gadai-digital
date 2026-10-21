@@ -7,11 +7,11 @@ import {
   Calculator,
   FileText,
   LockKeyhole,
-  Menu,
   ShieldCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { api } from "@/convex/_generated/api";
 import {
   Accordion,
@@ -52,6 +52,18 @@ import { MAX_FILE_BYTES, GAMBAR_DITERIMA } from "@/lib/kyc";
  * FAQ disusun dari tarif yang berlaku supaya jawaban denda tidak lagi ditulis
  * tetap: angka di halaman ini harus sama dengan yang dipakai mesin pinjaman.
  */
+/** Menu ponsel: satu daftar untuk tombol pemicu di header. */
+const TAUTAN_MENU = [
+  { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
+  { href: "/layanan/gadai", label: "Gadai" },
+  { href: "/layanan/kredit-barang", label: "Kredit barang" },
+  { href: "/biaya", label: "Biaya" },
+  { href: "/cara-kerja", label: "Cara kerja" },
+  { href: "/keamanan", label: "Keamanan" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/aplikasi", label: "Aplikasi Android" },
+] as const;
+
 function daftarFaq(dendaPerHari: number, maksDenda: number) {
   return [
   {
@@ -121,67 +133,12 @@ function Header() {
           <Link to="/aplikasi">Aplikasi</Link>
         </nav>
         <div className="flex items-center gap-2">
-          <details className="group relative lg:hidden">
-            <summary
-              className="flex size-11 cursor-pointer list-none items-center justify-center rounded-lg border border-slate-200 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800"
-              aria-label="Buka menu informasi"
-            >
-              <Menu className="size-5" aria-hidden="true" />
-            </summary>
-            <nav
-              aria-label="Menu informasi"
-              className="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg"
-            >
-              <Link
-                className="rounded-lg px-3 py-3 hover:bg-slate-50"
-                to="/layanan/pinjaman-tunai"
-              >
-                Pinjaman tunai
-              </Link>
-              <Link
-                className="rounded-lg px-3 py-3 hover:bg-slate-50"
-                to="/layanan/gadai"
-              >
-                Gadai
-              </Link>
-              <Link
-                className="rounded-lg px-3 py-3 hover:bg-slate-50"
-                to="/layanan/kredit-barang"
-              >
-                Kredit barang
-              </Link>
-              <Link
-                className="rounded-lg px-3 py-3 hover:bg-slate-50"
-                to="/biaya"
-              >
-                Biaya
-              </Link>
-              <Link
-                className="rounded-lg px-3 py-3 hover:bg-slate-50"
-                to="/cara-kerja"
-              >
-                Cara kerja
-              </Link>
-              <Link
-                className="rounded-lg px-3 py-3 hover:bg-slate-50"
-                to="/keamanan"
-              >
-                Keamanan
-              </Link>
-              <Link
-                className="rounded-lg px-3 py-3 hover:bg-slate-50"
-                to="/faq"
-              >
-                FAQ
-              </Link>
-              <Link
-                className="rounded-lg px-3 py-3 hover:bg-slate-50"
-                to="/aplikasi"
-              >
-                Aplikasi Android
-              </Link>
-            </nav>
-          </details>
+          <MenuInformasiPonsel
+            tautan={TAUTAN_MENU}
+            kelasTombol="flex size-11 items-center justify-center rounded-lg border border-slate-200 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800"
+            kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg"
+            kelasTautan="rounded-lg px-3 py-3 hover:bg-slate-50"
+          />
           <Button asChild variant="outline" className="min-h-11">
             <Link to="/">Beranda</Link>
           </Button>

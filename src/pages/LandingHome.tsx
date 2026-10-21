@@ -4,7 +4,6 @@ import {
   Calculator,
   FileText,
   LockKeyhole,
-  Menu,
   ShieldCheck,
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -14,6 +13,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
@@ -35,6 +35,18 @@ const HREF_LAYANAN = [
   "/layanan/pinjaman-tunai",
   "/layanan/gadai",
   "/layanan/kredit-barang",
+] as const;
+
+/** Menu ponsel: satu daftar untuk tombol pemicu di header. */
+const TAUTAN_MENU = [
+  { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
+  { href: "/layanan/gadai", label: "Gadai" },
+  { href: "/layanan/kredit-barang", label: "Kredit barang" },
+  { href: "/biaya", label: "Biaya" },
+  { href: "/cara-kerja", label: "Cara kerja" },
+  { href: "/keamanan", label: "Keamanan" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/aplikasi", label: "Aplikasi Android" },
 ] as const;
 
 const HREF_PANDUAN = [
@@ -59,15 +71,15 @@ const DemoPengajuan = lazy(() =>
 
 function DemoPengajuanTerlihat() {
   const wadah = useRef<HTMLDivElement>(null);
-  const [tampil, setTampil] = useState(false);
+  // Peramban tanpa IntersectionObserver langsung menampilkan demo: tidak ada
+  // sinyal "hampir terlihat" yang bisa ditunggu di sana.
+  const [tampil, setTampil] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
 
   useEffect(() => {
     const el = wadah.current;
     if (el === null || tampil) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setTampil(true);
-      return;
-    }
     const pengamat = new IntersectionObserver(
       (entri) => {
         if (entri.some((satu) => satu.isIntersecting)) {
@@ -118,14 +130,6 @@ export default function LandingHome() {
    * ada di halaman masuk (kata sandi + TOTP).
    */
   const [showAdminShortcut, setShowAdminShortcut] = useState(false);
-  /**
-   * Menu informasi ponsel dikelola state, bukan `<details>`. Dengan `<details>`
-   * menu tetap terbuka setelah satu tautan dipilih dan tidak bisa ditutup
-   * dengan Escape, sehingga satu tujuan butuh dua ketukan di layar kecil.
-   */
-  const [menuTerbuka, setMenuTerbuka] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const tutupMenu = () => setMenuTerbuka(false);
   const logoClickCountRef = useRef(0);
   const logoClickTimerRef = useRef<number | null>(null);
 
@@ -150,25 +154,6 @@ export default function LandingHome() {
       if (logoClickTimerRef.current !== null) window.clearTimeout(logoClickTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    if (!menuTerbuka) return;
-    const saatTombol = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuTerbuka(false);
-    };
-    const saatKlikLuar = (event: PointerEvent) => {
-      const sasaran = event.target as Node | null;
-      if (sasaran !== null && menuRef.current?.contains(sasaran) !== true) {
-        setMenuTerbuka(false);
-      }
-    };
-    window.addEventListener("keydown", saatTombol);
-    window.addEventListener("pointerdown", saatKlikLuar);
-    return () => {
-      window.removeEventListener("keydown", saatTombol);
-      window.removeEventListener("pointerdown", saatKlikLuar);
-    };
-  }, [menuTerbuka]);
 
   // Jalur kedua: Ctrl+Alt+A. Diabaikan saat fokus di medan isian supaya tidak
   // mencuri pintasan dari pengguna yang sedang mengetik.
@@ -248,82 +233,12 @@ export default function LandingHome() {
                 <ShieldCheck className="size-5" aria-hidden="true" />
               </Link>
             )}
-            <div ref={menuRef} className="relative lg:hidden">
-              <button
-                type="button"
-                onClick={() => setMenuTerbuka((terbuka) => !terbuka)}
-                aria-expanded={menuTerbuka}
-                aria-controls="menu-informasi-ponsel"
-                aria-label={menuTerbuka ? "Tutup menu informasi" : "Buka menu informasi"}
-                className="flex size-11 items-center justify-center rounded-lg border border-border text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Menu className="size-5" aria-hidden="true" />
-              </button>
-              {menuTerbuka && (
-                <nav
-                  id="menu-informasi-ponsel"
-                  aria-label="Menu informasi"
-                  className="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
-                >
-                  <Link
-                    className="rounded-lg px-3 py-3 hover:bg-muted"
-                    to="/layanan/pinjaman-tunai"
-                    onClick={tutupMenu}
-                  >
-                    Pinjaman tunai
-                  </Link>
-                  <Link
-                    className="rounded-lg px-3 py-3 hover:bg-muted"
-                    to="/layanan/gadai"
-                    onClick={tutupMenu}
-                  >
-                    Gadai
-                  </Link>
-                  <Link
-                    className="rounded-lg px-3 py-3 hover:bg-muted"
-                    to="/layanan/kredit-barang"
-                    onClick={tutupMenu}
-                  >
-                    Kredit barang
-                  </Link>
-                  <Link
-                    className="rounded-lg px-3 py-3 hover:bg-muted"
-                    to="/biaya"
-                    onClick={tutupMenu}
-                  >
-                    Biaya
-                  </Link>
-                  <Link
-                    className="rounded-lg px-3 py-3 hover:bg-muted"
-                    to="/cara-kerja"
-                    onClick={tutupMenu}
-                  >
-                    Cara kerja
-                  </Link>
-                  <Link
-                    className="rounded-lg px-3 py-3 hover:bg-muted"
-                    to="/keamanan"
-                    onClick={tutupMenu}
-                  >
-                    Keamanan
-                  </Link>
-                  <Link
-                    className="rounded-lg px-3 py-3 hover:bg-muted"
-                    to="/faq"
-                    onClick={tutupMenu}
-                  >
-                    FAQ
-                  </Link>
-                  <Link
-                    className="rounded-lg px-3 py-3 hover:bg-muted"
-                    to="/aplikasi"
-                    onClick={tutupMenu}
-                  >
-                    Aplikasi Android
-                  </Link>
-                </nav>
-              )}
-            </div>
+            <MenuInformasiPonsel
+              tautan={TAUTAN_MENU}
+              kelasTombol="flex size-11 items-center justify-center rounded-lg border border-border text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
+              kelasTautan="rounded-lg px-3 py-3 hover:bg-muted"
+            />
             {isLoading ? (
               <Button
                 disabled
