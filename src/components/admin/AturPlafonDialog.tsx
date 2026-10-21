@@ -14,26 +14,25 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import type { Id } from "@/convex/_generated/dataModel";
-import { BUNGA_BATAS, BUNGA_LANGKAH, clampPersenBunga } from "@/lib/bunga";
 import { formatRupiah } from "@/lib/money";
 import { clampPlafon, PLAFON_BATAS, PLAFON_LANGKAH } from "@/lib/plafon";
 
 /**
- * MODAL ATUR PLAFON & BUNGA — satu tindakan untuk dua angka.
+ * MODAL ATUR PLAFON — satu angka, satu sumber.
  *
- * Sebelumnya plafon dan bunga disimpan lewat dua tombol terpisah di dalam kartu
- * nasabah: admin harus menekan "Simpan" dua kali, dan tidak ada satu tempat yang
- * memperlihatkan akibat gabungannya. Dialog ini menyatukannya:
+ * Bunga TIDAK diatur di sini: tarif pinjaman mengikuti tabel tenor website
+ * (harian 7/14/28 hari sesuai nominal, bulanan mengikuti tenor), jadi angka
+ * yang diketik admin tidak boleh menimpanya. Dialog ini hanya menetapkan batas
+ * pinjaman nasabah; konsekuensi tarifnya dijelaskan sebagai catatan, bukan
+ * sebagai isian.
  *
- *  - Pilihan tunggal (radio) menentukan sumber angka: mengikuti Parameter
- *    Global System, atau atur khusus nasabah ini. Memilih global mengirim
- *    `null` ke mutation yang sama seperti tombol reset lama — jadi tidak ada
- *    jalur backend baru, hanya satu jalur yang lebih jelas.
+ *  - Pilihan tunggal (radio) menentukan sumber plafon: mengikuti Parameter
+ *    Global System, atau khusus nasabah ini. Memilih global mengirim `null` ke
+ *    mutation yang sama dengan tombol reset lama.
  *  - Kalkulasi real-time [Terpakai] + [Sisa Limit] = [Total Plafon] memakai
  *    angka SERVER (`plafonTerpakai`), bukan hitungan di klien, sehingga admin
  *    melihat sisa yang benar-benar dipakai validasi pengajuan.
- *  - Catatan audit ikut dikirim sebagai `alasan` ke kedua mutation — itulah
- *    sebab catatan ini ada di dalam modal, bukan di luar.
+ *  - Catatan audit ikut dikirim sebagai `alasan`.
  *
  * Komponen ini murni tampilan + keadaan form: seluruh penyimpanan dikerjakan
  * pemanggil lewat `onSimpan` supaya hanya ada SATU tempat yang memanggil
@@ -50,9 +49,6 @@ export type NasabahPlafon = {
   plafonTerpakai: number;
   /** Override plafon; null = mengikuti default/progresif. */
   plafonPribadi: number | null;
-  persenBungaEfektif: number;
-  /** Override bunga; null = mengikuti default global. */
-  persenBungaPribadi: number | null;
 };
 
 export type NilaiAturPlafon = {
@@ -60,8 +56,6 @@ export type NilaiAturPlafon = {
   pakaiGlobal: boolean;
   /** Nominal plafon khusus (rupiah mentah; dijepit server maupun klien). */
   plafon: number;
-  /** Persen bunga efektif khusus. */
-  persenBunga: number;
   /** Catatan audit — dikirim sebagai `alasan` bila diisi. */
   catatan: string;
 };
@@ -72,20 +66,9 @@ function parseAngka(nilai: string): number {
   return Number.isFinite(angka) ? angka : 0;
 }
 
-/** "12,5" → 12.5; kosong / tak valid → 0. */
-function parsePersen(nilai: string): number {
-  const angka = Number(nilai.replace(",", ".").replace(/[^\d.]/g, ""));
-  return Number.isFinite(angka) ? angka : 0;
-}
-
 /** 1000000 → "1.000.000" untuk kolom isian. */
 function formatAngka(nilai: number): string {
   return new Intl.NumberFormat("id-ID").format(nilai);
-}
-
-/** 12.5 → "12,5" (tanpa tanda persen). */
-function formatPersenAngka(nilai: number): string {
-  return String(nilai).replace(".", ",");
 }
 
 export function AturPlafonDialog({
@@ -97,34 +80,27 @@ export function AturPlafonDialog({
 }: {
   nasabah: NasabahPlafon;
   /** Parameter global yang sedang berlaku — acuan pilihan "ikut global". */
-  global: { plafon: number; bunga: number };
+  global: { plafon: number };
   busy: boolean;
   onClose: () => void;
   onSimpan: (nilai: NilaiAturPlafon) => void;
 }) {
   const id = useId();
-  /** Nasabah yang belum punya override apa pun otomatis mulai dari "global". */
-  const [pakaiGlobal, setPakaiGlobal] = useState(
-    nasabah.plafonPribadi === null && nasabah.persenBungaPribadi === null,
-  );
+  /** Nasabah yang belum punya override otomatis mulai dari "global". */
+  const [pakaiGlobal, setPakaiGlobal] = useState(nasabah.plafonPribadi === null);
   const [plafon, setPlafon] = useState(formatAngka(nasabah.plafonEfektif));
-  const [bunga, setBunga] = useState(formatPersenAngka(nasabah.persenBungaEfektif));
   const [catatan, setCatatan] = useState("");
 
   const angkaPlafon = clampPlafon(parseAngka(plafon));
-  const angkaBunga = clampPersenBunga(parsePersen(bunga));
 
   const totalPlafon = pakaiGlobal ? clampPlafon(global.plafon) : angkaPlafon;
-  const bungaEfektif = pakaiGlobal ? global.bunga : angkaBunga;
   const terpakai = nasabah.plafonTerpakai;
   const sisa = Math.max(0, totalPlafon - terpakai);
   /** Plafon di bawah utang berjalan: sah disimpan, tetapi wajib diberi tanda. */
   const kurangDariTerpakai = terpakai > totalPlafon;
 
   const targetPlafon: number | null = pakaiGlobal ? null : angkaPlafon;
-  const targetBunga: number | null = pakaiGlobal ? null : angkaBunga;
-  const adaPerubahan =
-    targetPlafon !== nasabah.plafonPribadi || targetBunga !== nasabah.persenBungaPribadi;
+  const adaPerubahan = targetPlafon !== nasabah.plafonPribadi;
 
   return (
     <Dialog
@@ -135,11 +111,12 @@ export function AturPlafonDialog({
     >
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Atur Plafon &amp; Bunga</DialogTitle>
+          <DialogTitle>Atur Plafon</DialogTitle>
           <DialogDescription>
-            Satu penyimpanan untuk dua angka: batas pinjaman dan bunga efektif{" "}
-            <strong className="text-navy">{nasabah.nama.toUpperCase()}</strong>. Perubahan tercatat
-            di Audit Trail.
+            Batas pinjaman untuk{" "}
+            <strong className="text-navy">{nasabah.nama.toUpperCase()}</strong>. Bunga tidak diatur di
+            sini; tarifnya mengikuti tenor yang dipilih saat pengajuan. Perubahan tercatat di Audit
+            Trail.
           </DialogDescription>
         </DialogHeader>
 
@@ -147,7 +124,7 @@ export function AturPlafonDialog({
         <RadioGroup
           value={pakaiGlobal ? "global" : "khusus"}
           onValueChange={(nilai) => setPakaiGlobal(nilai === "global")}
-          aria-label="Sumber parameter plafon dan bunga"
+          aria-label="Sumber parameter plafon"
           className="gap-2"
         >
           <label
@@ -162,8 +139,7 @@ export function AturPlafonDialog({
                 <Globe className="size-3.5 text-emerald-700" /> Ikut Parameter Global System
               </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                Plafon {formatRupiah(global.plafon)} · bunga {formatPersenAngka(global.bunga)}%.
-                Override khusus nasabah ini dihapus.
+                Plafon {formatRupiah(global.plafon)}. Override khusus nasabah ini dihapus.
               </span>
             </span>
           </label>
@@ -181,14 +157,15 @@ export function AturPlafonDialog({
               </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                 Override berlaku untuk pengajuan berikutnya; pinjaman yang sudah cair tetap memakai
-                snapshot bunganya.
+                snapshot-nya. Bunga tetap mengikuti tenor 7/14/28 hari (harian) atau tenor bulan
+                yang dipilih.
               </span>
             </span>
           </label>
         </RadioGroup>
 
         {/* ── Form nilai khusus ── */}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3">
           <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
             <Label htmlFor={`${id}-plafon`} className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               Nominal plafon maksimal
@@ -216,32 +193,11 @@ export function AturPlafonDialog({
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-            <Label htmlFor={`${id}-bunga`} className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              % Suku bunga efektif
-            </Label>
-            <div className="relative mt-1.5">
-              <Input
-                id={`${id}-bunga`}
-                inputMode="decimal"
-                className="pr-8 tabular-nums"
-                value={pakaiGlobal ? formatPersenAngka(global.bunga) : bunga}
-                disabled={pakaiGlobal || busy}
-                onChange={(e) => setBunga(e.target.value.replace(/[^\d.,]/g, ""))}
-                onBlur={() => setBunga(formatPersenAngka(clampPersenBunga(parsePersen(bunga))))}
-              />
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400"
-              >
-                %
-              </span>
-            </div>
-            <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground">
-              Langkah {formatPersenAngka(BUNGA_LANGKAH)}% · rentang {BUNGA_BATAS.min}–
-              {BUNGA_BATAS.maks}%
-            </p>
-          </div>
+          <p className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] leading-5 text-muted-foreground">
+            Bunga pinjaman mengikuti tabel tenor website: harian 7/14/28 hari (26–40% sesuai
+            nominal) dan bulanan 30/25/20% per bulan untuk tenor 1/3/6 bulan. Plafon hanya
+            menentukan batas pokok, bukan tarifnya.
+          </p>
         </div>
 
         {/* ── Kalkulasi real-time ── */}
@@ -287,9 +243,7 @@ export function AturPlafonDialog({
               </span>
             </p>
           )}
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Bunga efektif setelah disimpan: <strong className="text-navy">{formatPersenAngka(bungaEfektif)}%</strong>
-          </p>
+
         </section>
 
         {/* ── Catatan audit ── */}
@@ -321,7 +275,6 @@ export function AturPlafonDialog({
               onSimpan({
                 pakaiGlobal,
                 plafon: angkaPlafon,
-                persenBunga: angkaBunga,
                 catatan: catatan.trim(),
               })
             }

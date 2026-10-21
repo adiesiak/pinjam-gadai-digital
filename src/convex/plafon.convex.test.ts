@@ -405,6 +405,34 @@ describe("plafon pinjaman per nasabah", () => {
     expect(baris?.risikoDinilai).toBe(false);
   });
 
+  it("plafon yang diatur admin langsung terbaca di dashboard peminjam", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "plafon-dashboard", {
+      email: "plafon-dashboard@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin } = await siapkanPengguna(t, "admin-plafon-dashboard", {
+      email: "admin-plafon-dashboard@pindai.test",
+      role: "admin",
+    });
+
+    // Sumber angka kartu ringkasan peminjam: plafon master + pinjaman berjalan.
+    expect((await peminjam.query(api.nasabah.plafonRingkasSaya, {}))?.maksimal).toBe(
+      PLAFON_DEFAULT,
+    );
+
+    await admin.mutation(api.admin.setPlafonPeminjam, { userId, plafon: 2_000_000 });
+
+    const ringkas = await peminjam.query(api.nasabah.plafonRingkasSaya, {});
+    expect(ringkas?.maksimal).toBe(2_000_000);
+    expect(ringkas?.tersedia).toBe(2_000_000);
+    expect(ringkas?.plafonPribadi).toBe(2_000_000);
+    // Kartu progres membaca query yang sama; angkanya wajib ikut berubah.
+    expect((await peminjam.query(api.loans.myLoanCreditHistory, {}))?.plafonEfektif).toBe(
+      2_000_000,
+    );
+  });
+
   it("nama nasabah di panel plafon mengikuti catatan pinjaman (sama dengan ruang penyedia dana)", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "nina akun", {

@@ -126,6 +126,19 @@ ok("level teruji terbuka", htmlProgresTeruji.includes("Nasabah Teruji"));
 ok("riwayat pelunasan tampil", htmlProgresTeruji.includes("PGD-20261020-ABCD"));
 ok("tidak menyebut level terkunci saat sudah terbuka", !htmlProgresTeruji.includes("terkunci"));
 
+// ===== 4c. Plafon khusus admin tampil sebagai limit yang BERLAKU =====
+const htmlProgresKhusus = renderToStaticMarkup(
+  <KartuProgresPlafon
+    data={{ plafonEfektif: 2_000_000, jumlahPelunasanTepatWaktu: 0, riwayat: [] }}
+  />,
+);
+ok("plafon khusus diberi label sendiri", htmlProgresKhusus.includes("Limit Khusus"));
+ok("angka plafon khusus tampil", htmlProgresKhusus.includes(formatRupiah(2_000_000)));
+ok(
+  "limit khusus tidak digambarkan sebagai tangga Rp1 juta",
+  !htmlProgresKhusus.includes("Level 2 · aktif"),
+);
+
 // ===== 5. Sumber tunggal: tidak ada layar nasabah yang menulis batas sendiri =====
 const sumberKartu = bacaSumber("pages/dashboard/summary-cards.tsx");
 ok("kartu membaca ringkasan plafon dari server", sumberKartu.includes("nasabah.plafonRingkasSaya"));

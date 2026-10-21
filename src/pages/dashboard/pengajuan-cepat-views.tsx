@@ -136,8 +136,6 @@ export function PengajuanCepatSection({
   const plafonQuery = useQuery(api.nasabah.plafonRingkasSaya, {});
   const ringkas: RingkasanPlafon | null = plafonQuery ?? null;
   const sisaBatas = ringkas?.tersedia; // undefined selama belum termuat
-  // Tarif matriks adalah bawaan; override admin hanya menimpa bila memang ada.
-  const bungaPribadiQuery = useQuery(api.lokasi.bungaPribadiSaya, {});
   const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
   const tarifDenda = {
     perHari: ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
@@ -297,12 +295,10 @@ export function PengajuanCepatSection({
     pokokHitung,
     Number(tenorHari) || tenorHarianDefault(pokokHitung),
   );
-  // Tarif khusus nasabah (bila ada) menang; tanpa override, tarif diambil dari
-  // matriks nominal–tenor yang sama dengan yang ditegakkan server.
+  // Tarif selalu dari matriks nominal–tenor: aturan yang sama dengan yang
+  // ditegakkan server, tanpa angka khusus per akun.
   const tarifBunga =
-    bungaPribadiQuery ??
-    persenBungaHarian(pokokHitung, tenor) ??
-    PINDAI_PRICING.bungaPercent;
+    persenBungaHarian(pokokHitung, tenor) ?? PINDAI_PRICING.bungaPercent;
   const q = quoteLoanBunga(pokokHitung, tarifBunga);
   const peringatanBayar = peringatanKemampuanBayar({
     penghasilanBulanan: ktp.penghasilanBulanan ?? 0,
@@ -579,11 +575,8 @@ export function PengajuanCepatSection({
             </Select>
             <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
               Nominal ini menerima tenor {tenorTersedia.join(" / ")} hari. Bunga{" "}
-              <strong className="font-semibold text-slate-800">{tarifBunga}%</strong>
-              {bungaPribadiQuery !== null && bungaPribadiQuery !== undefined
-                ? " (tarif khusus akun)"
-                : " sesuai matriks produk"}
-              .
+              <strong className="font-semibold text-slate-800">{tarifBunga}%</strong> sesuai matriks
+              produk.
             </p>
           </div>
 

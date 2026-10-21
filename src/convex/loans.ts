@@ -39,11 +39,11 @@ import {
   simulasiBulananPinjaman,
   validasiTenorHarian,
 } from "../lib/loan";
-import { persenBungaEfektif } from "../lib/bunga";
 import { kodeTanggalWIB } from "../lib/waktu";
 import {
   assertSimulasiBulananValid,
   hitungSimulasiBulanan,
+  persenBungaPerBulan,
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
 import { bagiImbalHasil } from "../lib/bagiHasil";
@@ -627,13 +627,15 @@ export const createLoanApplication = mutation({
     if (tenorBulanSim === undefined) {
       const pesanTenor = validasiTenorHarian(args.pokokPinjaman, args.tenorHari);
       if (pesanTenor !== null) throw new Error(pesanTenor);
-      // Override admin (bila ada) tetap menang; tanpa override, tarif mengikuti
-      // matriks produk — bukan angka global 30% yang sudah tidak berlaku untuk
-      // tenor menengah/panjang.
+      // Bunga pinjaman harian SELALU dari matriks tenor/nominal — bukan angka
+      // global 30% dan bukan override akun. Tarif mengikuti tenor 7/14/28 hari
+      // yang dipilih nasabah, persis seperti yang tertulis di halaman biaya.
       persenBungaSimpanan =
-        user.persenBunga ?? persenBungaHarian(args.pokokPinjaman, args.tenorHari) ?? PINDAI_PRICING.bungaPercent;
+        persenBungaHarian(args.pokokPinjaman, args.tenorHari) ?? PINDAI_PRICING.bungaPercent;
     } else {
-      persenBungaSimpanan = persenBungaEfektif(user.persenBunga, sys.persenBunga);
+      // Skema bulanan: bunga per bulan mengikuti tenor (1 bulan 30%, 3–5 bulan
+      // 25%, 6 bulan ke atas 20%), sama dengan tabel di halaman ketentuan.
+      persenBungaSimpanan = persenBungaPerBulan(tenorBulanSim);
     }
 
     // Nama peminjam selalu disimpan UPPERCASE agar konsisten di dashboard.

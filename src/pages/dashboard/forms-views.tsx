@@ -50,6 +50,7 @@ import { isKycVerified } from "@/lib/kycStatus";
 import {
   BULANAN_LIMITS,
   hitungSimulasiBulanan,
+  persenBungaPerBulan,
   TENOR_BULANAN_OPTIONS,
 } from "@/lib/bulanan";
 import {
@@ -436,10 +437,12 @@ export function LoanForm({
 
   const bulanan = skema === "bulanan";
   const tenorBulanNum = Number(tenorBulan);
-  const bungaQuery = useQuery(api.lokasi.bungaSaya, {});
-  const bungaPribadiQuery = useQuery(api.lokasi.bungaPribadiSaya, {});
-  const bungaSaya = bungaQuery ?? undefined;
-  const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum, bungaSaya) : null;
+  // Bunga mengikuti tabel tenor website, bukan angka per akun: harian dari
+  // matriks nominal/tenor 7/14/28, bulanan dari tarif tenor (30/25/20%).
+  const tarifBulanan = persenBungaPerBulan(
+    Number.isSafeInteger(tenorBulanNum) && tenorBulanNum > 0 ? tenorBulanNum : 1,
+  );
+  const sim = bulanan ? simulasiBulananAman(pokok, tenorBulanNum, tarifBulanan) : null;
   // Tenor harian mengikuti matriks nominal. Pilihan yang tidak sah digeser ke
   // tenor terdekat supaya dropdown dan rincian tidak pernah berbeda dari yang
   // diterima server.
@@ -449,10 +452,8 @@ export function LoanForm({
   );
   const tenorHarianOpsi = tenorHarianTersedia(pokok);
   const tarifHarian =
-    bungaPribadiQuery ??
-    persenBungaHarian(pokok, tenorHarian) ??
-    PINDAI_PRICING.bungaPercent;
-  const q = quoteLoanBunga(pokok, bulanan ? (bungaSaya ?? PINDAI_PRICING.bungaPercent) : tarifHarian);
+    persenBungaHarian(pokok, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
+  const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifHarian);
 
   // Nominal berubah → tarif tier ikut berubah. Pilihan tenor lama tetap sah
   // selama termasuk 7/14/28 hari, jadi hanya tenor asing yang digeser.
@@ -596,13 +597,20 @@ export function LoanForm({
     ringkas === null
       ? "Batas pinjaman Anda sedang dibaca dari server."
       : kalimatBatasPlafon(ringkas);
+  // Kalimat kenaikan hanya berlaku selama batas masih di tangga bawaan. Plafon
+  // khusus dari tim PINDAI (di atas Rp1 juta) tidak boleh dijanjikan akan naik
+  // lagi ke angka yang justru lebih kecil.
+  const batasKhusus = ringkas !== null && ringkas.maksimal > PLAFON_NAIK_SETELAH_LUNAS;
+  const kalimatNaik = batasKhusus
+    ? "Batas ini ditetapkan khusus oleh tim PINDAI."
+    : `Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}.`;
   const keteranganNominal = !adaSisa
     ? `${ungkapBatas} Belum ada sisa yang bisa diajukan untuk skema ini — lunasi pinjaman berjalan lebih dulu, atau hubungi tim PINDAI bila batasnya perlu ditinjau.`
     : !batasTerbaca
       ? "Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda sedang dibaca; penggeser terbuka setelah angkanya tersimpan."
       : bulanan
-        ? `Ini hanya perkiraan, bukan persetujuan pinjaman. ${ungkapBatas} Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}.`
-        : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(MIN)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. ${ungkapBatas} Catatan pinjaman yang ditandai lunas tepat waktu di aplikasi dapat menaikkan batas hingga ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}.`;
+        ? `Ini hanya perkiraan, bukan persetujuan pinjaman. ${ungkapBatas} ${kalimatNaik}`
+        : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(MIN)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. ${ungkapBatas} ${kalimatNaik}`;
 
   // Query batas dapat datang terlambat atau berubah akibat override admin.
   // Batasi jumlah pinjaman agar penggeser dan perkiraan mengikuti batas terbaru.
@@ -1039,11 +1047,8 @@ export function LoanForm({
           {!bulanan && (
             <p className="text-xs leading-5 text-muted-foreground">
               Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari. Bunga{" "}
-              <strong className="font-semibold text-slate-800">{tarifHarian}%</strong>
-              {bungaPribadiQuery !== null && bungaPribadiQuery !== undefined
-                ? " (tarif khusus akun)"
-                : " sesuai matriks produk"}
-              .
+              <strong className="font-semibold text-slate-800">{tarifHarian}%</strong> sesuai matriks
+              produk.
             </p>
           )}
         </div>
@@ -1528,7 +1533,13 @@ export function LoanForm({
         )}
       </Button>
       <p className="text-center text-xs leading-5 text-muted-foreground">
-        Batas awal {formatRupiah(PLAFON_DEFAULT)}. Selesaikan 1x pinjaman tepat waktu untuk membuka limit {formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}. {ungkapBatas} {bulanan ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir." : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`} Semua tersimpan di PINDAI, dan perpindahan dana ditangani di luar aplikasi.
+        {batasKhusus
+          ? ungkapBatas
+          : `Batas awal ${formatRupiah(PLAFON_DEFAULT)}. Selesaikan 1x pinjaman tepat waktu untuk membuka limit ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}. ${ungkapBatas}`}{" "}
+        {bulanan
+          ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir."
+          : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`}{" "}
+        Semua tersimpan di PINDAI, dan perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>
   );

@@ -68,6 +68,9 @@ export function KartuBatasPinjaman({ ringkas }: { ringkas: RingkasanPlafon | nul
   // Kalimat kenaikan hanya relevan selama batasnya belum menyentuh langit-langit
   // kebijakan — untuk batas Rp1 juta kalimat itu hanya mengulang angka kepala.
   const bisaNaik = ringkas !== null && ringkas.maksimal < PLAFON_NAIK_SETELAH_LUNAS;
+  // Plafon di atas tangga bawaan hanya mungkin berasal dari tim PINDAI; sebut
+  // sumbernya supaya angkanya tidak terbaca sebagai kebijakan otomatis.
+  const batasKhusus = ringkas !== null && ringkas.maksimal > PLAFON_NAIK_SETELAH_LUNAS;
 
   return (
     <div className="glass-card micro-metric min-w-0 rounded-2xl border p-4 shadow-sm sm:p-5">
@@ -110,6 +113,11 @@ export function KartuBatasPinjaman({ ringkas }: { ringkas: RingkasanPlafon | nul
       ) : adaUtang ? (
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
           {kalimatBatasPlafon(ringkas)}
+        </p>
+      ) : batasKhusus ? (
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Batas ini ditetapkan khusus oleh tim PINDAI. Bunga tetap mengikuti tenor yang Anda pilih
+          saat mengajukan.
         </p>
       ) : bisaNaik ? (
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
@@ -246,8 +254,14 @@ export type DataProgresPlafon = {
  * di angka yang sama dengan validasi pengajuan.
  */
 export function KartuProgresPlafon({ data }: { data: DataProgresPlafon }) {
-  const terbuka = data.jumlahPelunasanTepatWaktu >= 1;
   const limitAktif = data.plafonEfektif;
+  // Plafon dari tim PINDAI bisa berbeda dari tangga bawaan (Rp500 ribu → Rp1
+  // juta). Kartu ini menampilkan limit yang BERLAKU, bukan mengulang tangga:
+  // sebelumnya nasabah dengan plafon khusus Rp2 juta tetap membaca "Level 2 Rp
+  // 1.000.000", sehingga perubahan admin tampak tidak terjadi.
+  const khusus =
+    limitAktif !== PLAFON_BARU && limitAktif !== PLAFON_NAIK_SETELAH_LUNAS;
+  const terbuka = data.jumlahPelunasanTepatWaktu >= 1 || khusus;
 
   return (
     <section
@@ -264,9 +278,11 @@ export function KartuProgresPlafon({ data }: { data: DataProgresPlafon }) {
             Riwayat Progres Plafon
           </h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {terbuka
-              ? "Limit Rp1.000.000 sudah terbuka. Pertahankan pembayaran tepat waktu agar tetap aktif."
-              : "Selesaikan 1x pinjaman tepat waktu untuk membuka limit Rp1.000.000."}
+            {khusus
+              ? `Limit aktif ${formatRupiah(limitAktif)} ditetapkan tim PINDAI. Bunga tetap mengikuti tenor yang dipilih saat pengajuan.`
+              : terbuka
+                ? "Limit Rp1.000.000 sudah terbuka. Pertahankan pembayaran tepat waktu agar tetap aktif."
+                : "Selesaikan 1x pinjaman tepat waktu untuk membuka limit Rp1.000.000."}
           </p>
         </div>
         <span
@@ -276,7 +292,7 @@ export function KartuProgresPlafon({ data }: { data: DataProgresPlafon }) {
               : "rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
           }
         >
-          {terbuka ? "Nasabah Teruji" : "Nasabah Baru"}
+          {khusus ? "Limit Khusus" : terbuka ? "Nasabah Teruji" : "Nasabah Baru"}
         </span>
       </div>
 
@@ -306,15 +322,17 @@ export function KartuProgresPlafon({ data }: { data: DataProgresPlafon }) {
                 : "text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500"
             }
           >
-            Level 2 · {terbuka ? "aktif" : "terkunci"}
+            {khusus ? "Limit khusus · aktif" : `Level 2 · ${terbuka ? "aktif" : "terkunci"}`}
           </p>
           <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
-            {formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}
+            {formatRupiah(khusus ? limitAktif : PLAFON_NAIK_SETELAH_LUNAS)}
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {terbuka
-              ? `${data.jumlahPelunasanTepatWaktu}x lunas tepat waktu tercatat`
-              : "Butuh 1x lunas tepat waktu"}
+            {khusus
+              ? "Ditetapkan tim PINDAI"
+              : terbuka
+                ? `${data.jumlahPelunasanTepatWaktu}x lunas tepat waktu tercatat`
+                : "Butuh 1x lunas tepat waktu"}
           </p>
         </div>
       </div>

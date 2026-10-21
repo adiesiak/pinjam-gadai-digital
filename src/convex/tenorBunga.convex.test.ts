@@ -140,6 +140,47 @@ describe("matriks tenor & bunga harian", () => {
     expect(loan?.persenBunga).toBe(28);
   });
 
+  it("bunga khusus akun tidak menimpa tarif tenor", async () => {
+    const t = convexTest(schema, modules);
+    const email = "tenor-override@pindai.test";
+    const sesi = await peminjamSiap(t, email);
+    // Sisa override lama dari fitur bunga per akun tidak boleh mengubah tarif:
+    // tabel tenor adalah aturan website yang berlaku.
+    await t.run(async (ctx) => {
+      const user = (await ctx.db.query("users").collect()).find((row) => row.email === email);
+      if (user === undefined) throw new Error("Pengguna uji tidak ditemukan.");
+      await ctx.db.patch(user._id, { persenBunga: 42 });
+    });
+
+    await ajukan(t, sesi, 500_000, 14, "override-harian");
+    expect((await pinjamanTerakhir(t))?.persenBunga).toBe(32);
+
+    // Skema bulanan memakai tarif tenor (3 bulan = 25% per bulan).
+    const ktp = await simpanBerkasUji(t, "ktp-override-bulanan");
+    const selfie = await simpanBerkasUji(t, "selfie-override-bulanan");
+    const slip = await simpanBerkasUji(t, "slip-override-bulanan");
+    await sesi.mutation(api.loans.createLoanApplication, {
+      pokokPinjaman: 100_000,
+      tujuan: "Modal usaha kecil",
+      namaLengkap: "Rani Peminjam",
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+      tenorHari: 28,
+      tenorBulan: 3,
+      nik: "3201234567890003",
+      nomorWhatsApp: "628123456791",
+      penghasilanBulanan: 4_000_000,
+      sumberPenghasilan: "Usaha warung",
+      dokKtpId: ktp,
+      dokSelfieKtpId: selfie,
+      dokSlipGajiId: slip,
+      lokasiAjukan: { ...TITIK, waktu: Date.now() },
+      persetujuanSyarat: true,
+      tandaTangan: TTD,
+    });
+    expect((await pinjamanTerakhir(t))?.persenBunga).toBe(25);
+  });
+
   it("tenor 30 hari ditolak pada semua tier", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-tolak-tigapuluh@pindai.test");

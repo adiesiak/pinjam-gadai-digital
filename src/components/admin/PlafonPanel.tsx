@@ -41,27 +41,23 @@ import { formatRupiah } from "@/lib/money";
 import { sakelarTagihan } from "@/lib/preferensiNotifikasi";
 import { BARIS_PER_HALAMAN, labelRentang, potongHalaman } from "@/lib/paginasi";
 import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
-import { BUNGA_BATAS, clampPersenBunga } from "@/lib/bunga";
 
 /**
- * Panel Plafon Nasabah — naikkan/turunkan batas pinjaman satu orang dan atur
- * bunga khususnya.
+ * Panel Plafon Nasabah — naikkan/turunkan batas pinjaman satu orang.
  *
  * Panel ini mengatur pinjaman tunai. Nasabah baru dibatasi Rp500.000; satu
  * pinjaman yang lunas tepat waktu membuka plafon Rp1.000.000. Override admin
  * dapat menetapkan angka lain, dan kredit barang punya batas tersendiri.
  *
- * Bunga per nasabah mengalahkan default Pengaturan Sistem dan disimpan sebagai
- * snapshot pada tiap pengajuan; pengajuan yang belum cair ikut diperbarui,
- * pinjaman yang sudah cair tidak berubah. Menghapus nasabah hanya menghapus
+ * Bunga tidak diatur di panel ini: tarif pinjaman mengikuti tabel tenor website
+ * (harian 7/14/28 hari sesuai nominal, bulanan mengikuti tenor), dan disimpan
+ * sebagai snapshot pada tiap pengajuan. Menghapus nasabah hanya menghapus
  * akunnya — pengajuan dan riwayat keuangannya tetap utuh.
  *
- * TATA LETAK: daftar nasabah kini berbentuk TABEL PADAT (satu baris satu orang)
- * dengan kolom [Identitas & Risk Score] · [Progress Plafon] · [Skema Bunga] ·
- * [Aksi Cepat], lalu kartu ringkas di layar kecil. Dua blok isian yang dulu
- * tertanam di setiap kartu dipindahkan ke satu modal "Atur Plafon & Bunga",
- * sehingga menyimpan plafon DAN bunga cukup satu tindakan — dan halaman tidak
- * lagi memanjang karena puluhan kolom isian.
+ * TATA LETAK: daftar nasabah berbentuk TABEL PADAT (satu baris satu orang)
+ * dengan kolom [Identitas & Risk Score] · [Progress Plafon] · [Aksi Cepat],
+ * lalu kartu ringkas di layar kecil. Isian plafon dipindahkan ke satu modal
+ * "Atur Plafon" supaya halaman tidak memanjang karena puluhan kolom.
  *
  * Semua aksi lama tetap ada: Profil nasabah, Data diri (termasuk unggah KTP),
  * dan Hapus akun. Yang berubah hanya tempatnya.
@@ -117,7 +113,7 @@ function BarPlafon({ terpakai, efektif }: { terpakai: number; efektif: number })
   );
 }
 
-/** Baris ini punya override plafon/bunga sendiri? Dipakai untuk lencana. */
+/** Baris ini punya override plafon sendiri? Dipakai untuk lencana. */
 function LencanaOverride({ pribadi, label, nilai }: { pribadi: boolean; label: string; nilai: string }) {
   return pribadi ? (
     <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800">
@@ -151,7 +147,6 @@ export function PlafonPanel() {
   const [halaman, setHalaman] = useState(0);
   const data = useQuery(api.admin.daftarPlafonPeminjam, { cari: cari || undefined });
   const setPlafon = useMutation(api.admin.setPlafonPeminjam);
-  const setBunga = useMutation(api.admin.setBungaPeminjam);
   const hapusNasabah = useMutation(api.admin.hapusNasabah);
   const simpanNotif = useMutation(api.notifikasiNasabah.simpanPreferensiNasabah);
 
@@ -168,26 +163,22 @@ export function PlafonPanel() {
    * dikirim, sehingga menekan "Simpan Perubahan" tanpa mengubah apa pun tidak
    * menulis jejak audit palsu. Catatan audit dipakai sebagai `alasan` keduanya.
    */
-  const simpanAtur = async (nasabah: NasabahPlafon, nilai: { pakaiGlobal: boolean; plafon: number; persenBunga: number; catatan: string }) => {
+  const simpanAtur = async (nasabah: NasabahPlafon, nilai: { pakaiGlobal: boolean; plafon: number; catatan: string }) => {
     const targetPlafon = nilai.pakaiGlobal ? null : clampPlafon(nilai.plafon);
-    const targetBunga = nilai.pakaiGlobal ? null : clampPersenBunga(nilai.persenBunga);
     const alasan = nilai.catatan === "" ? undefined : nilai.catatan;
     setBusyAturId(nasabah.userId);
     try {
       if (targetPlafon !== nasabah.plafonPribadi) {
         await setPlafon({ userId: nasabah.userId, plafon: targetPlafon, alasan });
       }
-      if (targetBunga !== nasabah.persenBungaPribadi) {
-        await setBunga({ userId: nasabah.userId, persenBunga: targetBunga, alasan });
-      }
       toast.success(
         nilai.pakaiGlobal
-          ? `Plafon & bunga ${nasabah.nama.toUpperCase()} kembali mengikuti Parameter Global System.`
-          : `Plafon & bunga ${nasabah.nama.toUpperCase()} diperbarui.`,
+          ? `Plafon ${nasabah.nama.toUpperCase()} kembali mengikuti Parameter Global System.`
+          : `Plafon ${nasabah.nama.toUpperCase()} diperbarui.`,
       );
       setAturTarget(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan plafon & bunga.");
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan plafon.");
     } finally {
       setBusyAturId(null);
     }
@@ -204,8 +195,6 @@ export function PlafonPanel() {
     plafonEfektif: r.plafonEfektif,
     plafonTerpakai: r.plafonTerpakai,
     plafonPribadi: r.plafonPribadi,
-    persenBungaEfektif: r.persenBungaEfektif,
-    persenBungaPribadi: r.persenBungaPribadi,
   });
 
   // Paginasi 10 baris/halaman. Halaman dijepit di dalam `potongHalaman` (bukan
@@ -284,20 +273,19 @@ export function PlafonPanel() {
             <SlidersHorizontal className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold text-navy">Plafon &amp; bunga nasabah</h2>
+            <h2 className="text-sm font-semibold text-navy">Plafon nasabah</h2>
             <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-              Override admin menang atas default global. Bunga khusus disimpan sebagai snapshot pada
-              tiap pengajuan. Pengingat tagihan bisa dimatikan per nasabah lewat tombol{" "}
-              <strong className="text-slate-600">Matikan tagihan</strong> di kolom aksi cepat.
+              Override admin menang atas default global. Bunga pinjaman mengikuti tabel tenor website
+              dan tidak bisa ditimpa dari sini. Pengingat tagihan bisa dimatikan per nasabah lewat
+              tombol <strong className="text-slate-600">Matikan tagihan</strong> di kolom aksi cepat.
             </p>
-            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               <MetrikKartu label="Default plafon" nilai={formatRupiah(data.default)} />
-              <MetrikKartu label="Default bunga" nilai={`${String(data.defaultBunga).replace(".", ",")}%`} />
               <MetrikKartu
                 label="Rentang plafon"
                 nilai={`${formatRupiah(PLAFON_BATAS.min)} – ${formatRupiah(PLAFON_BATAS.maks)}`}
               />
-              <MetrikKartu label="Rentang bunga" nilai={`${BUNGA_BATAS.min}–${BUNGA_BATAS.maks}%`} />
+              <MetrikKartu label="Bunga tenor" nilai="26–40% harian" />
             </dl>
             <details className="mt-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
               <summary className="cursor-pointer text-xs font-medium text-slate-600 hover:text-navy">
@@ -305,9 +293,8 @@ export function PlafonPanel() {
               </summary>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-muted-foreground">
                 <li>
-                  Default plafon awal dan bunga dasar diambil dari Pengaturan Sistem; keduanya bisa
-                  ditimpa per nasabah lewat tombol <strong className="text-slate-600">Atur</strong>{" "}
-                  di kolom aksi cepat.
+                  Default plafon awal diambil dari Pengaturan Sistem dan bisa ditimpa per nasabah
+                  lewat tombol <strong className="text-slate-600">Atur</strong> di kolom aksi cepat.
                 </li>
                 <li>
                   Nasabah baru dibatasi Rp500.000. Satu pinjaman tunai yang lunas tepat waktu
@@ -316,11 +303,12 @@ export function PlafonPanel() {
                 <li>Status lunas dan tanggal pelunasan mengikuti entri ledger internal PINDAI.</li>
                 <li>
                   Pilihan &quot;Ikut Parameter Global System&quot; mengembalikan nasabah ke plafon
-                  progresif dan bunga global; kredit barang memakai batas tersendiri.
+                  progresif; kredit barang memakai batas tersendiri.
                 </li>
                 <li>
-                  Bunga khusus hanya mengubah pengajuan yang belum cair — pinjaman yang sudah cair
-                  tetap memakai bunganya.
+                  Bunga pinjaman selalu mengikuti tenor: harian 7/14/28 hari (26–40% sesuai nominal)
+                  dan bulanan 30/25/20% per bulan untuk tenor 1/3/6 bulan. Pinjaman yang sudah cair
+                  tetap memakai snapshot bunganya.
                 </li>
                 <li>
                   Grade risiko pada kolom identitas dihitung dari model yang sama dengan detail
@@ -408,9 +396,6 @@ export function PlafonPanel() {
                   <th scope="col" className="px-4 py-2.5 font-semibold">
                     Progress bar plafon
                   </th>
-                  <th scope="col" className="px-4 py-2.5 font-semibold">
-                    Skema bunga
-                  </th>
                   <th scope="col" className="px-4 py-2.5 text-right font-semibold">
                     Aksi cepat
                   </th>
@@ -481,25 +466,6 @@ export function PlafonPanel() {
                       {/* Progress plafon */}
                       <td className="px-4 py-3">
                         <BarPlafon terpakai={r.plafonTerpakai} efektif={r.plafonEfektif} />
-                      </td>
-
-                      {/* Skema bunga */}
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-semibold tabular-nums text-navy">
-                          {String(r.persenBungaEfektif).replace(".", ",")}%
-                        </p>
-                        <div className="mt-1.5 flex flex-col items-start gap-1">
-                          <LencanaOverride
-                            pribadi={r.persenBungaPribadi !== null}
-                            label="Bunga"
-                            nilai={`${String(r.persenBungaPribadi ?? 0).replace(".", ",")}%`}
-                          />
-                          <LencanaOverride
-                            pribadi={r.plafonPribadi !== null}
-                            label="Plafon"
-                            nilai={formatRupiah(r.plafonPribadi ?? 0)}
-                          />
-                        </div>
                       </td>
 
                       {/* Aksi cepat */}
@@ -603,14 +569,6 @@ export function PlafonPanel() {
                   </div>
 
                   <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    <Badge className="border-sky-200 bg-sky-100 text-sky-700">
-                      Bunga efektif {String(r.persenBungaEfektif).replace(".", ",")}%
-                    </Badge>
-                    <LencanaOverride
-                      pribadi={r.persenBungaPribadi !== null}
-                      label="Bunga"
-                      nilai={`${String(r.persenBungaPribadi ?? 0).replace(".", ",")}%`}
-                    />
                     <LencanaOverride
                       pribadi={r.plafonPribadi !== null}
                       label="Plafon"
@@ -638,7 +596,7 @@ export function PlafonPanel() {
                       className="rounded-lg bg-emerald-700 text-white hover:bg-emerald-800"
                       onClick={() => setAturTarget(dataAtur(r))}
                     >
-                      Atur plafon &amp; bunga
+                      Atur plafon
                     </Button>
                     <Button
                       type="button"
@@ -750,7 +708,7 @@ export function PlafonPanel() {
       {aturTarget !== null && (
         <AturPlafonDialog
           nasabah={aturTarget}
-          global={{ plafon: data.default, bunga: data.defaultBunga }}
+          global={{ plafon: data.default }}
           busy={busyAturId === aturTarget.userId}
           onClose={() => setAturTarget(null)}
           onSimpan={(nilai) => void simpanAtur(aturTarget, nilai)}

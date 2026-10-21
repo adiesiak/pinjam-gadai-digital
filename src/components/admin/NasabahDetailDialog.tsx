@@ -313,10 +313,6 @@ export function NasabahDetailDialog({
                       nilai={formatRupiah(detail.plafon.tersedia)}
                       nada="text-emerald-700"
                     />
-                    <Kartu
-                      label="Bunga efektif"
-                      nilai={`${String(detail.plafon.persenBungaEfektif).replace(".", ",")}%`}
-                    />
                   </dl>
                   <p className="text-[11px] leading-4 text-muted-foreground">
                     Plafon maksimal{" "}
@@ -326,7 +322,8 @@ export function NasabahDetailDialog({
                     .
                     {detail.plafon.jumlahAktif > 0
                       ? ` ${detail.plafon.jumlahAktif} pinjaman aktif menahan plafon terpakai.`
-                      : " Tidak ada pinjaman aktif yang menahan plafon."}
+                      : " Tidak ada pinjaman aktif yang menahan plafon."}{" "}
+                    Bunga pinjaman mengikuti tenor 7/14/28 hari dan tidak berubah karena plafon.
                   </p>
                 </KartuKolom>
 
