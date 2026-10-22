@@ -9,6 +9,7 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
+import type { LoanRow } from "@/components/admin/admin-shared";
 import { formatRupiah } from "@/lib/money";
 import { PILIHAN_POKOK_RINCIAN } from "@/lib/rincianAliranDana";
 
@@ -52,6 +53,37 @@ function renderPanel(pokokContohAwal?: number): string {
 }
 
 const html = renderPanel();
+
+// Notifikasi cair ekspres hanya muncul bila ada pengajuan ekspres yang menunggu.
+{
+  const ekspres = {
+    _id: "loans-ekspres",
+    _creationTime: Date.UTC(2026, 0, 1),
+    status: "diajukan",
+    cairEkspres: true,
+  } as unknown as LoanRow;
+  const denganEkspres = renderToStaticMarkup(
+    <MejaKerja
+      overview={{ loans: [ekspres], pawns: [], kredit: [] }}
+      stats={undefined}
+      onBukaModul={() => {}}
+    />,
+  );
+  ada(
+    denganEkspres,
+    "1 pengajuan cair ekspres menunggu keputusan",
+    "notifikasi khusus cair ekspres tampil",
+  );
+  ada(
+    denganEkspres,
+    "paling atas antrean Pinjaman",
+    "notifikasi menjelaskan prioritas antrean",
+  );
+  ok(
+    !html.includes("pengajuan cair ekspres menunggu keputusan"),
+    "tanpa antrean ekspres notifikasi tidak muncul",
+  );
+}
 
 // Barisan pertama = "Perlu tindakan": tiga hal yang menunggu admin hari ini.
 ada(html, "Pengajuan menunggu keputusan", "kartu pengajuan menunggu");

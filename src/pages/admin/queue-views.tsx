@@ -1,4 +1,4 @@
-import { ClipboardList, Package, Search } from "lucide-react";
+import { ClipboardList, Package, Search, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { GadaiDanaPanel } from "@/components/GadaiDanaPanel";
@@ -12,6 +12,10 @@ import {
   type LoanRow,
   type PawnRow,
 } from "@/components/admin/admin-shared";
+import {
+  pakaiCairEkspres,
+  urutkanAntreanEkspres,
+} from "@/lib/admin-queue";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
@@ -40,17 +44,22 @@ export function LoanQueueSection({
   const filteredLoans = useMemo(() => {
     const diTab = loans.filter(cocokAktif);
     const needle = search.trim().toLowerCase();
-    if (!needle) return diTab;
-    return diTab.filter((loan) =>
-      [
-        loan.namaLengkap,
-        loan.emailPeminjam ?? "",
-        loan.nomorReferensi,
-        loan.tujuan,
-        loan.catatanPeminjam ?? "",
-        loan.namaBank ?? "",
-        loan.nomorRekening,
-      ].some((value) => value.toLowerCase().includes(needle)),
+    // Pengajuan cair ekspres selalu di paling atas: peminjam memilih dan
+    // membayar jalur pencairan itu, jadi keputusannya tidak boleh menunggu di
+    // belakang antrean biasa.
+    if (!needle) return urutkanAntreanEkspres(diTab);
+    return urutkanAntreanEkspres(
+      diTab.filter((loan) =>
+        [
+          loan.namaLengkap,
+          loan.emailPeminjam ?? "",
+          loan.nomorReferensi,
+          loan.tujuan,
+          loan.catatanPeminjam ?? "",
+          loan.namaBank ?? "",
+          loan.nomorRekening,
+        ].some((value) => value.toLowerCase().includes(needle)),
+      ),
     );
   }, [loans, search, cocokAktif]);
   if (loans.length === 0) {
@@ -105,7 +114,20 @@ export function LoanQueueSection({
                 date={formatDate(l._creationTime)}
                 title={namaHurufBesar(l.namaLengkap)}
                 subtitle={`${l.emailPeminjam ?? "tanpa email"} · ${l.nomorReferensi} · pokok ${formatRupiah(l.pokokPinjaman)} · ${loanPurposeLabel(l.tujuan)}`}
-                status={<StatusBadge status={l.status} kind="loan" />}
+                status={
+                  <span className="flex flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                    {pakaiCairEkspres(l) && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
+                        title="Peminjam memilih cair ekspres; biaya ekspres dipotong di muka."
+                      >
+                        <Zap className="size-3" aria-hidden="true" />
+                        Cair ekspres
+                      </span>
+                    )}
+                    <StatusBadge status={l.status} kind="loan" />
+                  </span>
+                }
                 onOpen={() => onOpen(l)}
               />
             </li>

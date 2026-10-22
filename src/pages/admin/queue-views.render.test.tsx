@@ -50,14 +50,18 @@ function bersih(html: string, label: string): void {
 }
 
 /** Satu baris pinjaman buatan; hanya field yang dibaca panel yang diisi. */
-function baris(status: LoanRow["status"], index: number): LoanRow {
+function baris(
+  status: LoanRow["status"],
+  index: number,
+  cairEkspres: boolean | null = null,
+): LoanRow {
   return {
     _id: `loans-${index}` as unknown as Id<"loans">,
     _creationTime: Date.UTC(2026, 0, 1 + index),
     nomorReferensi: `PGD-TEST-${index}`,
     pokokPinjaman: 1_000_000,
     persenBunga: null,
-    cairEkspres: null,
+    cairEkspres,
     tujuan: "kebutuhan_pribadi",
     status,
     namaLengkap: `PEMINJAM ${status.toUpperCase()}`,
@@ -192,6 +196,40 @@ function hitungTab(html: string): Map<string, number> {
     );
     bersih(html, `markup tombol manual ${jenis}`);
   }
+}
+
+// ===== 4. Cair ekspres: lencana khusus + paling atas antrean =====
+{
+  // Pengajuan ekspres sengaja LEBIH LAMA daripada pengajuan biasa: urutan
+  // terbaru-dulu saja akan menaruhnya di bawah, jadi tes ini membuktikan
+  // prioritas ekspres benar-benar bekerja.
+  const ekspres: LoanRow = {
+    ...baris("diajukan", 90, true),
+    namaLengkap: "PEMINJAM EKSPRES",
+    _creationTime: Date.UTC(2026, 0, 1),
+  };
+  const biasaBaru: LoanRow = {
+    ...baris("diajukan", 91, false),
+    namaLengkap: "PEMINJAM BIASA BARU",
+    _creationTime: Date.UTC(2026, 0, 20),
+  };
+  const html = renderToStaticMarkup(
+    <LoanQueueSection loans={[biasaBaru, ekspres]} onOpen={() => {}} />,
+  );
+  ada(html, "Cair ekspres", "lencana cair ekspres tampil pada baris antrean");
+  const posisiEkspres = html.indexOf("PEMINJAM EKSPRES");
+  const posisiBiasa = html.indexOf("PEMINJAM BIASA BARU");
+  ok(
+    posisiEkspres >= 0 && posisiBiasa >= 0 && posisiEkspres < posisiBiasa,
+    "pengajuan cair ekspres tampil paling atas antrean",
+  );
+
+  // Baris tanpa centang tidak boleh mendapat lencana ekspres.
+  const tanpaEkspres = renderToStaticMarkup(
+    <LoanQueueSection loans={[biasaBaru]} onOpen={() => {}} />,
+  );
+  ok(!tanpaEkspres.includes("Cair ekspres"), "tanpa cair ekspres tidak ada lencana");
+  bersih(html, "markup antrean ekspres");
 }
 
 console.log(`queue-views.render.test: ${passed} lulus, ${failed} gagal`);

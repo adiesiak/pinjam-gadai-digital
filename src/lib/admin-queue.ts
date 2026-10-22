@@ -200,6 +200,53 @@ export function hitungMenunggu(
   return hitungStatus(baris, STATUS_MENUNGGU[produk]);
 }
 
+/** Baris yang membawa penanda "cair ekspres" dari `admin.adminOverview`. */
+export type BarisEkspres = { readonly cairEkspres?: boolean | null };
+
+/**
+ * Peminjam mencentang "cair ekspres" pada pengajuan ini.
+ *
+ * `null`/kosong berarti data lama (dulu setiap pinjaman harian dikenai biaya
+ * ekspres). Nilai itu sengaja TIDAK dianggap pilihan ekspres baru — tanpa
+ * pembeda ini, seluruh antrean warisan akan ikut naik ke atas dan prioritas
+ * ekspres kehilangan maknanya.
+ */
+export function pakaiCairEkspres(baris: BarisEkspres): boolean {
+  return baris.cairEkspres === true;
+}
+
+/**
+ * Jumlah pengajuan cair ekspres yang masih menunggu keputusan admin.
+ *
+ * Hanya status tahap tinjauan yang dihitung: pinjaman yang sudah berjalan atau
+ * selesai bukan pekerjaan antrean, walau dulu memakai cair ekspres.
+ */
+export function hitungCairEkspresMenunggu(
+  baris: readonly (BarisEkspres & BarisStatus)[],
+): number {
+  return baris.filter(
+    (satu) =>
+      pakaiCairEkspres(satu) && STATUS_MENUNGGU.pinjaman.includes(satu.status),
+  ).length;
+}
+
+/**
+ * Urutkan antrean: pengajuan cair ekspres di paling atas, lalu yang paling baru.
+ *
+ * Salinan baru dikembalikan (tidak mengubah masukan) supaya urutan data dari
+ * server tetap utuh untuk pemakai lain. Pengajuan non-ekspres mempertahankan
+ * urutan terbaru-dulu yang sudah dipakai panel.
+ */
+export function urutkanAntreanEkspres<
+  T extends BarisEkspres & { readonly _creationTime: number },
+>(baris: readonly T[]): T[] {
+  return [...baris].sort(
+    (a, b) =>
+      Number(pakaiCairEkspres(b)) - Number(pakaiCairEkspres(a)) ||
+      b._creationTime - a._creationTime,
+  );
+}
+
 /**
  * Jumlah pengajuan yang menunggu keputusan admin di ketiga produk.
  *

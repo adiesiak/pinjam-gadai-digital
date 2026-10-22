@@ -1,5 +1,13 @@
 import { motion } from "framer-motion";
-import { BellRing, ChevronRight, ClipboardList, Coins, MapPin, ShieldCheck } from "lucide-react";
+import {
+  BellRing,
+  ChevronRight,
+  ClipboardList,
+  Coins,
+  MapPin,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 import { useState, type ComponentType } from "react";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -7,6 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { MetrikKartu, type AdminOverviewData } from "@/components/admin/admin-shared";
 import { Button } from "@/components/ui/button";
 import {
+  hitungCairEkspresMenunggu,
   jumlahPerhatianLokasi,
   jumlahPerluKeputusan,
   type NilaiModulAdmin,
@@ -161,6 +170,7 @@ export function MejaKerja({
   const barisAliran = barisRincianAliran(rincian);
 
   const perluKeputusan = angkaRingkas(jumlahPerluKeputusan(overview));
+  const ekspresMenunggu = hitungCairEkspresMenunggu(overview.loans);
   const kycPending = angkaRingkas(kycMenunggu ?? undefined);
   const terlambat = angkaRingkas(stats?.pinjamanTerlambat);
   const lokasi = angkaRingkas(
@@ -175,6 +185,40 @@ export function MejaKerja({
       animate="show"
       className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4"
     >
+      {/* Notifikasi khusus cair ekspres: hanya muncul bila ada pengajuan yang
+          benar-benar menunggu. Angkanya dibaca dari antrean yang sama dengan
+          tab Pinjaman, jadi lencana ini tidak bisa berbeda dari daftar. */}
+      {ekspresMenunggu > 0 && (
+        <motion.div
+          variants={fadeUpItem}
+          role="status"
+          className="rounded-xl border border-amber-300 bg-amber-50 p-3 sm:col-span-2 min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5 xl:col-span-4"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-white text-amber-700">
+              <Zap className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-900">
+                {ekspresMenunggu} pengajuan cair ekspres menunggu keputusan
+              </p>
+              <p className="mt-0.5 text-xs leading-5 text-amber-800">
+                Peminjam memilih cair ekspres dan biaya ekspres dipotong di muka.
+                Pengajuan ini dinaikkan ke paling atas antrean Pinjaman.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => onBukaModul("pinjaman")}
+            >
+              Tinjau antrean
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </motion.div>
+      )}
       <Kartu
         Icon={ClipboardList}
         label="Pengajuan menunggu keputusan"

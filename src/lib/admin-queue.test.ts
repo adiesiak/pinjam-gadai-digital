@@ -10,7 +10,10 @@ import {
   NILAI_MODUL_ADMIN,
   STATUS_MENUNGGU,
   grupDariModul,
+  hitungCairEkspresMenunggu,
   hitungMenunggu,
+  pakaiCairEkspres,
+  urutkanAntreanEkspres,
   jumlahPerhatianLokasi,
   jumlahPerluKeputusan,
   modulDariParameter,
@@ -465,6 +468,47 @@ eq(modulDariParameter(""), "hari-ini", "parameter kosong jatuh ke meja kerja");
 for (const modul of NILAI_MODUL_ADMIN) {
   eq(modulDariParameter(modul), modul, `setiap modul bisa dibuka lewat ?tab=${modul}`);
 }
+
+// ===== Cair ekspres: penanda, hitungan, dan urutan antrean =====
+
+// Hanya centang eksplisit yang dianggap memilih cair ekspres. Data lama
+// (`null`) dulu selalu ekspres, tetapi bukan pilihan baru di antrean.
+eq(pakaiCairEkspres({ cairEkspres: true }), true, "centang ekspres dikenali");
+eq(pakaiCairEkspres({ cairEkspres: false }), false, "tanpa centang bukan ekspres");
+eq(pakaiCairEkspres({ cairEkspres: null }), false, "data lama null bukan ekspres baru");
+eq(pakaiCairEkspres({}), false, "kolom kosong bukan ekspres");
+
+// Notifikasi hanya menghitung pengajuan yang masih menunggu keputusan.
+eq(
+  hitungCairEkspresMenunggu([
+    { status: "diajukan", cairEkspres: true },
+    { status: "sedang_direview", cairEkspres: true },
+    { status: "didanai", cairEkspres: true },
+    { status: "diajukan", cairEkspres: false },
+    { status: "diajukan", cairEkspres: null },
+  ]),
+  2,
+  "hitung ekspres hanya status tinjauan",
+);
+
+// Urutan: ekspres dulu (walau paling lama), sisanya tetap terbaru-dulu.
+const antrean = [
+  { nama: "baru-biasa", _creationTime: 300, cairEkspres: false },
+  { nama: "lama-ekspres", _creationTime: 100, cairEkspres: true },
+  { nama: "tengah-ekspres", _creationTime: 200, cairEkspres: true },
+  { nama: "tua-biasa", _creationTime: 50, cairEkspres: null },
+];
+const urut = urutkanAntreanEkspres(antrean);
+eq(
+  urut.map((baris) => baris.nama).join(","),
+  "tengah-ekspres,lama-ekspres,baru-biasa,tua-biasa",
+  "ekspres di atas, lalu terbaru-dulu",
+);
+eq(
+  antrean.map((baris) => baris.nama).join(","),
+  "baru-biasa,lama-ekspres,tengah-ekspres,tua-biasa",
+  "urutan masukan tidak diubah",
+);
 
 console.log(`admin-queue.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);
