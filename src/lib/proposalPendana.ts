@@ -9,10 +9,11 @@
  * Imbal Hasil, dan biaya platform dibaca dari konstanta atau dari Pengaturan
  * Sistem yang berlaku saat tombol unduh ditekan.
  *
- * Isinya sengaja berbentuk lembar penawaran, bukan iklan: skema, contoh
- * perhitungan, simulasi nominal, alur uang, hak dan kewajiban, lalu risiko.
- * Bagian risiko tidak boleh dihapus agar berkas ini tetap jujur dipakai
- * sebagai bahan pertimbangan calon pendana.
+ * Bentuk dokumennya meniru lembar penawaran, bukan cetakan tabel: satu sampul
+ * dengan tiga angka kunci, lalu dua halaman isi dengan bagian yang dipisah
+ * garis kuningan, satu pita angka untuk hasil bersih, dan tabel simulasi tiga
+ * kolom. Bagian risiko tetap dicetak terbuka sebelum kontak, karena dokumen
+ * yang hanya menjual angka tidak layak dipakai sebagai bahan pertimbangan.
  */
 import {
   PERSEN_IMBAL_PENDANA,
@@ -25,8 +26,7 @@ import type { BarisPdf, DokumenPdf } from "./pdfSederhana";
 
 /** Kop dan kaki dokumen, sama dengan laporan lain yang keluar dari PINDAI. */
 const NAMA_LAYANAN = "PINJAM GADAI DIGITAL (PINDAI)";
-const KAKI_DOKUMEN =
-  "PINDAI - proposal pembagian hasil pendanaan, bukan perjanjian";
+const KAKI_DOKUMEN = "PINDAI - proposal pembagian hasil pendanaan";
 
 /** Nominal yang diuraikan baris demi baris sebagai contoh utama. */
 export const NOMINAL_CONTOH_PROPOSAL = 10_000_000;
@@ -42,7 +42,7 @@ export const NOMINAL_SIMULASI_PROPOSAL = [
 export type DataProposalPendana = {
   /** Biaya platform (layanan) dari uang yang kembali, persen. */
   persenPotonganAdmin: number;
-  /** Waktu dokumen disusun (epoch ms); dipakai di kop dan nama berkas. */
+  /** Waktu dokumen disusun (epoch ms); dipakai di sampul dan nama berkas. */
   dibuatPada: number;
 };
 
@@ -96,55 +96,35 @@ export function nomorLayananProposal(): string {
 /**
  * Susun dokumen proposal.
  *
- * Urutan bagian mengikuti cara calon pendana membaca: apa skemanya, berapa
- * hasilnya, bagaimana uang bergerak, apa haknya, lalu apa risikonya. Risiko
- * diletakkan sebelum kontak, bukan di catatan kaki, supaya keputusan diambil
- * setelah pembaca melihat sisi yang tidak menguntungkan.
+ * Tiga halaman: sampul, lalu dua halaman isi. Urutan isinya mengikuti cara
+ * calon pendana membaca: skema dan contoh angkanya, simulasi nominal, hak dan
+ * kewajiban, lalu alur, risiko, dan kontak. Pemisah halaman ditetapkan
+ * eksplisit supaya langkah alur tidak terpotong di tengah halaman.
  */
 export function proposalPembagianPendana(
   data: DataProposalPendana,
 ): DokumenPdf {
+  const persen = formatPersen(data.persenPotonganAdmin);
   const contoh = bagiHasilPendana(
     NOMINAL_CONTOH_PROPOSAL,
     data.persenPotonganAdmin,
   );
-  const persen = formatPersen(data.persenPotonganAdmin);
 
   const simulasi: BarisPdf[] = [];
   for (const pokok of NOMINAL_SIMULASI_PROPOSAL) {
     const bagi = bagiHasilPendana(pokok, data.persenPotonganAdmin);
-    simulasi.push(
-      { teks: rupiah(pokok), gaya: "seksi" },
-      {
-        label: `Imbal Hasil (${PERSEN_IMBAL_PENDANA}%)`,
-        nilai: rupiah(bagi.imbal),
+    simulasi.push({
+      kolom: {
+        kiri: rupiah(pokok),
+        tengah: rupiah(bagi.imbal),
+        kanan: rupiah(bagi.diterima),
       },
-      {
-        label: `Biaya platform (${persen})`,
-        nilai: rupiah(bagi.potonganAdmin),
-      },
-      { label: "Diterima bersih", nilai: rupiah(bagi.diterima), tebal: true },
-      {
-        label: "Keuntungan bersih",
-        nilai: rupiah(bagi.keuntungan),
-        tebal: true,
-      },
-    );
+    });
   }
 
   const baris: BarisPdf[] = [
-    { teks: "Proposal pembagian hasil pendanaan", gaya: "judul" },
-    {
-      teks: "Skema pendanaan PINDAI untuk calon pendana",
-      gaya: "subjudul",
-    },
-    {
-      teks: `Diterbitkan ${tanggalProposal(data.dibuatPada)} dari kebijakan yang berlaku di aplikasi`,
-      gaya: "kecil",
-    },
-    { garis: true },
-
     { teks: "Ringkasan skema", gaya: "seksi" },
+    { garis: true },
     { label: "Siklus pendanaan", nilai: `${TENOR_PENDANA_HARI} hari` },
     {
       label: "Imbal Hasil pendana",
@@ -160,16 +140,18 @@ export function proposalPembagianPendana(
       nilai: "Setelah pinjaman lunas dan transfer dicatat",
     },
     { label: "Pemetaan dana", nilai: "Satu pinjaman untuk satu pendana" },
-    { kosong: true },
+    { jarak: 6 },
     {
       teks: `Imbal Hasil ${PERSEN_IMBAL_PENDANA}% dihitung dari pokok pendanaan, bukan dari bunga pinjaman peminjam. Perpanjangan tenor, perubahan bunga, atau cicilan pokok di sisi peminjam tidak mengubah hak pendana.`,
-      gaya: "biasa",
+      gaya: "kecil",
     },
 
+    { jarak: 14 },
     {
       teks: `Contoh pembagian ${rupiah(NOMINAL_CONTOH_PROPOSAL)}`,
       gaya: "seksi",
     },
+    { garis: true },
     { label: "Pokok yang Anda danai", nilai: rupiah(NOMINAL_CONTOH_PROPOSAL) },
     {
       label: `Imbal Hasil (${PERSEN_IMBAL_PENDANA}%)`,
@@ -180,52 +162,38 @@ export function proposalPembagianPendana(
       label: `Biaya platform (layanan) ${persen}`,
       nilai: rupiah(contoh.potonganAdmin),
     },
-    { label: "Diterima bersih", nilai: rupiah(contoh.diterima), tebal: true },
     {
-      label: "Keuntungan bersih",
-      nilai: rupiah(contoh.keuntungan),
+      pita: {
+        label: "Diterima bersih",
+        nilai: rupiah(contoh.diterima),
+        catatan: `Keuntungan bersih ${rupiah(contoh.keuntungan)} setelah pokok kembali utuh.`,
+      },
+    },
+    {
+      teks: `Biaya platform dihitung dari uang yang kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja. Karena itu pokok kembali utuh, sedangkan keuntungan bersih lebih kecil dari Imbal Hasil ${PERSEN_IMBAL_PENDANA}%.`,
+      gaya: "kecil",
+    },
+
+    { jarak: 14 },
+    { teks: "Simulasi nominal", gaya: "seksi" },
+    { garis: true },
+    {
+      kolom: {
+        kiri: "Nominal",
+        tengah: "Imbal Hasil",
+        kanan: "Diterima bersih",
+      },
       tebal: true,
     },
-    { kosong: true },
-    {
-      teks: `Biaya platform dihitung dari uang yang kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil saja. Karena itu pokok kembali utuh, sedangkan keuntungan bersih lebih kecil dari Imbal Hasil ${PERSEN_IMBAL_PENDANA}% yang tercatat.`,
-      gaya: "kecil",
-    },
-
-    { teks: "Simulasi nominal lain", gaya: "seksi" },
-    {
-      teks: "Angka di bawah memakai biaya platform dan Imbal Hasil yang sama dengan contoh di atas.",
-      gaya: "kecil",
-    },
     ...simulasi,
-
-    { teks: "Alur pendanaan", gaya: "seksi" },
     {
-      teks: "1. Pendaftaran. Admin PINDAI membuatkan akun pendana setelah rencana pendanaan disepakati. Anda masuk dengan OTP email.",
-      gaya: "biasa",
-    },
-    {
-      teks: "2. Penyetoran. Dana disetor ke rekening usaha PINDAI di luar aplikasi. Aplikasi tidak memindahkan uang.",
-      gaya: "biasa",
-    },
-    {
-      teks: "3. Alokasi. Admin mencatat alokasi pada satu pinjaman yang identitas dan tujuannya sudah tercatat.",
-      gaya: "biasa",
-    },
-    {
-      teks: "4. Berjalan. Pinjaman berjalan sesuai tenor peminjam. Hak pendana tetap mengikuti siklus pendana.",
-      gaya: "biasa",
-    },
-    {
-      teks: "5. Pelunasan. Setelah pinjaman lunas, keuntungan pendana dibukukan sebagai hak Anda.",
-      gaya: "biasa",
-    },
-    {
-      teks: "6. Transfer. Admin mentransfer hasil di luar aplikasi lalu mencatatnya. Catatan transfer bukan bukti mutasi bank.",
-      gaya: "biasa",
+      teks: "Semua simulasi memakai Imbal Hasil dan biaya platform yang sama dengan contoh di atas.",
+      gaya: "kecil",
     },
 
+    { jarak: 10 },
     { teks: "Hak dan kewajiban", gaya: "seksi" },
+    { garis: true },
     { teks: "Pendana", gaya: "tebal" },
     {
       teks: "Menyetor dana sesuai kesepakatan, menerima pokok dan Imbal Hasil setelah pinjaman lunas, dan tidak dapat menarik dana selama pinjaman masih berjalan.",
@@ -237,7 +205,36 @@ export function proposalPembagianPendana(
       gaya: "biasa",
     },
 
+    // Halaman isi pertama berhenti setelah hak dan kewajiban. Sisa isi (alur,
+    // risiko, kontak) pindah ke halaman kedua supaya tidak ada paragraf yang
+    // terpotong hanya demi mengisi sisa kertas.
+    { halamanBaru: true },
+    { teks: "Alur pendanaan", gaya: "seksi" },
+    { garis: true },
+    { teks: "1. Pendaftaran dan penyetoran", gaya: "tebal" },
+    {
+      teks: "Admin PINDAI membuatkan akun setelah rencana pendanaan disepakati. Anda masuk dengan OTP email. Dana disetor ke rekening usaha PINDAI di luar aplikasi. Aplikasi tidak memindahkan uang.",
+      gaya: "biasa",
+    },
+    { teks: "2. Alokasi ke satu pinjaman", gaya: "tebal" },
+    {
+      teks: "Admin mencatat alokasi pada satu pinjaman yang identitas dan tujuannya sudah tercatat. Hak pendana disimpan terpisah dari kontrak peminjam.",
+      gaya: "biasa",
+    },
+    { teks: "3. Berjalan sampai lunas", gaya: "tebal" },
+    {
+      teks: `Pinjaman berjalan sesuai tenor peminjam, sedangkan hak Anda tetap mengikuti siklus ${TENOR_PENDANA_HARI} hari. Setelah pinjaman lunas, keuntungan pendana dibukukan.`,
+      gaya: "biasa",
+    },
+    { teks: "4. Transfer hasil", gaya: "tebal" },
+    {
+      teks: "Admin mentransfer hasil di luar aplikasi lalu mencatatnya. Tidak ada pemindahan dana otomatis. Catatan transfer bukan bukti mutasi bank.",
+      gaya: "biasa",
+    },
+
+    { jarak: 8 },
     { teks: "Risiko yang perlu Anda baca", gaya: "seksi" },
+    { garis: true },
     {
       teks: "Modal berisiko. Jika peminjam gagal bayar, pokok dan Imbal Hasil tidak kembali. Tidak ada jaminan dari LPS, asuransi, atau pihak ketiga.",
       gaya: "biasa",
@@ -250,25 +247,15 @@ export function proposalPembagianPendana(
       teks: `Waktu pembayaran. Siklus ${TENOR_PENDANA_HARI} hari adalah acuan hak pendana, bukan jadwal penagihan. Keterlambatan peminjam menunda pencairan hasil.`,
       gaya: "biasa",
     },
-    {
-      teks: "Transfer manual. PINDAI tidak memindahkan dana otomatis, sehingga pencatatan bisa tertunda bila admin belum membuat catatan transfer.",
-      gaya: "biasa",
-    },
-    {
-      teks: "Dokumen ini bukan perjanjian dan bukan jaminan hasil. Angka mengikuti kebijakan yang berlaku pada tanggal terbit dan dapat berubah untuk alokasi baru.",
-      gaya: "biasa",
-    },
 
+    { jarak: 8 },
     { teks: "Cara memulai", gaya: "seksi" },
+    { garis: true },
     {
-      teks: `Hubungi layanan pelanggan PINDAI di WhatsApp ${nomorLayananProposal()} dan sampaikan bahwa Anda ingin menjadi pendana.`,
+      teks: `Hubungi layanan pelanggan PINDAI di WhatsApp ${nomorLayananProposal()} untuk membahas rencana nominal, sumber dana, dan rekening pengembalian. Admin menjelaskan syarat dan langkah sebelum akun dibuat.`,
       gaya: "biasa",
     },
-    {
-      teks: "Siapkan rencana nominal pendanaan, sumber dana, dan rekening tujuan pengembalian. Admin akan menjelaskan syarat dan langkah sebelum akun dibuat.",
-      gaya: "biasa",
-    },
-    { kosong: true },
+    { jarak: 8 },
     {
       teks: "Dokumen ini dibuat otomatis dari kebijakan aplikasi pada tanggal terbit. Rincian angkanya dapat diperiksa ulang di halaman Jadi pendana.",
       gaya: "kecil",
@@ -280,6 +267,32 @@ export function proposalPembagianPendana(
       nama: NAMA_LAYANAN,
       keterangan: "Layanan pendanaan - proposal pembagian hasil",
       referensi: "PROPOSAL PENDANAAN",
+    },
+    sampul: {
+      judul: "Pembagian hasil pendanaan",
+      subjudul:
+        "Skema pendanaan PINDAI untuk calon pendana. Satu pinjaman, satu pendana, dan pembagian yang tertulis sejak awal.",
+      meta: `Diterbitkan ${tanggalProposal(data.dibuatPada)} / PINDAI / Untuk calon pendana`,
+      fakta: [
+        { nilai: `${TENOR_PENDANA_HARI} hari`, label: "Siklus pendanaan" },
+        {
+          nilai: `${PERSEN_IMBAL_PENDANA}%`,
+          label: "Imbal Hasil per siklus",
+        },
+        { nilai: persen, label: "Biaya platform" },
+      ],
+      catatan:
+        "Imbal Hasil dihitung dari pokok yang Anda danai, bukan dari bunga pinjaman peminjam. Biaya platform diambil dari uang yang kembali, setelah pinjaman lunas.",
+      isi: [
+        "Ringkasan skema dan syarat pembayaran",
+        `Contoh pembagian ${rupiah(NOMINAL_CONTOH_PROPOSAL)} baris demi baris`,
+        "Simulasi nominal Rp 5 juta sampai Rp 100 juta",
+        "Hak, kewajiban, alur, dan risiko pendanaan",
+        "Cara memulai dan kontak layanan",
+      ],
+      penutup:
+        "Pendanaan bukan tabungan. Baca bagian risiko sebelum menyetor, karena Imbal Hasil baru menjadi uang Anda setelah pinjaman lunas.",
+      kaki: `Dokumen ini bukan perjanjian dan bukan jaminan hasil. Angka mengikuti kebijakan yang berlaku pada tanggal terbit dan dapat berubah untuk alokasi baru. Layanan pelanggan: WhatsApp ${nomorLayananProposal()}.`,
     },
     kaki: KAKI_DOKUMEN,
     baris,
