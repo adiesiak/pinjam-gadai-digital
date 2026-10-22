@@ -51,7 +51,10 @@ import {
   BannerRisikoPendanaan,
   PanelRisikoPendanaan,
 } from "@/components/penyediaDana/RisikoPendanaan";
-import { ANCHOR_RISIKO_PENDANAAN, CATATAN_INTERNAL_SINGKAT } from "@/lib/teksRisikoPendanaan";
+import {
+  ANCHOR_RISIKO_PENDANAAN,
+  CATATAN_INTERNAL_SINGKAT,
+} from "@/lib/teksRisikoPendanaan";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
 import { RekapPendanaUnduhan } from "@/components/penyediaDana/RekapPendanaUnduhan";
@@ -256,7 +259,10 @@ function AksiPinjaman({
         </DropdownMenuItem>
         {onUbah !== undefined && (
           <DropdownMenuItem onSelect={onUbah} className="gap-2 py-2">
-            <Pencil className="size-4 text-muted-foreground" aria-hidden="true" />
+            <Pencil
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             Ubah data pinjaman
           </DropdownMenuItem>
         )}
@@ -265,7 +271,10 @@ function AksiPinjaman({
         )}
         {onCatatUntung !== undefined && (
           <DropdownMenuItem onSelect={onCatatUntung} className="gap-2 py-2">
-            <Coins className="size-4 text-muted-foreground" aria-hidden="true" />
+            <Coins
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             Catat untung
           </DropdownMenuItem>
         )}
@@ -318,8 +327,12 @@ function KartuPengajuan({
     <article className="rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-gold/50">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-semibold uppercase text-slate-900">{nama}</p>
-          <p className="mt-0.5 font-mono text-xs text-slate-600">{nomorReferensi}</p>
+          <p className="truncate font-semibold uppercase text-slate-900">
+            {nama}
+          </p>
+          <p className="mt-0.5 font-mono text-xs text-slate-600">
+            {nomorReferensi}
+          </p>
         </div>
         <div className="shrink-0">{status}</div>
       </div>
@@ -407,10 +420,15 @@ function MetricKartu({
         {ikon}
         {label}
         {bantuan !== undefined && (
-          <IstilahBantuan istilah={bantuan.istilah} penjelasan={bantuan.penjelasan} />
+          <IstilahBantuan
+            istilah={bantuan.istilah}
+            penjelasan={bantuan.penjelasan}
+          />
         )}
       </p>
-      <p className="mt-1.5 text-lg font-bold tabular-nums leading-tight">{nilai}</p>
+      <p className="mt-1.5 text-lg font-bold tabular-nums leading-tight">
+        {nilai}
+      </p>
     </div>
   );
 }
@@ -458,7 +476,8 @@ function DetailPinjaman({
             persenBunga: persenBungaPinjaman,
           }),
         );
-  const danaBersih = harian?.danaBersihDitransfer ?? bulanan?.danaDiterima ?? null;
+  const danaBersih =
+    harian?.danaBersihDitransfer ?? bulanan?.danaDiterima ?? null;
   /**
    * Jatuh tempo memakai `lib/jatuhTempo` — modul yang sama dengan tabel dan
    * kartu, jadi tanggal serta hitung harinya tidak pernah berbeda antar tempat.
@@ -480,16 +499,31 @@ function DetailPinjaman({
           <dl className="mt-1.5">
             <BarisDetail
               label="Nama lengkap"
-              nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
+              nilai={
+                <span className="uppercase">{namaTampil(row.namaLengkap)}</span>
+              }
             />
-            <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
+            <BarisDetail
+              label="Kode peminjam"
+              nilai={row.kodePeminjam ?? "belum terbit"}
+            />
             <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
             <BarisDetail
               label="Skema"
-              nilai={row.tenorBulan === null ? "Harian" : `Bulanan ${row.tenorBulan} bulan`}
+              nilai={
+                row.tenorBulan === null
+                  ? "Harian"
+                  : `Bulanan ${row.tenorBulan} bulan`
+              }
             />
-            <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
-            <BarisDetail label="Status" nilai={<StatusBadge status={row.status} kind="loan" />} />
+            <BarisDetail
+              label="Tanggal pengajuan"
+              nilai={tanggalRingkas(row.diajukanPada)}
+            />
+            <BarisDetail
+              label="Status"
+              nilai={<StatusBadge status={row.status} kind="loan" />}
+            />
           </dl>
         </section>
 
@@ -503,7 +537,11 @@ function DetailPinjaman({
               label="Nominal diajukan"
               nilai={rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
             />
-            <BarisDetail tebal label={labelPokok(row.status)} nilai={rupiah(row.pokokPinjaman)} />
+            <BarisDetail
+              tebal
+              label={labelPokok(row.status)}
+              nilai={rupiah(row.pokokPinjaman)}
+            />
             <BarisDetail
               tebal
               label="Skema pendana"
@@ -532,8 +570,9 @@ function DetailPinjaman({
           </dl>
           {row.pokokDiajukan > row.pokokPinjaman && (
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              Pokok tercatat lebih kecil dari pengajuan awal. Perhitungan menggunakan pokok tercatat;
-              status persetujuan tidak berarti dana sudah ditransfer.
+              Pokok tercatat lebih kecil dari pengajuan awal. Perhitungan
+              menggunakan pokok tercatat; status persetujuan tidak berarti dana
+              sudah ditransfer.
             </p>
           )}
         </section>
@@ -566,44 +605,47 @@ function DetailPinjaman({
       </div>
 
       <dl className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
-      {/* `row.keuntunganAdmin` sengaja tidak ditampilkan lagi: pada model bagi
+        {/* `row.keuntunganAdmin` sengaja tidak ditampilkan lagi: pada model bagi
           hasil PINDAI ia selalu sama dengan `row.potonganAdmin` di atas
           (pendapatan platform = biaya platform (layanan) atas uang yang
           kembali, yaitu pokok + Imbal Hasil), jadi menampilkan keduanya berarti
           satu angka muncul dua kali dengan label sama. */}
-      <BarisDetail
-        label="Tenor pendana"
-        nilai={`${row.tenorPendanaHari} hari`}
-      />
-      <BarisDetail
-        label="Jatuh tempo"
-        nilai={<TampilanJatuhTempo tampilan={tampilanJatuhTempo} align="right" />}
-      />
-      <BarisDetail
-        label="Indeks kepercayaan"
-        nilai={
-          <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
-            <BadgeKepercayaan kepercayaan={row.kepercayaan} tanpaSkor />
-            <ChipSkorRisiko skor={row.kepercayaan.skor} />
-          </span>
-        }
-      />
-      <p className="border-b border-slate-100 pb-3 text-xs leading-6 text-muted-foreground">
-        Dasar penilaian: {row.kepercayaan.alasan.join(" · ")}. Indeks ini dihitung PINDAI dari
-        riwayat pinjaman dan kelengkapan data pada catatan internal — bukan skor kredit lembaga
-        penilai dan bukan jaminan persetujuan.
-      </p>
-      <BarisDetail label="Keperluan" nilai={row.tujuan} />
-      <BarisDetail
-        label="Pendana"
-        nilai={
-          row.pendana === null ? (
-            "belum tercatat"
-          ) : (
-            <span className="uppercase">{namaTampil(row.pendana)}</span>
-          )
-        }
-      />
+        <BarisDetail
+          label="Tenor pendana"
+          nilai={`${row.tenorPendanaHari} hari`}
+        />
+        <BarisDetail
+          label="Jatuh tempo"
+          nilai={
+            <TampilanJatuhTempo tampilan={tampilanJatuhTempo} align="right" />
+          }
+        />
+        <BarisDetail
+          label="Indeks kepercayaan"
+          nilai={
+            <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+              <BadgeKepercayaan kepercayaan={row.kepercayaan} tanpaSkor />
+              <ChipSkorRisiko skor={row.kepercayaan.skor} />
+            </span>
+          }
+        />
+        <p className="border-b border-slate-100 pb-3 text-xs leading-6 text-muted-foreground">
+          Dasar penilaian: {row.kepercayaan.alasan.join(" · ")}. Indeks ini
+          dihitung PINDAI dari riwayat pinjaman dan kelengkapan data pada
+          catatan internal — bukan skor kredit lembaga penilai dan bukan jaminan
+          persetujuan.
+        </p>
+        <BarisDetail label="Keperluan" nilai={row.tujuan} />
+        <BarisDetail
+          label="Pendana"
+          nilai={
+            row.pendana === null ? (
+              "belum tercatat"
+            ) : (
+              <span className="uppercase">{namaTampil(row.pendana)}</span>
+            )
+          }
+        />
       </dl>
     </>
   );
@@ -622,13 +664,20 @@ function DetailGadai({
         label="Nama lengkap"
         nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
       />
-      <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
+      <BarisDetail
+        label="Kode peminjam"
+        nilai={row.kodePeminjam ?? "belum terbit"}
+      />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
       <BarisDetail label="Kategori" nilai={row.kategori} />
       <BarisDetail label="Barang" nilai={row.deskripsiBarang} />
       <BarisDetail
         label="Nilai taksiran"
-        nilai={row.nilaiTaksiran === null ? "belum ditaksir" : rupiah(row.nilaiTaksiran)}
+        nilai={
+          row.nilaiTaksiran === null
+            ? "belum ditaksir"
+            : rupiah(row.nilaiTaksiran)
+        }
       />
       <BarisDetail
         label="Pokok gadai disetujui"
@@ -636,14 +685,24 @@ function DetailGadai({
       />
       <BarisDetail
         label="Sewa modal"
-        nilai={row.persenSewaModal === null ? "—" : `${row.persenSewaModal}% / 30 hari`}
+        nilai={
+          row.persenSewaModal === null
+            ? "—"
+            : `${row.persenSewaModal}% / 30 hari`
+        }
       />
       <BarisDetail
         label="Sisa pokok berjalan"
         nilai={row.sisaPokok === null ? "—" : rupiah(row.sisaPokok)}
       />
-      <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
-      <BarisDetail label="Status" nilai={<StatusBadge status={row.status} kind="pawn" />} />
+      <BarisDetail
+        label="Tanggal pengajuan"
+        nilai={tanggalRingkas(row.diajukanPada)}
+      />
+      <BarisDetail
+        label="Status"
+        nilai={<StatusBadge status={row.status} kind="pawn" />}
+      />
     </>
   );
 }
@@ -664,7 +723,9 @@ function DetailKredit({
     }),
   );
   const jatuhTempo =
-    row.didanaiPada === null ? null : row.didanaiPada + row.tenorBulan * BULAN_MS;
+    row.didanaiPada === null
+      ? null
+      : row.didanaiPada + row.tenorBulan * BULAN_MS;
 
   return (
     <>
@@ -672,15 +733,23 @@ function DetailKredit({
         label="Nama lengkap"
         nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
       />
-      <BarisDetail label="Kode peminjam" nilai={row.kodePeminjam ?? "belum terbit"} />
+      <BarisDetail
+        label="Kode peminjam"
+        nilai={row.kodePeminjam ?? "belum terbit"}
+      />
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
-      <BarisDetail label="Barang" nilai={`${row.namaBarang} · ${row.kategori}`} />
+      <BarisDetail
+        label="Barang"
+        nilai={`${row.namaBarang} · ${row.kategori}`}
+      />
       <BarisDetail label="Merchant" nilai={row.merchant} />
       <BarisDetail label="Harga barang" nilai={rupiah(row.hargaBarang)} />
       <BarisDetail
         label="Uang muka"
         nilai={
-          quote === null ? `${row.dpPersen}%` : `${row.dpPersen}% · ${rupiah(quote.dp)}`
+          quote === null
+            ? `${row.dpPersen}%`
+            : `${row.dpPersen}% · ${rupiah(quote.dp)}`
         }
       />
       <BarisDetail
@@ -702,7 +771,9 @@ function DetailKredit({
       <BarisDetail label="Tenor" nilai={`${row.tenorBulan} bulan`} />
       <BarisDetail
         label="Jatuh tempo"
-        nilai={jatuhTempo === null ? "belum didanai" : tanggalRingkas(jatuhTempo)}
+        nilai={
+          jatuhTempo === null ? "belum didanai" : tanggalRingkas(jatuhTempo)
+        }
       />
       <BarisDetail
         label="Pendana"
@@ -714,7 +785,10 @@ function DetailKredit({
           )
         }
       />
-      <BarisDetail label="Tanggal pengajuan" nilai={tanggalRingkas(row.diajukanPada)} />
+      <BarisDetail
+        label="Tanggal pengajuan"
+        nilai={tanggalRingkas(row.diajukanPada)}
+      />
       <BarisDetail label="Status" nilai={<BadgeKredit status={row.status} />} />
     </>
   );
@@ -731,7 +805,13 @@ const LABEL_SUMBER: Record<string, string> = {
  * Titik lokasi terakhir peminjam pada dialog Detail: koordinat apa adanya,
  * umur titik, peta OpenStreetMap, dan penanda pola koordinat otomatis.
  */
-function BagianLokasi({ lokasi, nama }: { lokasi: LokasiTitik | null; nama: string }) {
+function BagianLokasi({
+  lokasi,
+  nama,
+}: {
+  lokasi: LokasiTitik | null;
+  nama: string;
+}) {
   const sekarang = useJamBerjalan();
 
   if (lokasi === null) {
@@ -775,11 +855,15 @@ function BagianLokasi({ lokasi, nama }: { lokasi: LokasiTitik | null; nama: stri
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
           <dt className="text-muted-foreground">Akurasi dilaporkan</dt>
-          <dd className="mt-0.5 tabular-nums">± {Math.round(lokasi.akurasi)} m</dd>
+          <dd className="mt-0.5 tabular-nums">
+            ± {Math.round(lokasi.akurasi)} m
+          </dd>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
           <dt className="text-muted-foreground">Sumber</dt>
-          <dd className="mt-0.5">{LABEL_SUMBER[lokasi.sumber] ?? lokasi.sumber}</dd>
+          <dd className="mt-0.5">
+            {LABEL_SUMBER[lokasi.sumber] ?? lokasi.sumber}
+          </dd>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
           <dt className="text-muted-foreground">Diterima server</dt>
@@ -796,8 +880,8 @@ function BagianLokasi({ lokasi, nama }: { lokasi: LokasiTitik | null; nama: stri
       {lokasi.tanda.length > 0 && (
         <p className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          Sistem menandai pola koordinat ini secara otomatis — indikator, bukan bukti
-          manipulasi. Buka peta untuk menilai sendiri.
+          Sistem menandai pola koordinat ini secara otomatis — indikator, bukan
+          bukti manipulasi. Buka peta untuk menilai sendiri.
         </p>
       )}
       <a
@@ -844,10 +928,13 @@ function BagianBerkas({
       </p>
       {!boleh ? (
         <p className="mt-2 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs leading-5 text-slate-600">
-          <Lock className="mt-0.5 size-3.5 shrink-0 text-slate-600" aria-hidden />
-          Berkas non-identitas (mis. foto barang jaminan) hanya dibuka untuk akun pendana
-          beremail yang ditunjuk admin. Sesi kode akses bersama dapat melihat angka pengajuan dan
-          lokasi, tetapi tidak berkas apa pun.
+          <Lock
+            className="mt-0.5 size-3.5 shrink-0 text-slate-600"
+            aria-hidden
+          />
+          Berkas non-identitas (mis. foto barang jaminan) hanya dibuka untuk
+          akun pendana beremail yang ditunjuk admin. Sesi kode akses bersama
+          dapat melihat angka pengajuan dan lokasi, tetapi tidak berkas apa pun.
         </p>
       ) : data === undefined ? (
         <MemuatBaris teks="Memuat berkas…" className="mt-2" />
@@ -891,10 +978,14 @@ function BagianBerkas({
             </div>
           )}
           <p className="mt-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs leading-5 text-slate-600">
-            <Lock className="mt-0.5 size-3.5 shrink-0 text-slate-600" aria-hidden />
-            Dokumen identitas peminjam (KTP, selfie dengan KTP, bukti penghasilan, tanda tangan)
-            tidak dibagikan ke ruang pendana. Peninjauannya dilakukan tim PINDAI yang
-            berwenang, dengan penanda air, di panel admin.
+            <Lock
+              className="mt-0.5 size-3.5 shrink-0 text-slate-600"
+              aria-hidden
+            />
+            Dokumen identitas peminjam (KTP, selfie dengan KTP, bukti
+            penghasilan, tanda tangan) tidak dibagikan ke ruang pendana.
+            Peninjauannya dilakukan tim PINDAI yang berwenang, dengan penanda
+            air, di panel admin.
           </p>
         </>
       )}
@@ -944,13 +1035,22 @@ function IsiDialog({
             persenBungaDefault={persenBungaDefault}
           />
         )}
-        {detail.jenis === "gadai" && <DetailGadai row={detail.row} namaTampil={namaTampil} />}
+        {detail.jenis === "gadai" && (
+          <DetailGadai row={detail.row} namaTampil={namaTampil} />
+        )}
         {detail.jenis === "kredit" && (
           <DetailKredit row={detail.row} namaTampil={namaTampil} />
         )}
       </div>
-      <BagianLokasi lokasi={detail.row.lokasi} nama={namaTampil(detail.row.namaLengkap)} />
-      <BagianBerkas jenis={detail.jenis} id={detail.row._id} boleh={bolehBerkas} />
+      <BagianLokasi
+        lokasi={detail.row.lokasi}
+        nama={namaTampil(detail.row.namaLengkap)}
+      />
+      <BagianBerkas
+        jenis={detail.jenis}
+        id={detail.row._id}
+        boleh={bolehBerkas}
+      />
     </>
   );
 }
@@ -966,13 +1066,14 @@ function AksesTerbatas() {
         Ruang pendana bersifat terbatas
       </h1>
       <p className="mt-3 text-sm leading-7 text-muted-foreground">
-        Akses lihat saja hanya diberikan admin PINDAI kepada akun tertentu. Akun Anda belum
-        terdaftar; hubungi tim operasional bila Anda membutuhkan akses ini.
+        Akses lihat saja hanya diberikan admin PINDAI kepada akun tertentu. Akun
+        Anda belum terdaftar; hubungi tim operasional bila Anda membutuhkan
+        akses ini.
       </p>
       <p className="mx-auto mt-4 max-w-md rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
         <KeyRound className="mr-1.5 inline size-3.5 align-[-2px] text-primary" />
-        Tim pemantau memakai <strong>kode akses bersama</strong> dari admin — masuk lewat
-        halaman kode akses, bukan lewat akun email.
+        Tim pemantau memakai <strong>kode akses bersama</strong> dari admin —
+        masuk lewat halaman kode akses, bukan lewat akun email.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Button asChild>
@@ -995,7 +1096,10 @@ function AksesTerbatas() {
  * menerima pesan yang jelas beserta jalan keluarnya — bukan halaman kendala
  * sistem aplikasi.
  */
-class BatasRuang extends Component<{ children: ReactNode }, { pesan: string | null }> {
+class BatasRuang extends Component<
+  { children: ReactNode },
+  { pesan: string | null }
+> {
   state: { pesan: string | null } = { pesan: null };
 
   static getDerivedStateFromError(error: Error) {
@@ -1003,7 +1107,11 @@ class BatasRuang extends Component<{ children: ReactNode }, { pesan: string | nu
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[PINDAI] Ruang pendana gagal dibuka:", error, info.componentStack);
+    console.error(
+      "[PINDAI] Ruang pendana gagal dibuka:",
+      error,
+      info.componentStack,
+    );
   }
 
   render() {
@@ -1023,13 +1131,14 @@ function RuangGagal({ pesan }: { pesan: string }) {
           Ruang pendana belum bisa dibuka
         </h1>
         <p className="mt-3 text-sm leading-7 text-muted-foreground">
-          Sesi akses lihat-saja Anda mungkin sudah diputus admin atau kode akses bersama sudah
-          diganti. Tidak ada data yang berubah — ruang ini hanya membaca. Minta kode terbaru dari
-          admin lalu masuk lagi.
+          Sesi akses lihat-saja Anda mungkin sudah diputus admin atau kode akses
+          bersama sudah diganti. Tidak ada data yang berubah — ruang ini hanya
+          membaca. Minta kode terbaru dari admin lalu masuk lagi.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Button onClick={() => window.location.reload()}>
-            <RotateCcw className="mr-1.5 size-4" aria-hidden /> Muat ulang halaman
+            <RotateCcw className="mr-1.5 size-4" aria-hidden /> Muat ulang
+            halaman
           </Button>
           <Button asChild variant="outline">
             <Link to="/akses-bersama">Masuk dengan kode akses bersama</Link>
@@ -1123,22 +1232,34 @@ function DaftarPinjaman({
             <InfoKartu label="Nominal diajukan">
               {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}
             </InfoKartu>
-            <InfoKartu label={labelPokok(row.status)}>{rupiah(row.pokokPinjaman)}</InfoKartu>
+            <InfoKartu label={labelPokok(row.status)}>
+              {rupiah(row.pokokPinjaman)}
+            </InfoKartu>
             <InfoKartu label={`Imbal Hasil ${row.persenImbalPendana}%`}>
               {rupiah(row.bunga)}
             </InfoKartu>
-            <InfoKartu label="Total pengembalian">{rupiah(row.totalLunas)}</InfoKartu>
-            <InfoKartu label="Tenor pendana">{row.tenorPendanaHari} hari</InfoKartu>
+            <InfoKartu label="Total pengembalian">
+              {rupiah(row.totalLunas)}
+            </InfoKartu>
+            <InfoKartu label="Tenor pendana">
+              {row.tenorPendanaHari} hari
+            </InfoKartu>
             <InfoKartu label="Jatuh tempo">
               <TampilanJatuhTempoRingkas tampilan={jatuhTempo(row)} />
             </InfoKartu>
             <InfoKartu label="Kepercayaan peminjam">
               <span className="inline-flex flex-wrap items-center gap-1.5">
-                <BadgeKepercayaan kepercayaan={row.kepercayaan} tampilkanRingkas tanpaSkor />
+                <BadgeKepercayaan
+                  kepercayaan={row.kepercayaan}
+                  tampilkanRingkas
+                  tanpaSkor
+                />
                 <ChipSkorRisiko skor={row.kepercayaan.skor} />
               </span>
             </InfoKartu>
-            <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
+            <InfoKartu label="Tanggal">
+              {tanggalRingkas(row.diajukanPada)}
+            </InfoKartu>
             <InfoKartu label="Pendana">
               {row.pendana === null ? "—" : namaTampil(row.pendana)}
             </InfoKartu>
@@ -1158,7 +1279,9 @@ function DaftarPinjaman({
               )}
             </InfoKartu>
             <InfoKartu label="Lokasi">
-              {row.lokasi === null ? "belum ada titik" : labelUmur(row.lokasi.waktu, sekarang)}
+              {row.lokasi === null
+                ? "belum ada titik"
+                : labelUmur(row.lokasi.waktu, sekarang)}
             </InfoKartu>
           </KartuPengajuan>
         ))}
@@ -1186,9 +1309,12 @@ function DaftarPinjaman({
                 kepercayaan={row.kepercayaan}
               />
               <TableCell className="align-top tabular-nums">
-                <p className="font-semibold text-slate-900">{rupiah(row.pokokPinjaman)}</p>
+                <p className="font-semibold text-slate-900">
+                  {rupiah(row.pokokPinjaman)}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Diajukan {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} · {labelPokok(row.status)}
+                  Diajukan {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} ·{" "}
+                  {labelPokok(row.status)}
                 </p>
                 <p className="mt-1 text-xs text-slate-600">
                   Tenor pendana {row.tenorPendanaHari} hari
@@ -1200,7 +1326,9 @@ function DaftarPinjaman({
                 )}
               </TableCell>
               <TableCell className="align-top tabular-nums">
-                <p className="font-medium text-slate-800">{rupiah(row.totalLunas)}</p>
+                <p className="font-medium text-slate-800">
+                  {rupiah(row.totalLunas)}
+                </p>
                 <p className="mt-1 text-xs text-emerald-700">
                   Yield {row.persenImbalPendana}% p.p. {rupiah(row.bunga)}
                 </p>
@@ -1225,7 +1353,9 @@ function DaftarPinjaman({
                   <>
                     <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium uppercase text-slate-800">
                       <Wallet className="size-3 shrink-0" aria-hidden />
-                      <span className="truncate">{namaTampil(row.pendana)}</span>
+                      <span className="truncate">
+                        {namaTampil(row.pendana)}
+                      </span>
                     </span>
                     <p className="mt-1 text-xs font-semibold text-emerald-700">
                       Untung {rupiah(row.keuntunganPendana)}
@@ -1275,7 +1405,10 @@ function DialogUbahPinjaman({
   onClose: () => void;
 }) {
   return (
-    <Dialog open={row !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
+    <Dialog
+      open={row !== null}
+      onOpenChange={(open) => (open ? undefined : onClose())}
+    >
       <DialogContent className="w-full gap-0 overflow-hidden rounded-lg border border-gold/40 bg-white p-0 sm:max-w-2xl">
         {/* Kepala modal hijau tipis + badge kategori produk di pojok kiri atas. */}
         <div className="border-b border-gold/40 bg-slate-50/70 px-5 py-4 sm:px-6">
@@ -1283,21 +1416,32 @@ function DialogUbahPinjaman({
             <Tag className="size-3" aria-hidden /> {LABEL_KATEGORI.pinjaman}
           </span>
           <DialogHeader className="mt-2 gap-1.5">
-            <DialogTitle className="text-lg text-navy">Ubah data pinjaman</DialogTitle>
+            <DialogTitle className="text-lg text-navy">
+              Ubah data pinjaman
+            </DialogTitle>
             <DialogDescription className="text-xs leading-5">
-              Koreksi catatan internal PINDAI — termasuk menetapkan siapa pendananya. Tidak ada uang
-              yang berpindah dan pencairan tetap di luar aplikasi; setiap perubahan masuk audit
-              trail (catatan koreksi boleh dikosongkan).
+              Koreksi catatan internal PINDAI — termasuk menetapkan siapa
+              pendananya. Tidak ada uang yang berpindah dan pencairan tetap di
+              luar aplikasi; setiap perubahan masuk audit trail (catatan koreksi
+              boleh dikosongkan).
             </DialogDescription>
           </DialogHeader>
         </div>
-        {row !== null && <FormUbahPinjaman key={row._id} row={row} onClose={onClose} />}
+        {row !== null && (
+          <FormUbahPinjaman key={row._id} row={row} onClose={onClose} />
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
-function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () => void }) {
+function FormUbahPinjaman({
+  row,
+  onClose,
+}: {
+  row: BarisPinjaman;
+  onClose: () => void;
+}) {
   // Kandidat pendana = SEMUA akun yang pernah menjadi pendana (termasuk
   // pendana lama tanpa peran aktif), bukan hanya akun berperan `dana`.
   const kandidatQ = useQuery(api.penyediaDana.kandidatPendana, {});
@@ -1313,7 +1457,9 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
   const TETAP_STATUS = "__tetap_status";
   const [pendana, setPendana] = useState(TETAP);
   const [statusBaru, setStatusBaru] = useState<string>(TETAP_STATUS);
-  const [namaPeminjam, setNamaPeminjam] = useState(namaHurufBesar(row.namaLengkap));
+  const [namaPeminjam, setNamaPeminjam] = useState(
+    namaHurufBesar(row.namaLengkap),
+  );
   const [tujuan, setTujuan] = useState(row.tujuan);
   const [tenorHari, setTenorHari] = useState(String(row.tenorHari));
   const [tenorBulan, setTenorBulan] = useState(
@@ -1332,13 +1478,16 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
 
   const kirim = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const tenorAwal = row.tenorBulan === null ? "harian" : String(row.tenorBulan);
+    const tenorAwal =
+      row.tenorBulan === null ? "harian" : String(row.tenorBulan);
     // Angka yang tidak valid tidak pernah dikirim: biarkan server menolak hanya
     // bila admin memang mengisi nilai, bukan saat kolomnya kosong.
     const hariBaru = Number(tenorHari);
     const pokokBaru = Number(pokok);
     const nominalBaru =
-      !nominalTerkunci && Number.isFinite(pokokBaru) && pokokBaru !== row.pokokPinjaman
+      !nominalTerkunci &&
+      Number.isFinite(pokokBaru) &&
+      pokokBaru !== row.pokokPinjaman
         ? pokokBaru
         : null;
     const gantiStatus = statusBaru !== TETAP_STATUS;
@@ -1379,7 +1528,9 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
         ...(tenorBulan !== tenorAwal
           ? { tenorBulan: tenorBulan === "harian" ? null : Number(tenorBulan) }
           : {}),
-        ...(nominalBaru !== null && !gantiStatus ? { pokokDisetujui: nominalBaru } : {}),
+        ...(nominalBaru !== null && !gantiStatus
+          ? { pokokDisetujui: nominalBaru }
+          : {}),
       });
       perubahan.push(...hasil.perubahan);
       toast.success(
@@ -1389,7 +1540,9 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
       );
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan perubahan.");
+      toast.error(
+        err instanceof Error ? err.message : "Gagal menyimpan perubahan.",
+      );
     } finally {
       setBusy(false);
     }
@@ -1399,147 +1552,159 @@ function FormUbahPinjaman({ row, onClose }: { row: BarisPinjaman; onClose: () =>
     <form className="flex max-h-[75dvh] flex-col" onSubmit={kirim}>
       <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
         <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs leading-6 text-slate-700">
-        <span className="font-medium uppercase text-slate-700">{namaHurufBesar(row.namaLengkap)}</span> ·{" "}
-        <span className="font-mono">{row.nomorReferensi}</span>
-        <br />
-        Pokok tercatat {rupiah(row.pokokPinjaman)} · diajukan{" "}
-        {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} · pendana sekarang{" "}
-        {row.pendana ?? "belum ada"}
-      </div>
+          <span className="font-medium uppercase text-slate-700">
+            {namaHurufBesar(row.namaLengkap)}
+          </span>{" "}
+          · <span className="font-mono">{row.nomorReferensi}</span>
+          <br />
+          Pokok tercatat {rupiah(row.pokokPinjaman)} · diajukan{" "}
+          {rupiah(row.pokokDiajukan ?? row.pokokPinjaman)} · pendana sekarang{" "}
+          {row.pendana ?? "belum ada"}
+        </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="ubah-status">Status pinjaman</Label>
-        <Select value={statusBaru} onValueChange={setStatusBaru} disabled={row.status === "lunas"}>
-          <SelectTrigger id="ubah-status" className={`w-full ${KELAS_MEDAN}`}>
-            <SelectValue placeholder="Tidak diubah" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={TETAP_STATUS}>Tidak diubah</SelectItem>
-            {STATUS_PINJAMAN.filter(
-              (s) => keStatusTersimpan(s) !== row.status,
-            ).map((s) => (
-              <SelectItem key={s} value={s}>
-                {LABEL_STATUS_PINJAMAN[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs leading-5 text-muted-foreground">
-          {row.status === "lunas"
-            ? "Pinjaman sudah lunas — posisinya ditutup dan statusnya tidak dapat diubah lagi."
-            : `Status sekarang: ${labelStatusPinjaman(row.status)}. Perubahan status memakai pintu yang sama dengan panel admin: peminjam menerima kabar WhatsApp berisi status dan catatan di atas (boleh dikosongkan).`}
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="ubah-pendana">Pendana</Label>
-        <Select value={pendana} onValueChange={setPendana}>
-          <SelectTrigger id="ubah-pendana" className={`w-full ${KELAS_MEDAN}`}>
-            <SelectValue placeholder="Tidak diubah" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={TETAP}>Tidak diubah</SelectItem>
-            {kandidat.map((r) => (
-              <SelectItem key={r.userId} value={r.userId}>
-                {r.nama}
-                {r.email ? ` — ${r.email}` : ""}
-                {r.aksesAktif ? "" : " (pendana lama)"}
-              </SelectItem>
-            ))}
-            <SelectItem value={LEPAS} disabled={!bolehLepas}>
-              Lepas pendana (tanpa pemilik dana)
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs leading-5 text-muted-foreground">
-          {kandidatQ === undefined
-            ? "Memuat daftar pendana… "
-            : kandidat.length === 0
-              ? "Belum ada akun yang pernah menjadi pendana. "
-              : "Daftar ini berisi semua akun yang pernah menjadi pendana, termasuk pendana lama. "}
-          {bolehLepas
-            ? "Pinjaman ini belum ditandai tersalurkan, jadi pendananya boleh dilepas."
-            : "Pendana tidak dapat dilepas setelah dana ditandai tersalurkan — pilih penggantinya."}
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="ubah-nama-peminjam">Nama peminjam</Label>
-        <Input
-          id="ubah-nama-peminjam"
-          value={namaPeminjam}
-          onChange={(e) => setNamaPeminjam(e.target.value)}
-          maxLength={120}
-          className={`uppercase ${KELAS_MEDAN}`}
-        />
-        <p className="text-xs leading-5 text-muted-foreground">
-          Nama pada catatan pinjaman ini. Perbaiki bila ada salah tulis — disimpan
-          HURUF BESAR dan langsung dipakai di seluruh layar. Identitas lain
-          (NIK, WhatsApp, foto KTP) disunting lewat menu Data Diri nasabah.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="ubah-tujuan">Tujuan pinjaman</Label>
-        <Input
-          id="ubah-tujuan"
-          value={tujuan}
-          onChange={(e) => setTujuan(e.target.value)}
-          maxLength={500}
-          className={KELAS_MEDAN}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="ubah-tenor-bulan">Skema tenor</Label>
-          <Select value={tenorBulan} onValueChange={setTenorBulan}>
-            <SelectTrigger id="ubah-tenor-bulan" className={`w-full ${KELAS_MEDAN}`}>
-              <SelectValue />
+          <Label htmlFor="ubah-status">Status pinjaman</Label>
+          <Select
+            value={statusBaru}
+            onValueChange={setStatusBaru}
+            disabled={row.status === "lunas"}
+          >
+            <SelectTrigger id="ubah-status" className={`w-full ${KELAS_MEDAN}`}>
+              <SelectValue placeholder="Tidak diubah" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="harian">Harian</SelectItem>
-              {[1, 3, 6, 12, 24].map((bulan) => (
-                <SelectItem key={bulan} value={String(bulan)}>
-                  {bulan} bulan
+              <SelectItem value={TETAP_STATUS}>Tidak diubah</SelectItem>
+              {STATUS_PINJAMAN.filter(
+                (s) => keStatusTersimpan(s) !== row.status,
+              ).map((s) => (
+                <SelectItem key={s} value={s}>
+                  {LABEL_STATUS_PINJAMAN[s]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {row.status === "lunas"
+              ? "Pinjaman sudah lunas — posisinya ditutup dan statusnya tidak dapat diubah lagi."
+              : `Status sekarang: ${labelStatusPinjaman(row.status)}. Perubahan status memakai pintu yang sama dengan panel admin: peminjam menerima kabar WhatsApp berisi status dan catatan di atas (boleh dikosongkan).`}
+          </p>
         </div>
+
         <div className="space-y-2">
-          <Label htmlFor="ubah-tenor-hari">Tenor harian (hari)</Label>
+          <Label htmlFor="ubah-pendana">Pendana</Label>
+          <Select value={pendana} onValueChange={setPendana}>
+            <SelectTrigger
+              id="ubah-pendana"
+              className={`w-full ${KELAS_MEDAN}`}
+            >
+              <SelectValue placeholder="Tidak diubah" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TETAP}>Tidak diubah</SelectItem>
+              {kandidat.map((r) => (
+                <SelectItem key={r.userId} value={r.userId}>
+                  {r.nama}
+                  {r.email ? ` — ${r.email}` : ""}
+                  {r.aksesAktif ? "" : " (pendana lama)"}
+                </SelectItem>
+              ))}
+              <SelectItem value={LEPAS} disabled={!bolehLepas}>
+                Lepas pendana (tanpa pemilik dana)
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {kandidatQ === undefined
+              ? "Memuat daftar pendana… "
+              : kandidat.length === 0
+                ? "Belum ada akun yang pernah menjadi pendana. "
+                : "Daftar ini berisi semua akun yang pernah menjadi pendana, termasuk pendana lama. "}
+            {bolehLepas
+              ? "Pinjaman ini belum ditandai tersalurkan, jadi pendananya boleh dilepas."
+              : "Pendana tidak dapat dilepas setelah dana ditandai tersalurkan — pilih penggantinya."}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ubah-nama-peminjam">Nama peminjam</Label>
           <Input
-            id="ubah-tenor-hari"
-            type="number"
-            min={1}
-            max={365}
-            value={tenorHari}
-            disabled={tenorBulan !== "harian"}
-            onChange={(e) => setTenorHari(e.target.value)}
+            id="ubah-nama-peminjam"
+            value={namaPeminjam}
+            onChange={(e) => setNamaPeminjam(e.target.value)}
+            maxLength={120}
+            className={`uppercase ${KELAS_MEDAN}`}
+          />
+          <p className="text-xs leading-5 text-muted-foreground">
+            Nama pada catatan pinjaman ini. Perbaiki bila ada salah tulis —
+            disimpan HURUF BESAR dan langsung dipakai di seluruh layar.
+            Identitas lain (NIK, WhatsApp, foto KTP) disunting lewat menu Data
+            Diri nasabah.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ubah-tujuan">Tujuan pinjaman</Label>
+          <Input
+            id="ubah-tujuan"
+            value={tujuan}
+            onChange={(e) => setTujuan(e.target.value)}
+            maxLength={500}
             className={KELAS_MEDAN}
           />
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="ubah-pokok">Pokok disetujui (Rp)</Label>
-        <Input
-          id="ubah-pokok"
-          type="number"
-          min={1}
-          value={pokok}
-          disabled={nominalTerkunci}
-          onChange={(e) => setPokok(e.target.value)}
-          className={KELAS_MEDAN}
-        />
-        <p className="text-xs leading-5 text-muted-foreground">
-          {nominalTerkunci
-            ? "Nominal tidak dapat diubah: dana pinjaman ini sudah ditandai tersalurkan."
-            : `Tidak boleh melebihi pengajuan ${rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}.`}
-        </p>
-      </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="ubah-tenor-bulan">Skema tenor</Label>
+            <Select value={tenorBulan} onValueChange={setTenorBulan}>
+              <SelectTrigger
+                id="ubah-tenor-bulan"
+                className={`w-full ${KELAS_MEDAN}`}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="harian">Harian</SelectItem>
+                {[1, 3, 6, 12, 24].map((bulan) => (
+                  <SelectItem key={bulan} value={String(bulan)}>
+                    {bulan} bulan
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ubah-tenor-hari">Tenor harian (hari)</Label>
+            <Input
+              id="ubah-tenor-hari"
+              type="number"
+              min={1}
+              max={365}
+              value={tenorHari}
+              disabled={tenorBulan !== "harian"}
+              onChange={(e) => setTenorHari(e.target.value)}
+              className={KELAS_MEDAN}
+            />
+          </div>
+        </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="ubah-pokok">Pokok disetujui (Rp)</Label>
+          <Input
+            id="ubah-pokok"
+            type="number"
+            min={1}
+            value={pokok}
+            disabled={nominalTerkunci}
+            onChange={(e) => setPokok(e.target.value)}
+            className={KELAS_MEDAN}
+          />
+          <p className="text-xs leading-5 text-muted-foreground">
+            {nominalTerkunci
+              ? "Nominal tidak dapat diubah: dana pinjaman ini sudah ditandai tersalurkan."
+              : `Tidak boleh melebihi pengajuan ${rupiah(row.pokokDiajukan ?? row.pokokPinjaman)}.`}
+          </p>
+        </div>
       </div>
 
       {/* Kaki tetap: selalu terlihat di dasar modal, apa pun panjang formnya. */}
@@ -1567,10 +1732,14 @@ function IsiRuang() {
   const [ubah, setUbah] = useState<BarisPinjaman | null>(null);
   // Pencatatan keuntungan pendana: target disimpan sebagai data ringkas supaya
   // dialog tetap memegang nominal yang dibaca saat tombolnya ditekan.
-  const [catatKeuntungan, setCatatKeuntungan] = useState<TargetKeuntungan | null>(null);
-  const [batalKeuntungan, setBatalKeuntungan] = useState<TargetKeuntungan | null>(null);
+  const [catatKeuntungan, setCatatKeuntungan] =
+    useState<TargetKeuntungan | null>(null);
+  const [batalKeuntungan, setBatalKeuntungan] =
+    useState<TargetKeuntungan | null>(null);
   // Saringan di atas tabel: nama peminjam + pendana.
-  const [filter, setFilter] = useState<FilterPengajuan>(FILTER_PENGAJUAN_KOSONG);
+  const [filter, setFilter] = useState<FilterPengajuan>(
+    FILTER_PENGAJUAN_KOSONG,
+  );
   const sekarang = useJamBerjalan();
 
   const role = user?.role;
@@ -1598,7 +1767,10 @@ function IsiRuang() {
   const isPendana = role === "dana";
   const kunciSendiri = kunciNama(user?.name);
   const tampilNama = (nama: string): string =>
-    namaRuangan(nama, samar && (kunciSendiri === "" || kunciNama(nama) !== kunciSendiri));
+    namaRuangan(
+      nama,
+      samar && (kunciSendiri === "" || kunciNama(nama) !== kunciSendiri),
+    );
 
   /** Data ringkas yang dibutuhkan dialog pencatatan keuntungan pendana. */
   const targetKeuntungan = (row: BarisPinjaman): TargetKeuntungan | null =>
@@ -1621,14 +1793,18 @@ function IsiRuang() {
   // tabel pengajuan.
   const titik = useQuery(
     api.penyediaDana.titikPeminjam,
-    user === undefined || !bolehLihat || tab !== "lokasi" ? ("skip" as const) : {},
+    user === undefined || !bolehLihat || tab !== "lokasi"
+      ? ("skip" as const)
+      : {},
   );
   // Riwayat catatan transfer hanya dibaca saat tabnya dibuka — sama alasannya
   // dengan titik lokasi: pembacaan tabel besar tidak ikut berjalan untuk
   // pengunjung yang hanya melihat daftar pengajuan.
   const laporanTransfer = useQuery(
     api.penyediaDana.laporanTransferPendana,
-    user === undefined || !bolehLihat || tab !== "transfer" ? ("skip" as const) : {},
+    user === undefined || !bolehLihat || tab !== "transfer"
+      ? ("skip" as const)
+      : {},
   );
   // Persetujuan risiko milik AKUN, bukan peramban: statusnya dibaca dari server
   // supaya tetap terbaca saat pendana berganti perangkat.
@@ -1636,7 +1812,9 @@ function IsiRuang() {
     api.persetujuanRisiko.statusPersetujuanRisiko,
     user === undefined || !bolehLihat ? ("skip" as const) : {},
   );
-  const catatPersetujuan = useMutation(api.persetujuanRisiko.catatPersetujuanRisiko);
+  const catatPersetujuan = useMutation(
+    api.persetujuanRisiko.catatPersetujuanRisiko,
+  );
   const [menyimpanSetuju, setMenyimpanSetuju] = useState(false);
   const [galatSetuju, setGalatSetuju] = useState<string | null>(null);
 
@@ -1668,7 +1846,9 @@ function IsiRuang() {
       await simpanKontak({ nomor });
       toast.success("Nomor laporan tersimpan pada akun Anda.");
     } catch (err) {
-      setGalatLaporan(err instanceof Error ? err.message : "Nomor gagal disimpan. Coba lagi.");
+      setGalatLaporan(
+        err instanceof Error ? err.message : "Nomor gagal disimpan. Coba lagi.",
+      );
     } finally {
       setMenyimpanKontak(false);
     }
@@ -1687,10 +1867,14 @@ function IsiRuang() {
     setGalatLaporan(null);
     try {
       await kirimLaporan({});
-      toast.success("Laporan dikirim ke WhatsApp Anda. Berkasnya menyusul di percakapan.");
+      toast.success(
+        "Laporan dikirim ke WhatsApp Anda. Berkasnya menyusul di percakapan.",
+      );
     } catch (err) {
       setGalatLaporan(
-        err instanceof Error ? err.message : "Laporan gagal dikirim. Coba lagi.",
+        err instanceof Error
+          ? err.message
+          : "Laporan gagal dikirim. Coba lagi.",
       );
     } finally {
       setMengirimLaporan(false);
@@ -1711,7 +1895,9 @@ function IsiRuang() {
     setGalatLaporan(null);
     try {
       const byte = susunPdf(laporanPortofolio(dataLaporan));
-      const blob = new Blob([new Uint8Array(byte)], { type: "application/pdf" });
+      const blob = new Blob([new Uint8Array(byte)], {
+        type: "application/pdf",
+      });
       const nama = namaBerkasPortofolio(dataLaporan.dicetakPada);
       // Di aplikasi Android, unduhan blob: tidak ditangani WebView.
       if (await unduhLewatAplikasi(nama, "application/pdf", blob)) return;
@@ -1726,7 +1912,9 @@ function IsiRuang() {
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (err) {
       setGalatLaporan(
-        err instanceof Error ? err.message : "Laporan PDF gagal disiapkan. Coba lagi.",
+        err instanceof Error
+          ? err.message
+          : "Laporan PDF gagal disiapkan. Coba lagi.",
       );
     } finally {
       setMengunduhLaporan(false);
@@ -1748,7 +1936,9 @@ function IsiRuang() {
       toast.success("Persetujuan risiko tercatat atas nama akun Anda.");
     } catch (err) {
       setGalatSetuju(
-        err instanceof Error ? err.message : "Persetujuan gagal dicatat. Coba lagi.",
+        err instanceof Error
+          ? err.message
+          : "Persetujuan gagal dicatat. Coba lagi.",
       );
     } finally {
       setMenyimpanSetuju(false);
@@ -1764,7 +1954,8 @@ function IsiRuang() {
   // sebagai pelengkap data warisan. Ini penting karena sebagian baris lama
   // berstatus "didanai" (berlabel Disalurkan) tapi `didanaiPada`-nya kosong —
   // kalau hanya mengandalkan `didanaiPada`, baris itu salah nyelip ke "Ditinjau".
-  const pinjamanDitolak = data?.pinjaman.filter((r) => r.status === "ditolak") ?? [];
+  const pinjamanDitolak =
+    data?.pinjaman.filter((r) => r.status === "ditolak") ?? [];
   const pinjamanBaru =
     data?.pinjaman.filter(
       (r) =>
@@ -1780,7 +1971,8 @@ function IsiRuang() {
         r.status !== "ditolak" &&
         (r.status === "didanai" || r.didanaiPada !== null),
     ) ?? [];
-  const pinjamanLunas = data?.pinjaman.filter((r) => r.status === "lunas") ?? [];
+  const pinjamanLunas =
+    data?.pinjaman.filter((r) => r.status === "lunas") ?? [];
 
   // Saringan dihitung SEKALI di sini lalu dipakai daftar kartu (layar sempit)
   // maupun tabel (desktop), supaya kedua tata letak selalu menampilkan baris
@@ -1866,7 +2058,10 @@ function IsiRuang() {
   const jatuhTempoSaya: BarisPengingatPendana[] =
     role === "dana" && kunciSendiri !== ""
       ? (data?.pinjaman ?? [])
-          .filter((b) => b.status === "didanai" && kunciNama(b.pendana) === kunciSendiri)
+          .filter(
+            (b) =>
+              b.status === "didanai" && kunciNama(b.pendana) === kunciSendiri,
+          )
           .map((b) => {
             const tampilan = ringkasJatuhTempo(b, sekarang);
             return {
@@ -1890,18 +2085,26 @@ function IsiRuang() {
    * Tujuh hari ditulis sebagai konstanta hari, bukan angka ajaib: satuannya
    * "hari" dan itu satuannya di seluruh halaman.
    */
-  const barisBerjalan = (data?.pinjaman ?? []).filter((b) => b.status === "didanai");
+  const barisBerjalan = (data?.pinjaman ?? []).filter(
+    (b) => b.status === "didanai",
+  );
   const tujuhHariMs = 7 * 24 * 60 * 60 * 1000;
   const kesehatan: AngkaKesehatanPortofolio = {
     jatuhTempoSegera: {
       jumlah: barisBerjalan.filter((b) => {
         const batas = batasPelunasan(b);
-        return batas !== null && batas >= sekarang && batas <= sekarang + tujuhHariMs;
+        return (
+          batas !== null && batas >= sekarang && batas <= sekarang + tujuhHariMs
+        );
       }).length,
       nominal: barisBerjalan
         .filter((b) => {
           const batas = batasPelunasan(b);
-          return batas !== null && batas >= sekarang && batas <= sekarang + tujuhHariMs;
+          return (
+            batas !== null &&
+            batas >= sekarang &&
+            batas <= sekarang + tujuhHariMs
+          );
         })
         .reduce((total, b) => total + b.pokokPinjaman, 0),
     },
@@ -1927,15 +2130,24 @@ function IsiRuang() {
   };
   // Rasio dihitung dari pokok yang berjalan, bukan jumlah baris: satu pinjaman
   // besar yang terlambat tidak boleh terbaca seperti masalah kecil.
-  const pokokBerjalan = barisBerjalan.reduce((total, b) => total + b.pokokPinjaman, 0);
+  const pokokBerjalan = barisBerjalan.reduce(
+    (total, b) => total + b.pokokPinjaman,
+    0,
+  );
   kesehatan.persenTerlambat =
     pokokBerjalan > 0 ? (kesehatan.terlambat.nominal / pokokBerjalan) * 100 : 0;
 
   /** Total posisi dana dari rekap pendana — angka yang sudah dihitung server. */
   const rekapPendana = data?.rekapPendana ?? [];
   const angkaPortofolio = {
-    danaTersalurkan: rekapPendana.reduce((total, r) => total + r.totalDisalurkan, 0),
-    saldoBerjalan: rekapPendana.reduce((total, r) => total + r.saldoBerjalan, 0),
+    danaTersalurkan: rekapPendana.reduce(
+      (total, r) => total + r.totalDisalurkan,
+      0,
+    ),
+    saldoBerjalan: rekapPendana.reduce(
+      (total, r) => total + r.saldoBerjalan,
+      0,
+    ),
   };
 
   return (
@@ -1962,6 +2174,24 @@ function IsiRuang() {
                   ? "Super Admin · dapat mengoreksi data"
                   : "Portofolio Anda · lihat saja"}
             </span>
+            {/* Satu-satunya pintu ke proposal pendanaan: halaman itu bukan rute
+                publik, jadi pembaca yang sudah membuka ruang ini melanjutkan ke
+                sana dari sini. Akun tanpa akses tidak diberi tautan yang akan
+                memantul kembali ke halaman ini. */}
+            {bolehLihat && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5 border-slate-300 px-2.5 text-xs font-semibold text-navy"
+              >
+                <Link to="/jadi-pendana">
+                  <FileText className="size-3.5" aria-hidden />
+                  <span className="hidden sm:inline">Proposal pendanaan</span>
+                  <span className="sm:hidden">Proposal</span>
+                </Link>
+              </Button>
+            )}
             <NotificationBell />
             <RoleDashboardMenu />
           </div>
@@ -2011,7 +2241,8 @@ function IsiRuang() {
                 </span>
                 {samar && (
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium uppercase tracking-[0.14em] text-emerald-800">
-                    <Lock className="size-3" aria-hidden /> Nama orang disamarkan
+                    <Lock className="size-3" aria-hidden /> Nama orang
+                    disamarkan
                   </span>
                 )}
               </div>
@@ -2019,9 +2250,9 @@ function IsiRuang() {
                 Ringkasan Pendanaan
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                Halaman ini memantau posisi dana pendana: berapa yang sudah tersalurkan, berapa
-                yang masih berjalan, dan berapa keuntungan yang sudah dibukukan maupun yang masih
-                perkiraan.
+                Halaman ini memantau posisi dana pendana: berapa yang sudah
+                tersalurkan, berapa yang masih berjalan, dan berapa keuntungan
+                yang sudah dibukukan maupun yang masih perkiraan.
               </p>
 
               {/* Peringatan risiko duduk tepat di bawah judul: pembaca harus tahu
@@ -2030,7 +2261,10 @@ function IsiRuang() {
 
               {/* Navigasi jangkar: halaman ini panjang, dan empat bagian besarnya
                   sekarang punya nama yang bisa dituju langsung. */}
-              <nav aria-label="Bagian halaman" className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <nav
+                aria-label="Bagian halaman"
+                className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5"
+              >
                 {[
                   { id: "ringkasan", nomor: 1, teks: "Ringkasan" },
                   { id: ANCHOR_RISIKO_PENDANAAN, nomor: 3, teks: "Risiko" },
@@ -2047,7 +2281,10 @@ function IsiRuang() {
                     href={`#${bagian.id}`}
                     className="group inline-flex items-baseline gap-1.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy"
                   >
-                    <span aria-hidden className={`text-xs text-emerald-700 ${FOLIO.kode}`}>
+                    <span
+                      aria-hidden
+                      className={`text-xs text-emerald-700 ${FOLIO.kode}`}
+                    >
                       {nomorFolio(bagian.nomor)}
                     </span>
                     <span className="underline decoration-gold/50 underline-offset-4 group-hover:decoration-emerald-700">
@@ -2067,17 +2304,22 @@ function IsiRuang() {
                   Cara membaca ruang ini
                 </summary>
                 <p className="mt-2">
-                  Catatan internal PINDAI untuk pinjaman tunai, gadai, dan kredit barang. Tidak ada
-                  tindakan alokasi maupun pencairan dari ruang ini
+                  Catatan internal PINDAI untuk pinjaman tunai, gadai, dan
+                  kredit barang. Tidak ada tindakan alokasi maupun pencairan
+                  dari ruang ini
                   {role === "admin"
                     ? "; sebagai Super Admin Anda dapat mengoreksi data pinjaman (termasuk menetapkan pendananya) lewat tombol Ubah — setiap perubahan tercatat di audit trail, dan catatan koreksinya boleh dikosongkan."
                     : ": Anda hanya dapat membaca catatan ini."}{" "}
-                  Tombol <strong>Detail</strong> membuka titik lokasi terakhir peminjam
+                  Tombol <strong>Detail</strong> membuka titik lokasi terakhir
+                  peminjam
                   {bolehBerkas
                     ? ", berkas pengajuan (KTP, selfie, slip, foto barang, tanda tangan),"
                     : " — berkas identitas pemohon hanya dibuka untuk akun pendana beremail, bukan untuk sesi kode akses bersama."}{" "}
-                  NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom terpisah
-                  {bolehBerkas ? " — NIK tetap terbaca pada gambar KTP yang Anda buka." : "."}{" "}
+                  NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim
+                  sebagai kolom terpisah
+                  {bolehBerkas
+                    ? " — NIK tetap terbaca pada gambar KTP yang Anda buka."
+                    : "."}{" "}
                   {samar &&
                     "Nama orang — peminjam maupun pendana — disamarkan di layar ini; kode pseudonim peminjam dan nomor referensi tetap utuh sebagai penanda. Nama Anda sendiri tetap terbaca."}
                 </p>
@@ -2119,7 +2361,9 @@ function IsiRuang() {
                   />
                   <BarisAngka
                     label="Estimasi keuntungan (perkiraan)"
-                    nilai={rupiah(data.ringkasan.totalKeuntunganPendanaBelumLunas)}
+                    nilai={rupiah(
+                      data.ringkasan.totalKeuntunganPendanaBelumLunas,
+                    )}
                     detail="hitungan atas pinjaman yang masih berjalan"
                     tanda="perkiraan"
                     catatanRisiko="Estimasi, bukan jaminan. Hanya terwujud jika pinjaman lunas."
@@ -2136,16 +2380,20 @@ function IsiRuang() {
                   <strong className="font-semibold tabular-nums text-navy">
                     {rupiah(data.ringkasan.nilaiPinjaman)}
                   </strong>{" "}
-                  ({data.ringkasan.jumlahPinjaman} pengajuan, semua status termasuk ditolak)
+                  ({data.ringkasan.jumlahPinjaman} pengajuan, semua status
+                  termasuk ditolak)
                 </span>
                 <span>
                   {isPendana
                     ? `Produk lain di portofolio Anda: kredit barang ${data.ringkasan.jumlahKredit}`
-                    : data.ringkasan.jumlahGadai === 0 && data.ringkasan.jumlahKredit === 0
+                    : data.ringkasan.jumlahGadai === 0 &&
+                        data.ringkasan.jumlahKredit === 0
                       ? "Produk lain: belum ada pengajuan"
                       : `Produk lain: gadai ${data.ringkasan.jumlahGadai} · kredit barang ${data.ringkasan.jumlahKredit}`}
                 </span>
-                <span>{data.ringkasan.menungguReview} pengajuan menunggu review</span>
+                <span>
+                  {data.ringkasan.menungguReview} pengajuan menunggu review
+                </span>
               </div>
 
               {/* Catatan mikro dekat angka: dipindahkan dari kaki halaman supaya
@@ -2170,7 +2418,10 @@ function IsiRuang() {
              * kartunya masuk.
              */}
             {persetujuan === undefined && bolehLihat && (
-              <MemuatBaris teks="Memuat status persetujuan risiko…" className="mt-4" />
+              <MemuatBaris
+                teks="Memuat status persetujuan risiko…"
+                className="mt-4"
+              />
             )}
             {persetujuan !== undefined && (
               <PersetujuanRisikoPendana
@@ -2187,7 +2438,10 @@ function IsiRuang() {
                 risikonya, tetapi sebelum aturan hitung dan angka keuntungan,
                 karena waktu yang mendesak harus terbaca lebih dahulu. Tidak
                 tampil saat tidak ada pinjaman berjalan atas nama pembaca. */}
-            <PengingatJatuhTempoPendana rows={jatuhTempoSaya} sekarang={sekarang} />
+            <PengingatJatuhTempoPendana
+              rows={jatuhTempoSaya}
+              sekarang={sekarang}
+            />
 
             {/*
              * Aturan perhitungan menggantikan kotak "untuk apa biaya platform
@@ -2202,7 +2456,10 @@ function IsiRuang() {
             {/* Ringkasan keuntungan selalu tampil: pertanyaan pendana
                 ("berapa yang sudah jadi uang, berapa yang masih perkiraan")
                 dijawab di puncak halaman, bukan di tengah daftar angka. */}
-            <RingkasanKeuntungan ringkasan={data.ringkasan} pribadi={isPendana} />
+            <RingkasanKeuntungan
+              ringkasan={data.ringkasan}
+              pribadi={isPendana}
+            />
 
             {/* Tiket doorprize pendana: satu per kelipatan Rp1 juta penempatan dana,
                 diakumulasi selama kuartal berjalan. */}
@@ -2226,7 +2483,10 @@ function IsiRuang() {
                     id="pendana"
                     className="flex scroll-mt-24 items-baseline gap-2.5 text-base font-semibold tracking-tight text-navy"
                   >
-                    <span aria-hidden className={`text-xs text-emerald-700 ${FOLIO.kode}`}>
+                    <span
+                      aria-hidden
+                      className={`text-xs text-emerald-700 ${FOLIO.kode}`}
+                    >
                       {nomorFolio(7)}
                     </span>
                     <Coins className="size-4 text-emerald-700" aria-hidden />{" "}
@@ -2235,13 +2495,14 @@ function IsiRuang() {
                   <p className="max-w-md text-xs leading-5 text-muted-foreground">
                     {isPendana ? (
                       <>
-                        Seluruh angka di halaman ini hanya dihitung dari pinjaman yang alokasinya
-                        atas nama Anda.
+                        Seluruh angka di halaman ini hanya dihitung dari
+                        pinjaman yang alokasinya atas nama Anda.
                       </>
                     ) : (
                       <>
-                        Model <strong>1 pinjaman = 1 pendana</strong>. Setiap angka dihitung dari
-                        pinjaman yang tercatat atas nama pendana itu.
+                        Model <strong>1 pinjaman = 1 pendana</strong>. Setiap
+                        angka dihitung dari pinjaman yang tercatat atas nama
+                        pendana itu.
                       </>
                     )}
                   </p>
@@ -2284,20 +2545,22 @@ function IsiRuang() {
                 admin/pemantau tidak punya laporan untuk dikirim ke dirinya
                 sendiri. Diletakkan persis sesudah angka portofolionya supaya
                 yang diminta jelas: berkas berisi angka yang baru dibaca. */}
-            {isPendana && kontakLaporan !== undefined && kontakLaporan !== null && (
-              <KontakLaporanWhatsapp
-                className="mt-4"
-                nomor={kontakLaporan.nomorWhatsApp}
-                menyimpan={menyimpanKontak}
-                mengirim={mengirimLaporan}
-                mengunduh={mengunduhLaporan}
-                bolehUnduh={dataLaporan !== undefined && dataLaporan !== null}
-                galat={galatLaporan}
-                onSimpan={simpanNomorLaporan}
-                onKirim={kirimLaporanWhatsapp}
-                onUnduh={() => void unduhLaporanPdf()}
-              />
-            )}
+            {isPendana &&
+              kontakLaporan !== undefined &&
+              kontakLaporan !== null && (
+                <KontakLaporanWhatsapp
+                  className="mt-4"
+                  nomor={kontakLaporan.nomorWhatsApp}
+                  menyimpan={menyimpanKontak}
+                  mengirim={mengirimLaporan}
+                  mengunduh={mengunduhLaporan}
+                  bolehUnduh={dataLaporan !== undefined && dataLaporan !== null}
+                  galat={galatLaporan}
+                  onSimpan={simpanNomorLaporan}
+                  onKirim={kirimLaporanWhatsapp}
+                  onUnduh={() => void unduhLaporanPdf()}
+                />
+              )}
 
             {/* Kepala bagian daftar: nomor indeksnya sama dengan nomor yang
                 dipakai di indeks jangkar di puncak halaman. */}
@@ -2405,9 +2668,13 @@ function IsiRuang() {
               {tab !== "lokasi" && tab !== "transfer" && (
                 <SaringanPengajuan
                   cari={filter.cari}
-                  onCari={(nilai) => setFilter((lama) => ({ ...lama, cari: nilai }))}
+                  onCari={(nilai) =>
+                    setFilter((lama) => ({ ...lama, cari: nilai }))
+                  }
                   pendana={filter.pendana}
-                  onPendana={(nama) => setFilter((lama) => ({ ...lama, pendana: nama }))}
+                  onPendana={(nama) =>
+                    setFilter((lama) => ({ ...lama, pendana: nama }))
+                  }
                   pilihanPendana={pendanaTerdaftar}
                   tampilkanPendana={tab !== "gadai"}
                   tampil={jumlahTab.tampil}
@@ -2427,15 +2694,18 @@ function IsiRuang() {
                 ) : (
                   <>
                     <CatatanTab nada="amber" label="Belum didanai">
-                      Pinjaman pada tab ini <strong>belum didanai</strong> — dana belum dialokasikan.
-                      Alokasi pendanaan dilakukan dari panel admin.
+                      Pinjaman pada tab ini <strong>belum didanai</strong> —
+                      dana belum dialokasikan. Alokasi pendanaan dilakukan dari
+                      panel admin.
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilBaru}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
-                      onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
+                      onUbah={
+                        role === "admin" ? (row) => setUbah(row) : undefined
+                      }
                     />
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
@@ -2455,16 +2725,18 @@ function IsiRuang() {
                 ) : (
                   <>
                     <CatatanTab nada="emerald" label="Sudah didanai">
-                      Pinjaman pada tab ini <strong>sudah didanai</strong> dan masih berjalan. Angka
-                      keuntungan di bawah adalah perhitungan atas kewajiban berjalan, bukan bukti
-                      mutasi.
+                      Pinjaman pada tab ini <strong>sudah didanai</strong> dan
+                      masih berjalan. Angka keuntungan di bawah adalah
+                      perhitungan atas kewajiban berjalan, bukan bukti mutasi.
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilDidanai}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
-                      onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
+                      onUbah={
+                        role === "admin" ? (row) => setUbah(row) : undefined
+                      }
                     />
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
@@ -2484,18 +2756,22 @@ function IsiRuang() {
                 ) : (
                   <>
                     <CatatanTab nada="emerald" label="Lunas">
-                      Pinjaman pada tab ini sudah berstatus <strong>lunas</strong> pada ledger
-                      internal. Angka keuntungan pendana dan biaya platform (layanan) di bawah
-                      adalah hasil perhitungan atas kewajiban yang sudah terbayar penuh: biayanya
-                      diambil dari uang yang kembali (pokok + Imbal Hasil), bukan dari Imbal Hasil
-                      saja, dan bukan bukti mutasi.
+                      Pinjaman pada tab ini sudah berstatus{" "}
+                      <strong>lunas</strong> pada ledger internal. Angka
+                      keuntungan pendana dan biaya platform (layanan) di bawah
+                      adalah hasil perhitungan atas kewajiban yang sudah
+                      terbayar penuh: biayanya diambil dari uang yang kembali
+                      (pokok + Imbal Hasil), bukan dari Imbal Hasil saja, dan
+                      bukan bukti mutasi.
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilLunas}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
-                      onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
+                      onUbah={
+                        role === "admin" ? (row) => setUbah(row) : undefined
+                      }
                       onCatatKeuntungan={
                         role === "admin"
                           ? (row) => setCatatKeuntungan(targetKeuntungan(row))
@@ -2525,16 +2801,19 @@ function IsiRuang() {
                 ) : (
                   <>
                     <CatatanTab nada="red" label="Ditolak internal">
-                      Pinjaman pada tab ini berstatus <strong>ditolak internal</strong> — tidak
-                      dilanjutkan dalam alur aplikasi dan tidak memerlukan alokasi dana. Tetap
-                      ditampilkan sebagai catatan riwayat.
+                      Pinjaman pada tab ini berstatus{" "}
+                      <strong>ditolak internal</strong> — tidak dilanjutkan
+                      dalam alur aplikasi dan tidak memerlukan alokasi dana.
+                      Tetap ditampilkan sebagai catatan riwayat.
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
                       rows={tampilDitolak}
                       sekarang={sekarang}
                       onDetail={(row) => setDetail({ jenis: "pinjaman", row })}
-                      onUbah={role === "admin" ? (row) => setUbah(row) : undefined}
+                      onUbah={
+                        role === "admin" ? (row) => setUbah(row) : undefined
+                      }
                     />
                     <CatatanTerpotong
                       terpotong={data.terpotong.pinjaman}
@@ -2564,7 +2843,9 @@ function IsiRuang() {
                           nama={tampilNama(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
-                          status={<StatusBadge status={row.status} kind="pawn" />}
+                          status={
+                            <StatusBadge status={row.status} kind="pawn" />
+                          }
                           onDetail={() => setDetail({ jenis: "gadai", row })}
                         >
                           <InfoKartu label="Barang">
@@ -2578,7 +2859,9 @@ function IsiRuang() {
                               ? "belum ditaksir"
                               : rupiah(row.nilaiTaksiran)}
                           </InfoKartu>
-                          <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
+                          <InfoKartu label="Tanggal">
+                            {tanggalRingkas(row.diajukanPada)}
+                          </InfoKartu>
                           <InfoKartu label="Lokasi">
                             {row.lokasi === null
                               ? "belum ada titik"
@@ -2589,53 +2872,66 @@ function IsiRuang() {
                     </div>
                     <div className="hidden lg:block">
                       <Tabel
-                      head={[
-                        "Peminjam",
-                        "Barang",
-                        "Taksiran",
-                        "Tanggal",
-                        "Status",
-                        "Lokasi",
-                        "Aksi",
-                      ]}
-                    >
-                      {tampilGadai.map((row) => (
-                        <TableRow key={row._id}>
-                          <SelPeminjam
-                            nama={tampilNama(row.namaLengkap)}
-                            kode={row.kodePeminjam}
-                            referensi={row.nomorReferensi}
-                          />
-                          <TableCell className="align-top">
-                            <p className="text-slate-900">{row.deskripsiBarang}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">{row.kategori}</p>
-                          </TableCell>
-                          <TableCell className="align-top font-semibold tabular-nums">
-                            {row.nilaiTaksiran === null
-                              ? "belum ditaksir"
-                              : rupiah(row.nilaiTaksiran)}
-                          </TableCell>
-                          <TableCell className="align-top text-slate-600">
-                            {tanggalRingkas(row.diajukanPada)}
-                          </TableCell>
-                          <TableCell className="align-top">
-                            <StatusBadge status={row.status} kind="pawn" />
-                          </TableCell>
-                          <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
-                          <TableCell className="align-top">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setDetail({ jenis: "gadai", row })}
-                            >
-                              <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </Tabel>
+                        head={[
+                          "Peminjam",
+                          "Barang",
+                          "Taksiran",
+                          "Tanggal",
+                          "Status",
+                          "Lokasi",
+                          "Aksi",
+                        ]}
+                      >
+                        {tampilGadai.map((row) => (
+                          <TableRow key={row._id}>
+                            <SelPeminjam
+                              nama={tampilNama(row.namaLengkap)}
+                              kode={row.kodePeminjam}
+                              referensi={row.nomorReferensi}
+                            />
+                            <TableCell className="align-top">
+                              <p className="text-slate-900">
+                                {row.deskripsiBarang}
+                              </p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {row.kategori}
+                              </p>
+                            </TableCell>
+                            <TableCell className="align-top font-semibold tabular-nums">
+                              {row.nilaiTaksiran === null
+                                ? "belum ditaksir"
+                                : rupiah(row.nilaiTaksiran)}
+                            </TableCell>
+                            <TableCell className="align-top text-slate-600">
+                              {tanggalRingkas(row.diajukanPada)}
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <StatusBadge status={row.status} kind="pawn" />
+                            </TableCell>
+                            <SelLokasi
+                              lokasi={row.lokasi}
+                              sekarang={sekarang}
+                            />
+                            <TableCell className="align-top">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setDetail({ jenis: "gadai", row })
+                                }
+                              >
+                                <Eye className="mr-1.5 size-3.5" aria-hidden />{" "}
+                                Detail
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Tabel>
                     </div>
-                    <CatatanTerpotong terpotong={data.terpotong.gadai} batas={data.batas} />
+                    <CatatanTerpotong
+                      terpotong={data.terpotong.gadai}
+                      batas={data.batas}
+                    />
                   </>
                 )}
               </TabsContent>
@@ -2665,11 +2961,19 @@ function IsiRuang() {
                               {row.kategori} · {row.merchant}
                             </span>
                           </InfoKartu>
-                          <InfoKartu label="Harga">{rupiah(row.hargaBarang)}</InfoKartu>
-                          <InfoKartu label="Tenor">{row.tenorBulan} bulan</InfoKartu>
-                          <InfoKartu label="Tanggal">{tanggalRingkas(row.diajukanPada)}</InfoKartu>
+                          <InfoKartu label="Harga">
+                            {rupiah(row.hargaBarang)}
+                          </InfoKartu>
+                          <InfoKartu label="Tenor">
+                            {row.tenorBulan} bulan
+                          </InfoKartu>
+                          <InfoKartu label="Tanggal">
+                            {tanggalRingkas(row.diajukanPada)}
+                          </InfoKartu>
                           <InfoKartu label="Pendana">
-                            {row.pendana === null ? "—" : tampilNama(row.pendana)}
+                            {row.pendana === null
+                              ? "—"
+                              : tampilNama(row.pendana)}
                           </InfoKartu>
                           <InfoKartu label="Lokasi">
                             {row.lokasi === null
@@ -2681,58 +2985,75 @@ function IsiRuang() {
                     </div>
                     <div className="hidden lg:block">
                       <Tabel
-                      head={[
-                        "Peminjam",
-                        "Barang",
-                        "Harga & tenor",
-                        "Tanggal",
-                        "Status",
-                        "Pendana",
-                        "Lokasi",
-                        "Aksi",
-                      ]}
-                    >
-                      {tampilKredit.map((row) => (
-                        <TableRow key={row._id}>
-                          <SelPeminjam
-                            nama={tampilNama(row.namaLengkap)}
-                            kode={row.kodePeminjam}
-                            referensi={row.nomorReferensi}
-                          />
-                          <TableCell className="align-top">
-                            <p className="text-slate-900">{row.namaBarang}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {row.kategori} · {row.merchant}
-                            </p>
-                          </TableCell>
-                          <TableCell className="align-top tabular-nums">
-                            <p className="font-semibold text-slate-900">{rupiah(row.hargaBarang)}</p>
-                            <p className="mt-1 text-xs text-slate-600">
-                              {row.tenorBulan} bulan · DP {row.dpPersen}%
-                            </p>
-                          </TableCell>
-                          <TableCell className="align-top text-slate-600">
-                            {tanggalRingkas(row.diajukanPada)}
-                          </TableCell>
-                          <TableCell className="align-top">
-                            <BadgeKredit status={row.status} />
-                          </TableCell>
-                          <SelPendana pendana={row.pendana === null ? null : tampilNama(row.pendana)} />
-                          <SelLokasi lokasi={row.lokasi} sekarang={sekarang} />
-                          <TableCell className="align-top">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setDetail({ jenis: "kredit", row })}
-                            >
-                              <Eye className="mr-1.5 size-3.5" aria-hidden /> Detail
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </Tabel>
+                        head={[
+                          "Peminjam",
+                          "Barang",
+                          "Harga & tenor",
+                          "Tanggal",
+                          "Status",
+                          "Pendana",
+                          "Lokasi",
+                          "Aksi",
+                        ]}
+                      >
+                        {tampilKredit.map((row) => (
+                          <TableRow key={row._id}>
+                            <SelPeminjam
+                              nama={tampilNama(row.namaLengkap)}
+                              kode={row.kodePeminjam}
+                              referensi={row.nomorReferensi}
+                            />
+                            <TableCell className="align-top">
+                              <p className="text-slate-900">{row.namaBarang}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {row.kategori} · {row.merchant}
+                              </p>
+                            </TableCell>
+                            <TableCell className="align-top tabular-nums">
+                              <p className="font-semibold text-slate-900">
+                                {rupiah(row.hargaBarang)}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-600">
+                                {row.tenorBulan} bulan · DP {row.dpPersen}%
+                              </p>
+                            </TableCell>
+                            <TableCell className="align-top text-slate-600">
+                              {tanggalRingkas(row.diajukanPada)}
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <BadgeKredit status={row.status} />
+                            </TableCell>
+                            <SelPendana
+                              pendana={
+                                row.pendana === null
+                                  ? null
+                                  : tampilNama(row.pendana)
+                              }
+                            />
+                            <SelLokasi
+                              lokasi={row.lokasi}
+                              sekarang={sekarang}
+                            />
+                            <TableCell className="align-top">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setDetail({ jenis: "kredit", row })
+                                }
+                              >
+                                <Eye className="mr-1.5 size-3.5" aria-hidden />{" "}
+                                Detail
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Tabel>
                     </div>
-                    <CatatanTerpotong terpotong={data.terpotong.kredit} batas={data.batas} />
+                    <CatatanTerpotong
+                      terpotong={data.terpotong.kredit}
+                      batas={data.batas}
+                    />
                   </>
                 )}
               </TabsContent>
@@ -2766,28 +3087,33 @@ function IsiRuang() {
                     <div className="animate-masuk rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge className="border-0 bg-primary/10 text-accent-foreground">
-                          <MapPin className="mr-1 size-3" /> {titik.jumlahTitik} titik terakhir
+                          <MapPin className="mr-1 size-3" /> {titik.jumlahTitik}{" "}
+                          titik terakhir
                         </Badge>
                         <Badge
                           variant="outline"
                           className="border-slate-200 text-muted-foreground"
                         >
-                          {titik.tanpaTitik} peminjam belum pernah mengirim titik
+                          {titik.tanpaTitik} peminjam belum pernah mengirim
+                          titik
                         </Badge>
                         {titik.terpotong && (
                           <Badge
                             variant="outline"
                             className="border-slate-200 text-muted-foreground"
                           >
-                            menampilkan {titik.batas} pengajuan terbaru per kategori
+                            menampilkan {titik.batas} pengajuan terbaru per
+                            kategori
                           </Badge>
                         )}
                       </div>
                       <p className="mt-3 max-w-3xl text-xs leading-6 text-muted-foreground">
-                        Peta ini memakai koordinat yang <strong>dilaporkan perangkat peminjam</strong>
-                        . Titik diperbarui otomatis selama dashboard peminjam terbuka (±60 detik);
-                        pelacakan saat aplikasi ditutup memerlukan aplikasi native, sehingga label
-                        umur di bawah selalu menunjukkan kapan titik terakhir benar-benar diterima.
+                        Peta ini memakai koordinat yang{" "}
+                        <strong>dilaporkan perangkat peminjam</strong>. Titik
+                        diperbarui otomatis selama dashboard peminjam terbuka
+                        (±60 detik); pelacakan saat aplikasi ditutup memerlukan
+                        aplikasi native, sehingga label umur di bawah selalu
+                        menunjukkan kapan titik terakhir benar-benar diterima.
                       </p>
                     </div>
 
@@ -2825,9 +3151,15 @@ function IsiRuang() {
                                     {r.nomorReferensi}
                                   </span>
                                   {r.kategori === "pinjaman" ? (
-                                    <StatusBadge status={r.status} kind="loan" />
+                                    <StatusBadge
+                                      status={r.status}
+                                      kind="loan"
+                                    />
                                   ) : r.kategori === "gadai" ? (
-                                    <StatusBadge status={r.status} kind="pawn" />
+                                    <StatusBadge
+                                      status={r.status}
+                                      kind="pawn"
+                                    />
                                   ) : (
                                     <BadgeKredit status={r.status} />
                                   )}
@@ -2838,11 +3170,13 @@ function IsiRuang() {
                                   {labelUmur(r.posisi.waktu, sekarang)}
                                 </span>
                                 <span className="block font-mono tabular-nums">
-                                  {r.posisi.lat.toFixed(5)}, {r.posisi.lng.toFixed(5)}
+                                  {r.posisi.lat.toFixed(5)},{" "}
+                                  {r.posisi.lng.toFixed(5)}
                                 </span>
                                 <span className="block">
                                   ± {Math.round(r.posisi.akurasi)} m ·{" "}
-                                  {LABEL_SUMBER[r.posisi.sumber] ?? r.posisi.sumber}
+                                  {LABEL_SUMBER[r.posisi.sumber] ??
+                                    r.posisi.sumber}
                                 </span>
                               </span>
                             </li>
@@ -2853,12 +3187,14 @@ function IsiRuang() {
                 )}
               </TabsContent>
             </Tabs>
-
           </>
         )}
       </main>
 
-      <Dialog open={detail !== null} onOpenChange={(open) => (open ? undefined : setDetail(null))}>
+      <Dialog
+        open={detail !== null}
+        onOpenChange={(open) => (open ? undefined : setDetail(null))}
+      >
         <DialogContent className="w-full gap-0 overflow-hidden rounded-lg border border-gold/40 bg-white p-0 sm:max-w-2xl">
           {/* Kepala modal: hijau tipis sejuk + badge kategori produk di pojok
               kiri atas, supaya jenis pengajuan terbaca sebelum isinya. */}
@@ -2876,13 +3212,13 @@ function IsiRuang() {
                     : "Detail kredit barang"}
               </DialogTitle>
               <DialogDescription className="text-xs leading-5">
-                Catatan internal PINDAI — ruang lihat saja. Titik lokasi terakhir peminjam selalu
-                ditampilkan
+                Catatan internal PINDAI — ruang lihat saja. Titik lokasi
+                terakhir peminjam selalu ditampilkan
                 {bolehBerkas
                   ? "; berkas pengajuan ditampilkan untuk akun pendana beremail."
                   : "; berkas pengajuan hanya dibuka untuk akun pendana beremail, bukan sesi kode akses bersama."}{" "}
-                NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim sebagai kolom
-                terpisah.
+                NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim
+                sebagai kolom terpisah.
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -2934,12 +3270,15 @@ function IsiRuang() {
       <footer className="mt-8 bg-navy text-white/70">
         <div className="mx-auto w-full max-w-6xl px-4 py-7 sm:px-6">
           <p className="max-w-3xl text-xs leading-6">
-            Angka di ruang ini adalah catatan internal PINDAI dan bukan bukti transaksi, jaminan
-            pencairan, maupun penawaran. Status mengikuti pencatatan ledger internal. Pokok dana
-            maupun Imbal Hasil pendana tidak dijamin oleh LPS atau pihak lain, kecuali ada
-            perjanjian tertulis yang menyatakannya.
+            Angka di ruang ini adalah catatan internal PINDAI dan bukan bukti
+            transaksi, jaminan pencairan, maupun penawaran. Status mengikuti
+            pencatatan ledger internal. Pokok dana maupun Imbal Hasil pendana
+            tidak dijamin oleh LPS atau pihak lain, kecuali ada perjanjian
+            tertulis yang menyatakannya.
           </p>
-          <p className="mt-3 max-w-3xl text-[11px] leading-5 text-white/60">{PENAFIAN_PINDAI}</p>
+          <p className="mt-3 max-w-3xl text-[11px] leading-5 text-white/60">
+            {PENAFIAN_PINDAI}
+          </p>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
             {/*
              * Warna label di atas latar navy: `gold` (#9c7b3a) hanya 3,03:1 di
@@ -2956,7 +3295,9 @@ function IsiRuang() {
             >
               Dashboard Peminjam
             </Link>
-            <span className="text-[11px] text-white/55">{HAK_CIPTA_PINDAI}</span>
+            <span className="text-[11px] text-white/55">
+              {HAK_CIPTA_PINDAI}
+            </span>
           </div>
         </div>
       </footer>

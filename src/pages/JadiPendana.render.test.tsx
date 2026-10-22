@@ -14,7 +14,8 @@ import { JadiPendanaView } from "./JadiPendana";
  *  - angka di layar sama dengan angka proposal (`lib/imbalPendana`), termasuk
  *    saat biaya platform diubah admin;
  *  - tombol unduh tidak pernah dikunci, karena proposal harus bisa diambil
- *    kapan saja tanpa akun;
+ *    kapan saja selama sesi ruang pendana masih berlaku;
+ *  - halaman ini bukan rute publik: hanya dibuka lewat gerbang ruang pendana;
  *  - setiap tautan internal punya rute nyata;
  *  - risiko dan batas layanan tetap tercetak, bukan hanya di dokumen PDF.
  */
@@ -77,7 +78,12 @@ ada(
   "isi proposal menyebut rentang simulasi",
 );
 tidakAda(html, "sampai Rp 100 juta", "rentang simulasi lama tidak tertinggal");
-ada(html, "tanpa akun", "syarat unduhan dinyatakan");
+ada(
+  html,
+  "hanya terbuka dari ruang pendana",
+  "syarat akses unduhan dinyatakan",
+);
+tidakAda(html, "tanpa akun", "klaim unduhan tanpa akun sudah dicabut");
 
 // Tombol unduh tidak boleh menunggu admin atau sesi.
 ok(html.split("Unduh proposal").length >= 3, "dua tombol unduh dirender");
@@ -111,7 +117,7 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
 {
   const ruteSah = new Set([
     "/",
-    "/jadi-pendana",
+    "/penyedia-dana",
     "/layanan/pinjaman-tunai",
     "/biaya",
     "/cara-kerja",
@@ -139,7 +145,7 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
   }
 }
 
-// ===== Rute dan tautan masuk benar-benar terpasang =====
+// ===== Rute, gerbang, dan tautan masuk benar-benar terpasang =====
 {
   const shell = readFileSync(
     fileURLToPath(new URL("../main.tsx", import.meta.url)),
@@ -149,22 +155,43 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
   ada(
     shell,
     'import("./pages/JadiPendana.tsx")',
-    "halaman dimuat lazy seperti halaman publik lain",
+    "halaman dimuat lazy seperti halaman lain",
+  );
+  ada(shell, "<RequirePendana>", "rute dijaga gerbang ruang pendana");
+
+  const gerbang = readFileSync(
+    fileURLToPath(new URL("../components/RequireAuth.tsx", import.meta.url)),
+    "utf8",
+  );
+  ada(
+    gerbang,
+    'to="/akses-bersama"',
+    "pengunjung tanpa sesi diarahkan ke kode akses bersama",
+  );
+  ada(
+    gerbang,
+    'role !== "pengamat"',
+    "gerbang mengenali peran pemantau kode bersama",
   );
 
   const landing = readFileSync(
     fileURLToPath(new URL("./LandingHome.tsx", import.meta.url)),
     "utf8",
   );
-  ada(
+  tidakAda(
     landing,
-    '{ href: "/jadi-pendana", label: "Jadi pendana" }',
-    "beranda menautkan halaman ini di menu ponsel",
+    "/jadi-pendana",
+    "beranda tidak lagi menautkan halaman ini",
+  );
+
+  const ruang = readFileSync(
+    fileURLToPath(new URL("./PenyediaDana.tsx", import.meta.url)),
+    "utf8",
   );
   ada(
-    landing,
-    '<Link className="font-semibold text-primary hover:text-primary/80" to="/jadi-pendana">',
-    "beranda menautkan halaman ini di navigasi utama",
+    ruang,
+    'to="/jadi-pendana"',
+    "ruang pendana menjadi pintu ke halaman proposal",
   );
 }
 

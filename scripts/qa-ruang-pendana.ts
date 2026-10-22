@@ -148,7 +148,10 @@ cek(
       .join(",") === "3,2,2",
     "tujuh aturan dibagi 3/2/2, tanpa kolom yang menggantung satu baris",
   );
-  cek(bagiKolom([], 3).every((b) => b.length === 0), "daftar kosong tidak menghasilkan kolom berisi");
+  cek(
+    bagiKolom([], 3).every((b) => b.length === 0),
+    "daftar kosong tidak menghasilkan kolom berisi",
+  );
 }
 
 // Lipatan itu sendiri: bagian yang dituju jangkar harus terbuka, baik saat
@@ -167,8 +170,13 @@ cek(
 // tertutup secara bawaan dengan ringkasan tetap terbaca di kepalanya, dan
 // isinya dipasang tiga kolom saat dibuka. Yang diperiksa di sini: keadaan
 // tertutupnya benar-benar tidak memuat isi, dan keadaan terbukanya tetap rapat.
-const risikoTertutup = renderToStaticMarkup(createElement(PanelRisikoPendanaan));
-cek(risikoTertutup.includes(">03<"), "nomor bagian 03 tercetak di panel risiko");
+const risikoTertutup = renderToStaticMarkup(
+  createElement(PanelRisikoPendanaan),
+);
+cek(
+  risikoTertutup.includes(">03<"),
+  "nomor bagian 03 tercetak di panel risiko",
+);
 cek(
   risikoTertutup.includes("12 hal yang perlu Anda tahu sebelum mendanai"),
   "ringkasan isi bagian tetap terbaca saat panel risiko tertutup",
@@ -422,7 +430,10 @@ for (const [nama, html] of bagianBerbiaya) {
     html.includes("Biaya platform (layanan)"),
     `${nama} menyebut biaya 5% sebagai "Biaya platform (layanan)"`,
   );
-  cek(!/potongan admin/i.test(html), `${nama} tidak lagi menyebut "potongan admin"`);
+  cek(
+    !/potongan admin/i.test(html),
+    `${nama} tidak lagi menyebut "potongan admin"`,
+  );
 }
 
 // 8. Batas portofolio pribadi ditegakkan di SERVER: akun pendana hanya menerima
@@ -435,7 +446,8 @@ cek(
   "cakupan pendana dipakai tiap query ruang: daftar, peta, dan laporan transfer",
 );
 cek(
-  penjaga.includes("pinjamanMilikPendana") && penjaga.includes("dipindahKePendanaLain"),
+  penjaga.includes("pinjamanMilikPendana") &&
+    penjaga.includes("dipindahKePendanaLain"),
   "kepemilikan pinjaman memakai aturan tunggal pendanaKepemilikan",
 );
 cek(
@@ -447,7 +459,9 @@ cek(
   "batas cakupan dinyatakan di halaman, bukan hanya ditegakkan di server",
 );
 cek(
-  baca("src/components/penyediaDana/PortofolioPendana.tsx").includes("Alokasi atas nama"),
+  baca("src/components/penyediaDana/PortofolioPendana.tsx").includes(
+    "Alokasi atas nama",
+  ),
   "pendana melihat portofolionya sendiri, bukan papan perbandingan antarpendana",
 );
 
@@ -455,8 +469,13 @@ cek(
 // dan tidak ada pihak lain yang bisa mengalihkan laporan keuangannya ke nomor
 // lain. Yang diperiksa di sini adalah bentuk kartunya dan sumber penjaganya;
 // perilakunya ditahan `laporanPendana.convex.test.ts`.
-const kontakSumber = baca("src/components/penyediaDana/KontakLaporanWhatsapp.tsx");
-cek(kontakSumber.includes("FOLIO.kertas"), "kartu laporan memakai lembar folio yang sama");
+const kontakSumber = baca(
+  "src/components/penyediaDana/KontakLaporanWhatsapp.tsx",
+);
+cek(
+  kontakSumber.includes("FOLIO.kertas"),
+  "kartu laporan memakai lembar folio yang sama",
+);
 cek(
   cacah(kontakSumber, /min-h-11/g) >= 2,
   "kedua tombol kartu laporan setinggi sasaran sentuh 44 px",
@@ -474,7 +493,9 @@ cek(
   "halaman membaca nomor dari akun, bukan dari isian yang diketik ulang",
 );
 cek(
-  halaman.includes("isPendana && kontakLaporan !== undefined && kontakLaporan !== null"),
+  /isPendana\s*&&\s*kontakLaporan\s*!==\s*undefined\s*&&\s*kontakLaporan\s*!==\s*null/.test(
+    halaman,
+  ),
   "kartu laporan hanya untuk akun pemilik portofolio, bukan admin atau pemantau",
 );
 const pelaporan = baca("src/convex/laporanPendana.ts");
@@ -484,19 +505,26 @@ cek(
   "aksi laporan pendana tidak menerima nomor tujuan dari pemanggil",
 );
 cek(
-  pelaporan.includes("peranPenyedia") && pelaporan.includes("Nomor WhatsApp laporan belum diisi"),
+  pelaporan.includes("peranPenyedia") &&
+    pelaporan.includes("Nomor WhatsApp laporan belum diisi"),
   "pengiriman menolak akun bukan pendana dan menjelaskan nomor yang belum diisi",
 );
 cek(
-  baca("src/convex/penyediaDana.ts").includes("export const simpanKontakLaporan"),
+  baca("src/convex/penyediaDana.ts").includes(
+    "export const simpanKontakLaporan",
+  ),
   "nomor laporan disimpan lewat mutation yang memeriksa pemilik akunnya",
 );
 cek(
-  baca("src/convex/loans.ts").includes("internal.laporanPendana.kirimLaporanPelunasan"),
+  baca("src/convex/loans.ts").includes(
+    "internal.laporanPendana.kirimLaporanPelunasan",
+  ),
   "laporan pelunasan dijadwalkan setelah status lunas tersimpan",
 );
 cek(
-  existsSync("src/components/penyediaDana/KontakLaporanWhatsapp.render.test.tsx"),
+  existsSync(
+    "src/components/penyediaDana/KontakLaporanWhatsapp.render.test.tsx",
+  ),
   "kartu laporan punya uji markup sendiri",
 );
 cek(

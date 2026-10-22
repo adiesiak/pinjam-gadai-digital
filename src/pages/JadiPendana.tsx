@@ -33,11 +33,14 @@ import {
 import { DEFAULT_CONFIG } from "@/lib/system-config";
 
 /**
- * Halaman publik "Jadi pendana".
+ * Halaman proposal pendanaan di dalam ruang pendana.
  *
- * Tujuan halamannya satu: membuat calon pendana bisa memutuskan tanpa bertanya
- * dulu ke admin, yaitu melihat pembagian hasil yang berlaku, mencoba nominalnya
- * sendiri, membaca risikonya, lalu mengunduh proposal sebagai berkas. Karena
+ * Tujuan halamannya satu: membuat pendana dan tim pemantau bisa memutuskan
+ * tanpa bertanya dulu ke admin, yaitu melihat pembagian hasil yang berlaku,
+ * mencoba nominalnya sendiri, membaca risikonya, lalu mengunduh proposal
+ * sebagai berkas. Halaman ini bukan rute publik: `RequirePendana` hanya
+ * membukanya untuk sesi yang sudah masuk lewat kode akses bersama (atau akun
+ * pendana/admin), dan tautannya ada di `/penyedia-dana`. Karena
  * itu angka di sini tidak ditulis di JSX: semuanya dihitung oleh
  * `lib/imbalPendana` dan biaya platform dibaca dari Pengaturan Sistem, jalur
  * yang sama dengan pencatatan hak pendana di server.
@@ -355,7 +358,7 @@ function Header() {
         <div className="flex items-center gap-2">
           <MenuInformasiPonsel
             tautan={[
-              { href: "/jadi-pendana", label: "Jadi pendana" },
+              { href: "/penyedia-dana", label: "Ruang pendana" },
               { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
               { href: "/biaya", label: "Biaya" },
               { href: "/cara-kerja", label: "Cara kerja" },
@@ -368,7 +371,7 @@ function Header() {
             kelasTautan="rounded-lg px-3 py-3 hover:bg-muted"
           />
           <Button asChild variant="outline" className="min-h-11">
-            <Link to="/auth?returnTo=%2Fpenyedia-dana">Masuk</Link>
+            <Link to="/penyedia-dana">Kembali ke ruang pendana</Link>
           </Button>
         </div>
       </div>
@@ -390,7 +393,7 @@ function Footer() {
             className="flex flex-wrap gap-x-4 gap-y-2"
           >
             <Link to="/">Beranda</Link>
-            <Link to="/jadi-pendana">Jadi pendana</Link>
+            <Link to="/penyedia-dana">Ruang pendana</Link>
             <Link to="/biaya">Biaya</Link>
             <Link to="/cara-kerja">Cara kerja</Link>
             <Link to="/keamanan">Keamanan</Link>
@@ -451,8 +454,8 @@ export function JadiPendanaView({
                 </Button>
               </div>
               <p className="mt-3 text-[11px] leading-5 text-slate-600">
-                Proposal bisa diunduh tanpa akun dan selalu disusun dari
-                kebijakan yang berlaku saat tombol ditekan.
+                Proposal selalu disusun dari kebijakan yang berlaku saat tombol
+                ditekan, dan hanya terbuka dari ruang pendana.
               </p>
             </div>
 
@@ -800,7 +803,7 @@ export function JadiPendanaView({
                 },
                 {
                   q: "Apakah laporan bisa saya unduh sendiri?",
-                  a: "Proposal di halaman ini bisa diunduh kapan saja tanpa akun. Setelah akun aktif, laporan portofolio dan laporan pelunasan tersedia di ruang pendana dan bisa diminta lewat WhatsApp.",
+                  a: "Proposal di halaman ini bisa diunduh kapan saja selama akses ruang pendana Anda masih berlaku. Laporan portofolio dan laporan pelunasan tersedia di ruang pendana dan bisa diminta lewat WhatsApp.",
                 },
               ].map((item) => (
                 <AccordionItem
@@ -870,7 +873,7 @@ export function JadiPendanaView({
 }
 
 /**
- * Rute publik memakai biaya platform dari Pengaturan Parameter Bisnis yang
+ * Rute ruang pendana memakai biaya platform dari Pengaturan Parameter Bisnis yang
  * sama dengan pencatatan hak pendana. Bila query belum termuat, angka bawaan
  * yang dirender supaya halaman dan unduhan tetap bisa dipakai.
  */

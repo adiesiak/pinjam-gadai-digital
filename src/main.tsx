@@ -1,4 +1,4 @@
-import '@vly-ai/integrations';
+import "@vly-ai/integrations";
 import { Toaster } from "@/components/ui/sonner";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { BilahSinkron } from "@/components/BilahSinkron";
@@ -8,13 +8,23 @@ import { ErrorPage } from "@/components/ErrorPage";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Snowfall } from "@/components/Snowfall";
 import { KarnivalConfetti } from "@/components/KarnivalConfetti";
-import { RequireAdmin, RequireAuth } from "@/components/RequireAuth";
+import {
+  RequireAdmin,
+  RequireAuth,
+  RequirePendana,
+} from "@/components/RequireAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient, useQuery } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router";
 import "./index.css";
 import { useSessionGuard } from "@/hooks/use-session-guard";
 import { ADMIN_ROUTE, QC_ROUTE } from "@/lib/routes";
@@ -57,7 +67,10 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
  * sesaat) umumnya sementara, jadi modul dicoba ulang beberapa kali sebelum
  * React menyerah dan menampilkan halaman error.
  */
-function denganPercobaan<M>(muat: () => Promise<M>, maksPercobaan = 3): () => Promise<M> {
+function denganPercobaan<M>(
+  muat: () => Promise<M>,
+  maksPercobaan = 3,
+): () => Promise<M> {
   return async () => {
     for (let ke = 1; ; ke += 1) {
       try {
@@ -71,14 +84,24 @@ function denganPercobaan<M>(muat: () => Promise<M>, maksPercobaan = 3): () => Pr
 }
 
 // Lazy load route components for better code splitting
-const PublicLanding = lazy(denganPercobaan(() => import("./pages/LandingHome.tsx")));
-const UnduhAplikasi = lazy(denganPercobaan(() => import("./pages/UnduhAplikasi.tsx")));
+const PublicLanding = lazy(
+  denganPercobaan(() => import("./pages/LandingHome.tsx")),
+);
+const UnduhAplikasi = lazy(
+  denganPercobaan(() => import("./pages/UnduhAplikasi.tsx")),
+);
 const AuthPage = lazy(denganPercobaan(() => import("./pages/Auth.tsx")));
 const Dashboard = lazy(denganPercobaan(() => import("./pages/Dashboard.tsx")));
 const Admin = lazy(denganPercobaan(() => import("./pages/Admin.tsx")));
-const PenyediaDana = lazy(denganPercobaan(() => import("./pages/PenyediaDana.tsx")));
-const AksesBersama = lazy(denganPercobaan(() => import("./pages/AksesBersama.tsx")));
-const SyaratKetentuan = lazy(denganPercobaan(() => import("./pages/SyaratKetentuan.tsx")));
+const PenyediaDana = lazy(
+  denganPercobaan(() => import("./pages/PenyediaDana.tsx")),
+);
+const AksesBersama = lazy(
+  denganPercobaan(() => import("./pages/AksesBersama.tsx")),
+);
+const SyaratKetentuan = lazy(
+  denganPercobaan(() => import("./pages/SyaratKetentuan.tsx")),
+);
 // Halaman publik dari tautan WhatsApp admin (lihat pages/CekStatus.tsx).
 const CekStatus = lazy(denganPercobaan(() => import("./pages/CekStatus.tsx")));
 const VerifikasiKontrak = lazy(
@@ -129,7 +152,9 @@ const JEDA_MUAT_ULANG_MS = 30_000;
  */
 function bolehMuatUlangOtomatis(): boolean {
   try {
-    const terakhir = Number(window.sessionStorage.getItem(KUNCI_MUAT_ULANG) ?? 0);
+    const terakhir = Number(
+      window.sessionStorage.getItem(KUNCI_MUAT_ULANG) ?? 0,
+    );
     if (Date.now() - terakhir < JEDA_MUAT_ULANG_MS) return false;
     window.sessionStorage.setItem(KUNCI_MUAT_ULANG, String(Date.now()));
     return true;
@@ -170,7 +195,9 @@ class RootErrorBoundary extends React.Component<
     if (this.state.memuatUlang) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900">
-          <p className="text-sm text-muted-foreground">Menyiapkan ulang halaman…</p>
+          <p className="text-sm text-muted-foreground">
+            Menyiapkan ulang halaman…
+          </p>
         </div>
       );
     }
@@ -192,12 +219,12 @@ class RootErrorBoundary extends React.Component<
  */
 function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  return <RootErrorBoundary key={location.pathname}>{children}</RootErrorBoundary>;
+  return (
+    <RootErrorBoundary key={location.pathname}>{children}</RootErrorBoundary>
+  );
 }
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
-
-
 
 /** Rute yang boleh memakai efek musiman layar penuh. */
 const RUTE_PUBLIK = [
@@ -249,8 +276,7 @@ function ThemeSync() {
     lokasi.pathname === "/" ||
     RUTE_PUBLIK.some(
       (awalan) =>
-        lokasi.pathname === awalan ||
-        lokasi.pathname.startsWith(`${awalan}/`),
+        lokasi.pathname === awalan || lokasi.pathname.startsWith(`${awalan}/`),
     );
   if (!config?.efekMusiman || !publik) return null;
   if (config.tema === "salju") return <Snowfall />;
@@ -322,7 +348,6 @@ function RouteSyncer() {
   return null;
 }
 
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
@@ -360,15 +385,28 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="/" element={<PublicLanding />} />
                 <Route path="/biaya" element={<PublicInfoPage />} />
                 <Route path="/cara-kerja" element={<PublicInfoPage />} />
-                <Route path="/layanan/pinjaman-tunai" element={<PublicInfoPage />} />
+                <Route
+                  path="/layanan/pinjaman-tunai"
+                  element={<PublicInfoPage />}
+                />
                 <Route path="/layanan/gadai" element={<PublicInfoPage />} />
-                <Route path="/layanan/kredit-barang" element={<PublicInfoPage />} />
+                <Route
+                  path="/layanan/kredit-barang"
+                  element={<PublicInfoPage />}
+                />
                 <Route path="/keamanan" element={<PublicInfoPage />} />
                 <Route path="/faq" element={<PublicInfoPage />} />
-                {/* Publik dan tanpa akun: calon pendana perlu membaca skema,
-                    mencoba nominal, dan mengunduh proposal sebelum menghubungi
-                    admin. */}
-                <Route path="/jadi-pendana" element={<JadiPendana />} />
+                {/* Proposal pendanaan tidak lagi terbuka untuk umum: halaman ini
+                    hanya dibuka dari ruang pendana, setelah kode akses bersama
+                    (atau akun pendana/admin) membuka sesi lihat-saja. */}
+                <Route
+                  path="/jadi-pendana"
+                  element={
+                    <RequirePendana>
+                      <JadiPendana />
+                    </RequirePendana>
+                  }
+                />
                 {/* Halaman unduh APK: menu khusus yang menjelaskan versi,
                     ukuran, dan langkah pemasangan sebelum berkas diunduh. */}
                 <Route path="/aplikasi" element={<UnduhAplikasi />} />
@@ -398,7 +436,10 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="/akses-bersama" element={<AksesBersama />} />
                 <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
                 {/* Publik: pembaca dokumen cetak bisa memeriksa hash tanpa akun. */}
-                <Route path="/verifikasi-kontrak/:kode" element={<VerifikasiKontrak />} />
+                <Route
+                  path="/verifikasi-kontrak/:kode"
+                  element={<VerifikasiKontrak />}
+                />
                 {/* Pintu publik kwitansi digital: dibuka dari tautan WhatsApp
                     yang dikirim admin. Sengaja di luar RequireAuth — peminjam
                     lama belum tentu punya sesi aktif; otorisasinya adalah token
@@ -439,7 +480,10 @@ createRoot(document.getElementById("root")!).render(
                     ruang penyedia dana alih-alih jatuh ke NotFound. Rute ini
                     sebelumnya terdaftar untuk /penyedia-dana — path yang sudah
                     dilayani di atas, sehingga tidak pernah terpakai. */}
-                <Route path="/pendana" element={<Navigate to="/penyedia-dana" replace />} />
+                <Route
+                  path="/pendana"
+                  element={<Navigate to="/penyedia-dana" replace />}
+                />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

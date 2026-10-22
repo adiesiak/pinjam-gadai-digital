@@ -1,7 +1,6 @@
 /**
- * Proposal pendanaan & kemitraan strategis PINDAI: dokumen PDF yang bisa
- * diunduh siapa pun dari halaman "Jadi pendana", tanpa akun dan tanpa menunggu
- * admin.
+ * Proposal pendanaan & kemitraan strategis PINDAI: dokumen PDF yang diunduh
+ * dari halaman proposal di ruang pendana, tanpa menunggu admin.
  *
  * Kenapa dokumennya disusun dari fungsi murni: halaman, unduhan, dan uji harus
  * memakai angka yang sama. Semua nominal di sini dihitung oleh

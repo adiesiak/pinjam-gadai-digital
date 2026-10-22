@@ -48,11 +48,22 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   );
   // CTA sekunder pernah memanggil `window.location.assign("/biaya")`, yang
   // memuat ulang seluruh halaman dan tidak bisa dibuka di tab baru.
-  tidakAda(sumber, "window.location.assign", "CTA hero memakai navigasi router");
+  tidakAda(
+    sumber,
+    "window.location.assign",
+    "CTA hero memakai navigasi router",
+  );
   // Menu ponsel berbasis `<details>` tetap terbuka setelah tautan dipilih dan
   // tidak tertutup oleh Escape. Perilakunya kini satu komponen bersama.
   tidakAda(sumber, "<details className", "beranda tidak memakai <details>");
   ada(sumber, "<MenuInformasiPonsel", "beranda memakai menu ponsel bersama");
+  // Proposal pendanaan hanya dibuka dari ruang pendana yang dijaga kode akses
+  // bersama; beranda publik tidak boleh menautkannya lagi.
+  tidakAda(
+    sumber,
+    "/jadi-pendana",
+    "beranda tidak menautkan proposal pendanaan",
+  );
   // Doorprize triwulanan boleh diumumkan; skema imbal hasil pendana tidak.
   ada(sumber, "<DoorprizeRingkas", "beranda menjelaskan doorprize triwulanan");
   tidakAda(
@@ -78,7 +89,9 @@ for (const berkas of ["./PublicInfoPage.tsx", "./UnduhAplikasi.tsx"]) {
 // Komponen bersama: keadaan diumumkan, Escape menutup, dan klik di luar menutup.
 {
   const komponen = readFileSync(
-    fileURLToPath(new URL("../components/MenuInformasiPonsel.tsx", import.meta.url)),
+    fileURLToPath(
+      new URL("../components/MenuInformasiPonsel.tsx", import.meta.url),
+    ),
     "utf8",
   );
   ada(komponen, "aria-expanded", "tombol menu mengumumkan keadaannya");
@@ -92,7 +105,10 @@ for (const berkas of ["./PublicInfoPage.tsx", "./UnduhAplikasi.tsx"]) {
 // dan hook itu melempar di setiap halaman — boundary teratas lalu menutupi
 // seluruh aplikasi dengan halaman "kendala teknis".
 {
-  const shell = readFileSync(fileURLToPath(new URL("../main.tsx", import.meta.url)), "utf8");
+  const shell = readFileSync(
+    fileURLToPath(new URL("../main.tsx", import.meta.url)),
+    "utf8",
+  );
   const buka = shell.indexOf("<BrowserRouter>");
   const tutup = shell.indexOf("</BrowserRouter>");
   const tema = shell.indexOf("<ThemeSync />");
