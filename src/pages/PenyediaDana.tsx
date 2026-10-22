@@ -1815,6 +1815,14 @@ function IsiRuang() {
     api.persetujuanRisiko.statusPersetujuanRisiko,
     user === undefined || !bolehLihat ? ("skip" as const) : {},
   );
+  // Proyeksi nisbah akad syariah yang masih berjalan, untuk baris ringkasan di
+  // puncak halaman. Hanya akun pendana yang membacanya; peran lain tidak
+  // mengirim permintaan sama sekali, dan server tetap menjawab `null` bila ada
+  // yang mencoba.
+  const proyeksiSyariah = useQuery(
+    api.syariahAkad.proyeksiPendanaSaya,
+    user === undefined || !isPendana ? ("skip" as const) : {},
+  );
   const catatPersetujuan = useMutation(
     api.persetujuanRisiko.catatPersetujuanRisiko,
   );
@@ -2367,10 +2375,26 @@ function IsiRuang() {
                     nilai={rupiah(
                       data.ringkasan.totalKeuntunganPendanaBelumLunas,
                     )}
-                    detail="hitungan atas pinjaman yang masih berjalan"
+                    detail="imbal konvensional atas pinjaman yang masih berjalan"
                     tanda="perkiraan"
                     catatanRisiko="Estimasi, bukan jaminan. Hanya terwujud jika pinjaman lunas."
                   />
+                  {/*
+                   * Imbal konvensional dan nisbah syariah dipisah: keduanya
+                   * berjalan di mesin yang berbeda (yield tetap vs bagi hasil
+                   * margin akad), jadi menjumlahkannya dalam satu baris akan
+                   * menyembunyikan dari mana angkanya datang.
+                   */}
+                  {proyeksiSyariah !== undefined &&
+                    proyeksiSyariah !== null && (
+                      <BarisAngka
+                        label="Nisbah syariah (perkiraan)"
+                        nilai={rupiah(proyeksiSyariah.nisbahAktif)}
+                        detail={`85% margin atau ujrah dari ${rupiah(proyeksiSyariah.pokokAktif)} pokok akad berjalan`}
+                        tanda="perkiraan"
+                        catatanRisiko="Proyeksi akad berjalan; belum menjadi uang pendana sebelum akad selesai."
+                      />
+                    )}
                 </dl>
               </div>
 

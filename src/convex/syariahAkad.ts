@@ -166,6 +166,46 @@ export const portofolioSaya = query({
 });
 
 /**
+ * Proyeksi nisbah dari akad syariah yang MASIH BERJALAN milik pembaca.
+ *
+ * Kartu ringkasan di ruang penyedia dana hanya perlu dua angka: pokok yang
+ * sedang ditempatkan dan nisbah yang diproyeksikan. Akad yang sudah selesai
+ * tidak dihitung karena haknya sudah dibukukan, dan akad batal tidak pernah
+ * dihitung. Peran lain menerima `null`, bukan galat, supaya halaman bersama
+ * yang dibuka pemantau atau sesi akses bersama tetap termuat.
+ */
+export const proyeksiPendanaSaya = query({
+  args: {},
+  handler: async (
+    ctx,
+  ): Promise<{ pokokAktif: number; nisbahAktif: number } | null> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    const user = await ctx.db.get(userId);
+    if (user === null) return null;
+
+    const admin = user.role === ROLES.ADMIN;
+    if (!admin && !peranPenyedia(user.role as string | undefined)) return null;
+
+    const rows = admin
+      ? await ctx.db.query("akadSyariah").collect()
+      : await ctx.db
+          .query("akadSyariah")
+          .withIndex("by_pendana", (q) => q.eq("pendanaId", userId))
+          .collect();
+
+    let pokokAktif = 0;
+    let nisbahAktif = 0;
+    for (const row of rows) {
+      if (row.status !== "aktif") continue;
+      pokokAktif += row.pokok;
+      nisbahAktif += row.nisbahPendana;
+    }
+    return { pokokAktif, nisbahAktif };
+  },
+});
+
+/**
  * Catat satu akad syariah atas nama penyedia dana.
  *
  * Urutan pemeriksaannya: kewenangan admin (TOTP) → gerbang pembayaran →

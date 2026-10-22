@@ -265,3 +265,83 @@ describe("akad syariah — portofolio", () => {
     expect(semua.baris[0].nomorReferensi).toBe("SYR-ADMIN-1");
   });
 });
+
+describe("akad syariah — proyeksi ringkasan", () => {
+  it("hanya menjumlahkan akad berjalan milik pendana itu", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: adminId } = await siapkanPengguna(t, "Admin Proyeksi", {
+      email: "admin-proyeksi@pindai.test",
+      role: "admin",
+    });
+    const { sesi: robert, userId: robertId } = await siapkanPengguna(
+      t,
+      "Robert Proyeksi",
+      { email: "robert-proyeksi@pindai.test", role: "dana" },
+    );
+    const { userId: asepId } = await siapkanPengguna(t, "Asep Proyeksi", {
+      email: "asep-proyeksi@pindai.test",
+      role: "dana",
+    });
+    const dekat = Date.now() + 10 * 86_400_000;
+
+    await seedAkad(t, {
+      pendanaId: robertId,
+      dibuatOleh: adminId,
+      jenis: "murabahah",
+      nomorReferensi: "SYR-PROY-1",
+      pokok: 1_000_000,
+      nisbahPendana: 127_500,
+      nisbahPlatform: 22_500,
+      jatuhTempoPada: dekat,
+    });
+    await seedAkad(t, {
+      pendanaId: robertId,
+      dibuatOleh: adminId,
+      jenis: "rahn",
+      nomorReferensi: "SYR-PROY-SELESAI",
+      pokok: 2_000_000,
+      nisbahPendana: 68_000,
+      nisbahPlatform: 12_000,
+      status: "selesai",
+      jatuhTempoPada: dekat,
+    });
+    await seedAkad(t, {
+      pendanaId: robertId,
+      dibuatOleh: adminId,
+      jenis: "qardh",
+      nomorReferensi: "SYR-PROY-BATAL",
+      pokok: 3_000_000,
+      nisbahPendana: 0,
+      nisbahPlatform: 0,
+      status: "dibatalkan",
+      jatuhTempoPada: dekat,
+    });
+    await seedAkad(t, {
+      pendanaId: asepId,
+      dibuatOleh: adminId,
+      jenis: "murabahah",
+      nomorReferensi: "SYR-PROY-ASEP",
+      pokok: 5_000_000,
+      nisbahPendana: 90_000,
+      nisbahPlatform: 10_000,
+      jatuhTempoPada: dekat,
+    });
+
+    // Snapshot akad selesai dan batal tidak ikut diproyeksikan lagi.
+    expect(await robert.query(api.syariahAkad.proyeksiPendanaSaya, {})).toEqual({
+      pokokAktif: 1_000_000,
+      nisbahAktif: 127_500,
+    });
+  });
+
+  it("mengembalikan null, bukan galat, untuk peran tanpa portofolio syariah", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam } = await siapkanPengguna(t, "Peminjam Proyeksi", {
+      email: "peminjam-proyeksi@pindai.test",
+      role: "peminjam",
+    });
+    expect(
+      await peminjam.query(api.syariahAkad.proyeksiPendanaSaya, {}),
+    ).toBeNull();
+  });
+});

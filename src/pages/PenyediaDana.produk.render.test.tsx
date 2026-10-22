@@ -57,6 +57,24 @@ cek(
   "tab menyatakan lingkup Fase 1 apa adanya",
 );
 
+// ===== Proyeksi nisbah syariah di ringkasan atas =====
+cek(
+  halaman.includes("api.syariahAkad.proyeksiPendanaSaya"),
+  "proyeksi nisbah syariah dibaca dari server",
+);
+cek(
+  halaman.includes('label="Nisbah syariah (perkiraan)"'),
+  "baris nisbah syariah tampil di ringkasan",
+);
+cek(
+  halaman.includes("!isPendana ? (\"skip\" as const)"),
+  "proyeksi syariah hanya diminta untuk akun pendana",
+);
+cek(
+  halaman.includes("imbal konvensional atas pinjaman yang masih berjalan"),
+  "estimasi konvensional dibedakan dari nisbah syariah",
+);
+
 // ===== Kartu pilihan produk =====
 {
   const html = renderToStaticMarkup(
