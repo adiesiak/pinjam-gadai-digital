@@ -57,6 +57,10 @@ import { formatRupiahAman, kelompokkanDigit } from "@/lib/money";
 import { bagiHasilMurabahah, hargaJualMurabahah } from "@/lib/syariah/murabahah";
 import { bagiHasilQardh } from "@/lib/syariah/qardh";
 import { bagiHasilRahn } from "@/lib/syariah/rahn";
+import {
+  kalimatVoucherSyariah,
+  rincianVoucherSyariah,
+} from "@/lib/syariah/voucher";
 
 type JenisProduk = "konvensional" | "syariah";
 
@@ -446,6 +450,17 @@ function KalkulatorKonvensional({
   );
 }
 
+/**
+ * Preset voucher untuk simulasi akad. Nilainya contoh, bukan ketentuan promo:
+ * voucher sungguhan diterbitkan admin atau lahir dari pelunasan tepat waktu,
+ * dan hanya berlaku untuk akun pemiliknya.
+ */
+const VOUCHER_SIMULASI = [
+  { id: "tanpa", label: "Tanpa voucher", jenis: null, nilai: 0 },
+  { id: "ujrah", label: "Ujrah −Rp10.000", jenis: "diskon_ujrah" as const, nilai: 10_000 },
+  { id: "margin", label: "Margin −Rp25.000", jenis: "diskon_margin" as const, nilai: 25_000 },
+] as const;
+
 function KalkulatorSyariah() {
   const [akad, setAkad] = useState<"murabahah" | "rahn" | "qardh">("murabahah");
   const [nilaiTeks, setNilaiTeks] = useState("1.000.000");
@@ -453,6 +468,8 @@ function KalkulatorSyariah() {
   const [taksiranTeks, setTaksiranTeks] = useState("2.000.000");
   const [pokokGadaiTeks, setPokokGadaiTeks] = useState("1.600.000");
   const [tenorRahn, setTenorRahn] = useState<(typeof TENOR_RAHN)[number]>(30);
+  const [voucherSimId, setVoucherSimId] =
+    useState<(typeof VOUCHER_SIMULASI)[number]["id"]>("tanpa");
 
   const nilai = bacaNominal(nilaiTeks);
   const taksiran = bacaNominal(taksiranTeks);
@@ -650,6 +667,40 @@ function KalkulatorSyariah() {
     );
   }
 
+  // ===== Simulasi voucher =====
+  // Dasar potongan mengikuti akad yang sedang dihitung: margin Murabahah atau
+  // ujrah Rahn. Qardh tidak punya keduanya, jadi tidak ada yang dipotong.
+  const pilihanVoucher =
+    VOUCHER_SIMULASI.find((pilihan) => pilihan.id === voucherSimId) ??
+    VOUCHER_SIMULASI[0];
+  const marginSimulasi =
+    akad === "murabahah"
+      ? Math.max(
+          0,
+          hargaJualMurabahah(
+            nilai,
+            Number.isFinite(margin) && margin >= 0 ? margin : 0,
+          ) - nilai,
+        )
+      : 0;
+  const ujrahSimulasi =
+    akad === "rahn" && taksiran >= LOAN_LIMITS.minPokok && pokokGadai <= taksiran
+      ? bagiHasilRahn({
+          nilaiTaksiran: taksiran,
+          pokokGadai: Math.max(pokokGadai, 1),
+          tenorHari: tenorRahn,
+        }).ujrahTotal
+      : 0;
+  const rincianVoucher = rincianVoucherSyariah({
+    pokok: akad === "rahn" ? Math.max(pokokGadai, 0) : Math.max(nilai, 0),
+    marginTotal: marginSimulasi,
+    ujrahTotal: ujrahSimulasi,
+    voucher:
+      pilihanVoucher.jenis === null
+        ? null
+        : { jenis: pilihanVoucher.jenis, nilai: pilihanVoucher.nilai },
+  });
+
   return (
     <section
       id="kalkulator-syariah"
@@ -820,6 +871,50 @@ function KalkulatorSyariah() {
           aria-live="polite"
         >
           {isi}
+
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-900">
+              Simulasi voucher
+            </p>
+            <div
+              className="mt-1.5 flex flex-wrap gap-2"
+              role="group"
+              aria-label="Voucher simulasi"
+            >
+              {VOUCHER_SIMULASI.map((pilihan) => (
+                <button
+                  key={pilihan.id}
+                  type="button"
+                  aria-pressed={voucherSimId === pilihan.id}
+                  onClick={() => setVoucherSimId(pilihan.id)}
+                  className={`min-h-11 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    voucherSimId === pilihan.id
+                      ? "border-amber-700/50 bg-white text-amber-950"
+                      : "border-amber-200 bg-white/70 text-slate-700 hover:bg-white"
+                  }`}
+                >
+                  {pilihan.label}
+                </button>
+              ))}
+            </div>
+            <dl className="mt-2">
+              <BarisAngka
+                label="Diskon voucher"
+                nilai={`−${rupiah(rincianVoucher.diskon)}`}
+              />
+              <BarisAngka
+                label="Total kewajiban setelah voucher"
+                nilai={rupiah(rincianVoucher.totalKewajiban)}
+                tebal
+              />
+            </dl>
+            <p className="mt-1.5 text-[11px] leading-5 text-amber-950/80">
+              {akad === "qardh"
+                ? "Qardh tidak mengambil margin atau ujrah, jadi voucher tidak memotong apa pun."
+                : kalimatVoucherSyariah(rincianVoucher)}
+            </p>
+          </div>
+
           <p className="mt-3 text-[11px] leading-5 text-slate-500">
             Angka ini ilustrasi skema. Pengajuan akad syariah belum dibuka di
             aplikasi; pencatatan dan akadnya disiapkan pada tahap berikutnya.

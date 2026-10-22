@@ -66,6 +66,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
     {
       pokok: detail.pokokPinjaman,
       biayaAdmin: detail.quote.biayaAdmin,
+      diskonAdmin: detail.quote.diskonAdmin ?? 0,
       biayaPlatform: detail.quote.biayaPlatform,
       biayaAsuransi: detail.quote.biayaAsuransi,
       biayaExpress: detail.quote.biayaExpress,

@@ -17,6 +17,7 @@ import {
   type RingkasanAngsuran,
 } from "../lib/angsuran";
 import { beriTiketPelunasan } from "./doorprize";
+import { beriVoucherApresiasi } from "./voucher";
 import { akunDompetDana, appendJournal, catatMarginSpread } from "./ledger";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah } from "../lib/money";
@@ -403,6 +404,9 @@ async function selesaikanBilaLunas(
     tepatWaktu: !adaTelat,
     waktu: dibayarPada,
   });
+  // Voucher apresiasi mengikuti aturan yang sama dengan pelunasan satu kali:
+  // hanya pelunasan tepat waktu dan hanya bila promo kuartalan sedang aktif.
+  await beriVoucherApresiasi(ctx, { loan: lunasUntukPlafon, sekarang: dibayarPada });
 
   if (loan.pendanaId !== undefined) {
     await ctx.scheduler.runAfter(0, internal.laporanPendana.kirimLaporanPelunasan, {

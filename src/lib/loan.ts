@@ -242,7 +242,12 @@ export interface LoanQuote {
    * nilainya 0. Bukan bunga dan tidak menambah kewajiban.
    */
   biayaExpress: Rupiah;
-  /** Total Potongan di Muka — admin + asuransi + biaya ekspres (bila dipilih) */
+  /**
+   * Potongan biaya admin dari voucher, dibatasi biaya admin yang ada. Nol bila
+   * pinjaman tidak memakai voucher.
+   */
+  diskonAdmin: Rupiah;
+  /** Total Potongan di Muka — admin (setelah voucher) + asuransi + ekspres */
   totalPotonganDiMuka: Rupiah;
   /** Dana Bersih Ditransfer — pokok − seluruh potongan di muka */
   danaBersihDitransfer: Rupiah;
@@ -310,7 +315,16 @@ export function tarifBiayaDariAngka(angka: {
  * jadi tidak ada biaya ekspres. Kosong = perilaku lama (ekspres dipakai).
  * `tarif` berasal dari Pengaturan Parameter Bisnis (atau snapshot pinjaman).
  */
-export type OpsiQuote = { ekspres?: boolean; tarif?: TarifBiaya };
+export type OpsiQuote = {
+  ekspres?: boolean;
+  tarif?: TarifBiaya;
+  /**
+   * Potongan biaya admin dari voucher (rupiah bulat). Server mengirim angka
+   * yang sudah divalidasi; mesin ini hanya menjepitnya ke biaya admin yang
+   * benar-benar ada, sehingga voucher tidak pernah menjadi uang tunai.
+   */
+  diskonAdmin?: Rupiah;
+};
 
 export function quoteLoan(pokok: Rupiah, opsi: OpsiQuote = {}): LoanQuote {
   return quoteLoanDenganPersen(
@@ -352,12 +366,15 @@ export function quotePinjaman(loan: {
   cairEkspres?: boolean;
   /** Tarif potongan yang dibekukan saat pengajuan; kosong = tarif bawaan. */
   tarifBiaya?: Partial<TarifBiaya> | null;
+  /** Potongan biaya admin dari voucher yang dibekukan pada pinjaman ini. */
+  voucherDiskon?: number;
 }): LoanQuote {
   // Data lama tidak punya kolom ini dan dulu selalu dikenai biaya ekspres —
   // `!== false` menjaga angka kontrak lama tetap sama.
   const opsi: OpsiQuote = {
     ekspres: loan.cairEkspres !== false,
     tarif: tarifBiayaAman(loan.tarifBiaya),
+    ...(loan.voucherDiskon !== undefined ? { diskonAdmin: loan.voucherDiskon } : {}),
   };
   return loan.persenBunga === undefined
     ? quoteLoan(loan.pokokPinjaman, opsi)
@@ -399,7 +416,14 @@ export function quoteLoanDenganPersen(
   const biayaAsuransi = percentOf(pokok, tarif.asuransiPersen);
   const biayaExpress =
     opsi.ekspres === false ? 0 : biayaEkspres(pokok, tarif.ekspres);
-  const totalPotonganDiMuka = biayaAdmin + biayaPlatform + biayaAsuransi + biayaExpress;
+  // Voucher dibebankan pada biaya admin, bukan pada pokok: plafon yang terpakai
+  // tetap sebesar pokok, dan kewajiban pelunasan tidak berubah.
+  const diskonAdmin = Math.min(
+    biayaAdmin,
+    Math.max(0, Math.floor(opsi.diskonAdmin ?? 0)),
+  ) as Rupiah;
+  const totalPotonganDiMuka =
+    biayaAdmin - diskonAdmin + biayaPlatform + biayaAsuransi + biayaExpress;
   const danaBersihDitransfer = pokok - totalPotonganDiMuka;
   if (danaBersihDitransfer <= 0) {
     throw new Error("Potongan di muka melebihi pokok pinjaman.");
@@ -410,6 +434,7 @@ export function quoteLoanDenganPersen(
   return {
     pokok,
     biayaAdmin,
+    diskonAdmin,
     biayaPlatform,
     biayaAsuransi,
     biayaExpress,

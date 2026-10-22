@@ -443,6 +443,16 @@ const schema = defineSchema(
       klaimDariUserId: v.optional(v.id("users")),
       /** Waktu kepemilikan baris ini berpindah karena klaim peminjam lama. */
       klaimPada: v.optional(v.number()),
+      // ===== Voucher yang dipakai saat pengajuan =====
+      // Angka di sini adalah SNAPSHOT: voucher boleh dicabut admin setelahnya,
+      // tetapi kontrak pinjaman yang sudah terbit tidak berubah. `voucherDiskon`
+      // dibaca ulang `quotePinjaman` sebagai potongan biaya admin di muka.
+      voucherId: v.optional(v.id("voucher")),
+      voucherKode: v.optional(v.string()),
+      /** Potongan biaya admin di muka dari voucher (rupiah bulat). */
+      voucherDiskon: v.optional(v.number()),
+      /** Tambahan limit sekali pakai yang membuat pokok ini lolos plafon. */
+      voucherBoost: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"])
@@ -3197,6 +3207,44 @@ const schema = defineSchema(
       diperbaruiPada: v.number(),
       diperbaruiOleh: v.string(),
     }).index("by_diperbarui", ["diperbaruiPada"]),
+
+    /**
+     * Voucher nasabah — potongan biaya atau tambahan limit sekali pakai.
+     *
+     * `pemilikId` selalu diisi: voucher hanya berlaku untuk akun yang dituju,
+     * sehingga tidak ada kode voucher publik yang bisa dipakai siapa saja.
+     * `terpakai` dihitung di server saat pengajuan disimpan, bukan di klien.
+     * `referensi` dipakai voucher apresiasi agar satu pelunasan tidak pernah
+     * menerbitkan dua voucher (idempoten).
+     */
+    voucher: defineTable({
+      kode: v.string(),
+      jenis: v.union(
+        v.literal("diskon_admin"),
+        v.literal("diskon_ujrah"),
+        v.literal("diskon_margin"),
+        v.literal("boost_plafon"),
+      ),
+      judul: v.string(),
+      /** Rupiah: nilai potongan, atau tambahan limit untuk `boost_plafon`. */
+      nilai: v.number(),
+      /** Pokok pengajuan minimum agar voucher boleh dipakai. */
+      minPokok: v.number(),
+      batasPemakaian: v.number(),
+      terpakai: v.number(),
+      pemilikId: v.id("users"),
+      sumber: v.union(v.literal("admin"), v.literal("apresiasi")),
+      status: v.union(v.literal("aktif"), v.literal("terpakai"), v.literal("dicabut")),
+      berlakuSampai: v.number(),
+      dibuatPada: v.number(),
+      dibuatOleh: v.optional(v.id("users")),
+      dipakaiPada: v.optional(v.number()),
+      dipakaiLoanId: v.optional(v.id("loans")),
+      /** Nomor referensi pinjaman asal voucher apresiasi. */
+      referensi: v.optional(v.string()),
+    })
+      .index("by_pemilik", ["pemilikId"])
+      .index("by_referensi", ["referensi"]),
 
     /**
      * Bukti lolos Cloudflare Turnstile untuk satu akun.

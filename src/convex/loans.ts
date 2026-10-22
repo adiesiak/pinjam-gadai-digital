@@ -78,6 +78,12 @@ import {
 } from "../lib/perpanjanganPinjaman";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
+import {
+  beriVoucherApresiasi,
+  hitungDiskonVoucher,
+  tandaiVoucherTerpakai,
+  voucherUntukPengajuan,
+} from "./voucher";
 import { catatDanaKembali } from "./matchingQueue";
 import {
   bolehDibatalkan,
@@ -498,6 +504,12 @@ export const statusManualPaymentReceipts = query({
 export const createLoanApplication = mutation({
   args: {
     pokokPinjaman: v.number(),
+    /**
+     * Voucher milik peminjam yang dipakai untuk pengajuan ini. Server memeriksa
+     * kepemilikan, masa berlaku, kuota, dan minimal pengajuan; klien hanya
+     * mengirim pilihan.
+     */
+    voucherId: v.optional(v.id("voucher")),
     tujuan: v.string(),
     namaLengkap: v.string(),
     namaBank: v.string(),
@@ -605,12 +617,27 @@ export const createLoanApplication = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     const ringkas = ringkasPlafon(plafon, pinjamanNasabah);
-    if (!pokokDalamPlafon(args.pokokPinjaman, ringkas.tersedia)) {
+    // Voucher dipilih SEBELUM batas diperiksa: boost menambah batas pengajuan
+    // ini saja, dan voucher potongan tidak menambah batas sama sekali.
+    const voucherTerpilih =
+      args.voucherId === undefined
+        ? null
+        : await voucherUntukPengajuan(ctx, {
+            userId,
+            voucherId: args.voucherId,
+            tersedia: ringkas.tersedia,
+            skema: args.tenorBulan === undefined ? "harian" : "bulanan",
+          });
+    const batasVoucher = (ringkas.tersedia + (voucherTerpilih?.boost ?? 0)) as Rupiah;
+    if (!pokokDalamPlafon(args.pokokPinjaman, batasVoucher)) {
       // Ada utang berjalan → sebut maksimal/terpakai/tersedia; belum ada utang
       // → pesan sederhana (perilaku lama, dipakai tes perbatasan).
       throw new Error(
         ringkas.terpakai > 0
-          ? pesanPlafonTersediaTerlampaui(ringkas)
+          ? pesanPlafonTersediaTerlampaui({
+              ...ringkas,
+              tersedia: batasVoucher,
+            })
           : pesanPlafonTerlampaui(ringkas.maksimal),
       );
     }
@@ -632,7 +659,7 @@ export const createLoanApplication = mutation({
     } else {
       // Batas atas = plafon TERSEDIA nasabah, bukan batas produk Rp1 juta:
       // plafon khusus dari admin membuka pokok harian yang lebih besar.
-      assertPokokPinjamanValid(args.pokokPinjaman, ringkas.tersedia);
+      assertPokokPinjamanValid(args.pokokPinjaman, batasVoucher);
     }
     // Server-side pricing engine — fee fields are never accepted from the client.
     // Satu-satunya pilihan klien yang memengaruhi potongan adalah centang
@@ -648,7 +675,22 @@ export const createLoanApplication = mutation({
       ekspres2: sys.biayaEkspresTier2,
       ekspres3: sys.biayaEkspresTier3,
     });
-    const quote = quoteLoan(args.pokokPinjaman, { ekspres: cairEkspres, tarif: tarifBiaya });
+    // Quote dihitung dua kali hanya bila voucher potongan ada: yang pertama
+    // memberi biaya admin (dasar batas potongan), yang kedua memakai potongan
+    // itu. Tanpa voucher tetap satu perhitungan.
+    const quoteAwal = quoteLoan(args.pokokPinjaman, { ekspres: cairEkspres, tarif: tarifBiaya });
+    const diskonVoucher = hitungDiskonVoucher(
+      voucherTerpilih?.voucher ?? null,
+      quoteAwal.biayaAdmin,
+    );
+    const quote =
+      diskonVoucher > 0
+        ? quoteLoan(args.pokokPinjaman, {
+            ekspres: cairEkspres,
+            tarif: tarifBiaya,
+            diskonAdmin: diskonVoucher,
+          })
+        : quoteAwal;
     // Matriks tenor harian ditegakkan di server, bukan hanya disembunyikan di
     // UI: tenor resmi 7/14/28 hari, dan tarif mengikuti tier nominal (26–40%).
     // Tenor di luar daftar itu—termasuk 30 hari—ditolak.
@@ -657,7 +699,7 @@ export const createLoanApplication = mutation({
       const pesanTenor = validasiTenorHarian(
         args.pokokPinjaman,
         args.tenorHari,
-        ringkas.tersedia,
+        batasVoucher,
       );
       if (pesanTenor !== null) throw new Error(pesanTenor);
       // Bunga pinjaman harian SELALU dari matriks tenor/nominal — bukan angka
@@ -799,7 +841,23 @@ export const createLoanApplication = mutation({
       tandaTanganPada: now,
       persetujuanPengajuanPada: now,
       persetujuanPengajuanVersi: CONTRACT_TERMS_VERSION,
+      // Snapshot voucher: potongan dan boost dibekukan pada pinjaman ini.
+      ...(voucherTerpilih !== null
+        ? {
+            voucherId: voucherTerpilih.voucher!._id,
+            voucherKode: voucherTerpilih.voucher!.kode,
+            voucherDiskon: diskonVoucher,
+            voucherBoost: voucherTerpilih.boost,
+          }
+        : {}),
     });
+    if (voucherTerpilih !== null) {
+      await tandaiVoucherTerpakai(ctx, {
+        voucher: voucherTerpilih.voucher!,
+        loanId,
+        sekarang: now,
+      });
+    }
     await audit(
       ctx,
       userId,
@@ -2417,6 +2475,10 @@ export const repayLoan = mutation({
       tepatWaktu,
       waktu: now,
     });
+    // Voucher apresiasi terbit hanya bila pelunasannya tepat waktu DAN ada promo
+    // aktif. Idempoten lewat nomor referensi, jadi aman bila pelunasan dicatat
+    // ulang oleh admin.
+    await beriVoucherApresiasi(ctx, { loan: lunasUntukPlafon, sekarang: now });
     for (const { funding } of imbalBagian) {
       await beriTiketPendanaan(ctx, {
         pemilikId: funding.danaId,

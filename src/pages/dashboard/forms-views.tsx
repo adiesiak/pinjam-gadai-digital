@@ -68,6 +68,7 @@ import {
   tenorHarianTersedia,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { diskonBiayaAdmin } from "@/lib/voucher";
 import {
   konsekuensiKeterlambatan,
   peringatanKemampuanBayar,
@@ -484,11 +485,43 @@ export function LoanForm({
   const tenorHarianOpsi = tenorHarianTersedia(pokok);
   const tarifHarian =
     persenBungaHarian(pokok, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
+  // ===== Voucher =====
+  // Daftar dan kelayakan dihitung server (`voucher.daftarVoucherSaya`), sama
+  // dengan yang dipakai validasi pengajuan. Klien hanya menyimpan pilihan dan
+  // menampilkan angkanya.
+  const voucherQuery = useQuery(api.voucher.daftarVoucherSaya, {});
+  const [voucherId, setVoucherId] = useState<string | null>(null);
+  const voucherDipilih =
+    voucherQuery?.daftar.find((row) => row._id === voucherId) ?? null;
+  // Skema bulanan hanya menerima voucher tambah limit; potongan biaya admin
+  // dihitung server pada skema harian.
+  const voucherBisaDipilih = (voucherQuery?.daftar ?? []).filter(
+    (row) => row.layak && (!bulanan || row.jenis === "boost_plafon"),
+  );
+  const boostVoucher =
+    !bulanan && voucherDipilih?.jenis === "boost_plafon"
+      ? voucherDipilih.nilai
+      : 0;
+  // Pilihan yang tidak lagi sah dilepas, bukan dikirim lalu ditolak server:
+  // nominal turun di bawah minimal voucher, atau skema berganti ke bulanan saat
+  // voucher potongan biaya admin dipilih.
+  useEffect(() => {
+    if (voucherDipilih === null) return;
+    if (bulanan && voucherDipilih.jenis === "diskon_admin") setVoucherId(null);
+    else if (voucherDipilih.minPokok > pokok) setVoucherId(null);
+  }, [bulanan, pokok, voucherDipilih]);
+  const adminPersen = tarifBiaya?.adminPersen ?? PINDAI_PRICING.adminFeePercent;
+  // Potongan voucher dibatasi biaya admin yang benar-benar ada (fungsi yang
+  // sama dengan mesin harga).
+  const diskonVoucher =
+    !bulanan && voucherDipilih?.jenis === "diskon_admin"
+      ? diskonBiayaAdmin(voucherDipilih, Math.floor((pokok * adminPersen) / 100))
+      : 0;
   const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifHarian, {
     ekspres: !bulanan && cairEkspres,
     ...(tarifBiaya !== undefined ? { tarif: tarifBiaya } : {}),
+    ...(diskonVoucher > 0 ? { diskonAdmin: diskonVoucher } : {}),
   });
-  const adminPersen = tarifBiaya?.adminPersen ?? PINDAI_PRICING.adminFeePercent;
   const asuransiPersen = tarifBiaya?.asuransiPersen ?? 0;
   const ekspresTeks = tarifBiaya
     ? tarifBiaya.ekspres.tier1 === tarifBiaya.ekspres.tier3
@@ -627,7 +660,9 @@ export function LoanForm({
   const BATAS_SKEMA = bulanan ? BULANAN_LIMITS.maxPokok : LOAN_LIMITS.maxPokokPlafon;
   // Sisa yang boleh ditawarkan = TERSEDIA dari server, dipotong batas skema.
   // Belum termuat → batas awal hanya menahan penggeser; angkanya tidak dicetak.
-  const sisaBatas = batasDiajukan(ringkas?.tersedia ?? PLAFON_DEFAULT, BATAS_SKEMA);
+  const tersediaDenganBoost =
+    ringkas === null ? PLAFON_DEFAULT : ringkas.tersedia + boostVoucher;
+  const sisaBatas = batasDiajukan(tersediaDenganBoost, BATAS_SKEMA);
   const adaSisa = sisaBatas >= MIN;
   const MAX = adaSisa ? sisaBatas : MIN;
   const STEP = bulanan ? 100_000 : 50_000;
@@ -857,6 +892,7 @@ export function LoanForm({
         namaBank,
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
+        ...(voucherId !== null ? { voucherId: voucherId as Id<"voucher"> } : {}),
         tandaTangan: ttdDataUrl,
         // Persetujuan Syarat & Ketentuan dicatat server bersama versinya.
         persetujuanSyarat: true,
@@ -998,6 +1034,51 @@ export function LoanForm({
           </label>
         )}
 
+        {/* Voucher: hanya yang layak untuk skema & nominal ini yang ditawarkan.
+            Daftar lengkap beserta alasan yang belum layak ada di kartu limit. */}
+        <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-3">
+          <Label htmlFor="loan-voucher">Voucher</Label>
+          {voucherQuery === undefined ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">Memuat voucher…</p>
+          ) : voucherBisaDipilih.length === 0 ? (
+            <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+              Tidak ada voucher yang bisa dipakai untuk nominal dan skema ini.
+              Voucher apresiasi terbit setelah pinjaman lunas tepat waktu saat
+              promo kuartalan berjalan.
+            </p>
+          ) : (
+            <>
+              <Select
+                value={voucherId ?? "tanpa"}
+                onValueChange={(nilai) => setVoucherId(nilai === "tanpa" ? null : nilai)}
+                disabled={submitting}
+              >
+                <SelectTrigger id="loan-voucher" className="mt-1 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tanpa">Tanpa voucher</SelectItem>
+                  {voucherBisaDipilih.map((row) => (
+                    <SelectItem key={row._id} value={row._id}>
+                      {row.judul} ·{" "}
+                      {row.jenis === "boost_plafon"
+                        ? `+${formatRupiah(row.nilai)} limit`
+                        : `−${formatRupiah(row.nilai)} biaya admin`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
+                {boostVoucher > 0
+                  ? `Voucher ini menambah batas pengajuan ${formatRupiah(boostVoucher)} sekali pakai. Plafon yang terpakai tetap sebesar pokok.`
+                  : diskonVoucher > 0
+                    ? `Biaya admin dibebaskan ${formatRupiah(diskonVoucher)}. Plafon yang terpakai tetap sebesar pokok, jadi tidak ada limit yang dikembalikan.`
+                    : "Pilih voucher untuk melihat potongannya di rincian."}
+              </p>
+            </>
+          )}
+        </div>
+
         {/* Ringkasan peminjam: nilai bersih dan total pembayaran. */}
         {bulanan && sim !== null ? (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
@@ -1099,6 +1180,16 @@ export function LoanForm({
                 {formatRupiah(q.totalPotonganDiMuka)}
               </dd>
             </div>
+            {diskonVoucher > 0 && (
+              <div className="flex flex-col gap-1 bg-amber-50 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                <dt className="font-medium text-amber-900">
+                  Diskon voucher ({voucherDipilih?.kode ?? "voucher"})
+                </dt>
+                <dd className="font-semibold tabular-nums text-amber-900">
+                  −{formatRupiah(diskonVoucher)}
+                </dd>
+              </div>
+            )}
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-semibold text-emerald-800">Perkiraan uang yang diterima (belum dikirim)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">{formatRupiah(q.danaBersihDitransfer)}</dd>

@@ -37,6 +37,7 @@ import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
+import { KartuLimitVoucher } from "@/components/voucher/KartuLimitVoucher";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 
 /**
@@ -474,6 +475,13 @@ export default function Dashboard() {
                     Peminjam memilih pinjaman / gadai / kredit barang lewat menu
                     dropdown; hanya formulir jenis itu yang dirender. */}
                 <TabsContent value="form" className="mt-8 min-w-0 animate-masuk">
+                  {/*
+                   * Limit + voucher duduk tepat di atas formulir: di sinilah
+                   * angkanya dipakai. Kartu batas pinjaman di tab Ringkasan
+                   * tetap satu angka plafon tanpa voucher, jadi tidak ada dua
+                   * kartu yang menyebut limit dengan cara berbeda.
+                   */}
+                  <KartuLimitVoucher className="mb-4" />
                   <FormPengajuanSection
                     jenis={jenisPengajuan}
                     onUbahJenis={setJenisPengajuan}
