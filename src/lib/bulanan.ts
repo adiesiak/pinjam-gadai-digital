@@ -15,8 +15,8 @@
  *  - Bunga/margin (hak penyedia dana) — FLAT dari pokok penuh, sama besar setiap
  *    bulan (tidak menurun dari sisa pokok):
  *      tenor 1 bulan  → 30% / bulan
- *      tenor 3 bulan  → 25% / bulan
- *      tenor ≥ 6 bln  → 20% / bulan
+ *      tenor 3 bulan  → 35% / bulan
+ *      tenor ≥ 6 bln  → 30% / bulan
  *  - Cicilan = angsuran pokok + bunga bulan itu. Karena bunga flat, cicilan
  *    bulanan rata (bulan terakhir hanya menyerap pembulatan pokok).
  *  - SETIAP tenor bulanan resmi (1, 3, dan 6 bulan) dikenai biaya admin
@@ -133,11 +133,11 @@ export const BULANAN_PRICING = {
   /** Bunga tenor 1 bulan (%/bulan, flat dari pokok penuh). */
   bungaTenor1PersenPerBulan: 30,
   /** Bunga tenor 3–5 bulan (%/bulan, flat dari pokok penuh). */
-  bungaTenor3_5PersenPerBulan: 25,
+  bungaTenor3_5PersenPerBulan: 35,
   /** Bunga tenor ≥ 6 bulan (%/bulan, flat dari pokok penuh). */
-  bungaMin6PersenPerBulan: 20,
-  /** Batas profit total terhadap pokok untuk tenor resmi. */
-  maxProfitTotalPersen: 130,
+  bungaMin6PersenPerBulan: 30,
+  /** Batas profit total terhadap pokok untuk tenor resmi (tertinggi 6 bln ≈ 188%). */
+  maxProfitTotalPersen: 200,
 } as const;
 
 /** Tarif bulanan bawaan — sama dengan angka yang berlaku sebelum bisa diatur. */
@@ -177,7 +177,7 @@ export function persenBungaPerBulan(
 
 /**
  * Metode bunga menurut tenor. Seluruh tenor resmi (1, 3, dan 6 bulan) memakai
- * bunga FLAT dari pokok penuh — 30%/25%/20% per bulan sesuai tenor — sehingga
+ * bunga FLAT dari pokok penuh — 30%/35%/30% per bulan sesuai tenor — sehingga
  * cicilan rata dan bukan menurun dari sisa pokok.
  *
  * Fungsi ini tetap ada sebagai satu titik kebijakan: bila suatu saat ada tenor
@@ -305,7 +305,7 @@ export function assertSimulasiBulananValid(
  *  - Tenor 3/6 mengenakan admin 2% (platform 0%), tenor lain biaya layanan 2%
  *  - Seluruh biaya dipotong di muka: danaDiterima = pokok − potonganDiMuka
  *  - Jadwal hanya berisi pokok + bunga (Σ jadwal.total = totalPengembalian)
- *  - seluruh tenor resmi memakai bunga flat dari pokok penuh (30%/25%/20%
+ *  - seluruh tenor resmi memakai bunga flat dari pokok penuh (30%/35%/30%
  *    per bulan sesuai tenor) sehingga cicilan rata
  *  - setiap tenor resmi (1/3/6) menambahkan biaya admin cicilan 2% dari
  *    nominal cicilan setiap bulan (Σ = biayaAdminCicilanTotal)

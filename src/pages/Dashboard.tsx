@@ -286,7 +286,7 @@ export default function Dashboard() {
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h2 className="text-sm font-semibold">Pinjaman bulanan</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi: biaya 2% dipotong di muka, biaya admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan, dan bunga flat dari pokok penuh mengikuti tarif akun (bawaan 30% per bulan). Jadwal dan status lunas hanya catatan internal; tidak ada pembayaran aktual.</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Ilustrasi: biaya 2% dipotong di muka, biaya admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan, dan bunga flat dari pokok penuh mengikuti tarif akun (bawaan 30%/35%/30% per bulan untuk tenor 1/3/6 bulan). Jadwal dan status lunas hanya catatan internal; tidak ada pembayaran aktual.</p>
               </div>
             </div>
             <div className="mt-7 flex flex-wrap gap-3">

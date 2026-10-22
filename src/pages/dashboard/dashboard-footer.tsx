@@ -29,8 +29,8 @@ export function DashboardFooter() {
             platform dihapus).
           </li>
           <li>
-            Bunga flat dari pokok penuh: 30% (tenor 1 bulan), 25% (tenor 3
-            bulan), 20% (tenor 6 bulan) per bulan.
+            Bunga flat dari pokok penuh: 30% (tenor 1 bulan), 35% (tenor 3
+            bulan), 30% (tenor 6 bulan) per bulan.
           </li>
           <li>Angka dan status mengikuti catatan PINDAI.</li>
         </ul>
