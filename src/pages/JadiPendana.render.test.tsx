@@ -1,0 +1,170 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter } from "react-router";
+
+import { JadiPendanaView } from "./JadiPendana";
+
+/**
+ * Uji markup halaman "Jadi pendana".
+ * Run: bun src/pages/JadiPendana.render.test.tsx
+ *
+ * Yang dijaga:
+ *  - angka di layar sama dengan angka proposal (`lib/imbalPendana`), termasuk
+ *    saat biaya platform diubah admin;
+ *  - tombol unduh tidak pernah dikunci, karena proposal harus bisa diambil
+ *    kapan saja tanpa akun;
+ *  - setiap tautan internal punya rute nyata;
+ *  - risiko dan batas layanan tetap tercetak, bukan hanya di dokumen PDF.
+ */
+
+let lulus = 0;
+let gagal = 0;
+function ok(syarat: boolean, label: string): void {
+  if (syarat) lulus += 1;
+  else {
+    gagal += 1;
+    console.error(`FAIL ${label}`);
+  }
+}
+function ada(html: string, teks: string, label: string): void {
+  ok(html.includes(teks), `${label} (memuat "${teks}")`);
+}
+function tidakAda(html: string, teks: string, label: string): void {
+  ok(!html.includes(teks), `${label} (tidak memuat "${teks}")`);
+}
+
+function gambar(persen: number): string {
+  return renderToStaticMarkup(
+    <MemoryRouter initialEntries={["/jadi-pendana"]}>
+      <JadiPendanaView persenPotonganAdmin={persen} />
+    </MemoryRouter>,
+  );
+}
+
+const html = gambar(5);
+
+// ===== Judul dan janji halaman =====
+ada(
+  html,
+  "Imbal Hasil 30% per siklus 30 hari, tertulis sejak awal.",
+  "judul halaman",
+);
+ada(html, "Imbal Hasil 30%", "Imbal Hasil ditulis sebagai kebijakan");
+ada(html, "siklus 30 hari", "siklus pendana disebut");
+ada(html, "biaya platform 5%", "biaya platform disebut");
+
+// ===== Kartu contoh: angka dari modul yang sama dengan server =====
+ada(html, "Rp 10.000.000", "nominal contoh tampil");
+ada(html, "Rp 3.000.000", "Imbal Hasil 30% tampil");
+ada(html, "Rp 13.000.000", "uang yang kembali tampil");
+ada(html, "Rp 650.000", "biaya platform 5% tampil");
+ada(html, "Rp 12.350.000", "diterima bersih tampil");
+ada(html, "Rp 2.350.000", "keuntungan bersih tampil");
+
+// ===== Kalkulator dan unduhan =====
+ada(html, 'id="kalkulator"', "bagian kalkulator punya sasaran tautan");
+ada(html, 'for="nominal-pendanaan"', "kolom nominal punya label");
+ada(html, 'aria-live="polite"', "hasil hitung diumumkan saat berubah");
+ada(html, "Unduh proposal (PDF)", "tombol unduh di hero");
+ada(html, "Unduh proposal pembagian (PDF)", "tombol unduh di bagian proposal");
+ada(html, "tanpa akun", "syarat unduhan dinyatakan");
+
+// Tombol unduh tidak boleh menunggu admin atau sesi.
+ok(html.split("Unduh proposal").length >= 3, "dua tombol unduh dirender");
+tidakAda(html, 'disabled=""', "tidak ada tombol yang terkunci");
+
+// ===== Risiko, batas layanan, dan kontak =====
+ada(html, "Sisi yang tidak menguntungkan", "bagian risiko ada");
+ada(html, "Modal bisa hilang", "risiko gagal bayar disebut");
+ada(html, "Tidak ada penjamin pihak ketiga", "batas penjamin disebut");
+ada(html, "bukan jaminan hasil", "kalimat bukan jaminan ada");
+ada(html, "0851-1957-4032", "nomor layanan tampil");
+ada(html, "wa.me/6285119574032", "tombol WhatsApp menuju nomor resmi");
+ada(html, "Masuk ruang pendana", "jalan masuk pendana yang sudah punya akun");
+
+// ===== Pertanyaan yang benar-benar spesifik =====
+ada(html, "Apakah uang saya dijamin kembali?", "FAQ jaminan");
+ada(html, "Bisakah dana ditarik kapan saja?", "FAQ penarikan dana");
+tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
+
+// ===== Tarif berubah: seluruh halaman ikut berubah =====
+{
+  const lain = gambar(3);
+  ada(lain, "Rp 390.000", "biaya 3% dihitung ulang");
+  ada(lain, "Rp 12.610.000", "diterima bersih 3% dihitung ulang");
+  tidakAda(lain, "Rp 650.000", "biaya tarif lama tidak tertinggal");
+  tidakAda(lain, "Rp 12.350.000", "diterima tarif lama tidak tertinggal");
+  ada(lain, "biaya platform 3%", "label biaya mengikuti pengaturan");
+}
+
+// ===== Semua tautan internal menuju rute yang nyata =====
+{
+  const ruteSah = new Set([
+    "/",
+    "/jadi-pendana",
+    "/layanan/pinjaman-tunai",
+    "/biaya",
+    "/cara-kerja",
+    "/keamanan",
+    "/faq",
+    "/aplikasi",
+    "/syarat-ketentuan",
+    "/auth?returnTo=%2Fpenyedia-dana",
+  ]);
+  const href = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+  ok(href.length > 10, "halaman memuat tautan navigasi");
+  for (const tujuan of href) {
+    if (tujuan.startsWith("#")) {
+      ok(
+        html.includes(`id="${tujuan.slice(1)}"`),
+        `tautan jangkar ${tujuan} punya sasaran`,
+      );
+      continue;
+    }
+    if (tujuan.startsWith("http")) {
+      ok(tujuan.startsWith("https://wa.me/"), `tautan luar ${tujuan} resmi`);
+      continue;
+    }
+    ok(ruteSah.has(tujuan), `tautan internal ${tujuan} terdaftar`);
+  }
+}
+
+// ===== Rute dan tautan masuk benar-benar terpasang =====
+{
+  const shell = readFileSync(
+    fileURLToPath(new URL("../main.tsx", import.meta.url)),
+    "utf8",
+  );
+  ada(shell, 'path="/jadi-pendana"', "rute /jadi-pendana terdaftar");
+  ada(
+    shell,
+    'import("./pages/JadiPendana.tsx")',
+    "halaman dimuat lazy seperti halaman publik lain",
+  );
+
+  const landing = readFileSync(
+    fileURLToPath(new URL("./LandingHome.tsx", import.meta.url)),
+    "utf8",
+  );
+  ada(
+    landing,
+    '{ href: "/jadi-pendana", label: "Jadi pendana" }',
+    "beranda menautkan halaman ini di menu ponsel",
+  );
+  ada(
+    landing,
+    '<Link className="font-semibold text-primary hover:text-primary/80" to="/jadi-pendana">',
+    "beranda menautkan halaman ini di navigasi utama",
+  );
+}
+
+// ===== Tidak ada sisa render yang rusak =====
+tidakAda(html, "undefined", "tanpa undefined");
+tidakAda(html, "[object Object]", "tanpa objek yang bocor");
+tidakAda(html, "NaN", "tanpa NaN");
+tidakAda(html, "\u2014", "tanpa tanda pisah panjang");
+
+console.log(`JadiPendana.render: ${lulus} lulus, ${gagal} gagal`);
+if (gagal > 0) process.exit(1);

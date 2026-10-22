@@ -34,6 +34,11 @@ const Promo = lazy(
 const PublicInfoPage = lazy(
   denganPercobaan(() => import("./pages/PublicInfoPage")),
 );
+// Halaman penawaran pendanaan: menarik kalkulator dan penyusun PDF proposal,
+// jadi tetap lazy seperti halaman publik lain.
+const JadiPendana = lazy(
+  denganPercobaan(() => import("./pages/JadiPendana.tsx")),
+);
 
 /**
  * Daftarkan service worker pemasangan (lihat `public/sw.js`). Tanpa cache:
@@ -360,6 +365,10 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="/layanan/kredit-barang" element={<PublicInfoPage />} />
                 <Route path="/keamanan" element={<PublicInfoPage />} />
                 <Route path="/faq" element={<PublicInfoPage />} />
+                {/* Publik dan tanpa akun: calon pendana perlu membaca skema,
+                    mencoba nominal, dan mengunduh proposal sebelum menghubungi
+                    admin. */}
+                <Route path="/jadi-pendana" element={<JadiPendana />} />
                 {/* Halaman unduh APK: menu khusus yang menjelaskan versi,
                     ukuran, dan langkah pemasangan sebelum berkas diunduh. */}
                 <Route path="/aplikasi" element={<UnduhAplikasi />} />

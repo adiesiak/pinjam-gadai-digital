@@ -44,6 +44,7 @@ const HREF_LAYANAN = [
 
 /** Menu ponsel: satu daftar untuk tombol pemicu di header. */
 const TAUTAN_MENU = [
+  { href: "/jadi-pendana", label: "Jadi pendana" },
   { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
   { href: "/layanan/gadai", label: "Gadai" },
   { href: "/layanan/kredit-barang", label: "Kredit barang" },
@@ -233,6 +234,9 @@ export default function LandingHome() {
             </Link>
             <Link className="hover:text-primary" to="/aplikasi">
               Aplikasi
+            </Link>
+            <Link className="font-semibold text-primary hover:text-primary/80" to="/jadi-pendana">
+              Jadi pendana
             </Link>
           </nav>
           <div className="flex items-center gap-2">
@@ -470,6 +474,7 @@ export default function LandingHome() {
             <Link to="/faq">FAQ</Link>
             <Link to="/aplikasi">Aplikasi Android</Link>
             <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
+            <Link to="/jadi-pendana">Jadi pendana</Link>
           </nav>
           <p className="max-w-2xl text-xs leading-5 text-slate-500 md:col-span-2">
             {PENAFIAN_PINDAI}
