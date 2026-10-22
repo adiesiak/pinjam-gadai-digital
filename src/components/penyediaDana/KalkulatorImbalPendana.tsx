@@ -1,6 +1,7 @@
 import { useQuery } from "convex/react";
-import { Calculator } from "lucide-react";
+import { Calculator, Info } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
@@ -15,6 +16,31 @@ import { formatRupiahAman } from "@/lib/money";
 
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
+}
+
+const BULAN_SINGKAT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+];
+
+/**
+ * Tanggal proyeksi return per alokasi, dari jatuh tempo pinjaman.
+ * Nama bulan ditulis manual supaya hasilnya tidak bergeser antar mesin
+ * (format `id-ID` bawaan bergantung data lokal yang tersedia).
+ */
+function tanggal(ms: number): string {
+  const t = new Date(ms);
+  return `${t.getDate()} ${BULAN_SINGKAT[t.getMonth()]} ${t.getFullYear()}`;
 }
 
 /** Angka contoh saat kolom masih kosong; bukan janji hasil. */
@@ -143,6 +169,8 @@ export type BarisPortofolioPendanaan = {
   pokok: number;
   imbalHasil: number;
   status: string;
+  /** Jatuh tempo pinjaman sebagai proyeksi tanggal return; null bila tidak ada. */
+  tanggalReturn: number | null;
 };
 
 /**
@@ -167,14 +195,15 @@ export function TabelPortofolioPendanaan({
             <th scope="col" className="px-3 py-2 font-semibold">Nominal</th>
             <th scope="col" className="px-3 py-2 font-semibold">Tenor</th>
             <th scope="col" className="px-3 py-2 font-semibold">Yield pendana</th>
-            <th scope="col" className="px-3 py-2 font-semibold">Estimasi Return</th>
+            <th scope="col" className="px-3 py-2 font-semibold">Estimasi imbal</th>
+            <th scope="col" className="px-3 py-2 font-semibold">Proyeksi return</th>
             <th scope="col" className="px-3 py-2 font-semibold">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+              <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                 Belum ada pendanaan. Portofolio muncul setelah alokasi dana dicatat.
               </td>
             </tr>
@@ -195,6 +224,13 @@ export function TabelPortofolioPendanaan({
                 </td>
                 <td className="px-3 py-2.5 tabular-nums font-medium text-emerald-800">
                   {rupiah(row.imbalHasil)}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
+                  {row.status === "Selesai"
+                    ? "Selesai"
+                    : row.tanggalReturn === null
+                      ? "Belum ada"
+                      : tanggal(row.tanggalReturn)}
                 </td>
                 <td className="px-3 py-2.5">
                   <span
@@ -226,6 +262,9 @@ export function TabelPortofolioPendanaan({
  */
 export function PortofolioPendanaanSection() {
   const data = useQuery(api.alokasiDana.myPortfolio);
+  const [produk, setProduk] = useState<"konvensional" | "syariah">(
+    "konvensional",
+  );
 
   if (data === undefined) {
     return (
@@ -252,15 +291,71 @@ export function PortofolioPendanaanSection() {
           {LABEL_YIELD_PENDANA}
         </p>
       </div>
-      <TabelPortofolioPendanaan
-        rows={data.map((row) => ({
-          id: String(row._id),
-          nomorReferensi: row.loanRef || row.nomorReferensi,
-          pokok: row.jumlahAlokasi,
-          imbalHasil: row.imbalHasil,
-          status: row.statusPendanaan,
-        }))}
-      />
+
+      {/* Filter portofolio per produk. Data yang tersimpan saat ini hanya
+          berisi penempatan konvensional; tab Syariah menampilkan keadaan
+          kosong yang menjelaskan sebabnya, bukan tabel palsu. */}
+      <div
+        className="mt-3 flex flex-wrap gap-2"
+        role="group"
+        aria-label="Produk portofolio"
+      >
+        {(
+          [
+            { id: "konvensional", label: "Portofolio konvensional" },
+            { id: "syariah", label: "Portofolio syariah" },
+          ] as const
+        ).map((pilihan) => (
+          <button
+            key={pilihan.id}
+            type="button"
+            aria-pressed={produk === pilihan.id}
+            onClick={() => setProduk(pilihan.id)}
+            className={`min-h-11 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              produk === pilihan.id
+                ? "border-emerald-700/50 bg-emerald-50 text-emerald-900"
+                : "border-border bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            {pilihan.label}
+          </button>
+        ))}
+      </div>
+
+      {produk === "syariah" ? (
+        <div className="mt-3 rounded-2xl border border-[#c9a86a]/45 bg-[#fbf7ec] p-4">
+          <p className="flex items-start gap-2 text-sm font-semibold text-navy">
+            <Info className="mt-0.5 size-4 shrink-0 text-amber-900" aria-hidden />
+            Belum ada penempatan syariah
+          </p>
+          <p className="mt-1.5 max-w-2xl text-xs leading-6 text-slate-700">
+            Pencatatan akad Murabahah, Rahn, dan Qardh belum dibuka. Tab ini
+            akan terisi setelah akad syariah dapat diajukan dan dicatat sistem.
+            Penempatan yang sudah berjalan tetap ada di tab konvensional.
+          </p>
+          <Link
+            to="/pinjaman/syariah"
+            className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-amber-900 underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Baca skema akad syariah
+          </Link>
+        </div>
+      ) : (
+        <TabelPortofolioPendanaan
+          rows={data.map((row) => ({
+            id: String(row._id),
+            nomorReferensi: row.loanRef || row.nomorReferensi,
+            pokok: row.jumlahAlokasi,
+            imbalHasil: row.imbalHasil,
+            status: row.statusPendanaan,
+            tanggalReturn: row.pelunasan?.jatuhTempoPada ?? null,
+          }))}
+        />
+      )}
+      <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+        Tanggal return adalah jatuh tempo pinjaman, bukan janji pembayaran.
+        Pembayaran dapat lebih lambat bila peminjam menunggak.
+      </p>
     </section>
   );
 }

@@ -44,6 +44,11 @@ const Promo = lazy(
 const PublicInfoPage = lazy(
   denganPercobaan(() => import("./pages/PublicInfoPage")),
 );
+// Dua halaman produk memakai kalkulator dan mesin syariah; keduanya tetap
+// lazy supaya bundel beranda tidak membawa kode yang belum dibuka pengunjung.
+const ProdukPinjaman = lazy(
+  denganPercobaan(() => import("./pages/ProdukPinjaman")),
+);
 // Halaman penawaran pendanaan: menarik kalkulator dan penyusun PDF proposal,
 // jadi tetap lazy seperti halaman publik lain.
 const JadiPendana = lazy(
@@ -234,6 +239,7 @@ const RUTE_PUBLIK = [
   "/keamanan",
   "/faq",
   "/aplikasi",
+  "/pinjaman",
   "/syarat-ketentuan",
 ] as const;
 
@@ -384,6 +390,16 @@ createRoot(document.getElementById("root")!).render(
               <Routes>
                 <Route path="/" element={<PublicLanding />} />
                 <Route path="/biaya" element={<PublicInfoPage />} />
+                {/* Dua produk dipisah tegas: konvensional dan syariah punya
+                    halaman, aturan, dan kalkulatornya sendiri. */}
+                <Route
+                  path="/pinjaman/konvensional"
+                  element={<ProdukPinjaman produk="konvensional" />}
+                />
+                <Route
+                  path="/pinjaman/syariah"
+                  element={<ProdukPinjaman produk="syariah" />}
+                />
                 <Route path="/cara-kerja" element={<PublicInfoPage />} />
                 <Route
                   path="/layanan/pinjaman-tunai"

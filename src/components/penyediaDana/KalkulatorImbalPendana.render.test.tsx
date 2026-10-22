@@ -66,6 +66,7 @@ function bersih(html: string, label: string): void {
           pokok: 1_000_000,
           imbalHasil: 300_000,
           status: "Berjalan",
+          tanggalReturn: new Date(2026, 9, 31, 12).getTime(),
         },
         {
           id: "b",
@@ -73,11 +74,20 @@ function bersih(html: string, label: string): void {
           pokok: 500_000,
           imbalHasil: 150_000,
           status: "Selesai",
+          tanggalReturn: null,
         },
       ]}
     />,
   );
-  for (const judul of ["Pinjaman", "Nominal", "Tenor", "Yield pendana", "Estimasi Return", "Status"]) {
+  for (const judul of [
+    "Pinjaman",
+    "Nominal",
+    "Tenor",
+    "Yield pendana",
+    "Estimasi imbal",
+    "Proyeksi return",
+    "Status",
+  ]) {
     ada(html, judul, `kolom "${judul}" ada`);
   }
   ok((html.match(/30 Hari/g) ?? []).length >= 2, "setiap baris memakai tenor 30 Hari");
@@ -86,9 +96,29 @@ function bersih(html: string, label: string): void {
   ada(html, "Rp 300.000", "estimasi return tampil");
   ada(html, "Berjalan", "status berjalan tampil");
   ada(html, "Selesai", "status selesai tampil");
+  ada(html, "31 Okt 2026", "proyeksi tanggal return memakai jatuh tempo");
   ada(html, 'scope="col"', "kepala tabel punya cakupan kolom");
   ada(html, "<caption", "tabel punya keterangan untuk pembaca layar");
   bersih(html, "tabel portofolio");
+}
+
+// ===== Alokasi tanpa jatuh tempo =====
+{
+  const html = renderToStaticMarkup(
+    <TabelPortofolioPendanaan
+      rows={[
+        {
+          id: "c",
+          nomorReferensi: "PND-3",
+          pokok: 100_000,
+          imbalHasil: 30_000,
+          status: "Menunggu",
+          tanggalReturn: null,
+        },
+      ]}
+    />,
+  );
+  ada(html, "Belum ada", "baris tanpa jatuh tempo tidak menampilkan tanggal palsu");
 }
 
 // ===== Keadaan kosong =====

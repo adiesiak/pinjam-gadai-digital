@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
+import { PilihanProduk } from "@/components/landing/PilihanProduk";
 import {
   JENIS_PENGAJUAN,
   jenisPengajuanAktif,
@@ -188,6 +189,17 @@ export function FormPengajuanSection({
         <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
           {JENIS_PENGAJUAN.length} jenis pengajuan
         </span>
+      </div>
+
+      {/* Jalur produk dipilih sebelum jenis pengajuan: konvensional memakai
+          formulir yang sudah aktif, syariah membuka halaman akadnya lebih dulu. */}
+      <div className="mt-5">
+        <p className="text-sm font-medium text-slate-900">Jalur pembiayaan</p>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
+          Konvensional memakai bunga flat. Syariah memakai akad dan nisbah.
+          Keduanya dihitung terpisah oleh sistem.
+        </p>
+        <PilihanProduk ringkas className="mt-3" />
       </div>
 
       <PromoPinjamanAktif penempatan="pengajuan" className="mt-4" />

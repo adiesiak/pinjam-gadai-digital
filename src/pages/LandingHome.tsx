@@ -17,6 +17,7 @@ import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
+import { PilihanProdukSection } from "@/components/landing/PilihanProduk";
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
@@ -293,6 +294,10 @@ export default function LandingHome() {
           mikro={konten.heroMikro}
           sudahMasuk={isAuthenticated}
         />
+
+        {/* Dua jalur produk dipisah sebelum pengunjung masuk ke formulir:
+            konvensional dan syariah punya aturan serta kalkulator sendiri. */}
+        <PilihanProdukSection />
 
         {/* Kampanye hanya muncul saat admin benar-benar menerbitkannya. */}
         <PromoPinjamanAktif

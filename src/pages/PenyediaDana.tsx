@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileText,
   KeyRound,
+  Layers,
   Loader2,
   Lock,
   HandCoins,
@@ -64,6 +65,8 @@ import {
   KalkulatorImbalPendana,
   PortofolioPendanaanSection,
 } from "@/components/penyediaDana/KalkulatorImbalPendana";
+import { SimulatorPendanaan } from "@/components/penyediaDana/SimulatorPendanaan";
+import { PilihanProduk } from "@/components/landing/PilihanProduk";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { PortofolioPendana } from "@/components/penyediaDana/PortofolioPendana";
 import { TabelPendana } from "@/components/penyediaDana/TabelPendana";
@@ -2582,6 +2585,12 @@ function IsiRuang() {
                 className="sticky top-14 z-30 h-auto w-full flex-wrap justify-start gap-x-1 rounded-none border-b border-gold/40 bg-white p-0"
               >
                 <TabsTrigger
+                  value="produk"
+                  className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
+                >
+                  <Layers className="size-3.5" /> Produk
+                </TabsTrigger>
+                <TabsTrigger
                   value="belum"
                   className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
                 >
@@ -2665,7 +2674,7 @@ function IsiRuang() {
               {/* Saringan di atas tabel data pinjaman — nama peminjam dan
                   pendana. Disembunyikan di tab peta: daftarnya bukan
                   pengajuan, dan tab gadai tidak punya kolom pendana. */}
-              {tab !== "lokasi" && tab !== "transfer" && (
+              {tab !== "lokasi" && tab !== "transfer" && tab !== "produk" && (
                 <SaringanPengajuan
                   cari={filter.cari}
                   onCari={(nilai) =>
@@ -2683,6 +2692,24 @@ function IsiRuang() {
                   namaTampil={tampilNama}
                 />
               )}
+
+              {/* ===== Produk dan simulator ===== */}
+              <TabsContent value="produk" className="mt-4 space-y-5">
+                <div>
+                  <h3 className="text-sm font-semibold text-navy">
+                    Tempatkan dana dengan aturan tetap
+                  </h3>
+                  <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
+                    Penempatan konvensional memakai imbal tetap 30% per 30 hari.
+                    Akad syariah masih skema pada Fase 1: angkanya bisa
+                    disimulasikan, tetapi belum bisa diajukan.
+                  </p>
+                  <PilihanProduk ringkas className="mt-3" />
+                </div>
+                <SimulatorPendanaan
+                  persenPotonganAdmin={data.ringkasan.persenPotonganAdmin}
+                />
+              </TabsContent>
 
               {/* ===== Pinjaman baru: belum didanai ===== */}
               <TabsContent value="belum" className="mt-4">
