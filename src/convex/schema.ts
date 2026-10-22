@@ -38,6 +38,7 @@ export const skemaLedgerValidator = v.union(
   v.literal("pinjaman"),
   v.literal("gadai"),
   v.literal("kredit"),
+  v.literal("syariah"),
 );
 
 export const roleValidator = v.union(
@@ -1806,6 +1807,70 @@ const schema = defineSchema(
     })
       .index("by_loan", ["loanId"])
       .index("by_dana", ["danaId"]),
+
+    /**
+     * Akad syariah (Murabahah, Rahn, Qardh) yang sudah DICATAT admin.
+     *
+     * Ini catatan kontrak, bukan pengajuan daring: pada Fase 1 skema syariah
+     * belum dibuka untuk pengajuan Peminjam sendiri, jadi admin mencatat akad
+     * yang memang sudah disepakati. Angka di sini adalah SNAPSHOT hasil akad —
+     * `totalKewajiban`, `pendanaTerima`, dan nisbah tidak dihitung ulang dari
+     * harga barang atau taksiran yang mungkin berubah kemudian.
+     *
+     * `status` hanya menyatakan keadaan catatan. Uang tidak berpindah lewat
+     * tabel ini; jurnal penempatan ditulis ke `ledger_entries` oleh mutation
+     * yang juga ditutup `paymentGuard`, sama seperti seluruh alur dana lain.
+     */
+    akadSyariah: defineTable({
+      jenis: v.union(
+        v.literal("murabahah"),
+        v.literal("rahn"),
+        v.literal("qardh"),
+      ),
+      /** Nomor referensi manusiawi, mis. `SYR-20261022-AB12`. */
+      nomorReferensi: v.string(),
+      /** Penyedia dana yang dananya ditempatkan pada akad ini. */
+      pendanaId: v.id("users"),
+      /** Nama penerima manfaat (peminjam) — teks, tidak wajib punya akun. */
+      peminjamNama: v.string(),
+      /** Akun peminjam bila ada; kosong untuk pencatatan manual. */
+      peminjamId: v.optional(v.id("users")),
+      /** Pokok yang ditempatkan — rupiah bulat. */
+      pokok: v.number(),
+      /** Tenor akad dalam hari. */
+      tenorHari: v.number(),
+      /** Total yang dibayar peminjam (harga jual / pokok + ujrah / pokok). */
+      totalKewajiban: v.number(),
+      /** Pokok + bagian pendana dari margin/ujrah. */
+      pendanaTerima: v.number(),
+      /** Bagian pendana dari margin/ujrah saja. */
+      nisbahPendana: v.number(),
+      /** Bagian platform dari margin/ujrah. */
+      nisbahPlatform: v.number(),
+      // ===== Rincian khas akad (kosong bila tidak berlaku) =====
+      hargaJual: v.optional(v.number()),
+      marginTotal: v.optional(v.number()),
+      nilaiTaksiran: v.optional(v.number()),
+      ujrahPerSiklus: v.optional(v.number()),
+      jumlahSiklus: v.optional(v.number()),
+      tiketDoorprize: v.optional(v.number()),
+      // ===== Keadaan catatan =====
+      status: v.union(
+        v.literal("aktif"),
+        v.literal("selesai"),
+        v.literal("dibatalkan"),
+      ),
+      /** Jatuh tempo akad — dasar proyeksi return di portofolio. */
+      jatuhTempoPada: v.number(),
+      catatan: v.optional(v.string()),
+      dibuatPada: v.number(),
+      dibuatOleh: v.id("users"),
+      selesaiPada: v.optional(v.number()),
+      dibatalkanPada: v.optional(v.number()),
+    })
+      .index("by_pendana", ["pendanaId"])
+      .index("by_status", ["status"])
+      .index("by_referensi", ["nomorReferensi"]),
 
     /**
      * Catatan transfer keuntungan pendana — SATU baris per (pinjaman,

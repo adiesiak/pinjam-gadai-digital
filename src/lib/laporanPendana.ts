@@ -67,6 +67,11 @@ export type BarisPortofolioPendana = {
   keuntunganPendana: number;
   /** Tanggal acuan baris ini: pelunasan untuk lunas, pendanaan untuk berjalan. */
   tanggal: number | null;
+  /**
+   * Jatuh tempo pinjaman — PROYEKSI tanggal return, bukan janji pembayaran.
+   * Null bila tenor tidak terbaca; laporan mengatakannya, tidak mengarang.
+   */
+  tanggalReturn: number | null;
 };
 
 /** Angka ringkasan portofolio satu pendana (sumber: ruang penyedia dana). */
@@ -233,7 +238,9 @@ function barisDaftar(
   }
   for (const p of kumpulan.slice(0, BATAS_PINJAMAN_LAPORAN)) {
     hasil.push({
-      teks: `${p.nomorReferensi} - ${tanggal(p.tanggal)} - pokok ${rupiah(p.pokokPinjaman)}`,
+      teks:
+        `${p.nomorReferensi} - ${tanggal(p.tanggal)} - pokok ${rupiah(p.pokokPinjaman)} - ` +
+        `jatuh tempo ${tanggal(p.tanggalReturn)}`,
       gaya: "kecil",
     });
     hasil.push({
@@ -291,6 +298,10 @@ export function laporanPortofolio(data: DataPortofolioPendana): DokumenPdf {
     { kosong: true },
     {
       teks: "Keuntungan perkiraan dihitung dari pinjaman yang masih berjalan: angkanya baru menjadi uang saat pinjaman itu lunas.",
+      gaya: "kecil",
+    },
+    {
+      teks: "Tanggal jatuh tempo adalah proyeksi return dari tenor pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila peminjam menunggak.",
       gaya: "kecil",
     },
     {
@@ -432,13 +443,35 @@ export function pesanPelunasan(data: DataPelunasanPendana): string {
   );
 }
 
+/**
+ * Jatuh tempo terdekat dari pinjaman yang masih berjalan.
+ *
+ * Dipakai pesan WhatsApp supaya pendana tahu kapan return berikutnya
+ * diperkirakan masuk tanpa membuka lampiran. Null bila tidak ada tanggal yang
+ * terbaca — pesan tidak boleh mengarang tanggal.
+ */
+export function proyeksiReturnTerdekat(
+  data: DataPortofolioPendana,
+): number | null {
+  const daftar = data.pinjamanBerjalan
+    .map((p) => p.tanggalReturn)
+    .filter((t): t is number => t !== null);
+  return daftar.length === 0 ? null : Math.min(...daftar);
+}
+
 /** Keterangan pesan WhatsApp untuk laporan portofolio. */
 export function pesanPortofolio(data: DataPortofolioPendana): string {
+  const terdekat = proyeksiReturnTerdekat(data);
+  const proyeksi =
+    terdekat === null
+      ? "Belum ada proyeksi tanggal return dari pinjaman berjalan. "
+      : `Proyeksi return terdekat ${tanggal(terdekat)}. `;
   return (
     `Halo ${data.namaPendana}, ini salinan laporan kinerja pendanaan Anda per ${tanggal(data.dicetakPada)}. ` +
     `Dana tersalurkan ${rupiah(data.totalDisalurkan)}, keuntungan dibukukan ${rupiah(data.keuntunganDibukukan)}, ` +
     `perkiraan dari pinjaman berjalan ${rupiah(data.keuntunganPerkiraan)}. ` +
-    `Angka lengkap per pinjaman ada di lampiran PDF.`
+    proyeksi +
+    "Angka lengkap per pinjaman ada di lampiran PDF."
   );
 }
 

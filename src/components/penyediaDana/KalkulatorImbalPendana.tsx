@@ -1,9 +1,9 @@
 import { useQuery } from "convex/react";
-import { Calculator, Info } from "lucide-react";
+import { Calculator } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { PortofolioSyariah } from "@/components/penyediaDana/PortofolioSyariah";
 import { api } from "@/convex/_generated/api";
 import {
   LABEL_TENOR_PENDANA,
@@ -323,23 +323,7 @@ export function PortofolioPendanaanSection() {
       </div>
 
       {produk === "syariah" ? (
-        <div className="mt-3 rounded-2xl border border-[#c9a86a]/45 bg-[#fbf7ec] p-4">
-          <p className="flex items-start gap-2 text-sm font-semibold text-navy">
-            <Info className="mt-0.5 size-4 shrink-0 text-amber-900" aria-hidden />
-            Belum ada penempatan syariah
-          </p>
-          <p className="mt-1.5 max-w-2xl text-xs leading-6 text-slate-700">
-            Pencatatan akad Murabahah, Rahn, dan Qardh belum dibuka. Tab ini
-            akan terisi setelah akad syariah dapat diajukan dan dicatat sistem.
-            Penempatan yang sudah berjalan tetap ada di tab konvensional.
-          </p>
-          <Link
-            to="/pinjaman/syariah"
-            className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-amber-900 underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Baca skema akad syariah
-          </Link>
-        </div>
+        <PortofolioSyariah />
       ) : (
         <TabelPortofolioPendanaan
           rows={data.map((row) => ({

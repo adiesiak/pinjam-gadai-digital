@@ -59,7 +59,7 @@ export interface JournalLine {
  * ledger tidak perlu menebak dari teks `keterangan` — tebakan teks itulah yang
  * dulu membuat angka per skema terlihat tidak cocok dengan pinjaman yang ada.
  */
-export type SkemaLedger = "pinjaman" | "gadai" | "kredit";
+export type SkemaLedger = "pinjaman" | "gadai" | "kredit" | "syariah";
 
 export type EventTypeLedger =
   | "INTEREST_ONLY_PAYMENT"

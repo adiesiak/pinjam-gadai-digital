@@ -1,0 +1,95 @@
+/**
+ * Uji tab Produk di ruang penyedia dana.
+ * Run: bun src/pages/PenyediaDana.produk.render.test.tsx
+ *
+ * Halaman utuh butuh sesi Convex, jadi yang diperiksa di sini: sambungan tabnya
+ * di sumber halaman (pemicu, isi, dan penyaring yang tidak ikut tampil), lalu
+ * dua bagian presentasional yang benar-benar dirender di tab itu — kartu pilihan
+ * produk dan simulator empat akad.
+ */
+import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter } from "react-router";
+
+import { PilihanProduk } from "../components/landing/PilihanProduk";
+import { SimulatorPendanaan } from "../components/penyediaDana/SimulatorPendanaan";
+
+let lulus = 0;
+let gagal = 0;
+function cek(syarat: boolean, label: string): void {
+  if (syarat) lulus += 1;
+  else {
+    gagal += 1;
+    console.error(`FAIL ${label}`);
+  }
+}
+const ada = (html: string, teks: string, label: string) =>
+  cek(html.includes(teks), `${label} (memuat "${teks}")`);
+
+const halaman = readFileSync("src/pages/PenyediaDana.tsx", "utf8");
+
+// ===== Sambungan tab di halaman =====
+cek(
+  halaman.includes('value="produk"'),
+  "pemicu tab Produk terpasang",
+);
+cek(
+  halaman.includes("<TabsContent value=\"produk\""),
+  "isi tab Produk punya wadahnya",
+);
+cek(
+  halaman.includes('import { SimulatorPendanaan }') &&
+    halaman.includes("<SimulatorPendanaan"),
+  "simulator pendanaan dirender di tab Produk",
+);
+cek(
+  halaman.includes('import { PilihanProduk }') &&
+    halaman.includes("<PilihanProduk ringkas"),
+  "kartu pilihan produk dirender di tab Produk",
+);
+cek(
+  halaman.includes('tab !== "produk"'),
+  "penyaring daftar pengajuan tidak tampil di tab Produk",
+);
+cek(
+  halaman.includes("Akad syariah masih skema pada Fase 1"),
+  "tab menyatakan lingkup Fase 1 apa adanya",
+);
+
+// ===== Kartu pilihan produk =====
+{
+  const html = renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/dashboard"] },
+      createElement(PilihanProduk, { ringkas: true }),
+    ),
+  );
+  ada(html, "Pembiayaan konvensional", "kartu konvensional tampil");
+  ada(html, "Pembiayaan syariah", "kartu syariah tampil");
+  ada(html, "Murabahah", "akad Murabahah disebut");
+  ada(html, "Rahn", "akad Rahn disebut");
+  ada(html, "Qardh", "akad Qardh disebut");
+  ada(html, "Harian 7/14/28 hari", "ringkasan tenor konvensional");
+  ada(html, 'href="/pinjaman/konvensional"', "tautan produk konvensional");
+  ada(html, 'href="/pinjaman/syariah"', "tautan produk syariah");
+  cek(!html.includes("undefined"), "kartu produk tanpa nilai kosong");
+}
+
+// ===== Simulator di dalam tab =====
+{
+  const html = renderToStaticMarkup(
+    createElement(SimulatorPendanaan, { persenPotonganAdmin: 5 }),
+  );
+  for (const akad of ["Konvensional", "Murabahah", "Rahn", "Qardh"]) {
+    ada(html, akad, `simulator menyediakan akad "${akad}"`);
+  }
+  ada(html, "Imbal hasil tetap 30% per 30 hari", "yield 30% tetap dinyatakan");
+  ada(html, "Rp 1.235.000", "angka konvensional dihitung dari lib");
+  ada(html, "Estimasi, bukan jaminan.", "simulator tidak menjanjikan hasil");
+}
+
+const jumlah = lulus + gagal;
+console.log(`PenyediaDana.produk.render.test: ${lulus}/${jumlah} lulus`);
+if (gagal > 0) process.exit(1);

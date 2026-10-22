@@ -99,6 +99,7 @@ function keBarisLaporan(b: BarisPinjaman): BarisPortofolioPendana {
     pokokPinjaman: b.pokokPinjaman,
     keuntunganPendana: b.keuntunganPendana,
     tanggal: b.status === "lunas" ? b.lunasPada : b.didanaiPada,
+    tanggalReturn: b.jatuhTempoPada,
   };
 }
 

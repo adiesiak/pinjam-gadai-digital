@@ -78,6 +78,7 @@ import {
 } from "./pendanaKepemilikan";
 import { namaHurufBesar } from "../lib/nama";
 import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
+import { pelunasanPinjaman } from "../lib/loan";
 import { ROLES } from "./schema";
 import { bulatkanTitikWilayah } from "../lib/geo";
 import { normalisasiNomorWa } from "../lib/otpWa";
@@ -186,6 +187,11 @@ export type BarisPinjaman = {
   didanaiPada: number | null;
   /** Waktu pinjaman dicatat lunas — null selama belum lunas. */
   lunasPada: number | null;
+  /**
+   * Jatuh tempo pinjaman menurut mesin pelunasan — dipakai laporan pendana
+   * sebagai proyeksi tanggal return. Null bila tenor/penjadwalan tidak terbaca.
+   */
+  jatuhTempoPada: number | null;
   /** Nama penyedia dana tunggal pinjaman ini — null bila belum didanai. */
   pendana: string | null;
   /** Imbal Hasil pendana TETAP = pokok × 30% (bukan bunga nasabah). */
@@ -722,6 +728,9 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         diajukanPada: loan.diajukanPada ?? loan._creationTime,
         didanaiPada: loan.didanaiPada ?? null,
         lunasPada: loan.lunasPada ?? null,
+        jatuhTempoPada:
+          pelunasanPinjaman(loan, sekarang, cfg.persenDendaKeterlambatan)
+            ?.jatuhTempoPada ?? null,
         pendana,
         bunga: bagi.imbal,
         totalLunas: loan.pokokPinjaman + bagi.imbal,

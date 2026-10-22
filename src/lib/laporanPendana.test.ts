@@ -18,6 +18,7 @@ import {
   pesanPelunasan,
   pesanPortofolio,
   pesanRekapPendana,
+  proyeksiReturnTerdekat,
   type DataPelunasanPendana,
   type DataPortofolioPendana,
   type DataRekapPendana,
@@ -79,6 +80,7 @@ const PORTOFOLIO: DataPortofolioPendana = {
       pokokPinjaman: 5_000_000,
       keuntunganPendana: 1_200_000,
       tanggal: T0,
+      tanggalReturn: T1 + 10 * 86_400_000,
     },
     {
       nomorReferensi: "PND/2026/09/0003",
@@ -86,6 +88,7 @@ const PORTOFOLIO: DataPortofolioPendana = {
       pokokPinjaman: 5_000_000,
       keuntunganPendana: 1_200_000,
       tanggal: T0,
+      tanggalReturn: T1 + 3 * 86_400_000,
     },
   ],
   pinjamanLunas: [
@@ -95,6 +98,7 @@ const PORTOFOLIO: DataPortofolioPendana = {
       pokokPinjaman: 5_000_000,
       keuntunganPendana: 1_200_000,
       tanggal: T1,
+      tanggalReturn: T1,
     },
   ],
   transferBelumDicatat: 0,
@@ -188,6 +192,39 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
     "baris pinjaman lunas memakai kata dibukukan",
   );
   ok(
+    teks.some((t) => t.includes("jatuh tempo")),
+    "setiap baris menyebut proyeksi jatuh tempo return",
+  );
+  ok(
+    teks.some((t) => t.includes("bukan janji pembayaran")),
+    "proyeksi return tidak diklaim sebagai janji",
+  );
+  eq(
+    proyeksiReturnTerdekat(PORTOFOLIO),
+    T1 + 3 * 86_400_000,
+    "proyeksi return terdekat diambil dari pinjaman berjalan",
+  );
+  ok(
+    pesanPortofolio(PORTOFOLIO).includes("Proyeksi return terdekat"),
+    "pesan WhatsApp menyebut proyeksi return terdekat",
+  );
+  const tanpaTanggal = {
+    ...PORTOFOLIO,
+    pinjamanBerjalan: PORTOFOLIO.pinjamanBerjalan.map((p) => ({
+      ...p,
+      tanggalReturn: null,
+    })),
+  };
+  eq(
+    proyeksiReturnTerdekat(tanpaTanggal),
+    null,
+    "tanpa tanggal terbaca, proyeksi terdekat null",
+  );
+  ok(
+    pesanPortofolio(tanpaTanggal).includes("Belum ada proyeksi"),
+    "pesan tidak mengarang tanggal saat datanya kosong",
+  );
+  ok(
     teks.some((t) => t.includes("Ri** Wa**")),
     "nama peminjam pada daftar juga disamarkan",
   );
@@ -217,6 +254,7 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
     pokokPinjaman: 1_000_000,
     keuntunganPendana: 200_000,
     tanggal: T0,
+    tanggalReturn: T1,
   }));
   const dokumen = laporanPortofolio({ ...PORTOFOLIO, pinjamanBerjalan: banyak, pinjamanLunas: [] });
   const teks = semuaTeks(dokumen);
@@ -249,6 +287,7 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
     pokokPinjaman: 1_000_000,
     keuntunganPendana: 200_000,
     tanggal: T0,
+    tanggalReturn: T1,
   }));
   const panjang = teksPdf(
     susunPdf(laporanPortofolio({ ...PORTOFOLIO, pinjamanBerjalan: banyak, pinjamanLunas: [] })),
