@@ -267,7 +267,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Dari mana angka cicilan di kalkulator berasal?",
-    a: "Semua angka dihitung aplikasi dari nominal dan tenor yang Anda pilih, bukan angka yang diketik manual. Harian: potongan admin 2% + biaya ekspres Rp5.000–Rp10.000 di muka bila Anda memilih cair ekspres, dan bunga flat 26–40% sesuai nominal serta tenor. Bulanan: bunga flat mengikuti tarif akun, bawaan 30% (1 bulan), 35% (3 bulan), dan 30% (6 bulan) per bulan.",
+    a: "Semua angka dihitung aplikasi dari nominal dan tenor yang Anda pilih, bukan angka yang diketik manual. Harian: potongan admin 2% + biaya ekspres Rp5.000–Rp10.000 di muka bila Anda memilih cair ekspres, dan bunga flat 26–40% sesuai nominal serta tenor. Bulanan: bunga flat mengikuti tarif akun, bawaan 30% (1 bulan), 33% (3 bulan), dan 35% (6 bulan) per bulan.",
   },
   {
     q: "Kapan biaya dipotong?",
@@ -853,11 +853,11 @@ export default function Landing() {
                 rows={[
                   { label: "Biaya admin 2% (platform dihapus)", value: "2% dipotong di muka" },
                   { label: "Biaya admin cicilan (setiap pembayaran)", value: "2% per bayar" },
-                  { label: "Bunga flat per bulan (tenor 1/3/6)", value: "tarif akun · bawaan 30/35/30%" },
+                  { label: "Bunga flat per bulan (tenor 1/3/6)", value: "tarif akun · bawaan 30/33/35%" },
                 ]}
                 stats={[
                   { to: 2, suffix: "%", label: "biaya di muka" },
-                  { to: 35, suffix: "%", label: "bunga/bln tenor 3" },
+                  { to: 33, suffix: "%", label: "bunga/bln tenor 3" },
                   { to: 2, suffix: "%", label: "admin cicilan" },
                 ]}
               />
@@ -934,7 +934,7 @@ export default function Landing() {
               </div>
               <Reveal delay={0.1}>
                 <p className="mt-8 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-600">
-                  Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian memotong biaya admin 2% dan biaya ekspres Rp5.000–Rp10.000 di muka bila dipilih saat mengajukan, dengan total kewajiban 126–140% dari pokok sesuai nominal serta tenor; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya 2% yang dipotong di muka dari dana yang diterima (biaya admin pada tenor 3/6, biaya layanan pada tenor 1), dan biaya admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan; bunga flat dari pokok penuh mengikuti tarif akun (bawaan 30%/35%/30% per bulan untuk tenor 1/3/6 bulan), jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
+                  Seluruh angka berikut adalah <b className="font-semibold text-slate-900">perhitungan ledger internal</b> dari pencatatan PINDAI. Skema harian memotong biaya admin 2% dan biaya ekspres Rp5.000–Rp10.000 di muka bila dipilih saat mengajukan, dengan total kewajiban 126–140% dari pokok sesuai nominal serta tenor; perpindahan dana ditangani di luar aplikasi. Skema bulanan (1/3/6 bulan, hingga Rp 10 juta) menampilkan DP 0%, biaya 2% yang dipotong di muka dari dana yang diterima (biaya admin pada tenor 3/6, biaya layanan pada tenor 1), dan biaya admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan; bunga flat dari pokok penuh mengikuti tarif akun (bawaan 30%/33%/35% per bulan untuk tenor 1/3/6 bulan), jadi cicilannya rata dan tidak menurun. Status dan rincian kontrak mengikuti pencatatan pada ledger internal.
                 </p>
               </Reveal>
             </div>

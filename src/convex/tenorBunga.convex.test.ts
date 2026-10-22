@@ -176,7 +176,7 @@ describe("matriks tenor & bunga harian", () => {
     await ajukan(t, sesi, 500_000, 14, "override-harian");
     expect((await pinjamanTerakhir(t))?.persenBunga).toBe(32);
 
-    // Skema bulanan memakai tarif tenor (3 bulan = 35% per bulan).
+    // Skema bulanan memakai tarif tenor (3 bulan = 33% per bulan).
     const ktp = await simpanBerkasUji(t, "ktp-override-bulanan");
     const selfie = await simpanBerkasUji(t, "selfie-override-bulanan");
     const slip = await simpanBerkasUji(t, "slip-override-bulanan");
@@ -199,7 +199,7 @@ describe("matriks tenor & bunga harian", () => {
       persetujuanSyarat: true,
       tandaTangan: TTD,
     });
-    expect((await pinjamanTerakhir(t))?.persenBunga).toBe(35);
+    expect((await pinjamanTerakhir(t))?.persenBunga).toBe(33);
   });
 
   it("tenor 30 hari ditolak pada semua tier", async () => {

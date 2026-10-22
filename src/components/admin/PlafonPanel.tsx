@@ -451,7 +451,7 @@ export function PlafonPanel() {
                 </li>
                 <li>
                   Bunga pinjaman selalu mengikuti tenor: harian 7/14/28 hari (26–40% sesuai nominal)
-                  dan bulanan 30/35/30% per bulan untuk tenor 1/3/6 bulan. Pinjaman yang sudah cair
+                  dan bulanan 30/33/35% per bulan untuk tenor 1/3/6 bulan. Pinjaman yang sudah cair
                   tetap memakai snapshot bunganya.
                 </li>
                 <li>

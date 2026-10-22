@@ -70,7 +70,7 @@ export const KREDIT_PRICING = {
    * Pilihan tenor kredit barang (bulan) = KREDIT_TENOR_PENGAJUAN_OPTIONS:
    * 1/3/6 bulan dengan skema bulanan (DP 0%, biaya admin 2% dari pokok untuk
    * SELURUH tenor resmi, dipotong di muka; bunga FLAT dari
-   * pokok penuh 30%/35%/30% per bulan sesuai tenor; TAMBAHAN biaya admin
+   * pokok penuh 30%/33%/35% per bulan sesuai tenor; TAMBAHAN biaya admin
    * cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan). Tenor 12/24 bulan tidak
    * ditawarkan lagi — kontrak warisan itu memakai layanan 3% di muka.
    */

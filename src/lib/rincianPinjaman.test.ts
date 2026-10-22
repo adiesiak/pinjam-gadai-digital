@@ -112,7 +112,7 @@ const totalBaris = bulanan.kelompok
   .find((b) => b.label.startsWith("Total yang dibayar selama"));
 eq(totalBaris?.tegas, true, "total cicilan dicetak tegas");
 ok(
-  totalBaris?.nilai === formatRupiah(2_091_001),
+  totalBaris?.nilai === formatRupiah(2_029_801),
   `total cicilan sama dengan jumlah jadwal (${totalBaris?.nilai})`,
 );
 

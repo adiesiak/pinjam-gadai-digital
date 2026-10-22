@@ -92,27 +92,27 @@ eq(sebagian.imbalHasil, 1_200_000, "total Imbal Hasil 50% = 1,2jt");
 eq(sebagian.totalDiterima, 5_200_000, "total diterima porsi 50%");
 eq(sebagian.persenImbalHasil, 30, "persen Imbal Hasil tetap 30%");
 
-// ---- Tenor 3 bulan: skema bulanan (DP 0%, bunga 35%/bln FLAT dari pokok) ----
+// ---- Tenor 3 bulan: skema bulanan (DP 0%, bunga 33%/bln FLAT dari pokok) ----
 const pendek = quoteKreditBarang({
   hargaBarang: 10_000_000,
   dpPersen: 0,
   tenorBulan: 3,
-  // Diabaikan skema bulanan — bunga mengikuti tenor (3–5 bln = 35%/bln).
+  // Diabaikan skema bulanan — bunga mengikuti tenor (3–5 bln = 33%/bln).
   marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan,
 });
 eq(pendek.dp, 0, "tenor 3 bulan: DP 0 (skema bulanan)");
 eq(pendek.pokokDibiayai, 10_000_000, "tenor 3 bulan: pokok dibiayai = harga barang");
-eq(pendek.marginPerBulan, 3_500_000, "Imbal Hasil 35% dari 10jt = 3,5jt");
-eq(pendek.marginTotal, 10_500_000, "total Imbal Hasil flat 35% × 3 bulan = 10,5jt");
+eq(pendek.marginPerBulan, 3_300_000, "Imbal Hasil 33% dari 10jt = 3,3jt");
+eq(pendek.marginTotal, 9_900_000, "total Imbal Hasil flat 33% × 3 bulan = 9,9jt");
 eq(pendek.biayaAdmin, 200_000, "biaya admin 2% dari 10jt (dipotong di muka)");
 eq(pendek.biayaPlatform, 0, "biaya platform 0% (dihapus)");
 eq(pendek.biayaLayanan, 200_000, "total potongan di muka 2% dari 10jt");
-eq(pendek.cicilanPerBulan, 6_970_000, "cicilan 3 bulan pertama = pokok + Imbal Hasil + admin 2%");
-eq(pendek.cicilanTerakhir, 6_970_001, "cicilan terakhir menyerap sisa pokok (cicilan rata)");
-eq(pendek.biayaAdminCicilanTotal, 410_001, "biaya admin cicilan 2% × 3 bulan");
-eq(pendek.jadwal[0].biayaAdmin, 136_667, "biaya admin cicilan baris pertama (2% × 6.833.333)");
-eq(pendek.persenImbalHasil, 105, "Imbal Hasil 105% dari pokok penuh (3 bulan)");
-eq(pendek.persenImbalHasilTahunan, 420, "setara 420% per tahun (105% × 12/3)");
+eq(pendek.cicilanPerBulan, 6_766_000, "cicilan 3 bulan pertama = pokok + Imbal Hasil + admin 2%");
+eq(pendek.cicilanTerakhir, 6_766_001, "cicilan terakhir menyerap sisa pokok (cicilan rata)");
+eq(pendek.biayaAdminCicilanTotal, 398_001, "biaya admin cicilan 2% × 3 bulan");
+eq(pendek.jadwal[0].biayaAdmin, 132_667, "biaya admin cicilan baris pertama (2% × 6.633.333)");
+eq(pendek.persenImbalHasil, 99, "Imbal Hasil 99% dari pokok penuh (3 bulan)");
+eq(pendek.persenImbalHasilTahunan, 396, "setara 396% per tahun (99% × 12/3)");
 eq(
   pendek.jadwal.reduce((acc, row) => acc + row.pokok, 0),
   pendek.pokokDibiayai,

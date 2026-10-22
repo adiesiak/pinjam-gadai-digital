@@ -307,7 +307,7 @@ export const catatPinjamanManual = mutation({
       // Snapshot bunga tenor — angka pinjaman ini stabil setelahnya. Jalur
       // harian memakai tarif matriks 7/14/28 hari; nominal di luar matriks
       // (pencatatan manual) memakai tarif global sebagai cadangan. Skema
-      // bulanan mengikuti tarif tenor (1 bulan 30%, 3–5 bulan 35%, 6+ 30%).
+      // bulanan mengikuti tarif tenor (1 bulan 30%, 3–5 bulan 33%, 6+ 35%).
       persenBunga:
         bersih.tenorBulan === undefined
           ? persenBungaHarian(bersih.pokokPinjaman, bersih.tenorHari) ?? cfg.persenBunga
