@@ -34,23 +34,24 @@ export function LandingHero(props: LandingHeroProps) {
       aria-labelledby="hero-judul"
       className="bg-hero relative w-full overflow-hidden"
     >
-      {/* Satu bidang motif ombak yang sama dengan kartu, bukan tiga orb blur.
-          Identitas PINDAI dibawa motif batik; pendaran tidak diulang di latar.
-          Mask mengaburkannya ke bawah supaya teks tetap di atas kertas polos. */}
+      {/* Motif ombak dipakai sebagai watermark tenang, bukan bidang penuh:
+          dua swell tanpa titik kuningan, opasitas rendah, dan mask yang habis
+          sebelum kolom kartu. Latar tidak boleh bersaing dengan judul. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
       >
         <GelombangPattern
-          opacity={0.18}
+          ragam="latar"
+          opacity={0.11}
           preserveAspectRatio="xMidYMid slice"
           style={{
-            // Watermark di sisi judul, bukan bidang penuh: kartu di kanan sudah
-            // membawa motif yang sama, jadi latar tidak boleh bersaing dengannya.
+            // Ombak berhenti sebelum kolom kartu, jadi sisi kanan tetap kertas
+            // bersih dan mata berhenti pada judul lebih dulu.
             maskImage:
-              "radial-gradient(140% 100% at 18% 0%, rgba(0,0,0,0.95), transparent 72%)",
+              "radial-gradient(100% 85% at 10% 0%, rgba(0,0,0,0.9), transparent 58%)",
             WebkitMaskImage:
-              "radial-gradient(140% 100% at 18% 0%, rgba(0,0,0,0.95), transparent 72%)",
+              "radial-gradient(100% 85% at 10% 0%, rgba(0,0,0,0.9), transparent 58%)",
           }}
         />
       </div>
@@ -69,9 +70,7 @@ export function LandingHero(props: LandingHeroProps) {
           >
             {props.judul1}
             <br />
-            <span className="font-display text-primary">
-              {props.judul2}
-            </span>
+            <span className="font-display text-primary">{props.judul2}</span>
           </h1>
 
           <p

@@ -26,6 +26,12 @@ export interface GelombangPatternProps {
   preserveAspectRatio?: "none" | "xMidYMid slice";
   /** Gaya tambahan (mis. mask gradien) untuk memakai motif sebagai latar. */
   style?: CSSProperties;
+  /**
+   * `kartu` = motif penuh (empat swell, titik kuningan) untuk bidang kecil.
+   * `latar` = versi tenang untuk bidang lebar: dua swell tanpa titik, supaya
+   * latar hero tidak bersaing dengan judul dan kartu di atasnya.
+   */
+  ragam?: "kartu" | "latar";
 }
 
 /**
@@ -41,22 +47,30 @@ export function GelombangPattern({
   className,
   preserveAspectRatio = "none",
   style,
+  ragam = "kartu",
 }: GelombangPatternProps) {
   const id = `ombak-pindai-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const opacityAman = Math.min(0.56, Math.max(0, opacity));
   // Titik sambung (0,8) dan (64,8) memakai kemiringan yang sama, jadi pola
   // berulang tanpa garis patah di tepi ubin.
   const ombak = "M0 8C4 2 10 2 16 8S28 14 32 8S44 2 48 8S60 14 64 8";
-  const lapis = [
-    { geser: 0, tebal: 1 },
-    { geser: 8, tebal: 0.86 },
-    { geser: 16, tebal: 0.72 },
-    { geser: 24, tebal: 0.58 },
-  ];
+  const tenang = ragam === "latar";
+  const lapis = tenang
+    ? [
+        { geser: 0, tebal: 1 },
+        { geser: 14, tebal: 0.5 },
+      ]
+    : [
+        { geser: 0, tebal: 1 },
+        { geser: 8, tebal: 0.86 },
+        { geser: 16, tebal: 0.72 },
+        { geser: 24, tebal: 0.58 },
+      ];
 
   return (
     <svg
       aria-hidden="true"
+      data-ragam={ragam}
       className={cn(
         "pointer-events-none absolute inset-0 size-full",
         className,
@@ -77,10 +91,16 @@ export function GelombangPattern({
               >
                 <path
                   d={ombak}
-                  stroke="rgba(50,110,177,0.16)"
+                  stroke={
+                    tenang ? "rgba(50,110,177,0.10)" : "rgba(50,110,177,0.16)"
+                  }
                   strokeWidth="5"
                 />
-                <path d={ombak} stroke={warna} strokeWidth="1.4" />
+                <path
+                  d={ombak}
+                  stroke={warna}
+                  strokeWidth={tenang ? "1.1" : "1.4"}
+                />
                 <path
                   d={ombak}
                   stroke="#9bcdf0"
@@ -90,8 +110,12 @@ export function GelombangPattern({
               </g>
             ))}
           </g>
-          <circle cx="16" cy="3.5" r="1.5" fill="#c9a86a" />
-          <circle cx="48" cy="3.5" r="1.5" fill="#c9a86a" />
+          {!tenang && (
+            <>
+              <circle cx="16" cy="3.5" r="1.5" fill="#c9a86a" />
+              <circle cx="48" cy="3.5" r="1.5" fill="#c9a86a" />
+            </>
+          )}
         </pattern>
       </defs>
       <rect width="420" height="265" fill={`url(#${id})`} />

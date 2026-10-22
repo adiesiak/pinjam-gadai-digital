@@ -85,7 +85,8 @@ const css = readFileSync(
 );
 ok(css.includes("--hero-latar"), "token permukaan hero ada di stylesheet");
 ok(
-  css.includes('[data-gaya="tenang"]') && css.includes('[data-gaya="komunitas"]'),
+  css.includes('[data-gaya="tenang"]') &&
+    css.includes('[data-gaya="komunitas"]'),
   "gaya template punya token bentuk sendiri",
 );
 ok(
@@ -155,6 +156,22 @@ ok(
   "orb blur lama tidak lagi dipasang",
 );
 ok(html.includes("relative z-10"), "konten hero berada di atas motif");
+// Latar hero memakai ragam tenang: dua swell, tanpa titik kuningan, opasitas
+// rendah. Kartu tetap memakai motif penuh, jadi keduanya tidak saling menimpa
+// bobot visual.
+{
+  const mulai = html.indexOf('data-ragam="latar"');
+  const latar = html.slice(mulai, html.indexOf("</svg>", mulai));
+  ok(mulai !== -1, "motif latar memakai ragam tenang");
+  ok(
+    latar.includes("translate(0 14)"),
+    "latar memakai dua swell berjarak lega",
+  );
+  ok(!latar.includes("translate(0 24)"), "latar tidak memakai empat lapis");
+  ok(!latar.includes("#c9a86a"), "latar tanpa titik kuningan");
+  ok(html.includes('opacity="0.11"'), "opasitas latar diturunkan");
+  ok(html.includes("transparent 58%"), "mask latar habis sebelum kolom kartu");
+}
 ok(
   html.includes("bg-hero relative w-full overflow-hidden"),
   "motif dibatasi rapi dalam hero",
