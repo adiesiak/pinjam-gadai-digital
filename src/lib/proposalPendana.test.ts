@@ -1,13 +1,13 @@
 /**
- * Uji isi dan tata letak proposal pembagian hasil pendanaan (fungsi murni).
+ * Uji isi dan tata letak proposal pendanaan (fungsi murni).
  * Run: bun src/lib/proposalPendana.test.ts
  *
  * Yang dijaga:
  *  - angka proposal dihitung dari kebijakan yang sama dengan server
  *    (`bagiHasilPendana`), bukan dari tabel salinan;
  *  - biaya platform yang diubah admin benar-benar mengubah dokumen;
- *  - dokumen tetap tiga halaman (sampul + dua halaman isi), tanpa halaman
- *    sisa yang hampir kosong;
+ *  - dokumen memuat lima bagian, bukan ringkasan skema saja;
+ *  - tabel enam kolom tercetak utuh di satu halaman;
  *  - tidak ada teks yang melewati margin atau menumpuk pada garis yang sama;
  *  - risiko dan kalimat "bukan perjanjian" tidak pernah hilang.
  */
@@ -21,7 +21,7 @@ import {
   formatPersen,
   namaBerkasProposalPendana,
   nomorLayananProposal,
-  proposalPembagianPendana,
+  proposalPendanaanPindai,
   tanggalProposal,
 } from "./proposalPendana";
 
@@ -55,7 +55,9 @@ function semuaTeks(dokumen: DokumenPdf): string {
     else if ("label" in baris) bagian.push(baris.label, baris.nilai);
     else if ("kolom" in baris)
       bagian.push(baris.kolom.kiri, baris.kolom.tengah, baris.kolom.kanan);
-    else if ("pita" in baris)
+    else if ("tabel" in baris) {
+      bagian.push(...baris.tabel.kepala, ...baris.tabel.baris.flat());
+    } else if ("pita" in baris)
       bagian.push(baris.pita.label, baris.pita.nilai, baris.pita.catatan ?? "");
   }
   if (dokumen.sampul !== undefined) {
@@ -118,12 +120,11 @@ function masalahTataLetak(pdf: string): string[] {
     for (const [y, baris] of perGaris) {
       const urut = [...baris].sort((a, b) => a.x - b.x);
       for (let j = 1; j < urut.length; j += 1) {
-        const kiri = urut[j - 1];
-        const kanan = urut[j];
-        const akhirKiri = kiri.x + kiri.teks.length * kiri.size * 0.55;
-        if (akhirKiri > kanan.x + 2) {
+        const akhirKiri =
+          urut[j - 1].x + urut[j - 1].teks.length * urut[j - 1].size * 0.55;
+        if (akhirKiri > urut[j].x + 2) {
           masalah.push(
-            `H${i + 1} y=${y}: "${kiri.teks}" menumpuk "${kanan.teks}"`,
+            `H${i + 1} y=${y}: "${urut[j - 1].teks}" menumpuk "${urut[j].teks}"`,
           );
         }
       }
@@ -134,20 +135,25 @@ function masalahTataLetak(pdf: string): string[] {
 
 const WAKTU = Date.UTC(2026, 9, 22, 9, 30);
 const PERSEN = 5;
-const dokumen = proposalPembagianPendana({
+const dokumen = proposalPendanaanPindai({
   persenPotonganAdmin: PERSEN,
   dibuatPada: WAKTU,
 });
 const teks = semuaTeks(dokumen);
 
 // ===== Sampul =====
-eq(dokumen.sampul?.judul, "Pembagian hasil pendanaan", "judul sampul");
+eq(
+  dokumen.sampul?.judul,
+  "Proposal pendanaan & kemitraan strategis",
+  "judul sampul",
+);
 eq(dokumen.sampul?.fakta.length, 3, "sampul memuat tiga angka kunci");
 eq(dokumen.sampul?.isi.length, 5, "sampul memuat lima butir isi dokumen");
 ada(teks, tanggalProposal(WAKTU), "tanggal terbit di sampul");
 ada(teks, "30 hari", "siklus di sampul");
 ada(teks, "30%", "Imbal Hasil di sampul");
 ada(teks, "5%", "biaya platform di sampul");
+ada(teks, "300", "target nasabah di sampul");
 ada(teks, "Pendanaan bukan tabungan", "peringatan di sampul");
 ada(teks, nomorLayananProposal(), "kontak layanan di sampul");
 
@@ -160,17 +166,37 @@ eq(
 );
 eq(
   dokumen.kop?.keterangan,
-  "Layanan pendanaan - proposal pembagian hasil",
+  "Layanan pendanaan - proposal kemitraan strategis",
   "kop memuat keterangan layanan",
 );
 
-// ===== Skema yang berlaku =====
-ada(teks, "Ringkasan skema", "bagian ringkasan");
-ada(teks, "30% flat per siklus", "Imbal Hasil tercantum");
-ada(teks, "5% dari uang yang kembali", "dasar biaya platform dijelaskan");
-ada(teks, "Satu pinjaman untuk satu pendana", "pemetaan dana dinyatakan");
+// ===== Lima bagian dokumen =====
+ada(teks, "Ringkasan eksekutif", "bagian ringkasan eksekutif");
+ada(teks, "Potensi pasar dan koridor industri", "bagian potensi pasar");
+ada(teks, "Skema pendanaan", "bagian skema");
+ada(teks, "Biaya platform dan mitigasi risiko", "bagian biaya dan risiko");
+ada(teks, "Alur kemitraan", "bagian alur kemitraan");
 
-// ===== Contoh utama, dihitung dari modul yang sama dengan server =====
+// ===== Target 2027 dan pasar =====
+ada(teks, "300 nasabah aktif per bulan", "target 2027 dinyatakan");
+ada(teks, "Rp 225.000.000", "penyaluran bulanan dihitung");
+ada(teks, "Rp 2.700.000.000", "penyaluran tahunan dihitung");
+ada(teks, "TAM per tahun", "TAM tercantum");
+ada(teks, "Rp 100 miliar sampai Rp 200 miliar", "nilai TAM");
+ada(teks, "SAM per tahun", "SAM tercantum");
+ada(teks, "Rp 10 miliar sampai Rp 20 miliar", "nilai SAM");
+ada(teks, "SOM 2027", "SOM tercantum");
+ada(teks, "Rp 225 juta per bulan", "nilai SOM");
+ada(teks, "13,5% sampai 27% dari SAM", "pangsa SOM dijelaskan");
+ada(teks, "KIIC, EJIP, Jababeka, MM2100, Sentul", "kawasan industri disebut");
+
+// ===== Skema dan contoh utama =====
+ada(teks, "30% flat", "Imbal Hasil flat dinyatakan");
+ada(teks, "5% x Uang Kembali (6,5% pokok)", "dasar biaya platform dijelaskan");
+ada(teks, "Diterima bersih", "hasil bersih dinyatakan");
+ada(teks, "123,5% dari pokok", "diterima bersih dalam persen");
+ada(teks, "23,5% dari pokok", "keuntungan bersih dalam persen");
+
 const contoh = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, PERSEN);
 ada(
   teks,
@@ -186,7 +212,6 @@ for (const [label, nilai] of [
 ] as const) {
   ada(teks, formatRupiahAman(nilai), `contoh memuat ${label}`);
 }
-ada(teks, "Diterima bersih", "pita hasil bersih");
 ada(
   teks,
   `Keuntungan bersih ${formatRupiahAman(contoh.keuntungan)} setelah pokok kembali utuh.`,
@@ -197,84 +222,84 @@ eq(contoh.potonganAdmin, 650_000, "biaya 5% dari 13 juta adalah 650 ribu");
 eq(contoh.diterima, 12_350_000, "diterima bersih 12,35 juta");
 eq(contoh.keuntungan, 2_350_000, "keuntungan bersih 2,35 juta");
 
-// ===== Tabel simulasi tiga kolom =====
-ada(teks, "Simulasi nominal", "bagian simulasi");
-ada(teks, "Nominal", "kepala kolom nominal");
-ada(teks, "Imbal Hasil", "kepala kolom Imbal Hasil");
-for (const pokok of NOMINAL_SIMULASI_PROPOSAL) {
-  const bagi = bagiHasilPendana(pokok, PERSEN);
-  const nama = formatRupiahAman(pokok);
-  ada(teks, nama, `baris simulasi ${nama}`);
-  ada(teks, formatRupiahAman(bagi.imbal), `Imbal Hasil simulasi ${nama}`);
-  ada(teks, formatRupiahAman(bagi.diterima), `diterima simulasi ${nama}`);
-  ok(
-    bagi.potonganAdmin + bagi.diterima === bagi.total,
-    `potongan + diterima = uang kembali pada ${nama}`,
-  );
-  ok(
-    bagi.keuntungan === bagi.diterima - pokok,
-    `keuntungan = diterima - pokok pada ${nama}`,
-  );
+// ===== Tabel simulasi enam kolom =====
+ada(teks, "Simulasi Rp 5.000.000 sampai Rp 50.000.000", "judul simulasi");
+ada(teks, "Imbal 30%", "kepala kolom Imbal Hasil");
+ada(teks, "Uang Kembali", "kepala kolom uang kembali");
+ada(teks, "Biaya 5%", "kepala kolom biaya");
+ada(teks, "Keuntungan", "kepala kolom keuntungan");
+{
+  const tabel = dokumen.baris.find((b) => "tabel" in b);
+  ok(tabel !== undefined, "dokumen memuat tabel simulasi");
+  if (tabel !== undefined && "tabel" in tabel) {
+    eq(tabel.tabel.kepala.length, 6, "tabel memakai enam kolom");
+    eq(tabel.tabel.baris.length, 10, "tabel memuat sepuluh nominal");
+    eq(
+      NOMINAL_SIMULASI_PROPOSAL[0],
+      5_000_000,
+      "simulasi dimulai dari lima juta",
+    );
+    eq(
+      NOMINAL_SIMULASI_PROPOSAL[NOMINAL_SIMULASI_PROPOSAL.length - 1],
+      50_000_000,
+      "simulasi berakhir di lima puluh juta",
+    );
+    for (const pokok of NOMINAL_SIMULASI_PROPOSAL) {
+      const bagi = bagiHasilPendana(pokok, PERSEN);
+      const baris = tabel.tabel.baris.find(
+        (b) => b[0] === formatRupiahAman(pokok),
+      );
+      ok(baris !== undefined, `baris simulasi ${formatRupiahAman(pokok)}`);
+      if (baris === undefined) continue;
+      eq(baris.length, 6, `enam sel pada ${formatRupiahAman(pokok)}`);
+      eq(baris[1], formatRupiahAman(bagi.imbal), `Imbal Hasil ${pokok}`);
+      eq(baris[2], formatRupiahAman(bagi.total), `uang kembali ${pokok}`);
+      eq(baris[3], formatRupiahAman(bagi.potonganAdmin), `biaya ${pokok}`);
+      eq(baris[4], formatRupiahAman(bagi.diterima), `diterima ${pokok}`);
+      eq(baris[5], formatRupiahAman(bagi.keuntungan), `keuntungan ${pokok}`);
+    }
+  }
 }
 
-// ===== Alur, hak, risiko, dan kontak =====
-ada(teks, "1. Pendaftaran dan penyetoran", "langkah pendaftaran");
-ada(
-  teks,
-  "Admin PINDAI membuatkan akun setelah rencana pendanaan disepakati",
-  "isi langkah pendaftaran",
-);
-ada(teks, "2. Alokasi ke satu pinjaman", "langkah alokasi");
-ada(teks, "3. Berjalan sampai lunas", "langkah berjalan");
-ada(teks, "4. Transfer hasil", "langkah transfer");
-ada(
-  teks,
-  "Aplikasi tidak memindahkan uang",
-  "batas perpindahan uang dinyatakan",
-);
-ada(teks, "Catatan transfer bukan bukti mutasi bank", "arti catatan transfer");
-ada(teks, "Menyetor dana sesuai kesepakatan", "kewajiban pendana");
-ada(teks, "PINDAI tidak menjamin pembayaran peminjam", "batas jaminan PINDAI");
-ada(teks, "Modal berisiko. Jika peminjam gagal bayar", "risiko gagal bayar");
-ada(
-  teks,
-  "Konsentrasi. Satu pinjaman hanya didanai satu pendana",
-  "risiko konsentrasi",
-);
-ada(
-  teks,
-  "Tidak ada jaminan dari LPS, asuransi, atau pihak ketiga",
-  "risiko modal",
-);
-ada(teks, "Keterlambatan peminjam menunda pencairan hasil", "risiko waktu");
-ada(
-  teks,
-  "bukan perjanjian dan bukan jaminan hasil",
-  "dokumen bukan perjanjian",
-);
-ada(teks, "Hubungi layanan pelanggan PINDAI di WhatsApp", "cara memulai");
+// ===== Biaya, langkah preventif, risiko, kontak =====
+ada(teks, "Rp 14.625.000 per siklus", "kolam biaya platform dihitung");
+ada(teks, "Penagihan lapangan.", "cakupan penagihan");
+ada(teks, "Asuransi atau pengelolaan internal agunan.", "cakupan agunan");
+ada(teks, "Fasilitas jaminan dan solusi bayar.", "cakupan fasilitas bayar");
+ada(teks, "1. Verifikasi sebelum pinjaman", "langkah verifikasi");
+ada(teks, "2. Pengingat", "langkah pengingat");
+ada(teks, "3. Somasi dan peringatan formal", "langkah somasi");
+ada(teks, "4. Restrukturisasi", "langkah restrukturisasi");
+ada(teks, "5. Eksekusi agunan fisik", "langkah eksekusi agunan");
+ada(teks, "PINDAI tidak menjamin pembayaran peminjam", "batas jaminan");
+ada(teks, "Modal berisiko: bila peminjam gagal bayar", "risiko gagal bayar");
+ada(teks, "Konsentrasi alokasi", "risiko konsentrasi");
+ada(teks, "tidak ada jaminan dari", "tidak ada penjamin pihak ketiga");
+ada(teks, "bukan perjanjian dan bukan jaminan hasil", "bukan perjanjian");
+ada(teks, "Hubungi CS WhatsApp", "cara memulai");
+ada(teks, "wa.me/6285119574032", "tautan WhatsApp resmi");
 
 // ===== Tarif admin yang berbeda mengubah dokumen =====
 {
-  const lainDok = proposalPembagianPendana({
+  const lainDok = proposalPendanaanPindai({
     persenPotonganAdmin: 2.5,
     dibuatPada: WAKTU,
   });
   const lain = semuaTeks(lainDok);
   const bagi = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, 2.5);
-  ada(lain, "2,5% dari uang yang kembali", "persen desimal memakai koma");
+  ada(lain, "2,5% x Uang Kembali (3,25% pokok)", "persen desimal memakai koma");
   ada(lain, formatRupiahAman(bagi.potonganAdmin), "biaya mengikuti tarif baru");
   ada(lain, formatRupiahAman(bagi.diterima), "diterima mengikuti tarif baru");
   ok(
-    !lain.includes(formatRupiahAman(contoh.potonganAdmin)),
-    "dokumen tidak menyisakan biaya tarif lama",
+    !lain.includes(formatRupiahAman(contoh.diterima)),
+    "dokumen tidak menyisakan hasil tarif lama",
   );
 }
 {
   const nol = semuaTeks(
-    proposalPembagianPendana({ persenPotonganAdmin: 0, dibuatPada: WAKTU }),
+    proposalPendanaanPindai({ persenPotonganAdmin: 0, dibuatPada: WAKTU }),
   );
-  ada(nol, "0% dari uang yang kembali", "tarif nol ditulis apa adanya");
+  ada(nol, "0% x Uang Kembali", "tarif nol ditulis apa adanya");
   ada(
     nol,
     formatRupiahAman(bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, 0).diterima),
@@ -290,7 +315,7 @@ ok(!/\bundefined\b|\bNaN\b/.test(teks), "tanpa undefined atau NaN");
 // ===== Nama berkas dan nomor layanan =====
 eq(
   namaBerkasProposalPendana(WAKTU),
-  "proposal-pembagian-pendanaan-2026-10-22.pdf",
+  "proposal-pendanaan-pindai-2026-10-22.pdf",
   "nama berkas memakai tanggal UTC",
 );
 eq(
@@ -301,39 +326,56 @@ eq(
 eq(formatPersen(5), "5%", "persen bulat tanpa desimal");
 eq(formatPersen(2.5), "2,5%", "persen desimal memakai koma");
 
-// ===== Berkas PDF: tiga halaman, tanpa sisa satu halaman =====
+// ===== Berkas PDF: halaman, tabel utuh, dan tata letak =====
 {
   const byte = susunPdf(dokumen);
   const pdf = teksPdf(byte);
-  eq(Number(/\/Count (\d+)/.exec(pdf)?.[1]), 3, "sampul + dua halaman isi");
+  const jumlahHalaman = Number(/\/Count (\d+)/.exec(pdf)?.[1]);
+  eq(jumlahHalaman, 6, "sampul dan lima halaman isi");
   ok(pdf.startsWith("%PDF-1.4"), "berkas dimulai dengan header PDF");
   ok(pdf.trimEnd().endsWith("%%EOF"), "berkas diakhiri penanda EOF");
-  ok(pdf.includes("Halaman 1 dari 2"), "halaman isi pertama bernomor 1 dari 2");
-  ok(pdf.includes("Halaman 2 dari 2"), "halaman isi kedua bernomor 2 dari 2");
-  ok(!pdf.includes("Halaman 3 dari"), "tidak ada halaman isi ketiga");
+  ada(pdf, "Halaman 1 dari 5", "halaman isi pertama bernomor 1 dari 5");
+  ada(pdf, "Halaman 5 dari 5", "halaman isi terakhir bernomor 5 dari 5");
   ok(!pdf.includes("Halaman 0 dari"), "sampul tidak memakai nomor nol");
   eq(
     pdf.split("PINJAM GADAI DIGITAL \\(PINDAI\\)").length - 1,
-    3,
-    "nama layanan tercetak di sampul dan dua halaman isi",
+    6,
+    "nama layanan tercetak di sampul dan setiap halaman isi",
   );
   ada(pdf, "UNTUK CALON PENDANA", "sampul menyebut pembacanya");
   ada(
     pdf,
-    "Layanan pendanaan - proposal pembagian hasil",
+    "Layanan pendanaan - proposal kemitraan strategis",
     "keterangan layanan tercetak di sampul",
   );
   ada(pdf, "ISI DOKUMEN", "daftar isi tercetak di sampul");
   ada(pdf, " re f", "pita angka memakai bidang berisi");
   ok(!pdf.includes("\u2014"), "berkas tidak memuat tanda pisah panjang");
   ok(!pdf.includes("?"), "tidak ada karakter yang gagal dipetakan");
-  ok(byte.length > 8_000, "berkas berisi tiga halaman teks");
+
+  // Tabel enam kolom harus utuh: 11 baris (kepala + 10 nominal) di satu halaman.
+  const halaman = posisiTeks(pdf);
+  const halamanTabel = halaman.findIndex((h) =>
+    h.some((t) => t.size === 7.8 && t.teks === "Pokok"),
+  );
+  ok(halamanTabel !== -1, "halaman tabel ditemukan");
+  const selTabel = halaman[halamanTabel]?.filter((t) => t.size === 7.8) ?? [];
+  eq(selTabel.length, 66, "kepala dan 60 sel tabel tercetak di satu halaman");
+  ok(
+    !halaman.some(
+      (h, i) =>
+        i !== halamanTabel &&
+        h.some((t) => t.size === 7.8 && t.teks === "Pokok"),
+    ),
+    "kepala tabel tidak diulang di halaman lain",
+  );
 
   const masalah = masalahTataLetak(pdf);
   ok(
     masalah.length === 0,
     `tata letak bersih${masalah.length > 0 ? `: ${masalah.join("; ")}` : ""}`,
   );
+  ok(byte.length > 20_000, "berkas berisi enam halaman teks");
 }
 
 console.log(`proposalPendana: ${lulus} lulus, ${gagal} gagal`);

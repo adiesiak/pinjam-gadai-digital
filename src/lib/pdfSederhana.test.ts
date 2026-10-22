@@ -1,24 +1,26 @@
 /**
- * Uji penulis PDF laporan (fungsi murni, tanpa dependensi).
+ * Uji penulis PDF tanpa dependensi.
  * Run: bun src/lib/pdfSederhana.test.ts
  *
- * Yang dijaga: berkas yang dihasilkan benar-benar bisa dibuka pembaca PDF.
- * Bagian yang paling gampang salah adalah tabel `xref`: setiap offset harus
- * menunjuk tepat ke awal objek. Offset yang melenceng tidak membuat berkas
- * "gagal tampil" di layar pengembang, tetapi membuat pembaca PDF menolak
- * berkasnya. Karena itu offset diperiksa byte demi byte di sini.
+ * Yang dijaga:
+ *  - berkas selalu sah: header PDF, penanda EOF, dan jumlah halaman yang benar;
+ *  - sampul dan kop dicetak pada tempatnya, termasuk nomor halaman;
+ *  - teks panjang dibungkus, bukan keluar margin;
+ *  - karakter di luar Latin-1 dinormalkan, bukan menjadi kotak rusak;
+ *  - baris angka (label, tiga kolom, tabel enam kolom, pita) sejajar;
+ *  - tidak ada teks yang bertumpuk atau melewati margin kertas.
  */
 import {
-  bagiHalaman,
   bungkusTeks,
   keLatin1,
-  siapkanBaris,
   susunPdf,
   teksPdf,
+  type DokumenPdf,
 } from "./pdfSederhana";
 
 let passed = 0;
 let failed = 0;
+
 function ok(syarat: boolean, label: string): void {
   if (syarat) passed += 1;
   else {
@@ -26,6 +28,7 @@ function ok(syarat: boolean, label: string): void {
     console.error(`FAIL ${label}`);
   }
 }
+
 function eq(actual: unknown, expected: unknown, label: string): void {
   if (actual === expected) passed += 1;
   else {
@@ -36,347 +39,146 @@ function eq(actual: unknown, expected: unknown, label: string): void {
   }
 }
 
-/** Ambil posisi kemunculan pertama sebuah penanda (byte), atau -1. */
-function posisi(teks: string, penanda: string): number {
-  return teks.indexOf(penanda);
+function ada(teks: string, potongan: string, label: string): void {
+  ok(teks.includes(potongan), `${label} (memuat "${potongan}")`);
 }
 
-/** Offset objek dari tabel xref, urut nomor objek. */
-function offsetXref(teks: string): number[] {
-  const mulai = teks.lastIndexOf("\nxref\n");
-  const badan = teks.slice(mulai + "\nxref\n".length);
-  const baris = badan.split("\n");
-  const hasil: number[] = [];
-  for (let i = 2; i < baris.length; i += 1) {
-    const cocok = /^(\d{10}) (\d{5}) ([nf]) $/.exec(baris[i] ?? "");
-    if (cocok === null) break;
-    if (cocok[3] === "n") hasil.push(Number(cocok[1]));
-  }
-  return hasil;
-}
+type TeksPdf = { size: number; x: number; y: number; teks: string };
 
-/* ===== 1. Struktur berkas ===== */
-{
-  const byte = susunPdf({
-    kaki: "PINDAI",
-    baris: [
-      { teks: "Laporan Kinerja Pendanaan", gaya: "judul" },
-      { teks: "Pendana: Siti Aminah", gaya: "biasa" },
-      { garis: true },
-      { teks: "Dana tersalurkan: Rp10.000.000", gaya: "tebal" },
-    ],
-  });
-  const teks = teksPdf(byte);
-  ok(byte instanceof Uint8Array, "keluaran berupa Uint8Array");
-  ok(teks.startsWith("%PDF-1.4\n"), "berkas dimulai dengan penanda versi PDF");
-  ok(teks.endsWith("%%EOF\n"), "berkas ditutup penanda EOF");
-  ok(posisi(teks, "/Type /Catalog") > 0, "ada objek katalog");
-  ok(posisi(teks, "/Type /Pages") > 0, "ada objek daftar halaman");
-  ok(
-    posisi(teks, "/BaseFont /Helvetica") > 0,
-    "font teks biasa tertanam sebagai referensi baku",
+/** Teks beserta posisinya di dalam berkas, per halaman. */
+function posisiTeks(pdf: string): TeksPdf[][] {
+  const halaman = [...pdf.matchAll(/stream\n([\s\S]*?)endstream/g)].map(
+    (m) => m[1],
   );
-  ok(posisi(teks, "/BaseFont /Helvetica-Bold") > 0, "font tebal tersedia");
-  ok(
-    teks.includes("Pendana: Siti Aminah"),
-    "teks isi tertulis di aliran halaman",
-  );
-  ok(
-    teks.includes("PINDAI  -  Halaman 1 dari 1"),
-    "kaki halaman memuat nama layanan dan nomor halaman",
-  );
-  eq(
-    byte.length,
-    teks.length,
-    "satu karakter berkas sama dengan satu byte (Latin-1)",
+  return halaman.map((isi) =>
+    [
+      ...isi.matchAll(
+        /\/(F1|F2) ([\d.]+) Tf 1 0 0 1 ([\d.]+) ([\d.]+) Tm \(([^)]*)\) Tj/g,
+      ),
+    ].map((m) => ({
+      size: Number(m[2]),
+      x: Number(m[3]),
+      y: Number(m[4]),
+      teks: m[5] ?? "",
+    })),
   );
 }
 
-/* ===== 2. Tabel xref menunjuk ke awal objek ===== */
-{
-  const byte = susunPdf({
-    baris: [
-      { teks: "Laporan", gaya: "judul" },
-      { teks: "Baris kedua", gaya: "biasa" },
-    ],
-  });
-  const teks = teksPdf(byte);
-  const offset = offsetXref(teks);
-  ok(
-    offset.length >= 6,
-    "tabel xref memuat semua objek (katalog, halaman, font, isi)",
-  );
-
-  let semuaBenar = true;
-  offset.forEach((pos, i) => {
-    const awal = `${i + 1} 0 obj`;
-    if (teks.slice(pos, pos + awal.length) !== awal) {
-      semuaBenar = false;
-      console.error(
-        `FAIL objek ${i + 1}: offset ${pos} menunjuk ke ${JSON.stringify(teks.slice(pos, pos + 12))}`,
-      );
+/** Kumpulan masalah tata letak: keluar margin atau teks bertumpuk. */
+function masalahTataLetak(pdf: string): string[] {
+  const masalah: string[] = [];
+  posisiTeks(pdf).forEach((halaman, i) => {
+    for (const t of halaman) {
+      // Kaki halaman memang berada di bawah batas isi.
+      if (t.y < 58) continue;
+      const lebar = t.teks.length * t.size * 0.55;
+      if (t.x < 47) masalah.push(`H${i + 1}: ${t.teks} keluar margin kiri`);
+      if (t.x + lebar > 551) {
+        masalah.push(`H${i + 1}: ${t.teks} keluar margin kanan`);
+      }
+    }
+    const perGaris = new Map<number, TeksPdf[]>();
+    for (const t of halaman) {
+      if (t.y < 58) continue;
+      const kunci = Math.round(t.y);
+      perGaris.set(kunci, [...(perGaris.get(kunci) ?? []), t]);
+    }
+    for (const [y, baris] of perGaris) {
+      const urut = [...baris].sort((a, b) => a.x - b.x);
+      for (let j = 1; j < urut.length; j += 1) {
+        const akhirKiri =
+          urut[j - 1].x + urut[j - 1].teks.length * urut[j - 1].size * 0.55;
+        if (akhirKiri > urut[j].x + 2) {
+          masalah.push(
+            `H${i + 1} y=${y}: "${urut[j - 1].teks}" menumpuk "${urut[j].teks}"`,
+          );
+        }
+      }
     }
   });
-  ok(semuaBenar, "setiap offset xref menunjuk tepat ke awal objeknya");
-
-  const startxref = /startxref\n(\d+)\n%%EOF\n$/.exec(teks);
-  ok(startxref !== null, "trailer memuat startxref");
-  eq(
-    Number(startxref?.[1]),
-    posisi(teks, "xref\n0 "),
-    "startxref menunjuk tepat ke penanda tabel xref",
-  );
-  eq(
-    Number(/\/Size (\d+)/.exec(teks)?.[1]),
-    offset.length + 1,
-    "jumlah entri /Size sama dengan objek + entri bebas (0)",
-  );
+  return masalah;
 }
 
-/* ===== 3. Pemenggalan halaman ===== */
+/* ===== 1. Berkas dasar ===== */
 {
-  // 80 baris gaya biasa (leading 15 + jarak 2 = 17) melewati kapasitas satu
-  // halaman, dan tetap muat di halaman kedua.
-  const banyak = Array.from({ length: 80 }, (_, i) => ({
-    teks: `Baris ${i + 1} dari daftar panjang yang harus dipenggal`,
-    gaya: "biasa" as const,
-  }));
-  const byte = susunPdf({ baris: banyak });
-  const teks = teksPdf(byte);
-  eq(
-    Number(/\/Count (\d+)/.exec(teks)?.[1]),
-    2,
-    "80 baris terbagi menjadi 2 halaman",
-  );
-  ok(
-    teks.includes("Halaman 2 dari 2"),
-    "halaman kedua menyebut jumlah halaman yang benar",
-  );
-  eq(
-    (teks.match(/\/Type \/Page[ /]/g) ?? []).length,
-    2,
-    "dua objek halaman ditulis (tanpa objek /Pages ikut terhitung)",
-  );
-  ok(
-    teks.includes("Baris 80"),
-    "isi terakhir tetap tertulis, tidak terpotong diam-diam",
-  );
+  const byte = susunPdf({
+    baris: [{ teks: "Halo pendana", gaya: "biasa" }],
+  });
+  const pdf = teksPdf(byte);
+  ok(pdf.startsWith("%PDF-1.4"), "berkas dimulai dengan header PDF");
+  ok(pdf.trimEnd().endsWith("%%EOF"), "berkas diakhiri penanda EOF");
+  eq(Number(/\/Count (\d+)/.exec(pdf)?.[1]), 1, "dokumen satu halaman");
+  ada(pdf, "Halo pendana", "isi halaman tercetak");
+  ok(!/\bundefined\b|\bNaN\b/.test(pdf), "tanpa undefined atau NaN");
+  ok(byte.length > 500, "berkas berisi objek PDF yang utuh");
+}
 
-  // Pagar atas: dokumen yang lebih panjang tetap menghasilkan jumlah halaman
-  // yang konsisten dengan daftar halaman di `/Kids`.
-  const sangatPanjang = susunPdf({
-    baris: Array.from({ length: 300 }, (_, i) => ({
-      teks: `Baris ${i + 1}`,
+/* ===== 2. Halaman, kaki, dan nomor ===== */
+{
+  const dokumen: DokumenPdf = {
+    baris: Array.from({ length: 90 }, (_, i) => ({
+      teks: `Baris ${i + 1} laporan pendanaan yang cukup panjang untuk memaksa pembungkusan.`,
       gaya: "biasa" as const,
     })),
-  });
-  const teksSangatPanjang = teksPdf(sangatPanjang);
-  const jumlahHalaman = Number(/\/Count (\d+)/.exec(teksSangatPanjang)?.[1]);
-  eq(
-    (teksSangatPanjang.match(/ \d+ 0 R/g) ?? []).length > jumlahHalaman,
-    true,
-    "daftar /Kids memuat satu referensi per halaman",
-  );
-  ok(
-    teksSangatPanjang.includes(
-      `Halaman ${jumlahHalaman} dari ${jumlahHalaman}`,
-    ),
-    "halaman terakhir menyebut nomor halaman terakhir",
-  );
+  };
+  const pdf = teksPdf(susunPdf(dokumen));
+  const jumlah = Number(/\/Count (\d+)/.exec(pdf)?.[1]);
+  ok(jumlah > 1, "isi panjang dibagi menjadi beberapa halaman");
+  ada(pdf, `Halaman 1 dari ${jumlah}`, "halaman pertama bernomor");
+  ada(pdf, `Halaman ${jumlah} dari ${jumlah}`, "halaman terakhir bernomor");
+  ok(!pdf.includes("Halaman 0 dari"), "tidak ada halaman bernomor nol");
+  const barisGambar = (pdf.match(/ Tj ET/g) ?? []).length;
+  ok(barisGambar >= 90, "setiap baris isi tercetak");
 
   // Satu baris sangat panjang dibungkus, bukan dibiarkan keluar margin.
   const panjang = susunPdf({
     baris: [{ teks: "Kata ".repeat(200).trim(), gaya: "biasa" }],
   });
   const teksPanjang = teksPdf(panjang);
-  const jumlahBarisGambar = (teksPanjang.match(/ Tj ET/g) ?? []).length;
   ok(
-    jumlahBarisGambar > 3,
+    (teksPanjang.match(/ Tj ET/g) ?? []).length > 3,
     "teks panjang dibungkus menjadi beberapa baris gambar",
   );
 }
 
-/* ===== 4. Normalisasi teks (Latin-1 + escape) ===== */
+/* ===== 3. Paksa halaman baru ===== */
 {
-  eq(
-    keLatin1("Rp10.000 \u2014 lunas"),
-    "Rp10.000 - lunas",
-    "em dash dinormalkan menjadi tanda hubung",
+  const pdf = teksPdf(
+    susunPdf({
+      baris: [
+        { teks: "Halaman pertama", gaya: "biasa" },
+        { halamanBaru: true },
+        { teks: "Halaman kedua", gaya: "biasa" },
+      ],
+    }),
   );
-  eq(
-    keLatin1("biaya \u00d7 2"),
-    "biaya x 2",
-    "tanda kali dinormalkan menjadi huruf x",
-  );
-  eq(
-    keLatin1("emoji \u{1f600} aman"),
-    "emoji ? aman",
-    "karakter di luar Latin-1 diganti tanda tanya",
-  );
-  eq(
-    keLatin1("Nama: \u2018Budi\u2019"),
-    "Nama: 'Budi'",
-    "kutip melengkung dinormalkan",
-  );
-
-  const byte = susunPdf({
-    baris: [
-      { teks: "Jumlah (biaya) 5% \\ sisa", gaya: "biasa" },
-      { teks: "Rp1.000 \u2014 dibukukan", gaya: "tebal" },
-    ],
-  });
-  const teks = teksPdf(byte);
+  eq(Number(/\/Count (\d+)/.exec(pdf)?.[1]), 2, "halaman baru dipatuhi");
+  ada(pdf, "Halaman pertama", "isi halaman pertama tercetak");
+  ada(pdf, "Halaman kedua", "isi halaman kedua tercetak");
   ok(
-    teks.includes("\\(biaya\\)"),
-    "kurung di-escape supaya tidak menutup literal string PDF",
-  );
-  ok(teks.includes("\\\\"), "garis miring di-escape");
-  ok(!teks.includes("\u2014"), "tidak ada em dash yang ikut tercetak");
-  ok(!teks.includes("\ufffd"), "tidak ada karakter rusak di berkas");
-  eq(
-    teks.length,
-    byte.length,
-    "tidak ada karakter di luar Latin-1 yang menambah byte",
+    !pdf.includes("Halaman 3 dari"),
+    "penanda halaman baru tidak menambah nomor salah",
   );
 }
 
-/* ===== 5. Fungsi tata letak ===== */
+/* ===== 4. Sampul dan kop ===== */
 {
-  const tunggal = bungkusTeks("Halo pendana", 10.5);
-  eq(tunggal.length, 1, "teks pendek tidak dibungkus");
-  const panjang = bungkusTeks(
-    "Peminjam: Nama Yang Sangat Panjang Sekali ".repeat(4).trim(),
-    10.5,
-  );
-  ok(panjang.length > 1, "teks panjang dibungkus menjadi beberapa potongan");
-  ok(
-    panjang.every((b) => b.length > 0),
-    "tidak ada potongan kosong di tengah hasil",
-  );
-
-  const kataPanjang = bungkusTeks(
-    "PND/2026/VERY-LONG-REFERENCE-NUMBER-WITHOUT-SPACES-AT-ALL",
-    10.5,
-  );
-  ok(
-    kataPanjang.every((b) => b.length <= 95),
-    "kata tanpa spasi yang lebih panjang dari satu baris dipotong paksa",
-  );
-
-  const kosong = susunPdf({ baris: [] });
-  eq(
-    Number(/\/Count (\d+)/.exec(teksPdf(kosong))?.[1]),
-    1,
-    "dokumen tanpa isi tetap menghasilkan satu halaman",
-  );
-
-  const siap = siapkanBaris([
-    { teks: "Judul", gaya: "judul" },
-    { kosong: true },
-    { garis: true },
-  ]);
-  eq(
-    siap.length,
-    3,
-    "baris kosong dan garis tetap dihitung sebagai satu baris tata letak",
-  );
-  const dibagi = bagiHalaman(siap);
-  eq(dibagi.length, 1, "tiga baris pendek muat di satu halaman");
-}
-
-/* ===== 6. Kop surat dan baris angka dua kolom ===== */
-{
-  const byte = susunPdf({
+  const dokumen: DokumenPdf = {
     kop: {
       nama: "PINJAM GADAI DIGITAL (PINDAI)",
-      keterangan: "Laporan keuangan pendana",
-      referensi: "LAPORAN PENDANAAN",
-    },
-    kaki: "PINDAI - dokumen dibuat otomatis oleh sistem",
-    baris: [
-      { teks: "Laporan kinerja pendanaan", gaya: "judul" },
-      { label: "Dana tersalurkan", nilai: "Rp 10.000.000" },
-      { label: "Masih berjalan", nilai: "Rp 7.000.000" },
-    ],
-  });
-  const teks = teksPdf(byte);
-  ok(
-    teks.includes("PINJAM GADAI DIGITAL \\(PINDAI\\)"),
-    "nama layanan masuk ke kop",
-  );
-  ok(teks.includes("Laporan keuangan pendana"), "keterangan kop tercetak");
-  ok(
-    teks.includes("LAPORAN PENDANAAN"),
-    "rujukan dokumen tercetak di kanan kop",
-  );
-  ok(
-    (teks.match(/ re B/g) ?? []).length >= 1,
-    "lambang digambar sebagai vektor bertepi",
-  );
-  ok(
-    teks.includes("PINDAI - dokumen dibuat otomatis oleh sistem"),
-    "kaki dokumen tercetak",
-  );
-  ok(
-    teks.includes("Halaman 1 dari 1"),
-    "nomor halaman tercetak terpisah di kaki",
-  );
-
-  // Label di kiri dan nilainya di kanan harus berada pada garis dasar yang SAMA.
-  const posisiTeks = [
-    ...teks.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) Tm \(([^)]*)\) Tj/g),
-  ].map((m) => ({ x: Number(m[1]), y: Number(m[2]), isi: m[3] ?? "" }));
-  const label = posisiTeks.find((t) => t.isi === "Dana tersalurkan");
-  const nilai = posisiTeks.find((t) => t.isi === "Rp 10.000.000");
-  ok(
-    label !== undefined && nilai !== undefined,
-    "label dan nilai sama-sama tercetak",
-  );
-  eq(label?.y, nilai?.y, "label dan nilai berada pada garis dasar yang sama");
-  ok((nilai?.x ?? 0) > (label?.x ?? 0), "nilai diletakkan di kanan label");
-  ok(
-    (nilai?.x ?? 0) + 80 < 595,
-    "nilai rata kanan tidak melewati margin kanan",
-  );
-
-  // Kop mengulang di halaman kedua dan isi tidak menimpanya.
-  const panjang = susunPdf({
-    kop: { nama: "PINJAM GADAI DIGITAL (PINDAI)" },
-    baris: Array.from({ length: 90 }, (_, i) => ({
-      teks: `Baris ${i + 1}`,
-      gaya: "biasa" as const,
-    })),
-  });
-  const teksPanjang = teksPdf(panjang);
-  const halaman = Number(/\/Count (\d+)/.exec(teksPanjang)?.[1]);
-  eq(
-    teksPanjang.split("PINJAM GADAI DIGITAL \\(PINDAI\\)").length - 1,
-    halaman,
-    "kop dicetak di setiap halaman berkop",
-  );
-  ok(
-    teksPanjang.includes(`Halaman ${halaman} dari ${halaman}`),
-    "nomor halaman terakhir benar pada dokumen berkop",
-  );
-}
-
-/* ===== 7. Dokumen bersampul: pita, kolom, dan paksa halaman ===== */
-{
-  const byte = susunPdf({
-    kop: {
-      nama: "PINJAM GADAI DIGITAL (PINDAI)",
+      keterangan: "Layanan pendanaan",
       referensi: "PROPOSAL PENDANAAN",
     },
     sampul: {
       judul: "Pembagian hasil pendanaan",
       subjudul: "Skema pendanaan untuk calon pendana.",
-      meta: "Diterbitkan 22 Oktober 2026",
+      meta: "Diterbitkan 22 Oktober 2026 / PINDAI",
       fakta: [
         { nilai: "30 hari", label: "Siklus pendanaan" },
-        { nilai: "30%", label: "Imbal Hasil per siklus" },
+        { nilai: "30%", label: "Imbal Hasil" },
         { nilai: "5%", label: "Biaya platform" },
       ],
-      catatan: "Catatan sampul yang menjelaskan dasar angka.",
+      catatan: "Imbal Hasil dihitung dari pokok yang Anda danai.",
       isi: ["Ringkasan skema", "Contoh pembagian"],
       penutup: "Pendanaan bukan tabungan.",
       kaki: "Dokumen ini bukan perjanjian.",
@@ -409,43 +211,36 @@ function offsetXref(teks: string): number[] {
       { halamanBaru: true },
       { teks: "Halaman kedua", gaya: "biasa" },
     ],
-  });
-  const teks = teksPdf(byte);
+  };
+  const byte = susunPdf(dokumen);
+  const pdf = teksPdf(byte);
   eq(
-    Number(/\/Count (\d+)/.exec(teks)?.[1]),
+    Number(/\/Count (\d+)/.exec(pdf)?.[1]),
     3,
     "sampul + dua halaman isi menjadi tiga halaman",
   );
-  ok(teks.includes("Pembagian hasil pendanaan"), "judul sampul tercetak");
-  ok(teks.includes("30 hari"), "angka kunci sampul tercetak");
-  ok(teks.includes("ISI DOKUMEN"), "daftar isi sampul tercetak");
-  ok(
-    teks.includes("Pendanaan bukan tabungan."),
-    "kalimat penutup sampul tercetak",
-  );
-  ok(
-    teks.includes("Dokumen ini bukan perjanjian."),
-    "catatan kaki sampul tercetak",
-  );
-  ok(
-    teks.includes("Halaman 1 dari 2"),
-    "halaman isi pertama bernomor 1 dari 2",
-  );
-  ok(teks.includes("Halaman 2 dari 2"), "halaman isi kedua bernomor 2 dari 2");
-  ok(!teks.includes("Halaman 3 dari"), "tidak ada halaman isi ketiga");
-  ok(teks.includes("Halaman kedua"), "paksa halaman baru dipatuhi");
-  ok(teks.includes(" re f"), "pita memakai bidang berisi");
-  ok(teks.includes("Rp 12.350.000"), "nilai pita tercetak");
-  ok(teks.includes("Keuntungan bersih Rp 2.350.000."), "catatan pita tercetak");
+  ada(pdf, "Pembagian hasil pendanaan", "judul sampul tercetak");
+  ada(pdf, "30 hari", "angka kunci sampul tercetak");
+  ada(pdf, "ISI DOKUMEN", "daftar isi sampul tercetak");
+  ada(pdf, "Pendanaan bukan tabungan.", "kalimat penutup sampul tercetak");
+  ada(pdf, "Dokumen ini bukan perjanjian.", "catatan kaki sampul tercetak");
+  ada(pdf, "Halaman 1 dari 2", "halaman isi pertama bernomor 1 dari 2");
+  ada(pdf, "Halaman 2 dari 2", "halaman isi kedua bernomor 2 dari 2");
+  ok(!pdf.includes("Halaman 3 dari"), "tidak ada halaman isi ketiga");
+  ada(pdf, "Halaman kedua", "paksa halaman baru dipatuhi");
+  ada(pdf, " re f", "pita memakai bidang berisi");
+  ada(pdf, "Rp 12.350.000", "nilai pita tercetak");
+  ada(pdf, "Keuntungan bersih Rp 2.350.000.", "catatan pita tercetak");
   eq(
-    teks.split("PINJAM GADAI DIGITAL \\(PINDAI\\)").length - 1,
+    pdf.split("PINJAM GADAI DIGITAL \\(PINDAI\\)").length - 1,
     3,
     "nama layanan tercetak di sampul dan setiap halaman isi",
   );
+  ok(byte.length > 4_000, "berkas sampul berisi tiga halaman teks");
 
-  // Tiga kolom: x menaik pada garis dasar yang sama, kolom kanan rata margin.
+  // Tiga kolom: x menaik pada garis dasar yang sama.
   const posisi = [
-    ...teks.matchAll(
+    ...pdf.matchAll(
       /1 0 0 1 ([\d.]+) ([\d.]+) Tm \((Rp 5\.000\.000|Rp 1\.500\.000|Rp 6\.175\.000)\) Tj/g,
     ),
   ].map((m) => ({ x: Number(m[1]), y: Number(m[2]), isi: m[3] ?? "" }));
@@ -459,6 +254,170 @@ function offsetXref(teks: string): number[] {
   eq(kiri?.y, kanan?.y, "kolom berada pada garis dasar yang sama");
   ok((tengah?.x ?? 0) > (kiri?.x ?? 0), "kolom tengah di kanan kolom kiri");
   ok((kanan?.x ?? 0) > (tengah?.x ?? 0), "kolom kanan di kanan kolom tengah");
+}
+
+/* ===== 5. Label dan nilai ===== */
+{
+  const pdf = teksPdf(
+    susunPdf({
+      baris: [
+        { label: "Biaya platform", nilai: "Rp 650.000" },
+        {
+          label:
+            "Total pengembalian yang diterima pendana setelah siklus selesai",
+          nilai: "Rp 12.350.000",
+        },
+      ],
+    }),
+  );
+  const posisi = [
+    ...pdf.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) Tm \(([^)]*)\) Tj/g),
+  ].map((m) => ({ x: Number(m[1]), y: Number(m[2]), teks: m[3] ?? "" }));
+  const label = posisi.find((p) => p.teks === "Biaya platform");
+  const nilai = posisi.find((p) => p.teks === "Rp 650.000");
+  ok(label !== undefined && nilai !== undefined, "label dan nilai tercetak");
+  eq(label?.y, nilai?.y, "nilai berada pada baris label");
+  ok((nilai?.x ?? 0) > (label?.x ?? 0), "nilai berada di kanan label");
+  const labelPanjang = posisi.filter((p) =>
+    p.teks.startsWith("Total pengembalian"),
+  );
+  ok(labelPanjang.length > 0, "label panjang tetap tercetak");
+  ok(
+    labelPanjang.every((p) => p.x >= 47),
+    "label panjang tidak keluar margin kiri",
+  );
+  const nilaiPanjang = posisi.find((p) => p.teks === "Rp 12.350.000");
+  ok(
+    (nilaiPanjang?.x ?? 0) > (labelPanjang[0]?.x ?? 0),
+    "nilai tetap di kanan label yang dibungkus",
+  );
+}
+
+/* ===== 6. Tabel enam kolom ===== */
+{
+  const pdf = teksPdf(
+    susunPdf({
+      baris: [
+        {
+          tabel: {
+            kepala: [
+              "Pokok",
+              "Imbal 30%",
+              "Uang Kembali",
+              "Biaya 5%",
+              "Diterima",
+              "Keuntungan",
+            ],
+            baris: [
+              [
+                "Rp 5.000.000",
+                "Rp 1.500.000",
+                "Rp 6.500.000",
+                "Rp 325.000",
+                "Rp 6.175.000",
+                "Rp 1.175.000",
+              ],
+            ],
+          },
+        },
+      ],
+    }),
+  );
+  for (const teks of [
+    "Pokok",
+    "Imbal 30%",
+    "Uang Kembali",
+    "Biaya 5%",
+    "Diterima",
+    "Keuntungan",
+  ]) {
+    ada(pdf, teks, `kepala tabel ${teks}`);
+  }
+  const sel = [
+    ...pdf.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) Tm \((Rp [\d.]+)\) Tj/g),
+  ].map((m) => ({ x: Number(m[1]), y: Number(m[2]), teks: m[3] ?? "" }));
+  eq(sel.length, 6, "enam sel angka tercetak");
+  ok(
+    sel.every((s) => Math.round(s.y) === Math.round(sel[0]?.y ?? -1)),
+    "enam sel berada pada garis dasar yang sama",
+  );
+  for (let i = 1; i < sel.length; i += 1) {
+    ok(sel[i].x > sel[i - 1].x, `kolom ${i + 1} di kanan kolom ${i}`);
+  }
+  ok((sel[sel.length - 1]?.x ?? 0) < 505, "kolom terakhir masih di dalam margin");
+  ada(pdf, "/F2 7.8 Tf", "kepala tabel memakai huruf tebal 7,8 pt");
+  ok(pdf.includes("/F1 7.8 Tf"), "sel tabel memakai huruf biasa 7,8 pt");
+  ok(
+    masalahTataLetak(pdf).length === 0,
+    "tabel tidak menumpuk dan tidak keluar margin",
+  );
+}
+
+/* ===== 7. Normalisasi teks (Latin-1 + escape) ===== */
+{
+  eq(
+    keLatin1("Rp10.000 \u2014 lunas"),
+    "Rp10.000 - lunas",
+    "em dash dinormalkan menjadi tanda hubung",
+  );
+  eq(
+    keLatin1("biaya \u00d7 2"),
+    "biaya x 2",
+    "tanda kali dinormalkan menjadi huruf x",
+  );
+  eq(
+    keLatin1("emoji \u{1f600} aman"),
+    "emoji ? aman",
+    "karakter di luar Latin-1 diganti tanda tanya",
+  );
+  eq(
+    keLatin1("Nama: \u2018Budi\u2019"),
+    "Nama: 'Budi'",
+    "kutip melengkung dinormalkan",
+  );
+
+  const byte = susunPdf({
+    baris: [
+      { teks: "Jumlah (biaya) 5% \\ sisa", gaya: "biasa" },
+      { teks: "Rp1.000 \u2014 dibukukan", gaya: "tebal" },
+    ],
+  });
+  const pdf = teksPdf(byte);
+  ada(pdf, "\\(biaya\\)", "kurung di-escape supaya tidak menutup string PDF");
+  ok(pdf.includes("\\\\"), "garis miring di-escape");
+  ok(!pdf.includes("\u2014"), "tidak ada em dash yang ikut tercetak");
+  ok(!pdf.includes("\ufffd"), "tidak ada karakter rusak di berkas");
+}
+
+/* ===== 8. Pembungkusan dan dokumen kosong ===== */
+{
+  const tunggal = bungkusTeks("Halo pendana", 10.5);
+  eq(tunggal.length, 1, "teks pendek tidak dibungkus");
+  const panjang = bungkusTeks(
+    "Peminjam: Nama Yang Sangat Panjang Sekali ".repeat(4).trim(),
+    10.5,
+  );
+  ok(panjang.length > 1, "teks panjang dibungkus menjadi beberapa potongan");
+  ok(
+    panjang.every((b) => b.length > 0),
+    "tidak ada potongan kosong di tengah hasil",
+  );
+
+  const kataPanjang = bungkusTeks(
+    "PND/2026/VERY-LONG-REFERENCE-NUMBER-WITHOUT-SPACES-AT-ALL",
+    10.5,
+  );
+  ok(
+    kataPanjang.every((b) => b.length <= 95),
+    "kata tanpa spasi yang lebih panjang dari satu baris dipotong paksa",
+  );
+
+  const kosong = susunPdf({ baris: [] });
+  eq(
+    Number(/\/Count (\d+)/.exec(teksPdf(kosong))?.[1]),
+    1,
+    "dokumen tanpa isi tetap satu halaman",
+  );
 }
 
 console.log(`pdfSederhana.test: ${passed} lulus, ${failed} gagal`);

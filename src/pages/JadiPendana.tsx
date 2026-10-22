@@ -28,7 +28,7 @@ import {
   formatPersen,
   namaBerkasProposalPendana,
   nomorLayananProposal,
-  proposalPembagianPendana,
+  proposalPendanaanPindai,
 } from "@/lib/proposalPendana";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
 
@@ -56,7 +56,7 @@ function rupiah(nilai: number): string {
 async function simpanProposal(persenPotonganAdmin: number): Promise<void> {
   const dibuatPada = Date.now();
   const byte = susunPdf(
-    proposalPembagianPendana({ persenPotonganAdmin, dibuatPada }),
+    proposalPendanaanPindai({ persenPotonganAdmin, dibuatPada }),
   );
   const blob = new Blob([new Uint8Array(byte)], {
     type: "application/pdf",
@@ -648,19 +648,20 @@ export function JadiPendanaView({
                 id="judul-proposal"
                 className="font-display text-3xl leading-tight tracking-tight text-navy"
               >
-                Proposal pembagian hasil
+                Proposal pendanaan & kemitraan strategis
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
                 Berkas PDF yang bisa Anda simpan, cetak, atau kirim ke orang
-                yang ikut memutuskan. Isinya skema yang berlaku, contoh
-                perhitungan, simulasi beberapa nominal, alur uang, hak dan
-                kewajiban, serta daftar risikonya.
+                yang ikut memutuskan. Isinya ringkasan eksekutif dan target
+                2027, analisis pasar TAM, SAM, dan SOM, skema dengan simulasi Rp
+                5 juta sampai Rp 50 juta, cakupan biaya platform, langkah
+                preventif, risiko, serta alur kemitraan dan kontak.
               </p>
 
               <div className="mt-5">
                 <TombolUnduhProposal
                   persenPotonganAdmin={persenPotonganAdmin}
-                  label="Unduh proposal pembagian (PDF)"
+                  label="Unduh proposal lengkap (PDF)"
                 />
               </div>
 
@@ -676,17 +677,17 @@ export function JadiPendanaView({
                 Isi dokumen
               </p>
               <ol className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
+                <li>Ringkasan eksekutif dan target 300 nasabah aktif 2027.</li>
+                <li>Potensi pasar: TAM, SAM, dan SOM koridor industri.</li>
                 <li>
-                  Ringkasan skema: tenor, Imbal Hasil, dan biaya platform.
+                  Skema pendanaan, contoh pembagian{" "}
+                  {rupiah(NOMINAL_CONTOH_PROPOSAL)}, dan simulasi Rp 5 juta
+                  sampai Rp 50 juta.
                 </li>
                 <li>
-                  Contoh pembagian {rupiah(NOMINAL_CONTOH_PROPOSAL)} baris demi
-                  baris.
+                  Cakupan biaya platform, langkah preventif, dan batas jaminan.
                 </li>
-                <li>Simulasi nominal Rp 5 juta sampai Rp 100 juta.</li>
-                <li>Alur dari pendaftaran sampai transfer hasil.</li>
-                <li>Hak dan kewajiban pendana serta PINDAI.</li>
-                <li>Risiko dan cara memulai, termasuk nomor layanan.</li>
+                <li>Alur kemitraan dan kontak layanan.</li>
               </ol>
             </div>
           </div>

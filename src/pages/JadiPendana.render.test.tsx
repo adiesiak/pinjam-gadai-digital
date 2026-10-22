@@ -68,7 +68,15 @@ ada(html, 'id="kalkulator"', "bagian kalkulator punya sasaran tautan");
 ada(html, 'for="nominal-pendanaan"', "kolom nominal punya label");
 ada(html, 'aria-live="polite"', "hasil hitung diumumkan saat berubah");
 ada(html, "Unduh proposal (PDF)", "tombol unduh di hero");
-ada(html, "Unduh proposal pembagian (PDF)", "tombol unduh di bagian proposal");
+ada(html, "Unduh proposal lengkap (PDF)", "tombol unduh di bagian proposal");
+ada(html, "Proposal pendanaan", "judul bagian proposal");
+ada(html, "TAM, SAM, dan SOM", "isi proposal menyebut analisis pasar");
+ada(
+  html,
+  "Rp 5 juta sampai Rp 50 juta",
+  "isi proposal menyebut rentang simulasi",
+);
+tidakAda(html, "sampai Rp 100 juta", "rentang simulasi lama tidak tertinggal");
 ada(html, "tanpa akun", "syarat unduhan dinyatakan");
 
 // Tombol unduh tidak boleh menunggu admin atau sesi.

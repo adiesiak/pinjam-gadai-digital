@@ -43,6 +43,22 @@ export type BarisPdf =
       tebal?: boolean;
       kecil?: boolean;
     }
+  /**
+   * Tabel banyak kolom dengan lebar tetap.
+   *
+   * Dipakai simulasi pendanaan yang menuntut enam angka sejajar (pokok, Imbal
+   * Hasil, uang kembali, biaya, diterima, keuntungan). Tanpa bentuk ini angka
+   * harus dipecah menjadi dua tabel, dan pembaca kehilangan hubungan satu baris.
+   * Sel ditulis satu baris; pemanggil bertanggung jawab memakai label pendek.
+   */
+  | {
+      tabel: {
+        kepala: string[];
+        baris: string[][];
+        /** Bobot lebar kolom relatif; default sama rata. */
+        bobot?: number[];
+      };
+    }
   /** Pita angka penting: bidang kertas berkotak kuningan dengan satu angka besar. */
   | { pita: { label: string; nilai: string; catatan?: string } }
   /** Jarak vertikal dalam titik, untuk mengatur napas antar bagian. */
@@ -276,6 +292,7 @@ type BarisSiap = {
     | "teks"
     | "rincian"
     | "kolom"
+    | "tabel"
     | "pita"
     | "jarak"
     | "putus"
@@ -288,6 +305,10 @@ type BarisSiap = {
   tengah: string;
   /** Catatan kecil di bawah nilai pada `pita`. */
   catatan: string;
+  /** Sel tabel; hanya dipakai baris `tabel`. */
+  sel?: string[];
+  /** Bobot lebar kolom tabel; default sama rata. */
+  bobot?: number[];
   gaya: GayaBarisPdf;
   tinggi: number;
   jarakBawah: number;
@@ -381,6 +402,36 @@ export function siapkanBaris(baris: BarisPdf[]): BarisSiap[] {
         tinggi: UKURAN[gaya].leading,
         jarakBawah: 3,
       });
+      continue;
+    }
+    if ("tabel" in entri) {
+      const { kepala, baris, bobot } = entri.tabel;
+      hasil.push({
+        jenis: "tabel",
+        teks: "",
+        nilai: "",
+        tengah: "",
+        catatan: "",
+        sel: kepala,
+        bobot,
+        gaya: "tebal",
+        tinggi: 14,
+        jarakBawah: 3,
+      });
+      for (const isi of baris) {
+        hasil.push({
+          jenis: "tabel",
+          teks: "",
+          nilai: "",
+          tengah: "",
+          catatan: "",
+          sel: isi,
+          bobot,
+          gaya: "kecil",
+          tinggi: 12.5,
+          jarakBawah: 1.5,
+        });
+      }
       continue;
     }
     if ("label" in entri) {
@@ -678,6 +729,33 @@ function isiHalaman(
           ),
         );
       }
+    } else if (entri.jenis === "tabel") {
+      // Satu ukuran huruf untuk seluruh tabel supaya enam kolom tetap muat.
+      // Kepala kolom memakai F2; isinya F1, jadi angka tidak ikut menebal.
+      const ukuran = 7.8;
+      const garisDasar = y - ukuran;
+      const sel = entri.sel ?? [];
+      const bobot = entri.bobot ?? sel.map(() => 1);
+      const jumlahBobot = bobot.reduce((jumlah, nilai) => jumlah + nilai, 0);
+      const tebal = entri.gaya === "tebal";
+      let x = MARGIN_SISI;
+      sel.forEach((isi, i) => {
+        if (isi !== "") {
+          operasi.push(
+            operasiTeksMentah(
+              isi,
+              ukuran,
+              tebal ? "F2" : "F1",
+              x,
+              garisDasar,
+              tebal ? WARNA.tinta : WARNA.badan,
+            ),
+          );
+        }
+        x +=
+          (LEBAR_TEKS * (bobot[i] ?? 1)) /
+          (jumlahBobot === 0 ? 1 : jumlahBobot);
+      });
     } else if (entri.jenis === "pita") {
       const bawah = y - entri.tinggi;
       const ujung = LEBAR_HALAMAN - MARGIN_SISI;
