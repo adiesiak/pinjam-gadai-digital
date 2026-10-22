@@ -20,7 +20,11 @@ import { v } from "convex/values";
 import { action, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-const URL_VERIFIKASI = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+const URL_VERIFIKASI =
+  "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+
+/** Batas tunggu Cloudflare; tanpa ini formulir bisa menggantung tanpa jawaban. */
+const TIMEOUT_VERIFIKASI_MS = 10_000;
 
 /**
  * Umur pas satu verifikasi.
@@ -75,9 +79,13 @@ export const verifikasiTurnstile = action({
       };
     }
 
+    const kontrol = new AbortController();
+    const jam = setTimeout(() => kontrol.abort(), TIMEOUT_VERIFIKASI_MS);
     try {
       const respons = await fetch(URL_VERIFIKASI, {
         method: "POST",
+        redirect: "error",
+        signal: kontrol.signal,
         body: new URLSearchParams({ secret, response: bersih }),
       });
       const data = (await respons.json()) as { success?: boolean };
@@ -85,7 +93,8 @@ export const verifikasiTurnstile = action({
         return {
           ok: false,
           aktif: true,
-          alasan: "Verifikasi keamanan tidak lolos. Muat ulang halaman lalu coba lagi.",
+          alasan:
+            "Verifikasi keamanan tidak lolos. Muat ulang halaman lalu coba lagi.",
         };
       }
     } catch {
@@ -95,6 +104,8 @@ export const verifikasiTurnstile = action({
         alasan:
           "Verifikasi keamanan tidak bisa dihubungi. Periksa koneksi lalu coba lagi.",
       };
+    } finally {
+      clearTimeout(jam);
     }
 
     await ctx.runMutation(internal.turnstile._catatLolos, { userId });

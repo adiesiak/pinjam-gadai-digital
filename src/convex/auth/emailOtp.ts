@@ -18,6 +18,9 @@ export async function kirimEmailVerifikasi(email: string, token: string) {
         headers: {
           ...freebuffEmailOtpHeaders(),
         },
+        // Tanpa batas waktu, permintaan masuk bisa menggantung sampai Convex
+        // memutus action dan pengguna tidak pernah tahu kodenya gagal dikirim.
+        timeout: 15_000,
       },
     );
   } catch (error) {
@@ -85,7 +88,9 @@ function freebuffEmailOtpError(error: unknown): Error {
   )?.response;
   if (response) {
     const detail =
-      typeof response.data?.error === "string" ? `: ${response.data.error}` : "";
+      typeof response.data?.error === "string"
+        ? `: ${response.data.error}`
+        : "";
     return new Error(
       `Could not send the sign-in code (HTTP ${response.status})${detail}`,
     );

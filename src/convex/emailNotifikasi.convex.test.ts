@@ -25,6 +25,7 @@ type KirimanEmail = {
   to: string;
   subject: string;
   text: string;
+  redirect: string;
 };
 
 const ASLI_KEY = process.env.VLY_INTEGRATION_KEY;
@@ -36,7 +37,10 @@ function pasangGatewayEmail() {
   const keluar: KirimanEmail[] = [];
   process.env.VLY_INTEGRATION_KEY = "kunci-email-uji";
   process.env.VLY_INTEGRATION_BASE_URL = "https://email.uji/";
-  globalThis.fetch = (async (url: unknown, init?: { body?: unknown; headers?: unknown }) => {
+  globalThis.fetch = (async (
+    url: unknown,
+    init?: { body?: unknown; headers?: unknown; redirect?: string },
+  ) => {
     const headers = (init?.headers ?? {}) as Record<string, string>;
     const body = JSON.parse(String(init?.body ?? "{}")) as {
       to?: string;
@@ -49,11 +53,15 @@ function pasangGatewayEmail() {
       to: body.to ?? "",
       subject: body.subject ?? "",
       text: body.text ?? "",
+      redirect: init?.redirect ?? "",
     });
-    return new Response(JSON.stringify({ success: true, data: { status: "sent" } }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: true, data: { status: "sent" } }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }) as unknown as typeof fetch;
   return {
     keluar,
@@ -91,12 +99,16 @@ describe("email pengingat", () => {
     });
     const gateway = pasangGatewayEmail();
     try {
-      const hasil = await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId));
+      const hasil = await t.action(
+        internal.emailNotifikasi.kirimPengingat,
+        argumen(userId),
+      );
       expect(hasil.status).toBe("terkirim");
       expect(gateway.keluar).toHaveLength(1);
       const kiriman = gateway.keluar[0];
       expect(kiriman.url).toBe("https://email.uji/v1/email/send");
       expect(kiriman.otorisasi).toBe("Bearer kunci-email-uji");
+      expect(kiriman.redirect).toBe("error");
       expect(kiriman.to).toBe("rani-email@pindai.test");
       expect(kiriman.subject).toBe(
         "PINDAI · Pengingat angsuran ke-2 pinjaman PND-1",
@@ -104,7 +116,9 @@ describe("email pengingat", () => {
       expect(kiriman.text).toContain(PESAN);
       expect(kiriman.text).toContain("diatur tim PINDAI");
 
-      const log = await t.run((ctx) => ctx.db.query("emailNotifikasiLog").collect());
+      const log = await t.run((ctx) =>
+        ctx.db.query("emailNotifikasiLog").collect(),
+      );
       expect(log).toHaveLength(1);
       expect(log[0]).toMatchObject({
         userId,
@@ -126,10 +140,20 @@ describe("email pengingat", () => {
     const gateway = pasangGatewayEmail();
     try {
       expect(
-        (await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId))).status,
+        (
+          await t.action(
+            internal.emailNotifikasi.kirimPengingat,
+            argumen(userId),
+          )
+        ).status,
       ).toBe("terkirim");
       expect(
-        (await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId))).status,
+        (
+          await t.action(
+            internal.emailNotifikasi.kirimPengingat,
+            argumen(userId),
+          )
+        ).status,
       ).toBe("sudah_selesai");
       expect(gateway.keluar).toHaveLength(1);
     } finally {
@@ -151,10 +175,15 @@ describe("email pengingat", () => {
     );
     const gateway = pasangGatewayEmail();
     try {
-      const hasil = await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId));
+      const hasil = await t.action(
+        internal.emailNotifikasi.kirimPengingat,
+        argumen(userId),
+      );
       expect(hasil.status).toBe("dimatikan");
       expect(gateway.keluar).toHaveLength(0);
-      const log = await t.run((ctx) => ctx.db.query("emailNotifikasiLog").collect());
+      const log = await t.run((ctx) =>
+        ctx.db.query("emailNotifikasiLog").collect(),
+      );
       expect(log).toHaveLength(0);
     } finally {
       gateway.pulihkan();
@@ -169,15 +198,25 @@ describe("email pengingat", () => {
     const gateway = pasangGatewayEmail();
     delete process.env.VLY_INTEGRATION_KEY;
     try {
-      const hasil = await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId));
+      const hasil = await t.action(
+        internal.emailNotifikasi.kirimPengingat,
+        argumen(userId),
+      );
       expect(hasil.status).toBe("tanpa_konfigurasi");
       expect(gateway.keluar).toHaveLength(0);
-      const log = await t.run((ctx) => ctx.db.query("emailNotifikasiLog").collect());
+      const log = await t.run((ctx) =>
+        ctx.db.query("emailNotifikasiLog").collect(),
+      );
       expect(log).toHaveLength(1);
       expect(log[0].status).toBe("tanpa_konfigurasi");
 
       expect(
-        (await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId))).status,
+        (
+          await t.action(
+            internal.emailNotifikasi.kirimPengingat,
+            argumen(userId),
+          )
+        ).status,
       ).toBe("sudah_selesai");
       expect(gateway.keluar).toHaveLength(0);
     } finally {
@@ -193,10 +232,15 @@ describe("email pengingat", () => {
     await t.run((ctx) => ctx.db.patch(userId, { notifEmail: false }));
     const gateway = pasangGatewayEmail();
     try {
-      const hasil = await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId));
+      const hasil = await t.action(
+        internal.emailNotifikasi.kirimPengingat,
+        argumen(userId),
+      );
       expect(hasil.status).toBe("dimatikan");
       expect(gateway.keluar).toHaveLength(0);
-      expect(await t.run((ctx) => ctx.db.query("emailNotifikasiLog").collect())).toHaveLength(0);
+      expect(
+        await t.run((ctx) => ctx.db.query("emailNotifikasiLog").collect()),
+      ).toHaveLength(0);
     } finally {
       gateway.pulihkan();
     }
@@ -207,7 +251,10 @@ describe("email pengingat", () => {
     const { userId } = await buatPengguna(t, "Rani Tanpa Email");
     const gateway = pasangGatewayEmail();
     try {
-      const hasil = await t.action(internal.emailNotifikasi.kirimPengingat, argumen(userId));
+      const hasil = await t.action(
+        internal.emailNotifikasi.kirimPengingat,
+        argumen(userId),
+      );
       expect(hasil.status).toBe("tanpa_email");
       expect(gateway.keluar).toHaveLength(0);
     } finally {

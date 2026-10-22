@@ -1,11 +1,18 @@
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { isiEmailPengingat, subjekEmailPengingat } from "../lib/emailPengingat";
 
 /** Batas percobaan per pengingat — gateway yang bermasalah tidak dispam tiap jam. */
 const BATAS_PERCOBAAN = 3;
+
+/** Batas tunggu gateway. Tanpa ini, cron bisa menggantung sampai batas Convex. */
+const GATEWAY_TIMEOUT_MS = 15_000;
 
 /**
  * Data yang dibutuhkan sebelum mengirim satu email pengingat.
@@ -21,7 +28,9 @@ export const _dataKirim = internalQuery({
     if (user === null) return null;
     const sebelumnya = await ctx.db
       .query("emailNotifikasiLog")
-      .withIndex("by_user_kunci", (q) => q.eq("userId", userId).eq("kunci", kunci))
+      .withIndex("by_user_kunci", (q) =>
+        q.eq("userId", userId).eq("kunci", kunci),
+      )
       .first();
     const sudahSelesai =
       sebelumnya !== null &&
@@ -113,10 +122,13 @@ export const kirimPengingat = internalAction({
     if (data === null) return { status: "tanpa_pengguna" };
     if (data.email === null) return { status: "tanpa_email" };
     // Gerbang efektif: sakelar global admin DAN override nasabah ini.
-    const emailAktif = await ctx.runQuery(internal.notifikasiNasabah._kanalAktif, {
-      userId: args.userId,
-      kanal: "email",
-    });
+    const emailAktif = await ctx.runQuery(
+      internal.notifikasiNasabah._kanalAktif,
+      {
+        userId: args.userId,
+        kanal: "email",
+      },
+    );
     if (!emailAktif) return { status: "dimatikan" };
     if (data.sudahSelesai) return { status: "sudah_selesai" };
     const email = data.email;
@@ -135,15 +147,24 @@ export const kirimPengingat = internalAction({
 
     const key = process.env.VLY_INTEGRATION_KEY;
     if (!key) {
-      await catat("tanpa_konfigurasi", "VLY_INTEGRATION_KEY belum diisi di environment.");
+      await catat(
+        "tanpa_konfigurasi",
+        "VLY_INTEGRATION_KEY belum diisi di environment.",
+      );
       return { status: "tanpa_konfigurasi" };
     }
 
-    const base = (process.env.VLY_INTEGRATION_BASE_URL || "https://integrations.vly.ai")
-      .replace(/\/+$/, "");
+    const base = (
+      process.env.VLY_INTEGRATION_BASE_URL || "https://integrations.vly.ai"
+    ).replace(/\/+$/, "");
+    const kontrol = new AbortController();
+    const jam = setTimeout(() => kontrol.abort(), GATEWAY_TIMEOUT_MS);
     try {
       const res = await fetch(`${base}/v1/email/send`, {
         method: "POST",
+        // Alamat gateway tetap; pengalihan tidak diikuti (SSRF).
+        redirect: "error",
+        signal: kontrol.signal,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${key}`,
@@ -155,18 +176,30 @@ export const kirimPengingat = internalAction({
         }),
       });
       const json: unknown = await res.json().catch(() => null);
-      const isiJson = json as { success?: boolean; data?: { status?: string } } | null;
+      const isiJson = json as {
+        success?: boolean;
+        data?: { status?: string };
+      } | null;
       const berhasil =
-        res.ok && isiJson?.success !== false && isiJson?.data?.status !== "failed";
+        res.ok &&
+        isiJson?.success !== false &&
+        isiJson?.data?.status !== "failed";
       await catat(
         berhasil ? "terkirim" : "gagal",
         berhasil ? undefined : galatGateway(res.status, json),
       );
       return { status: berhasil ? "terkirim" : "gagal" };
     } catch (error) {
-      const pesan = error instanceof Error ? error.message : String(error);
+      const pesan =
+        error instanceof Error && error.name === "AbortError"
+          ? `Gateway email tidak menjawab dalam ${GATEWAY_TIMEOUT_MS / 1000} detik.`
+          : error instanceof Error
+            ? error.message
+            : String(error);
       await catat("gagal", pesan.slice(0, 240));
       return { status: "gagal" };
+    } finally {
+      clearTimeout(jam);
     }
   },
 });

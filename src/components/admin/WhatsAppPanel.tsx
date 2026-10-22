@@ -150,7 +150,9 @@ export function EditorTemplateWa({
                 }`}
               >
                 {`+{${nama}}`}
-                {wajib && <span className="ml-1 text-[10px] font-semibold">wajib</span>}
+                {wajib && (
+                  <span className="ml-1 text-[10px] font-semibold">wajib</span>
+                )}
               </button>
             );
           })}
@@ -221,7 +223,9 @@ export function EditorTemplateWa({
         </div>
         <div className="mt-2 flex justify-end">
           <span className="max-w-[92%] rounded-lg bg-emerald-800 px-3 py-2 text-xs leading-5 text-white shadow-sm">
-            <span className="block whitespace-pre-line break-words">{pratinjau.isi}</span>
+            <span className="block whitespace-pre-line break-words">
+              {pratinjau.isi}
+            </span>
           </span>
         </div>
       </div>
@@ -246,15 +250,22 @@ export function ManajemenTemplateWa({
   return (
     <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div>
-        <p className="text-sm font-semibold text-navy">Manajemen template pesan</p>
+        <p className="text-sm font-semibold text-navy">
+          Manajemen template pesan
+        </p>
         <p className="mt-1 max-w-prose text-xs leading-5 text-muted-foreground">
-          Satu template untuk setiap jenis pesan: pengingat H-3, H-1, dan hari H, keterlambatan
-          tahap 1 dan 2, konfirmasi pembayaran, pelunasan, pencairan, serta kode OTP. Kolom yang
-          dibiarkan kosong memakai teks bawaan yang sudah sopan dan netral.
+          Satu template untuk setiap jenis pesan: pengingat H-3, H-1, dan hari
+          H, keterlambatan tahap 1 dan 2, konfirmasi pembayaran, pelunasan,
+          pencairan, serta kode OTP. Kolom yang dibiarkan kosong memakai teks
+          bawaan yang sudah sopan dan netral.
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Jenis template pesan">
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="group"
+        aria-label="Jenis template pesan"
+      >
         {JENIS_TEMPLATE_WA.map((jenis) => {
           const diubah = (nilai[jenis] ?? "").trim() !== "";
           const aktif = jenis === jenisAktif;
@@ -328,13 +339,20 @@ export function WhatsAppPanel() {
   const [fieldPesan, setFieldPesan] = useState<string | null>(null);
   const [aktif, setAktif] = useState(false);
   // Template per jenis; `null` = belum diisi dari server.
-  const [templates, setTemplates] = useState<Record<string, string> | null>(null);
+  const [templates, setTemplates] = useState<Record<string, string> | null>(
+    null,
+  );
   const [jenisAktif, setJenisAktif] = useState<JenisTemplateWa>("pengingat_h3");
   const [nomorTes, setNomorTes] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
-  const [testPreview, setTestPreview] = useState<{ to: string; text: string } | null>(null);
+  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(
+    null,
+  );
+  const [testPreview, setTestPreview] = useState<{
+    to: string;
+    text: string;
+  } | null>(null);
   const [tab, setTab] = useState("gateway");
 
   if (data === undefined) {
@@ -366,7 +384,11 @@ export function WhatsAppPanel() {
     ];
     for (const [jenis, teks] of pindahanLegacy) {
       const isi = (teks ?? "").trim();
-      if (awal[jenis] === undefined && isi !== "" && validasiTemplateWa(jenis, isi).ok) {
+      if (
+        awal[jenis] === undefined &&
+        isi !== "" &&
+        validasiTemplateWa(jenis, isi).ok
+      ) {
         awal[jenis] = isi;
       }
     }
@@ -394,8 +416,14 @@ export function WhatsAppPanel() {
       setStatus({ text: "Konfigurasi WhatsApp tersimpan.", ok: true });
       toast.success("Konfigurasi WhatsApp tersimpan.");
     } catch (err) {
-      setStatus({ text: err instanceof Error ? err.message : "Gagal menyimpan konfigurasi.", ok: false });
-      setError(err instanceof Error ? err.message : "Gagal menyimpan konfigurasi.");
+      setStatus({
+        text:
+          err instanceof Error ? err.message : "Gagal menyimpan konfigurasi.",
+        ok: false,
+      });
+      setError(
+        err instanceof Error ? err.message : "Gagal menyimpan konfigurasi.",
+      );
     } finally {
       setBusy(null);
     }
@@ -412,7 +440,10 @@ export function WhatsAppPanel() {
       setStatus({ text: "Pesan tes terkirim.", ok: true });
       toast.success("Pesan tes terkirim.");
     } catch (err) {
-      setStatus({ text: err instanceof Error ? err.message : "Pengiriman tes gagal.", ok: false });
+      setStatus({
+        text: err instanceof Error ? err.message : "Pengiriman tes gagal.",
+        ok: false,
+      });
       setError(err instanceof Error ? err.message : "Pengiriman tes gagal.");
     } finally {
       setBusy(null);
@@ -423,10 +454,13 @@ export function WhatsAppPanel() {
     <div className="animate-masuk flex min-h-0 flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-navy">Gateway &amp; Template Pesan WhatsApp</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-navy">
+            Gateway &amp; Template Pesan WhatsApp
+          </h2>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            Satu gateway untuk semua pesan: pengingat otomatis, kabar status, info tagihan, dan
-            kode OTP. Template tiap jenis diatur di Tab 1; pengirimannya terlihat di Tab 2.
+            Satu gateway untuk semua pesan: pengingat otomatis, kabar status,
+            info tagihan, dan kode OTP. Template tiap jenis diatur di Tab 1;
+            pengirimannya terlihat di Tab 2.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -458,12 +492,18 @@ export function WhatsAppPanel() {
             {/* KIRI: KONEKSI */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div>
-                <p className="text-sm font-semibold">Koneksi gateway WhatsApp</p>
+                <p className="text-sm font-semibold">
+                  Koneksi gateway WhatsApp
+                </p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Bekerja dengan gateway berbasis token (Fonnte, Wablas, Meta Cloud API, dsb).
-                  API key diisi di environment variabel{" "}
-                  <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px]">WHATSAPP_API_KEY</code>,
-                  dan tidak pernah disimpan di database.
+                  Bekerja dengan Fonnte (termasuk lampiran PDF) atau gateway
+                  lain yang menerima JSON berisi nomor dan pesan. Gateway dengan
+                  bentuk permintaan khusus seperti Meta Cloud API belum
+                  didukung. API key diisi di environment variabel{" "}
+                  <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px]">
+                    WHATSAPP_API_KEY
+                  </code>
+                  , dan tidak pernah disimpan di database.
                 </p>
               </div>
 
@@ -518,15 +558,19 @@ export function WhatsAppPanel() {
               <Separator />
 
               <div className="space-y-2 text-xs leading-5 text-muted-foreground">
-                <p className="text-xs font-semibold text-foreground">Pengingat otomatis</p>
-                <p>
-                  Pengingat jatuh tempo dikirim H-3, H-1, dan hari H; keterlambatan maksimal satu
-                  pesan per hari. Semua pesan hanya berangkat antara 08.00 dan 20.00 WIB, dan
-                  berhenti sendiri begitu pembayaran tercatat (status pinjaman berpindah).
+                <p className="text-xs font-semibold text-foreground">
+                  Pengingat otomatis
                 </p>
                 <p>
-                  Nomor tujuan selalu nomor peminjam dari data KYC, dan setiap percobaan tercatat
-                  di Log Pengiriman dengan jenis yang bisa dibaca.
+                  Pengingat jatuh tempo dikirim H-3, H-1, dan hari H;
+                  keterlambatan maksimal satu pesan per hari. Semua pesan hanya
+                  berangkat antara 08.00 dan 20.00 WIB, dan berhenti sendiri
+                  begitu pembayaran tercatat (status pinjaman berpindah).
+                </p>
+                <p>
+                  Nomor tujuan selalu nomor peminjam dari data KYC, dan setiap
+                  percobaan tercatat di Log Pengiriman dengan jenis yang bisa
+                  dibaca.
                 </p>
               </div>
 
@@ -536,8 +580,8 @@ export function WhatsAppPanel() {
                 <div>
                   <p className="text-sm font-medium">Aktifkan pengiriman</p>
                   <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                    Saat nonaktif, pengiriman dihentikan: OTP tidak berangkat dan pesan tercatat di
-                    log sebagai belum terkirim.
+                    Saat nonaktif, pengiriman dihentikan: OTP tidak berangkat
+                    dan pesan tercatat di log sebagai belum terkirim.
                   </p>
                 </div>
                 <Switch checked={aktif} onCheckedChange={setAktif} />
@@ -556,7 +600,9 @@ export function WhatsAppPanel() {
             {/* KANAN: TEMPLATE PESAN */}
             <ManajemenTemplateWa
               nilai={templates}
-              onChange={(jenis, teks) => setTemplates({ ...templates, [jenis]: teks })}
+              onChange={(jenis, teks) =>
+                setTemplates({ ...templates, [jenis]: teks })
+              }
               jenisAktif={jenisAktif}
               onPilihJenis={setJenisAktif}
               sibuk={busy !== null}
@@ -580,7 +626,9 @@ export function WhatsAppPanel() {
                   ["Gagal", `${data.statistik.gagal}`],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl bg-slate-50 px-2 py-3">
-                    <p className="text-lg font-semibold tabular-nums text-navy">{value}</p>
+                    <p className="text-lg font-semibold tabular-nums text-navy">
+                      {value}
+                    </p>
                     <p className="text-[11px] text-muted-foreground">{label}</p>
                   </div>
                 ))}
@@ -592,7 +640,9 @@ export function WhatsAppPanel() {
               <div className="mt-2 flex gap-2">
                 <Input
                   value={nomorTes}
-                  onChange={(e) => setNomorTes(e.target.value.replace(/[^\d+]/g, ""))}
+                  onChange={(e) =>
+                    setNomorTes(e.target.value.replace(/[^\d+]/g, ""))
+                  }
                   placeholder="6281234567890"
                   className="tabular-nums"
                 />
@@ -601,7 +651,11 @@ export function WhatsAppPanel() {
                   disabled={busy !== null || nomorTes.trim().length < 8}
                   onClick={tes}
                 >
-                  {busy === "test" ? <Loader2 className="size-4 animate-spin" /> : "Tes"}
+                  {busy === "test" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    "Tes"
+                  )}
                 </Button>
               </div>
               {testPreview && (
@@ -614,13 +668,17 @@ export function WhatsAppPanel() {
             {/* KANAN: LOG PENGIRIMAN */}
             <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-navy">Log pengiriman (terbaru)</p>
+                <p className="text-sm font-semibold text-navy">
+                  Log pengiriman (terbaru)
+                </p>
                 <span className="text-[11px] text-muted-foreground">
                   {data.logs.length} baris
                 </span>
               </div>
               {data.logs.length === 0 ? (
-                <p className="mt-3 text-xs text-muted-foreground">Belum ada pengiriman.</p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Belum ada pengiriman.
+                </p>
               ) : (
                 <div className="mt-3 max-h-96 overflow-y-auto rounded-xl border border-slate-200">
                   <Table>
@@ -704,7 +762,8 @@ export function WhatsAppPanel() {
             </div>
             {!templateSah && (
               <span className="text-red-600">
-                Ada template yang belum memenuhi placeholder wajibnya, jadi belum ikut tersimpan.
+                Ada template yang belum memenuhi placeholder wajibnya, jadi
+                belum ikut tersimpan.
               </span>
             )}
           </div>
@@ -713,7 +772,11 @@ export function WhatsAppPanel() {
               size="sm"
               variant="outline"
               disabled={busy !== null}
-              onClick={() => setTemplates(Object.fromEntries(JENIS_TEMPLATE_WA.map((j) => [j, ""])))}
+              onClick={() =>
+                setTemplates(
+                  Object.fromEntries(JENIS_TEMPLATE_WA.map((j) => [j, ""])),
+                )
+              }
             >
               <RotateCcw className="mr-1.5 size-4" aria-hidden="true" />
               Reset semua ke bawaan
@@ -721,7 +784,13 @@ export function WhatsAppPanel() {
             <Button
               size="sm"
               className="bg-[#064E3B] text-white hover:bg-[#021E17]"
-              disabled={busy !== null || !apiUrl || !authHeader || !fieldNomor || !fieldPesan}
+              disabled={
+                busy !== null ||
+                !apiUrl ||
+                !authHeader ||
+                !fieldNomor ||
+                !fieldPesan
+              }
               onClick={simpan}
             >
               {busy === "save" ? (
