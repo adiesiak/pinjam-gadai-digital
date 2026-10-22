@@ -1022,6 +1022,26 @@ ok(
   );
 }
 
+// 19. Aturan hook: semua hook dipasang SEBELUM cabang "sedang memuat". Efek
+// yang ditulis setelah cabang itu membuat jumlah hook berbeda antara render
+// belum-termuat dan render termuat, dan React melempar "Rendered more hooks
+// than during the previous render" begitu data server tiba.
+{
+  const modul = bacaSumber("pages/dashboard/kyc-views.tsx");
+  const mulai = modul.indexOf("export function KycSection(");
+  const akhir = modul.indexOf("\n}\n", mulai);
+  const badan = modul.slice(mulai, akhir === -1 ? undefined : akhir);
+  const cabangMemuat = badan.indexOf("if (data === undefined)");
+  ok(cabangMemuat > 0, "KycSection punya cabang \"sedang memuat\"");
+  ok(
+    !/\buse(?:State|Effect|Ref|Memo|Callback|Reducer)\s*\(/.test(
+      badan.slice(Math.max(0, cabangMemuat)),
+    ),
+    "tidak ada hook yang dipasang setelah cabang \"sedang memuat\"",
+  );
+  ada(modul, "function AutosaveKyc(", "autosave menjadi komponen anak, bukan efek sesudah cabang memuat");
+}
+
 if (failed > 0) {
   console.error(`\n${failed} gagal, ${passed} lulus`);
   process.exit(1);

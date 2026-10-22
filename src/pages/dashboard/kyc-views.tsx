@@ -1155,6 +1155,55 @@ function JudulTahap({ nomor, judul }: { nomor: number; judul: string }) {
   );
 }
 
+/**
+ * Penjadwal simpan otomatis formulir KYC.
+ *
+ * Komponen terpisah, bukan efek di dalam `KycSection`: `KycSection` sudah
+ * memilih cabang "sedang memuat" sebelum formulirnya, jadi efek yang ditulis
+ * setelah cabang itu membuat jumlah hook berbeda antara render belum-termuat
+ * dan render termuat. React menolaknya ("Rendered more hooks than during the
+ * previous render") begitu data server tiba. Sebagai komponen anak, hook di
+ * sini baru dipasang bersama formulirnya, dan dilepas saat formulir tidak
+ * ditampilkan.
+ */
+function AutosaveKyc({
+  kunci,
+  terkunci,
+  busy,
+  simpan,
+}: {
+  /** Stempel isian terakhir; `null` bila tidak ada draft yang perlu disimpan. */
+  kunci: string | null;
+  /** Persetujuan belum tercatat: server akan menolak simpanan. */
+  terkunci: boolean;
+  busy: boolean;
+  simpan: () => Promise<unknown>;
+}) {
+  const terakhir = useRef<string | null>(null);
+  // Fungsi simpan dibaca dari ref supaya efek penjadwal tidak diulang hanya
+  // karena induknya render lagi dengan closure baru.
+  const simpanTerbaru = useRef(simpan);
+  useEffect(() => {
+    simpanTerbaru.current = simpan;
+  }, [simpan]);
+
+  useEffect(() => {
+    if (kunci === null) {
+      terakhir.current = null;
+      return;
+    }
+    if (terkunci || busy) return;
+    if (terakhir.current === kunci) return;
+    const timer = window.setTimeout(() => {
+      terakhir.current = kunci;
+      void simpanTerbaru.current();
+    }, AUTOSAVE_DIAM_MS);
+    return () => window.clearTimeout(timer);
+  }, [kunci, terkunci, busy]);
+
+  return null;
+}
+
 /* ==========================================================================
  * Bagian yang tersambung server
  * ========================================================================== */
@@ -1692,29 +1741,10 @@ export function KycSection({
           draft.berkas.bukti?.id ?? null,
           ocrKtp,
         ]);
-  const kunciAutosaveTerakhir = useRef<string | null>(null);
-
-  /**
-   * Autosave: isian yang sudah berhenti diketik disimpan sendiri.
-   *
-   * Toast sengaja dibungkam (`diam`) — yang memberi kabar cukup indikator kecil
-   * "Tersimpan otomatis HH.mm" di bawah tombol utama. Selama persetujuan belum
-   * tercatat atau ada aksi lain berjalan, simpanan ditunda karena server akan
-   * menolaknya (`pastikanPersetujuan`).
-   */
-  useEffect(() => {
-    if (kunciAutosave === null) {
-      kunciAutosaveTerakhir.current = null;
-      return;
-    }
-    if (terkunci || busy) return;
-    if (kunciAutosaveTerakhir.current === kunciAutosave) return;
-    const timer = window.setTimeout(() => {
-      kunciAutosaveTerakhir.current = kunciAutosave;
-      void simpanProgres({ diam: true });
-    }, AUTOSAVE_DIAM_MS);
-    return () => window.clearTimeout(timer);
-  }, [kunciAutosave, terkunci, busy]);
+  // Autosave dipasang oleh `<AutosaveKyc>` di dalam cabang formulir, bukan
+  // sebagai efek di sini: efek setelah cabang "sedang memuat" mengubah jumlah
+  // hook antar-render. Toast-nya dibungkam (`diam`) — indikator kecil
+  // "Tersimpan otomatis HH.mm" di bawah tombol utama sudah cukup.
 
   const setujuiPemrosesan = async () => {
     const berhasil = await jalankan(() => setujui({ versi: VERSI_PERSETUJUAN_KYC }));
@@ -1865,6 +1895,12 @@ export function KycSection({
 
   return (
     <section className="space-y-4 rounded-3xl bg-slate-50 p-3 sm:p-4">
+      <AutosaveKyc
+        kunci={kunciAutosave}
+        terkunci={terkunci}
+        busy={busy}
+        simpan={() => simpanProgres({ diam: true })}
+      />
       <KycStatusHeader
         status={data.status}
         kekurangan={data.kekurangan}
