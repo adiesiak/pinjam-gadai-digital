@@ -29,7 +29,7 @@ Skema yang ditawarkan kepada pendana berjalan singkat dan terukur. Dana ditempat
 
 Untuk tahun 2027, PINDAI menetapkan satu target yang jelas dan dapat diperiksa setiap bulan: 300 nasabah aktif per bulan, konsisten. Dengan tiket rata-rata Rp 750.000, yang merupakan titik tengah rentang pinjaman, target itu setara Rp 225 juta penyaluran per bulan atau sekitar Rp 2,7 miliar per tahun. Angka ini menjadi dasar seluruh perhitungan pasar, kebutuhan dana berjalan, dan kapasitas operasional dalam dokumen ini.
 
-Ada tiga alasan model ini layak dipertimbangkan pendana. Pertama, siklusnya pendek, sehingga dana tidak terkunci berbulan-bulan dan keputusan pendanaan bisa ditinjau setiap 30 hari. Kedua, jaminannya fisik dan tercatat, bukan skor kredit atau janji bayar. Ketiga, pemetaan satu lawan satu membuat pendana tahu persis pinjaman mana yang dibiayai dan agunan apa yang menyertainya. Yang perlu ditegaskan sejak awal: pendanaan ini bukan tabungan dan bukan produk berjaminan pihak ketiga. Modal berisiko, dan Imbal Hasil baru menjadi hak pendana setelah pinjaman lunas.
+Ada tiga alasan model ini layak dipertimbangkan pendana. Pertama, siklusnya pendek, sehingga dana tidak terkunci berbulan-bulan dan keputusan pendanaan bisa ditinjau setiap 30 hari. Kedua, jaminannya fisik dan tercatat, bukan skor kredit atau janji bayar. Ketiga, pemetaan satu lawan satu membuat pendana tahu persis pinjaman mana yang dibiayai dan agunan apa yang menyertainya. Rincian risiko dan batas jaminan ada di Bagian 4.
 
 **Target ekspansi 2027**
 
@@ -69,11 +69,11 @@ Angka SOM setara 13,5% sampai 27% dari SAM, dan sekitar 1,35% sampai 2,7% dari T
 
 Nasabah yang dilayani adalah karyawan pabrik aktif, bukan pedagang tanpa penghasilan tetap. Ciri yang dicari: masa kerja cukup, slip gaji atau bukti penghasilan tersedia, domisili dapat diverifikasi, dan agunan fisik berada dalam penguasaan peminjam. Agunan yang diterima adalah barang bernilai likuid dan mudah dinilai, misalnya sepeda motor, emas, atau elektronik tertentu. Nilai agunan disesuaikan dengan pokok pinjaman, sehingga nilai jual kembali masih menutup pokok bila terjadi wanprestasi berat.
 
-### Posisi PINDAI di antara pilihan pembiayaan yang ada
+### Posisi PINDAI
 
-Pekerja pabrik dengan kebutuhan Rp 500.000 sampai Rp 1.000.000 biasanya menghadapi tiga pilihan: pinjaman bank, pinjaman online, atau pemberi pinjaman informal. Produk bank dirancang untuk tiket dan jangka waktu yang lebih besar, dengan proses dan dokumen yang tidak sepadan untuk kebutuhan 30 hari. Pinjaman online memberi kecepatan, tetapi tanpa agunan fisik dan dengan biaya yang sering tidak terbaca jelas oleh peminjam. Pemberi pinjaman informal memberi kecepatan serupa dengan harga yang tinggi dan tanpa catatan.
+PINDAI memposisikan layanannya pada kebutuhan pinjaman Rp 500.000 sampai Rp 1.000.000 dengan siklus 30 hari. Posisi yang diambil adalah tiket kecil, jangka waktu pendek, agunan fisik tercatat, dan biaya yang ditulis sejak awal.
 
-PINDAI mengambil posisi di antara ketiganya: tiket kecil, siklus 30 hari, agunan fisik tercatat, dan biaya yang ditulis sejak awal. Bagi pendana, posisi ini penting karena nilai jaminan tidak bergantung pada skor kredit, tetapi pada barang yang benar-benar diperiksa dan disimpan sesuai prosedur internal.
+Bagi pendana, posisi ini penting karena nilai jaminan tidak bergantung pada skor kredit, tetapi pada barang yang benar-benar diperiksa dan disimpan sesuai prosedur internal. Yang ditawarkan PINDAI adalah cara kerja yang dapat diperiksa: satu pinjaman, satu agunan, satu pendana.
 
 ### Risiko pasar yang kami akui
 
@@ -127,9 +127,9 @@ Dengan Rp 10.000.000, pendana menerima Rp 12.350.000 pada akhir siklus. Pokok ke
 
 Semua nominal dihitung sebagai rupiah bulat. Biaya platform dibulatkan ke bawah, sehingga sisa rupiah selalu menjadi hak pendana dan tidak ada rupiah yang hilang atau diciptakan. Pada semua angka di tabel, hasilnya tepat tanpa sisa pembulatan.
 
-### Ilustrasi putaran dan batasnya
+### Putaran dana dan batasnya
 
-Keuntungan bersih 23,5% berlaku untuk satu siklus 30 hari. Bila dana yang sama berputar 12 kali dalam setahun tanpa jeda, hasil aritmetikanya setara 282% dari pokok. Angka itu adalah ilustrasi perkalian, bukan proyeksi. Di lapangan ada waktu tunggu antar-alokasi, keterlambatan pembayaran peminjam, dan kemungkinan wanprestasi yang mengurangi hasil. Karena itu dokumen ini tidak menjanjikan hasil tahunan, dan setiap siklus dinilai sendiri.
+Keuntungan bersih 23,5% berlaku untuk satu siklus 30 hari, dan tidak ada janji bahwa dana berputar setiap bulan. Setelah satu siklus selesai, pendana memutuskan apakah dana ditempatkan lagi pada alokasi berikutnya atau ditarik. Waktu tunggu antar-alokasi, keterlambatan pembayaran peminjam, dan kemungkinan wanprestasi mengurangi hasil aktual. Karena itu setiap siklus dinilai sendiri, dan dokumen ini tidak memuat proyeksi hasil tahunan.
 
 ### Pemetaan dana
 
@@ -145,7 +145,7 @@ Biaya platform dihitung dari Uang Kembali, bukan dari pokok dan bukan dari Imbal
 
 **Penagihan lapangan.** Petugas mendatangi peminjam sebelum jatuh tempo, bukan menunggu tunggakan. Kunjungan dilakukan di kawasan pabrik, rumah kos, atau kediaman peminjam, dengan biaya transportasi dan waktu yang nyata. Penagihan awal ini yang menjaga siklus 30 hari tetap berjalan.
 
-**Asuransi dan pengelolaan agunan fisik.** Agunan dinilai, dicatat, dan disimpan sesuai prosedur internal. Biaya ini mencakup pemeriksaan kondisi barang, penyimpanan, dan perlindungan atas risiko kerusakan atau kehilangan selama pinjaman berjalan.
+**Asuransi atau pengelolaan internal agunan fisik.** Agunan dinilai, dicatat, dan disimpan sesuai prosedur internal. Biaya ini mencakup pemeriksaan kondisi barang, penyimpanan, dan perlindungan atas risiko kerusakan atau kehilangan selama pinjaman berjalan. Perlindungan itu berlaku untuk barang jaminan, bukan jaminan atas pengembalian dana pendana.
 
 **Fasilitas jaminan dan solusi bayar.** Peminjam menerima bukti pencatatan agunan, pengingat, dan pilihan cara membayar, termasuk pembayaran yang dicatat admin. Fasilitas ini mengurangi kesalahan bayar dan memberi jejak transaksi yang bisa diperiksa.
 
@@ -210,11 +210,13 @@ Pada hari ke-30, setelah pinjaman dinyatakan lunas, PINDAI mentransfer pokok ber
 | Waktu | Peristiwa |
 | --- | --- |
 | Hari 0 | Pembahasan skema, verifikasi data, pembuatan akun, persetujuan alokasi |
-| Hari 0 sampai 1 | Penyetoran dana ke rekening usaha dan pencatatan penerimaan |
-| Hari 1 | Alokasi ke satu pinjaman dengan agunan fisik tercatat |
-| Hari 23 sampai 29 | Pengingat aktif kepada peminjam menjelang jatuh tempo |
+| Setelah persetujuan | Penyetoran dana ke rekening usaha dan pencatatan penerimaan |
+| Setelah dana dicatat | Alokasi ke satu pinjaman dengan agunan fisik tercatat |
+| Beberapa hari sebelum jatuh tempo | Pengingat aktif kepada peminjam |
 | Hari 30 | Jatuh tempo pinjaman dan penyelesaian kewajiban peminjam |
 | Setelah lunas | Transfer pokok dan keuntungan bersih ke rekening pendana, lalu pencatatan |
+
+Tabel ini menggambarkan urutan, bukan komitmen jam atau hari kerja tertentu. Waktu aktual mengikuti kesepakatan, kelengkapan dokumen, dan proses verifikasi.
 
 ### Langkah berikutnya
 
@@ -224,7 +226,7 @@ Pembahasan dimulai dari percakapan, bukan dari penyetoran. Sampaikan nominal yan
 WhatsApp: 0851-1957-4032
 Tautan: https://wa.me/6285119574032
 
-Sampaikan: nama, kota domisili, rencana nominal, dan waktu yang diinginkan untuk mulai. Balasan diberikan pada jam kerja.
+Sampaikan: nama, kota domisili, rencana nominal, dan waktu yang diinginkan untuk mulai. Balasan diberikan pada hari kerja.
 
 ### Catatan tentang dokumen ini
 
