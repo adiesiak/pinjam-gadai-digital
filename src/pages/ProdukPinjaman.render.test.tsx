@@ -10,6 +10,7 @@
  *  - nama entitas dan tautan produk ada di kedua halaman;
  *  - tidak ada "undefined", "NaN", atau "[object Object]" di markup.
  */
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
@@ -79,8 +80,46 @@ function render(produk: "konvensional" | "syariah"): string {
   ada(html, "PT Pindai Digital Solusindo", "nama entitas tercetak");
   ada(html, 'href="/pinjaman/konvensional"', "tautan ke produk konvensional");
   ada(html, "Rincian Murabahah", "kalkulator syariah tampil");
+  ada(
+    html,
+    'href="#kalkulator-syariah"',
+    "hero menautkan langsung ke kalkulator",
+  );
+  ada(
+    html,
+    'id="kalkulator-syariah"',
+    "kalkulator punya jangkar untuk tautan hero",
+  );
   ok(!/bunga|denda/i.test(html), "tidak ada kata bunga atau denda di halaman syariah");
   bersih(html, "halaman syariah");
+}
+
+// ===== 3. Tata letak kalkulator syariah =====
+// Kalkulator tiga akad tidak muat di kolom samping 26rem: di layar 1024-1366
+// px kolom hasil menyusut sampai angka rupiah saling menimpa. Karena itu ia
+// harus dirender selebar konten, di bawah penjelasan akad.
+{
+  const sumber = readFileSync("src/pages/ProdukPinjaman.tsx", "utf8");
+  ok(
+    /\{syariah && \(\s*<div className="mt-8">\s*<KalkulatorSyariah \/>/.test(
+      sumber,
+    ),
+    "kalkulator syariah dirender selebar konten di bawah kartu akad",
+  );
+  ok(
+    /\{!syariah && \(\s*<div className="lg:sticky lg:top-20">\s*<KalkulatorKonvensional/.test(
+      sumber,
+    ),
+    "kolom samping hanya dipakai kalkulator konvensional",
+  );
+  ok(
+    sumber.includes("sm:grid-cols-2") && sumber.includes("lg:grid-cols-3"),
+    "kartu akad memakai grid dua-tiga kolom, bukan tumpukan penuh",
+  );
+  ok(
+    !/syariah\s*\?\s*\(\s*<KalkulatorSyariah/.test(sumber),
+    "kalkulator syariah tidak lagi dipilih di dalam kolom samping",
+  );
 }
 
 if (gagal > 0) {

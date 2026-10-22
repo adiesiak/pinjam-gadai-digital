@@ -90,9 +90,11 @@ function BarisAngka({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-slate-200 py-2 text-sm last:border-b-0">
-      <dt className="text-slate-600">{label}</dt>
+      {/* Label boleh turun baris; angka tidak, supaya nominal panjang tetap
+          utuh di kolom sempit alih-alih terpotong atau bertumpuk. */}
+      <dt className="min-w-0 text-slate-600">{label}</dt>
       <dd
-        className={`text-right tabular-nums ${tebal ? "font-semibold text-navy" : "text-slate-800"}`}
+        className={`shrink-0 whitespace-nowrap text-right tabular-nums ${tebal ? "font-semibold text-navy" : "text-slate-800"}`}
       >
         {nilai}
       </dd>
@@ -650,8 +652,9 @@ function KalkulatorSyariah() {
 
   return (
     <section
+      id="kalkulator-syariah"
       aria-labelledby="judul-kalkulator-syariah"
-      className="rounded-kartu border border-gold/40 bg-white p-4 shadow-kartu sm:p-6"
+      className="scroll-mt-24 rounded-kartu border border-gold/40 bg-white p-4 shadow-kartu sm:p-6"
     >
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-amber-800">
         <Calculator className="size-3.5" aria-hidden /> Kalkulator akad
@@ -812,7 +815,10 @@ function KalkulatorSyariah() {
           )}
         </div>
 
-        <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4">
+        <div
+          className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4"
+          aria-live="polite"
+        >
           {isi}
           <p className="mt-3 text-[11px] leading-5 text-slate-500">
             Angka ini ilustrasi skema. Pengajuan akad syariah belum dibuka di
@@ -899,14 +905,23 @@ function KerangkaHalaman({
             </p>
 
             {syariah ? (
-              <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-950">
-                <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-                <p>
-                  Pengajuan akad syariah belum dibuka. Halaman ini menjelaskan
-                  skema dan angkanya supaya Anda bisa menilai lebih dulu. Produk
-                  konvensional tetap dapat diajukan dari dashboard.
-                </p>
-              </div>
+              <>
+                <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-950">
+                  <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  <p>
+                    Pengajuan akad syariah belum dibuka. Halaman ini menjelaskan
+                    skema dan angkanya supaya Anda bisa menilai lebih dulu.
+                    Produk konvensional tetap dapat diajukan dari dashboard.
+                  </p>
+                </div>
+                <a
+                  href="#kalkulator-syariah"
+                  className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-amber-700/40 px-3 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Coba kalkulator akad
+                  <ArrowRight className="size-4 rotate-90" aria-hidden />
+                </a>
+              </>
             ) : (
               <div className="mt-6 flex flex-wrap gap-3">
                 <Button
@@ -980,7 +995,19 @@ function KerangkaHalaman({
         </section>
 
         <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start">
+          {/*
+           * Syariah memakai kalkulator selebar konten, bukan kolom samping
+           * 26rem: tiga akad, dua kolom input, dan kartu hasil tidak muat di
+           * kolom sempit — angka rupiah saling menimpa saat dituang ke sana.
+           * Konvensional tetap memakai kolom samping yang lengket.
+           */}
+          <div
+            className={
+              syariah
+                ? ""
+                : "grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start"
+            }
+          >
             <div>
               <h2 className="text-2xl font-semibold tracking-tight text-navy">
                 {syariah ? "Tiga akad, satu aturan pembagian" : "Dua skema, satu mesin hitung"}
@@ -992,7 +1019,7 @@ function KerangkaHalaman({
               </p>
 
               {syariah ? (
-                <div className="mt-5 space-y-3">
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
                   {[
                     {
                       ikon: Package,
@@ -1062,17 +1089,21 @@ function KerangkaHalaman({
               )}
             </div>
 
-            <div className="lg:sticky lg:top-20">
-              {syariah ? (
-                <KalkulatorSyariah />
-              ) : (
+            {!syariah && (
+              <div className="lg:sticky lg:top-20">
                 <KalkulatorKonvensional
                   tarifBiaya={tarifBiaya}
                   tarifBulanan={tarifBulanan}
                 />
-              )}
-            </div>
+              </div>
+            )}
           </div>
+
+          {syariah && (
+            <div className="mt-8">
+              <KalkulatorSyariah />
+            </div>
+          )}
         </section>
 
         <section className="border-t border-border bg-muted">
