@@ -77,7 +77,7 @@ type Kelompok = { judul: string; modul: readonly string[] };
 const RINGKASAN = [
   { angka: "16", label: "halaman publik" },
   { angka: "6", label: "tab peminjam" },
-  { angka: "26", label: "modul admin" },
+  { angka: "27", label: "modul admin" },
   { angka: "3", label: "produk pembiayaan" },
 ] as const;
 
@@ -138,7 +138,9 @@ const MODUL_ADMIN: readonly Kelompok[] = [
     judul: "Konten",
     modul: [
       "Template Website",
-      "Konten Beranda",          "Banner & Pengumuman Sistem",
+      "Konten Beranda",
+      "Halaman Pendana & Proposal",
+      "Banner & Pengumuman Sistem",
       "Promo Pinjaman",
       "WhatsApp",
       "Aplikasi Android",

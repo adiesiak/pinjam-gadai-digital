@@ -13,6 +13,10 @@ import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
 import { DEFAULTS } from "./announcements";
 import { BATAS_LANDING, KONTEN_LANDING_DEFAULT } from "../lib/landing-cms";
+import {
+  BATAS_PENDANA,
+  KONTEN_PENDANA_DEFAULT,
+} from "../lib/kontenPendana";
 
 describe("CMS situs publik — pengaturan admin", () => {
   it("admin mengubah konten landing, publik melihatnya, lalu reset ke default", async () => {
@@ -211,6 +215,156 @@ describe("CMS situs publik — pengaturan admin", () => {
     );
     await expect(
       peminjam.mutation(api.announcements.bersihkanTeksLama, {}),
+    ).rejects.toThrow(/admin/i);
+  });
+
+  it("admin mengubah konten halaman pendana tanpa menghapus berkas proposal", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Pendana", {
+      email: "admin-pendana@pindai.test",
+      role: "admin",
+    });
+
+    // Halaman baru: publik membaca konten utuh dari bawaan, termasuk daftar.
+    const awal = await t.query(api.announcements.getPublic, {});
+    expect(awal.pendana.heroJudul).toBe(KONTEN_PENDANA_DEFAULT.heroJudul);
+    expect(awal.pendana.prinsip).toHaveLength(4);
+    expect(awal.pendana.faq).toHaveLength(6);
+
+    await expect(
+      admin.mutation(api.announcements.simpanKontenPendana, {
+        pendana: {
+          heroJudul: "  Judul pendana baru  ",
+          // Kosong → pembacaan memakai bawaan, bukan judul kosong.
+          prinsipJudul: "   ",
+          heroDeskripsi: "d".repeat(BATAS_PENDANA.heroDeskripsi + 30),
+          prinsip: [{ judul: "Prinsip admin", isi: "Isi prinsip admin" }],
+          proposalIsi: ["Baris pertama"],
+          faq: [{ tanya: "Tanya admin?", jawab: "Jawab admin." }],
+        },
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    const baris = await admin.query(api.announcements.getCmsRow, {});
+    expect(baris?.pendana?.heroJudul).toBe("Judul pendana baru");
+    expect(baris?.pendana?.prinsipJudul).toBeUndefined();
+    expect(baris?.pendana?.heroDeskripsi).toHaveLength(
+      BATAS_PENDANA.heroDeskripsi,
+    );
+    expect(baris?.pendana?.prinsip).toHaveLength(1);
+
+    const publik = await t.query(api.announcements.getPublic, {});
+    expect(publik.pendana.heroJudul).toBe("Judul pendana baru");
+    expect(publik.pendana.prinsipJudul).toBe(
+      KONTEN_PENDANA_DEFAULT.prinsipJudul,
+    );
+    expect(publik.pendana.prinsip[0].judul).toBe("Prinsip admin");
+    expect(publik.pendana.prinsip[1].judul).toBe(
+      KONTEN_PENDANA_DEFAULT.prinsip[1].judul,
+    );
+    expect(publik.pendana.proposalIsi[0]).toBe("Baris pertama");
+    expect(publik.pendana.proposalIsi[1]).toBe(
+      KONTEN_PENDANA_DEFAULT.proposalIsi[1],
+    );
+    expect(publik.pendana.faq[0].tanya).toBe("Tanya admin?");
+    expect(publik.pendana.faq[5].tanya).toBe(
+      KONTEN_PENDANA_DEFAULT.faq[5].tanya,
+    );
+
+    // Teks halaman tidak boleh mengubah konten landing.
+    expect(publik.landing.heroJudul1).toBe(
+      KONTEN_LANDING_DEFAULT.heroJudul1,
+    );
+
+    // Menyimpan teks berikutnya tidak boleh melepas berkas proposal yang
+    // sudah dipasang: formulir admin mengirim teks saja, bukan berkas.
+    const pdf = await t.run((ctx) =>
+      ctx.storage.store(
+        new Blob(["%PDF-1.4 proposal"], { type: "application/pdf" }),
+      ),
+    );
+    await admin.action(api.announcements.pasangProposal, {
+      berkasId: pdf,
+      namaBerkas: "proposal.pdf",
+    });
+    await admin.mutation(api.announcements.simpanKontenPendana, {
+      pendana: { heroJudul: "Judul kedua" },
+    });
+    const setelah = await admin.query(api.announcements.getCmsRow, {});
+    expect(setelah?.pendana?.berkasNama).toBe("proposal.pdf");
+    expect(setelah?.pendana?.heroJudul).toBe("Judul kedua");
+  });
+
+  it("proposal PDF hanya terbaca sesi masuk, diverifikasi, dan bisa dikembalikan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Proposal", {
+      email: "admin-proposal@pindai.test",
+      role: "admin",
+    });
+
+    // Tanpa berkas: unduhan disusun aplikasi.
+    expect(await t.query(api.announcements.proposalPendanaAktif, {})).toBeNull();
+
+    const pdf = await t.run((ctx) =>
+      ctx.storage.store(
+        new Blob(["%PDF-1.4 isi proposal"], { type: "application/pdf" }),
+      ),
+    );
+    await expect(
+      admin.action(api.announcements.pasangProposal, {
+        berkasId: pdf,
+        namaBerkas: "proposal 2027/final.pdf",
+      }),
+    ).resolves.toMatchObject({ ok: true, namaBerkas: "proposal 2027-final.pdf" });
+
+    // Pengunjung anonim tidak menerima tautan penyimpanan.
+    expect(await t.query(api.announcements.proposalPendanaAktif, {})).toBeNull();
+
+    const { sesi: pendana } = await siapkanPengguna(t, "Pendana", {
+      email: "pendana-proposal@pindai.test",
+      role: "dana",
+    });
+    const aktif = await pendana.query(
+      api.announcements.proposalPendanaAktif,
+      {},
+    );
+    expect(aktif?.namaBerkas).toBe("proposal 2027-final.pdf");
+    expect(aktif?.url).toMatch(/^https?:/);
+
+    // Query publik tidak membawa URL berkas.
+    const publik = await t.query(api.announcements.getPublic, {});
+    expect(JSON.stringify(publik)).not.toContain("convex.cloud");
+
+    // Berkas non-PDF ditolak.
+    const teks = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["bukan pdf"], { type: "text/plain" })),
+    );
+    await expect(
+      admin.action(api.announcements.pasangProposal, { berkasId: teks }),
+    ).rejects.toThrow(/PDF/i);
+
+    await expect(admin.mutation(api.announcements.hapusProposal, {})).resolves.toEqual({
+      ok: true,
+    });
+    expect(await pendana.query(api.announcements.proposalPendanaAktif, {})).toBeNull();
+  });
+
+  it("hanya admin yang boleh mengganti proposal dan menyimpan konten pendana", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam } = await siapkanPengguna(t, "Peminjam Pendana", {
+      email: "peminjam-pendana@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      peminjam.mutation(api.announcements.simpanKontenPendana, {
+        pendana: { heroJudul: "Teks tidak sah" },
+      }),
+    ).rejects.toThrow(/admin/i);
+    await expect(
+      peminjam.mutation(api.announcements.generateUploadProposalUrl, {}),
+    ).rejects.toThrow(/admin/i);
+    await expect(
+      peminjam.mutation(api.announcements.hapusProposal, {}),
     ).rejects.toThrow(/admin/i);
   });
 });

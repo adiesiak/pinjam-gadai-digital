@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
+import { KONTEN_PENDANA_DEFAULT } from "@/lib/kontenPendana";
+
 import { JadiPendanaView } from "./JadiPendana";
 
 /**
@@ -193,6 +195,63 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
     'to="/jadi-pendana"',
     "ruang pendana menjadi pintu ke halaman proposal",
   );
+}
+
+// ===== Konten yang diubah admin menggantikan teks bawaan =====
+{
+  const lain = renderToStaticMarkup(
+    <MemoryRouter initialEntries={["/jadi-pendana"]}>
+      <JadiPendanaView
+        persenPotonganAdmin={5}
+        konten={{
+          ...KONTEN_PENDANA_DEFAULT,
+          heroJudul: "Judul halaman dari admin",
+          heroDeskripsi:
+            "Biaya platform {biaya} dan Imbal Hasil {imbal} per {siklus} hari.",
+          faq: KONTEN_PENDANA_DEFAULT.faq.map((item, i) =>
+            i === 0 ? { tanya: "Pertanyaan dari admin?", jawab: "Jawaban dari admin." } : item,
+          ),
+        }}
+      />
+    </MemoryRouter>,
+  );
+  ada(lain, "Judul halaman dari admin", "judul CMS dipakai");
+  tidakAda(
+    lain,
+    "Imbal Hasil 30% per siklus 30 hari, tertulis sejak awal.",
+    "judul bawaan tidak tertinggal saat CMS diisi",
+  );
+  // Token diisi dari kebijakan yang berlaku, bukan dari teks admin.
+  ada(lain, "Biaya platform 5% dan Imbal Hasil 30% per 30 hari.", "token CMS diisi angka kebijakan");
+  ada(lain, "Pertanyaan dari admin?", "FAQ dari CMS dipakai");
+  ada(lain, "Rp 650.000", "angka di luar teks CMS tetap dihitung");
+}
+
+// ===== Proposal yang dipasang admin memakai catatan berkas =====
+{
+  const lain = renderToStaticMarkup(
+    <MemoryRouter initialEntries={["/jadi-pendana"]}>
+      <JadiPendanaView
+        persenPotonganAdmin={5}
+        proposalTersimpan={{
+          url: "https://example.convex.cloud/proposal.pdf",
+          namaBerkas: "proposal-kemitraan-2027.pdf",
+        }}
+      />
+    </MemoryRouter>,
+  );
+  ada(
+    lain,
+    "Berkas ini diterbitkan tim PINDAI dan tidak dihitung ulang saat diunduh.",
+    "catatan berkas dipakai saat proposal dipasang admin",
+  );
+  tidakAda(
+    lain,
+    "Dokumen dibuat ulang setiap kali diunduh",
+    "catatan proposal otomatis tidak dipakai bersama berkas admin",
+  );
+  ada(lain, "Unduh proposal lengkap (PDF)", "tombol unduh tetap tersedia");
+  tidakAda(lain, 'disabled=""', "tombol unduh berkas tidak terkunci");
 }
 
 // ===== Tidak ada sisa render yang rusak =====

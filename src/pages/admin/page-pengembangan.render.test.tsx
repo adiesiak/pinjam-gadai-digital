@@ -5,7 +5,7 @@
  * Yang dijaga:
  *  1. Halaman tetap dokumentasi internal: tidak ada query Convex, tidak ada
  *     tautan keluar ke halaman publik.
- *  2. Angka ringkasan cocok dengan isi halaman (26 modul admin, 16 rute publik).
+ *  2. Angka ringkasan cocok dengan isi halaman (27 modul admin, 16 rute publik).
  *  3. Aturan uang yang ditulis di halaman masih sama dengan konstanta kode,
  *     supaya admin tidak membaca tarif lama.
  */
@@ -52,10 +52,10 @@ cek("1g tanpa em dash", !html.includes("\u2014"));
 
 // ===== 2. Angka ringkasan =====
 const modulChips = cacah(html, "rounded-md border border-slate-200 bg-slate-50");
-cek("2a 26 modul admin terdaftar", modulChips === 26, `ditemukan ${modulChips}`);
+cek("2a 27 modul admin terdaftar", modulChips === 27, `ditemukan ${modulChips}`);
 const rutePublik = cacah(html, "<code class=\"w-fit shrink-0 rounded bg-slate-100");
 cek("2b 16 rute publik terdaftar", rutePublik === 16, `ditemukan ${rutePublik}`);
-cek("2c ringkasan menyebut 26 modul", html.includes(">26<"));
+cek("2c ringkasan menyebut 27 modul", html.includes(">27<"));
 cek("2d ringkasan menyebut 16 halaman", html.includes(">16<"));
 
 // ===== 3. Rute penting benar-benar tertulis =====

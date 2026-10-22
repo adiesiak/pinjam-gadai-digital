@@ -1,5 +1,14 @@
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type QueryCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import {
   BATAS_LANDING,
@@ -7,6 +16,15 @@ import {
   JUMLAH_PANDUAN,
   lengkapiKontenLanding,
 } from "../lib/landing-cms";
+import { MAX_FILE_BYTES } from "../lib/kyc";
+import {
+  BATAS_PENDANA,
+  JUMLAH_FAQ,
+  JUMLAH_ISI_PROPOSAL,
+  JUMLAH_PRINSIP,
+  JUMLAH_RISIKO,
+  lengkapiKontenPendana,
+} from "../lib/kontenPendana";
 import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
 
 /** Gerbang admin untuk CMS. */
@@ -55,6 +73,64 @@ const VALIDASI_LANDING = v.object({
   ),
   footerDeskripsi: v.optional(v.string()),
 });
+
+/**
+ * Validator konten halaman pendana. Semua field opsional: admin boleh
+ * menyimpan sebagian, dan pembacaan melengkapinya dengan bawaan.
+ */
+const VALIDASI_PENDANA = v.object({
+  heroJudul: v.optional(v.string()),
+  heroDeskripsi: v.optional(v.string()),
+  heroCatatan: v.optional(v.string()),
+  prinsipJudul: v.optional(v.string()),
+  prinsipDeskripsi: v.optional(v.string()),
+  prinsip: v.optional(
+    v.array(
+      v.object({
+        judul: v.optional(v.string()),
+        isi: v.optional(v.string()),
+      }),
+    ),
+  ),
+  kalkulatorJudul: v.optional(v.string()),
+  kalkulatorDeskripsi: v.optional(v.string()),
+  kalkulatorCatatan: v.optional(v.string()),
+  perhitunganJudul: v.optional(v.string()),
+  perhitunganDeskripsi: v.optional(v.string()),
+  proposalJudul: v.optional(v.string()),
+  proposalDeskripsi: v.optional(v.string()),
+  proposalIsi: v.optional(v.array(v.string())),
+  proposalCatatan: v.optional(v.string()),
+  proposalCatatanBerkas: v.optional(v.string()),
+  risikoJudul: v.optional(v.string()),
+  risikoDeskripsi: v.optional(v.string()),
+  risiko: v.optional(
+    v.array(
+      v.object({
+        judul: v.optional(v.string()),
+        isi: v.optional(v.string()),
+      }),
+    ),
+  ),
+  faqJudul: v.optional(v.string()),
+  faqDeskripsi: v.optional(v.string()),
+  faq: v.optional(
+    v.array(
+      v.object({
+        tanya: v.optional(v.string()),
+        jawab: v.optional(v.string()),
+      }),
+    ),
+  ),
+  ajakanJudul: v.optional(v.string()),
+  ajakanDeskripsi: v.optional(v.string()),
+});
+
+/**
+ * Ukuran maksimum proposal PDF, sama dengan batas unggah dokumen lain di
+ * aplikasi (`lib/kyc`), supaya klien dan server tidak berjanji angka berbeda.
+ */
+const MAKS_PROPOSAL_BYTE = MAX_FILE_BYTES;
 
 /** Teks default (kondisi kalah/opsional) — dipakai saat admin belum menyimpan. */
 export const DEFAULTS = {
@@ -156,6 +232,37 @@ export const getPublic = query({
        * jadi klien tidak perlu merakit fallback sendiri.
        */
       landing: lengkapiKontenLanding(row?.landing),
+      /** Konten `/jadi-pendana` (tanpa berkas: URL proposal dibaca terpisah). */
+      pendana: lengkapiKontenPendana(row?.pendana),
+    };
+  },
+});
+
+/**
+ * Proposal PDF yang dipasang admin, untuk halaman `/jadi-pendana`.
+ *
+ * Dipisah dari `getPublic` dan hanya untuk sesi yang sudah masuk: tautan
+ * penyimpanan Convex permanen, jadi tidak dikirim ke pengunjung anonim yang
+ * bisa membaca query publik. Halaman ini sendiri hanya terbuka dari ruang
+ * pendana.
+ */
+export const proposalPendanaAktif = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    const row = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    const berkasId = row?.pendana?.berkasId;
+    if (berkasId === undefined) return null;
+    const url = await ctx.storage.getUrl(berkasId);
+    if (url === null) return null;
+    return {
+      url,
+      namaBerkas: row?.pendana?.berkasNama ?? "proposal-pendanaan-pindai.pdf",
+      pada: row?.pendana?.berkasPada ?? null,
     };
   },
 });
@@ -347,6 +454,251 @@ export const save = mutation({
       await ctx.db.patch(existing._id, patch);
     }
     void userId;
+    return { ok: true };
+  },
+});
+
+/**
+ * Simpan konten halaman pendana (upsert slot global).
+ *
+ * Objek `pendana` yang tersimpan digabung dengan nilai lama supaya berkas
+ * proposal tidak ikut terhapus saat admin hanya mengubah teks. Field yang
+ * dikosongkan dibiarkan `undefined`, sehingga pembacaan memakai teks bawaan.
+ */
+export const simpanKontenPendana = mutation({
+  args: { pendana: VALIDASI_PENDANA },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const p = args.pendana;
+    const bersih = (s: string | undefined, max: number) => {
+      const t = s?.trim();
+      return t ? t.slice(0, max) : undefined;
+    };
+
+    const existing = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+
+    const patchPendana = {
+      ...(existing?.pendana ?? {}),
+      heroJudul: bersih(p.heroJudul, BATAS_PENDANA.heroJudul),
+      heroDeskripsi: bersih(p.heroDeskripsi, BATAS_PENDANA.heroDeskripsi),
+      heroCatatan: bersih(p.heroCatatan, BATAS_PENDANA.heroCatatan),
+      prinsipJudul: bersih(p.prinsipJudul, BATAS_PENDANA.prinsipJudul),
+      prinsipDeskripsi: bersih(
+        p.prinsipDeskripsi,
+        BATAS_PENDANA.prinsipDeskripsi,
+      ),
+      prinsip: p.prinsip?.slice(0, JUMLAH_PRINSIP).map((item) => ({
+        judul: bersih(item.judul, BATAS_PENDANA.itemJudul),
+        isi: bersih(item.isi, BATAS_PENDANA.itemIsi),
+      })),
+      kalkulatorJudul: bersih(
+        p.kalkulatorJudul,
+        BATAS_PENDANA.kalkulatorJudul,
+      ),
+      kalkulatorDeskripsi: bersih(
+        p.kalkulatorDeskripsi,
+        BATAS_PENDANA.kalkulatorDeskripsi,
+      ),
+      kalkulatorCatatan: bersih(
+        p.kalkulatorCatatan,
+        BATAS_PENDANA.kalkulatorCatatan,
+      ),
+      perhitunganJudul: bersih(
+        p.perhitunganJudul,
+        BATAS_PENDANA.perhitunganJudul,
+      ),
+      perhitunganDeskripsi: bersih(
+        p.perhitunganDeskripsi,
+        BATAS_PENDANA.perhitunganDeskripsi,
+      ),
+      proposalJudul: bersih(p.proposalJudul, BATAS_PENDANA.proposalJudul),
+      proposalDeskripsi: bersih(
+        p.proposalDeskripsi,
+        BATAS_PENDANA.proposalDeskripsi,
+      ),
+      // Baris daftar tidak boleh `undefined` di dalam array; baris yang
+      // dikosongkan ditulis sebagai string kosong dan pembacaan memakai
+      // bawaan pada indeks yang sama.
+      proposalIsi: p.proposalIsi
+        ?.slice(0, JUMLAH_ISI_PROPOSAL)
+        .map((baris) => bersih(baris, BATAS_PENDANA.proposalIsi) ?? ""),
+      proposalCatatan: bersih(
+        p.proposalCatatan,
+        BATAS_PENDANA.proposalCatatan,
+      ),
+      proposalCatatanBerkas: bersih(
+        p.proposalCatatanBerkas,
+        BATAS_PENDANA.proposalCatatan,
+      ),
+      risikoJudul: bersih(p.risikoJudul, BATAS_PENDANA.risikoJudul),
+      risikoDeskripsi: bersih(
+        p.risikoDeskripsi,
+        BATAS_PENDANA.risikoDeskripsi,
+      ),
+      risiko: p.risiko?.slice(0, JUMLAH_RISIKO).map((item) => ({
+        judul: bersih(item.judul, BATAS_PENDANA.itemJudul),
+        isi: bersih(item.isi, BATAS_PENDANA.itemIsi),
+      })),
+      faqJudul: bersih(p.faqJudul, BATAS_PENDANA.faqJudul),
+      faqDeskripsi: bersih(p.faqDeskripsi, BATAS_PENDANA.faqDeskripsi),
+      faq: p.faq?.slice(0, JUMLAH_FAQ).map((item) => ({
+        tanya: bersih(item.tanya, BATAS_PENDANA.faqTanya),
+        jawab: bersih(item.jawab, BATAS_PENDANA.faqJawab),
+      })),
+      ajakanJudul: bersih(p.ajakanJudul, BATAS_PENDANA.ajakanJudul),
+      ajakanDeskripsi: bersih(
+        p.ajakanDeskripsi,
+        BATAS_PENDANA.ajakanDeskripsi,
+      ),
+    };
+
+    const patch: Partial<Doc<"pengumuman">> = {
+      pendana: patchPendana,
+      diperbaruiPada: Date.now(),
+    };
+    if (existing === null) {
+      await ctx.db.insert("pengumuman", {
+        slot: SLOT,
+        ...patch,
+        diperbaruiPada: patch.diperbaruiPada ?? Date.now(),
+      });
+    } else {
+      await ctx.db.patch(existing._id, patch);
+    }
+    return { ok: true };
+  },
+});
+
+/** URL unggah berkas proposal — hanya admin aktif yang dapat memintanya. */
+export const generateUploadProposalUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Gerbang admin untuk action: action tidak punya `ctx.db` untuk memeriksanya. */
+export const _cekAdmin = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return true;
+  },
+});
+
+/**
+ * Tulis berkas proposal yang sudah lolos pemeriksaan isi.
+ *
+ * Dipisah dari action-nya karena membaca isi berkas (`storage.get`) hanya bisa
+ * dilakukan action, sedangkan penulisan baris butuh mutation. Berkas lama
+ * dihapus setelah pengganti tersimpan, supaya tidak ada periode tanpa
+ * proposal.
+ */
+export const _pasangProposal = internalMutation({
+  args: {
+    berkasId: v.id("_storage"),
+    namaBerkas: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    const lama = existing?.pendana?.berkasId;
+
+    const pendana = {
+      ...(existing?.pendana ?? {}),
+      berkasId: args.berkasId,
+      berkasNama: args.namaBerkas,
+      berkasPada: Date.now(),
+    };
+    if (existing === null) {
+      await ctx.db.insert("pengumuman", {
+        slot: SLOT,
+        pendana,
+        diperbaruiPada: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(existing._id, {
+        pendana,
+        diperbaruiPada: Date.now(),
+      });
+    }
+
+    if (lama !== undefined && lama !== args.berkasId) {
+      await ctx.storage.delete(lama);
+    }
+    return { ok: true, namaBerkas: args.namaBerkas };
+  },
+});
+
+/**
+ * Pasang proposal PDF yang diunggah admin.
+ *
+ * Isi berkas diperiksa, bukan hanya label MIME dari klien: unggahan langsung
+ * ke storage tidak melewati server, jadi tipe yang diklaim pengunggah tidak
+ * bisa dipercaya. Lima byte pertama PDF harus `%PDF-`. Tombol unduh di halaman
+ * memakai berkas ini, bukan dokumen yang disusun otomatis, sampai admin
+ * mengembalikannya ke mode otomatis.
+ */
+export const pasangProposal = action({
+  args: { berkasId: v.id("_storage"), namaBerkas: v.optional(v.string()) },
+  // Tipe balik ditulis eksplisit: action ini memanggil mutation di modul yang
+  // sama lewat `internal`, dan tanpa anotasi tipe itu menjadi lingkaran
+  // inferensi (TS7022) yang membuat seluruh DataModel ikut gagal dibaca.
+  handler: async (ctx, args): Promise<{ ok: boolean; namaBerkas: string }> => {
+    await ctx.runQuery(internal.announcements._cekAdmin, {});
+    const blob = await ctx.storage.get(args.berkasId);
+    if (blob === null) throw new Error("Berkas tidak ditemukan.");
+    if (blob.size <= 0) throw new Error("Berkas kosong.");
+    if (blob.size > MAKS_PROPOSAL_BYTE) {
+      throw new Error(
+        `Ukuran proposal melebihi ${Math.round(MAKS_PROPOSAL_BYTE / (1024 * 1024))} MB.`,
+      );
+    }
+    const kepala = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+    const tandaPdf =
+      kepala.length === 5 && String.fromCharCode(...kepala) === "%PDF-";
+    if (!tandaPdf) {
+      throw new Error("Proposal harus berupa berkas PDF.");
+    }
+
+    const nama = (args.namaBerkas ?? "")
+      .trim()
+      .slice(0, 120)
+      .replace(/[\\/:*?"<>|]+/g, "-");
+    const namaBerkas = nama !== "" ? nama : "proposal-pendanaan-pindai.pdf";
+    return await ctx.runMutation(internal.announcements._pasangProposal, {
+      berkasId: args.berkasId,
+      namaBerkas,
+    });
+  },
+});
+
+/** Kembalikan unduhan ke proposal yang disusun aplikasi. */
+export const hapusProposal = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const existing = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    if (existing?.pendana?.berkasId === undefined) return { ok: true };
+    await ctx.db.patch(existing._id, {
+      pendana: {
+        ...existing.pendana,
+        berkasId: undefined,
+        berkasNama: undefined,
+        berkasPada: undefined,
+      },
+      diperbaruiPada: Date.now(),
+    });
+    await ctx.storage.delete(existing.pendana.berkasId);
     return { ok: true };
   },
 });

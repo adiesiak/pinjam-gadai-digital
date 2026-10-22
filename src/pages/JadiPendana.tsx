@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { FileDown, Loader2, MessageCircle } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router";
 
 import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
@@ -23,6 +23,12 @@ import {
 import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
 import { formatRupiahAman, kelompokkanDigit } from "@/lib/money";
 import { susunPdf } from "@/lib/pdfSederhana";
+import {
+  KONTEN_PENDANA_DEFAULT,
+  gantiTokenPendana,
+  type KontenPendana,
+  type NilaiTokenPendana,
+} from "@/lib/kontenPendana";
 import {
   NOMINAL_CONTOH_PROPOSAL,
   formatPersen,
@@ -55,16 +61,8 @@ function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
 }
 
-/** Susun berkas lalu serahkan ke perangkat, termasuk jembatan aplikasi Android. */
-async function simpanProposal(persenPotonganAdmin: number): Promise<void> {
-  const dibuatPada = Date.now();
-  const byte = susunPdf(
-    proposalPendanaanPindai({ persenPotonganAdmin, dibuatPada }),
-  );
-  const blob = new Blob([new Uint8Array(byte)], {
-    type: "application/pdf",
-  });
-  const nama = namaBerkasProposalPendana(dibuatPada);
+/** Serahkan satu berkas ke perangkat: jembatan aplikasi dulu, lalu unduhan biasa. */
+async function serahkanBerkas(nama: string, blob: Blob): Promise<void> {
   // Di aplikasi Android, unduhan blob tidak ditangani WebView.
   if (await unduhLewatAplikasi(nama, "application/pdf", blob)) return;
   const url = URL.createObjectURL(blob);
@@ -78,17 +76,45 @@ async function simpanProposal(persenPotonganAdmin: number): Promise<void> {
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+/** Susun berkas lalu serahkan ke perangkat, termasuk jembatan aplikasi Android. */
+async function simpanProposal(persenPotonganAdmin: number): Promise<void> {
+  const dibuatPada = Date.now();
+  const byte = susunPdf(
+    proposalPendanaanPindai({ persenPotonganAdmin, dibuatPada }),
+  );
+  const blob = new Blob([new Uint8Array(byte)], {
+    type: "application/pdf",
+  });
+  await serahkanBerkas(namaBerkasProposalPendana(dibuatPada), blob);
+}
+
+/** Unduh proposal yang dipasang admin, memakai nama berkas aslinya. */
+async function simpanProposalTersimpan(
+  url: string,
+  namaBerkas: string,
+): Promise<void> {
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    throw new Error("Berkas proposal gagal diambil. Coba lagi sebentar.");
+  }
+  await serahkanBerkas(namaBerkas, await resp.blob());
+}
+
 /**
- * Satu tombol unduh, dipakai di hero dan di bagian proposal. Keduanya
- * menyusun berkas dari kebijakan yang berlaku saat tombol ditekan, jadi tidak
- * ada berkas lama yang tersimpan dan tidak ada tombol yang menunggu admin.
+ * Satu tombol unduh, dipakai di hero dan di bagian proposal. Bila admin sudah
+ * memasang berkas proposal, tombol mengunduh berkas itu; bila belum, berkas
+ * disusun dari kebijakan yang berlaku saat tombol ditekan.
  */
+type ProposalTersimpan = { url: string; namaBerkas: string } | null;
+
 function TombolUnduhProposal({
   persenPotonganAdmin,
+  proposalTersimpan,
   variant = "default",
   label = "Unduh proposal (PDF)",
 }: {
   persenPotonganAdmin: number;
+  proposalTersimpan: ProposalTersimpan;
   variant?: "default" | "outline";
   label?: string;
 }) {
@@ -99,7 +125,14 @@ function TombolUnduhProposal({
     setSibuk(true);
     setGalat(null);
     try {
-      await simpanProposal(persenPotonganAdmin);
+      if (proposalTersimpan !== null) {
+        await simpanProposalTersimpan(
+          proposalTersimpan.url,
+          proposalTersimpan.namaBerkas,
+        );
+      } else {
+        await simpanProposal(persenPotonganAdmin);
+      }
     } catch (err) {
       setGalat(
         err instanceof Error
@@ -179,8 +212,13 @@ function BarisAngka({
  */
 function KalkulatorPendanaan({
   persenPotonganAdmin,
+  konten,
+  t,
 }: {
   persenPotonganAdmin: number;
+  konten: KontenPendana;
+  /** Isi token kebijakan (`{biaya}`, `{imbal}`, ...) pada teks CMS. */
+  t: (teks: string) => string;
 }) {
   const [isian, setIsian] = useState(() =>
     kelompokkanDigit(String(NOMINAL_CONTOH_PROPOSAL)),
@@ -206,13 +244,10 @@ function KalkulatorPendanaan({
             id="judul-kalkulator"
             className="font-display text-3xl leading-tight tracking-tight text-navy sm:text-4xl"
           >
-            Hitung nominal Anda
+            {t(konten.kalkulatorJudul)}
           </h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Masukkan nominal yang Anda rencanakan. Pembagian di kanan memakai
-            Imbal Hasil {PERSEN_IMBAL_PENDANA}% untuk siklus{" "}
-            {TENOR_PENDANA_HARI} hari dan biaya platform{" "}
-            {formatPersen(persenPotonganAdmin)} dari uang yang kembali.
+            {t(konten.kalkulatorDeskripsi)}
           </p>
 
           <label
@@ -266,7 +301,7 @@ function KalkulatorPendanaan({
           >
             {terlaluBesar
               ? "Nominal terlalu besar untuk dihitung di sini. Hubungi layanan pelanggan untuk pembicaraan nominal besar."
-              : `Angka contoh, bukan jaminan hasil. Imbal Hasil baru menjadi uang Anda setelah pinjaman lunas, dan biaya platform ${formatPersen(persenPotonganAdmin)} sudah dipotong dari uang yang kembali.`}
+              : t(konten.kalkulatorCatatan)}
           </p>
         </div>
 
@@ -410,14 +445,50 @@ function Footer() {
   );
 }
 
+/**
+ * Satu paragraf CMS dengan nomor layanan ditebalkan.
+ *
+ * Admin hanya menulis `{kontak}` di teks; nomornya tetap dari `lib/kontak`,
+ * bukan teks bebas, sehingga nomor resmi tidak bisa tergeser salah ketik.
+ */
+function ParagrafKontak({ teks }: { teks: string }) {
+  const bagian = teks.split("{kontak}");
+  return (
+    <p className="mt-2 text-sm leading-6 text-slate-600">
+      {bagian.map((isi, i) => (
+        <Fragment key={i}>
+          {i > 0 && (
+            <span className="font-semibold tabular-nums text-slate-800">
+              {nomorLayananProposal()}
+            </span>
+          )}
+          {isi}
+        </Fragment>
+      ))}
+    </p>
+  );
+}
+
 /** Isi halaman tanpa Convex, supaya bisa dirender langsung oleh uji markup. */
 export function JadiPendanaView({
   persenPotonganAdmin,
+  konten = KONTEN_PENDANA_DEFAULT,
+  proposalTersimpan = null,
 }: {
   persenPotonganAdmin: number;
+  konten?: KontenPendana;
+  proposalTersimpan?: ProposalTersimpan;
 }) {
   const persen = formatPersen(persenPotonganAdmin);
   const contoh = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, persenPotonganAdmin);
+  const token: NilaiTokenPendana = {
+    imbal: `${PERSEN_IMBAL_PENDANA}%`,
+    biaya: persen,
+    siklus: String(TENOR_PENDANA_HARI),
+    nominal: rupiah(NOMINAL_CONTOH_PROPOSAL),
+    kontak: nomorLayananProposal(),
+  };
+  const t = (teks: string) => gantiTokenPendana(teks, token);
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
@@ -437,25 +508,22 @@ export function JadiPendanaView({
                 Pendanaan
               </p>
               <h1 className="mt-3 font-display text-4xl leading-[1.08] tracking-tight text-navy sm:text-5xl">
-                Imbal Hasil {PERSEN_IMBAL_PENDANA}% per siklus{" "}
-                {TENOR_PENDANA_HARI} hari, tertulis sejak awal.
+                {t(konten.heroJudul)}
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-slate-700">
-                Setiap alokasi PINDAI menempel pada satu pinjaman dan satu
-                pendana. Biaya platform {persen} diambil dari uang yang kembali,
-                bukan dari keuntungan, dan proposalnya bisa Anda unduh sekarang.
+                {t(konten.heroDeskripsi)}
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <TombolUnduhProposal
                   persenPotonganAdmin={persenPotonganAdmin}
+                  proposalTersimpan={proposalTersimpan}
                 />
                 <Button asChild variant="outline" className="min-h-11">
                   <a href="#kalkulator">Hitung imbal hasil</a>
                 </Button>
               </div>
               <p className="mt-3 text-[11px] leading-5 text-slate-600">
-                Proposal selalu disusun dari kebijakan yang berlaku saat tombol
-                ditekan, dan hanya terbuka dari ruang pendana.
+                {t(konten.heroCatatan)}
               </p>
             </div>
 
@@ -520,35 +588,16 @@ export function JadiPendanaView({
                 id="judul-prinsip"
                 className="font-display text-3xl leading-tight tracking-tight text-navy sm:text-4xl"
               >
-                Yang membuat angkanya bisa diperiksa
+                {t(konten.prinsipJudul)}
               </h2>
               <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
-                Empat aturan ini tidak berubah di tengah pinjaman. Kalau salah
-                satunya diubah, itu berlaku untuk alokasi baru, bukan untuk hak
-                yang sudah tercatat.
+                {t(konten.prinsipDeskripsi)}
               </p>
             </div>
             <ol className="divide-y divide-border border-y border-border">
-              {[
-                {
-                  judul: `Imbal Hasil tetap ${PERSEN_IMBAL_PENDANA}%`,
-                  isi: `Dihitung dari pokok yang Anda danai. Tenor pinjaman peminjam tidak memotong atau menambah hak Anda: perpanjangan, perubahan bunga, dan cicilan pokok tidak menyentuh angka ini.`,
-                },
-                {
-                  judul: "Satu pinjaman, satu pendana",
-                  isi: "Alokasi tidak digabung dalam kolam. Di ruang pendana Anda bisa melihat pinjaman mana yang memakai dana Anda, beserta statusnya.",
-                },
-                {
-                  judul: "Biaya platform diumumkan di depan",
-                  isi: `Biaya ${persen} diambil dari uang yang kembali, bukan dari keuntungan. Potongan ini membiayai operasional, penagihan, dan penanganan pinjaman bermasalah.`,
-                },
-                {
-                  judul: "Hasil dibayar setelah lunas",
-                  isi: "Selama pinjaman berjalan, angka di portofolio adalah perkiraan. Setelah lunas, hak Anda dibukukan; admin mentransfernya di luar aplikasi lalu mencatatnya.",
-                },
-              ].map((butir, i) => (
+              {konten.prinsip.map((butir, i) => (
                 <li
-                  key={butir.judul}
+                  key={`${butir.judul}-${i}`}
                   className="flex gap-4 py-5 first:pt-0 last:pb-0"
                 >
                   <span
@@ -559,10 +608,10 @@ export function JadiPendanaView({
                   </span>
                   <div className="min-w-0">
                     <h3 className="text-sm font-semibold text-navy">
-                      {butir.judul}
+                      {t(butir.judul)}
                     </h3>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      {butir.isi}
+                      {t(butir.isi)}
                     </p>
                   </div>
                 </li>
@@ -571,7 +620,11 @@ export function JadiPendanaView({
           </div>
         </section>
 
-        <KalkulatorPendanaan persenPotonganAdmin={persenPotonganAdmin} />
+        <KalkulatorPendanaan
+          persenPotonganAdmin={persenPotonganAdmin}
+          konten={konten}
+          t={t}
+        />
 
         {/* Perhitungan yang sama, dibuka langkah demi langkah. Fungsinya
             membuktikan bahwa tiap baris di kalkulator berasal dari dua angka
@@ -586,12 +639,10 @@ export function JadiPendanaView({
                 id="judul-perhitungan"
                 className="font-display text-3xl leading-tight tracking-tight text-navy sm:text-4xl"
               >
-                Lima baris yang menjelaskan semuanya
+                {t(konten.perhitunganJudul)}
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Tidak ada rumus tersembunyi. Perhitungan dimulai dari pokok,
-                memakai Imbal Hasil {PERSEN_IMBAL_PENDANA}%, lalu memotong biaya
-                platform {persen} dari uang yang kembali.
+                {t(konten.perhitunganDeskripsi)}
               </p>
               <p className="mt-4 text-[11px] leading-5 text-slate-600">
                 Contoh memakai {rupiah(NOMINAL_CONTOH_PROPOSAL)}. Angka yang
@@ -651,27 +702,24 @@ export function JadiPendanaView({
                 id="judul-proposal"
                 className="font-display text-3xl leading-tight tracking-tight text-navy"
               >
-                Proposal pendanaan & kemitraan strategis
+                {t(konten.proposalJudul)}
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-                Berkas PDF yang bisa Anda simpan, cetak, atau kirim ke orang
-                yang ikut memutuskan. Isinya ringkasan eksekutif dan target
-                2027, analisis pasar TAM, SAM, dan SOM, skema dengan simulasi Rp
-                5 juta sampai Rp 50 juta, cakupan biaya platform, langkah
-                preventif, risiko, serta alur kemitraan dan kontak.
+                {t(konten.proposalDeskripsi)}
               </p>
 
               <div className="mt-5">
                 <TombolUnduhProposal
                   persenPotonganAdmin={persenPotonganAdmin}
+                  proposalTersimpan={proposalTersimpan}
                   label="Unduh proposal lengkap (PDF)"
                 />
               </div>
 
               <p className="mt-3 text-[11px] leading-5 text-slate-600">
-                Dokumen dibuat ulang setiap kali diunduh, jadi angkanya
-                mengikuti pengaturan biaya yang berlaku saat itu. Proposal bukan
-                perjanjian dan bukan jaminan hasil.
+                {proposalTersimpan === null
+                  ? t(konten.proposalCatatan)
+                  : t(konten.proposalCatatanBerkas)}
               </p>
             </div>
 
@@ -680,17 +728,9 @@ export function JadiPendanaView({
                 Isi dokumen
               </p>
               <ol className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
-                <li>Ringkasan eksekutif dan target 300 nasabah aktif 2027.</li>
-                <li>Potensi pasar: TAM, SAM, dan SOM koridor industri.</li>
-                <li>
-                  Skema pendanaan, contoh pembagian{" "}
-                  {rupiah(NOMINAL_CONTOH_PROPOSAL)}, dan simulasi Rp 5 juta
-                  sampai Rp 50 juta.
-                </li>
-                <li>
-                  Cakupan biaya platform, langkah preventif, dan batas jaminan.
-                </li>
-                <li>Alur kemitraan dan kontak layanan.</li>
+                {konten.proposalIsi.map((butir, i) => (
+                  <li key={`${i}-${butir.slice(0, 24)}`}>{t(butir)}</li>
+                ))}
               </ol>
             </div>
           </div>
@@ -706,39 +746,24 @@ export function JadiPendanaView({
                 id="judul-risiko"
                 className="font-display text-3xl leading-tight tracking-tight text-navy sm:text-4xl"
               >
-                Sisi yang tidak menguntungkan
+                {t(konten.risikoJudul)}
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Pendanaan bukan tabungan. Sebelum menyetor, pastikan Anda bisa
-                menerima kemungkinan ini.
+                {t(konten.risikoDeskripsi)}
               </p>
             </div>
 
             <ul className="mt-7 grid gap-5 sm:grid-cols-2">
-              {[
-                {
-                  judul: "Modal bisa hilang",
-                  isi: "Jika peminjam gagal bayar, pokok dan Imbal Hasil tidak kembali. PINDAI menagih, tetapi tidak menjamin pembayaran.",
-                },
-                {
-                  judul: "Dana tertahan pada satu peminjam",
-                  isi: "Satu pinjaman didanai satu pendana. Seluruh pokok pada satu alokasi bergantung pada satu peminjam, tanpa penyebaran otomatis.",
-                },
-                {
-                  judul: "Pencairan mengikuti pelunasan",
-                  isi: `Siklus ${TENOR_PENDANA_HARI} hari adalah acuan hak, bukan jadwal penagihan. Keterlambatan peminjam ikut menunda pencairan hasil Anda.`,
-                },
-                {
-                  judul: "Tidak ada penjamin pihak ketiga",
-                  isi: "Tidak ada jaminan LPS, asuransi, atau lembaga penjamin untuk dana pendanaan, kecuali ada perjanjian tertulis yang menyatakannya.",
-                },
-              ].map((risiko) => (
-                <li key={risiko.judul} className="border-t border-border pt-4">
+              {konten.risiko.map((risiko, i) => (
+                <li
+                  key={`${i}-${risiko.judul.slice(0, 24)}`}
+                  className="border-t border-border pt-4"
+                >
                   <h3 className="text-sm font-semibold text-navy">
-                    {risiko.judul}
+                    {t(risiko.judul)}
                   </h3>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    {risiko.isi}
+                    {t(risiko.isi)}
                   </p>
                 </li>
               ))}
@@ -768,11 +793,10 @@ export function JadiPendanaView({
                 id="judul-tanya"
                 className="font-display text-3xl leading-tight tracking-tight text-navy sm:text-4xl"
               >
-                Yang biasanya ditanyakan lebih dulu
+                {t(konten.faqJudul)}
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Jawabannya mengikuti cara kerja aplikasi dan kebijakan yang
-                berlaku, bukan perkiraan.
+                {t(konten.faqDeskripsi)}
               </p>
             </div>
             <Accordion
@@ -780,42 +804,17 @@ export function JadiPendanaView({
               collapsible
               className="border-y border-border"
             >
-              {[
-                {
-                  q: "Apakah uang saya dijamin kembali?",
-                  a: "Tidak. PINDAI mencatat alokasi dan menagih pinjaman, tetapi pembayaran bergantung pada peminjam. Tidak ada jaminan dari LPS, asuransi, atau pihak ketiga.",
-                },
-                {
-                  q: "Kapan Imbal Hasil dibayarkan?",
-                  a: `Setelah pinjaman lunas. Saat itu hak Anda dibukukan, lalu admin mentransfernya di luar aplikasi dan mencatat transfer tersebut. Selama pinjaman berjalan, angka di portofolio baru perkiraan.`,
-                },
-                {
-                  q: "Bisakah dana ditarik kapan saja?",
-                  a: "Tidak. Alokasi mengikuti pinjaman yang sedang berjalan, jadi dana kembali setelah pinjaman selesai. Aplikasi tidak menyediakan penarikan otomatis atau pembatalan sepihak.",
-                },
-                {
-                  q: "Bagaimana kalau peminjam terlambat membayar?",
-                  a: "Sistem memantau jatuh tempo dan PINDAI melakukan penagihan. Keterlambatan menunda pencairan hasil Anda. Perpanjangan atau cicilan pokok peminjam tidak mengubah nominal hak pendana yang sudah tercatat.",
-                },
-                {
-                  q: "Bagaimana cara menjadi pendana?",
-                  a: `Hubungi layanan pelanggan di WhatsApp ${nomorLayananProposal()}. Admin menjelaskan syarat pendaftaran, membuatkan akun, lalu Anda masuk dengan OTP email. Penyetoran dan transfer hasil dilakukan di luar aplikasi.`,
-                },
-                {
-                  q: "Apakah laporan bisa saya unduh sendiri?",
-                  a: "Proposal di halaman ini bisa diunduh kapan saja selama akses ruang pendana Anda masih berlaku. Laporan portofolio dan laporan pelunasan tersedia di ruang pendana dan bisa diminta lewat WhatsApp.",
-                },
-              ].map((item) => (
+              {konten.faq.map((item, i) => (
                 <AccordionItem
-                  key={item.q}
-                  value={item.q}
+                  key={`${i}-${item.tanya.slice(0, 24)}`}
+                  value={`faq-${i}`}
                   className="border-border"
                 >
                   <AccordionTrigger className="min-h-12 text-left text-sm font-semibold text-navy">
-                    {item.q}
+                    {t(item.tanya)}
                   </AccordionTrigger>
                   <AccordionContent className="text-sm leading-6 text-slate-600">
-                    {item.a}
+                    {t(item.jawab)}
                   </AccordionContent>
                 </AccordionItem>
               ))}
@@ -833,16 +832,9 @@ export function JadiPendanaView({
                 id="judul-mulai"
                 className="font-display text-3xl leading-tight tracking-tight text-navy"
               >
-                Bicarakan nominal dan waktunya
+                {t(konten.ajakanJudul)}
               </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Layanan pelanggan PINDAI membuka WhatsApp di{" "}
-                <span className="font-semibold tabular-nums text-slate-800">
-                  {nomorLayananProposal()}
-                </span>
-                . Sampaikan rencana nominal Anda, lalu admin menjelaskan syarat
-                dan langkah sebelum akun dibuat.
-              </p>
+              <ParagrafKontak teks={konten.ajakanDeskripsi} />
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button asChild className="min-h-11">
@@ -876,12 +868,24 @@ export function JadiPendanaView({
  * Rute ruang pendana memakai biaya platform dari Pengaturan Parameter Bisnis yang
  * sama dengan pencatatan hak pendana. Bila query belum termuat, angka bawaan
  * yang dirender supaya halaman dan unduhan tetap bisa dipakai.
+ *
+ * Teks halaman dibaca dari CMS (`announcements.getPublic`); konten kosong jatuh
+ * ke `KONTEN_PENDANA_DEFAULT` di sisi klien. Berkas proposal admin dibaca dari
+ * query terpisah yang hanya menjawab untuk sesi masuk.
  */
 export default function JadiPendana() {
   const ketentuan = useQuery(api.system.getKetentuanBiaya);
+  const publik = useQuery(api.announcements.getPublic);
+  const berkas = useQuery(api.announcements.proposalPendanaAktif);
   return (
     <JadiPendanaView
       persenPotonganAdmin={ketentuan?.persenAdmin ?? DEFAULT_CONFIG.persenAdmin}
+      konten={publik?.pendana ?? KONTEN_PENDANA_DEFAULT}
+      proposalTersimpan={
+        berkas === undefined || berkas === null
+          ? null
+          : { url: berkas.url, namaBerkas: berkas.namaBerkas }
+      }
     />
   );
 }

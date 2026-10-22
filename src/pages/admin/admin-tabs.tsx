@@ -12,6 +12,7 @@ import {
   Megaphone,
   MessageSquare,
   Newspaper,
+  HandCoins,
   Package,
   Power,
   Send,
@@ -38,6 +39,7 @@ import {
 import { AksesPenyediaDanaPanel } from "@/components/admin/AksesPenyediaDanaPanel";
 import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
 import { AplikasiAndroidPanel } from "@/components/admin/AplikasiAndroidPanel";
+import { KontenPendanaPanel } from "@/components/admin/KontenPendanaPanel";
 import { LandingCmsPanel } from "@/components/admin/LandingCmsPanel";
 import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
@@ -333,6 +335,14 @@ export function AdminTabs({
           Icon: Newspaper,
         },
         {
+          value: "pendana",
+          label: "Halaman Pendana & Proposal",
+          hint: "Teks halaman /jadi-pendana dan berkas proposal PDF yang diunduh dari halaman itu.",
+          badge: null,
+          hitung: "tidak",
+          Icon: HandCoins,
+        },
+        {
           value: "pengumuman",
           label: "Banner & Pengumuman Sistem",
           hint: "Terbitkan pengumuman untuk pengguna aplikasi.",
@@ -513,6 +523,7 @@ export function AdminTabs({
     plafon: <PlafonPanel />,
     akses: <AksesPenyediaDanaPanel />,
     landing: <LandingCmsPanel />,
+    pendana: <KontenPendanaPanel />,
     pengumuman: <AnnouncementCms />,
     promo: <PromoPinjamanPanel />,
     whatsapp: <WhatsAppPanel />,

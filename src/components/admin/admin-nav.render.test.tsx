@@ -61,6 +61,7 @@ const LABEL: Record<string, string> = {
   bi: "Catatan Internal & Kesehatan Sistem",
   template: "Template Website",
   landing: "Konten Beranda",
+  pendana: "Halaman Pendana & Proposal",
   pengumuman: "Banner & Pengumuman Sistem",
   promo: "Promo Pinjaman",
   whatsapp: "WhatsApp",

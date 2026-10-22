@@ -2071,6 +2071,68 @@ const schema = defineSchema(
           footerDeskripsi: v.optional(v.string()),
         }),
       ),
+      /**
+       * Konten halaman `/jadi-pendana`: judul, paragraf, prinsip, risiko, FAQ,
+       * dan teks bagian proposal. Angka tetap dihitung `lib/imbalPendana`; teks
+       * hanya boleh memuat token `{imbal}`, `{biaya}`, `{siklus}`, `{nominal}`,
+       * dan `{kontak}` yang diisi saat dirender, sehingga tarif yang diubah
+       * admin tidak meninggalkan angka lama di halaman.
+       *
+       * `berkas*` menyimpan proposal PDF yang diunggah admin. Bila kosong,
+       * halaman menyusun proposal dari kebijakan yang berlaku seperti semula.
+       */
+      pendana: v.optional(
+        v.object({
+          heroJudul: v.optional(v.string()),
+          heroDeskripsi: v.optional(v.string()),
+          heroCatatan: v.optional(v.string()),
+          prinsipJudul: v.optional(v.string()),
+          prinsipDeskripsi: v.optional(v.string()),
+          prinsip: v.optional(
+            v.array(
+              v.object({
+                judul: v.optional(v.string()),
+                isi: v.optional(v.string()),
+              }),
+            ),
+          ),
+          kalkulatorJudul: v.optional(v.string()),
+          kalkulatorDeskripsi: v.optional(v.string()),
+          kalkulatorCatatan: v.optional(v.string()),
+          perhitunganJudul: v.optional(v.string()),
+          perhitunganDeskripsi: v.optional(v.string()),
+          proposalJudul: v.optional(v.string()),
+          proposalDeskripsi: v.optional(v.string()),
+          proposalIsi: v.optional(v.array(v.string())),
+          proposalCatatan: v.optional(v.string()),
+          proposalCatatanBerkas: v.optional(v.string()),
+          risikoJudul: v.optional(v.string()),
+          risikoDeskripsi: v.optional(v.string()),
+          risiko: v.optional(
+            v.array(
+              v.object({
+                judul: v.optional(v.string()),
+                isi: v.optional(v.string()),
+              }),
+            ),
+          ),
+          faqJudul: v.optional(v.string()),
+          faqDeskripsi: v.optional(v.string()),
+          faq: v.optional(
+            v.array(
+              v.object({
+                tanya: v.optional(v.string()),
+                jawab: v.optional(v.string()),
+              }),
+            ),
+          ),
+          ajakanJudul: v.optional(v.string()),
+          ajakanDeskripsi: v.optional(v.string()),
+          berkasId: v.optional(v.id("_storage")),
+          berkasNama: v.optional(v.string()),
+          berkasPada: v.optional(v.number()),
+        }),
+      ),
       /** Audit ringan: kapan terakhir diubah admin. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),
