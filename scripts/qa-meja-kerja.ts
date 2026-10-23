@@ -281,11 +281,11 @@ cek(
   angkaKartu(html, "Perhatian lokasi") === "4",
   "dapat: " + angkaKartu(html, "Perhatian lokasi"),
 );
-// Lima kategori sidebar yang diminta harus benar-benar ada sebagai judul seksi,
-// dan setiap modul tetap berada di dalam tepat satu seksi.
+// Empat kategori sidebar harus benar-benar ada sebagai judul seksi, dan setiap
+// modul tetap berada di dalam tepat satu seksi.
 cek(
-  "B9 lima kategori sidebar terpasang",
-  ["Operasional", "Pemantauan", "Konten", "Sistem", "Keamanan &amp; audit"].every((judul) =>
+  "B9 empat kategori sidebar terpasang",
+  ["Operasional", "Pemantauan", "Konten", "Sistem"].every((judul) =>
     html.includes(`>${judul}</p>`),
   ),
 );
@@ -451,7 +451,7 @@ const menuUji: GrupNavData[] = [
     ],
   },
   {
-    judul: "Keamanan & audit",
+    judul: "Sistem",
     items: [
       itemMenu("audit", "Audit Trail", "Jejak seluruh tindakan admin.", "OK", "tidak", Landmark),
       itemMenu("loglogin", "Keamanan Login", "Riwayat login dan status TOTP.", null, "tidak", ShieldCheck),
@@ -540,7 +540,7 @@ cek(
     (x) => tCari.includes(x),
   ),
 );
-cek("H4 nama grup tampil di baris", tCari.includes("Keamanan & audit"));
+cek("H4 nama grup tampil di baris", tCari.includes("Sistem"));
 const barisCari = (htmlCari.match(/cmdk-item/g) ?? []).length;
 cek("H5 semua baris hasil dirender", barisCari === 6, "baris: " + barisCari);
 // Setiap baris harus berupa opsi yang bisa dipilih pembaca layar.

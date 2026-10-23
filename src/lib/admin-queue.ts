@@ -20,7 +20,7 @@
  * 16 modul lama + `hari-ini` + `aplikasi` = 18 (panel "Ledger internal" dihapus
  * dari panel admin; query ledger tetap dipakai halaman /qc).
  * `killswitch` ditambahkan agar pintu darurat punya tempat di sidebar
- * (Keamanan & audit) selain tombol di header — memakai mutation
+ * (grup Sistem) selain tombol di header — memakai mutation
  * `system.setKillSwitch` yang sudah ada, tanpa backend baru.
  * `pengembangan` adalah halaman dokumentasi internal: peta halaman, fitur, dan
  * logika bisnis yang hanya dibaca admin. Ia tidak menyimpan data apa pun.
@@ -104,7 +104,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
   {
     id: "pemantauan",
     label: "Pemantauan",
-    modul: ["dpd", "lokasi", "lelang", "bi"],
+    modul: ["dpd", "lokasi", "lelang"],
     default: "dpd",
   },
   {
@@ -124,7 +124,15 @@ export const GRUP_NAV: readonly GrupNav[] = [
   {
     id: "sistem",
     label: "Sistem",
-    modul: ["config", "backup", "pengembangan", "audit", "loglogin", "killswitch"],
+    modul: [
+      "config",
+      "bi",
+      "backup",
+      "pengembangan",
+      "audit",
+      "loglogin",
+      "killswitch",
+    ],
     default: "config",
   },
 ];

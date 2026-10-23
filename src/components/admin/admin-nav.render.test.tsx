@@ -49,29 +49,29 @@ const LABEL: Record<string, string> = {
   "hari-ini": "Ringkasan",
   pinjaman: "Pengajuan Pinjaman",
   gadai: "Pengajuan Gadai",
-  kredit: "Pengajuan Kredit Barang",
+  kredit: "Pengajuan Kredit",
   kyc: "Verifikasi KYC",
-  alokasi: "Pinjaman siap disalurkan",
+  alokasi: "Siap disalurkan",
   rekonsiliasi: "Rekonsiliasi Angsuran",
   plafon: "Plafon Nasabah",
   akses: "Nasabah & Pendana",
   dpd: "Jatuh Tempo",
-  lokasi: "Peta lokasi nasabah",
-  lelang: "Kalkulator Lelang Jaminan",
-  bi: "Catatan Internal & Kesehatan Sistem",
+  lokasi: "Peta lokasi",
+  lelang: "Kalkulator Lelang",
+  bi: "Kesehatan Sistem",
   template: "Template Website",
   landing: "Konten Beranda",
-  pendana: "Halaman Pendana & Proposal",
-  pengumuman: "Banner & Pengumuman Sistem",
+  pendana: "Halaman Pendana",
+  pengumuman: "Banner & Pengumuman",
   promo: "Promo Pinjaman",
   whatsapp: "WhatsApp",
   aplikasi: "Aplikasi Android",
-  config: "Pengaturan Parameter Bisnis (Bunga/Limit/Biaya)",
-  backup: "Backup & Snapshot Database",
-  pengembangan: "Peta Sistem & Logika Bisnis",
-  audit: "Audit Trail (Timeline Log)",
-  loglogin: "Session & Keamanan Login",
-  killswitch: "Kill Switch Darurat",
+  config: "Parameter Bisnis",
+  backup: "Backup Database",
+  pengembangan: "Peta Sistem",
+  audit: "Audit Trail",
+  loglogin: "Keamanan Login",
+  killswitch: "Kill Switch",
 };
 
 /** Lencana contoh dari tangkapan layar: grup Pemantauan punya 17 perhatian. */
@@ -164,17 +164,17 @@ ok(
 // ===== 3. Isi chip tidak dikorbankan demi satu baris =====
 {
   const html = gambar("bi");
-  ada(html, "Catatan Internal", "label panjang tetap utuh di DOM");
-  ada(html, "Jatuh Tempo", "modul lain di grup yang sama tetap hadir");
+  ada(html, "Kesehatan Sistem", "label grup Sistem tetap utuh di DOM");
+  ada(html, "Audit Trail", "modul lain di grup yang sama tetap hadir");
   ada(html, "Cari…", "pintu pencarian tetap terjangkau");
   ada(html, "title=", "petunjuk modul tetap tersedia sebagai tooltip");
-  bersih(html, "deret chip grup Pemantauan");
+  bersih(html, "deret chip grup Sistem");
 }
 
 // Lencana tetap terbaca setelah dipotong lebarnya.
 {
   const html = gambar("dpd");
-  ada(html, "Peta lokasi nasabah", "modul berlencana hadir di deret");
+  ada(html, "Peta lokasi", "modul berlencana hadir di deret");
   ada(html, "17", "lencana angka tetap tampil di samping label");
 }
 

@@ -421,8 +421,8 @@ eq(
 );
 eq(
   GRUP_NAV.map((g) => g.modul.length).join(","),
-  "1,10,4,7,6",
-  "jumlah modul tiap tab (1+10+4+7+6 = 28)",
+  "1,10,3,7,7",
+  "jumlah modul tiap tab (1+10+3+7+7 = 28)",
 );
 eq(
   GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),

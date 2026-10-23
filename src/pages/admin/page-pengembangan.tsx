@@ -77,7 +77,7 @@ type Kelompok = { judul: string; modul: readonly string[] };
 const RINGKASAN = [
   { angka: "16", label: "halaman publik" },
   { angka: "6", label: "tab peminjam" },
-  { angka: "27", label: "modul admin" },
+  { angka: "28", label: "modul admin" },
   { angka: "3", label: "produk pembiayaan" },
 ] as const;
 
@@ -116,10 +116,11 @@ const MODUL_ADMIN: readonly Kelompok[] = [
       "Ringkasan (meja kerja hari ini)",
       "Pengajuan Pinjaman",
       "Pengajuan Gadai",
-      "Pengajuan Kredit Barang",
+      "Pengajuan Kredit",
+      "Pengajuan Syariah",
       "Verifikasi KYC",
-      "Pinjaman siap disalurkan",
-      "Doorprize & Antrean Dana",
+      "Siap disalurkan",
+      "Doorprize & Antrean",
       "Rekonsiliasi Angsuran",
       "Plafon Nasabah",
       "Nasabah & Pendana",
@@ -127,20 +128,15 @@ const MODUL_ADMIN: readonly Kelompok[] = [
   },
   {
     judul: "Pemantauan",
-    modul: [
-      "Peta lokasi nasabah",
-      "Jatuh Tempo",
-      "Kalkulator Lelang Jaminan",
-      "Catatan Internal & Kesehatan Sistem",
-    ],
+    modul: ["Peta lokasi", "Jatuh Tempo", "Kalkulator Lelang"],
   },
   {
     judul: "Konten",
     modul: [
       "Template Website",
       "Konten Beranda",
-      "Halaman Pendana & Proposal",
-      "Banner & Pengumuman Sistem",
+      "Halaman Pendana",
+      "Banner & Pengumuman",
       "Promo Pinjaman",
       "WhatsApp",
       "Aplikasi Android",
@@ -149,17 +145,13 @@ const MODUL_ADMIN: readonly Kelompok[] = [
   {
     judul: "Sistem",
     modul: [
-      "Pengaturan Parameter Bisnis",
-      "Backup & Snapshot Database",
-      "Peta Sistem & Logika Bisnis",
-    ],
-  },
-  {
-    judul: "Keamanan & audit",
-    modul: [
+      "Parameter Bisnis",
+      "Kesehatan Sistem",
+      "Backup Database",
+      "Peta Sistem",
       "Audit Trail",
-      "Session & Keamanan Login",
-      "Kill Switch Darurat",
+      "Keamanan Login",
+      "Kill Switch",
     ],
   },
 ];

@@ -20,7 +20,7 @@ import { api } from "@/convex/_generated/api";
 /**
  * Kill switch & pemeliharaan darurat PINDAI.
  *
- * Tempatnya di sidebar: Keamanan & audit — BUKAN tombol di kepala panel lagi.
+ * Tempatnya di sidebar: grup Sistem — BUKAN tombol di kepala panel lagi.
  * Tindakan darurat tidak boleh menjadi tombol paling mudah dijangkau saat
  * admin sedang bekerja cepat.
  *

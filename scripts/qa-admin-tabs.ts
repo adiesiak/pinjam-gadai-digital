@@ -157,7 +157,7 @@ cek(
 );
 cek(
   "2g pengelompokan tampil sebagai judul seksi berlabel",
-  html.includes('aria-label="Operasional"') && html.includes('aria-label="Keamanan &amp; audit"'),
+  html.includes('aria-label="Operasional"') && html.includes('aria-label="Sistem"'),
 );
 cek("2h panel Ringkasan tetap terpasang", html.includes('id="panel-hari-ini"'));
 cek("2i region menyebut modulnya untuk pembaca layar", html.includes('aria-label="Ringkasan"'));

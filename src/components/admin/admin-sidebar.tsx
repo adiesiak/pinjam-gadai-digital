@@ -111,7 +111,7 @@ export function pintasanSidebar(e: {
 
 /** Kelas bersama tombol menu (bagian yang tidak berubah saat aktif). */
 const KELAS_ITEM =
-  "flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-left text-xs font-medium shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:min-h-10 lg:text-sm";
+  "flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-medium shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:text-sm";
 const KELAS_ITEM_IDLE = "text-navy hover:bg-slate-50";
 const KELAS_ITEM_AKTIF = "gradient-primary text-white";
 

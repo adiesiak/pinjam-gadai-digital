@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Activity,
+  Banknote,
   BellRing,
+  BookOpen,
   ClipboardList,
   Database,
+  FileText,
   Gavel,
+  KeyRound,
   LayoutDashboard,
   Lock,
   Landmark,
@@ -23,7 +27,7 @@ import {
   ShoppingBag,
   PanelsTopLeft,
   Smartphone,
-  Wallet,
+  Users,
 } from "lucide-react";
 
 import { AdminNav } from "@/components/admin/admin-nav";
@@ -215,7 +219,7 @@ export function AdminTabs({
         },
         {
           value: "kredit",
-          label: "Pengajuan Kredit Barang",
+          label: "Pengajuan Kredit",
           hint: "Tinjau pengajuan kredit barang, atau catat pengajuan manual atas nama nasabah.",
           badge: `${hitungMenunggu(overview.kredit, "kredit")}`,
           hitung: "menunggu",
@@ -239,17 +243,17 @@ export function AdminTabs({
         },
         {
           value: "alokasi",
-          label: "Pinjaman siap disalurkan",
+          label: "Siap disalurkan",
           hint: "Pinjaman yang keputusannya sudah tercatat, menunggu dana ditandai tersalurkan (status Ditinjau).",
           badge: stats ? `${stats.pinjamanDisetujui}` : null,
           // R3: keputusan yang sudah tercatat BUKAN pekerjaan tertunda — tandai
           // "info" supaya tidak ikut dijumlahkan pada ringkasan grup tertutup.
           hitung: "info",
-          Icon: Wallet,
+          Icon: Banknote,
         },
         {
           value: "undian",
-          label: "Doorprize & Antrean Dana",
+          label: "Doorprize & Antrean",
           hint: "Kelola hadiah doorprize triwulanan, undi pemenang akhir kuartal, dan cocokkan dana yang kembali ke pool auto-matching.",
           badge: null,
           hitung: "tidak",
@@ -277,7 +281,7 @@ export function AdminTabs({
           hint: "Kelola hak akses dan posisi pendana, termasuk akses lihat saja.",
           badge: null,
           hitung: "tidak",
-          Icon: Wallet,
+          Icon: Users,
         },
       ],
     },
@@ -286,14 +290,14 @@ export function AdminTabs({
       items: [
         {
           value: "lokasi",
-          label: "Peta lokasi nasabah",
+          label: "Peta lokasi",
           // Angka "perhatian lokasi" digabung dari empat sebab (koordinat
           // dicurigai, lokasi ditandai, peringatan belum diakui, pinjaman tanpa
           // titik perangkat). Satu angka gabungan di samping menu tidak bisa
           // dibaca sebagai antrean kerja, jadi lencananya DIHAPUS: cacahannya
           // ada di kartu "Perlu tindakan" di halaman Ringkasan, yang menyebut
           // sebabnya satu per satu.
-          hint: "Peta titik lokasi terakhir yang dilaporkan perangkat peminjam. Jumlah titik yang perlu ditinjau ada di Ringkasan.",
+          hint: "Peta titik lokasi terakhir yang dilaporkan perangkat peminjam (nasabah). Jumlah titik yang perlu ditinjau ada di Ringkasan.",
           badge: null,
           hitung: "tidak",
           Icon: MapIcon,
@@ -308,19 +312,11 @@ export function AdminTabs({
         },
         {
           value: "lelang",
-          label: "Kalkulator Lelang Jaminan",
+          label: "Kalkulator Lelang",
           hint: "Kalkulator nilai lelang untuk barang jaminan.",
           badge: null,
           hitung: "tidak",
           Icon: Gavel,
-        },
-        {
-          value: "bi",
-          label: "Catatan Internal & Kesehatan Sistem",
-          hint: "Metrik bisnis siap dihitung, keseimbangan catatan internal, dan sinyal kesehatan sistem.",
-          badge: null,
-          hitung: "tidak",
-          Icon: Activity,
         },
       ],
     },
@@ -345,16 +341,16 @@ export function AdminTabs({
         },
         {
           value: "pendana",
-          label: "Halaman Pendana & Proposal",
+          label: "Halaman Pendana",
           hint: "Teks halaman /jadi-pendana dan berkas proposal PDF yang diunduh dari halaman itu.",
           badge: null,
           hitung: "tidak",
-          Icon: HandCoins,
+          Icon: FileText,
         },
         {
           value: "pengumuman",
-          label: "Banner & Pengumuman Sistem",
-          hint: "Terbitkan pengumuman untuk pengguna aplikasi.",
+          label: "Banner & Pengumuman",
+          hint: "Terbitkan pengumuman sistem untuk pengguna aplikasi.",
           badge: null,
           hitung: "tidak",
           Icon: MessageSquare,
@@ -390,53 +386,56 @@ export function AdminTabs({
       items: [
         {
           value: "config",
-          label: "Pengaturan Parameter Bisnis (Bunga/Limit/Biaya)",
-          hint: "Bunga, potongan admin atas uang yang kembali, limit/biaya, dan Mode Pemeliharaan sistem.",
+          label: "Parameter Bisnis",
+          hint: "Bunga, limit, biaya, potongan admin atas uang yang kembali, dan Mode Pemeliharaan sistem.",
           badge: null,
           hitung: "tidak",
           Icon: Settings2,
         },
         {
+          value: "bi",
+          label: "Kesehatan Sistem",
+          hint: "Catatan internal, metrik bisnis, keseimbangan ledger, dan sinyal kesehatan sistem.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Activity,
+        },
+        {
           value: "backup",
-          label: "Backup & Snapshot Database",
-          hint: "Cadangan data dan pemulihan sistem.",
+          label: "Backup Database",
+          hint: "Snapshot dan pemulihan database.",
           badge: null,
           hitung: "tidak",
           Icon: Database,
         },
         {
           value: "pengembangan",
-          label: "Peta Sistem & Logika Bisnis",
-          hint: "Halaman, fitur, aturan bisnis, dan alur kerja yang berjalan di PINDAI.",
+          label: "Peta Sistem",
+          hint: "Halaman, fitur, logika bisnis, dan alur kerja yang berjalan di PINDAI.",
           badge: null,
           hitung: "tidak",
-          Icon: Landmark,
+          Icon: BookOpen,
         },
-      ],
-    },
-    {
-      judul: "Keamanan & audit",
-      items: [
         {
           value: "audit",
-          label: "Audit Trail (Timeline Log)",
-          hint: "Jejak seluruh tindakan admin dalam bentuk timeline berwarna.",
+          label: "Audit Trail",
+          hint: "Timeline log seluruh tindakan admin.",
           badge: null,
           hitung: "tidak",
           Icon: Lock,
         },
         {
           value: "loglogin",
-          label: "Session & Keamanan Login",
-          hint: "Riwayat login, perangkat sesi, dan status verifikasi TOTP.",
+          label: "Keamanan Login",
+          hint: "Riwayat sesi, perangkat, dan status verifikasi TOTP.",
           badge: null,
           hitung: "tidak",
-          Icon: ShieldCheck,
+          Icon: KeyRound,
         },
         {
           value: "killswitch",
-          label: "Kill Switch Darurat",
-          hint: "Blokir seluruh pengajuan baru: eksekusi wajib mengetik NONAKTIFKAN dan mengisi alasan.",
+          label: "Kill Switch",
+          hint: "Darurat: blokir seluruh pengajuan baru. Eksekusi wajib mengetik NONAKTIFKAN dan mengisi alasan.",
           badge: null,
           hitung: "tidak",
           Icon: Power,
