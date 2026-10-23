@@ -21,6 +21,7 @@ import { namaHurufBesar } from "@/lib/nama";
 
 import { formatDate } from "./admin-format";
 import { type PawnRow } from "./admin-shared";
+import { KotakRingkas } from "./KotakRingkas";
 import { PanelDataDiriNasabah } from "./PanelDataDiriNasabah";
 
 /**
@@ -61,6 +62,12 @@ export function PawnReviewDialog({
   const pending = row.status === "diajukan";
   const inAppraisal = row.status === "sedang_dinilai";
   const decided = row.status === "disetujui" || row.status === "ditolak";
+  // LTV memakai angka yang benar-benar tercatat, bukan hitungan baru: harga
+  // pasar dari masukan pemohon dan taksiran internal dari peninjau.
+  const ltv =
+    row.nilaiTaksiran !== undefined && row.hargaPasar !== null && row.hargaPasar > 0
+      ? Math.round((row.nilaiTaksiran / row.hargaPasar) * 100)
+      : null;
 
   const runDelete = async () => {
     // Catatan alasan tidak diminta lagi; konfirmasi tetap ada supaya
@@ -134,7 +141,7 @@ export function PawnReviewDialog({
           {/* ══ KIRI: BARANG JAMINAN & IDENTITAS ══ */}
           <div className="space-y-3">
             <section className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 <ShieldCheck className="size-3.5 text-emerald-700" aria-hidden /> Barang jaminan
               </p>
               <dl className="mt-2 divide-y divide-slate-100">
@@ -172,7 +179,7 @@ export function PawnReviewDialog({
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 Pemohon
               </p>
               <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 py-1 text-xs">
@@ -198,28 +205,56 @@ export function PawnReviewDialog({
             <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
               <MapPin className="mt-0.5 size-4 shrink-0 text-amber-700" />
               <p className="text-xs leading-5 text-amber-900">
-                Alamat berasal dari masukan pemohon. Status dan catatan aplikasi mengikuti pencatatan
-                internal; kunjungan dan pemeriksaan fisik dikonfirmasi terpisah oleh tim PINDAI.
+                Alamat dari masukan pemohon; pemeriksaan fisik dikonfirmasi terpisah oleh tim
+                PINDAI.
               </p>
             </div>
           </div>
 
           {/* ══ KANAN: KEPUTUSAN ══ */}
           <div className="space-y-3">
+            <section className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5">
+              <p className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Ringkasan gadai
+              </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <KotakRingkas
+                  label="Harga pasar"
+                  nilai={row.hargaPasar === null ? "—" : formatRupiah(row.hargaPasar)}
+                />
+                <KotakRingkas
+                  label="Nilai taksiran"
+                  nilai={
+                    row.nilaiTaksiran !== undefined ? formatRupiah(row.nilaiTaksiran) : "—"
+                  }
+                />
+                <KotakRingkas
+                  label="Pokok gadai"
+                  nilai={row.pokokGadai !== undefined ? formatRupiah(row.pokokGadai) : "—"}
+                />
+                <KotakRingkas
+                  label="LTV taksiran"
+                  nilai={ltv === null ? "—" : `${ltv}%`}
+                  keterangan="dari harga pasar"
+                  kelas={ltv !== null && ltv > 70 ? "border-rose-200 bg-rose-50" : undefined}
+                  kelasNilai={ltv !== null && ltv > 70 ? "text-rose-700" : undefined}
+                />
+              </div>
+            </section>
+
             <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 Keputusan peninjau
               </p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 {decided
-                  ? "Keputusan sudah tercatat. Perubahan berikutnya tetap melalui alur gadai."
+                  ? "Keputusan sudah tercatat."
                   : pending
-                    ? "Barang belum dinilai. Tandai untuk penilaian, lalu catat taksiran internal."
-                    : "Taksiran internal dapat dicatat, atau pengajuan ditolak."}
+                    ? "Tandai untuk penilaian, lalu catat taksiran internal."
+                    : "Catat taksiran internal atau tolak pengajuan."}
               </p>
-              <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-                Pelepasan barang dikonfirmasi terpisah dengan bukti serah-terima; fitur pelepasan
-                dinonaktifkan.
+              <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+                Pelepasan barang dicatat terpisah dengan bukti serah-terima.
               </p>
             </div>
 
@@ -309,17 +344,14 @@ export function PawnReviewDialog({
                     Hapus menyeluruh (gadai sudah berpindah dana)
                   </Label>
                   <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                    Butuh bila server menolak dengan pesan &quot;pencairan&quot;,
-                    &quot;persetujuan&quot;, atau &quot;pembayaran/jurnal&quot;. Dengan centang ini
-                    cicilan yang tercatat ikut dihapus, sedangkan jurnal ledger{" "}
-                    <strong>tetap utuh</strong> sebagai riwayat keuangan. Barang yang masih tercatat
-                    di rak penitipan tetap tidak bisa dihapus sampai dilepas lewat alur gadai.
+                    Centang bila server menolak karena dana sudah berpindah. Cicilan ikut dihapus;
+                    jurnal ledger <strong>tetap utuh</strong>. Barang di rak penitipan tetap tidak
+                    bisa dihapus sampai dilepas lewat alur gadai.
                   </p>
                 </div>
               </div>
               <p className="text-xs leading-5 text-muted-foreground">
-                Data tanpa pencairan, pembayaran, penitipan, atau jurnal bisa dihapus langsung. Audit
-                Trail tetap tersimpan.
+                Data tanpa jejak dana bisa dihapus langsung; Audit Trail tetap tersimpan.
               </p>
               {errorHapus && (
                 <p

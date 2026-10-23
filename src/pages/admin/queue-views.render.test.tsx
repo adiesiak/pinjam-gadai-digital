@@ -19,6 +19,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { LOAN_STATUS_FLOW } from "@/lib/loan";
 
 import { LoanQueueSection, PawnQueueSection } from "./queue-views";
+import { barisKredit } from "@/components/admin/barisKredit";
+import type { KreditRowData } from "@/components/admin/KreditReviewDialog";
+import {
+  TabelAntrean,
+  urutkanBarisAntrean,
+  type BarisAntrean,
+} from "@/components/admin/TabelAntrean";
 import { CatatPengajuanManualButton } from "@/components/admin/CatatPengajuanManual";
 import type { LoanRow } from "@/components/admin/admin-shared";
 import { JENIS_MANUAL } from "@/lib/pengajuanManual";
@@ -147,6 +154,12 @@ function hitungTab(html: string): Map<string, number> {
   ada(html, "Keperluan &amp; tanggal", "kolom keperluan & tanggal terpisah");
   ada(html, "hover:bg-slate-50", "baris tabel menyala saat disorot");
   ada(html, 'aria-label="Proses pengajuan PGD-TEST-0"', "pengajuan baru punya tombol Proses");
+  ada(
+    html,
+    'aria-label="Urutkan berdasarkan Nominal Pokok"',
+    "kepala kolom nominal bisa diurutkan",
+  );
+  ada(html, 'aria-sort="none"', "keadaan urutan awal diumumkan ke pembaca layar");
 
   // Status yang ditampilkan punya sub-tabnya masing-masing (tanpa ejaan lama).
   ada(html, "Disalurkan", "tombol sub-tab \"Disalurkan\" tampil");
@@ -239,6 +252,138 @@ function hitungTab(html: string): Map<string, number> {
   );
   ok(!tanpaEkspres.includes("Cair ekspres"), "tanpa cair ekspres tidak ada lencana");
   bersih(html, "markup antrean ekspres");
+}
+
+// ===== 5. Pengurutan kolom tabel antrean =====
+{
+  const dasar = [
+    {
+      id: "a",
+      nama: "Budi",
+      email: null,
+      referensi: "PGD-2",
+      nominal: 2_000_000,
+      keperluan: "Kebutuhan pribadi",
+      waktu: 2,
+      statusTeks: "Lunas",
+      status: null,
+      aksi: null,
+    },
+    {
+      id: "b",
+      nama: "Ani",
+      email: null,
+      referensi: "PGD-1",
+      nominal: null,
+      keperluan: "Modal usaha",
+      waktu: 1,
+      statusTeks: "Ditinjau",
+      status: null,
+      aksi: null,
+    },
+    {
+      id: "c",
+      nama: "Cici",
+      email: null,
+      referensi: "PGD-3",
+      nominal: 1_000_000,
+      keperluan: "Pendidikan",
+      waktu: 3,
+      statusTeks: "Disalurkan",
+      status: null,
+      aksi: null,
+    },
+  ] satisfies BarisAntrean[];
+
+  eq(
+    urutkanBarisAntrean(dasar, "nama", "naik")
+      .map((b) => b.nama)
+      .join(","),
+    "Ani,Budi,Cici",
+    "urut nama menaik",
+  );
+  eq(
+    urutkanBarisAntrean(dasar, "nominal", "naik")
+      .map((b) => b.id)
+      .join(","),
+    "c,a,b",
+    "urut nominal menaik dan baris tanpa nominal tetap di bawah",
+  );
+  eq(
+    urutkanBarisAntrean(dasar, "nominal", "turun")
+      .map((b) => b.id)
+      .join(","),
+    "a,c,b",
+    "urut nominal menurun dan baris tanpa nominal tetap di bawah",
+  );
+  eq(
+    urutkanBarisAntrean(dasar, "waktu", "turun")
+      .map((b) => b.id)
+      .join(","),
+    "c,a,b",
+    "urut tanggal terbaru lebih dulu",
+  );
+  eq(
+    urutkanBarisAntrean(dasar, "status", "naik")
+      .map((b) => b.id)
+      .join(","),
+    "c,b,a",
+    "urut status memakai label yang dibaca admin",
+  );
+  eq(
+    urutkanBarisAntrean(dasar, "referensi", "naik")
+      .map((b) => b.referensi)
+      .join(","),
+    "PGD-1,PGD-2,PGD-3",
+    "urut ID transaksi",
+  );
+}
+
+// ===== 6. Antrean kredit memakai kolom & aksi yang sama =====
+{
+  const buatKredit = (
+    id: string,
+    referensi: string,
+    nama: string,
+    status: KreditRowData["status"],
+  ) =>
+    ({
+      _id: id,
+      _creationTime: Date.UTC(2026, 9, 23),
+      nomorReferensi: referensi,
+      namaLengkap: nama,
+      emailPemohon: "kredit@example.com",
+      namaBarang: "Kulkas dua pintu",
+      merchant: "Toko Elektronik",
+      kategori: "Elektronik",
+      hargaBarang: 3_000_000,
+      status,
+    }) as unknown as KreditRowData;
+
+  const diajukan = barisKredit(buatKredit("kredit-1", "KRD-1", "SITI", "diajukan"), () => {});
+  const disetujui = barisKredit(
+    buatKredit("kredit-2", "KRD-2", "ANDI", "disetujui"),
+    () => {},
+  );
+  eq(diajukan.statusTeks, "Diajukan", "teks status kredit untuk pengurutan");
+  eq(diajukan.nominal, 3_000_000, "nominal kredit = harga barang");
+
+  const html = renderToStaticMarkup(
+    <TabelAntrean
+      keterangan="Antrean kredit barang"
+      judulNominal="Harga Barang"
+      judulKeperluan="Barang & merchant"
+      baris={[diajukan, disetujui]}
+    />,
+  );
+  ada(html, "Harga Barang", "kolom harga barang untuk kredit");
+  ada(html, "Barang &amp; merchant", "kolom barang & merchant untuk kredit");
+  ada(html, "Rp 3.000.000", "harga barang tampil");
+  ada(html, "KRD-1", "ID transaksi kredit tampil");
+  ada(html, 'aria-label="Proses pengajuan KRD-1"', "pengajuan kredit baru punya tombol Proses");
+  ada(html, 'aria-label="Detail pengajuan KRD-2"', "kredit yang sudah diputuskan punya tombol Detail");
+  ada(html, "Disetujui (status aplikasi)", "status kredit tampil utuh");
+  bersih(html, "tabel antrean kredit");
 }
 
 console.log(`queue-views.render.test: ${passed} lulus, ${failed} gagal`);
