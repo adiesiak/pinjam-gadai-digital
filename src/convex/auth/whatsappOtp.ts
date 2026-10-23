@@ -1,5 +1,6 @@
 /**
- * PROVIDER LOGIN WHATSAPP OTP untuk peminjam lama DAN peminjam baru PINDAI.
+ * PROVIDER LOGIN WHATSAPP OTP untuk peminjam lama, peminjam baru, dan pendana
+ * yang nomornya sudah terdaftar pada akunnya.
  *
  * Kenapa provider kredensial khusus, bukan `Phone` bawaan Convex Auth: provider
  * `Phone` memasangkan akun lewat `authAccounts` (provider + nomor), sehingga
@@ -15,7 +16,9 @@
  *     mengungkap apakah nomor itu sudah punya akun.
  *  2. Klien memanggil `signIn("whatsapp-otp", { phoneNumber, otpCode })`.
  *  3. `authorize` menjalankan verifikasi di satu mutation internal, lalu
- *     mengembalikan `userId` akun yang berhak atas nomor tersebut.
+ *     mengembalikan `userId` akun yang berhak atas nomor tersebut. Nomor yang
+ *     menempel pada akun pendana memberi sesi akun pendana itu, bukan akun
+ *     peminjam baru.
  *
  * Tidak ada kode yang melewati provider ini: verifikasi, pembatas percobaan,
  * sekali pakai, dan penentuan akun semuanya hidup di `convex/klaimPeminjam.ts`

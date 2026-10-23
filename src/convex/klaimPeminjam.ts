@@ -509,6 +509,51 @@ type HasilKlaim = {
 };
 
 /**
+ * Nomor terverifikasi milik akun pendana: beri sesi akun itu tanpa menjalankan
+ * mesin klaim peminjam. Akun pendana tidak punya berkas pinjaman untuk
+ * dipindahkan, dan mencatatnya sebagai "klaim peminjam lama" akan mengotori
+ * riwayat klaim nasabah.
+ */
+async function masukPendanaLewatOtp(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    nomor: string;
+    metode: string;
+    ip?: string;
+    userAgent?: string;
+  },
+): Promise<HasilKlaim> {
+  const kosong: BerkasLama = { ...BERKAS_LAMA_KOSONG };
+  const user = await ctx.db.get(args.userId);
+  await audit(
+    ctx,
+    String(args.userId),
+    labelAkun(user, args.userId),
+    "masuk_otp_whatsapp",
+    `users/${args.userId}`,
+    `Nomor ${topengNomor(args.nomor)} diverifikasi lewat OTP WhatsApp pada akun pendana.`,
+  );
+  await catatLogin(ctx, {
+    userId: args.userId,
+    status: "berhasil",
+    metode: args.metode,
+    ip: (args.ip ?? "").slice(0, 64),
+    userAgent: (args.userAgent ?? "").slice(0, 200),
+    keterangan: "Masuk lewat OTP WhatsApp nomor terverifikasi (akun pendana)",
+  });
+  return {
+    ok: true,
+    pesan: "Nomor berhasil diverifikasi. Masuk ke ruang pendana.",
+    userId: args.userId,
+    akunLama: null,
+    berkas: kosong,
+    dipindahkan: kosong,
+    metode: args.metode,
+  };
+}
+
+/**
  * Pindahkan KEPEMILIKAN berkas produktif dari akun lama ke akun tujuan.
  *
  * Hanya kolom kepemilikan yang disentuh (plus penanda `klaimDariUserId` /
@@ -745,10 +790,30 @@ async function selesaikanKlaim(
     ...(tujuan === null ? {} : { dipakaiOlehUserId: tujuan }),
   });
 
+  // Akun pendana tidak punya berkas pinjaman; nomor yang terverifikasi cukup
+  // memberi sesi akun itu langsung. Jalur klaim peminjam di bawah tidak relevan
+  // dan akan mencatat riwayat klaim yang menyesatkan.
+  if (
+    tujuan !== null &&
+    akunTujuan !== null &&
+    akunTujuan.role === ROLES.DANA &&
+    akunTujuan.nomorWhatsApp === bersih
+  ) {
+    return masukPendanaLewatOtp(ctx, {
+      userId: tujuan,
+      nomor: bersih,
+      metode: args.metode,
+      ip: args.ip,
+      userAgent: args.userAgent,
+    });
+  }
+
   if (tujuan === null) {
-    // Nomor baru: akun ditentukan setelah kode terbukti benar. Akun buatan admin
-    // tanpa kredensial sengaja dilewati karena pemiliknya memang diminta
-    // mendaftar sendiri (lihat catatan `dibuatAdminPada` di schema).
+    // Nomor baru: akun ditentukan setelah kode terbukti benar. Akun peminjam
+    // buatan admin tanpa kredensial sengaja dilewati karena pemiliknya memang
+    // diminta mendaftar sendiri (lihat catatan `dibuatAdminPada` di schema),
+    // sedangkan akun pendana tetap dipakai karena nomornya memang sengaja
+    // didaftarkan admin sebagai pintu masuk OTP.
     const kandidat = await ctx.db
       .query("users")
       .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", bersih))
@@ -764,14 +829,26 @@ async function selesaikanKlaim(
       .filter(
         (u) =>
           u.isAnonymous !== true &&
-          u.dibuatAdminPada === undefined &&
-          u.role !== ROLES.ADMIN,
+          u.role !== ROLES.ADMIN &&
+          u.role !== ROLES.PENGAMAT &&
+          (u.role === ROLES.DANA || u.dibuatAdminPada === undefined),
       )
       .sort(
         (a, b) =>
           Number(b.role === ROLES.PEMINJAM) - Number(a.role === ROLES.PEMINJAM) ||
           a._creationTime - b._creationTime,
       )[0];
+
+    if (calon?.role === ROLES.DANA) {
+      await ctx.db.patch(calon._id, { nomorWhatsApp: bersih });
+      return masukPendanaLewatOtp(ctx, {
+        userId: calon._id,
+        nomor: bersih,
+        metode: args.metode,
+        ip: args.ip,
+        userAgent: args.userAgent,
+      });
+    }
 
     const userId =
       calon?._id ??

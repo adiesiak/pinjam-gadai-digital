@@ -1109,15 +1109,18 @@ describe("ruang penyedia dana (lihat saja)", () => {
     const hasil = await admin.mutation(api.penyediaDana.buatPendana, {
       nama: "Robert Tanaya",
       email: "Robert.Tanaya@Pindai.test",
+      nomorWhatsApp: "0812 3456 7890",
       alasan: "Mitra pendanaan baru",
     });
     expect(hasil.nama).toBe("Robert Tanaya");
     expect(hasil.email).toBe("robert.tanaya@pindai.test");
+    expect(hasil.nomorWhatsApp).toBe("6281234567890");
 
     const akun = await t.run((ctx) => ctx.db.get(hasil.userId));
     expect(akun?.role).toBe("dana");
     expect(akun?.name).toBe("Robert Tanaya");
     expect(akun?.email).toBe("robert.tanaya@pindai.test");
+    expect(akun?.nomorWhatsApp).toBe("6281234567890");
     expect(akun?.isAnonymous).toBe(false);
     // Stub ditandai email terverifikasi agar OTP nanti menautkannya, bukan
     // membuat akun duplikat.
@@ -1130,6 +1133,15 @@ describe("ruang penyedia dana (lihat saja)", () => {
         email: "robert.tanaya@pindai.test",
       }),
     ).rejects.toThrow(/sudah/i);
+
+    // Satu nomor WhatsApp hanya boleh menjadi pintu masuk satu akun.
+    await expect(
+      admin.mutation(api.penyediaDana.buatPendana, {
+        nama: "Nomor Bentrok",
+        email: "nomor.bentrok@pindai.test",
+        nomorWhatsApp: "081234567890",
+      }),
+    ).rejects.toThrow(/sudah dipakai akun lain/i);
 
     // Langsung tampil di daftar investor dengan akses aktif.
     const daftar = await admin.query(api.penyediaDana.daftarInvestor, {});

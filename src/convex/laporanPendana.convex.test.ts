@@ -170,6 +170,21 @@ describe("nomor laporan milik akun pendana", () => {
     });
   });
 
+  it("nomor yang sudah dipakai akun lain ditolak", async () => {
+    const t = convexTest(schema, modules);
+    await pendanaDenganNomor(t, "pendana-pertama@pindai.test", NOMOR_PENDANA);
+    const kedua = await siapkanPengguna(t, "Pendana Kedua", {
+      email: "pendana-kedua@pindai.test",
+      role: "dana",
+    });
+
+    await expect(
+      kedua.sesi.mutation(api.penyediaDana.simpanKontakLaporan, {
+        nomor: "0812 3456 7890",
+      }),
+    ).rejects.toThrow(/sudah dipakai akun lain/i);
+  });
+
   it("nomor yang tidak dikenali ditolak dengan contoh penulisan", async () => {
     const t = convexTest(schema, modules);
     const pendana = await siapkanPengguna(t, "Robert Tanaya", {

@@ -95,12 +95,13 @@ export function KontakLaporanWhatsapp({
               <>
                 Tersimpan di akun Anda:{" "}
                 <span className={cn("font-medium text-navy", FOLIO.angka)}>{nomor}</span>. Laporan
-                hanya dikirim ke nomor ini, dan hanya saat Anda memintanya.
+                hanya dikirim ke nomor ini, dan hanya saat Anda memintanya. Nomor ini juga bisa
+                dipakai untuk masuk lewat OTP WhatsApp.
               </>
             ) : (
               <>
                 Belum ada nomor tersimpan, jadi tidak ada laporan yang dikirim ke mana pun. Isi
-                nomor untuk mengaktifkan tombol kirim.
+                nomor untuk mengaktifkan tombol kirim dan pintu masuk OTP WhatsApp.
               </>
             )}
           </p>

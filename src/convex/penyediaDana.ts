@@ -1007,6 +1007,14 @@ export const simpanKontakLaporan = mutation({
         "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
       );
     }
+    // Nomor ini juga menjadi pintu masuk OTP. Bila dipakai akun lain, login
+    // WhatsApp tidak bisa menentukan akun yang benar, jadi tolak di sini.
+    const pemakai = await cariAkunNomor(ctx, normal);
+    if (pemakai !== null && pemakai._id !== userId) {
+      throw new Error(
+        `Nomor ${samarkanNomor(normal)} sudah dipakai akun lain. Satu nomor hanya dapat menjadi pintu masuk satu akun.`,
+      );
+    }
     const berubah = normal !== (user.nomorWhatsApp ?? "");
     if (berubah) await ctx.db.patch(userId, { nomorWhatsApp: normal });
     return { nomorWhatsApp: normal };
@@ -1282,6 +1290,8 @@ export type BarisInvestor = {
   nama: string;
   email: string | null;
   emailTerverifikasi: boolean;
+  /** Nomor WhatsApp terdaftar; dipakai juga sebagai pintu masuk OTP. */
+  nomorWhatsApp: string | null;
   /** Peran tersimpan apa adanya: `dana`, `pendana` (warisan), atau `pengamat`. */
   peran: string | null;
   /** Peran warisan `pendana` — menyimpan dana tetapi belum berakses ruang. */
@@ -1471,6 +1481,7 @@ export const daftarInvestor = query({
         nama: u.name ?? (akunBersama ? "Pemantau bersama" : "Penyedia dana"),
         email: u.email ?? null,
         emailTerverifikasi: u.emailVerificationTime !== undefined,
+        nomorWhatsApp: u.nomorWhatsApp ?? null,
         peran,
         peranLegacy: peran === PERAN_PENDANA_LEGACY,
         akunBersama,
@@ -1888,6 +1899,19 @@ export const laporanTransferPendana = query({
  * Akun berdasarkan alamat email: indeks `email` lebih dulu, lalu pencarian
  * terbatas untuk alamat yang tersimpan dengan huruf besar/kecil berbeda.
  */
+/** Akun yang sudah memakai nomor WhatsApp ini (satu nomor, satu akun). */
+async function cariAkunNomor(ctx: QueryCtx, nomor: string) {
+  return ctx.db
+    .query("users")
+    .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", nomor))
+    .first();
+}
+
+/** Nomor bertopeng untuk log audit; angka utuh tidak ditulis ke sana. */
+function samarkanNomor(nomor: string): string {
+  return nomor.length <= 4 ? "••••" : `${nomor.slice(0, 4)}••••${nomor.slice(-3)}`;
+}
+
 async function cariAkunEmail(ctx: QueryCtx, email: string) {
   const dicari = email.trim().toLowerCase();
   if (dicari === "" || !dicari.includes("@")) return null;
@@ -1986,10 +2010,16 @@ export const buatPendana = mutation({
   args: {
     nama: v.string(),
     email: v.string(),
+    /**
+     * Nomor WhatsApp login. Opsional di server agar pemanggil lama tetap sah,
+     * tetapi formulir admin memintanya supaya pendana bisa masuk lewat OTP
+     * WhatsApp tanpa menunggu login email lebih dulu.
+     */
+    nomorWhatsApp: v.optional(v.string()),
     /** Alasan keputusan (disarankan) — masuk audit trail. */
     alasan: v.optional(v.string()),
   },
-  handler: async (ctx, { nama, email, alasan }) => {
+  handler: async (ctx, { nama, email, nomorWhatsApp, alasan }) => {
     const { userId: adminId, user: admin } = await requireAdminSession(ctx);
 
     const namaBersih = nama.trim();
@@ -2010,6 +2040,22 @@ export const buatPendana = mutation({
       );
     }
 
+    const nomorMentah = (nomorWhatsApp ?? "").trim();
+    const nomor = nomorMentah === "" ? null : normalisasiNomorWa(nomorMentah);
+    if (nomorMentah !== "" && nomor === null) {
+      throw new Error(
+        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
+      );
+    }
+    if (nomor !== null) {
+      const pemakai = await cariAkunNomor(ctx, nomor);
+      if (pemakai !== null) {
+        throw new Error(
+          `Nomor ${samarkanNomor(nomor)} sudah dipakai akun lain. Satu nomor hanya dapat menjadi pintu masuk satu akun.`,
+        );
+      }
+    }
+
     const userId = await ctx.db.insert("users", {
       name: namaBersih,
       email: dicari,
@@ -2019,6 +2065,7 @@ export const buatPendana = mutation({
       emailVerificationTime: Date.now(),
       role: ROLES.DANA,
       isAnonymous: false,
+      ...(nomor === null ? {} : { nomorWhatsApp: nomor }),
     });
 
     await audit(
@@ -2028,11 +2075,11 @@ export const buatPendana = mutation({
       "buat_pendana",
       dicari,
       `Akun pendana "${namaBersih}" (${dicari}) dibuat dengan akses lihat saja ruang penyedia dana${
-        alasan?.trim() ? ` — ${alasan.trim()}` : ""
-      }`,
+        nomor === null ? "" : ` dan login WhatsApp ${samarkanNomor(nomor)}`
+      }${alasan?.trim() ? ` — ${alasan.trim()}` : ""}`,
     );
 
-    return { ok: true, userId, nama: namaBersih, email: dicari };
+    return { ok: true, userId, nama: namaBersih, email: dicari, nomorWhatsApp: nomor };
   },
 });
 
@@ -2065,10 +2112,15 @@ export const ubahAkunPendana = mutation({
     userId: v.id("users"),
     nama: v.string(),
     email: v.string(),
+    /**
+     * Nomor WhatsApp login. Tidak dikirim = nomor lama dipertahankan;
+     * string kosong = nomor dihapus.
+     */
+    nomorWhatsApp: v.optional(v.string()),
     /** Alasan keputusan (disarankan) — masuk audit trail. */
     alasan: v.optional(v.string()),
   },
-  handler: async (ctx, { userId, nama, email, alasan }) => {
+  handler: async (ctx, { userId, nama, email, nomorWhatsApp, alasan }) => {
     const { userId: adminId, user: admin } = await requireAdminSession(ctx);
 
     const target = await ctx.db.get(userId);
@@ -2095,6 +2147,29 @@ export const ubahAkunPendana = mutation({
     const namaLama = target.name?.trim() ?? "";
     const berubahEmail = emailBersih !== emailLama;
     const berubahNama = namaBersih !== namaLama;
+    const nomorLama = target.nomorWhatsApp ?? "";
+    let nomorBaru = nomorLama;
+    if (nomorWhatsApp !== undefined) {
+      const mentah = nomorWhatsApp.trim();
+      if (mentah === "") {
+        nomorBaru = "";
+      } else {
+        const normal = normalisasiNomorWa(mentah);
+        if (normal === null) {
+          throw new Error(
+            "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
+          );
+        }
+        const pemakai = await cariAkunNomor(ctx, normal);
+        if (pemakai !== null && pemakai._id !== target._id) {
+          throw new Error(
+            `Nomor ${samarkanNomor(normal)} sudah dipakai akun lain. Satu nomor hanya dapat menjadi pintu masuk satu akun.`,
+          );
+        }
+        nomorBaru = normal;
+      }
+    }
+    const berubahNomor = nomorBaru !== nomorLama;
 
     if (berubahEmail) {
       const pemakai = await cariAkunEmail(ctx, emailBersih);
@@ -2125,11 +2200,23 @@ export const ubahAkunPendana = mutation({
       }
     }
 
-    if (!berubahNama && !berubahEmail) {
-      return { ok: true, sudahSesuai: true, akunLoginDiperbarui: 0, email: emailBersih };
+    if (!berubahNama && !berubahEmail && !berubahNomor) {
+      return {
+        ok: true,
+        sudahSesuai: true,
+        akunLoginDiperbarui: 0,
+        email: emailBersih,
+        nomorWhatsApp: nomorBaru === "" ? null : nomorBaru,
+      };
     }
 
-    await ctx.db.patch(target._id, { name: namaBersih, email: emailBersih });
+    await ctx.db.patch(target._id, {
+      name: namaBersih,
+      email: emailBersih,
+      ...(berubahNomor
+        ? { nomorWhatsApp: nomorBaru === "" ? undefined : nomorBaru }
+        : {}),
+    });
 
     await audit(
       ctx,
@@ -2141,12 +2228,24 @@ export const ubahAkunPendana = mutation({
         berubahNama ? `; nama "${namaLama || "(kosong)"}" → "${namaBersih}"` : ""
       }${
         berubahEmail ? `; email "${emailLama || "(belum ada)"}" → "${emailBersih}"` : ""
+      }${
+        berubahNomor
+          ? `; WhatsApp "${nomorLama === "" ? "(belum ada)" : samarkanNomor(nomorLama)}" → "${
+              nomorBaru === "" ? "(dihapus)" : samarkanNomor(nomorBaru)
+            }"`
+          : ""
       }${akunLogin > 0 ? `; ${akunLogin} akun login ikut dipindahkan` : ""}${
         alasan?.trim() ? ` — ${alasan.trim()}` : ""
       }`,
     );
 
-    return { ok: true, sudahSesuai: false, akunLoginDiperbarui: akunLogin, email: emailBersih };
+    return {
+      ok: true,
+      sudahSesuai: false,
+      akunLoginDiperbarui: akunLogin,
+      email: emailBersih,
+      nomorWhatsApp: nomorBaru === "" ? null : nomorBaru,
+    };
   },
 });
 

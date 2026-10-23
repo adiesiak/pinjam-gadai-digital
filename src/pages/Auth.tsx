@@ -169,7 +169,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     searchParams.get("returnTo") === ADMIN_ROUTE ? "admin" : "client",
   );
   const defaultDestination =
-    user?.role === "admin" ? ADMIN_ROUTE : redirectAfterAuth;
+    user?.role === "admin"
+      ? ADMIN_ROUTE
+      : user?.role === "dana" || user?.role === "pengamat"
+        ? "/penyedia-dana"
+        : redirectAfterAuth;
   const redirect = resolveRedirectAfterAuth(
     searchParams.get("returnTo"),
     defaultDestination,
@@ -260,7 +264,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   }, [adminTotp, captchaBenar]);
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated) return;
+    // Tunggu profil akun ikut termuat: tujuan setelah masuk bergantung pada
+    // perannya, dan pendana tidak boleh mendarat di dashboard peminjam.
+    if (authLoading || isLoading || !isAuthenticated) return;
     // Masuk lewat Google juga meninggalkan jejak di `loginLogs` (IP, perangkat,
     // metode) seperti email/WhatsApp. Tanpa ini panel Login & Keamanan tidak
     // pernah melihat jalur Google, sehingga login dari IP baru pun tidak
@@ -278,7 +284,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       return;
     }
     navigate(redirect);
-  }, [authLoading, isAuthenticated, navigate, redirect, recordLogin]);
+  }, [authLoading, isLoading, isAuthenticated, navigate, redirect, recordLogin]);
 
   /**
    * Pengguna baru kembali dari Google dan sesinya BELUM ada.
@@ -775,7 +781,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <TabsContent value={TAB_MASUK} className="mt-6">
                         <KepalaPane
                           judul="Masuk atau buat akun"
-                          keterangan="Masuk untuk mencatat pengajuan pinjaman atau gadai."
+                          keterangan="Peminjam dan pendana masuk dengan email atau nomor WhatsApp yang terdaftar."
                           ikon={<ShieldCheck className="size-5" />}
                         />
                         <form

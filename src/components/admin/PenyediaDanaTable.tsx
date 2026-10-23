@@ -71,6 +71,8 @@ export type BarisAkunTampil = {
   userId: string;
   nama: string;
   email: string | null;
+  /** Nomor WhatsApp login; dipakai formulir kelola akun. */
+  nomorWhatsApp?: string | null;
   peran: string | null;
   peranLegacy: boolean;
   akunBersama: boolean;
@@ -264,6 +266,11 @@ export function TabelAkunPendana({
                                 <p className="truncate text-xs text-muted-foreground">
                                   {r.email ?? "tanpa email"}
                                 </p>
+                                {r.nomorWhatsApp != null && (
+                                  <p className="truncate text-[11px] text-slate-500">
+                                    WhatsApp {r.nomorWhatsApp}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </TableCell>
@@ -330,6 +337,11 @@ export function TabelAkunPendana({
                             <p className="truncate text-[11px] text-muted-foreground">
                               {r.email ?? "tanpa email"}
                             </p>
+                            {r.nomorWhatsApp != null && (
+                              <p className="truncate text-[11px] text-slate-500">
+                                WhatsApp {r.nomorWhatsApp}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <Badge className={peran.kelas}>{peran.label}</Badge>
@@ -400,10 +412,12 @@ function MenuKelolaPendana({
   targetId,
   nama,
   email,
+  nomorWhatsApp,
 }: {
   targetId: string;
   nama: string;
   email: string | null;
+  nomorWhatsApp: string | null;
 }) {
   const [ubahTerbuka, setUbahTerbuka] = useState(false);
   const [masukTerbuka, setMasukTerbuka] = useState(false);
@@ -450,6 +464,7 @@ function MenuKelolaPendana({
         targetId={targetId}
         nama={nama}
         email={email}
+        nomorWhatsApp={nomorWhatsApp}
         terbuka={ubahTerbuka}
         onTerbukaChange={setUbahTerbuka}
         tampilkanTombol={false}
@@ -510,6 +525,7 @@ export function PenyediaDanaTable() {
             targetId={r.userId}
             nama={r.nama}
             email={r.email}
+            nomorWhatsApp={r.nomorWhatsApp ?? null}
           />
         )
       }

@@ -7,6 +7,7 @@ import {
   KeyRound,
   Loader2,
   MailPlus,
+  MessageCircle,
   ShieldX,
   UserPlus,
   Users,
@@ -67,6 +68,7 @@ function tanggalRingkas(ms: number | null): string {
 function KartuBuatPendana() {
   const [nama, setNama] = useState("");
   const [email, setEmail] = useState("");
+  const [nomorWhatsApp, setNomorWhatsApp] = useState("");
   const [busy, setBusy] = useState(false);
   const buatPendana = useMutation(api.penyediaDana.buatPendana);
 
@@ -82,12 +84,23 @@ function KartuBuatPendana() {
       toast.error("Isi alamat email pendana yang akan dibuat.");
       return;
     }
+    if (nomorWhatsApp.replace(/\D/g, "").length < 9) {
+      toast.error("Isi nomor WhatsApp pendana, mis. 0812 3456 7890.");
+      return;
+    }
     setBusy(true);
     try {
-      await buatPendana({ nama: namaBersih, email: target });
-      toast.success(`Pendana ${namaBersih} dibuat. Minta ia masuk lewat /auth dengan email ${target}.`);
+      await buatPendana({
+        nama: namaBersih,
+        email: target,
+        nomorWhatsApp: nomorWhatsApp.trim(),
+      });
+      toast.success(
+        `Pendana ${namaBersih} dibuat. Ia bisa masuk lewat OTP WhatsApp ${nomorWhatsApp.trim()} atau email ${target}.`,
+      );
       setNama("");
       setEmail("");
+      setNomorWhatsApp("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal membuat pendana.");
     } finally {
@@ -104,7 +117,7 @@ function KartuBuatPendana() {
         <div>
           <h3 className="font-bold text-slate-900">Buat Pendana Baru</h3>
           <p className="text-xs text-muted-foreground">
-            Akun langsung berakses; pendana masuk lewat OTP email.
+            Akun langsung berakses; pendana masuk lewat OTP WhatsApp atau email.
           </p>
         </div>
       </header>
@@ -139,6 +152,32 @@ function KartuBuatPendana() {
             disabled={busy}
             className="mt-1"
           />
+        </div>
+        <div>
+          <Label htmlFor="pendana-whatsapp" className="text-xs text-muted-foreground">
+            Nomor WhatsApp login
+          </Label>
+          <div className="relative mt-1">
+            <MessageCircle
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+              aria-hidden="true"
+            />
+            <Input
+              id="pendana-whatsapp"
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              placeholder="0812 3456 7890"
+              value={nomorWhatsApp}
+              onChange={(e) => setNomorWhatsApp(e.target.value)}
+              disabled={busy}
+              className="pl-9"
+            />
+          </div>
+          <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
+            Nomor ini menjadi pintu masuk OTP WhatsApp pendana. Satu nomor hanya
+            untuk satu akun.
+          </p>
         </div>
         <Button type="submit" className={`w-full ${TOMBOL_EMERALD}`} disabled={busy}>
           {busy ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}

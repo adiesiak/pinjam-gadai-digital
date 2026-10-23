@@ -276,7 +276,7 @@ async function susunUntuk(
       {
         nomorReferensi: loan.nomorReferensi,
         namaPeminjam: loan.namaLengkap,
-        pokokPinjaman: loan.pokokPinjaman,
+        pokokBerjalan: pelunasan.pokokBerjalan ?? loan.pokokPinjaman,
         jatuhTempoPada: pelunasan.jatuhTempoPada,
         hariTerlambat: pelunasan.hariTerlambat,
         dendaTerlambat: pelunasan.dendaTerlambat,

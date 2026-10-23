@@ -537,6 +537,12 @@ export interface PelunasanPinjaman {
   totalKewajibanDenganPenalti: Rupiah;
   /** Total kewajiban tanpa denda. */
   totalKewajibanPelunasan: Rupiah;
+  /**
+   * Pokok yang masih berjalan pada periode ini — sisa pokok untuk pinjaman
+   * yang sudah diperpanjang, pokok awal untuk pinjaman biasa. Dokumen yang
+   * merinci tagihan memakai angka ini supaya barisnya menjumlah ke total.
+   */
+  pokokBerjalan?: Rupiah;
 }
 
 /** Satu bulan skema bulanan dihitung 30 hari, konsisten di server & UI. */
@@ -598,6 +604,7 @@ export function pelunasanPinjaman(
       dendaTerlambat,
       totalKewajibanDenganPenalti: totalKewajibanPelunasan + dendaTerlambat,
       totalKewajibanPelunasan,
+      pokokBerjalan: pokok,
     };
   }
   if (loan.tenorBulan !== undefined) {
@@ -623,6 +630,7 @@ export function pelunasanPinjaman(
       dendaTerlambat,
       totalKewajibanDenganPenalti: sim.totalPengembalian + dendaTerlambat,
       totalKewajibanPelunasan: sim.totalPengembalian,
+      pokokBerjalan: loan.pokokPinjaman,
     };
   }
   // Data warisan pra-tenor memakai default 30 hari agar tetap bisa dilunasi.
@@ -642,6 +650,7 @@ export function pelunasanPinjaman(
     dendaTerlambat: rep.dendaTerlambat,
     totalKewajibanDenganPenalti: rep.totalKewajibanDenganPenalti,
     totalKewajibanPelunasan: rep.totalKewajibanPelunasan,
+    pokokBerjalan: loan.pokokPinjaman,
   };
 }
 

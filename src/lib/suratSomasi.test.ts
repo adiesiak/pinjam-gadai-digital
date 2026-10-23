@@ -1,4 +1,5 @@
 /** Run: bun src/lib/suratSomasi.test.ts */
+import { pelunasanPinjaman } from "./loan";
 import { formatRupiah } from "./money";
 import {
   BATAS_BAYAR_HARI,
@@ -38,7 +39,7 @@ const SEKARANG = Date.UTC(2026, 9, 19, 4, 0, 0);
 const data: DataSuratSomasi = {
   nomorReferensi: "PNJ-2026-0042",
   namaPeminjam: "Rani Peminjam",
-  pokokPinjaman: 500_000,
+  pokokBerjalan: 500_000,
   jatuhTempoPada: SEKARANG - 10 * HARI,
   hariTerlambat: 10,
   dendaTerlambat: 100_000,
@@ -99,6 +100,98 @@ ok(
   barisRincian("Denda keterlambatan")?.label.includes("2% dari pokok per hari") ?? false,
   "tarif denda di label",
 );
+
+/** "Rp 300.000" atau "Rp -5.000" → 300000 / -5000. */
+function angkaRupiah(nilai: string): number {
+  return Number(nilai.replace(/[^\d-]/g, ""));
+}
+function jumlahBaris(surat: { rincian: { nilai: string }[] }): number {
+  return surat.rincian
+    .slice(0, -1)
+    .reduce((total, baris) => total + angkaRupiah(baris.nilai), 0);
+}
+eq(
+  jumlahBaris(surat),
+  angkaRupiah(surat.rincian[surat.rincian.length - 1]?.nilai ?? "0"),
+  "jumlah baris rincian sama dengan total tagihan",
+);
+
+// Pinjaman yang sudah diperpanjang ditagih dari SISA pokok, bukan pokok awal;
+// kalau memakai pokok awal, baris pokok + denda melebihi total tagihan.
+const diperpanjang = susunSuratSomasi(
+  {
+    ...data,
+    pokokBerjalan: 300_000,
+    dendaTerlambat: 60_000,
+    totalKewajiban: 420_000,
+  },
+  { sekarang: SEKARANG },
+);
+eq(
+  diperpanjang.rincian.find((r) => r.label === "Pokok pinjaman")?.nilai,
+  formatRupiah(300_000),
+  "pokok berjalan dipakai pada surat",
+);
+eq(jumlahBaris(diperpanjang), 420_000, "rincian pinjaman diperpanjang menjumlah");
+ok(
+  diperpanjang.rincian.every((r) => angkaRupiah(r.nilai) >= 0),
+  "tidak ada baris negatif pada data yang konsisten",
+);
+
+// Keterlambatan melewati batas 100% pokok: label menyebut batasnya, bukan
+// seolah-olah tarif harian masih dipakai penuh.
+const kenaBatas = susunSuratSomasi(
+  {
+    ...data,
+    hariTerlambat: 60,
+    dendaTerlambat: 500_000,
+    totalKewajiban: 1_150_000,
+  },
+  { sekarang: SEKARANG },
+);
+ok(
+  kenaBatas.rincian
+    .find((r) => r.label.startsWith("Denda keterlambatan"))
+    ?.label.includes("dibatasi 100% dari pokok") ?? false,
+  "denda yang kena batas diberi label batas",
+);
+eq(jumlahBaris(kenaBatas), 1_150_000, "rincian denda berbatas menjumlah");
+
+// Angka surat harus persis angka mesin pelunasan yang dipakai panel penagihan,
+// termasuk saat pinjaman sudah diperpanjang.
+const pelunasan = pelunasanPinjaman(
+  {
+    pokokPinjaman: 1_000_000,
+    status: "didanai",
+    didanaiPada: SEKARANG - 20 * HARI,
+    tenorHari: 28,
+    remainingPrincipal: 600_000,
+    nextDueDate: SEKARANG - 10 * HARI,
+    nextInterestAmount: 120_000,
+  },
+  SEKARANG,
+  2,
+);
+ok(pelunasan !== null, "pelunasan pinjaman diperpanjang tersedia");
+if (pelunasan !== null) {
+  const suratPelunasan = susunSuratSomasi(
+    {
+      ...data,
+      pokokBerjalan: pelunasan.pokokBerjalan ?? 1_000_000,
+      hariTerlambat: pelunasan.hariTerlambat,
+      dendaTerlambat: pelunasan.dendaTerlambat,
+      totalKewajiban: pelunasan.totalKewajibanDenganPenalti,
+    },
+    { sekarang: SEKARANG },
+  );
+  eq(pelunasan.pokokBerjalan, 600_000, "pokok berjalan memakai sisa pokok");
+  eq(pelunasan.dendaTerlambat, 120_000, "denda dihitung dari sisa pokok");
+  eq(
+    jumlahBaris(suratPelunasan),
+    pelunasan.totalKewajibanDenganPenalti,
+    "rincian surat sama dengan total mesin pelunasan",
+  );
+}
 ok(surat.instruksiBayar.some((i) => i.includes("BCA 1234567890")), "rekening tujuan disebut");
 ok(surat.instruksiBayar.some((i) => i.includes("PNJ-2026-0042")), "referensi di instruksi bayar");
 ok(surat.penutup.some((p) => p.includes("bukan putusan pengadilan")), "batas dokumen disebut");

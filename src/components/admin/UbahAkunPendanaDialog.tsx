@@ -38,6 +38,7 @@ export function TombolUbahAkunPendana({
   targetId,
   nama,
   email,
+  nomorWhatsApp = null,
   terbuka: terbukaKendali,
   onTerbukaChange,
   tampilkanTombol = true,
@@ -45,6 +46,8 @@ export function TombolUbahAkunPendana({
   targetId: string;
   nama: string;
   email: string | null;
+  /** Nomor WhatsApp login yang tersimpan; null = belum ada. */
+  nomorWhatsApp?: string | null;
   /**
    * Mode terkendali: menu "Kelola" di tabel yang membuka dialognya. Dialog
    * tetap tinggal di sini supaya alur simpan dan pesan gagal tidak bercabang;
@@ -90,6 +93,7 @@ export function TombolUbahAkunPendana({
             targetId={targetId}
             nama={nama}
             email={email}
+            nomorWhatsApp={nomorWhatsApp}
             onTutup={() => ubahTerbuka(false)}
           />
         )}
@@ -103,16 +107,19 @@ function IsiUbahAkunPendana({
   targetId,
   nama,
   email,
+  nomorWhatsApp,
   onTutup,
 }: {
   targetId: string;
   nama: string;
   email: string | null;
+  nomorWhatsApp: string | null;
   onTutup: () => void;
 }) {
   const ubahAkun = useMutation(api.penyediaDana.ubahAkunPendana);
   const [namaBaru, setNamaBaru] = useState(nama);
   const [emailBaru, setEmailBaru] = useState(email ?? "");
+  const [nomorBaru, setNomorBaru] = useState(nomorWhatsApp ?? "");
   const [alasan, setAlasan] = useState("");
   const [busy, setBusy] = useState(false);
   const [pesanGagal, setPesanGagal] = useState<string | null>(null);
@@ -127,6 +134,7 @@ function IsiUbahAkunPendana({
         userId: targetId as Id<"users">,
         nama: namaBaru,
         email: emailBaru,
+        nomorWhatsApp: nomorBaru.trim(),
         ...(alasan.trim() ? { alasan: alasan.trim() } : {}),
       });
       if (hasil.sudahSesuai) {
@@ -167,9 +175,9 @@ function IsiUbahAkunPendana({
           {emailBelumAda ? "Isi data login akun" : "Ubah data login akun"}
         </DialogTitle>
         <DialogDescription>
-          Nama dan email ini yang dipakai akun untuk masuk. Mengubah email
-          memindahkan akun loginnya ke alamat baru, jadi tidak ada akun kosong
-          yang terbentuk di samping data pendananya.
+          Nama, email, dan nomor WhatsApp ini yang dipakai akun untuk masuk.
+          Mengubah email memindahkan akun loginnya ke alamat baru; nomor
+          WhatsApp yang kosong berarti pendana hanya bisa masuk lewat email.
         </DialogDescription>
       </DialogHeader>
 
@@ -207,6 +215,30 @@ function IsiUbahAkunPendana({
           <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
             Kode masuk dikirim ke alamat ini saat pendana membuka /auth. Alamat
             tidak boleh sama dengan akun lain.
+          </p>
+        </div>
+
+        <div>
+          <Label
+            htmlFor={`whatsapp-akun-${targetId}`}
+            className="text-xs text-muted-foreground"
+          >
+            Nomor WhatsApp login (opsional)
+          </Label>
+          <Input
+            id={`whatsapp-akun-${targetId}`}
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            placeholder="0812 3456 7890"
+            value={nomorBaru}
+            onChange={(e) => setNomorBaru(e.target.value)}
+            disabled={busy}
+            className="mt-1"
+          />
+          <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
+            Dengan nomor ini pendana bisa meminta kode OTP di /auth tanpa email.
+            Kosongkan untuk menghapusnya. Satu nomor hanya untuk satu akun.
           </p>
         </div>
 

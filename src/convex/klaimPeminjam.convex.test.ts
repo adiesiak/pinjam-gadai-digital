@@ -245,6 +245,41 @@ describe("mintaKodeKlaim", () => {
     }
   });
 
+  it("nomor terdaftar pada akun pendana memberi sesi pendana, bukan akun peminjam baru", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "Pendana Uji", { role: "dana" });
+    await t.run((ctx) => ctx.db.patch(userId, { nomorWhatsApp: NOMOR_BARU }));
+
+    const fonnte = pasangFonnte();
+    try {
+      await t.action(api.klaimPeminjam.mintaKodeKlaim, { nomor: NOMOR_BARU });
+      const masuk = await t.mutation(internal.klaimPeminjam._klaimUntukMasuk, {
+        nomor: NOMOR_BARU,
+        kode: kodeTerkirim(fonnte.keluar),
+      });
+      expect(masuk.ok).toBe(true);
+      if (!masuk.ok) throw new Error("masuk pendana seharusnya berhasil");
+      expect(masuk.userId).toBe(userId);
+      expect(masuk.pesan).toMatch(/ruang pendana/i);
+
+      const pengguna = await t.run((ctx) => ctx.db.query("users").collect());
+      expect(pengguna).toHaveLength(1);
+      expect(pengguna[0].role).toBe("dana");
+      // Bukan klaim peminjam: tidak ada baris klaim yang dikarang.
+      const jejak = await t.run((ctx) => ctx.db.query("klaimPeminjam").collect());
+      expect(jejak).toHaveLength(0);
+      const auditRows = await t.run((ctx) => ctx.db.query("auditLog").collect());
+      expect(
+        auditRows.some(
+          (a) =>
+            a.aksi === "masuk_otp_whatsapp" && (a.detail ?? "").includes("akun pendana"),
+        ),
+      ).toBe(true);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
   it("nomor pada akun admin tidak memberi sesi admin lewat WhatsApp", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await buatPengguna(t, "Admin Uji", { role: "admin" });

@@ -75,7 +75,13 @@ export type RekeningPembayaran = {
 export type DataSuratSomasi = {
   nomorReferensi: string;
   namaPeminjam: string;
-  pokokPinjaman: number;
+  /**
+   * Pokok yang masih berjalan — sisa pokok untuk pinjaman yang sudah
+   * diperpanjang, bukan pokok awal. Baris "Pokok pinjaman" pada surat memakai
+   * angka ini supaya pokok + bunga/biaya + denda benar-benar sama dengan total
+   * yang ditagih.
+   */
+  pokokBerjalan: number;
   jatuhTempoPada: number;
   hariTerlambat: number;
   dendaTerlambat: number;
@@ -175,22 +181,35 @@ export function susunSuratSomasi(
   const ref = data.nomorReferensi;
   const namaBadan = data.identitas.namaBadan.trim() || "PINDAI";
 
-  // Baris bunga/biaya hanya muncul bila memang ada, supaya jumlah baris di
-  // surat benar-benar sama dengan total yang ditagih.
-  const bungaBiaya = data.totalKewajiban - data.pokokPinjaman - data.dendaTerlambat;
+  // Baris bunga/biaya adalah selisih yang tersisa setelah pokok berjalan dan
+  // denda. Dengan begitu jumlah baris di surat selalu sama dengan total yang
+  // ditagih, termasuk untuk pinjaman yang sudah diperpanjang.
+  const bungaBiaya = data.totalKewajiban - data.pokokBerjalan - data.dendaTerlambat;
+  const tarifDenda = data.persenDendaPerHari;
+  const hariBatasDenda = tarifDenda > 0 ? Math.floor(100 / tarifDenda) : 0;
+  const dendaKenaBatas = tarifDenda > 0 && data.hariTerlambat > hariBatasDenda;
+  const labelDenda = `Denda keterlambatan (${data.hariTerlambat} hari${
+    tarifDenda > 0
+      ? dendaKenaBatas
+        ? ", dibatasi 100% dari pokok"
+        : `, ${tarifDenda}% dari pokok per hari`
+      : ""
+  })`;
+
   const rincian: BarisRincianSomasi[] = [
-    { label: "Pokok pinjaman", nilai: formatRupiah(data.pokokPinjaman) },
-    ...(bungaBiaya > 0
-      ? [{ label: "Bunga dan biaya tercatat", nilai: formatRupiah(bungaBiaya) }]
-      : []),
-    {
-      label: `Denda keterlambatan (${data.hariTerlambat} hari${
-        data.persenDendaPerHari > 0 ? `, ${data.persenDendaPerHari}% dari pokok per hari` : ""
-      })`,
-      nilai: formatRupiah(data.dendaTerlambat),
-    },
-    { label: "Total yang harus dibayar", nilai: formatRupiah(data.totalKewajiban) },
+    { label: "Pokok pinjaman", nilai: formatRupiah(data.pokokBerjalan) },
   ];
+  if (bungaBiaya > 0) {
+    rincian.push({ label: "Bunga dan biaya tercatat", nilai: formatRupiah(bungaBiaya) });
+  } else if (bungaBiaya < 0) {
+    // Data lama yang tidak konsisten tidak disembunyikan: baris negatif membuat
+    // selisihnya terlihat, dan jumlah baris tetap sama dengan total.
+    rincian.push({ label: "Penyesuaian tercatat", nilai: formatRupiah(bungaBiaya) });
+  }
+  rincian.push(
+    { label: labelDenda, nilai: formatRupiah(data.dendaTerlambat) },
+    { label: "Total yang harus dibayar", nilai: formatRupiah(data.totalKewajiban) },
+  );
 
   const instruksiBayar: string[] = [];
   if (data.rekening !== null) {
