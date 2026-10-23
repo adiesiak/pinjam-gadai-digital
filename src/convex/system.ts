@@ -15,6 +15,10 @@ import {
 import { GAYA_PRESETS, type GayaPreset } from "../lib/template-gaya";
 import { clampPlafon } from "../lib/plafon";
 import { kanalAktif } from "../lib/preferensiNotifikasi";
+import {
+  MARGIN_MURABAHAH_MAX_PERSEN,
+  MARGIN_MURABAHAH_MIN_PERSEN,
+} from "../lib/syariah/murabahah";
 import { LATE_FEE_POLICY, tarifBiayaDariAngka } from "../lib/loan";
 import { bandingkanConfig, type PerubahanConfig } from "../lib/bandingkanConfig";
 import {
@@ -91,6 +95,8 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     persenPlatform: row.persenPlatform ?? DEFAULT_CONFIG.persenPlatform,
     persenBunga: row.persenBunga ?? DEFAULT_CONFIG.persenBunga,
     persenBiayaAdmin: row.persenBiayaAdmin ?? DEFAULT_CONFIG.persenBiayaAdmin,
+    persenMarginSyariah:
+      row.persenMarginSyariah ?? DEFAULT_CONFIG.persenMarginSyariah,
     persenBungaBulanan1:
       row.persenBungaBulanan1 ?? DEFAULT_CONFIG.persenBungaBulanan1,
     persenBungaBulanan3:
@@ -257,6 +263,9 @@ export const getKetentuanBiaya = query({
       // Tarif bulanan yang dipakai mesin untuk pengajuan BARU. Pinjaman yang
       // sudah terbit memakai snapshot miliknya sendiri (loans.tarifBulanan).
       tarifBulanan: tarifBulananDariConfig(cfg),
+      // Margin Murabahah yang dipakai pengajuan BARU. Pengajuan dan akad yang
+      // sudah ada menyimpan angkanya sendiri.
+      persenMarginSyariah: cfg.persenMarginSyariah,
     };
   },
 });
@@ -435,6 +444,19 @@ async function bersihkanConfigMasuk(
       "Total biaya admin + asuransi di muka maksimal 50% dari pokok.",
     );
   }
+  // Snapshot lama (sebelum kolom ini ada) tidak memuat margin syariah; rollback
+  // ke snapshot itu mengembalikannya ke bawaan, bukan membiarkan angka sekarang.
+  const marginSyariah =
+    input.persenMarginSyariah ?? DEFAULT_CONFIG.persenMarginSyariah;
+  if (
+    !Number.isFinite(marginSyariah) ||
+    marginSyariah < MARGIN_MURABAHAH_MIN_PERSEN ||
+    marginSyariah > MARGIN_MURABAHAH_MAX_PERSEN
+  ) {
+    throw new Error(
+      `Margin Murabahah harus ${MARGIN_MURABAHAH_MIN_PERSEN}-${MARGIN_MURABAHAH_MAX_PERSEN}% dari harga pokok.`,
+    );
+  }
   for (const [label, nilai] of [
     ["Bunga bulanan tenor 1 bulan", input.persenBungaBulanan1],
     ["Bunga bulanan tenor 3 bulan", input.persenBungaBulanan3],
@@ -506,6 +528,7 @@ async function bersihkanConfigMasuk(
     biayaEkspresTier3: Math.round(input.biayaEkspresTier3),
     qrisImageId: input.qrisImageId ?? null,
     plafonPinjaman: clampPlafon(input.plafonPinjaman),
+    persenMarginSyariah: marginSyariah,
     rekeningUsahaNama: (input.rekeningUsahaNama ?? "").trim(),
     rekeningUsahaBank: (input.rekeningUsahaBank ?? "").trim(),
     rekeningUsahaNomor: nomorUsaha,
@@ -610,6 +633,8 @@ export const saveConfig = mutation({
     persenPlatform: v.number(),
     persenBunga: v.number(),
     persenBiayaAdmin: v.number(),
+    /** Opsional: pemanggil lama tidak mengirimnya — nilai berlaku dipertahankan. */
+    persenMarginSyariah: v.optional(v.number()),
     persenAsuransi: v.number(),
     biayaEkspresTier1: v.number(),
     biayaEkspresTier2: v.number(),
@@ -668,6 +693,7 @@ export const saveConfig = mutation({
       persenPlatform: args.persenPlatform,
       persenBunga: args.persenBunga,
       persenBiayaAdmin: args.persenBiayaAdmin,
+      persenMarginSyariah: args.persenMarginSyariah ?? prev.persenMarginSyariah,
       persenAsuransi: args.persenAsuransi,
       biayaEkspresTier1: args.biayaEkspresTier1,
       biayaEkspresTier2: args.biayaEkspresTier2,

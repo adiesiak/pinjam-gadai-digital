@@ -55,6 +55,7 @@ import {
   type BarangKatalog,
 } from "@/lib/syariah/katalog";
 import {
+  MARGIN_MURABAHAH_MAX_PERSEN,
   MARGIN_MURABAHAH_MIN_PERSEN,
 } from "@/lib/syariah/murabahah";
 import { cn } from "@/lib/utils";
@@ -466,6 +467,7 @@ export function FormPengajuanSyariah({
   const plafon = useQuery(api.nasabah.plafonRingkasSaya);
   const daftar = useQuery(api.syariahPengajuan.daftarSaya);
   const katalog = useQuery(api.katalog.daftarKatalog);
+  const ketentuan = useQuery(api.system.getKetentuanBiaya);
   const ajukan = useMutation(api.syariahPengajuan.ajukan);
   const batalkan = useMutation(api.syariahPengajuan.batalkan);
 
@@ -507,6 +509,10 @@ export function FormPengajuanSyariah({
   // ditolak server. Batas bawah tetap diperiksa mesin akad supaya pesannya
   // menyebut aturan yang sebenarnya.
   const pokokDipakai = Math.min(pokok, batasPokok);
+  // Angka margin berasal dari konfigurasi admin supaya estimasi di layar sama
+  // dengan yang disimpan server, bukan salinan persentase di komponen.
+  const marginSyariah =
+    ketentuan?.persenMarginSyariah ?? MARGIN_MURABAHAH_BAWAAN;
 
   let rencana: RencanaAkadSyariah | null = null;
   let pesanRencana: string | null = null;
@@ -515,6 +521,7 @@ export function FormPengajuanSyariah({
       jenis,
       pokok: pokokDipakai,
       tenorHari: tenor,
+      ...(jenis === "murabahah" ? { marginPersen: marginSyariah } : {}),
       ...(jenis === "rahn" ? { nilaiTaksiran: taksiran } : {}),
     });
   } catch (err) {
@@ -526,7 +533,8 @@ export function FormPengajuanSyariah({
     kyc === undefined ||
     plafon === undefined ||
     daftar === undefined ||
-    katalog === undefined
+    katalog === undefined ||
+    ketentuan === undefined
   ) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4" role="status">
@@ -854,7 +862,7 @@ export function FormPengajuanSyariah({
       <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-5 text-muted-foreground">
         <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         {jenis === "murabahah"
-          ? `Margin ${MARGIN_MURABAHAH_BAWAAN}% dari harga pokok untuk seluruh tenor. Sebelum akad, petugas dapat menurunkannya sampai ${MARGIN_MURABAHAH_MIN_PERSEN}%.`
+          ? `Margin ${marginSyariah}% dari harga pokok untuk seluruh tenor. Angka final dapat disesuaikan petugas dalam rentang ${MARGIN_MURABAHAH_MIN_PERSEN}-${MARGIN_MURABAHAH_MAX_PERSEN}% sebelum akad.`
           : jenis === "rahn"
             ? "Ujrah 2% dari taksiran per 30 hari. Taksiran final ditetapkan petugas."
             : "Qardh tidak mengambil margin atau ujrah. Pokok kembali 100%."}

@@ -220,6 +220,37 @@ describe("konfigurasi: versi, riwayat, rollback", () => {
     ).rejects.toThrow(/Denda keterlambatan/i);
   });
 
+  it("menyimpan margin Murabahah syariah dan menolak angka di luar rentang", async () => {
+    const t = buatKontek();
+    const { sesi: asAdmin } = await siapkanPengguna(t, "admin-margin-sy", {
+      email: "admin-margin-sy@pindai.test",
+      role: "admin",
+    });
+
+    await asAdmin.mutation(
+      api.system.saveConfig,
+      argumenConfig({ persenMarginSyariah: 17 }),
+    );
+
+    const publik = await t.query(api.system.getKetentuanBiaya, {});
+    expect(publik.persenMarginSyariah).toBe(17);
+    const admin = await asAdmin.query(api.system.getConfigAdmin, {});
+    expect(admin.config.persenMarginSyariah).toBe(17);
+
+    await expect(
+      asAdmin.mutation(
+        api.system.saveConfig,
+        argumenConfig({ persenMarginSyariah: 25 }),
+      ),
+    ).rejects.toThrow(/Margin Murabahah/i);
+    await expect(
+      asAdmin.mutation(
+        api.system.saveConfig,
+        argumenConfig({ persenMarginSyariah: 14 }),
+      ),
+    ).rejects.toThrow(/Margin Murabahah/i);
+  });
+
   it("template punya tiga sumbu terpisah: palet, gaya, efek musiman", async () => {
     const t = buatKontek();
     const { sesi: asAdmin } = await siapkanPengguna(t, "admin-template", {

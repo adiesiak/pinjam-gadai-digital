@@ -297,10 +297,17 @@ export const ajukan = mutation({
       nomorTujuan = angka;
     }
 
+    // Margin Murabahah dibaca dari konfigurasi yang berlaku SEKARANG, lalu
+    // ikut dibekukan di baris pengajuan: perubahan angka di panel admin hanya
+    // berlaku untuk pengajuan berikutnya.
+    const cfg = await getConfig(ctx);
     const permintaan: PermintaanPengajuanSyariah = {
       jenis: args.jenis,
       pokok,
       tenorHari: args.tenorHari,
+      ...(args.jenis === "murabahah"
+        ? { marginPersen: cfg.persenMarginSyariah }
+        : {}),
       ...(args.nilaiTaksiran === undefined
         ? {}
         : { nilaiTaksiran: args.nilaiTaksiran }),
@@ -337,7 +344,7 @@ export const ajukan = mutation({
         ? {}
         : { nilaiTaksiran: rencana.nilaiTaksiran }),
       ...(rencana.jenis === "murabahah"
-        ? { marginPersen: MARGIN_MURABAHAH_BAWAAN }
+        ? { marginPersen: cfg.persenMarginSyariah }
         : {}),
       marginTotal: rencana.marginTotal,
       ...(rencana.hargaJual === null ? {} : { hargaJual: rencana.hargaJual }),

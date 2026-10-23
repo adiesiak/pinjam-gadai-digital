@@ -14,6 +14,10 @@ import { hitungSimulasiBulanan } from "@/lib/bulanan";
 import { formatRupiah } from "@/lib/money";
 import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
 import {
+  MARGIN_MURABAHAH_MAX_PERSEN,
+  MARGIN_MURABAHAH_MIN_PERSEN,
+} from "@/lib/syariah/murabahah";
+import {
   DEFAULT_CONFIG,
   RETENSI_LOKASI_BATAS,
   tanpaVersiConfig,
@@ -416,6 +420,23 @@ export function SystemConfigPanel() {
                   suffix="%"
                   onChange={(v) => upd("persenBiayaAdmin", Number(v) || 0)}
                   hint="Dipotong di muka dari pokok; tampil di landing page & formulir."
+                  withHint
+                />
+                <SuffixInput
+                  id="cfg-margin-syariah"
+                  label="Margin Murabahah Syariah (%)"
+                  value={form.persenMarginSyariah}
+                  min={MARGIN_MURABAHAH_MIN_PERSEN}
+                  max={MARGIN_MURABAHAH_MAX_PERSEN}
+                  step={1}
+                  suffix="%"
+                  onChange={(v) =>
+                    upd(
+                      "persenMarginSyariah",
+                      Number(v) || MARGIN_MURABAHAH_MIN_PERSEN,
+                    )
+                  }
+                  hint="Sekali dari harga pokok, semua produk, seluruh tenor. Dipakai pengajuan baru."
                   withHint
                 />
                 <SuffixInput

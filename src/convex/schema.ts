@@ -1180,6 +1180,8 @@ const schema = defineSchema(
       persenBunga: v.optional(v.number()),
       /** Biaya admin pinjaman yang dipotong di muka (% dari pokok). */
       persenBiayaAdmin: v.optional(v.number()),
+      /** Margin Murabahah semua produk (% harga pokok, sekali per akad). */
+      persenMarginSyariah: v.optional(v.number()),
       /** Bunga flat skema bulanan tenor 1/3/6 bulan (% per bulan). */
       persenBungaBulanan1: v.optional(v.number()),
       persenBungaBulanan3: v.optional(v.number()),

@@ -2,6 +2,7 @@
 import { TARIF_BULANAN_DEFAULT, type TarifBulanan } from "./bulanan";
 import { LOKASI_RETENSI } from "./lokasi";
 import { PLAFON_DEFAULT } from "./plafon";
+import { MARGIN_MURABAHAH_BAWAAN } from "./syariah/pengajuan";
 import { gayaAman, type GayaPreset } from "./template-gaya";
 import type { Id } from "../convex/_generated/dataModel";
 
@@ -89,6 +90,14 @@ export type SystemConfig = {
    * ditampilkan di landing page.
    */
   persenBiayaAdmin: number;
+  /**
+   * Margin Murabahah untuk SEMUA produk syariah — barang fisik maupun
+   * pulsa/PPOB, sekali dari harga pokok untuk seluruh tenor (bukan per bulan).
+   * Dibaca saat pengajuan baru dibuat, lalu DIBEKUKAN pada pengajuan itu:
+   * perubahan di sini tidak menggeser harga yang sudah diajukan atau akad yang
+   * sudah tercatat.
+   */
+  persenMarginSyariah: number;
   /** Biaya asuransi yang dipotong di muka (% dari pokok); 0 = tidak dipotong. */
   persenAsuransi: number;
   /**
@@ -200,6 +209,7 @@ export const DEFAULT_CONFIG: SystemConfig = {
   persenBunga: 30,
   /** Bawaan sama dengan harga yang berlaku sebelum bisa diatur admin. */
   persenBiayaAdmin: 2,
+  persenMarginSyariah: MARGIN_MURABAHAH_BAWAAN,
   /** Asuransi mati secara bawaan; admin menyalakannya bila produk memakainya. */
   persenAsuransi: 0,
   biayaEkspresTier1: 5_000,

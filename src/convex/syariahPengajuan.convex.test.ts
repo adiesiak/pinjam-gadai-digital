@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import schema from "./schema";
+import { SYSTEM_SLOT } from "./system";
 import { modules } from "./test.setup";
 import {
   seedKycTerverifikasi,
@@ -95,6 +96,40 @@ describe("pengajuan syariah — pengiriman", () => {
     expect(row?.nisbahPlatform).toBe(9_000);
     expect(row?.namaPeminjam).toBe("RANI PEMINJAM");
     expect(row?.userId).toBe(userId);
+  });
+
+  it("memakai margin dari konfigurasi global dan membekukannya di pengajuan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkanPeminjam(
+      t,
+      "Rani Margin Global",
+      "rani-margin-global@pindai.test",
+    );
+
+    await t.run((ctx) =>
+      ctx.db.insert("systemConfig", {
+        slot: SYSTEM_SLOT,
+        persenMarginSyariah: 17,
+        diperbaruiPada: Date.now(),
+      }),
+    );
+
+    const hasil = await ajukan(sesi);
+    const row = await t.run((ctx) => ctx.db.get(hasil.id));
+    expect(row?.marginPersen).toBe(17);
+    expect(row?.marginTotal).toBe(51_000);
+    expect(row?.hargaJual).toBe(351_000);
+
+    // Angka yang sudah diajukan tidak bergerak saat konfigurasi diubah.
+    await t.run(async (ctx) => {
+      const baris = await ctx.db.query("systemConfig").first();
+      if (baris !== null) {
+        await ctx.db.patch(baris._id, { persenMarginSyariah: 20 });
+      }
+    });
+    const tetap = await t.run((ctx) => ctx.db.get(hasil.id));
+    expect(tetap?.marginPersen).toBe(17);
+    expect(tetap?.hargaJual).toBe(351_000);
   });
 
   it("menolak pengajuan kedua selama yang pertama menunggu", async () => {

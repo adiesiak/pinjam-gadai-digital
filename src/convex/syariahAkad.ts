@@ -26,6 +26,7 @@ import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { namaTampilPendana, peranPenyedia } from "./penyediaDana";
 import { ROLES } from "./schema";
+import { getConfig } from "./system";
 import { kodeTanggalWIB } from "../lib/waktu";
 import {
   jurnalPelunasanSyariah,
@@ -36,7 +37,6 @@ import {
   type RencanaAkadSyariah,
 } from "../lib/syariah/akad";
 import { dataPencatatanDariPengajuan } from "../lib/syariah/pencatatan";
-import { MARGIN_MURABAHAH_BAWAAN } from "../lib/syariah/pengajuan";
 
 /** Batas jumlah baris portofolio yang dikirim ke satu pembaca. */
 const BATAS_BARIS = 200;
@@ -322,6 +322,10 @@ export const catatAkadSyariah = mutation({
 
     // Rencana akad divalidasi modul murni: nominal, tenor, margin, dan taksiran
     // memakai aturan yang sama dengan simulator dan halaman produk.
+    // Akad tanpa pengajuan (dicatat manual) memakai margin yang berlaku di
+    // konfigurasi; akad dari pengajuan memakai angka yang sudah dibekukan di
+    // baris pengajuannya.
+    const cfg = await getConfig(ctx);
     const pokokAkad = data?.pokok ?? args.pokok;
     const tenorHari = data?.tenorHari ?? args.tenorHari;
     const tenor = tenorHari === undefined ? {} : { tenorHari };
@@ -331,7 +335,7 @@ export const catatAkadSyariah = mutation({
             jenis: "murabahah",
             pokok: pokokAkad,
             marginPersen:
-              data?.marginPersen ?? args.marginPersen ?? MARGIN_MURABAHAH_BAWAAN,
+              data?.marginPersen ?? args.marginPersen ?? cfg.persenMarginSyariah,
             ...tenor,
           })
         : args.jenis === "rahn"
