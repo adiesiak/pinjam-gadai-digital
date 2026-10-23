@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { LABEL_STATUS_KYC, type StatusKyc } from "@/lib/kycStatus";
 import { formatRupiah } from "@/lib/money";
+import { formatWaktuWIB } from "@/lib/waktu";
 
 import { formatDate } from "./admin-format";
 import { type LoanRow } from "./admin-shared";
@@ -238,7 +239,7 @@ function RiwayatLokasiMini({ userId }: { userId: Id<"users"> }) {
       <ul className="mt-1.5 space-y-1">
         {riwayat.map((t) => (
           <li key={t._id} className="text-xs tabular-nums text-muted-foreground">
-            {new Date(t.waktu).toLocaleString("id-ID")} · {t.lat.toFixed(5)}, {t.lng.toFixed(5)} · ±{Math.round(t.akurasi)} m
+            {formatWaktuWIB(t.waktu)} WIB · {t.lat.toFixed(5)}, {t.lng.toFixed(5)} · ±{Math.round(t.akurasi)} m
           </li>
         ))}
       </ul>

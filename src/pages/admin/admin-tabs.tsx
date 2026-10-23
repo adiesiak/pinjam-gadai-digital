@@ -436,18 +436,46 @@ export function AdminTabs({
     setActiveTab(value);
     setDrawerTerbuka(false);
     // Simpan modul aktif di URL supaya muat ulang atau tautan yang dibagikan
-    // membuka modul yang sama. `replaceState` tidak menambah entri riwayat.
+    // membuka modul yang sama. `pushState` membuat tombol Kembali peramban
+    // mengembalikan modul sebelumnya, bukan meninggalkan panel admin.
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       if (url.searchParams.get("tab") !== value) {
         url.searchParams.set("tab", value);
-        window.history.replaceState(window.history.state, "", url);
+        window.history.pushState(window.history.state, "", url);
       }
     }
+    // Pindah modul berarti pindah halaman: gulir ke atas dan pindahkan fokus
+    // ke isi, bukan membiarkan pembaca layar di tengah menu lama.
+    requestAnimationFrame(() => {
+      const konten = document.getElementById("konten");
+      konten?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "auto" });
+    });
   };
 
   const semuaItem = menu.flatMap((g) => g.items);
   const aktif = semuaItem.find((i) => i.value === activeTab) ?? semuaItem[0];
+
+  // Tombol Kembali/Maju peramban mengubah `?tab=`; state modul harus ikut,
+  // kalau tidak URL dan isi panel menunjuk modul yang berbeda.
+  useEffect(() => {
+    const tanganiPopstate = () => {
+      setActiveTab(
+        modulDariParameter(new URLSearchParams(window.location.search).get("tab")),
+      );
+      const konten = document.getElementById("konten");
+      konten?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "auto" });
+    };
+    window.addEventListener("popstate", tanganiPopstate);
+    return () => window.removeEventListener("popstate", tanganiPopstate);
+  }, []);
+
+  // Judul tab peramban mengikuti modul yang sedang dibuka.
+  useEffect(() => {
+    document.title = `${aktif?.label ?? "Admin"} — PINDAI`;
+  }, [aktif?.label]);
 
   /** Isi setiap menu — satu entri per nilai tab. */
   // `Record<NilaiModulAdmin, ReactNode>` yang ekshaustif: menambah nilai modul

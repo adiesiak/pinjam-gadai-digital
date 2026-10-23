@@ -1,11 +1,12 @@
 import { useQuery } from "convex/react";
-import { CheckCircle2, Clock, Download, Loader2, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Clock, Download, Loader2, Search, TriangleAlert } from "lucide-react";
 import type { ComponentType } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import {
   JENIS_HAPUS,
@@ -15,6 +16,7 @@ import {
   type JenisHapus,
 } from "@/lib/auditHapus";
 import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
+import { formatWaktuWIB, tanggalWIB } from "@/lib/waktu";
 import {
   keCsvAudit,
   labelAksi,
@@ -52,6 +54,9 @@ const GAYA_NADA: Record<NadaTimeline, { kelas: string; Icon: ComponentType<{ cla
 export function AuditTrailPanel() {
   const data = useQuery(api.system.getConfigAdmin);
   const [jenis, setJenis] = useState<JenisHapus>("semua");
+  const [cari, setCari] = useState("");
+  const [dari, setDari] = useState("");
+  const [sampai, setSampai] = useState("");
   const hapus = useQuery(api.system.auditPenghapusan, { jenis });
   const [mengekspor, setMengekspor] = useState(false);
 
@@ -62,6 +67,39 @@ export function AuditTrailPanel() {
   const ringkasan = hapus?.ringkasan;
 
   /**
+   * Penelusuran audit dilakukan atas entri yang sudah dimuat: daftar aktivitas
+   * memang dibatasi server ke entri terbaru, dan daftar penghapusan ke kategori
+   * yang dipilih. Penyaring di sini tidak berpura-pura mencari seluruh riwayat;
+   * angka "dari" menunjukkan batas yang benar-benar dibaca.
+   */
+  const kueri = cari.trim().toLowerCase();
+  const cocokWaktu = (waktu: number) => {
+    if (dari === "" && sampai === "") return true;
+    const tanggal = tanggalWIB(waktu);
+    return (dari === "" || tanggal >= dari) && (sampai === "" || tanggal <= sampai);
+  };
+  const cocokTeks = (...teks: Array<string | null | undefined>) =>
+    kueri === "" || teks.some((nilai) => (nilai ?? "").toLowerCase().includes(kueri));
+
+  const hapusTampil = (hapus?.rows ?? []).filter(
+    (row) =>
+      cocokWaktu(row.waktu) &&
+      cocokTeks(row.aktorLabel, row.target, row.detail, labelBarisHapus(row)),
+  );
+  const timelineTampil = data.auditTerbaru.filter(
+    (a) =>
+      cocokWaktu(a.waktu) &&
+      cocokTeks(a.aktorLabel, a.target, a.detail, labelAksi(a.aksi)),
+  );
+  const filterAktif = kueri !== "" || dari !== "" || sampai !== "";
+
+  const bersihkanFilter = () => {
+    setCari("");
+    setDari("");
+    setSampai("");
+  };
+
+  /**
    * Unduh gabungan dua daftar sebagai CSV. Baris ganda (penghapusan yang juga
    * muncul di aktivitas terbaru) dibuang lewat `_id` supaya berkas audit tidak
    * melaporkan satu kejadian dua kali.
@@ -70,7 +108,7 @@ export function AuditTrailPanel() {
     setMengekspor(true);
     try {
       const terlihat = new Set<string>();
-      const baris = [...(hapus?.rows ?? []), ...data.auditTerbaru]
+      const baris = [...hapusTampil, ...timelineTampil]
         .filter((r) => {
           if (terlihat.has(r._id)) return false;
           terlihat.add(r._id);
@@ -122,6 +160,7 @@ export function AuditTrailPanel() {
           <p className="text-sm font-semibold text-navy">Audit Trail</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Timeline aktivitas admin dan daftar penghapusan. Entri audit tidak pernah dihapus.
+            Pencarian dan rentang tanggal berlaku juga untuk Export CSV.
           </p>
         </div>
         <Button
@@ -140,6 +179,67 @@ export function AuditTrailPanel() {
           Export CSV
         </Button>
       </header>
+
+      <div className="animate-masuk rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:px-5">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end">
+          <div className="relative min-w-0 flex-1">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              value={cari}
+              onChange={(event) => setCari(event.target.value)}
+              placeholder="Cari aktor, target, atau tindakan…"
+              aria-label="Cari audit berdasarkan aktor, target, atau tindakan"
+              className="h-11 pl-9"
+            />
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-0">
+              <label htmlFor="audit-dari" className="text-[11px] font-medium text-slate-600">
+                Dari tanggal
+              </label>
+              <Input
+                id="audit-dari"
+                type="date"
+                value={dari}
+                max={sampai === "" ? undefined : sampai}
+                onChange={(event) => setDari(event.target.value)}
+                className="mt-1 h-11 w-40"
+              />
+            </div>
+            <div className="min-w-0">
+              <label htmlFor="audit-sampai" className="text-[11px] font-medium text-slate-600">
+                Sampai tanggal
+              </label>
+              <Input
+                id="audit-sampai"
+                type="date"
+                value={sampai}
+                min={dari === "" ? undefined : dari}
+                onChange={(event) => setSampai(event.target.value)}
+                className="mt-1 h-11 w-40"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              disabled={!filterAktif}
+              onClick={bersihkanFilter}
+            >
+              Bersihkan
+            </Button>
+          </div>
+        </div>
+        <p aria-live="polite" className="mt-2 text-[11px] tabular-nums text-muted-foreground">
+          Menampilkan {timelineTampil.length} dari {data.auditTerbaru.length} aktivitas
+          terbaru dan {hapusTampil.length} dari {hapus?.rows.length ?? 0} catatan
+          penghapusan yang dimuat
+          {filterAktif ? " · filter aktif" : ""}.
+        </p>
+      </div>
 
       <section className="animate-masuk rounded-2xl border border-slate-200 bg-white">
         <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
@@ -184,8 +284,9 @@ export function AuditTrailPanel() {
             aria-live="polite"
             className="px-5 pb-3 text-[11px] tabular-nums text-muted-foreground"
           >
-            Menampilkan {hapus.rows.length} dari {ringkasan.jumlah} data
+            Menampilkan {hapusTampil.length} dari {ringkasan.jumlah} data
             {jenis === "semua" ? "" : ` · filter “${LABEL_JENIS[jenis]}” aktif`}
+            {filterAktif ? " · filter audit aktif" : ""}
           </p>
         )}
 
@@ -210,7 +311,7 @@ export function AuditTrailPanel() {
             </div>
 
             <ul className="divide-y divide-slate-100 border-t border-slate-100">
-              {hapus.rows.map((row) => (
+              {hapusTampil.map((row) => (
                 <li key={row._id} className="px-5 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -221,7 +322,7 @@ export function AuditTrailPanel() {
                       <span className="text-muted-foreground">{row.target ?? ""}</span>
                     </p>
                     <span className="text-xs tabular-nums text-muted-foreground">
-                      {new Date(row.waktu).toLocaleString("id-ID")}
+                      {formatWaktuWIB(row.waktu)} WIB
                     </span>
                   </div>
                   {row.rincianHapus !== undefined && (
@@ -234,9 +335,11 @@ export function AuditTrailPanel() {
                   )}
                 </li>
               ))}
-              {hapus.rows.length === 0 && (
+              {hapusTampil.length === 0 && (
                 <li className="px-5 py-6 text-sm text-muted-foreground">
-                  Belum ada penghapusan pada kategori ini.
+                  {filterAktif
+                    ? "Tidak ada penghapusan yang cocok dengan filter audit ini."
+                    : "Belum ada penghapusan pada kategori ini."}
                 </li>
               )}
             </ul>
@@ -279,16 +382,20 @@ export function AuditTrailPanel() {
               );
             })}
             <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-              {data.auditTerbaru.length} entri terbaru
+              {timelineTampil.length} dari {data.auditTerbaru.length} entri terbaru
             </Badge>
           </div>
         </div>
 
         {data.auditTerbaru.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">Belum ada aktivitas tercatat.</p>
+        ) : timelineTampil.length === 0 ? (
+          <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-6 text-center text-xs text-muted-foreground">
+            Tidak ada aktivitas yang cocok dengan filter audit ini.
+          </p>
         ) : (
           <ol className="mt-4 space-y-0 border-l border-slate-200 pl-5">
-            {data.auditTerbaru.map((a) => {
+            {timelineTampil.map((a) => {
               const nada = nadaAksi(a.aksi);
               const { kelas, Icon, label } = GAYA_NADA[nada];
               return (
@@ -314,7 +421,7 @@ export function AuditTrailPanel() {
                       <span className="text-muted-foreground">{a.target ?? ""}</span>
                     </p>
                     <span className="text-xs tabular-nums text-muted-foreground">
-                      {new Date(a.waktu).toLocaleString("id-ID")}
+                      {formatWaktuWIB(a.waktu)} WIB
                     </span>
                   </div>
                   {a.detail && <p className="mt-1 text-xs leading-5 text-muted-foreground">{a.detail}</p>}

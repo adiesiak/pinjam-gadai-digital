@@ -13,6 +13,7 @@ import { api } from "@/convex/_generated/api";
 import { hitungSimulasiBulanan } from "@/lib/bulanan";
 import { formatRupiah } from "@/lib/money";
 import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
+import { formatWaktuWIB } from "@/lib/waktu";
 import {
   MARGIN_MURABAHAH_MAX_PERSEN,
   MARGIN_MURABAHAH_MIN_PERSEN,
@@ -1212,7 +1213,7 @@ export function SystemConfigPanel() {
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">
               {data.auditTerbaru?.[0]
-                ? new Date(data.auditTerbaru[0].waktu).toLocaleString("id-ID")
+                ? `${formatWaktuWIB(data.auditTerbaru[0].waktu)} WIB`
                 : "—"}
             </span>
           </div>

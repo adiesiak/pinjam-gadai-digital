@@ -102,12 +102,15 @@ export function TabelKomponenRisiko({ komponen }: { komponen: KomponenRisiko[] }
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full text-left text-xs">
+        <caption className="sr-only">
+          Komponen penilaian risiko nasabah beserta bobot, nilai, dan kontribusinya
+        </caption>
         <thead className="text-muted-foreground">
           <tr>
-            <th className="py-1 pr-2 font-medium">Komponen</th>
-            <th className="py-1 pr-2 font-medium">Bobot</th>
-            <th className="py-1 pr-2 font-medium">Nilai</th>
-            <th className="py-1 font-medium">Kontribusi</th>
+            <th scope="col" className="py-1 pr-2 font-medium">Komponen</th>
+            <th scope="col" className="py-1 pr-2 text-right font-medium">Bobot</th>
+            <th scope="col" className="py-1 pr-2 text-right font-medium">Nilai</th>
+            <th scope="col" className="py-1 text-right font-medium">Kontribusi</th>
           </tr>
         </thead>
         <tbody>
@@ -117,9 +120,9 @@ export function TabelKomponenRisiko({ komponen }: { komponen: KomponenRisiko[] }
                 {k.label}
                 <span className="block text-[10px] text-muted-foreground">{k.catatan}</span>
               </td>
-              <td className="py-1 pr-2 tabular-nums">{k.bobot}</td>
-              <td className="py-1 pr-2 tabular-nums">{Math.round(k.nilai * 100)}%</td>
-              <td className="py-1 tabular-nums">{k.kontribusi}</td>
+              <td className="py-1 pr-2 text-right tabular-nums">{k.bobot}</td>
+              <td className="py-1 pr-2 text-right tabular-nums">{Math.round(k.nilai * 100)}%</td>
+              <td className="py-1 text-right tabular-nums">{k.kontribusi}</td>
             </tr>
           ))}
         </tbody>

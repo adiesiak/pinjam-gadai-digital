@@ -5,9 +5,20 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SkeletonBarisDaftar } from "@/components/ui/loading";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ambilTokenPerangkat, lupakanTokenPerangkat } from "@/lib/perangkatPercaya";
+import { formatWaktuWIB } from "@/lib/waktu";
 
 import { formatDate } from "./admin-format";
 
@@ -23,6 +34,9 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
   const cabutPerangkat = useMutation(api.security.cabutPerangkatPercaya);
   const lupakanPerangkat = useMutation(api.security.lupakanPerangkatPercaya);
   const [busyPerangkat, setBusyPerangkat] = useState<string | null>(null);
+  const [saringLog, setSaringLog] = useState<"semua" | "berhasil" | "perhatian">(
+    "semua",
+  );
   // Token perangkat ini (bila ada) — hanya untuk tombol "Lupakan perangkat ini".
   const tokenLokal = ambilTokenPerangkat();
 
@@ -45,13 +59,21 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
     try {
       await lupakanPerangkat({ token });
       lupakanTokenPerangkat();
-      toast.success("Perangkat ini tidak lagi dipercaya — kode TOTP diminta lagi.");
+      toast.success("Perangkat ini tidak lagi dipercaya, kode TOTP diminta lagi.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal melupakan perangkat.");
     } finally {
       setBusyPerangkat(null);
     }
   };
+
+  const logTampil = (logs ?? []).filter((l) =>
+    saringLog === "semua"
+      ? true
+      : saringLog === "berhasil"
+        ? l.status === "berhasil"
+        : l.status !== "berhasil",
+  );
 
   return (
     <div className="space-y-6">
@@ -203,67 +225,162 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
       </section>
 
       {/* Log login append-only */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Log login (append-only)</h3>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold">Log login (append-only)</h3>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Waktu tampil dalam WIB agar cocok dengan jam operasional dan jejak audit.
+            </p>
+          </div>
           <Badge variant="outline" className="text-[10px]">
             100 entri terakhir
           </Badge>
         </div>
+
+        <div
+          role="group"
+          aria-label="Saring log login menurut status"
+          className="mt-3 flex flex-wrap gap-1.5"
+        >
+          {([
+            ["semua", "Semua"],
+            ["berhasil", "Berhasil"],
+            ["perhatian", "Perlu perhatian"],
+          ] as const).map(([nilai, label]) => (
+            <Button
+              key={nilai}
+              type="button"
+              size="sm"
+              variant={saringLog === nilai ? "default" : "outline"}
+              aria-pressed={saringLog === nilai}
+              className="max-md:min-h-11"
+              onClick={() => setSaringLog(nilai)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+
+        {logs !== undefined && (
+          <p aria-live="polite" className="mt-2 text-[11px] tabular-nums text-muted-foreground">
+            Menampilkan {logTampil.length} dari {logs.length} entri
+            {saringLog === "semua" ? "" : " pada saringan ini"}.
+          </p>
+        )}
+
         {logs === undefined ? (
-          <Loader2 className="mt-4 size-4 animate-spin text-muted-foreground" />
+          <div className="mt-4">
+            <SkeletonBarisDaftar baris={5} />
+          </div>
         ) : logs.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">
             Belum ada aktivitas login tercatat.
           </p>
-        ) : (
-          <div className="animate-masuk mt-4 overflow-x-auto">
-            {/* Lebar minimum menjaga kolom tetap terbaca; pada layar sempit
-                tabel menggulir mendatar di dalam kartu alih-alih memaksa lima
-                kolom berdesakan sampai teks pecah per kata. */}
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-3 font-medium">Waktu</th>
-                  <th className="py-2 pr-3 font-medium">Status</th>
-                  <th className="py-2 pr-3 font-medium">Metode</th>
-                  <th className="py-2 pr-3 font-medium">IP</th>
-                  <th className="py-2 font-medium">Perangkat</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {logs.map((l) => (
-                  <tr key={l._id} className="align-top">
-                    <td className="whitespace-nowrap py-2.5 pr-3 text-xs tabular-nums text-muted-foreground">
-                      {new Date(l.waktu).toLocaleString("id-ID")}
-                    </td>
-                    <td className="py-2.5 pr-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          l.status === "berhasil"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : l.status === "diblokir"
-                              ? "bg-red-100 text-red-700"
-                              : l.status === "dipertanyakan"
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-red-50 text-red-600"
-                        }`}
-                      >
-                        {l.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-3 text-xs">{l.metode}</td>
-                    <td className="py-2.5 pr-3 font-mono text-xs">{l.ip}</td>
-                    <td className="max-w-40 truncate py-2.5 text-xs text-muted-foreground" title={l.userAgent}>
-                      {l.userAgent}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        ) : logTampil.length === 0 ? (
+          <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-6 text-center text-xs text-muted-foreground">
+            <p>Tidak ada log dengan status ini.</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 min-h-11"
+              onClick={() => setSaringLog("semua")}
+            >
+              Tampilkan semua log
+            </Button>
           </div>
+        ) : (
+          <>
+            <ul className="mt-3 space-y-2 md:hidden">
+              {logTampil.map((l) => (
+                <li
+                  key={l._id}
+                  className="rounded-xl border border-slate-200 bg-white p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[11px] tabular-nums text-muted-foreground">
+                      {formatWaktuWIB(l.waktu)} WIB
+                    </p>
+                    <LencanaStatusLogin status={l.status} />
+                  </div>
+                  <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                    <dt className="text-muted-foreground">Metode</dt>
+                    <dd>{l.metode}</dd>
+                    <dt className="text-muted-foreground">IP</dt>
+                    <dd className="font-mono">{l.ip}</dd>
+                    <dt className="text-muted-foreground">Perangkat</dt>
+                    <dd className="break-words text-slate-700">{l.userAgent}</dd>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-3 hidden md:block">
+              <Table
+                containerClassName="max-h-[30rem] overflow-y-auto"
+                className="[&_td]:align-top"
+              >
+                <TableCaption className="sr-only">
+                  100 entri login terakhir, waktu dalam WIB, dengan saringan status
+                </TableCaption>
+                <TableHeader className="sticky top-0 z-10 bg-slate-50">
+                  <TableRow className="border-b border-slate-200 bg-slate-50 hover:bg-slate-50">
+                    {["Waktu", "Status", "Metode", "IP", "Perangkat"].map((kolom) => (
+                      <TableHead
+                        key={kolom}
+                        scope="col"
+                        className="text-xs font-semibold text-slate-600"
+                      >
+                        {kolom}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logTampil.map((l) => (
+                    <TableRow key={l._id}>
+                      <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                        {formatWaktuWIB(l.waktu)} WIB
+                      </TableCell>
+                      <TableCell>
+                        <LencanaStatusLogin status={l.status} />
+                      </TableCell>
+                      <TableCell className="text-xs">{l.metode}</TableCell>
+                      <TableCell className="font-mono text-xs">{l.ip}</TableCell>
+                      <TableCell
+                        className="max-w-56 whitespace-normal break-words text-xs text-muted-foreground"
+                        title={l.userAgent}
+                      >
+                        {l.userAgent}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </section>
     </div>
+  );
+}
+
+/** Nada status log login, dipakai tabel dan kartu ponsel. */
+function LencanaStatusLogin({ status }: { status: string }) {
+  const kelas =
+    status === "berhasil"
+      ? "bg-emerald-100 text-emerald-700"
+      : status === "diblokir"
+        ? "bg-red-100 text-red-700"
+        : status === "dipertanyakan"
+          ? "bg-amber-100 text-amber-700"
+          : "bg-red-50 text-red-600";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${kelas}`}
+    >
+      {status}
+    </span>
   );
 }

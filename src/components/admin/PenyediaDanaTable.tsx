@@ -1,10 +1,19 @@
 import { useMutation, useQuery } from "convex/react";
-import { IdCard, Loader2, MoreHorizontal, UserCheck, UserRoundCog } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import {
+  IdCard,
+  Loader2,
+  MoreHorizontal,
+  Search,
+  UserCheck,
+  UserRoundCog,
+  X,
+} from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -116,6 +126,18 @@ export function TabelAkunPendana({
   /** Kolom Tindakan; tidak dirender bila tidak diberikan. */
   renderAksi?: (r: BarisAkunTampil) => ReactNode;
 }) {
+  const [cari, setCari] = useState("");
+  const kueri = cari.trim().toLowerCase();
+  const tampil = useMemo(
+    () =>
+      (baris ?? []).filter(
+        (r) =>
+          kueri === "" ||
+          r.nama.toLowerCase().includes(kueri) ||
+          (r.email ?? "").toLowerCase().includes(kueri),
+      ),
+    [baris, kueri],
+  );
   const jumlahAkses = baris === undefined ? 0 : baris.filter((r) => r.aksesAktif).length;
 
   return (
@@ -148,90 +170,213 @@ export function TabelAkunPendana({
           Belum ada akun pendana atau pemantau. Buat pendana baru atau beri akses pada kartu di atas.
         </p>
       ) : (
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-          <Table className="[&_td]:whitespace-normal [&_td]:align-middle">
-            <TableHeader>
-              <TableRow className="bg-slate-50/80">
-                {[
-                  "Akun",
-                  "Peran",
-                  "Status",
-                  "Akses",
-                  ...(renderAksi === undefined ? [] : ["Tindakan"]),
-                ].map((kolom) => (
-                  <TableHead
-                    key={kolom}
-                    className={`text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${
-                      kolom === "Akses" || kolom === "Tindakan" ? "text-right" : ""
-                    }`}
-                  >
-                    {kolom}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {baris.map((r) => {
-                const peran = labelPeran(r);
-                return (
-                  <TableRow key={r.userId}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
-                          {inisial(r.nama)}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-900">{r.nama}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {r.email ?? "tanpa email"}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={peran.kelas}>{peran.label}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          r.aksesAktif
-                            ? "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                            : "border-0 bg-slate-100 text-slate-600 hover:bg-slate-100"
-                        }
-                      >
-                        {r.aksesAktif ? "Aktif" : "Nonaktif"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {r.akunBersama ? (
-                        <span className="text-[11px] text-muted-foreground">via kode bersama</span>
-                      ) : r.email === null ? (
-                        <span className="text-[11px] text-muted-foreground">tanpa email</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-2">
-                          {busy === r.userId && (
-                            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+        <>
+          <div className="relative mt-4">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              value={cari}
+              onChange={(event) => setCari(event.target.value)}
+              placeholder="Cari nama atau email akun…"
+              aria-label="Cari akun pendana atau pemantau berdasarkan nama atau email"
+              className="h-11 pl-9 pr-11"
+            />
+            {cari !== "" && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Bersihkan pencarian akun"
+                className="absolute right-0 top-1/2 size-11 -translate-y-1/2 text-muted-foreground"
+                onClick={() => setCari("")}
+              >
+                <X className="size-4" aria-hidden />
+              </Button>
+            )}
+          </div>
+
+          <p className="mt-2 text-[11px] tabular-nums text-muted-foreground" aria-live="polite">
+            {kueri === ""
+              ? `Menampilkan ${tampil.length} akun`
+              : `${tampil.length} dari ${baris.length} akun cocok dengan “${cari.trim()}”`}
+          </p>
+
+          {tampil.length === 0 ? (
+            <div className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-8 text-center text-xs text-muted-foreground">
+              <p>Tidak ada akun yang cocok dengan pencarian ini.</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 min-h-11"
+                onClick={() => setCari("")}
+              >
+                Tampilkan semua akun
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="mt-3 hidden overflow-hidden rounded-xl border border-slate-200 md:block">
+                <Table
+                  containerClassName="max-h-[30rem] overflow-y-auto"
+                  className="[&_td]:whitespace-normal [&_td]:align-middle"
+                >
+                  <TableCaption className="sr-only">
+                    Daftar akun pendana beserta peran, status akses, dan tindakan admin
+                  </TableCaption>
+                  <TableHeader className="sticky top-0 z-10 bg-slate-50">
+                    <TableRow className="bg-slate-50/80 hover:bg-slate-50/80">
+                      {[
+                        "Akun",
+                        "Peran",
+                        "Status",
+                        "Akses",
+                        ...(renderAksi === undefined ? [] : ["Tindakan"]),
+                      ].map((kolom) => (
+                        <TableHead
+                          key={kolom}
+                          scope="col"
+                          className={`text-xs font-semibold text-slate-600 ${
+                            kolom === "Akses" || kolom === "Tindakan"
+                              ? "text-right"
+                              : ""
+                          }`}
+                        >
+                          {kolom}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tampil.map((r) => {
+                      const peran = labelPeran(r);
+                      return (
+                        <TableRow key={r.userId}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+                                {inisial(r.nama)}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-slate-900">{r.nama}</p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {r.email ?? "tanpa email"}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={peran.kelas}>{peran.label}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={
+                                r.aksesAktif
+                                  ? "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                  : "border-0 bg-slate-100 text-slate-600 hover:bg-slate-100"
+                              }
+                            >
+                              {r.aksesAktif ? "Aktif" : "Nonaktif"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {r.akunBersama ? (
+                              <span className="text-[11px] text-muted-foreground">via kode bersama</span>
+                            ) : r.email === null ? (
+                              <span className="text-[11px] text-muted-foreground">tanpa email</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-2">
+                                {busy === r.userId && (
+                                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                                )}
+                                <Switch
+                                  checked={r.aksesAktif}
+                                  disabled={busy === r.userId}
+                                  aria-label={`${r.aksesAktif ? "Cabut" : "Beri"} akses untuk ${r.nama}`}
+                                  onCheckedChange={(v) => onUbahAkses(r, v)}
+                                />
+                              </span>
+                            )}
+                          </TableCell>
+                          {renderAksi !== undefined && (
+                            <TableCell className="text-right">{renderAksi(r)}</TableCell>
                           )}
-                          <Switch
-                            checked={r.aksesAktif}
-                            disabled={busy === r.userId}
-                            aria-label={`${r.aksesAktif ? "Cabut" : "Beri"} akses untuk ${r.nama}`}
-                            onCheckedChange={(v) => onUbahAkses(r, v)}
-                          />
-                        </span>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <ul className="mt-3 space-y-3 md:hidden">
+                {tampil.map((r) => {
+                  const peran = labelPeran(r);
+                  return (
+                    <li
+                      key={r.userId}
+                      className="rounded-xl border border-slate-200 bg-white p-3.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+                            {inisial(r.nama)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">
+                              {r.nama}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {r.email ?? "tanpa email"}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge className={peran.kelas}>{peran.label}</Badge>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] text-muted-foreground">Status akses</p>
+                          <Badge
+                            className={
+                              r.aksesAktif
+                                ? "mt-1 border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                : "mt-1 border-0 bg-slate-100 text-slate-600 hover:bg-slate-100"
+                            }
+                          >
+                            {r.aksesAktif ? "Aktif" : "Nonaktif"}
+                          </Badge>
+                        </div>
+                        {r.akunBersama ? (
+                          <span className="text-[11px] text-muted-foreground">via kode bersama</span>
+                        ) : r.email === null ? (
+                          <span className="text-[11px] text-muted-foreground">tanpa email</span>
+                        ) : (
+                          <span className="inline-flex min-h-11 items-center gap-2">
+                            {busy === r.userId && (
+                              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                            )}
+                            <Switch
+                              checked={r.aksesAktif}
+                              disabled={busy === r.userId}
+                              aria-label={`${r.aksesAktif ? "Cabut" : "Beri"} akses untuk ${r.nama}`}
+                              onCheckedChange={(v) => onUbahAkses(r, v)}
+                            />
+                          </span>
+                        )}
+                      </div>
+
+                      {renderAksi !== undefined && (
+                        <div className="mt-3 flex justify-end">{renderAksi(r)}</div>
                       )}
-                    </TableCell>
-                    {renderAksi !== undefined && (
-                      <TableCell className="text-right">
-                        {renderAksi(r)}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </>
       )}
 
       {baris !== undefined && terpotong && (
@@ -270,7 +415,7 @@ function MenuKelolaPendana({
           <Button
             type="button"
             size="sm"
-            className="h-9 gap-1.5 rounded-lg bg-emerald-700 px-2.5 text-xs text-white hover:bg-emerald-800"
+            className="min-h-9 gap-1.5 rounded-lg bg-emerald-700 px-2.5 text-xs text-white hover:bg-emerald-800 max-md:min-h-11"
             aria-label={`Kelola ${nama}`}
           >
             <MoreHorizontal className="size-4" aria-hidden="true" />

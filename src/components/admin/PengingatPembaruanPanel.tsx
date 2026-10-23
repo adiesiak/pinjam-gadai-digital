@@ -424,6 +424,9 @@ export function PengingatPembaruanPanel() {
           </div>
           <div className="mt-2 max-h-56 overflow-auto rounded-xl border border-slate-200">
             <table className="w-full text-left text-xs">
+              <caption className="sr-only">
+                Penerima versi aplikasi terbaru beserta nomor WhatsApp dan status pengirimannya
+              </caption>
               <thead className="sticky top-0 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
                   <th scope="col" className="px-3 py-2 font-medium">

@@ -24,6 +24,7 @@ import {
   type PeriodeBi,
 } from "@/lib/biMetrik";
 import { formatRupiah } from "@/lib/money";
+import { formatWaktuWIB } from "@/lib/waktu";
 
 import { PanelMemuat } from "./admin-shared";
 
@@ -83,38 +84,65 @@ export function DaftarMetrikBI({ metrik }: { metrik: MetrikBaris[] }) {
 /** Daftar sinyal kesehatan — MURNI (tanpa server) dan dapat diuji. */
 export function DaftarSinyalKesehatan({ sinyal }: { sinyal: SinyalBaris[] }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs">
-        <thead className="text-muted-foreground">
-          <tr>
-            <th className="py-1.5 pr-3 font-medium">Sinyal</th>
-            <th className="py-1.5 pr-3 font-medium">Nilai</th>
-            <th className="py-1.5 pr-3 font-medium">Sumber &amp; jendela</th>
-            <th className="py-1.5 font-medium">Catatan</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sinyal.map((s) => (
-            <tr key={s.kunci} className="border-t border-slate-100 align-top">
-              <td className="py-1.5 pr-3 text-slate-700">{s.judul}</td>
-              <td className="py-1.5 pr-3 tabular-nums font-medium text-navy">{s.nilai}</td>
-              <td className="py-1.5 pr-3 text-muted-foreground">{s.sumber}</td>
-              <td className="py-1.5 text-slate-700">
-                {s.keterangan}
-                {s.contoh !== null && (
-                  <span className="mt-1 block text-[10px] text-muted-foreground">
-                    Contoh respons terakhir: {s.contoh}
-                  </span>
-                )}
-                <span className="mt-0.5 block text-[10px] text-muted-foreground">
-                  Ambang: {s.ambang}
-                </span>
-              </td>
+    <>
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full text-left text-xs">
+          <caption className="sr-only">
+            Sinyal kesehatan operasional beserta nilai, sumber, dan ambangnya
+          </caption>
+          <thead className="text-muted-foreground">
+            <tr>
+              <th scope="col" className="py-1.5 pr-3 font-medium">Sinyal</th>
+              <th scope="col" className="py-1.5 pr-3 text-right font-medium">Nilai</th>
+              <th scope="col" className="py-1.5 pr-3 font-medium">Sumber &amp; jendela</th>
+              <th scope="col" className="py-1.5 font-medium">Catatan</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {sinyal.map((s) => (
+              <tr key={s.kunci} className="border-t border-slate-100 align-top">
+                <td className="py-1.5 pr-3 text-slate-700">{s.judul}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums font-medium text-navy">{s.nilai}</td>
+                <td className="py-1.5 pr-3 text-muted-foreground">{s.sumber}</td>
+                <td className="py-1.5 text-slate-700">
+                  {s.keterangan}
+                  {s.contoh !== null && (
+                    <span className="mt-1 block text-[10px] text-muted-foreground">
+                      Contoh respons terakhir: {s.contoh}
+                    </span>
+                  )}
+                  <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                    Ambang: {s.ambang}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <ul className="divide-y divide-slate-100 md:hidden">
+        {sinyal.map((s) => (
+          <li key={s.kunci} className="py-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium text-slate-800">{s.judul}</p>
+              <p className="shrink-0 text-right text-sm font-semibold tabular-nums text-navy">
+                {s.nilai}
+              </p>
+            </div>
+            <p className="mt-1 text-[11px] leading-5 text-slate-700">{s.keterangan}</p>
+            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+              {s.sumber} · Ambang: {s.ambang}
+            </p>
+            {s.contoh !== null && (
+              <p className="mt-1 break-words text-[10px] leading-4 text-muted-foreground">
+                Contoh respons terakhir: {s.contoh}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -158,10 +186,10 @@ export function PanelBiKesehatan() {
             <>
               <DaftarMetrikBI metrik={bi.metrik} />
               <p className="mt-2 text-[10px] text-muted-foreground">
-                Dihitung {new Date(bi.dihitungPada).toLocaleString("id-ID")} · rentang{" "}
+                Dihitung {formatWaktuWIB(bi.dihitungPada)} WIB · rentang{" "}
                 {bi.rentang.mulai === 0
                   ? "seluruh catatan"
-                  : `${new Date(bi.rentang.mulai).toLocaleString("id-ID")} — sekarang`}
+                  : `${formatWaktuWIB(bi.rentang.mulai)} sampai sekarang`}
                 .
               </p>
             </>

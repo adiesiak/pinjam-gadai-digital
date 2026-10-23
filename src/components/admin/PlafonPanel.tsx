@@ -481,7 +481,7 @@ export function PlafonPanel() {
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9 pr-10"
+            className="h-11 pl-9 pr-11"
             aria-label="Cari nasabah berdasarkan nama atau email"
             placeholder="Cari nama atau email…"
             value={cari}
@@ -495,9 +495,9 @@ export function PlafonPanel() {
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
+              size="icon"
               aria-label="Bersihkan pencarian"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+              className="absolute right-0 top-1/2 size-11 -translate-y-1/2 text-muted-foreground"
               onClick={() => {
                 setCari("");
                 setHalaman(0);
@@ -594,9 +594,6 @@ export function PlafonPanel() {
                               >
                                 Perilaku {r.skorPerilaku}/100
                               </Badge>
-                              <Badge className="border-slate-200 bg-slate-100 text-slate-600">
-                                {r.jumlahPengajuan} pengajuan · {r.pinjamanAktif} aktif
-                              </Badge>
                               {!r.notifTagihanAktif && (
                                 <Badge
                                   className="border-amber-200 bg-amber-100 text-amber-800"
@@ -605,20 +602,15 @@ export function PlafonPanel() {
                                   tagihan nonaktif
                                 </Badge>
                               )}
-                              {!r.adaDataDiri ? (
-                                <Badge className="border-amber-200 bg-amber-100 text-amber-800">
-                                  data diri kosong
-                                </Badge>
-                              ) : !r.adaFotoKtp ? (
-                                <Badge className="border-amber-200 bg-amber-100 text-amber-800">
-                                  tanpa foto KTP
-                                </Badge>
-                              ) : (
-                                <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800">
-                                  KTP lengkap
-                                </Badge>
-                              )}
                             </div>
+                            <p className="mt-1 text-[11px] leading-4 text-slate-600">
+                              {r.jumlahPengajuan} pengajuan · {r.pinjamanAktif} aktif ·{" "}
+                              {r.adaFotoKtp
+                                ? "KTP lengkap"
+                                : r.adaDataDiri
+                                  ? "tanpa foto KTP"
+                                  : "data diri kosong"}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -686,6 +678,14 @@ export function PlafonPanel() {
                         </p>
                         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                           {r.email ?? "tanpa email"}
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-600">
+                          {r.jumlahPengajuan} pengajuan · {r.pinjamanAktif} aktif ·{" "}
+                          {r.adaFotoKtp
+                            ? "KTP lengkap"
+                            : r.adaDataDiri
+                              ? "tanpa foto KTP"
+                              : "data diri kosong"}
                         </p>
                       </div>
                     </div>
@@ -769,7 +769,7 @@ export function PlafonPanel() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1 px-2.5"
+                className="min-h-11 gap-1 px-3"
                 disabled={halamanAktif.halaman === 0}
                 onClick={() => setHalaman(halamanAktif.halaman - 1)}
               >
@@ -783,7 +783,7 @@ export function PlafonPanel() {
                   aria-label={`Halaman ${i + 1}`}
                   aria-current={i === halamanAktif.halaman ? "page" : undefined}
                   onClick={() => setHalaman(i)}
-                  className={`flex size-8 items-center justify-center rounded-lg border text-xs font-semibold tabular-nums transition-colors ${
+                  className={`flex size-11 items-center justify-center rounded-lg border text-xs font-semibold tabular-nums transition-colors ${
                     i === halamanAktif.halaman
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary"
@@ -796,7 +796,7 @@ export function PlafonPanel() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1 px-2.5"
+                className="min-h-11 gap-1 px-3"
                 disabled={halamanAktif.halaman >= halamanAktif.totalHalaman - 1}
                 onClick={() => setHalaman(halamanAktif.halaman + 1)}
               >

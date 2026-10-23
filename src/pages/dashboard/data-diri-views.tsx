@@ -13,6 +13,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { formDariTersimpan, penghasilanDariTeks } from "@/lib/dataDiri";
 import { MAX_FILE_BYTES } from "@/lib/kyc";
 import { namaHurufBesar } from "@/lib/nama";
+import { formatWaktuWIB } from "@/lib/waktu";
 
 /**
  * Data diri nasabah, disunting mandiri dari dashboard.
@@ -116,7 +117,7 @@ export function DataDiriSection() {
           fotoKtpUrl={data.fotoKtpUrl}
           sebelumnya={
             data.ada && data.diperbaruiPada !== null
-              ? `Terakhir diperbarui ${new Date(data.diperbaruiPada).toLocaleString("id-ID")}`
+              ? `Terakhir diperbarui ${formatWaktuWIB(data.diperbaruiPada)} WIB`
               : "Data diri belum pernah diisi."
           }
           unggah={unggah}

@@ -27,7 +27,7 @@ import {
 import { DashboardFooter } from "./dashboard/dashboard-footer";
 import { DashboardHeader } from "./dashboard/dashboard-header";
 import { DashboardSidebar } from "./dashboard/dashboard-sidebar";
-import { DashboardBottomNav, type TabBadge } from "./dashboard/dashboard-tab-nav";
+import { DashboardBottomNav, labelTujuan, type TabBadge } from "./dashboard/dashboard-tab-nav";
 import { LoanDetailDialog } from "./dashboard/detail-dialogs";
 import { PersetujuanVerifikasiPembayaran } from "@/components/PersetujuanVerifikasiPembayaran";
 import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
@@ -141,9 +141,33 @@ export default function Dashboard() {
   const [tabLokal, setTabLokal] = useState<string>(() => tabDariUrl ?? "pinjaman");
   const activeTab = tabDariUrl ?? tabLokal;
   const gantiTab = (value: string) => {
-    if (tabDariUrl !== null) setParameter(new URLSearchParams(), { replace: true });
     setTabLokal(value);
+    // Simpan tab di URL tanpa menumpuk riwayat: muat ulang dan tautan yang
+    // dibagikan membuka tab yang sama. Parameter lain (mis. `lihatNasabah`
+    // saat admin mempratinjau akun) tetap dibawa, bukan dibuang.
+    if (typeof window !== "undefined") {
+      const berikut = new URLSearchParams(parameter);
+      if (berikut.get("tab") !== value) {
+        berikut.set("tab", value);
+        setParameter(berikut, { replace: true });
+      }
+    }
   };
+
+  // Judul tab peramban mengikuti menu yang dibuka, supaya beberapa tab
+  // dashboard bisa dibedakan saat dibuka bersamaan.
+  useEffect(() => {
+    document.title = `${labelTujuan(activeTab)} — PINDAI`;
+  }, [activeTab]);
+
+  // Pindah menu berarti pindah halaman: gulir ke atas dan pindahkan fokus ke
+  // isi, bukan membiarkan pembaca layar di tengah daftar tab yang lama.
+  useEffect(() => {
+    const konten = document.getElementById("konten");
+    if (konten === null) return;
+    konten.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [activeTab]);
   // Jenis pengajuan yang aktif dimiliki di sini, bukan di halaman form: CTA di
   // tab lain (dan pintasan menu layar sempit) harus bisa membuka halaman form
   // dengan jenisnya sudah terpilih, dan pilihan pemakai bertahan saat berpindah

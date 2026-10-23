@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -20,6 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
+import { formatWaktuWIB } from "@/lib/waktu";
 import {
   CONTOH_NILAI_WA,
   JENIS_TEMPLATE_WA,
@@ -680,23 +682,65 @@ export function WhatsAppPanel() {
                   Belum ada pengiriman.
                 </p>
               ) : (
-                <div className="mt-3 max-h-96 overflow-y-auto rounded-xl border border-slate-200">
+                <>
+                <ul className="mt-3 space-y-2 md:hidden">
+                  {data.logs.map((log) => (
+                    <li
+                      key={log._id}
+                      className="rounded-xl border border-slate-200 bg-white p-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[11px] tabular-nums text-muted-foreground">
+                          {formatWaktuWIB(log.waktu)} WIB
+                        </p>
+                        <Badge
+                          className={
+                            log.status === "terkirim"
+                              ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                              : "bg-red-100 text-red-700 hover:bg-red-100"
+                          }
+                        >
+                          {log.status}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-sm font-medium tabular-nums text-slate-900">
+                        {log.nomorTujuan}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {jenisRamahWa(log.jenis)}
+                      </p>
+                      <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-700">
+                        {log.isiPesan}
+                      </p>
+                      {log.respon && (
+                        <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
+                          {log.respon.slice(0, 80)}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-3 hidden max-h-96 overflow-y-auto rounded-xl border border-slate-200 md:block">
                   <Table>
+                    <TableCaption className="sr-only">
+                      Log pengiriman WhatsApp terbaru beserta status dan isi pesan
+                    </TableCaption>
                     <TableHeader className="sticky top-0 bg-slate-50">
                       <TableRow>
-                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
-                          Waktu
+                        <TableHead scope="col" className="text-xs font-semibold text-slate-600">
+                          Waktu (WIB)
                         </TableHead>
-                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                        <TableHead scope="col" className="text-xs font-semibold text-slate-600">
                           Nomor tujuan
                         </TableHead>
-                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                        <TableHead scope="col" className="text-xs font-semibold text-slate-600">
                           Jenis
                         </TableHead>
-                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                        <TableHead scope="col" className="text-xs font-semibold text-slate-600">
                           Status
                         </TableHead>
-                        <TableHead className="text-[11px] uppercase tracking-[0.12em]">
+                        <TableHead scope="col" className="text-xs font-semibold text-slate-600">
                           Pesan
                         </TableHead>
                       </TableRow>
@@ -705,7 +749,7 @@ export function WhatsAppPanel() {
                       {data.logs.map((log) => (
                         <TableRow key={log._id}>
                           <TableCell className="align-top text-[11px] tabular-nums text-muted-foreground">
-                            {new Date(log.waktu).toLocaleString("id-ID")}
+                            {formatWaktuWIB(log.waktu)} WIB
                           </TableCell>
                           <TableCell className="align-top text-xs font-medium tabular-nums">
                             {log.nomorTujuan}
@@ -737,6 +781,7 @@ export function WhatsAppPanel() {
                     </TableBody>
                   </Table>
                 </div>
+                </>
               )}
             </div>
           </div>

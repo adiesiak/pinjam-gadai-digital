@@ -7,6 +7,7 @@ import { PenampilDokumen } from "./PenampilDokumen";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
+import { formatWaktuWIB } from "@/lib/waktu";
 
 /**
  * Data diri TERSIMPAN milik nasabah — dibaca peninjau saat memeriksa pengajuan.
@@ -103,7 +104,7 @@ export function DataDiriRingkas({ data }: { data: DataDiriTampil }) {
             {data.diperbaruiPada !== null && (
               <>
                 {" "}
-                Diperbarui {new Date(data.diperbaruiPada).toLocaleString("id-ID")} oleh{" "}
+                Diperbarui {formatWaktuWIB(data.diperbaruiPada)} WIB oleh{" "}
                 {data.diperbaruiOlehLabel ?? "—"}.
               </>
             )}
@@ -181,7 +182,7 @@ export function VerifikasiIdentitasRingkas({
         {terverifikasi ? "Identitas terverifikasi" : "Verifikasi identitas ditolak"}
       </p>
       <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-        Diputuskan {new Date(verifikasi.pada).toLocaleString("id-ID")} oleh {verifikasi.olehLabel}.
+        Diputuskan {formatWaktuWIB(verifikasi.pada)} WIB oleh {verifikasi.olehLabel}.
         Keputusan ini terpisah dari keputusan pinjaman.
       </p>
       {verifikasi.catatan !== undefined && verifikasi.catatan !== "" && (

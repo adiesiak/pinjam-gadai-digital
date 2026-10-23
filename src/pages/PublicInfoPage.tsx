@@ -123,6 +123,8 @@ const ROUTES = [
 ] as const;
 
 function Header() {
+  const { pathname } = useLocation();
+  const aktif = (href: string) => pathname === href;
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
@@ -140,19 +142,38 @@ function Header() {
           aria-label="Navigasi informasi"
           className="hidden flex-wrap items-center gap-4 text-sm text-slate-600 lg:flex"
         >
-          <Link to="/layanan/pinjaman-tunai">Layanan</Link>
-          <Link to="/biaya">Biaya</Link>
-          <Link to="/cara-kerja">Cara kerja</Link>
-          <Link to="/keamanan">Keamanan</Link>
-          <Link to="/faq">FAQ</Link>
-          <Link to="/aplikasi">Aplikasi</Link>
+          {[
+            { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
+            { href: "/layanan/gadai", label: "Gadai" },
+            { href: "/layanan/kredit-barang", label: "Kredit barang" },
+            { href: "/biaya", label: "Biaya" },
+            { href: "/cara-kerja", label: "Cara kerja" },
+            { href: "/keamanan", label: "Keamanan" },
+          ].map((tautan) => (
+            <Link
+              key={tautan.href}
+              to={tautan.href}
+              aria-current={aktif(tautan.href) ? "page" : undefined}
+              className={
+                aktif(tautan.href)
+                  ? "font-semibold text-emerald-900 underline decoration-2 underline-offset-8"
+                  : "hover:text-emerald-900"
+              }
+            >
+              {tautan.label}
+            </Link>
+          ))}
         </nav>
         <div className="flex items-center gap-2">
           <MenuInformasiPonsel
-            tautan={TAUTAN_MENU}
+            tautan={TAUTAN_MENU.map((tautan) => ({
+              ...tautan,
+              aktif: aktif(tautan.href),
+            }))}
             kelasTombol="flex size-11 items-center justify-center rounded-lg border border-slate-200 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800"
             kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg"
             kelasTautan="rounded-lg px-3 py-3 hover:bg-slate-50"
+            kelasTautanAktif="bg-emerald-50 font-semibold text-emerald-900"
           />
           <Button asChild variant="outline" className="min-h-11">
             <Link to="/">Beranda</Link>
@@ -631,13 +652,21 @@ export function PublicInfoPageView({
               <h2 id="tarif-title" className="mb-4 text-xl font-semibold">
                 Skema pinjaman
               </h2>
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+              <div
+                role="region"
+                aria-label="Tabel skema pinjaman"
+                tabIndex={0}
+                className="overflow-x-auto rounded-2xl border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
+              >
                 <table className="w-full min-w-[36rem] text-left text-sm">
+                  <caption className="sr-only">
+                    Perbandingan ketentuan pinjaman harian dan bulanan
+                  </caption>
                   <thead className="bg-slate-100 text-slate-700">
                     <tr>
-                      <th className="px-4 py-3">Ketentuan</th>
-                      <th className="px-4 py-3">Harian</th>
-                      <th className="px-4 py-3">Bulanan</th>
+                      <th scope="col" className="px-4 py-3">Ketentuan</th>
+                      <th scope="col" className="px-4 py-3">Harian</th>
+                      <th scope="col" className="px-4 py-3">Bulanan</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -723,6 +752,9 @@ export function PublicInfoPageView({
                   </tbody>
                 </table>
               </div>
+              <p className="mt-2 text-[11px] text-muted-foreground sm:hidden">
+                Geser tabel ke samping untuk melihat kolom bulanan.
+              </p>
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 Bunga harian mengikuti matriks nominal–tenor di atas dan
                 ditampilkan langsung oleh kalkulator. Perpanjangan tenor di

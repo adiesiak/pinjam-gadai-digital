@@ -20,6 +20,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { formDariTersimpan, penghasilanDariTeks } from "@/lib/dataDiri";
 import { namaHurufBesar } from "@/lib/nama";
 import { unggahDokumen, type ProgresUnggah } from "@/lib/unggahDokumen";
+import { formatWaktuWIB } from "@/lib/waktu";
 
 /**
  * Isi & sunting data diri satu nasabah — admin.
@@ -196,7 +197,7 @@ function PutusanVerifikasiIdentitas({
             <ShieldX className="size-3.5 text-red-600" aria-hidden />
           )}
           {awal.status === "terverifikasi" ? "Terverifikasi" : "Ditolak"} ·{" "}
-          {new Date(awal.pada).toLocaleString("id-ID")} oleh {awal.olehLabel}
+          {formatWaktuWIB(awal.pada)} WIB oleh {awal.olehLabel}
           {awal.catatan !== undefined && awal.catatan !== "" ? ` — ${awal.catatan}` : ""}
         </p>
       )}
@@ -246,7 +247,10 @@ function keteranganSebelumnya(data: {
   sumber: "admin" | "nasabah" | null;
 }): string {
   if (!data.ada) return "Data diri belum pernah diisi.";
-  const waktu = data.diperbaruiPada === null ? "" : new Date(data.diperbaruiPada).toLocaleString("id-ID");
+  const waktu =
+    data.diperbaruiPada === null
+      ? ""
+      : `${formatWaktuWIB(data.diperbaruiPada)} WIB`;
   const oleh = data.diperbaruiOlehLabel ?? "admin";
   const sumber =
     data.sumber === "nasabah"

@@ -1,14 +1,18 @@
 import type { Id } from "@/convex/_generated/dataModel";
 import { hitungSimulasiBulanan } from "@/lib/bulanan";
 import { quoteLoan } from "@/lib/loan";
+import { formatTanggalWIB } from "@/lib/waktu";
 
-/** Format tanggal ringkas (id-ID) — dipakai seluruh tampilan dashboard. */
+/**
+ * Format tanggal ringkas (id-ID) — dipakai seluruh tampilan dashboard.
+ *
+ * Selalu WIB, bukan zona perangkat: jatuh tempo dihitung server menurut
+ * kalender Jakarta, jadi tanggal yang sama harus terbaca sama di semua
+ * perangkat. Tanpa ini, nasabah di zona lain bisa melihat jatuh tempo
+ * bergeser satu hari dibanding halaman Cicilan yang memakai `formatTanggalWIB`.
+ */
 export function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return formatTanggalWIB(ts);
 }
 
 /** Baris jadwal pinjaman dari server (myLoanSchedule) — tipe bersama UI. */

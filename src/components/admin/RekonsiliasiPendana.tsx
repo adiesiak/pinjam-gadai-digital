@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -105,16 +106,16 @@ function Baris({ r }: { r: BarisRekonsiliasi }) {
           </p>
         )}
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="align-top text-right">
         <NilaiBanding panel={r.panel?.jumlahPinjaman ?? null} rekap={r.rekap?.jumlahPinjaman ?? null} rupiah={false} />
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="align-top text-right">
         <NilaiBanding panel={r.panel?.saldoBerjalan ?? null} rekap={r.rekap?.saldoBerjalan ?? null} />
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="align-top text-right">
         <NilaiBanding panel={r.panel?.totalBunga ?? null} rekap={r.rekap?.totalBunga ?? null} />
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="align-top text-right">
         <NilaiBanding
           panel={r.panel?.keuntunganPendana ?? null}
           rekap={r.rekap?.keuntunganPendana ?? null}
@@ -275,6 +276,10 @@ export function RekonsiliasiPendana() {
           {/* Layar lebar: tabel yang membungkus teks — tanpa geser mendatar. */}
           <div className="mt-3 hidden overflow-hidden rounded-2xl border border-slate-200 [&>[data-slot=table-container]]:overflow-x-clip md:block">
             <Table className="w-full [&_th]:whitespace-normal [&_td]:whitespace-normal [&_td]:break-words">
+              <TableCaption className="sr-only">
+                Perbandingan angka panel pendana dan rekap laporan per pendana, beserta status
+                kecocokannya
+              </TableCaption>
               <TableHeader>
                 <TableRow className="bg-slate-50/80">
                   {[
@@ -284,10 +289,13 @@ export function RekonsiliasiPendana() {
                     "Bunga",
                     "Keuntungan Pendana",
                     "Status",
-                  ].map((kolom) => (
+                  ].map((kolom, i) => (
                     <TableHead
                       key={kolom}
-                      className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500"
+                      scope="col"
+                      className={`text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${
+                        i >= 1 && i <= 4 ? "text-right" : ""
+                      }`}
                     >
                       {kolom}
                     </TableHead>

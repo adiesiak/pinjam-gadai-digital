@@ -37,6 +37,7 @@ import {
   type IdChecklistKyc,
 } from "@/components/admin/BuktiKyc";
 import { AksiNotifikasiTagihan } from "@/components/admin/PengaturanNotifikasiNasabah";
+import { useNilaiTertunda } from "@/hooks/use-validasi-tertunda";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
 import {
   AlertDialog,
@@ -1311,10 +1312,15 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
   const [tersalin, setTersalin] = useState(false);
   const layarSempit = useMediaQuery(KUERI_LAYAR_SEMPIT_KYC);
 
+  // Kata kunci di-debounce sebelum menjadi argumen query. Tanpa ini setiap
+  // huruf membuat langganan baru dan daftar berganti menjadi skeleton, gejala
+  // yang sama dengan pencarian plafon sebelum diperbaiki. Saringan lain
+  // (status, hasil, tanggal) tetap langsung: itu pilihan, bukan ketikan.
+  const cariTertunda = useNilaiTertunda(cari, 300);
   // Saringan dikirim apa adanya ke server; ia yang memutuskan hasilnya.
   const daftar = useQuery(api.kyc.daftarKycAdmin, {
     ...(status === null ? {} : { status }),
-    ...(cari.trim() === "" ? {} : { cari: cari.trim() }),
+    ...(cariTertunda.trim() === "" ? {} : { cari: cariTertunda.trim() }),
     ...(hasil === "semua" ? {} : { hasil }),
     ...(dari === "" ? {} : { dari }),
     ...(sampai === "" ? {} : { sampai }),

@@ -2053,6 +2053,47 @@
   animation-duration: var(--accordion-durasi);
 }
 
+/* ===== Ponsel: kaca yang lebih tenang =====
+   Blur latar berlapis di layar kecil memakan biaya komposisi dan membuat teks
+   di atasnya kabur. Di ponsel permukaannya dibuat hampir pekat, blur hanya
+   disisakan pada modal; bayangan kartu diturunkan satu tingkat supaya daftar
+   panjang tidak terlihat seperti tumpukan lapisan. */
+@media (max-width: 767px) {
+  .glass-nav,
+  .glass-dock {
+    background-color: rgb(255 255 255 / 0.94);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  :where(:is(.rounded-2xl, .rounded-3xl).border.bg-white) {
+    background-color: color-mix(in oklab, var(--card) 94%, transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass-card {
+    background-color: color-mix(in oklab, var(--card) 94%, transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 1px 2px oklch(0.3 0.02 75 / 0.05);
+  }
+
+  .glass-modal {
+    background-color: color-mix(in oklab, var(--card) 96%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
+/* Perangkat sentuh tidak punya hover sebenarnya: kartu tidak perlu terangkat
+   dan “tersangkut” setelah diketuk. Efek angkat tetap ada untuk tetikus. */
+@media (hover: none) {
+  .micro-metric:hover {
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .badge-pop {
     animation: none;

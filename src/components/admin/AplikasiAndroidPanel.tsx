@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
+import { formatWaktuWIB } from "@/lib/waktu";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
   BAWAAN_ASET,
@@ -277,7 +278,7 @@ export function AplikasiAndroidPanel() {
               {ringkas.teks}
               {aktif.diperbaruiOleh ? ` · terakhir oleh ${aktif.diperbaruiOleh}` : ""}
               {aktif.diperbaruiPada
-                ? ` · ${new Date(aktif.diperbaruiPada).toLocaleString("id-ID")}`
+                ? ` · ${formatWaktuWIB(aktif.diperbaruiPada)} WIB`
                 : ""}
             </p>
           </div>

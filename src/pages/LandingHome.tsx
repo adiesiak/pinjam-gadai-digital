@@ -218,10 +218,16 @@ export default function LandingHome() {
           </Link>
           <nav
             aria-label="Navigasi utama"
-            className="hidden items-center gap-5 text-sm text-slate-600 lg:flex"
+            className="hidden items-center gap-3 whitespace-nowrap text-[13px] text-slate-600 lg:flex xl:gap-5 xl:text-sm"
           >
             <Link className="hover:text-primary" to="/layanan/pinjaman-tunai">
-              Layanan
+              Pinjaman tunai
+            </Link>
+            <Link className="hover:text-primary" to="/layanan/gadai">
+              Gadai
+            </Link>
+            <Link className="hover:text-primary" to="/layanan/kredit-barang">
+              Kredit barang
             </Link>
             <Link className="hover:text-primary" to="/biaya">
               Biaya
