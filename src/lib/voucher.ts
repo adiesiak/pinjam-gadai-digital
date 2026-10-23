@@ -123,21 +123,27 @@ export function batasUntukVoucher(
   return (dasar + Math.max(0, Math.floor(voucher.nilai))) as Rupiah;
 }
 
-/** Total tambahan limit dari voucher boost yang masih bisa dipakai. */
+/**
+ * Tambahan limit TERBESAR dari satu voucher boost yang masih bisa dipakai.
+ *
+ * Satu pengajuan hanya memakai satu voucher, jadi boost beberapa voucher tidak
+ * pernah berlaku sekaligus. Menjumlahkannya akan membuat kartu limit menjanjikan
+ * batas yang tidak bisa diterima server saat pengajuan dikirim.
+ */
 export function boostTersedia(
   vouchers: readonly VoucherRingkas[],
   opsi: { tersedia: Rupiah; sekarang: number },
 ): Rupiah {
-  let total = 0;
+  let terbesar = 0;
   for (const voucher of vouchers) {
     if (voucher.jenis !== "boost_plafon") continue;
     const layak = kelayakanVoucher(voucher, {
       batasPengajuan: batasUntukVoucher(voucher, opsi.tersedia),
       sekarang: opsi.sekarang,
     });
-    if (layak.layak) total += Math.max(0, Math.floor(voucher.nilai));
+    if (layak.layak) terbesar = Math.max(terbesar, Math.max(0, Math.floor(voucher.nilai)));
   }
-  return total as Rupiah;
+  return terbesar as Rupiah;
 }
 
 /**

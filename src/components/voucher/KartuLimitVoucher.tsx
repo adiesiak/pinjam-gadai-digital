@@ -41,7 +41,9 @@ export type LimitVoucher = {
   maksimal: number;
   terpakai: number;
   tersedia: number;
+  /** Tambahan terbesar dari SATU voucher boost, bukan jumlah semua voucher. */
   boostTersedia: number;
+  /** Batas tertinggi bila voucher boost terbesar dipilih di formulir. */
   batasPengajuan: number;
 };
 
@@ -50,10 +52,10 @@ export type LimitVoucher = {
  */
 export function DaftarVoucherSheet({
   daftar,
-  batasPengajuan,
+  tersedia,
 }: {
   daftar: readonly VoucherDenganKelayakan[];
-  batasPengajuan: number;
+  tersedia: number;
 }) {
   if (daftar.length === 0) {
     return (
@@ -67,8 +69,9 @@ export function DaftarVoucherSheet({
   return (
     <div className="mt-4 space-y-2">
       <p className="text-xs leading-5 text-muted-foreground">
-        Batas pengajuan Anda sekarang {formatRupiah(batasPengajuan)}. Pilih
-        voucher di formulir pengajuan saat mengajukan.
+        Batas pengajuan Anda sekarang {formatRupiah(tersedia)}. Voucher tambah
+        limit di bawah menaikkan batas itu sekali pakai saat dipilih di
+        formulir pengajuan.
       </p>
       <ul className="space-y-2">
         {daftar.map((voucher) => (
@@ -122,7 +125,7 @@ export function DaftarVoucherSheet({
 }
 
 /**
- * Kartu limit + badge voucher untuk tab Ringkasan dashboard peminjam.
+ * Kartu limit + badge voucher di atas formulir pengajuan peminjam.
  *
  * Badge sengaja tombol, bukan tautan: isinya daftar yang dibaca di tempat
  * (slide-over), dan pengajuan tetap dilakukan dari formulir.
@@ -162,15 +165,14 @@ export function KartuLimitVoucher({ className = "" }: { className?: string }) {
             Limit pembiayaan Anda
           </p>
           <p className="mt-1.5 text-2xl font-semibold leading-none tabular-nums text-navy">
-            {formatRupiah(limit.batasPengajuan)}
+            {formatRupiah(limit.tersedia)}
           </p>
           <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
             Plafon {formatRupiah(limit.maksimal)} dipotong{" "}
-            {formatRupiah(limit.terpakai)} pinjaman berjalan
+            {formatRupiah(limit.terpakai)} pinjaman berjalan.
             {limit.boostTersedia > 0
-              ? `, ditambah ${formatRupiah(limit.boostTersedia)} dari voucher tambah limit`
+              ? ` Voucher tambah limit bisa menaikkan batas ini sampai ${formatRupiah(limit.batasPengajuan)}.`
               : ""}
-            .
           </p>
         </div>
 
@@ -180,7 +182,8 @@ export function KartuLimitVoucher({ className = "" }: { className?: string }) {
               type="button"
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-3 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Ticket className="size-4" aria-hidden />🎟️ {jumlahAktif} voucher aktif
+              <Ticket className="size-4" aria-hidden />
+              {jumlahAktif} voucher bisa dipakai
             </button>
           </SheetTrigger>
           <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
@@ -191,10 +194,7 @@ export function KartuLimitVoucher({ className = "" }: { className?: string }) {
                 limit saat ini.
               </SheetDescription>
             </SheetHeader>
-            <DaftarVoucherSheet
-              daftar={daftar}
-              batasPengajuan={limit.batasPengajuan}
-            />
+            <DaftarVoucherSheet daftar={daftar} tersedia={limit.tersedia} />
             <button
               type="button"
               onClick={() => setBuka(false)}
@@ -208,10 +208,9 @@ export function KartuLimitVoucher({ className = "" }: { className?: string }) {
 
       {limit.terpakai > 0 && (
         <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-5 text-slate-500">
-          {limit.jumlahAktif} pinjaman berjalan menahan{" "}
-          {formatRupiah(limit.terpakai)} dari plafon. Voucher tidak mengubah
-          pemakaian plafon: potongan biaya hanya membuat dana yang Anda terima
-          lebih besar.
+          Voucher potongan biaya tidak mengembalikan plafon: pemakaian tetap
+          sebesar pokok pinjaman, dan dana yang Anda terima bertambah sebesar
+          potongannya.
         </p>
       )}
     </section>

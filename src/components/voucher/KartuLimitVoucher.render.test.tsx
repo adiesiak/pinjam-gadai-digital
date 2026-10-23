@@ -66,7 +66,7 @@ const DAFTAR: VoucherDenganKelayakan[] = [
 ];
 
 const html = renderToStaticMarkup(
-  <DaftarVoucherSheet daftar={DAFTAR} batasPengajuan={500_000} />,
+  <DaftarVoucherSheet daftar={DAFTAR} tersedia={500_000} />,
 );
 
 ada(html, "Batas pengajuan Anda sekarang Rp 500.000", "batas pengajuan disebut");
@@ -86,7 +86,7 @@ ada(html, "potongan Rp 20.000", "voucher potongan menyebut nilai potongannya");
 bersih(html, "daftar voucher");
 
 const kosong = renderToStaticMarkup(
-  <DaftarVoucherSheet daftar={[]} batasPengajuan={500_000} />,
+  <DaftarVoucherSheet daftar={[]} tersedia={500_000} />,
 );
 ada(kosong, "Belum ada voucher atas nama Anda", "keadaan kosong dijelaskan");
 ada(kosong, "lunas tepat waktu", "cara mendapat voucher dijelaskan");

@@ -115,8 +115,8 @@ eq(
     tersedia: 1_000_000,
     sekarang: SEKARANG,
   }),
-  750_000,
-  "boost aktif dijumlahkan",
+  500_000,
+  "boost terbesar dipakai, bukan dijumlahkan",
 );
 // Boost yang minimal pengajuannya belum tercapai walau boost-nya dihitung
 // tidak menambah batas yang ditampilkan.

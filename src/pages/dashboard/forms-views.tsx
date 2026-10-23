@@ -493,10 +493,14 @@ export function LoanForm({
   const [voucherId, setVoucherId] = useState<string | null>(null);
   const voucherDipilih =
     voucherQuery?.daftar.find((row) => row._id === voucherId) ?? null;
-  // Skema bulanan hanya menerima voucher tambah limit; potongan biaya admin
-  // dihitung server pada skema harian.
+  // Hanya voucher konvensional yang ditawarkan di sini. Voucher ujrah/margin
+  // milik akad syariah tidak boleh muncul lalu ditolak server saat dikirim;
+  // skema bulanan juga hanya menerima voucher tambah limit.
   const voucherBisaDipilih = (voucherQuery?.daftar ?? []).filter(
-    (row) => row.layak && (!bulanan || row.jenis === "boost_plafon"),
+    (row) =>
+      row.layak &&
+      (row.jenis === "diskon_admin" || row.jenis === "boost_plafon") &&
+      (!bulanan || row.jenis === "boost_plafon"),
   );
   // Voucher tambah limit berlaku untuk kedua skema — server hanya menolak
   // voucher potongan biaya admin pada skema bulanan.

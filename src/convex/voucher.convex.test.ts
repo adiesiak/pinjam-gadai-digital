@@ -184,6 +184,39 @@ describe("voucher nasabah dan limit pembiayaan", () => {
     expect(data!.jumlahAktif).toBe(2);
   });
 
+  it("dua voucher boost tidak dijumlahkan menjadi satu batas pengajuan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-boost-dua", {
+      email: "admin-boost-dua@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam, userId } = await siapkanPeminjam(
+      t,
+      "rani-boost-dua",
+      "rani-boost-dua@pindai.test",
+    );
+
+    await terbitkan(admin, {
+      pemilikId: userId,
+      jenis: "boost_plafon",
+      nilai: 500_000,
+      minPokok: 1_000_000,
+    });
+    await terbitkan(admin, {
+      pemilikId: userId,
+      jenis: "boost_plafon",
+      nilai: 250_000,
+      minPokok: 750_000,
+    });
+
+    const data = await peminjam.query(api.voucher.daftarVoucherSaya, {});
+    expect(data!.limit.tersedia).toBe(500_000);
+    // Satu pengajuan hanya memakai satu voucher: batas tertinggi mengikuti
+    // boost terbesar (Rp500.000), bukan jumlah keduanya (Rp750.000).
+    expect(data!.limit.boostTersedia).toBe(500_000);
+    expect(data!.limit.batasPengajuan).toBe(1_000_000);
+  });
+
   it("boost menembus plafon sekali pakai lalu hangus", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-boost", {
