@@ -139,6 +139,15 @@ function hitungTab(html: string): Map<string, number> {
   const html = renderToStaticMarkup(<LoanQueueSection loans={LOANS} onOpen={() => {}} />);
   const tab = hitungTab(html);
 
+  // Daftar memakai tabel data: tiap fakta punya kolomnya sendiri, bukan satu
+  // kalimat panjang yang mencampur nama, referensi, nominal, dan keperluan.
+  ada(html, 'data-slot="table"', "antrean memakai tabel data");
+  ada(html, "ID Transaksi", "kolom ID transaksi tampil");
+  ada(html, "Nominal Pokok", "kolom nominal pokok tampil");
+  ada(html, "Keperluan &amp; tanggal", "kolom keperluan & tanggal terpisah");
+  ada(html, "hover:bg-slate-50", "baris tabel menyala saat disorot");
+  ada(html, 'aria-label="Proses pengajuan PGD-TEST-0"', "pengajuan baru punya tombol Proses");
+
   // Status yang ditampilkan punya sub-tabnya masing-masing (tanpa ejaan lama).
   ada(html, "Disalurkan", "tombol sub-tab \"Disalurkan\" tampil");
   ada(html, "Ditinjau", "tombol sub-tab \"Ditinjau\" tampil");

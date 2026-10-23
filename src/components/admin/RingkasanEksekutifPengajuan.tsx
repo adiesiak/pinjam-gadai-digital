@@ -46,7 +46,8 @@ function JudulKotak({
 }: {
   ikon: typeof Coins;
   judul: string;
-  keterangan: string;
+  /** Satu kalimat pendek saja; rinciannya ada di panel di bawah. */
+  keterangan?: string;
 }) {
   return (
     <div className="flex items-start gap-2">
@@ -57,7 +58,9 @@ function JudulKotak({
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           {judul}
         </p>
-        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{keterangan}</p>
+        {keterangan !== undefined && (
+          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{keterangan}</p>
+        )}
       </div>
     </div>
   );
@@ -78,16 +81,19 @@ export function BarisRingkas({
     nada === "potongan"
       ? "text-amber-700"
       : nada === "berhasil"
-        ? "font-semibold text-emerald-700"
-        : nada === "penting"
-          ? "font-semibold text-navy"
-          : "text-navy";
+        ? "text-emerald-700"
+        : "text-navy";
+  // Angka uang adalah isi utama kotak ini: 16px tebal, sedangkan keterangan
+  // pendukung (tenor, bank, rekening) tetap kecil supaya tidak bersaing.
+  const kelasUkuran = nada === "biasa" ? "text-xs" : "text-base font-bold";
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
       <dt className="min-w-0 text-[11px] leading-4 text-muted-foreground">{label}</dt>
       {/* Nilai boleh turun ke baris sendiri dan dibungkus — nama panjang tidak
           lagi terpotong, sedangkan angka tetap utuh karena hanya pecah di spasi. */}
-      <dd className={`ml-auto max-w-[70%] break-words text-right text-xs tabular-nums ${kelasNilai}`}>
+      <dd
+        className={`ml-auto max-w-[70%] break-words text-right tabular-nums ${kelasUkuran} ${kelasNilai}`}
+      >
         {nilai}
       </dd>
     </div>
@@ -115,11 +121,7 @@ export function KotakMetrikPengajuan({
 }) {
   return (
     <section className={KOTAK} aria-label="Metrik pengajuan">
-      <JudulKotak
-        ikon={Coins}
-        judul="Metrik pengajuan"
-        keterangan="Angka dari mesin harga & bagi hasil yang sama dengan ledger."
-      />
+      <JudulKotak ikon={Coins} judul="Metrik pengajuan" />
       <dl className="flex flex-col gap-1.5">
         <BarisRingkas label="Nominal pokok" nilai={formatRupiah(pokok)} nada="penting" />
         <BarisRingkas label="Tenor" nilai={tenorTeks} />
@@ -173,11 +175,7 @@ export function KotakProfilNasabah({
 }) {
   return (
     <section className={KOTAK} aria-label="Profil nasabah">
-      <JudulKotak
-        ikon={UserRound}
-        judul="Profil nasabah"
-        keterangan="KYC terhubung ke NASABAH (satu status), bukan ke pengajuan ini."
-      />
+      <JudulKotak ikon={UserRound} judul="Profil nasabah" />
       <dl className="flex flex-col gap-1.5">
         <BarisRingkas label="Nama lengkap" nilai={nama} nada="penting" />
         <BarisRingkas label="No. WhatsApp" nilai={nomorWhatsApp ?? "Belum dicatat"} />
@@ -288,7 +286,7 @@ export function KotakAksiAdmin({
       <JudulKotak
         ikon={MessageCircle}
         judul="Aksi admin"
-        keterangan="Keputusan tersimpan ke ledger internal dan tercatat di Audit Trail."
+        keterangan="Tercatat di Audit Trail."
       />
       <div className="flex flex-col gap-2">
         <Button

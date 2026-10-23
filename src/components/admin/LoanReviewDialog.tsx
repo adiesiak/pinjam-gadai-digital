@@ -443,10 +443,9 @@ export function LoanReviewDialog({
       <section className="rounded-2xl border border-slate-200/80 bg-white p-3">
         <p className="text-sm font-semibold text-slate-800">Dokumen rincian pinjaman</p>
         <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-          Kirim rincian resmi (potongan di muka, bunga, jadwal bayar) sebagai berkas PDF ke
-          kontak peminjam yang tercatat, atau simpan berkasnya untuk diserahkan sendiri.
-          Begitu dana ditandai tersalurkan, rincian juga dikirim otomatis ke WhatsApp
-          peminjam, dengan email sebagai cadangan bila nomornya kosong atau gagal.
+          Kirim rincian resmi sebagai PDF ke peminjam, atau simpan untuk diserahkan sendiri.
+          Setelah dana tersalurkan, rincian dikirim otomatis lewat WhatsApp (email sebagai
+          cadangan).
         </p>
         <div className="mt-2">
           <KirimRincianPinjaman loanId={row._id} />
@@ -574,11 +573,6 @@ export function LoanReviewDialog({
     <div className="grid gap-4 2xl:grid-cols-2 2xl:gap-5">
       {/* Kolom kiri: matriks aliran uang — rapat, tanpa gulir horizontal */}
       <div className="flex min-w-0 flex-col gap-3">
-        <p className="rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
-          Nominal, jatuh tempo, alokasi, dan status lunas di panel ini mengikuti catatan internal
-          internal; perpindahan dana ditangani di luar aplikasi.
-        </p>
-
         <AliranDanaPinjaman
           pokokPinjaman={row.pokokPinjaman}
           tenorBulan={row.tenorBulan}
@@ -662,10 +656,7 @@ export function LoanReviewDialog({
               Pendana & nominal disetujui
             </p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Tetapkan pendana yang mendanai pinjaman ini sebelum menyetujui — namanya
-              langsung tampil di ruang pendana dan tercatat di Audit Trail. Untuk pinjaman
-              yang sudah disetujui, nominalnya juga dapat dikoreksi selama dana belum
-              ditandai tersalurkan.
+              Pilih pendana sebelum menyetujui. Nama dan nominalnya tercatat di Audit Trail.
             </p>
             <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
               <Users className="size-3.5 text-primary" />
@@ -722,9 +713,7 @@ export function LoanReviewDialog({
                     disabled={busy !== null}
                   />
                   <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                    Koreksi nominal yang sudah disetujui — tidak boleh melebihi
-                    pengajuan{" "}
-                    {formatRupiah(pokokDiajukan)}. Kosongkan bila tidak diubah.
+                    Maksimal {formatRupiah(pokokDiajukan)}. Kosongkan bila tidak diubah.
                   </p>
                 </div>
               )}
@@ -733,8 +722,8 @@ export function LoanReviewDialog({
             {!nominalTerkunci(row.status) && (
               <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
                 {row.status === "disetujui"
-                  ? "Menyimpan pendana sekaligus mencatat perjanjian dari persetujuan pengajuan peminjam, lalu menandai dana tersalurkan."
-                  : "Pencairan baru dicatat setelah nominal pinjaman disetujui."}
+                  ? "Menyimpan pendana juga menandai dana tersalurkan."
+                  : "Pencairan dicatat setelah nominal disetujui."}
               </p>
             )}
             <Button
