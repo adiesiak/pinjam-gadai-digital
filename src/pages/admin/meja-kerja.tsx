@@ -211,7 +211,7 @@ export function MejaKerja({
               variant="outline"
               size="sm"
               className="rounded-xl"
-              onClick={() => onBukaModul("pinjaman")}
+              onClick={() => onBukaModul("konvensional")}
             >
               Tinjau antrean
               <ChevronRight className="size-4" />
@@ -225,7 +225,7 @@ export function MejaKerja({
         angka={perluKeputusan}
         tone="amber"
         cta="Tinjau antrean"
-        onBuka={() => onBukaModul("pinjaman")}
+        onBuka={() => onBukaModul("konvensional")}
       />
       <Kartu
         Icon={ShieldCheck}

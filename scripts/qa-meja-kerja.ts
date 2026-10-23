@@ -9,7 +9,7 @@
  * Run: bun scripts/qa-meja-kerja.ts
  */
 import { mock } from "bun:test";
-import { BellRing, ClipboardList, Landmark, MapPin, Package, ShieldCheck } from "lucide-react";
+import { BellRing, ClipboardList, Landmark, MapPin, ShieldCheck } from "lucide-react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -262,9 +262,9 @@ cek("B6 ledger seimbang -> tanpa tanda seru", !bilah.includes(">!<"));
 // MODUL — bukan ringkasan grup lagi — supaya tiap angka bisa ditelusuri ke
 // pekerjaan yang ditanganinya.
 cek(
-  "B7 sidebar: modul menunggu berlencana (pinjaman 2)",
-  badgeModul(html, "pinjaman") === "2",
-  "dapat: " + badgeModul(html, "pinjaman"),
+  "B7 sidebar: modul menunggu berlencana (konvensional 2)",
+  badgeModul(html, "konvensional") === "2",
+  "dapat: " + badgeModul(html, "konvensional"),
 );
 cek(
   "B7b lencana info (alokasi 7) tidak ikut dijumlahkan ke tab",
@@ -404,15 +404,9 @@ cek(
   "dapat: " + lencanaTab(bilahCampur, "Operasional"),
 );
 cek(
-  "F2 sidebar: tiap modul membaca array-nya sendiri (1 / 2 / 3)",
-  badgeModul(htmlCampur, "pinjaman") === "1" &&
-    badgeModul(htmlCampur, "gadai") === "2" &&
-    badgeModul(htmlCampur, "kredit") === "3",
-  [
-    badgeModul(htmlCampur, "pinjaman"),
-    badgeModul(htmlCampur, "gadai"),
-    badgeModul(htmlCampur, "kredit"),
-  ].join(" / "),
+  "F2 sidebar: menu konvensional menjumlahkan tiga antrean (1+2+3)",
+  badgeModul(htmlCampur, "konvensional") === "6",
+  "dapat: " + badgeModul(htmlCampur, "konvensional"),
 );
 cek(
   "F3 tab Pemantauan tetap 2 (keterlambatan saja)",
@@ -439,8 +433,7 @@ const menuUji: GrupNavData[] = [
   {
     judul: "Operasional",
     items: [
-      itemMenu("pinjaman", "Pinjaman", "Tinjau pengajuan pinjaman tunai.", "2", "menunggu", ClipboardList),
-      itemMenu("gadai", "Gadai", "Nilai barang jaminan.", "1", "menunggu", Package),
+      itemMenu("konvensional", "Pengajuan Konvensional", "Pinjaman, gadai, dan kredit barang.", "3", "menunggu", ClipboardList),
     ],
   },
   {
@@ -463,7 +456,7 @@ const nav = (aktif: string) =>
   renderToStaticMarkup(
     createElement(AdminNav, { menu: menuUji, activeTab: aktif, onPilih: () => {} }),
   );
-const htmlNav = nav("pinjaman");
+const htmlNav = nav("konvensional");
 const bilahNav = bilahDari(htmlNav);
 
 cek("G1 bilah bawah berlabel Menu operasi", htmlNav.includes('aria-label="Menu operasi"'));
@@ -499,10 +492,10 @@ cek(
 );
 cek(
   "G5 strip chip menampilkan modul grup aktif",
-  htmlNav.includes("Pinjaman") && htmlNav.includes("Gadai"),
+  htmlNav.includes("Pengajuan Konvensional"),
 );
 cek("G6 chip modul aktif ditandai aria-pressed", htmlNav.includes('aria-pressed="true"'));
-cek("G7 chip membawa lencana", htmlNav.includes(">2<") && htmlNav.includes(">1<"));
+cek("G7 chip membawa lencana", htmlNav.includes(">3<"));
 cek("G8 ada pintu Cari…", htmlNav.includes("Cari…"));
 cek(
   "G9 tab tidak aktif memakai ringkasGrup (Pemantauan = 3)",
@@ -529,27 +522,27 @@ cek("G12 sheet tidak dirender saat tertutup", !htmlNav.includes("Cari menu"));
 
 // ===== H. Sheet "Cari menu" (IsiCariMenu) =====
 const htmlCari = renderToStaticMarkup(
-  createElement(IsiCariMenu, { menu: menuUji, activeTab: "pinjaman", onPilih: () => {} }),
+  createElement(IsiCariMenu, { menu: menuUji, activeTab: "konvensional", onPilih: () => {} }),
 );
 const tCari = teksDari(htmlCari);
 cek("H1 input pencarian berlabel", htmlCari.includes('aria-label="Cari menu"'));
 cek("H2 input ter-autofokus", /autofocus/i.test(htmlCari));
 cek(
   "H3 semua modul tampil saat kueri kosong",
-  ["Pinjaman", "Gadai", "Jatuh Tempo", "Pemantauan lokasi", "Audit Trail", "Keamanan Login"].every(
+  ["Pengajuan Konvensional", "Jatuh Tempo", "Pemantauan lokasi", "Audit Trail", "Keamanan Login"].every(
     (x) => tCari.includes(x),
   ),
 );
 cek("H4 nama grup tampil di baris", tCari.includes("Sistem"));
 const barisCari = (htmlCari.match(/cmdk-item/g) ?? []).length;
-cek("H5 semua baris hasil dirender", barisCari === 6, "baris: " + barisCari);
+cek("H5 semua baris hasil dirender", barisCari === 5, "baris: " + barisCari);
 // Setiap baris harus berupa opsi yang bisa dipilih pembaca layar.
 cek(
   "H6 tiap baris berperan option",
-  (htmlCari.match(/role="option"/g) ?? []).length === 6,
+  (htmlCari.match(/role="option"/g) ?? []).length === 5,
   "jumlah: " + (htmlCari.match(/role="option"/g) ?? []).length,
 );
-cek("H7 lencana tampil di baris", htmlCari.includes(">2<") && htmlCari.includes(">OK<"));
+cek("H7 lencana tampil di baris", htmlCari.includes(">3<") && htmlCari.includes(">OK<"));
 
 // ===== I. Select 18 opsi benar-benar hilang dari panel admin =====
 cek("I1 tanpa elemen select", !html.includes("<select"));

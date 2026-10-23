@@ -28,9 +28,7 @@
  */
 export const NILAI_MODUL_ADMIN = [
   "hari-ini",
-  "pinjaman",
-  "gadai",
-  "kredit",
+  "konvensional",
   "syariah",
   "kyc",
   "alokasi",
@@ -88,9 +86,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
     id: "operasional",
     label: "Operasional",
     modul: [
-      "pinjaman",
-      "gadai",
-      "kredit",
+      "konvensional",
       "syariah",
       "kyc",
       "alokasi",
@@ -99,7 +95,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
       "plafon",
       "akses",
     ],
-    default: "pinjaman",
+    default: "konvensional",
   },
   {
     id: "pemantauan",
@@ -340,13 +336,18 @@ export function saringModul<T extends ModulCari>(
  * Panel admin sengaja hidup di rute tersembunyi (lihat `ADMIN_ROUTE`), jadi
  * tautan langsung ke satu modul memakai parameter, bukan sub-path publik.
  * `doorprize` dipetakan ke `undian` supaya tautan yang mengikuti nama modul di
- * dokumen tetap membuka panel yang benar. Nilai kosong/asing jatuh ke meja
- * kerja, bukan halaman kosong.
+ * dokumen tetap membuka panel yang benar. `pinjaman`, `gadai`, dan `kredit`
+ * adalah nama modul lama yang kini menjadi satu "konvensional"; tautan lama
+ * tetap membuka panel gabungan itu. Nilai kosong/asing jatuh ke meja kerja,
+ * bukan halaman kosong.
  */
 export function modulDariParameter(nilai: string | null): NilaiModulAdmin {
   if (nilai === null) return "hari-ini";
   const bersih = nilai.trim().toLowerCase();
   if (bersih === "doorprize") return "undian";
+  if (bersih === "pinjaman" || bersih === "gadai" || bersih === "kredit") {
+    return "konvensional";
+  }
   const cocok = NILAI_MODUL_ADMIN.find((modul) => modul === bersih);
   return cocok ?? "hari-ini";
 }

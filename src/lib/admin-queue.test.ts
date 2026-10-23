@@ -395,8 +395,8 @@ eq(
 
 eq(
   NILAI_MODUL_ADMIN.length,
-  28,
-  "28 nilai modul yang ada (syariah + undian + rekonsiliasi + landing + pendana + promo + bi + killswitch + pengembangan)",
+  26,
+  "26 nilai modul yang ada (konvensional menggabungkan pinjaman, gadai, kredit)",
 );
 eq(
   new Set(NILAI_MODUL_ADMIN).size,
@@ -421,13 +421,13 @@ eq(
 );
 eq(
   GRUP_NAV.map((g) => g.modul.length).join(","),
-  "1,10,3,7,7",
-  "jumlah modul tiap tab (1+10+3+7+7 = 28)",
+  "1,8,3,7,7",
+  "jumlah modul tiap tab (1+8+3+7+7 = 26)",
 );
 eq(
   GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),
   NILAI_MODUL_ADMIN.length,
-  "GRUP_NAV memuat seluruh modul yang sudah ada (28)",
+  "GRUP_NAV memuat seluruh modul yang sudah ada (26)",
 );
 
 // Modul default tiap grup harus salah satu anggotanya.
@@ -460,6 +460,9 @@ eq(ringkasGrup([contohItem]), "1", "ItemRingkas kompatibel");
 // ===== Tautan langsung `?tab=` =====
 eq(modulDariParameter(null), "hari-ini", "tanpa parameter → meja kerja");
 eq(modulDariParameter("doorprize"), "undian", "alias doorprize → modul undian");
+eq(modulDariParameter("pinjaman"), "konvensional", "alias pinjaman → konvensional");
+eq(modulDariParameter("gadai"), "konvensional", "alias gadai → konvensional");
+eq(modulDariParameter("kredit"), "konvensional", "alias kredit → konvensional");
 eq(modulDariParameter(" Doorprize "), "undian", "alias tidak peduli spasi/huruf besar");
 eq(modulDariParameter("undian"), "undian", "nilai modul sah dibuka apa adanya");
 eq(modulDariParameter("kyc"), "kyc", "modul lain tetap bisa ditautkan");

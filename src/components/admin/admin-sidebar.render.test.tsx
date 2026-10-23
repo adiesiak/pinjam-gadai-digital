@@ -41,9 +41,7 @@ const GRUP: Array<{ judul: string; modul: string[] }> = [
     judul: "Operasional",
     modul: [
       "hari-ini",
-      "pinjaman",
-      "gadai",
-      "kredit",
+      "konvensional",
       "syariah",
       "kyc",
       "alokasi",
@@ -74,9 +72,7 @@ const GRUP: Array<{ judul: string; modul: string[] }> = [
 
 const LABEL: Record<string, string> = {
   "hari-ini": "Ringkasan",
-  pinjaman: "Pengajuan Pinjaman",
-  gadai: "Pengajuan Gadai",
-  kredit: "Pengajuan Kredit",
+  konvensional: "Pengajuan Konvensional",
   syariah: "Pengajuan Syariah",
   kyc: "Verifikasi KYC",
   alokasi: "Siap disalurkan",
@@ -104,7 +100,7 @@ const LABEL: Record<string, string> = {
 };
 
 /** Lencana contoh: satu angka pada menu yang memang menunggu tindakan. */
-const BADGE: Record<string, string> = { pinjaman: "3", dpd: "17" };
+const BADGE: Record<string, string> = { konvensional: "3", dpd: "17" };
 
 const menu: GrupSidebar[] = GRUP.map((grup) => ({
   judul: grup.judul,

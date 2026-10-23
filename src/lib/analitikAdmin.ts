@@ -329,7 +329,7 @@ export function daftarPeringatanRisiko(m: MetrikRisiko): PeringatanRisiko[] {
       judul: "Pendapatan di bawah ambang batas",
       detail:
         "Pengajuan baru dengan penghasilan di bawah ambang kewajaran PINDAI. Periksa kemampuan bayar sebelum menyetujui.",
-      modul: "pinjaman",
+      modul: "konvensional",
       nilai: m.pendapatanDiBawahAmbang,
     },
     {
@@ -353,7 +353,7 @@ export function daftarPeringatanRisiko(m: MetrikRisiko): PeringatanRisiko[] {
       tingkat: "sedang",
       judul: "Menunggu keputusan",
       detail: "Pengajuan yang masih menunggu keputusan admin hari ini.",
-      modul: "pinjaman",
+      modul: "konvensional",
       nilai: m.pengajuanMenunggu,
     },
   ];

@@ -17,14 +17,12 @@ import {
   MessageSquare,
   Newspaper,
   HandCoins,
-  Package,
   Power,
   Send,
   SlidersHorizontal,
   Settings2,
   Trophy,
   ShieldCheck,
-  ShoppingBag,
   PanelsTopLeft,
   Smartphone,
   Users,
@@ -49,7 +47,6 @@ import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { VerifikasiLokasiPanel } from "@/components/admin/VerifikasiLokasiPanel";
-import { KreditQueuePanel } from "@/components/admin/KreditQueuePanel";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { KycPanel } from "@/components/admin/KycPanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
@@ -80,7 +77,7 @@ import {
   type NilaiModulAdmin,
 } from "@/lib/admin-queue";
 import { MejaKerja } from "./meja-kerja";
-import { LoanQueueSection, PawnQueueSection } from "./queue-views";
+import { KonvensionalPanel } from "./konvensional-panel";
 import { PagePengembangan } from "./page-pengembangan";
 import {
   AdminStats,
@@ -186,9 +183,9 @@ export function AdminTabs({
     return () => document.removeEventListener("keydown", tangani);
   }, [layarLebar, sidebarTerbuka, ubahSidebar]);
 
-  // Enam grup tetap: Operasional → Nasabah → Pemantauan → Konten → Sistem →
-  // Keamanan & Audit. "Ringkasan" tetap di dalam Operasional supaya meja kerja
-  // dan antrean yang ditanganinya tidak terpisah.
+  // Empat grup tetap: Operasional → Pemantauan → Konten → Sistem. "Ringkasan"
+  // tetap di dalam Operasional supaya meja kerja dan antrean yang ditanganinya
+  // tidak terpisah, dan tiga antrean konvensional berbagi satu menu.
   const menu: AdminTabGroup[] = [
     {
       judul: "Operasional",
@@ -205,28 +202,12 @@ export function AdminTabs({
           Icon: LayoutDashboard,
         },
         {
-          value: "pinjaman",
-          label: "Pengajuan Pinjaman",
-          hint: "Tinjau pengajuan pinjaman tunai, atau catat pengajuan yang diterima di luar aplikasi.",
-          badge: `${hitungMenunggu(overview.loans, "pinjaman")}`,
+          value: "konvensional",
+          label: "Pengajuan Konvensional",
+          hint: "Antrean pinjaman tunai, gadai, dan kredit barang dalam satu menu; catat pengajuan manual dari sini.",
+          badge: `${hitungMenunggu(overview.loans, "pinjaman") + hitungMenunggu(overview.pawns, "gadai") + hitungMenunggu(overview.kredit, "kredit")}`,
           hitung: "menunggu",
           Icon: ClipboardList,
-        },
-        {
-          value: "gadai",
-          label: "Pengajuan Gadai",
-          hint: "Tinjau pengajuan gadai dan nilai barang jaminan, atau catat pengajuan manual.",
-          badge: `${hitungMenunggu(overview.pawns, "gadai")}`,
-          hitung: "menunggu",
-          Icon: Package,
-        },
-        {
-          value: "kredit",
-          label: "Pengajuan Kredit",
-          hint: "Tinjau pengajuan kredit barang, atau catat pengajuan manual atas nama nasabah.",
-          badge: `${hitungMenunggu(overview.kredit, "kredit")}`,
-          hitung: "menunggu",
-          Icon: ShoppingBag,
         },
         {
           value: "syariah",
@@ -513,9 +494,13 @@ export function AdminTabs({
         />
       </div>
     ),
-    pinjaman: <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />,
-    gadai: <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />,
-    kredit: <KreditQueuePanel />,
+    konvensional: (
+      <KonvensionalPanel
+        overview={overview}
+        onOpenLoan={onOpenLoan}
+        onOpenPawn={onOpenPawn}
+      />
+    ),
     syariah: <SyariahPanel />,
     kyc: <KycPanel />,
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
