@@ -28,6 +28,13 @@ import {
   TENOR_AKAD_OPTIONS,
   type PermintaanPengajuanSyariah,
 } from "../lib/syariah/pengajuan";
+import {
+  barangKatalog,
+  nomorTujuanValid,
+  rapikanNomorTujuan,
+  wajibBarangKatalog,
+  type JenisBarangKatalog,
+} from "../lib/syariah/katalog";
 import type { JenisAkadSyariah, RencanaAkadSyariah } from "../lib/syariah/akad";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -65,6 +72,11 @@ export type BarisPengajuanSyariah = {
   tujuan: string;
   catatan: string | null;
   namaBarang: string | null;
+  /** Id barang katalog Murabahah; null bila barang ditulis sendiri. */
+  katalogId: string | null;
+  jenisBarang: JenisBarangKatalog | null;
+  /** Nomor HP / ID meter tujuan untuk pulsa/PPOB. */
+  nomorTujuan: string | null;
   nilaiTaksiran: number | null;
   marginPersen: number | null;
   marginTotal: number;
@@ -91,6 +103,9 @@ function keBaris(row: Doc<"pengajuanSyariah">): BarisPengajuanSyariah {
     tujuan: row.tujuan,
     catatan: row.catatan ?? null,
     namaBarang: row.namaBarang ?? null,
+    katalogId: row.katalogId ?? null,
+    jenisBarang: row.jenisBarang ?? null,
+    nomorTujuan: row.nomorTujuan ?? null,
     nilaiTaksiran: row.nilaiTaksiran ?? null,
     marginPersen: row.marginPersen ?? null,
     marginTotal: row.marginTotal,
@@ -202,6 +217,10 @@ export const ajukan = mutation({
     tujuan: v.string(),
     catatan: v.optional(v.string()),
     namaBarang: v.optional(v.string()),
+    /** Barang katalog Murabahah; harga & nama diambil server dari katalog. */
+    katalogId: v.optional(v.string()),
+    /** Wajib untuk barang katalog digital (pulsa/PPOB). */
+    nomorTujuan: v.optional(v.string()),
     nilaiTaksiran: v.optional(v.number()),
   },
   handler: async (
@@ -236,7 +255,17 @@ export const ajukan = mutation({
     if (catatan.length > 500) {
       throw new Error("Catatan pengajuan maksimal 500 karakter.");
     }
-    const namaBarang = args.namaBarang?.trim() ?? "";
+    // Barang katalog: harga pokok dan nama diambil dari katalog, bukan dari
+    // kiriman klien. Bila katalog berubah antara halaman dimuat dan pengajuan
+    // dikirim, yang dicatat adalah harga katalog yang berlaku saat ini.
+    const barang =
+      args.katalogId === undefined ? null : wajibBarangKatalog(args.katalogId);
+    if (barang !== null && args.jenis !== "murabahah") {
+      throw new Error("Katalog barang hanya berlaku untuk akad Murabahah.");
+    }
+    const pokok = barang?.harga ?? args.pokok;
+
+    const namaBarang = barang?.nama ?? args.namaBarang?.trim() ?? "";
     if (args.jenis !== "qardh" && (namaBarang.length < 3 || namaBarang.length > 160)) {
       throw new Error(
         args.jenis === "rahn"
@@ -245,9 +274,20 @@ export const ajukan = mutation({
       );
     }
 
+    let nomorTujuan = "";
+    if (barang?.jenisBarang === "digital") {
+      const angka = rapikanNomorTujuan(args.nomorTujuan ?? "");
+      if (!nomorTujuanValid(angka)) {
+        throw new Error(
+          "Nomor tujuan pulsa/PPOB wajib diisi 6-20 angka. Periksa kembali nomor HP atau ID meter Anda.",
+        );
+      }
+      nomorTujuan = angka;
+    }
+
     const permintaan: PermintaanPengajuanSyariah = {
       jenis: args.jenis,
-      pokok: args.pokok,
+      pokok,
       tenorHari: args.tenorHari,
       ...(args.nilaiTaksiran === undefined
         ? {}
@@ -277,6 +317,10 @@ export const ajukan = mutation({
       tujuan,
       ...(catatan === "" ? {} : { catatan }),
       ...(namaBarang === "" ? {} : { namaBarang }),
+      ...(barang === null
+        ? {}
+        : { katalogId: barang.id, jenisBarang: barang.jenisBarang }),
+      ...(nomorTujuan === "" ? {} : { nomorTujuan }),
       ...(rencana.nilaiTaksiran === null
         ? {}
         : { nilaiTaksiran: rencana.nilaiTaksiran }),
@@ -303,7 +347,7 @@ export const ajukan = mutation({
       user.email ?? user.name ?? "peminjam",
       "pengajuan_syariah",
       nomorReferensi,
-      `Pengajuan ${rencana.jenis} ${formatRupiah(rencana.pokok)} · tenor ${rencana.tenorHari} hari.`,
+      `Pengajuan ${rencana.jenis} ${formatRupiah(rencana.pokok)}${namaBarang === "" ? "" : ` · ${namaBarang}`} · tenor ${rencana.tenorHari} hari.`,
     );
 
     return { id, nomorReferensi };
@@ -429,9 +473,14 @@ export const putuskan = mutation({
     if (!apakahTenorAkad(tenorHari)) {
       throw new Error(`Tenor akad harus ${TENOR_AKAD_OPTIONS.join(" / ")} hari.`);
     }
+    // Murabahah atas barang katalog memakai harga katalog, bukan angka yang
+    // diketik ulang admin: harga barang yang dibeli PINDAI tidak bisa berubah
+    // hanya karena keputusan disimpan.
+    const barangKatalogRow =
+      row.katalogId === undefined ? null : barangKatalog(row.katalogId);
     const rencana = rencanaPengajuanSyariah({
       jenis: row.jenis,
-      pokok: args.pokok ?? row.pokok,
+      pokok: barangKatalogRow?.harga ?? args.pokok ?? row.pokok,
       tenorHari,
       ...(row.jenis === "murabahah"
         ? { marginPersen: args.marginPersen ?? row.marginPersen ?? undefined }

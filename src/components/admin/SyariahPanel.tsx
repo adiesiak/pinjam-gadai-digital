@@ -29,6 +29,7 @@ import { api } from "@/convex/_generated/api";
 import type { BarisPengajuanSyariahAdmin } from "@/convex/syariahPengajuan";
 import { formatRupiah } from "@/lib/money";
 import { MIN_AKAD_SYARIAH, type RencanaAkadSyariah } from "@/lib/syariah/akad";
+import { LABEL_JENIS_BARANG } from "@/lib/syariah/katalog";
 import {
   LABEL_JENIS_AKAD,
   LABEL_STATUS_PENGAJUAN_SYARIAH,
@@ -280,6 +281,7 @@ export function SyariahPanel() {
                   {LABEL_JENIS_AKAD[row.jenis]} · {row.nomorReferensi} ·{" "}
                   {formatRupiah(row.pokok)} · {row.tenorHari} hari ·{" "}
                   {formatDate(row.dibuatPada)}
+                  {row.namaBarang === null ? "" : ` · ${row.namaBarang}`}
                 </p>
                 <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
                   {row.emailPeminjam ?? "tanpa email"} · {row.tujuan}
@@ -324,6 +326,27 @@ export function SyariahPanel() {
                       {dipilih.jenis === "rahn" ? "Jaminan:" : "Barang:"}
                     </span>{" "}
                     {dipilih.namaBarang}
+                    {dipilih.katalogId !== null
+                      ? " · katalog"
+                      : dipilih.jenisBarang !== null
+                        ? " · ditulis peminjam"
+                        : ""}
+                  </p>
+                )}
+                {dipilih.jenisBarang !== null && (
+                  <p className="mt-0.5">
+                    <span className="font-semibold text-slate-900">
+                      Jenis barang:
+                    </span>{" "}
+                    {LABEL_JENIS_BARANG[dipilih.jenisBarang]}
+                  </p>
+                )}
+                {dipilih.nomorTujuan !== null && (
+                  <p className="mt-0.5">
+                    <span className="font-semibold text-slate-900">
+                      Nomor tujuan:
+                    </span>{" "}
+                    <span className="tabular-nums">{dipilih.nomorTujuan}</span>
                   </p>
                 )}
                 <p className="mt-0.5">
@@ -352,10 +375,15 @@ export function SyariahPanel() {
                         min={MIN_AKAD_SYARIAH}
                         step={50_000}
                         value={pokok}
-                        disabled={busy}
+                        disabled={busy || dipilih.katalogId !== null}
                         onChange={(event) => setPokok(event.target.value)}
                         className="mt-1"
                       />
+                      {dipilih.katalogId !== null && (
+                        <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                          Harga barang katalog; pokok mengikuti harga ini.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs">Tenor</Label>

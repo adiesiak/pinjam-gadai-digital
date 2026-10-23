@@ -1920,6 +1920,18 @@ const schema = defineSchema(
       catatan: v.optional(v.string()),
       /** Barang yang dibiayai (Murabahah) atau jaminan (Rahn). */
       namaBarang: v.optional(v.string()),
+      /**
+       * Id barang katalog Murabahah (`lib/syariah/katalog`). Kosong bila
+       * peminjam menulis barangnya sendiri. Harga dan nama barang diambil dari
+       * katalog oleh server, bukan dari kiriman klien.
+       */
+      katalogId: v.optional(v.string()),
+      /** Snapshot jenis barang katalog: fisik atau pulsa/PPOB. */
+      jenisBarang: v.optional(
+        v.union(v.literal("fisik"), v.literal("digital")),
+      ),
+      /** Nomor HP / ID meter tujuan untuk barang digital. */
+      nomorTujuan: v.optional(v.string()),
       /** Perkiraan peminjam; nilai final ditetapkan admin saat keputusan. */
       nilaiTaksiran: v.optional(v.number()),
       // ===== Angka rencana akad (estimasi saat diajukan, final saat diputuskan).

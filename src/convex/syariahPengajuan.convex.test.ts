@@ -16,7 +16,6 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { modules } from "./test.setup";
 import {
@@ -42,6 +41,8 @@ function ajukan(
     tujuan?: string;
     namaBarang?: string;
     nilaiTaksiran?: number;
+    katalogId?: string;
+    nomorTujuan?: string;
   } = {},
 ) {
   return sesi.mutation(api.syariahPengajuan.ajukan, {
@@ -51,6 +52,8 @@ function ajukan(
     tujuan: args.tujuan ?? "Membeli mesin jahit untuk usaha",
     namaBarang: args.namaBarang ?? "Mesin jahit",
     ...(args.nilaiTaksiran === undefined ? {} : { nilaiTaksiran: args.nilaiTaksiran }),
+    ...(args.katalogId === undefined ? {} : { katalogId: args.katalogId }),
+    ...(args.nomorTujuan === undefined ? {} : { nomorTujuan: args.nomorTujuan }),
   });
 }
 
@@ -169,6 +172,106 @@ describe("pengajuan syariah — pengiriman", () => {
     await expect(
       ajukan(sesi, { jenis: "qardh", pokok: 200_000, tujuan: "Modal usaha kecil" }),
     ).resolves.toMatchObject({ nomorReferensi: expect.stringContaining("PSY-") });
+  });
+});
+
+describe("pengajuan syariah — katalog Murabahah", () => {
+  it("harga dan nama barang datang dari katalog, bukan dari kiriman klien", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkanPeminjam(
+      t,
+      "Rani Katalog",
+      "rani-katalog-syariah@pindai.test",
+    );
+
+    const hasil = await ajukan(sesi, {
+      pokok: 100_000,
+      namaBarang: "Barang karangan peminjam",
+      katalogId: "el-setrika-uap",
+      tujuan: "Membeli setrika untuk usaha laundry",
+    });
+    const row = await t.run((ctx) => ctx.db.get(hasil.id));
+
+    expect(row?.pokok).toBe(350_000);
+    expect(row?.namaBarang).toBe("Setrika uap 1.800 W");
+    expect(row?.katalogId).toBe("el-setrika-uap");
+    expect(row?.jenisBarang).toBe("fisik");
+    expect(row?.nomorTujuan).toBeUndefined();
+    expect(row?.marginTotal).toBe(52_500);
+    expect(row?.totalKewajiban).toBe(402_500);
+  });
+
+  it("pulsa/PPOB wajib nomor tujuan dan hanya angkanya yang disimpan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkanPeminjam(
+      t,
+      "Rani Pulsa",
+      "rani-pulsa-syariah@pindai.test",
+    );
+
+    await expect(
+      ajukan(sesi, { katalogId: "pl-pulsa-100", tujuan: "Pulsa untuk usaha" }),
+    ).rejects.toThrow("Nomor tujuan pulsa/PPOB wajib diisi 6-20 angka");
+
+    const hasil = await ajukan(sesi, {
+      katalogId: "pl-pulsa-100",
+      nomorTujuan: "0812-3456 7890",
+      pokok: 300_000,
+    });
+    const row = await t.run((ctx) => ctx.db.get(hasil.id));
+
+    expect(row?.pokok).toBe(100_000);
+    expect(row?.jenisBarang).toBe("digital");
+    expect(row?.nomorTujuan).toBe("081234567890");
+  });
+
+  it("barang katalog hanya untuk Murabahah, dan id asing ditolak", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkanPeminjam(
+      t,
+      "Rani Katalog Salah",
+      "rani-katalog-salah@pindai.test",
+    );
+
+    await expect(
+      ajukan(sesi, {
+        jenis: "rahn",
+        nilaiTaksiran: 2_000_000,
+        katalogId: "el-setrika-uap",
+      }),
+    ).rejects.toThrow("Katalog barang hanya berlaku untuk akad Murabahah");
+
+    await expect(ajukan(sesi, { katalogId: "tidak-ada" })).rejects.toThrow(
+      "Barang katalog tidak ditemukan",
+    );
+  });
+
+  it("keputusan admin tidak mengubah harga barang katalog", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Katalog Syariah", {
+      email: "admin-katalog-syariah@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "Rani Setrika",
+      "rani-setrika-katalog@pindai.test",
+    );
+    const { id } = await ajukan(peminjam, {
+      katalogId: "el-setrika-uap",
+      tujuan: "Membeli setrika untuk usaha laundry",
+    });
+
+    await admin.mutation(api.syariahPengajuan.putuskan, {
+      id,
+      keputusan: "setujui",
+      pokok: 100_000,
+      marginPersen: 20,
+    });
+    const row = await t.run((ctx) => ctx.db.get(id));
+
+    expect(row?.pokok).toBe(350_000);
+    expect(row?.totalKewajiban).toBe(420_000);
   });
 });
 

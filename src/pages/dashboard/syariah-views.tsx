@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { PemilihKatalog } from "@/components/syariah/PemilihKatalog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +45,13 @@ import {
   type StatusPengajuanSyariah,
   type TenorAkad,
 } from "@/lib/syariah/pengajuan";
+import {
+  barangKatalog,
+  CATATAN_PENGIRIMAN,
+  labelNomorTujuan,
+  nomorTujuanValid,
+  rapikanNomorTujuan,
+} from "@/lib/syariah/katalog";
 import { cn } from "@/lib/utils";
 
 type PilihanAkad = {
@@ -401,6 +409,10 @@ export function FormPengajuanSyariah({
   const [tujuan, setTujuan] = useState("");
   const [namaBarang, setNamaBarang] = useState("");
   const [taksiranTeks, setTaksiranTeks] = useState("");
+  /** Barang katalog terpilih; null berarti barang ditulis sendiri. */
+  const [katalogId, setKatalogId] = useState<string | null>(null);
+  const [nomorTujuan, setNomorTujuan] = useState("");
+  const [pakaiKatalog, setPakaiKatalog] = useState(true);
   const [mengirim, setMengirim] = useState(false);
   const [membatalkan, setMembatalkan] = useState(false);
 
@@ -413,6 +425,15 @@ export function FormPengajuanSyariah({
 
   const taksiran = Number(taksiranTeks.replace(/[^0-9]/g, ""));
   const menunggu = daftar?.find((row) => row.status === "diajukan") ?? null;
+  const barangDipilih =
+    jenis === "murabahah" && katalogId !== null ? barangKatalog(katalogId) : null;
+  // Barang yang harganya melewati sisa plafon tidak dianggap terpilih, supaya
+  // nominal yang dikirim selalu harga barang yang benar-benar bisa dipilih.
+  const barangTerpilih =
+    barangDipilih !== null && barangDipilih.harga <= batasPokok
+      ? barangDipilih
+      : null;
+  const butuhNomorTujuan = barangTerpilih?.jenisBarang === "digital";
 
   // Nominal di luar plafon digeser, bukan dibiarkan lalu ditolak server.
   useEffect(() => {
@@ -421,6 +442,7 @@ export function FormPengajuanSyariah({
       Math.min(Math.max(sebelumnya, MIN_AKAD_SYARIAH), batasPokok),
     );
   }, [tersedia, batasPokok]);
+
 
   let rencana: RencanaAkadSyariah | null = null;
   let pesanRencana: string | null = null;
@@ -525,6 +547,8 @@ export function FormPengajuanSyariah({
     rencana !== null &&
     tujuan.trim().length >= 5 &&
     (jenis === "qardh" || namaBarang.trim().length >= 3) &&
+    (jenis !== "murabahah" || !pakaiKatalog || barangTerpilih !== null) &&
+    (!butuhNomorTujuan || nomorTujuanValid(nomorTujuan)) &&
     !mengirim;
 
   return (
@@ -535,8 +559,8 @@ export function FormPengajuanSyariah({
             Ajukan akad syariah
           </h3>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-            Pilih akad, isi nominal dan tenor, lalu kirim. Petugas menetapkan
-            margin Murabahah atau taksiran Rahn sebelum akad dicatat.
+            Pilih akad dan barangnya, lalu kirim. Petugas menetapkan margin
+            Murabahah atau taksiran Rahn sebelum akad dicatat.
           </p>
         </div>
         <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-medium tabular-nums text-amber-900">
@@ -568,7 +592,7 @@ export function FormPengajuanSyariah({
             max={batasPokok}
             step={50_000}
             value={pokok}
-            disabled={mengirim}
+            disabled={mengirim || barangTerpilih !== null}
             onChange={(event) => {
               const angka = Number(event.target.value);
               if (Number.isFinite(angka)) setPokok(Math.floor(angka));
@@ -576,7 +600,9 @@ export function FormPengajuanSyariah({
             className="mt-1"
           />
           <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-            {formatRupiah(pokok)} · batas {formatRupiah(batasPokok)}
+            {barangTerpilih === null
+              ? `${formatRupiah(pokok)} · batas ${formatRupiah(batasPokok)}`
+              : `Harga katalog · batas ${formatRupiah(batasPokok)}`}
           </p>
         </div>
 
@@ -608,19 +634,99 @@ export function FormPengajuanSyariah({
         </div>
       </div>
 
-      {jenis !== "qardh" && (
+      {jenis === "murabahah" && (
         <div className="mt-3">
-          <Label htmlFor="syariah-barang">
-            {jenis === "rahn" ? "Barang jaminan" : "Barang yang dibiayai"}
-          </Label>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <Label>Barang yang dibiayai</Label>
+            <button
+              type="button"
+              disabled={mengirim}
+              onClick={() => {
+                setPakaiKatalog((sebelumnya) => !sebelumnya);
+                setKatalogId(null);
+                setNomorTujuan("");
+                setNamaBarang("");
+              }}
+              className="text-[11px] font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950 disabled:opacity-60"
+            >
+              {pakaiKatalog ? "Tulis barang sendiri" : "Pilih dari katalog"}
+            </button>
+          </div>
+
+          {pakaiKatalog ? (
+            <PemilihKatalog
+              nilai={barangTerpilih?.id ?? null}
+              batasHarga={batasPokok}
+              nonaktif={mengirim}
+              onPilih={(barang) => {
+                setKatalogId(barang.id);
+                setPokok(barang.harga);
+                setNamaBarang(barang.nama);
+                setNomorTujuan("");
+              }}
+            />
+          ) : (
+            <Input
+              id="syariah-barang"
+              value={namaBarang}
+              maxLength={160}
+              disabled={mengirim}
+              placeholder="Mesin jahit industri"
+              onChange={(event) => setNamaBarang(event.target.value)}
+              className="mt-1"
+            />
+          )}
+
+          {barangTerpilih !== null && (
+            <div className="mt-2 rounded-xl border border-amber-300/70 bg-amber-50/60 px-3 py-2.5">
+              <p className="text-[11px] font-semibold tabular-nums text-amber-950">
+                {barangTerpilih.nama} · {formatRupiah(barangTerpilih.harga)}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-5 text-amber-950/80">
+                {CATATAN_PENGIRIMAN[barangTerpilih.jenisBarang]}
+              </p>
+              {barangTerpilih.jenisBarang === "digital" && (
+                <div className="mt-2">
+                  <Label
+                    htmlFor="syariah-nomor-tujuan"
+                    className="text-[11px]"
+                  >
+                    {labelNomorTujuan(barangTerpilih)}
+                  </Label>
+                  <Input
+                    id="syariah-nomor-tujuan"
+                    inputMode="numeric"
+                    value={nomorTujuan}
+                    maxLength={24}
+                    disabled={mengirim}
+                    placeholder={
+                      barangTerpilih.kategori === "Token & tagihan"
+                        ? "11-12 angka dari meter/struk"
+                        : "081234567890"
+                    }
+                    onChange={(event) => setNomorTujuan(event.target.value)}
+                    className="mt-1 bg-white"
+                  />
+                  <p className="mt-1 text-[11px] leading-5 text-amber-950/80">
+                    Produk dikirim ke nomor ini setelah akad dicatat, bukan
+                    saldo dompet yang bisa dicairkan.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {jenis === "rahn" && (
+        <div className="mt-3">
+          <Label htmlFor="syariah-barang">Barang jaminan</Label>
           <Input
             id="syariah-barang"
             value={namaBarang}
             maxLength={160}
             disabled={mengirim}
-            placeholder={
-              jenis === "rahn" ? "Motor Honda Vario 2020" : "Mesin jahit industri"
-            }
+            placeholder="Motor Honda Vario 2020"
             onChange={(event) => setNamaBarang(event.target.value)}
             className="mt-1"
           />
@@ -699,11 +805,21 @@ export function FormPengajuanSyariah({
               tujuan: tujuan.trim(),
               ...(namaBarang.trim() === "" ? {} : { namaBarang: namaBarang.trim() }),
               ...(jenis === "rahn" ? { nilaiTaksiran: taksiran } : {}),
+              ...(barangTerpilih === null
+                ? {}
+                : {
+                    katalogId: barangTerpilih.id,
+                    ...(butuhNomorTujuan
+                      ? { nomorTujuan: rapikanNomorTujuan(nomorTujuan) }
+                      : {}),
+                  }),
             });
             toast.success(`Pengajuan ${hasil.nomorReferensi} terkirim.`);
             setTujuan("");
             setNamaBarang("");
             setTaksiranTeks("");
+            setKatalogId(null);
+            setNomorTujuan("");
           } catch (err) {
             toast.error(
               err instanceof Error ? err.message : "Pengajuan gagal dikirim.",
