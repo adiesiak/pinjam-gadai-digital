@@ -127,12 +127,15 @@ export const riwayatSaya = query({
   handler: async (ctx, { limit }) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
+    const batas = Math.min(limit ?? 100, 500);
     const rows = await ctx.db
       .query("lokasiJejak")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(Math.min(limit ?? 100, 500));
-    return rows;
+      // Ambil lebih banyak dari batas: titik yang dikecualikan (ditulis
+      // perangkat admin saat pratinjau) dibuang sebelum dipotong.
+      .take(Math.min(batas * 2, 1000));
+    return rows.filter((r) => r.dikecualikan === undefined).slice(0, batas);
   },
 });
 
@@ -142,12 +145,12 @@ export const terakhir = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-    const row = await ctx.db
+    const rows = await ctx.db
       .query("lokasiJejak")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .first();
-    return row;
+      .take(50);
+    return rows.find((r) => r.dikecualikan === undefined) ?? null;
   },
 });
 
@@ -159,12 +162,16 @@ export const riwayatAdmin = query({
   args: { userId: v.id("users"), limit: v.optional(v.number()) },
   handler: async (ctx, { userId, limit }) => {
     await requireAdmin(ctx);
+    const batas = Math.min(limit ?? 60, 200);
     const rows = await ctx.db
       .query("lokasiJejak")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(Math.min(limit ?? 60, 200));
-    return rows.map((r) => ({
+      .take(Math.min(batas * 2, 500));
+    return rows
+      .filter((r) => r.dikecualikan === undefined)
+      .slice(0, batas)
+      .map((r) => ({
       _id: r._id,
       lat: r.lat,
       lng: r.lng,

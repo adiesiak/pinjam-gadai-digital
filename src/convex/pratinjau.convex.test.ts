@@ -767,6 +767,106 @@ describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
     });
   });
 
+  it("memulihkan jejak & status lokasi yang tertimpa pratinjau lama", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+
+    // Titik asli sebelum pratinjau.
+    const waktuAsli = Date.now() - 10 * 60 * 1000;
+    await t.run(async (ctx) => {
+      await ctx.db.insert("lokasiStatus", {
+        userId: peminjam.userId,
+        lat: -6.2,
+        lng: 106.8,
+        akurasi: 10,
+        waktu: waktuAsli,
+        sumber: "web",
+      });
+      await ctx.db.insert("lokasiJejak", {
+        userId: peminjam.userId,
+        lat: -6.2,
+        lng: 106.8,
+        akurasi: 10,
+        waktu: waktuAsli,
+      });
+    });
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: NONCE,
+    });
+    await sesiPratinjau(t, tiket.tiketId, peminjam.userId);
+
+    // Titik yang ditulis perangkat admin selama pratinjau.
+    await t.run(async (ctx) => {
+      await ctx.db.insert("lokasiJejak", {
+        userId: peminjam.userId,
+        lat: -7.5,
+        lng: 110.4,
+        akurasi: 9,
+        waktu: Date.now(),
+      });
+      const status = await ctx.db.query("lokasiStatus").first();
+      if (status === null) throw new Error("status lokasi tidak ditemukan");
+      await ctx.db.patch(status._id, {
+        lat: -7.5,
+        lng: 110.4,
+        akurasi: 9,
+        waktu: Date.now(),
+      });
+    });
+
+    // Pemulihan kering hanya menghitung, tidak mengubah data.
+    const kering = await t.mutation(internal.pratinjau._pulihkanJejakPratinjau, {
+      terapkan: false,
+    });
+    expect(kering).toMatchObject({ titikDikecualikan: 1, statusDipulihkan: 1 });
+    expect(
+      await t.run((ctx) =>
+        ctx.db.query("lokasiStatus").first().then((r) => r?.lat),
+      ),
+    ).toBe(-7.5);
+
+    const hasil = await t.mutation(internal.pratinjau._pulihkanJejakPratinjau, {
+      terapkan: true,
+      aktor: "uji pemulihan",
+    });
+    expect(hasil).toMatchObject({
+      kering: false,
+      titikDikecualikan: 1,
+      statusDipulihkan: 1,
+    });
+
+    const status = await t.run((ctx) => ctx.db.query("lokasiStatus").first());
+    expect(status).toMatchObject({ lat: -6.2, lng: 106.8, waktu: waktuAsli });
+
+    const titik = await t.run((ctx) => ctx.db.query("lokasiJejak").collect());
+    const ditandai = titik.filter((r) => r.dikecualikan !== undefined);
+    expect(ditandai).toHaveLength(1);
+    expect(ditandai[0]).toMatchObject({
+      lat: -7.5,
+      dikecualikan: "pratinjau_admin",
+    });
+
+    // Riwayat nasabah tidak menampilkan titik admin.
+    const riwayat = await peminjam.sesi.query(api.tracking.riwayatSaya, {});
+    expect(riwayat).toHaveLength(1);
+    expect(riwayat[0]).toMatchObject({ lat: -6.2, lng: 106.8 });
+
+    // Dijalankan ulang tidak menemukan apa pun lagi.
+    const ulang = await t.mutation(internal.pratinjau._pulihkanJejakPratinjau, {
+      terapkan: false,
+    });
+    expect(ulang).toMatchObject({ jumlahTarget: 0, titikDikecualikan: 0 });
+  });
+
   it("nasabah tanpa pratinjau tetap tercatat seperti biasa", async () => {
     const t = convexTest(schema, modules);
     const peminjam = await siapkanPengguna(t, "Rani", {

@@ -765,6 +765,16 @@ const schema = defineSchema(
       tanda: v.optional(v.array(v.string())),
       /** Perangkat melaporkan titik dari mock location. */
       mock: v.optional(v.boolean()),
+      /**
+       * Alasan titik tidak dipakai lagi sebagai lokasi nasabah. Diisi oleh
+       * pemulihan jejak pratinjau ("pratinjau_admin"): titik itu ditulis dari
+       * perangkat admin saat "masuk sebagai", bukan dari perangkat nasabah.
+       * Barisnya TIDAK dihapus supaya jejak audit tetap utuh; pembaca peta,
+       * riwayat, dan status lokasi melewatinya.
+       */
+      dikecualikan: v.optional(v.string()),
+      /** Baris pratinjau yang menyebabkan titik ini dikecualikan. */
+      pratinjauSesiId: v.optional(v.id("pratinjauSesi")),
     })
       .index("by_user", ["userId"])
       .index("by_loan", ["loanId"])

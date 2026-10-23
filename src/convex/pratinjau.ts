@@ -684,3 +684,244 @@ export const akhiriPratinjauTersangkut = mutation({
   },
 });
 
+/** Satu jendela waktu saat sesi pratinjau berjalan. */
+type JendelaPratinjau = {
+  sesiId: Id<"pratinjauSesi">;
+  mulai: number;
+  akhir: number;
+};
+
+/** Jendela pratinjau untuk satu baris; null bila tiketnya belum dipakai. */
+function jendelaDari(baris: Doc<"pratinjauSesi">): JendelaPratinjau | null {
+  if (baris.dipakaiPada === undefined) return null;
+  const akhir = baris.selesai ?? baris.berlakuHingga ?? Date.now();
+  return {
+    sesiId: baris._id,
+    mulai: baris.dipakaiPada,
+    akhir: Math.max(baris.dipakaiPada, akhir),
+  };
+}
+
+function dalamJendela(waktu: number, jendela: readonly JendelaPratinjau[]): boolean {
+  return jendela.some((w) => waktu >= w.mulai && waktu <= w.akhir);
+}
+
+/**
+ * PULIHKAN JEJAK LOKASI YANG TERTIMPA PRATINJAU.
+ *
+ * Sebelum pagar lokasi dipasang, peramban admin yang "masuk sebagai" nasabah
+ * mengirim titik GPS perangkat admin ke akun nasabah. Titik itu tercampur di
+ * `lokasiJejak`, dan yang terakhir juga menjadi `lokasiStatus` — peta pemantauan
+ * lalu menunjuk admin, bukan nasabahnya.
+ *
+ * Fungsi ini menandai titik yang waktunya jatuh di dalam jendela pratinjau
+ * (`dikecualikan: "pratinjau_admin"`) dan memulihkan `lokasiStatus` ke titik
+ * sah terakhir: jejak sebelum/sesudah jendela, atau lokasi pengajuan yang dikirim
+ * SEBELUM pratinjau dimulai. Baris jejak tidak dihapus supaya audit tetap utuh;
+ * pembaca peta dan riwayat melewati baris yang ditandai.
+ *
+ * Titik nasabah yang kebetulan dikirim saat pratinjau juga ikut ditandai. Itu
+ * disengaja: membiarkan satu titik admin lolos lebih berbahaya daripada meminta
+ * nasabah mengirim titik baru (gerbang lokasi akan memintanya sendiri).
+ *
+ * Internal: dijalankan operator lewat `convex run`, bukan dari peramban.
+ * `terapkan: false` (bawaan) hanya menghitung, tidak menulis apa pun.
+ */
+export const _pulihkanJejakPratinjau = internalMutation({
+  args: {
+    terapkan: v.optional(v.boolean()),
+    aktor: v.optional(v.string()),
+  },
+  handler: async (ctx, { terapkan, aktor }) => {
+    const kering = terapkan !== true;
+    const semuaSesi = await ctx.db.query("pratinjauSesi").collect();
+    const perTarget = new Map<
+      Id<"users">,
+      { label: string; jendela: JendelaPratinjau[] }
+    >();
+
+    for (const sesi of semuaSesi) {
+      const jendela = jendelaDari(sesi);
+      if (jendela === null) continue;
+      const data = perTarget.get(sesi.targetId) ?? {
+        label: sesi.targetLabel,
+        jendela: [],
+      };
+      data.jendela.push(jendela);
+      perTarget.set(sesi.targetId, data);
+    }
+
+    const labelAktor = aktor?.trim() || "pemulihan lokasi pratinjau";
+    const target: Array<{
+      userId: Id<"users">;
+      label: string;
+      titikDikecualikan: number;
+      status: "tetap" | "dipulihkan" | "dihapus";
+      sumberStatus: "jejak" | "pengajuan" | null;
+      statusLama: { lat: number; lng: number; waktu: number } | null;
+      statusBaru: { lat: number; lng: number; waktu: number } | null;
+    }> = [];
+    let totalTitik = 0;
+    let totalDipulihkan = 0;
+    let totalDihapus = 0;
+
+    for (const [targetId, info] of perTarget) {
+      const jejak = await ctx.db
+        .query("lokasiJejak")
+        .withIndex("by_user", (q) => q.eq("userId", targetId))
+        .order("desc")
+        .collect();
+
+      // Titik yang ditulis selama jendela pratinjau — kandidat untuk ditandai.
+      const kena = jejak.flatMap((baris) => {
+        if (baris.dikecualikan !== undefined) return [];
+        const jendela = info.jendela.find(
+          (w) => baris.waktu >= w.mulai && baris.waktu <= w.akhir,
+        );
+        return jendela === undefined ? [] : [{ baris, jendela }];
+      });
+
+      // Titik yang boleh dipakai sebagai lokasi nasabah: tidak ditandai dan
+      // tidak berada di jendela pratinjau mana pun.
+      const sah = jejak.filter(
+        (baris) =>
+          baris.dikecualikan === undefined &&
+          !info.jendela.some(
+            (w) => baris.waktu >= w.mulai && baris.waktu <= w.akhir,
+          ),
+      );
+
+      const status = await ctx.db
+        .query("lokasiStatus")
+        .withIndex("by_user", (q) => q.eq("userId", targetId))
+        .first();
+
+      let statusAksi: "tetap" | "dipulihkan" | "dihapus" = "tetap";
+      let sumberStatus: "jejak" | "pengajuan" | null = null;
+      let statusBaru: { lat: number; lng: number; waktu: number } | null = null;
+      let pengajuanSumber: Doc<"loans"> | null = null;
+
+      if (status !== null && dalamJendela(status.waktu, info.jendela)) {
+        const terbaru = sah[0];
+        if (terbaru !== undefined) {
+          statusAksi = "dipulihkan";
+          sumberStatus = "jejak";
+          statusBaru = { lat: terbaru.lat, lng: terbaru.lng, waktu: terbaru.waktu };
+        } else {
+          // Belum ada jejak sama sekali: pakai lokasi pengajuan yang dikirim
+          // SEBELUM pratinjau mulai. Lokasi pengajuan yang dibuat saat pratinjau
+          // juga berasal dari perangkat admin, jadi tidak boleh dipakai.
+          const mulai = Math.min(...info.jendela.map((w) => w.mulai));
+          const pinjaman = await ctx.db
+            .query("loans")
+            .withIndex("by_user", (q) => q.eq("userId", targetId))
+            .collect();
+          const pengajuan = pinjaman
+            .filter(
+              (loan) =>
+                loan.lokasiAjukan !== undefined &&
+                loan.lokasiAjukan.waktu < mulai &&
+                loan._creationTime < mulai,
+            )
+            .sort((a, b) => b._creationTime - a._creationTime)[0];
+
+          if (pengajuan?.lokasiAjukan !== undefined) {
+            pengajuanSumber = pengajuan;
+            statusAksi = "dipulihkan";
+            sumberStatus = "pengajuan";
+            statusBaru = {
+              lat: pengajuan.lokasiAjukan.lat,
+              lng: pengajuan.lokasiAjukan.lng,
+              waktu: pengajuan.lokasiAjukan.waktu,
+            };
+          } else {
+            statusAksi = "dihapus";
+          }
+        }
+      }
+
+      if (kena.length === 0 && statusAksi === "tetap") continue;
+
+      if (!kering) {
+        for (const { baris, jendela } of kena) {
+          await ctx.db.patch(baris._id, {
+            dikecualikan: "pratinjau_admin",
+            pratinjauSesiId: jendela.sesiId,
+          });
+        }
+
+        if (status !== null && statusAksi === "dipulihkan") {
+          const terbaru = sah[0];
+          if (sumberStatus === "jejak" && terbaru !== undefined) {
+            await ctx.db.patch(status._id, {
+              lat: terbaru.lat,
+              lng: terbaru.lng,
+              akurasi: terbaru.akurasi,
+              waktu: terbaru.waktu,
+              // Jejak tidak menyimpan metadata perangkat; tandai sumbernya
+              // supaya terbaca jelas bahwa titik ini berasal dari riwayat.
+              sumber: "jejak",
+              platform: undefined,
+              versiApp: undefined,
+              tanda: terbaru.tanda,
+              identikBerturut: undefined,
+            });
+          } else if (pengajuanSumber?.lokasiAjukan !== undefined) {
+            await ctx.db.patch(status._id, {
+              lat: pengajuanSumber.lokasiAjukan.lat,
+              lng: pengajuanSumber.lokasiAjukan.lng,
+              akurasi: pengajuanSumber.lokasiAjukan.akurasi,
+              waktu: pengajuanSumber.lokasiAjukan.waktu,
+              sumber: "pengajuan",
+              platform: undefined,
+              versiApp: undefined,
+              tanda: undefined,
+              identikBerturut: undefined,
+            });
+          }
+        } else if (status !== null && statusAksi === "dihapus") {
+          await ctx.db.delete(status._id);
+        }
+
+        await audit(
+          ctx,
+          undefined,
+          labelAktor,
+          "lokasi_pratinjau_dipulihkan",
+          info.label,
+          `${kena.length} titik pratinjau dikecualikan; status lokasi ${statusAksi}${
+            statusBaru === null
+              ? ""
+              : ` ke ${statusBaru.lat.toFixed(5)},${statusBaru.lng.toFixed(5)} (${formatWaktuWIB(statusBaru.waktu)})`
+          }.`,
+        );
+      }
+
+      totalTitik += kena.length;
+      if (statusAksi === "dipulihkan") totalDipulihkan += 1;
+      if (statusAksi === "dihapus") totalDihapus += 1;
+      target.push({
+        userId: targetId,
+        label: info.label,
+        titikDikecualikan: kena.length,
+        status: statusAksi,
+        sumberStatus,
+        statusLama:
+          status === null
+            ? null
+            : { lat: status.lat, lng: status.lng, waktu: status.waktu },
+        statusBaru,
+      });
+    }
+
+    return {
+      kering,
+      jumlahTarget: target.length,
+      titikDikecualikan: totalTitik,
+      statusDipulihkan: totalDipulihkan,
+      statusDihapus: totalDihapus,
+      target,
+    };
+  },
+});
+

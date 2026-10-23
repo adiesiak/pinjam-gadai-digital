@@ -138,11 +138,14 @@ async function lokasiPerangkat(
       tanda: status.tanda ?? [],
     };
   }
-  const jejak = await ctx.db
+  const jejakRows = await ctx.db
     .query("lokasiJejak")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .order("desc")
-    .first();
+    .take(50);
+  // Lewati titik yang ditulis perangkat admin saat pratinjau (lihat
+  // `pratinjau._pulihkanJejakPratinjau`): titik itu bukan lokasi nasabah.
+  const jejak = jejakRows.find((r) => r.dikecualikan === undefined) ?? null;
   if (jejak === null) return null;
   return {
     lat: jejak.lat,

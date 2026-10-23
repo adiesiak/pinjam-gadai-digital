@@ -1148,11 +1148,14 @@ export const adminStats = query({
     let gpsMismatch = 0;
     for (const l of loans) {
       if (l.status !== "didanai") continue;
-      const titik = await ctx.db
+      const titikJejak = await ctx.db
         .query("lokasiJejak")
         .withIndex("by_user", (q) => q.eq("userId", l.userId))
         .order("desc")
-        .first();
+        .take(20);
+      // Titik dari perangkat admin saat pratinjau tidak dihitung sebagai
+      // lokasi peminjam (lihat pemulihan `pratinjau._pulihkanJejakPratinjau`).
+      const titik = titikJejak.find((r) => r.dikecualikan === undefined) ?? null;
       if (
         titik &&
         jarakKm({ lat: titik.lat, lng: titik.lng }, vault) > cfg.gpsMismatchKm
@@ -1781,6 +1784,26 @@ export const petaPeminjam = query({
     const cfg = await getConfig(ctx);
     const vault = { lat: cfg.vaultLat, lng: cfg.vaultLng };
     const loans = await ctx.db.query("loans").collect();
+    // Jendela pratinjau per nasabah: titik dan lokasi pengajuan yang jatuh di
+    // dalamnya tidak boleh menjadi pin peta (ditulis perangkat admin).
+    const sesi = await ctx.db.query("pratinjauSesi").collect();
+    const jendelaPer = new Map<string, Array<[number, number]>>();
+    // Jejak lokasi hanya disimpan 90 hari; jendela pratinjau yang lebih tua
+    // tidak bisa lagi memengaruhi peta dan tidak perlu dibaca.
+    const batasSesi = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    for (const s of sesi) {
+      if (s.dipakaiPada === undefined || s.dipakaiPada < batasSesi) continue;
+      const daftar = jendelaPer.get(s.targetId) ?? [];
+      daftar.push([
+        s.dipakaiPada,
+        Math.max(s.dipakaiPada, s.selesai ?? s.berlakuHingga ?? Date.now()),
+      ]);
+      jendelaPer.set(s.targetId, daftar);
+    }
+    const dalamPratinjau = (userId: string, waktu: number): boolean =>
+      (jendelaPer.get(userId) ?? []).some(
+        ([mulai, akhir]) => waktu >= mulai && waktu <= akhir,
+      );
     const rows: Array<{
       userId: string;
       namaLengkap: string;
@@ -1796,15 +1819,17 @@ export const petaPeminjam = query({
     for (const l of loans) {
       if (seen.has(l.userId)) continue;
       seen.add(l.userId);
-      const titik = await ctx.db
+      const titikJejak = await ctx.db
         .query("lokasiJejak")
         .withIndex("by_user", (q) => q.eq("userId", l.userId))
         .order("desc")
-        .first();
+        .take(50);
+      const titik =
+        titikJejak.find((r) => r.dikecualikan === undefined) ?? null;
       const lok = l.lokasiAjukan;
       const posisi = titik
         ? { lat: titik.lat, lng: titik.lng, waktu: titik.waktu, sumber: "realtime" }
-        : lok
+        : lok !== undefined && !dalamPratinjau(l.userId, lok.waktu)
           ? { lat: lok.lat, lng: lok.lng, waktu: lok.waktu, sumber: "pengajuan" }
           : null;
       const jarak = posisi ? jarakKm(posisi, vault) : null;
