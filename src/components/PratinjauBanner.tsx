@@ -68,12 +68,20 @@ export function BilahPratinjau({
         </span>
 
         {mode === "aktif" && info && (
-          <p className="min-w-0 text-sm leading-6">
-            Anda masuk sebagai <span className="font-semibold">{info.targetLabel}</span>.
-            Tindakan di layar ini tercatat sebagai pratinjau oleh{" "}
-            <span className="font-semibold">{info.adminLabel}</span>. Berlaku sampai{" "}
-            {jamRingkas(info.berlakuHingga)}.
-          </p>
+          <div className="min-w-0 text-sm leading-6">
+            <p>
+              Anda masuk sebagai <span className="font-semibold">{info.targetLabel}</span>.
+              Tindakan di layar ini tercatat sebagai pratinjau oleh{" "}
+              <span className="font-semibold">{info.adminLabel}</span>. Berlaku sampai{" "}
+              {jamRingkas(info.berlakuHingga)}.
+            </p>
+            {/* Dua pembatasan ini tidak terlihat dari layar mana pun: GPS tidak
+                dikirim (gerbang lokasi juga tidak muncul) dan tombol transaksi
+                ditolak server. Tanpa satu baris ini, admin mengira GPS-nya rusak. */}
+            <p className="text-xs leading-5 text-[#6e5523]">
+              Lokasi tidak dipantau dan transaksi diblokir selama pratinjau.
+            </p>
+          </div>
         )}
 
         {mode === "memuat" && (

@@ -3300,11 +3300,17 @@ const schema = defineSchema(
       lokasiDipulihkanPada: v.optional(v.number()),
       /** Waktu pratinjau ditutup. */
       selesai: v.optional(v.number()),
-      /** "klien" (ditutup dari bilah pratinjau) | "admin" (dipaksa dari panel). */
+      /**
+       * "klien" (ditutup dari bilah pratinjau) | "admin" (dipaksa dari panel)
+       * | "sistem" (cron menutup pratinjau yang kehabisan waktu).
+       */
       ditutupOleh: v.optional(v.string()),
     })
       .index("by_admin", ["adminId"])
       .index("by_target", ["targetId"])
+      // Dipakai `sesiPratinjauAktif` di setiap heartbeat lokasi dan pagar
+      // transaksi: satu pembacaan per sesi, bukan memindai riwayat nasabah.
+      .index("by_sesi_pratinjau", ["sesiPratinjauId"])
       .index("by_nonce", ["nonce"]),
 
     /**

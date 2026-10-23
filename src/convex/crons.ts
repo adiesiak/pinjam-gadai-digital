@@ -13,6 +13,8 @@ import { internal } from "./_generated/api";
  *   (jauh melewati jendela retry jaringan mana pun).
  * - UTC 18:15 — retensi jejak gerbang pengiriman: buang baris pembatas laju
  *   yang lebih tua dari 7 hari (jejak `auditLog` pelanggarannya tetap ada).
+ * - TIAP JAM (menit 20): tutup pratinjau Super Admin yang kehabisan waktu,
+ *   cabut sesinya, dan pulihkan status lokasi nasabah.
  * - TIAP JAM: pengingat WhatsApp jatuh tempo & keterlambatan. Jenis
  *   yang berhak berangkat hari ini diputuskan `lib/templatePesanWa`, dan hanya
  *   antara 08.00-20.00 WIB; di luar itu penjadwal berhenti tanpa mengirim.
@@ -63,6 +65,17 @@ crons.daily(
   { hourUTC: 17, minuteUTC: 30 },
   internal.tracking.bersihkanLokasiLama,
   // Argumen kosong = pakai kebijakan LOKASI_RETENSI (satu sumber di lib).
+  {},
+);
+
+// Pratinjau Super Admin yang ditinggal berhenti berlaku setelah dua jam, tetapi
+// tanpa penutup otomatis sesinya tetap tersimpan dan status lokasi nasabah tidak
+// sempat dipulihkan. Tiap jam: tutup yang kedaluwarsa, cabut sesinya, pulihkan
+// lokasi, lalu buang snapshot `lokasiSebelum` yang sudah tidak dibutuhkan.
+crons.hourly(
+  "tutup-pratinjau-kedaluwarsa",
+  { minuteUTC: 20 },
+  internal.pratinjau.tutupPratinjauKedaluwarsa,
   {},
 );
 

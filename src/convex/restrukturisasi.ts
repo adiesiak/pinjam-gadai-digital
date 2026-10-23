@@ -21,7 +21,7 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
-import { requireAdminSession } from "./adminAuthz";
+import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
 import { audit, tarifDendaBerlaku } from "./system";
 import {
   LABEL_JENIS_RESTRUKTURISASI,
@@ -356,6 +356,9 @@ export const ajukanPermohonanNasabah = mutation({
     alasan: v.string(),
   },
   handler: async (ctx, { loanId, jenis, tambahanHari, usulanCicilan, alasan }) => {
+    // Permohonan mengubah kontrak pinjaman milik nasabah. Pratinjau hanya
+    // untuk melihat, jadi tidak boleh mengajukannya atas nama pemilik akun.
+    await requireBukanPratinjau(ctx);
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     const user = await ctx.db.get(userId);

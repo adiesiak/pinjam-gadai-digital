@@ -37,7 +37,7 @@ import { barangKatalogTersedia } from "./katalog";
 import type { JenisAkadSyariah, RencanaAkadSyariah } from "../lib/syariah/akad";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { requireAdminSession } from "./adminAuthz";
+import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
 import { requireKycTerverifikasi } from "./kyc";
 import { ROLES } from "./schema";
 import { audit, getConfig } from "./system";
@@ -237,6 +237,7 @@ export const ajukan = mutation({
     ctx,
     args,
   ): Promise<{ id: Id<"pengajuanSyariah">; nomorReferensi: string }> => {
+    await requireBukanPratinjau(ctx);
     const { userId, user } = await requirePeminjamSyariah(ctx);
     await requireKycTerverifikasi(ctx, userId);
 

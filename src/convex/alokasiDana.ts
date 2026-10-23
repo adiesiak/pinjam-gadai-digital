@@ -32,6 +32,7 @@ import {
   appendJournal,
   danaWalletBalance,
 } from "./ledger";
+import { requireBukanPratinjau } from "./adminAuthz";
 import { getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { pastikanAngsuran } from "./angsuranJadwal";
@@ -297,6 +298,9 @@ export const requestDeposit = mutation({
     buktiPembayaranId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
+    // Setoran dicatat atas nama pendana. Pratinjau tidak boleh membuat klaim
+    // setoran yang tidak pernah ia kirim.
+    await requireBukanPratinjau(ctx);
     const { userId } = await requireDana(ctx);
     const config = await ctx.db
       .query("systemConfig")

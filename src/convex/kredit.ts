@@ -9,7 +9,7 @@ import {
   type KreditBarangQuote,
 } from "../lib/kredit";
 import { ROLES, type KreditStatusValue } from "./schema";
-import { requireAdminSession } from "./adminAuthz";
+import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
 import { audit, getConfig } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
 import { ensureKodePeminjam } from "./peminjamCode";
@@ -149,6 +149,7 @@ export const ajukanKreditBarang = mutation({
     kunciIdempotensi: kunciIdempotensiValidator,
   },
   handler: async (ctx, args) => {
+    await requireBukanPratinjau(ctx);
     const { userId, user } = await peminjamMasuk(ctx);
     const hasilLama = await ambilHasilIdempoten<{
       appId: Id<"kreditBarang">;

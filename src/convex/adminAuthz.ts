@@ -62,14 +62,37 @@ export async function getCurrentAuthSessionId(
 export async function sesiPratinjauAktif(ctx: QueryCtx): Promise<boolean> {
   const sessionId = await getAuthSessionId(ctx);
   if (typeof sessionId !== "string") return false;
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) return false;
 
+  // Satu pembacaan berindeks. Sebelumnya fungsi ini mengumpulkan SELURUH baris
+  // pratinjau milik nasabah lalu mencocokkan sesinya; biayanya tumbuh seiring
+  // riwayat pratinjau, padahal fungsi ini dipanggil di setiap heartbeat lokasi.
   const baris = await ctx.db
     .query("pratinjauSesi")
-    .withIndex("by_target", (q) => q.eq("targetId", userId))
-    .collect();
-  return baris.some((r) => r.sesiPratinjauId === sessionId);
+    .withIndex("by_sesi_pratinjau", (q) =>
+      q.eq("sesiPratinjauId", sessionId as Id<"authSessions">),
+    )
+    .first();
+  return baris !== null;
+}
+
+/** Kalimat penolakan transaksi selama pratinjau — satu versi untuk semua jalur. */
+export const PESAN_BLOKIR_PRATINJAU =
+  "Mode pratinjau tidak dapat membuat atau mengubah transaksi. Kembali ke Mode Admin, lalu proses transaksi dari akun nasabah sendiri.";
+
+/**
+ * Pagar transaksi finansial selama pratinjau.
+ *
+ * Pratinjau memberi admin sesi NYATA akun nasabah. Gerbang sesi, perangkat, dan
+ * lokasi sudah menahan jejak admin, tetapi tanpa pagar ini pengajuan pinjaman,
+ * akad, atau pembayaran bisa benar-benar terbentuk atas nama nasabah — dengan
+ * persetujuan yang tidak pernah ia berikan. Setiap mutation yang menyentuh uang
+ * atau kontrak memanggil fungsi ini SEBELUM menulis apa pun.
+ *
+ * Dijalankan dari server, jadi tidak bisa dilewati klien. Sesi admin sendiri
+ * tidak terpengaruh: yang dicocokkan hanya sesi hasil pratinjau.
+ */
+export async function requireBukanPratinjau(ctx: QueryCtx): Promise<void> {
+  if (await sesiPratinjauAktif(ctx)) throw new Error(PESAN_BLOKIR_PRATINJAU);
 }
 
 /** Checks the signed-in user's admin role without granting access to admin data. */

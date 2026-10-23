@@ -61,7 +61,7 @@ import {
 } from "./ledger";
 import { getConfig, audit, tarifDendaBerlaku } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
-import { requireAdminSession } from "./adminAuthz";
+import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { requireKycTerverifikasi } from "./kyc";
 import { eksposurAkadAktif } from "./syariahPengajuan";
@@ -295,6 +295,7 @@ export const submitManualPaymentReceipt = mutation({
   },
   returns: v.object({ nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
+    await requireBukanPratinjau(ctx);
     const { userId, user } = await requirePeminjam(ctx);
     if (!Number.isSafeInteger(args.jumlah) || args.jumlah <= 0 || args.jumlah > MAX_POKOK) {
       throw new Error("Jumlah pembayaran harus rupiah bulat positif dan tidak melebihi batas sistem.");
@@ -581,6 +582,7 @@ export const createLoanApplication = mutation({
   },
   returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
+    await requireBukanPratinjau(ctx);
     const { userId, user } = await requirePeminjam(ctx);
     // Gerbang KYC wajib: pengajuan finansial hanya dilayani bila modul KYC
     // nasabah sudah VERIFIED (diperiksa server, bukan dari klien).
@@ -1256,6 +1258,7 @@ export const createPawnApplication = mutation({
     kunciIdempotensi: kunciIdempotensiValidator,
   },
   handler: async (ctx, args) => {
+    await requireBukanPratinjau(ctx);
     const { userId, user } = await requirePeminjam(ctx);
     const hasilLama = await ambilHasilIdempoten<{ appId: Id<"pawns"> }>(
       ctx,

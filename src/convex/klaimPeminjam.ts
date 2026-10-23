@@ -68,6 +68,7 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
+import { requireBukanPratinjau } from "./adminAuthz";
 import { catatLogin } from "./security";
 import { audit } from "./system";
 import { kirimPesanOtp } from "./otpWhatsapp";
@@ -946,6 +947,9 @@ export const claimOrLoginBorrower = mutation({
     metode: v.string(),
   }),
   handler: async (ctx, { phoneNumber, otpCode, ip, userAgent }) => {
+    // Klaim memindahkan kepemilikan pinjaman dan berkas KYC. Pratinjau tidak
+    // boleh melakukannya: yang menekan tombol adalah admin, bukan pemilik data.
+    await requireBukanPratinjau(ctx);
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
 

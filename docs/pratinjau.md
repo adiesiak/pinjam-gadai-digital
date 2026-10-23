@@ -87,6 +87,34 @@ memulai baris itu), mencabut sesi hasil pratinjau, mencatat
 - Kartu **Pratinjau Aktif** (tab Nasabah & Pendana) memperlihatkan pratinjau yang
   masih hidup dan bisa **mengakhiri paksa** dari panel; itu mencabut sesi hasil
   pratinjau, sementara sesi sungguhan milik pemilik akun tidak tersentuh.
+- **Transaksi finansial ditolak** selama pratinjau (`requireBukanPratinjau`):
+  pengajuan pinjaman, gadai, kredit barang, pengajuan syariah, setoran pendana,
+  klaim data peminjam lama, permohonan restrukturisasi, dan bukti pembayaran
+  manual. Pratinjau hanya untuk melihat; pengajuan atas nama nasabah harus
+  dibuat dari akun nasabah itu sendiri.
+- **Pratinjau kedaluwarsa ditutup otomatis** oleh cron tiap jam
+  (`pratinjau.tutupPratinjauKedaluwarsa`): sesi hasil pratinjau dicabut, status
+  lokasi dipulihkan, dan snapshot `lokasiSebelum` dibuang setelah tidak
+  dibutuhkan lagi. Audit mencatat `pratinjau_berakhir_otomatis`.
+
+## Memulihkan jejak lokasi yang tertimpa
+
+Pratinjau lama (sebelum pagar lokasi dipasang) sempat menulis koordinat
+peramban admin sebagai lokasi nasabah. Pemulihan menandai titik di dalam jendela
+pratinjau (`dikecualikan: "pratinjau_admin"`, tidak dihapus), lalu mengembalikan
+lokasi terakhir nasabah ke titik sah sebelum/sesudah pratinjau atau ke lokasi
+pengajuan yang dikirim sebelum pratinjau dimulai.
+
+Dua jalur memakai fungsi yang sama:
+
+- **Panel admin**: kartu **Pemulihan jejak pratinjau** di tab Nasabah & Pendana.
+  Tombol *Periksa dampak* hanya menghitung; *Terapkan pemulihan* menulis dan
+  tercatat sebagai `lokasi_pratinjau_pemulihan_dijalankan`. Hanya admin dengan
+  TOTP terverifikasi yang bisa memakainya.
+- **CLI** (produksi):
+  `bunx convex run pratinjau:_pulihkanJejakPratinjau '{"terapkan":true}' --prod`.
+
+Keduanya idempoten; putaran kedua tidak menemukan apa pun lagi.
 
 ## Yang perlu diketahui
 
@@ -101,10 +129,12 @@ memulai baris itu), mencabut sesi hasil pratinjau, mencatat
   berlaku sampai JWT-nya kedaluwarsa (masa JWT bawaan Convex Auth), jadi batas
   ini bukan pemutus instan. Untuk memutus segera, gunakan **Akhiri pratinjau**
   di panel.
-- Peramban pratinjau mendaftar sebagai sesi perangkat akun target, sehingga
-  daftar "Sesi saya" akun itu memuatnya sampai batas waktunya. Menggugurkan sesi
-  dari sisi akun target **tidak** memutus pratinjau (pengguguran sesi di aplikasi
-  ini hanya memaksa logout untuk akun ber-TOTP, dan akun target bukan admin).
-  Yang benar-benar memutusnya: **Akhiri pratinjau** dari panel admin — itu
-  menghapus sesi Auth hasil pratinjau sehingga peramban itu tidak bisa lagi
-  memperbarui tokennya.
+- Peramban pratinjau **tidak** menulis jejak milik akun target: riwayat login,
+  daftar perangkat, dan titik GPS-nya dilewati selama sesi itu dikenali sebagai
+  pratinjau. Bilah pratinjau menyebutkan dua akibat yang tidak terlihat dari
+  layar: lokasi tidak dipantau dan transaksi diblokir.
+- Yang benar-benar memutus pratinjau: **Akhiri pratinjau** dari panel admin (atau
+  cron setelah batas waktunya lewat) — keduanya menghapus sesi Auth hasil
+  pratinjau sehingga peramban itu tidak bisa lagi memperbarui tokennya. JWT yang
+  sudah terbit tetap sah sampai kedaluwarsa sendiri; selama itu jejak dan
+  transaksinya tetap ditolak.

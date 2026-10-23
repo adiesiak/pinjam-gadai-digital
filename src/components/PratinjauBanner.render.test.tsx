@@ -49,6 +49,8 @@ const tanpaAksi = () => {};
   ada(html, "Robert Tanaya", "akun yang sedang dibuka");
   ada(html, "admin@pindai.test", "admin pembuka pratinjau");
   ada(html, "Berlaku sampai", "batas waktu disebut");
+  ada(html, "Lokasi tidak dipantau", "pembatasan lokasi diumumkan");
+  ada(html, "transaksi diblokir", "pemblokiran transaksi diumumkan");
   ada(html, "Kembali ke Mode Admin", "tombol pulang tersedia");
   bersih(html, "bilah aktif");
 }

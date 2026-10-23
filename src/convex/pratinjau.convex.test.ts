@@ -14,8 +14,10 @@ import { describe, expect, it } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
+import { PESAN_BLOKIR_PRATINJAU } from "./adminAuthz";
 import {
   buatPengguna,
+  seedKycTerverifikasi,
   siapkanPengguna,
   type KonteksUji,
   type SesiUji,
@@ -865,6 +867,202 @@ describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
       terapkan: false,
     });
     expect(ulang).toMatchObject({ jumlahTarget: 0, titikDikecualikan: 0 });
+  });
+
+  it("menolak transaksi finansial dari sesi pratinjau, bukan dari akun aslinya", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    await seedKycTerverifikasi(t, peminjam.userId);
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: NONCE,
+    });
+    const sesiAdmin = await sesiPratinjau(t, tiket.tiketId, peminjam.userId);
+
+    const kredit = {
+      namaBarang: "Kulkas dua pintu",
+      kategori: "Elektronik",
+      merchant: "Tokopedia",
+      hargaBarang: 1_000_000,
+      dpPersen: 0,
+      tenorBulan: 6,
+      marginPersenPerBulan: 3,
+      namaLengkap: "Siti Peminjam",
+      nik: "3201234567890003",
+      nomorRekening: "1234567892",
+      nomorWhatsApp: "628123456791",
+    };
+
+    // Peramban admin tidak bisa membuat pengajuan atas nama nasabah.
+    await expect(
+      sesiAdmin.mutation(api.kredit.ajukanKreditBarang, kredit),
+    ).rejects.toThrow(PESAN_BLOKIR_PRATINJAU);
+    expect(await t.run((ctx) => ctx.db.query("kreditBarang").collect())).toHaveLength(0);
+
+    // Akun aslinya tidak terpengaruh pagar ini: galat berikutnya berasal dari
+    // gerbang lokasi, bukan dari pratinjau.
+    await expect(
+      peminjam.sesi.mutation(api.kredit.ajukanKreditBarang, kredit),
+    ).rejects.toThrow(/Lokasi wajib aktif/i);
+  });
+
+  it("menutup otomatis pratinjau yang kehabisan waktu, termasuk pemulihan lokasi", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+
+    // Lokasi asli nasabah sebelum pratinjau dimulai.
+    const waktuAsli = Date.now() - 5 * 60 * 1000;
+    await t.run((ctx) =>
+      ctx.db.insert("lokasiStatus", {
+        userId: peminjam.userId,
+        lat: -6.2,
+        lng: 106.8,
+        akurasi: 10,
+        waktu: waktuAsli,
+        sumber: "web",
+      }),
+    );
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: NONCE,
+    });
+    const sesiAdmin = await sesiPratinjau(t, tiket.tiketId, peminjam.userId);
+
+    // Koordinat admin sempat menimpa lokasi nasabah (jalur yang lolos pagar).
+    await t.run(async (ctx) => {
+      const status = await ctx.db.query("lokasiStatus").first();
+      if (status === null) throw new Error("status lokasi tidak ditemukan");
+      await ctx.db.patch(status._id, { lat: -7.5, lng: 110.4, waktu: Date.now() });
+      const baris = await ctx.db.query("pratinjauSesi").first();
+      if (baris === null) throw new Error("baris pratinjau tidak ditemukan");
+      await ctx.db.patch(baris._id, { berlakuHingga: Date.now() - 1 });
+    });
+
+    const hasil = await t.mutation(internal.pratinjau.tutupPratinjauKedaluwarsa, {});
+    expect(hasil).toMatchObject({ ditutup: 1, dicabut: 1 });
+
+    const baris = await t.run((ctx) => ctx.db.query("pratinjauSesi").first());
+    if (baris === null) throw new Error("baris pratinjau tidak ditemukan");
+    expect(baris.selesai).toBeGreaterThan(0);
+    expect(baris.ditutupOleh).toBe("sistem");
+    // Snapshot sudah tidak dibutuhkan, jadi kolomnya dibuang.
+    expect(baris.lokasiSebelum).toBeUndefined();
+
+    const sesi = await t.run((ctx) =>
+      ctx.db
+        .query("authSessions")
+        .withIndex("userId", (q) => q.eq("userId", peminjam.userId))
+        .collect(),
+    );
+    expect(sesi.map((s) => s._id)).not.toContain(baris.sesiPratinjauId);
+
+    expect(await t.run((ctx) => ctx.db.query("lokasiStatus").first())).toMatchObject({
+      lat: -6.2,
+      lng: 106.8,
+      waktu: waktuAsli,
+    });
+
+    // JWT yang sudah terbit tetap sah sampai kedaluwarsa sendiri, jadi titik
+    // dari sesi itu tetap dilewati walau sesinya sudah dicabut.
+    const setelahTutup = await sesiAdmin.mutation(api.lokasi.catatLokasi, {
+      lat: -7.6,
+      lng: 110.9,
+      akurasi: 11,
+      sumber: "web",
+    });
+    expect(setelahTutup.dilewati).toBe("pratinjau");
+
+    expect(await aksiAudit(t, "pratinjau_berakhir_otomatis")).toHaveLength(1);
+
+    // Putaran berikutnya tidak menemukan apa pun lagi.
+    expect(
+      await t.mutation(internal.pratinjau.tutupPratinjauKedaluwarsa, {}),
+    ).toMatchObject({ ditutup: 0 });
+  });
+
+  it("pemulihan jejak bisa dijalankan admin dari panel, ditolak untuk bukan admin", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    await seedKycTerverifikasi(t, peminjam.userId);
+
+    const waktuAsli = Date.now() - 10 * 60 * 1000;
+    await t.run(async (ctx) => {
+      await ctx.db.insert("lokasiStatus", {
+        userId: peminjam.userId,
+        lat: -6.2,
+        lng: 106.8,
+        akurasi: 10,
+        waktu: waktuAsli,
+        sumber: "web",
+      });
+      await ctx.db.insert("lokasiJejak", {
+        userId: peminjam.userId,
+        lat: -6.2,
+        lng: 106.8,
+        akurasi: 10,
+        waktu: waktuAsli,
+      });
+    });
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: NONCE,
+    });
+    await sesiPratinjau(t, tiket.tiketId, peminjam.userId);
+
+    await t.run(async (ctx) => {
+      const status = await ctx.db.query("lokasiStatus").first();
+      if (status === null) throw new Error("status lokasi tidak ditemukan");
+      await ctx.db.patch(status._id, { lat: -7.5, lng: 110.4, waktu: Date.now() });
+    });
+
+    const kering = await admin.sesi.mutation(api.pratinjau.pulihkanJejakPratinjau, {
+      terapkan: false,
+    });
+    expect(kering.jumlahTarget).toBeGreaterThan(0);
+    expect(
+      await t.run((ctx) => ctx.db.query("lokasiStatus").first().then((r) => r?.lat)),
+    ).toBe(-7.5);
+
+    await expect(
+      peminjam.sesi.mutation(api.pratinjau.pulihkanJejakPratinjau, { terapkan: false }),
+    ).rejects.toThrow(/Super Admin/i);
+
+    const diterapkan = await admin.sesi.mutation(api.pratinjau.pulihkanJejakPratinjau, {
+      terapkan: true,
+    });
+    expect(diterapkan.kering).toBe(false);
+    expect(diterapkan.statusDipulihkan).toBe(1);
+    expect(
+      await t.run((ctx) => ctx.db.query("lokasiStatus").first().then((r) => r?.lat)),
+    ).toBe(-6.2);
+
+    expect(
+      await aksiAudit(t, "lokasi_pratinjau_pemulihan_dijalankan"),
+    ).toHaveLength(1);
   });
 
   it("nasabah tanpa pratinjau tetap tercatat seperti biasa", async () => {

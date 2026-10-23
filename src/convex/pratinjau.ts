@@ -23,6 +23,10 @@
  *  5. Awal dan akhir pratinjau masuk Audit Trail dengan nama admin sebagai
  *     aktornya — jadi tindakan yang terjadi selama pratinjau tetap dapat
  *     ditelusuri ke orang yang membuka sesi itu.
+ *  6. Pratinjau hanya untuk MELIHAT. Semua mutation finansial memanggil
+ *     `requireBukanPratinjau` (convex/adminAuthz.ts), dan cron tiap jam menutup
+ *     pratinjau yang kehabisan waktu (`tutupPratinjauKedaluwarsa`) supaya
+ *     sesinya tidak menggantung.
  *
  * Sesi pratinjau dibuat DI SINI, bukan oleh Convex Auth. Sebabnya penting: jalur
  * `signIn` bawaan selalu menghapus sesi yang sedang dipakai pemanggil (lihat
@@ -574,11 +578,12 @@ async function cabutPratinjau(
   ctx: MutationCtx,
   baris: Doc<"pratinjauSesi">,
   sekarang: number,
+  oleh: "admin" | "sistem" = "admin",
 ): Promise<number> {
   // Tiket yang belum pernah dipakai tidak punya sesi hasil pratinjau; menutup
   // barisnya saja, karena sesi akun target yang ada bukan milik pratinjau ini.
   if (baris.dipakaiPada === undefined) {
-    await ctx.db.patch(baris._id, { selesai: sekarang, ditutupOleh: "admin" });
+    await ctx.db.patch(baris._id, { selesai: sekarang, ditutupOleh: oleh });
     return 0;
   }
 
@@ -604,9 +609,64 @@ async function cabutPratinjau(
   }
 
   await pulihkanLokasiNasabah(ctx, baris);
-  await ctx.db.patch(baris._id, { selesai: sekarang, ditutupOleh: "admin" });
+  await ctx.db.patch(baris._id, { selesai: sekarang, ditutupOleh: oleh });
   return dicabut;
 }
+
+/**
+ * TUTUP OTOMATIS PRATINJAU YANG KEHABISAN WAKTU — dijalankan cron tiap jam.
+ *
+ * Tanpa ini, pratinjau yang ditinggal (tab ditutup, admin lupa) hanya berhenti
+ * berlaku tetapi tidak pernah selesai: sesi hasil pratinjau tetap tersimpan,
+ * status lokasi tidak sempat dipulihkan, dan snapshot `lokasiSebelum` menumpuk
+ * selamanya. Cron ini melakukan hal yang sama dengan penutupan dari panel,
+ * lalu membuang snapshot setelah sesinya benar-benar dicabut — tidak ada lagi
+ * jalur tulis yang bisa memakainya.
+ *
+ * Batch dibatasi (`batas`) supaya satu putaran tidak menulis ratusan baris.
+ */
+export const tutupPratinjauKedaluwarsa = internalMutation({
+  args: { batas: v.optional(v.number()) },
+  handler: async (ctx, { batas }) => {
+    const sekarang = Date.now();
+    const maks = Math.min(Math.max(batas ?? 25, 1), 100);
+    // Ambil jendela terbaru lalu saring. Baris lama tanpa `berlakuHingga`
+    // dianggap kedaluwarsa (0), jadi sisa pratinjau versi sebelumnya ikut
+    // dibersihkan pada putaran pertama.
+    const kandidat = await ctx.db
+      .query("pratinjauSesi")
+      .order("desc")
+      .take(300);
+    const kedaluwarsa = kandidat
+      .filter(
+        (r) =>
+          r.dipakaiPada !== undefined &&
+          r.selesai === undefined &&
+          (r.berlakuHingga ?? 0) <= sekarang,
+      )
+      .slice(0, maks);
+
+    let dicabut = 0;
+    for (const baris of kedaluwarsa) {
+      dicabut += await cabutPratinjau(ctx, baris, sekarang, "sistem");
+      if (baris.sesiPratinjauId !== undefined) {
+        // Sesi sudah dicabut, jadi snapshot lokasi tidak dibutuhkan lagi.
+        // `undefined` menghapus kolomnya, bukan menyimpan nilai kosong.
+        await ctx.db.patch(baris._id, { lokasiSebelum: undefined });
+      }
+      await audit(
+        ctx,
+        baris.adminId,
+        "Sistem (batas waktu)",
+        "pratinjau_berakhir_otomatis",
+        baris.targetLabel,
+        `Pratinjau oleh ${baris.adminLabel} berakhir karena batas waktunya habis; sesi pratinjau dan status lokasi dibersihkan.`,
+      );
+    }
+
+    return { diperiksa: kandidat.length, ditutup: kedaluwarsa.length, dicabut };
+  },
+});
 
 /** Akhiri paksa sebuah pratinjau dari panel admin (kartu "Pratinjau Aktif"). */
 export const akhiriPratinjauOlehAdmin = mutation({
@@ -724,204 +784,245 @@ function dalamJendela(waktu: number, jendela: readonly JendelaPratinjau[]): bool
  * disengaja: membiarkan satu titik admin lolos lebih berbahaya daripada meminta
  * nasabah mengirim titik baru (gerbang lokasi akan memintanya sendiri).
  *
- * Internal: dijalankan operator lewat `convex run`, bukan dari peramban.
- * `terapkan: false` (bawaan) hanya menghitung, tidak menulis apa pun.
+ * `terapkan: false` hanya menghitung, tidak menulis apa pun. Jalur operator
+ * (`_pulihkanJejakPratinjau` lewat `convex run`) dan jalur panel admin
+ * (`pulihkanJejakPratinjau`) memakai fungsi yang sama di bawah ini.
  */
+async function jalankanPemulihanJejak(
+  ctx: MutationCtx,
+  { terapkan, labelAktor }: { terapkan: boolean; labelAktor: string },
+) {
+  const kering = !terapkan;
+  const semuaSesi = await ctx.db.query("pratinjauSesi").collect();
+  const perTarget = new Map<
+    Id<"users">,
+    { label: string; jendela: JendelaPratinjau[] }
+  >();
+
+  for (const sesi of semuaSesi) {
+    const jendela = jendelaDari(sesi);
+    if (jendela === null) continue;
+    const data = perTarget.get(sesi.targetId) ?? {
+      label: sesi.targetLabel,
+      jendela: [],
+    };
+    data.jendela.push(jendela);
+    perTarget.set(sesi.targetId, data);
+  }
+
+  const target: Array<{
+    userId: Id<"users">;
+    label: string;
+    titikDikecualikan: number;
+    status: "tetap" | "dipulihkan" | "dihapus";
+    sumberStatus: "jejak" | "pengajuan" | null;
+    statusLama: { lat: number; lng: number; waktu: number } | null;
+    statusBaru: { lat: number; lng: number; waktu: number } | null;
+  }> = [];
+  let totalTitik = 0;
+  let totalDipulihkan = 0;
+  let totalDihapus = 0;
+
+  for (const [targetId, info] of perTarget) {
+    const jejak = await ctx.db
+      .query("lokasiJejak")
+      .withIndex("by_user", (q) => q.eq("userId", targetId))
+      .order("desc")
+      .collect();
+
+    // Titik yang ditulis selama jendela pratinjau — kandidat untuk ditandai.
+    const kena = jejak.flatMap((baris) => {
+      if (baris.dikecualikan !== undefined) return [];
+      const jendela = info.jendela.find(
+        (w) => baris.waktu >= w.mulai && baris.waktu <= w.akhir,
+      );
+      return jendela === undefined ? [] : [{ baris, jendela }];
+    });
+
+    // Titik yang boleh dipakai sebagai lokasi nasabah: tidak ditandai dan
+    // tidak berada di jendela pratinjau mana pun.
+    const sah = jejak.filter(
+      (baris) =>
+        baris.dikecualikan === undefined &&
+        !info.jendela.some(
+          (w) => baris.waktu >= w.mulai && baris.waktu <= w.akhir,
+        ),
+    );
+
+    const status = await ctx.db
+      .query("lokasiStatus")
+      .withIndex("by_user", (q) => q.eq("userId", targetId))
+      .first();
+
+    let statusAksi: "tetap" | "dipulihkan" | "dihapus" = "tetap";
+    let sumberStatus: "jejak" | "pengajuan" | null = null;
+    let statusBaru: { lat: number; lng: number; waktu: number } | null = null;
+    let pengajuanSumber: Doc<"loans"> | null = null;
+
+    if (status !== null && dalamJendela(status.waktu, info.jendela)) {
+      const terbaru = sah[0];
+      if (terbaru !== undefined) {
+        statusAksi = "dipulihkan";
+        sumberStatus = "jejak";
+        statusBaru = { lat: terbaru.lat, lng: terbaru.lng, waktu: terbaru.waktu };
+      } else {
+        // Belum ada jejak sama sekali: pakai lokasi pengajuan yang dikirim
+        // SEBELUM pratinjau mulai. Lokasi pengajuan yang dibuat saat pratinjau
+        // juga berasal dari perangkat admin, jadi tidak boleh dipakai.
+        const mulai = Math.min(...info.jendela.map((w) => w.mulai));
+        const pinjaman = await ctx.db
+          .query("loans")
+          .withIndex("by_user", (q) => q.eq("userId", targetId))
+          .collect();
+        const pengajuan = pinjaman
+          .filter(
+            (loan) =>
+              loan.lokasiAjukan !== undefined &&
+              loan.lokasiAjukan.waktu < mulai &&
+              loan._creationTime < mulai,
+          )
+          .sort((a, b) => b._creationTime - a._creationTime)[0];
+
+        if (pengajuan?.lokasiAjukan !== undefined) {
+          pengajuanSumber = pengajuan;
+          statusAksi = "dipulihkan";
+          sumberStatus = "pengajuan";
+          statusBaru = {
+            lat: pengajuan.lokasiAjukan.lat,
+            lng: pengajuan.lokasiAjukan.lng,
+            waktu: pengajuan.lokasiAjukan.waktu,
+          };
+        } else {
+          statusAksi = "dihapus";
+        }
+      }
+    }
+
+    if (kena.length === 0 && statusAksi === "tetap") continue;
+
+    if (!kering) {
+      for (const { baris, jendela } of kena) {
+        await ctx.db.patch(baris._id, {
+          dikecualikan: "pratinjau_admin",
+          pratinjauSesiId: jendela.sesiId,
+        });
+      }
+
+      if (status !== null && statusAksi === "dipulihkan") {
+        const terbaru = sah[0];
+        if (sumberStatus === "jejak" && terbaru !== undefined) {
+          await ctx.db.patch(status._id, {
+            lat: terbaru.lat,
+            lng: terbaru.lng,
+            akurasi: terbaru.akurasi,
+            waktu: terbaru.waktu,
+            // Jejak tidak menyimpan metadata perangkat; tandai sumbernya
+            // supaya terbaca jelas bahwa titik ini berasal dari riwayat.
+            sumber: "jejak",
+            platform: undefined,
+            versiApp: undefined,
+            tanda: terbaru.tanda,
+            identikBerturut: undefined,
+          });
+        } else if (pengajuanSumber?.lokasiAjukan !== undefined) {
+          await ctx.db.patch(status._id, {
+            lat: pengajuanSumber.lokasiAjukan.lat,
+            lng: pengajuanSumber.lokasiAjukan.lng,
+            akurasi: pengajuanSumber.lokasiAjukan.akurasi,
+            waktu: pengajuanSumber.lokasiAjukan.waktu,
+            sumber: "pengajuan",
+            platform: undefined,
+            versiApp: undefined,
+            tanda: undefined,
+            identikBerturut: undefined,
+          });
+        }
+      } else if (status !== null && statusAksi === "dihapus") {
+        await ctx.db.delete(status._id);
+      }
+
+      await audit(
+        ctx,
+        undefined,
+        labelAktor,
+        "lokasi_pratinjau_dipulihkan",
+        info.label,
+        `${kena.length} titik pratinjau dikecualikan; status lokasi ${statusAksi}${
+          statusBaru === null
+            ? ""
+            : ` ke ${statusBaru.lat.toFixed(5)},${statusBaru.lng.toFixed(5)} (${formatWaktuWIB(statusBaru.waktu)})`
+        }.`,
+      );
+    }
+
+    totalTitik += kena.length;
+    if (statusAksi === "dipulihkan") totalDipulihkan += 1;
+    if (statusAksi === "dihapus") totalDihapus += 1;
+    target.push({
+      userId: targetId,
+      label: info.label,
+      titikDikecualikan: kena.length,
+      status: statusAksi,
+      sumberStatus,
+      statusLama:
+        status === null
+          ? null
+          : { lat: status.lat, lng: status.lng, waktu: status.waktu },
+      statusBaru,
+    });
+  }
+
+  return {
+    kering,
+    jumlahTarget: target.length,
+    titikDikecualikan: totalTitik,
+    statusDipulihkan: totalDipulihkan,
+    statusDihapus: totalDihapus,
+    target,
+  };
+}
+
+/** Jalur operator: `bunx convex run pratinjau:_pulihkanJejakPratinjau ...`. */
 export const _pulihkanJejakPratinjau = internalMutation({
   args: {
     terapkan: v.optional(v.boolean()),
     aktor: v.optional(v.string()),
   },
-  handler: async (ctx, { terapkan, aktor }) => {
-    const kering = terapkan !== true;
-    const semuaSesi = await ctx.db.query("pratinjauSesi").collect();
-    const perTarget = new Map<
-      Id<"users">,
-      { label: string; jendela: JendelaPratinjau[] }
-    >();
+  handler: async (ctx, { terapkan, aktor }) =>
+    jalankanPemulihanJejak(ctx, {
+      terapkan: terapkan === true,
+      labelAktor: aktor?.trim() || "pemulihan lokasi pratinjau",
+    }),
+});
 
-    for (const sesi of semuaSesi) {
-      const jendela = jendelaDari(sesi);
-      if (jendela === null) continue;
-      const data = perTarget.get(sesi.targetId) ?? {
-        label: sesi.targetLabel,
-        jendela: [],
-      };
-      data.jendela.push(jendela);
-      perTarget.set(sesi.targetId, data);
-    }
-
-    const labelAktor = aktor?.trim() || "pemulihan lokasi pratinjau";
-    const target: Array<{
-      userId: Id<"users">;
-      label: string;
-      titikDikecualikan: number;
-      status: "tetap" | "dipulihkan" | "dihapus";
-      sumberStatus: "jejak" | "pengajuan" | null;
-      statusLama: { lat: number; lng: number; waktu: number } | null;
-      statusBaru: { lat: number; lng: number; waktu: number } | null;
-    }> = [];
-    let totalTitik = 0;
-    let totalDipulihkan = 0;
-    let totalDihapus = 0;
-
-    for (const [targetId, info] of perTarget) {
-      const jejak = await ctx.db
-        .query("lokasiJejak")
-        .withIndex("by_user", (q) => q.eq("userId", targetId))
-        .order("desc")
-        .collect();
-
-      // Titik yang ditulis selama jendela pratinjau — kandidat untuk ditandai.
-      const kena = jejak.flatMap((baris) => {
-        if (baris.dikecualikan !== undefined) return [];
-        const jendela = info.jendela.find(
-          (w) => baris.waktu >= w.mulai && baris.waktu <= w.akhir,
-        );
-        return jendela === undefined ? [] : [{ baris, jendela }];
-      });
-
-      // Titik yang boleh dipakai sebagai lokasi nasabah: tidak ditandai dan
-      // tidak berada di jendela pratinjau mana pun.
-      const sah = jejak.filter(
-        (baris) =>
-          baris.dikecualikan === undefined &&
-          !info.jendela.some(
-            (w) => baris.waktu >= w.mulai && baris.waktu <= w.akhir,
-          ),
+/**
+ * Jalur panel admin: periksa dulu (`terapkan` kosong/false), lalu terapkan.
+ *
+ * Dipisah dari jalur operator supaya pemulihan tidak lagi bergantung pada orang
+ * yang bisa menjalankan CLI di produksi. Gerbangnya `requireAdminSession`
+ * (peran admin + TOTP pada sesi itu), dan hasil yang benar-benar diterapkan
+ * tetap tercatat per akun di Audit Trail.
+ */
+export const pulihkanJejakPratinjau = mutation({
+  args: { terapkan: v.optional(v.boolean()) },
+  handler: async (ctx, { terapkan }) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    const label = user.email?.trim() || labelAkun(user);
+    const hasil = await jalankanPemulihanJejak(ctx, {
+      terapkan: terapkan === true,
+      labelAktor: `Admin ${label}`,
+    });
+    if (terapkan === true) {
+      await audit(
+        ctx,
+        userId,
+        label,
+        "lokasi_pratinjau_pemulihan_dijalankan",
+        `${hasil.jumlahTarget} akun`,
+        `${hasil.titikDikecualikan} titik pratinjau dikecualikan; ${hasil.statusDipulihkan} status lokasi dipulihkan, ${hasil.statusDihapus} dihapus.`,
       );
-
-      const status = await ctx.db
-        .query("lokasiStatus")
-        .withIndex("by_user", (q) => q.eq("userId", targetId))
-        .first();
-
-      let statusAksi: "tetap" | "dipulihkan" | "dihapus" = "tetap";
-      let sumberStatus: "jejak" | "pengajuan" | null = null;
-      let statusBaru: { lat: number; lng: number; waktu: number } | null = null;
-      let pengajuanSumber: Doc<"loans"> | null = null;
-
-      if (status !== null && dalamJendela(status.waktu, info.jendela)) {
-        const terbaru = sah[0];
-        if (terbaru !== undefined) {
-          statusAksi = "dipulihkan";
-          sumberStatus = "jejak";
-          statusBaru = { lat: terbaru.lat, lng: terbaru.lng, waktu: terbaru.waktu };
-        } else {
-          // Belum ada jejak sama sekali: pakai lokasi pengajuan yang dikirim
-          // SEBELUM pratinjau mulai. Lokasi pengajuan yang dibuat saat pratinjau
-          // juga berasal dari perangkat admin, jadi tidak boleh dipakai.
-          const mulai = Math.min(...info.jendela.map((w) => w.mulai));
-          const pinjaman = await ctx.db
-            .query("loans")
-            .withIndex("by_user", (q) => q.eq("userId", targetId))
-            .collect();
-          const pengajuan = pinjaman
-            .filter(
-              (loan) =>
-                loan.lokasiAjukan !== undefined &&
-                loan.lokasiAjukan.waktu < mulai &&
-                loan._creationTime < mulai,
-            )
-            .sort((a, b) => b._creationTime - a._creationTime)[0];
-
-          if (pengajuan?.lokasiAjukan !== undefined) {
-            pengajuanSumber = pengajuan;
-            statusAksi = "dipulihkan";
-            sumberStatus = "pengajuan";
-            statusBaru = {
-              lat: pengajuan.lokasiAjukan.lat,
-              lng: pengajuan.lokasiAjukan.lng,
-              waktu: pengajuan.lokasiAjukan.waktu,
-            };
-          } else {
-            statusAksi = "dihapus";
-          }
-        }
-      }
-
-      if (kena.length === 0 && statusAksi === "tetap") continue;
-
-      if (!kering) {
-        for (const { baris, jendela } of kena) {
-          await ctx.db.patch(baris._id, {
-            dikecualikan: "pratinjau_admin",
-            pratinjauSesiId: jendela.sesiId,
-          });
-        }
-
-        if (status !== null && statusAksi === "dipulihkan") {
-          const terbaru = sah[0];
-          if (sumberStatus === "jejak" && terbaru !== undefined) {
-            await ctx.db.patch(status._id, {
-              lat: terbaru.lat,
-              lng: terbaru.lng,
-              akurasi: terbaru.akurasi,
-              waktu: terbaru.waktu,
-              // Jejak tidak menyimpan metadata perangkat; tandai sumbernya
-              // supaya terbaca jelas bahwa titik ini berasal dari riwayat.
-              sumber: "jejak",
-              platform: undefined,
-              versiApp: undefined,
-              tanda: terbaru.tanda,
-              identikBerturut: undefined,
-            });
-          } else if (pengajuanSumber?.lokasiAjukan !== undefined) {
-            await ctx.db.patch(status._id, {
-              lat: pengajuanSumber.lokasiAjukan.lat,
-              lng: pengajuanSumber.lokasiAjukan.lng,
-              akurasi: pengajuanSumber.lokasiAjukan.akurasi,
-              waktu: pengajuanSumber.lokasiAjukan.waktu,
-              sumber: "pengajuan",
-              platform: undefined,
-              versiApp: undefined,
-              tanda: undefined,
-              identikBerturut: undefined,
-            });
-          }
-        } else if (status !== null && statusAksi === "dihapus") {
-          await ctx.db.delete(status._id);
-        }
-
-        await audit(
-          ctx,
-          undefined,
-          labelAktor,
-          "lokasi_pratinjau_dipulihkan",
-          info.label,
-          `${kena.length} titik pratinjau dikecualikan; status lokasi ${statusAksi}${
-            statusBaru === null
-              ? ""
-              : ` ke ${statusBaru.lat.toFixed(5)},${statusBaru.lng.toFixed(5)} (${formatWaktuWIB(statusBaru.waktu)})`
-          }.`,
-        );
-      }
-
-      totalTitik += kena.length;
-      if (statusAksi === "dipulihkan") totalDipulihkan += 1;
-      if (statusAksi === "dihapus") totalDihapus += 1;
-      target.push({
-        userId: targetId,
-        label: info.label,
-        titikDikecualikan: kena.length,
-        status: statusAksi,
-        sumberStatus,
-        statusLama:
-          status === null
-            ? null
-            : { lat: status.lat, lng: status.lng, waktu: status.waktu },
-        statusBaru,
-      });
     }
-
-    return {
-      kering,
-      jumlahTarget: target.length,
-      titikDikecualikan: totalTitik,
-      statusDipulihkan: totalDipulihkan,
-      statusDihapus: totalDihapus,
-      target,
-    };
+    return hasil;
   },
 });
 
