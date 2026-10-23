@@ -1,0 +1,269 @@
+/**
+ * Tes pengajuan akad syariah.
+ *
+ * Yang dijaga:
+ *  - pengajuan hanya dilayani untuk akun ber-KYC VERIFIED dan bukan admin;
+ *  - angka akad dihitung mesin `lib/syariah/akad`, bukan dari klien;
+ *  - akad syariah AKTIF menahan plafon yang sama dengan pinjaman konvensional;
+ *  - satu akun hanya punya satu pengajuan yang menunggu keputusan;
+ *  - admin bisa menyetujui dengan angka final atau menolak dengan alasan.
+ *
+ * Tidak ada uang yang berpindah di modul ini: persetujuan tidak boleh membuat
+ * baris `akadSyariah`, jurnal, atau tiket. Pencatatan akad tetap tertutup
+ * gerbang pembayaran sampai integrasinya dibuka.
+ */
+import { convexTest } from "convex-test";
+import { describe, expect, it } from "vitest";
+
+import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import schema from "./schema";
+import { modules } from "./test.setup";
+import {
+  seedKycTerverifikasi,
+  siapkanPengguna,
+  type KonteksUji,
+} from "./test.helpers";
+
+const HARI_MS = 86_400_000;
+
+async function siapkanPeminjam(t: KonteksUji, nama: string, email: string) {
+  const hasil = await siapkanPengguna(t, nama, { email, role: "peminjam" });
+  await seedKycTerverifikasi(t, hasil.userId);
+  return hasil;
+}
+
+function ajukan(
+  sesi: Awaited<ReturnType<typeof siapkanPeminjam>>["sesi"],
+  args: {
+    jenis?: "murabahah" | "rahn" | "qardh";
+    pokok?: number;
+    tenorHari?: number;
+    tujuan?: string;
+    namaBarang?: string;
+    nilaiTaksiran?: number;
+  } = {},
+) {
+  return sesi.mutation(api.syariahPengajuan.ajukan, {
+    jenis: args.jenis ?? "murabahah",
+    pokok: args.pokok ?? 300_000,
+    tenorHari: args.tenorHari ?? 30,
+    tujuan: args.tujuan ?? "Membeli mesin jahit untuk usaha",
+    namaBarang: args.namaBarang ?? "Mesin jahit",
+    ...(args.nilaiTaksiran === undefined ? {} : { nilaiTaksiran: args.nilaiTaksiran }),
+  });
+}
+
+describe("pengajuan syariah — pengiriman", () => {
+  it("menolak akun tanpa KYC sebelum menyimpan apa pun", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkanPengguna(t, "Belum KYC", {
+      email: "belum-kyc-syariah@pindai.test",
+      role: "peminjam",
+    });
+
+    await expect(ajukan(sesi)).rejects.toThrow("KYC diperlukan");
+    expect(
+      await t.run(async (ctx) =>
+        (await ctx.db.query("pengajuanSyariah").collect()).length,
+      ),
+    ).toBe(0);
+  });
+
+  it("menyimpan Murabahah dengan margin 15% dan status menunggu", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await siapkanPeminjam(
+      t,
+      "Rani Murabahah",
+      "rani-murabahah@pindai.test",
+    );
+
+    const hasil = await ajukan(sesi);
+    const row = await t.run((ctx) => ctx.db.get(hasil.id));
+
+    expect(row?.status).toBe("diajukan");
+    expect(row?.jenis).toBe("murabahah");
+    expect(row?.pokok).toBe(300_000);
+    expect(row?.marginPersen).toBe(15);
+    expect(row?.marginTotal).toBe(45_000);
+    expect(row?.hargaJual).toBe(345_000);
+    expect(row?.totalKewajiban).toBe(345_000);
+    expect(row?.nisbahPendana).toBe(38_250);
+    expect(row?.nisbahPlatform).toBe(6_750);
+    expect(row?.namaPeminjam).toBe("RANI PEMINJAM");
+    expect(row?.userId).toBe(userId);
+  });
+
+  it("menolak pengajuan kedua selama yang pertama menunggu", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkanPeminjam(
+      t,
+      "Rani Ganda",
+      "rani-ganda-syariah@pindai.test",
+    );
+    await ajukan(sesi);
+    await expect(ajukan(sesi, { jenis: "qardh", pokok: 200_000 })).rejects.toThrow(
+      "Masih ada pengajuan syariah yang menunggu keputusan",
+    );
+  });
+
+  it("Rahn wajib bertaksiran dan pokok tidak boleh melebihi taksiran", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkanPeminjam(
+      t,
+      "Rani Rahn",
+      "rani-rahn-syariah@pindai.test",
+    );
+
+    await expect(ajukan(sesi, { jenis: "rahn", namaBarang: "Motor" })).rejects.toThrow(
+      "Nilai taksiran barang jaminan wajib diisi",
+    );
+    await expect(
+      ajukan(sesi, {
+        jenis: "rahn",
+        namaBarang: "Motor",
+        pokok: 400_000,
+        nilaiTaksiran: 300_000,
+      }),
+    ).rejects.toThrow("Pokok gadai tidak boleh melebihi nilai taksiran");
+  });
+
+  it("akad aktif menahan plafon yang sama dengan pinjaman", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await siapkanPeminjam(
+      t,
+      "Rani Plafon",
+      "rani-plafon-syariah@pindai.test",
+    );
+    const { userId: adminId } = await siapkanPengguna(t, "Admin Plafon Syariah", {
+      email: "admin-plafon-syariah@pindai.test",
+      role: "admin",
+    });
+
+    await t.run((ctx) =>
+      ctx.db.insert("akadSyariah", {
+        jenis: "qardh",
+        nomorReferensi: "SYR-AKTIF-1",
+        pendanaId: adminId,
+        peminjamId: userId,
+        peminjamNama: "RANI PLAFON",
+        pokok: 300_000,
+        tenorHari: 30,
+        totalKewajiban: 300_000,
+        pendanaTerima: 300_000,
+        nisbahPendana: 0,
+        nisbahPlatform: 0,
+        marginTotal: 0,
+        tiketDoorprize: 0,
+        status: "aktif",
+        jatuhTempoPada: Date.now() + 30 * HARI_MS,
+        dibuatPada: Date.now(),
+        dibuatOleh: adminId,
+      }),
+    );
+
+    // Plafon awal Rp500.000, Rp300.000 sudah tertahan akad → sisa Rp200.000.
+    await expect(ajukan(sesi, { jenis: "qardh", pokok: 250_000 })).rejects.toThrow(
+      "sisa yang dapat diajukan Rp 200.000",
+    );
+    await expect(
+      ajukan(sesi, { jenis: "qardh", pokok: 200_000, tujuan: "Modal usaha kecil" }),
+    ).resolves.toMatchObject({ nomorReferensi: expect.stringContaining("PSY-") });
+  });
+});
+
+describe("pengajuan syariah — keputusan admin", () => {
+  it("menyetujui dengan margin final tanpa membuat akad atau jurnal", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Syariah Baru", {
+      email: "admin-syariah-baru@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "Rani Setuju",
+      "rani-setuju-syariah@pindai.test",
+    );
+    const { id } = await ajukan(peminjam);
+
+    await admin.mutation(api.syariahPengajuan.putuskan, {
+      id,
+      keputusan: "setujui",
+      marginPersen: 20,
+    });
+
+    const row = await t.run((ctx) => ctx.db.get(id));
+    expect(row?.status).toBe("disetujui");
+    expect(row?.marginPersen).toBe(20);
+    expect(row?.marginTotal).toBe(60_000);
+    expect(row?.totalKewajiban).toBe(360_000);
+    expect(row?.nisbahPendana).toBe(51_000);
+    expect(row?.nisbahPlatform).toBe(9_000);
+    expect(row?.diputuskanPada).toBeTypeOf("number");
+
+    const isi = await t.run(async (ctx) => ({
+      akad: await ctx.db.query("akadSyariah").collect(),
+      ledger: await ctx.db.query("ledger_entries").collect(),
+      tiket: await ctx.db.query("doorprizeTiket").collect(),
+    }));
+    expect(isi.akad).toHaveLength(0);
+    expect(isi.ledger).toHaveLength(0);
+    expect(isi.tiket).toHaveLength(0);
+  });
+
+  it("menolak pengajuan dengan alasan, dan peminjam tidak bisa memutuskan sendiri", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Tolak Syariah", {
+      email: "admin-tolak-syariah@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "Rani Tolak",
+      "rani-tolak-syariah@pindai.test",
+    );
+    const { id } = await ajukan(peminjam);
+
+    await expect(
+      peminjam.mutation(api.syariahPengajuan.putuskan, {
+        id,
+        keputusan: "setujui",
+      }),
+    ).rejects.toThrow("Akses khusus Super Admin.");
+
+    await expect(
+      admin.mutation(api.syariahPengajuan.putuskan, {
+        id,
+        keputusan: "tolak",
+        alasanTolak: "no",
+      }),
+    ).rejects.toThrow("Alasan penolakan minimal 5 karakter.");
+
+    await admin.mutation(api.syariahPengajuan.putuskan, {
+      id,
+      keputusan: "tolak",
+      alasanTolak: "Barang jaminan belum dapat ditaksir.",
+    });
+    const row = await t.run((ctx) => ctx.db.get(id));
+    expect(row?.status).toBe("ditolak");
+    expect(row?.alasanTolak).toBe("Barang jaminan belum dapat ditaksir.");
+  });
+
+  it("peminjam bisa menarik pengajuan selama belum diputuskan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "Rani Tarik",
+      "rani-tarik-syariah@pindai.test",
+    );
+    const { id } = await ajukan(peminjam);
+
+    await peminjam.mutation(api.syariahPengajuan.batalkan, { id });
+    const row = await t.run((ctx) => ctx.db.get(id));
+    expect(row?.status).toBe("dibatalkan");
+
+    await expect(
+      peminjam.mutation(api.syariahPengajuan.batalkan, { id }),
+    ).rejects.toThrow("Hanya pengajuan yang belum diputuskan");
+  });
+});

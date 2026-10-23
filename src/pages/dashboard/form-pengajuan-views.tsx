@@ -18,6 +18,7 @@
  * `PemilihJenisPengajuan` bisa dirender di uji tanpa klien Convex.
  */
 import { Package, Send, ShoppingBag, Wallet } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ import {
 
 import { LoanForm, PawnForm } from "./forms-views";
 import { KreditBarangForm, KreditBarangSection } from "./kredit-views";
+import { SyariahSection } from "./syariah-views";
 
 /** Ikon tiap jenis — dipetakan di sini supaya `lib/jenisPengajuan` tetap bebas React. */
 const IKON_JENIS: Record<JenisPengajuan, typeof Wallet> = {
@@ -164,13 +166,20 @@ export function FormPengajuanSection({
   jenis,
   onUbahJenis,
   onBukaKyc,
+  jalurAwal = "konvensional",
 }: {
   jenis: JenisPengajuan;
   onUbahJenis: (jenis: JenisPengajuan) => void;
   /** Pindah ke tab Verifikasi KYC — dipakai gerbang KYC di tiap formulir. */
   onBukaKyc?: () => void;
+  /** Dipakai tautan "Ajukan akad syariah" agar jalur langsung terbuka. */
+  jalurAwal?: "konvensional" | "syariah";
 }) {
   const aktif = jenisPengajuanAktif(jenis);
+  // Jalur dipilih SEBELUM jenis pengajuan: konvensional memakai dropdown tiga
+  // produk yang sudah ada, syariah memakai formulir akad sendiri. Sakelar ini
+  // lokal karena hanya menyusun tampilan; server tetap memvalidasi semuanya.
+  const [jalur, setJalur] = useState<"konvensional" | "syariah">(jalurAwal);
 
   return (
     <section className="min-w-0">
@@ -181,13 +190,15 @@ export function FormPengajuanSection({
             Buat pengajuan baru
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Pinjaman, gadai, dan kredit barang diajukan dari satu halaman ini. Pilih
-            jenisnya di menu dropdown, lalu isi formulir yang muncul. Semua angka
-            dihitung aplikasi dan tercatat di PINDAI.
+            {jalur === "syariah"
+              ? "Murabahah untuk barang, Rahn untuk gadai, dan Qardh untuk pinjaman kebajikan. Petugas menetapkan angka akad sebelum pencairan."
+              : "Pinjaman, gadai, dan kredit barang diajukan dari satu halaman ini. Pilih jenisnya di menu dropdown, lalu isi formulir yang muncul. Semua angka dihitung aplikasi dan tercatat di PINDAI."}
           </p>
         </div>
         <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-          {JENIS_PENGAJUAN.length} jenis pengajuan
+          {jalur === "syariah"
+            ? "3 akad syariah"
+            : `${JENIS_PENGAJUAN.length} jenis pengajuan`}
         </span>
       </div>
 
@@ -199,52 +210,67 @@ export function FormPengajuanSection({
           Konvensional memakai bunga flat. Syariah memakai akad dan nisbah.
           Keduanya dihitung terpisah oleh sistem.
         </p>
-        <PilihanProduk ringkas className="mt-3" />
+        <PilihanProduk
+          ringkas
+          className="mt-3"
+          aktif={jalur}
+          onPilih={setJalur}
+        />
       </div>
 
-      <PromoPinjamanAktif penempatan="pengajuan" className="mt-4" />
+      {jalur === "konvensional" && (
+        <PromoPinjamanAktif penempatan="pengajuan" className="mt-4" />
+      )}
 
       <Separator className="my-4" />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <PemilihJenisPengajuan nilai={jenis} onUbah={onUbahJenis} />
-      </div>
-
-      {/* `key` memaksa formulir lama dilepas saat jenis berganti: isian tidak
-          berpindah ke formulir lain, dan animasi masuknya diputar ulang. */}
-      <div key={aktif.id} className="mt-6 min-w-0 animate-masuk">
-        {aktif.id === "pinjaman" && (
-          <LoanForm
-            onBukaKyc={onBukaKyc}
-            onCreated={(ref) =>
-              toast.success(`Catatan pengajuan tersimpan: referensi ${ref}.`)
-            }
-          />
-        )}
-        {aktif.id === "gadai" && (
-          <PawnForm
-            onBukaKyc={onBukaKyc}
-            onCreated={() =>
-              toast.success("Catatan pengajuan gadai tersimpan.")
-            }
-          />
-        )}
-        {aktif.id === "kredit" && (
-          <div className="space-y-8">
-            <KreditBarangForm
-              onBukaKyc={onBukaKyc}
-              onCreated={(ref) =>
-                toast.success(
-                  `Catatan pengajuan kredit barang tersimpan: referensi ${ref}.`,
-                )
-              }
-            />
-            {/* Daftar catatan menemani formulirnya: dulu pasangan ini tinggal
-                di tab "Kredit Barang" yang kini dihapus. */}
-            <KreditBarangSection />
+      {jalur === "syariah" ? (
+        <div className="min-w-0 animate-masuk">
+          <SyariahSection onBukaKyc={onBukaKyc} />
+        </div>
+      ) : (
+        <>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <PemilihJenisPengajuan nilai={jenis} onUbah={onUbahJenis} />
           </div>
-        )}
-      </div>
+
+          {/* `key` memaksa formulir lama dilepas saat jenis berganti: isian tidak
+              berpindah ke formulir lain, dan animasi masuknya diputar ulang. */}
+          <div key={aktif.id} className="mt-6 min-w-0 animate-masuk">
+            {aktif.id === "pinjaman" && (
+              <LoanForm
+                onBukaKyc={onBukaKyc}
+                onCreated={(ref) =>
+                  toast.success(`Catatan pengajuan tersimpan: referensi ${ref}.`)
+                }
+              />
+            )}
+            {aktif.id === "gadai" && (
+              <PawnForm
+                onBukaKyc={onBukaKyc}
+                onCreated={() =>
+                  toast.success("Catatan pengajuan gadai tersimpan.")
+                }
+              />
+            )}
+            {aktif.id === "kredit" && (
+              <div className="space-y-8">
+                <KreditBarangForm
+                  onBukaKyc={onBukaKyc}
+                  onCreated={(ref) =>
+                    toast.success(
+                      `Catatan pengajuan kredit barang tersimpan: referensi ${ref}.`,
+                    )
+                  }
+                />
+                {/* Daftar catatan menemani formulirnya: dulu pasangan ini tinggal
+                    di tab "Kredit Barang" yang kini dihapus. */}
+                <KreditBarangSection />
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </section>
   );
 }

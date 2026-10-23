@@ -55,6 +55,7 @@ import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
 import { UndianPanel } from "@/components/admin/UndianPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { PromoPinjamanPanel } from "@/components/admin/PromoPinjamanPanel";
+import { SyariahPanel } from "@/components/admin/SyariahPanel";
 import { RekonsiliasiAngsuran } from "@/components/admin/RekonsiliasiAngsuran";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
@@ -219,6 +220,14 @@ export function AdminTabs({
           badge: `${hitungMenunggu(overview.kredit, "kredit")}`,
           hitung: "menunggu",
           Icon: ShoppingBag,
+        },
+        {
+          value: "syariah",
+          label: "Pengajuan Syariah",
+          hint: "Tinjau pengajuan Murabahah, Rahn, dan Qardh; setujui angka akad atau tolak dengan alasan.",
+          badge: null,
+          hitung: "tidak",
+          Icon: HandCoins,
         },
         {
           value: "kyc",
@@ -505,6 +514,7 @@ export function AdminTabs({
     pinjaman: <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />,
     gadai: <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />,
     kredit: <KreditQueuePanel />,
+    syariah: <SyariahPanel />,
     kyc: <KycPanel />,
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
     undian: <UndianPanel />,

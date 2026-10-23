@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, FilePlus2 } from "lucide-react";
+import { ArrowLeft, FilePlus2, HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { tabDariParams } from "@/lib/notifikasi";
@@ -33,6 +33,7 @@ import { PersetujuanVerifikasiPembayaran } from "@/components/PersetujuanVerifik
 import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
 import { AngsuranSection } from "./dashboard/angsuran-views";
 import { CatatanPinjamanSection } from "./dashboard/history-views";
+import { DaftarPengajuanSyariah } from "./dashboard/syariah-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
@@ -150,12 +151,23 @@ export default function Dashboard() {
   const [jenisPengajuan, setJenisPengajuan] = useState<JenisPengajuan>(
     JENIS_PENGAJUAN_AWAL,
   );
+  // Jalur dipilih di Ringkasan atau dari tautan produk, lalu diteruskan ke
+  // formulir. Disimpan di sini supaya "Ajukan akad syariah" bisa langsung
+  // membuka formulir akad, bukan formulir pinjaman konvensional.
+  const [jalurPengajuan, setJalurPengajuan] = useState<"konvensional" | "syariah">(
+    parameter.get("jalur") === "syariah" ? "syariah" : "konvensional",
+  );
   /** Tahap KYC yang dipilih dari menu sidebar; null = modul memilih sendiri. */
   const [tahapKyc, setTahapKyc] = useState<IdTahapKyc | null>(null);
 
   /** Buka halaman Form Pengajuan dengan jenis yang sudah dipilih. */
   const bukaPengajuan = (jenis: JenisPengajuan) => {
     setJenisPengajuan(jenis);
+    setJalurPengajuan("konvensional");
+    gantiTab("form");
+  };
+  const bukaSyariah = () => {
+    setJalurPengajuan("syariah");
     gantiTab("form");
   };
 
@@ -450,14 +462,25 @@ export default function Dashboard() {
                   />
                   <RiwayatProgresPlafon />
                   <DoorprizeWidget peran="peminjam" />
-                  <Button
-                    type="button"
-                    className="mt-4 w-full gap-2 bg-emerald-800 text-white hover:bg-emerald-900 sm:w-auto"
-                    onClick={() => bukaPengajuan("pinjaman")}
-                  >
-                    <FilePlus2 className="size-4" aria-hidden />
-                    Ajukan Pinjaman
-                  </Button>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      className="w-full gap-2 bg-emerald-800 text-white hover:bg-emerald-900 sm:w-auto"
+                      onClick={() => bukaPengajuan("pinjaman")}
+                    >
+                      <FilePlus2 className="size-4" aria-hidden />
+                      Ajukan Pinjaman
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2 border-amber-700/40 text-amber-900 hover:bg-amber-50 sm:w-auto"
+                      onClick={bukaSyariah}
+                    >
+                      <HandCoins className="size-4" aria-hidden />
+                      Ajukan akad syariah
+                    </Button>
+                  </div>
                 </TabsContent>
 
                 {/* ===== TAB 2: CATATAN PINJAMAN =====
@@ -469,6 +492,24 @@ export default function Dashboard() {
 
                 <TabsContent value="pinjaman" className="mt-6 animate-masuk">
                   <CatatanPinjamanSection loans={loans ?? []} onOpenLoan={setLoanDetailId} />
+                  {/* Pengajuan akad syariah punya catatannya sendiri: bukan
+                      pinjaman konvensional, jadi tidak dicampur ke daftar di atas. */}
+                  <section className="mt-8" aria-labelledby="judul-catatan-syariah">
+                    <h2
+                      id="judul-catatan-syariah"
+                      className="text-base font-semibold text-navy"
+                    >
+                      Pengajuan akad syariah
+                    </h2>
+                    <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
+                      Murabahah, Rahn, dan Qardh yang Anda ajukan, beserta
+                      keputusan petugas dan alasan penolakan bila ada.
+                    </p>
+                    <DaftarPengajuanSyariah
+                      className="mt-3"
+                      onBukaForm={bukaSyariah}
+                    />
+                  </section>
                 </TabsContent>
 
                 {/* ===== TAB 5: FORM PENGAJUAN, satu halaman, tiga jenis =====
@@ -486,6 +527,7 @@ export default function Dashboard() {
                     jenis={jenisPengajuan}
                     onUbahJenis={setJenisPengajuan}
                     onBukaKyc={() => gantiTab("kyc")}
+                    jalurAwal={jalurPengajuan}
                   />
                 </TabsContent>
 

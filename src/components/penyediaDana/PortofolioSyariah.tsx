@@ -55,10 +55,10 @@ export function PortofolioSyariah() {
           Belum ada penempatan syariah
         </p>
         <p className="mt-1.5 max-w-2xl text-xs leading-6 text-slate-700">
-          Akad Murabahah, Rahn, dan Qardh dicatat admin setelah akad disepakati.
-          Pengajuan daring akad syariah belum dibuka, jadi tab ini terisi lewat
-          pencatatan, bukan lewat tombol ajukan. Penempatan konvensional tetap
-          ada di tab konvensional.
+          Akad Murabahah, Rahn, dan Qardh dicatat admin setelah pengajuan
+          disetujui dan akad disepakati. Pengajuan daring sudah dibuka dari
+          dashboard peminjam; tab ini terisi setelah akadnya dicatat, bukan saat
+          pengajuan masih menunggu.
         </p>
         <Link
           to="/pinjaman/syariah"

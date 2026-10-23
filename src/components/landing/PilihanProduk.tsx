@@ -5,8 +5,9 @@
  * peminjam (tanpa kepala). Tujuannya satu: pemisahan jalur yang tegas sebelum
  * pengguna masuk ke formulir, supaya tidak ada pencampuran istilah dan angka.
  *
- * Syariah masih berupa skema yang belum dibuka untuk pengajuan. Kartunya
- * menyebut itu apa adanya, bukan memasang tombol yang akan memantul.
+ * Di dashboard, kartu yang sama menjadi tombol pemilih jalur: peminjam memilih
+ * konvensional atau syariah sebelum formulirnya muncul. Di beranda dan ruang
+ * pendana, kartunya tetap menjadi tautan bacaan.
  */
 import { ArrowRight, HandCoins, Info, Package, Wallet } from "lucide-react";
 import { Link } from "react-router";
@@ -32,14 +33,27 @@ const AKAD_SYARIAH = [
 export function PilihanProduk({
   className,
   ringkas = false,
+  aktif,
+  onPilih,
 }: {
   className?: string;
   /** Versi untuk dashboard: satu kalimat per produk, tanpa daftar rinci. */
   ringkas?: boolean;
+  /** Jalur yang sedang dipakai formulir; hanya berarti bila `onPilih` diisi. */
+  aktif?: "konvensional" | "syariah";
+  /** Bila diisi, kartu menjadi tombol pemilih jalur, bukan tautan bacaan. */
+  onPilih?: (jalur: "konvensional" | "syariah") => void;
 }) {
   return (
     <div className={cn("grid gap-3 md:grid-cols-2", className)}>
-      <article className="flex h-full flex-col rounded-kartu border border-emerald-200 bg-white p-4 sm:p-5">
+      <article
+        className={cn(
+          "flex h-full flex-col rounded-kartu border border-emerald-200 bg-white p-4 sm:p-5",
+          onPilih !== undefined &&
+            aktif === "konvensional" &&
+            "border-emerald-700 ring-2 ring-emerald-700/15",
+        )}
+      >
         <div className="flex items-center gap-2">
           <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
             <Wallet className="size-4" aria-hidden />
@@ -71,16 +85,35 @@ export function PilihanProduk({
             ))}
           </ul>
         )}
-        <Link
-          to="/pinjaman/konvensional"
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-emerald-800 hover:text-emerald-900 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Lihat produk konvensional
-          <ArrowRight className="size-4" aria-hidden />
-        </Link>
+        {onPilih === undefined ? (
+          <Link
+            to="/pinjaman/konvensional"
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-emerald-800 hover:text-emerald-900 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Lihat produk konvensional
+            <ArrowRight className="size-4" aria-hidden />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            aria-pressed={aktif === "konvensional"}
+            onClick={() => onPilih("konvensional")}
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg text-sm font-semibold text-emerald-800 hover:text-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {aktif === "konvensional" ? "Jalur konvensional dipilih" : "Pilih konvensional"}
+            <ArrowRight className="size-4" aria-hidden />
+          </button>
+        )}
       </article>
 
-      <article className="flex h-full flex-col rounded-kartu border border-[#c9a86a]/50 bg-[#fbf7ec] p-4 sm:p-5">
+      <article
+        className={cn(
+          "flex h-full flex-col rounded-kartu border border-[#c9a86a]/50 bg-[#fbf7ec] p-4 sm:p-5",
+          onPilih !== undefined &&
+            aktif === "syariah" &&
+            "border-amber-700 ring-2 ring-amber-700/20",
+        )}
+      >
         <div className="flex items-center gap-2">
           <span className="flex size-9 items-center justify-center rounded-xl bg-amber-100 text-amber-900">
             <HandCoins className="size-4" aria-hidden />
@@ -115,17 +148,29 @@ export function PilihanProduk({
             ))}
           </ul>
         )}
-        <Link
-          to="/pinjaman/syariah"
-          className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-amber-900 hover:text-amber-950 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Baca akad syariah
-          <ArrowRight className="size-4" aria-hidden />
-        </Link>
-        {!ringkas && (
+        {onPilih === undefined ? (
+          <Link
+            to="/pinjaman/syariah"
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-amber-900 hover:text-amber-950 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Baca akad syariah
+            <ArrowRight className="size-4" aria-hidden />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            aria-pressed={aktif === "syariah"}
+            onClick={() => onPilih("syariah")}
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg text-sm font-semibold text-amber-900 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {aktif === "syariah" ? "Jalur syariah dipilih" : "Pilih syariah"}
+            <ArrowRight className="size-4" aria-hidden />
+          </button>
+        )}
+        {!ringkas && onPilih === undefined && (
           <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-5 text-amber-900/80">
             <Info className="mt-0.5 size-3 shrink-0" aria-hidden />
-            Pencatatan akad syariah belum dibuka untuk pengajuan.
+            Pengajuan akad syariah dibuka dari dashboard setelah Anda masuk.
           </p>
         )}
       </article>

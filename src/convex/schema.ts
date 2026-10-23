@@ -1821,9 +1821,10 @@ const schema = defineSchema(
     /**
      * Akad syariah (Murabahah, Rahn, Qardh) yang sudah DICATAT admin.
      *
-     * Ini catatan kontrak, bukan pengajuan daring: pada Fase 1 skema syariah
-     * belum dibuka untuk pengajuan Peminjam sendiri, jadi admin mencatat akad
-     * yang memang sudah disepakati. Angka di sini adalah SNAPSHOT hasil akad —
+     * Ini catatan kontrak, bukan formulir pengajuan. Pengajuan peminjam hidup
+     * di `pengajuanSyariah`; setelah diputuskan, akad tetap dicatat admin di
+     * sini karena pencairan ditutup gerbang pembayaran. Angka di sini adalah
+     * SNAPSHOT hasil akad —
      * `totalKewajiban`, `pendanaTerima`, dan nisbah tidak dihitung ulang dari
      * harga barang atau taksiran yang mungkin berubah kemudian.
      *
@@ -1879,6 +1880,64 @@ const schema = defineSchema(
       dibatalkanPada: v.optional(v.number()),
     })
       .index("by_pendana", ["pendanaId"])
+      .index("by_peminjam", ["peminjamId"])
+      .index("by_status", ["status"])
+      .index("by_referensi", ["nomorReferensi"]),
+
+    /**
+     * Pengajuan akad syariah dari peminjam.
+     *
+     * Baris ini adalah PERMINTAAN, bukan akad dan bukan perpindahan dana.
+     * Angka di sini dihitung ulang server dengan `lib/syariah/akad`; kolom
+     * `marginPersen` dan `nilaiTaksiran` masih bisa ditetapkan ulang admin saat
+     * keputusan. Akad baru dicatat lewat `akadSyariah` setelah gerbang
+     * pembayaran dibuka, sehingga pengajuan yang disetujui TIDAK mengubah
+     * saldo dompet pendana.
+     *
+     * `namaPeminjam` adalah snapshot dari KYC agar akad tetap terbaca walau
+     * nama akun berubah. Satu akun hanya boleh punya satu pengajuan yang masih
+     * menunggu keputusan; aturan itu ditegakkan di mutation, bukan di UI.
+     */
+    pengajuanSyariah: defineTable({
+      userId: v.id("users"),
+      nomorReferensi: v.string(),
+      jenis: v.union(
+        v.literal("murabahah"),
+        v.literal("rahn"),
+        v.literal("qardh"),
+      ),
+      status: v.union(
+        v.literal("diajukan"),
+        v.literal("disetujui"),
+        v.literal("ditolak"),
+        v.literal("dibatalkan"),
+      ),
+      /** Nama penerima manfaat saat pengajuan dikirim (snapshot KYC). */
+      namaPeminjam: v.string(),
+      pokok: v.number(),
+      tenorHari: v.number(),
+      tujuan: v.string(),
+      catatan: v.optional(v.string()),
+      /** Barang yang dibiayai (Murabahah) atau jaminan (Rahn). */
+      namaBarang: v.optional(v.string()),
+      /** Perkiraan peminjam; nilai final ditetapkan admin saat keputusan. */
+      nilaiTaksiran: v.optional(v.number()),
+      // ===== Angka rencana akad (estimasi saat diajukan, final saat diputuskan).
+      marginPersen: v.optional(v.number()),
+      marginTotal: v.number(),
+      hargaJual: v.optional(v.number()),
+      ujrahPerSiklus: v.optional(v.number()),
+      jumlahSiklus: v.optional(v.number()),
+      totalKewajiban: v.number(),
+      nisbahPendana: v.number(),
+      nisbahPlatform: v.number(),
+      // ===== Keputusan admin.
+      dibuatPada: v.number(),
+      diputuskanPada: v.optional(v.number()),
+      diputuskanOleh: v.optional(v.id("users")),
+      alasanTolak: v.optional(v.string()),
+    })
+      .index("by_user", ["userId"])
       .index("by_status", ["status"])
       .index("by_referensi", ["nomorReferensi"]),
 

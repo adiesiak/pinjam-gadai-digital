@@ -28,6 +28,7 @@ import { apakahPelunasanTepatWaktu, plafonPeminjam, ringkasPlafon } from "../lib
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
+import { eksposurAkadAktif } from "./syariahPengajuan";
 import { ROLES } from "./schema";
 import { audit } from "./system";
 
@@ -82,7 +83,8 @@ export const daftarVoucherSaya = query({
       .query("loans")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    const ringkas = ringkasPlafon(plafon, pinjaman);
+    const akadAktif = await eksposurAkadAktif(ctx, userId);
+    const ringkas = ringkasPlafon(plafon, [...pinjaman, ...akadAktif]);
 
     const rows = await ctx.db
       .query("voucher")

@@ -6,7 +6,7 @@
  *    `lib/bagiHasil` (potongan Rp65.000, pendana Rp1.235.000);
  *  - halaman syariah memakai istilah akad dan tidak memuat kata "bunga" atau
  *    "denda" sama sekali;
- *  - pengajuan syariah dinyatakan belum dibuka, tidak berpura-pura aktif;
+ *  - pengajuan syariah diarahkan ke dashboard, bukan disembunyikan;
  *  - nama entitas dan tautan produk ada di kedua halaman;
  *  - tidak ada "undefined", "NaN", atau "[object Object]" di markup.
  */
@@ -72,10 +72,16 @@ function render(produk: "konvensional" | "syariah"): string {
   ada(html, "85%", "nisbah pendana 85% tercetak");
   ada(html, "15%", "ujrah pengelola 15% tercetak");
   ada(html, "2%", "ujrah Rahn 2% tercetak");
+  ada(html, "Ajukan akad syariah", "tombol pengajuan syariah tampil");
   ada(
     html,
-    "Pengajuan akad syariah belum dibuka",
-    "status produk syariah jujur",
+    'href="/dashboard?tab=form&jalur=syariah"',
+    "pengajuan syariah langsung membuka formulir syariah",
+  );
+  ada(
+    html,
+    "Murabahah, Rahn, dan Qardh dapat diajukan",
+    "ketiga akad disebut terbuka",
   );
   ada(html, "PT Pindai Digital Solusindo", "nama entitas tercetak");
   ada(html, 'href="/pinjaman/konvensional"', "tautan ke produk konvensional");

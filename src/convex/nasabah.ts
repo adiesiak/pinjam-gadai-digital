@@ -26,11 +26,8 @@ import { requireAdminSession } from "./adminAuthz";
 import { audit, getConfig, tarifDendaBerlaku } from "./system";
 import { persenBungaEfektif } from "../lib/bunga";
 import { pelunasanPinjaman, quotePinjaman, simulasiBulananPinjaman } from "../lib/loan";
-import {
-  apakahPelunasanTepatWaktu,
-  plafonPeminjam,
-  ringkasPlafon,
-} from "../lib/plafon";
+import { apakahPelunasanTepatWaktu } from "../lib/plafon";
+import { plafonDenganAkadSyariah } from "./syariahPengajuan";
 import {
   profilRisiko,
   ringkasRisiko,
@@ -201,15 +198,10 @@ export const plafonRingkasSaya = query({
     if (userId === null) return null;
     const user = await ctx.db.get(userId);
     if (user === null || user.isAnonymous === true) return null;
-    const [maksimal, cfg, loans] = await Promise.all([
-      plafonPeminjam(ctx, userId),
+    const [ringkas, cfg] = await Promise.all([
+      plafonDenganAkadSyariah(ctx, userId),
       getConfig(ctx),
-      ctx.db
-        .query("loans")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect(),
     ]);
-    const ringkas = ringkasPlafon(maksimal, loans);
     return {
       ...ringkas,
       plafonPribadi: user.plafonPinjaman ?? null,
@@ -266,8 +258,7 @@ export const detailNasabah = query({
 
     const now = Date.now();
     const cfg = await getConfig(ctx);
-    const maksimal = await plafonPeminjam(ctx, userId);
-    const ringkas = ringkasPlafon(maksimal, loans);
+    const ringkas = await plafonDenganAkadSyariah(ctx, userId);
 
     // Riwayat pengajuan KRONOLOGIS (paling lama → terbaru) dengan nomor urut
     // #001, #002, … supaya cerita nasabah terbaca sebagai urutan.

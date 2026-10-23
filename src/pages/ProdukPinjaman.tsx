@@ -8,9 +8,9 @@
  * JSX, sehingga halaman ini tidak bisa menjanjikan angka yang berbeda dari
  * kontrak.
  *
- * Produk syariah masih berupa skema: pengajuan akadnya belum dibuka, dan
- * halaman ini mengatakannya terus terang di awal, bukan menyembunyikannya di
- * balik tombol yang tidak bekerja.
+ * Produk syariah sudah bisa diajukan dari dashboard untuk ketiga akad. Halaman
+ * ini menjelaskan skema dan angkanya lebih dulu; angka final tetap ditetapkan
+ * petugas saat keputusan, bukan dijanjikan oleh kalkulator.
  */
 import {
   ArrowLeft,
@@ -916,8 +916,8 @@ function KalkulatorSyariah() {
           </div>
 
           <p className="mt-3 text-[11px] leading-5 text-slate-500">
-            Angka ini ilustrasi skema. Pengajuan akad syariah belum dibuka di
-            aplikasi; pencatatan dan akadnya disiapkan pada tahap berikutnya.
+            Angka ini ilustrasi skema. Margin Murabahah dan taksiran Rahn
+            ditetapkan petugas sebelum akad; pengajuan dikirim dari dashboard.
           </p>
         </div>
       </div>
@@ -1004,18 +1004,28 @@ function KerangkaHalaman({
                 <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-950">
                   <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
                   <p>
-                    Pengajuan akad syariah belum dibuka. Halaman ini menjelaskan
-                    skema dan angkanya supaya Anda bisa menilai lebih dulu.
-                    Produk konvensional tetap dapat diajukan dari dashboard.
+                    Murabahah, Rahn, dan Qardh dapat diajukan dari dashboard.
+                    Angka di halaman ini adalah ilustrasi; margin, taksiran, dan
+                    angka final disepakati sebelum akad dicatat.
                   </p>
                 </div>
-                <a
-                  href="#kalkulator-syariah"
-                  className="mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-amber-700/40 px-3 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Coba kalkulator akad
-                  <ArrowRight className="size-4 rotate-90" aria-hidden />
-                </a>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Button
+                    asChild
+                    className="min-h-11 bg-amber-800 text-white hover:bg-amber-900"
+                  >
+                    <Link to="/dashboard?tab=form&jalur=syariah">
+                      Ajukan akad syariah <ArrowRight className="size-4" aria-hidden />
+                    </Link>
+                  </Button>
+                  <a
+                    href="#kalkulator-syariah"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-amber-700/40 px-3 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Coba kalkulator akad
+                    <ArrowRight className="size-4 rotate-90" aria-hidden />
+                  </a>
+                </div>
               </>
             ) : (
               <div className="mt-6 flex flex-wrap gap-3">
@@ -1207,7 +1217,7 @@ function KerangkaHalaman({
               <Check className="mt-0.5 size-5 shrink-0 text-emerald-700" aria-hidden />
               <p className="max-w-2xl text-sm leading-6 text-slate-700">
                 {syariah
-                  ? "Skema syariah di halaman ini belum menjadi akad. Sebelum produk dibuka, nisbah, ujrah, dan tata cara ta'zir akan dicantumkan di akad dan disetujui kedua pihak."
+                  ? "Skema syariah di halaman ini belum menjadi akad. Nisbah, ujrah, dan tata cara ta'zir dicantumkan di akad dan disetujui kedua pihak sebelum pencairan."
                   : "Semua angka adalah ilustrasi dari aturan yang berlaku. Persetujuan pinjaman dan pencairan dana tidak dilakukan otomatis oleh aplikasi."}
               </p>
             </div>
