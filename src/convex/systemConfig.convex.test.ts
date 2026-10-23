@@ -236,6 +236,23 @@ describe("konfigurasi: versi, riwayat, rollback", () => {
     expect(publik.persenMarginSyariah).toBe(17);
     const admin = await asAdmin.query(api.system.getConfigAdmin, {});
     expect(admin.config.persenMarginSyariah).toBe(17);
+    // Porsi bagi hasil disimpan terpisah dari margin, dan ikut terbit publik.
+    expect(publik.persenNisbahPendanaSyariah).toBe(92);
+
+    await asAdmin.mutation(
+      api.system.saveConfig,
+      argumenConfig({ persenNisbahPendanaSyariah: 90 }),
+    );
+    expect(
+      (await t.query(api.system.getKetentuanBiaya, {})).persenNisbahPendanaSyariah,
+    ).toBe(90);
+
+    await expect(
+      asAdmin.mutation(
+        api.system.saveConfig,
+        argumenConfig({ persenNisbahPendanaSyariah: 40 }),
+      ),
+    ).rejects.toThrow(/Nisbah pendana/i);
 
     await expect(
       asAdmin.mutation(

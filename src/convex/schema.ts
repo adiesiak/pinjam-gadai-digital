@@ -1182,6 +1182,8 @@ const schema = defineSchema(
       persenBiayaAdmin: v.optional(v.number()),
       /** Margin Murabahah semua produk (% harga pokok, sekali per akad). */
       persenMarginSyariah: v.optional(v.number()),
+      /** Porsi pendana atas margin/ujrah syariah (%); sisanya ujrah pengelola. */
+      persenNisbahPendanaSyariah: v.optional(v.number()),
       /** Bunga flat skema bulanan tenor 1/3/6 bulan (% per bulan). */
       persenBungaBulanan1: v.optional(v.number()),
       persenBungaBulanan3: v.optional(v.number()),
@@ -1865,6 +1867,9 @@ const schema = defineSchema(
       nisbahPendana: v.number(),
       /** Bagian platform dari margin/ujrah. */
       nisbahPlatform: v.number(),
+      /** Porsi nisbah yang dipakai akad ini (persen) — jejak audit. */
+      persenNisbahPendana: v.optional(v.number()),
+      persenNisbahPlatform: v.optional(v.number()),
       // ===== Rincian khas akad (kosong bila tidak berlaku) =====
       hargaJual: v.optional(v.number()),
       marginTotal: v.optional(v.number()),

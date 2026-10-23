@@ -11,6 +11,7 @@ import { formatRupiah } from "../money";
 import {
   rencanaAkadSyariah,
   type JenisAkadSyariah,
+  type OpsiNisbahSyariah,
   type RencanaAkadSyariah,
 } from "./akad";
 import {
@@ -79,6 +80,7 @@ export type PermintaanPengajuanSyariah = {
  */
 export function rencanaPengajuanSyariah(
   permintaan: PermintaanPengajuanSyariah,
+  opsi: OpsiNisbahSyariah = {},
 ): RencanaAkadSyariah {
   if (!apakahTenorAkad(permintaan.tenorHari)) {
     throw new Error(
@@ -87,12 +89,15 @@ export function rencanaPengajuanSyariah(
   }
 
   if (permintaan.jenis === "murabahah") {
-    return rencanaAkadSyariah({
-      jenis: "murabahah",
-      pokok: permintaan.pokok,
-      marginPersen: permintaan.marginPersen ?? MARGIN_MURABAHAH_BAWAAN,
-      tenorHari: permintaan.tenorHari,
-    });
+    return rencanaAkadSyariah(
+      {
+        jenis: "murabahah",
+        pokok: permintaan.pokok,
+        marginPersen: permintaan.marginPersen ?? MARGIN_MURABAHAH_BAWAAN,
+        tenorHari: permintaan.tenorHari,
+      },
+      opsi,
+    );
   }
 
   if (permintaan.jenis === "rahn") {
@@ -103,19 +108,25 @@ export function rencanaPengajuanSyariah(
     ) {
       throw new Error("Nilai taksiran barang jaminan wajib diisi.");
     }
-    return rencanaAkadSyariah({
-      jenis: "rahn",
-      pokok: permintaan.pokok,
-      nilaiTaksiran: permintaan.nilaiTaksiran,
-      tenorHari: permintaan.tenorHari,
-    });
+    return rencanaAkadSyariah(
+      {
+        jenis: "rahn",
+        pokok: permintaan.pokok,
+        nilaiTaksiran: permintaan.nilaiTaksiran,
+        tenorHari: permintaan.tenorHari,
+      },
+      opsi,
+    );
   }
 
-  return rencanaAkadSyariah({
-    jenis: "qardh",
-    pokok: permintaan.pokok,
-    tenorHari: permintaan.tenorHari,
-  });
+  return rencanaAkadSyariah(
+    {
+      jenis: "qardh",
+      pokok: permintaan.pokok,
+      tenorHari: permintaan.tenorHari,
+    },
+    opsi,
+  );
 }
 
 /** Barang katalog yang dipilih peminjam — cukup untuk menyusun pengajuan. */

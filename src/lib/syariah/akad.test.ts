@@ -41,7 +41,7 @@ function throws(fn: () => unknown, label: string) {
 const DOMPET = "dana:WALLET:DANA-1";
 const AKAD = akunAkadSyariah("AKAD-1");
 
-// ===== 1. Murabahah: margin 15%, nisbah 85:15 =====
+// ===== 1. Murabahah: margin 15%, nisbah 92:8 =====
 {
   const akad = rencanaAkadSyariah({
     jenis: "murabahah",
@@ -51,9 +51,11 @@ const AKAD = akunAkadSyariah("AKAD-1");
   eq(akad.jenis, "murabahah", "jenis murabahah");
   eq(akad.hargaJual, 1_150_000, "harga jual = pokok + margin 15%");
   eq(akad.marginTotal, 150_000, "margin total 150.000");
-  eq(akad.nisbahPendana, 127_500, "nisbah pendana 85% margin");
-  eq(akad.nisbahPlatform, 22_500, "nisbah platform 15% margin");
-  eq(akad.pendanaTerima, 1_127_500, "pendana menerima pokok + nisbah");
+  eq(akad.persenPendana, 92, "porsi pendana bawaan 92%");
+  eq(akad.persenPlatform, 8, "porsi platform bawaan 8%");
+  eq(akad.nisbahPendana, 138_000, "nisbah pendana 92% margin");
+  eq(akad.nisbahPlatform, 12_000, "nisbah platform 8% margin");
+  eq(akad.pendanaTerima, 1_138_000, "pendana menerima pokok + nisbah");
   eq(akad.totalKewajiban, 1_150_000, "total kewajiban = harga jual");
   eq(akad.tiketDoorprize, 1, "murabahah memberi tiket per Rp1 juta");
   eq(akad.tenorHari, 30, "tenor bawaan 30 hari");
@@ -69,7 +71,7 @@ const AKAD = akunAkadSyariah("AKAD-1");
   );
 }
 
-// ===== 2. Rahn: ujrah 2% taksiran per 30 hari, 85:15 =====
+// ===== 2. Rahn: ujrah 2% taksiran per 30 hari, 92:8 =====
 {
   const akad = rencanaAkadSyariah({
     jenis: "rahn",
@@ -79,9 +81,9 @@ const AKAD = akunAkadSyariah("AKAD-1");
   });
   eq(akad.ujrahPerSiklus, 40_000, "ujrah 2% dari taksiran per 30 hari");
   eq(akad.jumlahSiklus, 1, "satu siklus ujrah");
-  eq(akad.nisbahPendana, 34_000, "nisbah pendana 85% ujrah");
-  eq(akad.nisbahPlatform, 6_000, "nisbah platform 15% ujrah");
-  eq(akad.pendanaTerima, 1_634_000, "pokok gadai + nisbah");
+  eq(akad.nisbahPendana, 36_800, "nisbah pendana 92% ujrah");
+  eq(akad.nisbahPlatform, 3_200, "nisbah platform 8% ujrah");
+  eq(akad.pendanaTerima, 1_636_800, "pokok gadai + nisbah");
   eq(akad.totalKewajiban, 1_640_000, "pokok + ujrah total");
   eq(akad.tiketDoorprize, 1, "rahn memberi tiket per Rp1 juta");
 
@@ -94,8 +96,8 @@ const AKAD = akunAkadSyariah("AKAD-1");
   eq(dua.ujrahPerSiklus, 40_000, "ujrah per siklus tetap");
   eq(dua.jumlahSiklus, 2, "dua blok 30 hari");
   eq(dua.marginTotal, 80_000, "ujrah total dua siklus");
-  eq(dua.nisbahPendana, 68_000, "nisbah pendana dua siklus");
-  eq(dua.nisbahPlatform, 12_000, "nisbah platform dua siklus");
+  eq(dua.nisbahPendana, 73_600, "nisbah pendana dua siklus");
+  eq(dua.nisbahPlatform, 6_400, "nisbah platform dua siklus");
 }
 
 // ===== 3. Qardh: margin nol dan tiket =====
@@ -166,8 +168,20 @@ throws(
     marginPersen: 20,
   });
   eq(batasAtas.hargaJual, 1_200_000, "margin 20% masih diterima");
-  eq(batasAtas.nisbahPendana, 170_000, "nisbah pendana 85% dari margin 20%");
-  eq(batasAtas.nisbahPlatform, 30_000, "ujrah platform 15% dari margin 20%");
+  eq(batasAtas.nisbahPendana, 184_000, "nisbah pendana 92% dari margin 20%");
+  eq(batasAtas.nisbahPlatform, 16_000, "ujrah platform 8% dari margin 20%");
+}
+
+// Porsi bagi hasil bisa diatur admin; sisa pembulatan tetap ke pendana.
+{
+  const akad = rencanaAkadSyariah(
+    { jenis: "murabahah", pokok: 1_000_000, marginPersen: 15 },
+    { persenNisbahPendana: 90 },
+  );
+  eq(akad.persenPendana, 90, "porsi pendana mengikuti opsi");
+  eq(akad.persenPlatform, 10, "porsi platform adalah sisanya");
+  eq(akad.nisbahPendana, 135_000, "nisbah pendana 90% dari margin");
+  eq(akad.nisbahPlatform, 15_000, "nisbah platform 10% dari margin");
 }
 throws(
   () => rencanaAkadSyariah({ jenis: "qardh", pokok: 1_000_000, tenorHari: 0 }),

@@ -7,8 +7,9 @@
  * `convex/syariahAkad.ts` tidak punya salinan rumus kedua yang bisa menyimpang.
  *
  * Aturan produk yang dijaga:
- *  - Murabahah: margin 15-20% dari harga pokok, dibagi 85% pendana / 15% platform.
- *  - Rahn: ujrah 2% dari nilai taksiran per 30 hari, dibagi 85:15.
+ *  - Murabahah: margin 15-20% dari harga pokok, dibagi 92% pendana / 8% platform.
+ *  - Rahn: ujrah 2% dari nilai taksiran per 30 hari, dibagi 92:8.
+ *    Porsi bagi hasil bisa diubah admin lewat konfigurasi sistem.
  *  - Qardh: margin 0%, pokok kembali 100%.
  *  - Tiket doorprize: satu per kelipatan Rp1 juta penempatan, untuk SEMUA akad —
  *    aturannya sama dengan penempatan konvensional (`lib/doorprize`).
@@ -23,7 +24,7 @@ import {
   MARGIN_MURABAHAH_MAX_PERSEN,
   MARGIN_MURABAHAH_MIN_PERSEN,
 } from "./murabahah";
-import { pastikanRupiah } from "./nisbah";
+import { NISBAH_PENDANA_PERSEN, pastikanRupiah } from "./nisbah";
 import { bagiHasilRahn, SIKLUS_UJRAH_RAHN_HARI } from "./rahn";
 
 export type JenisAkadSyariah = "murabahah" | "rahn" | "qardh";
@@ -64,6 +65,15 @@ export type RencanaAkadSyariah = {
   nilaiTaksiran: Rupiah | null;
   ujrahPerSiklus: Rupiah | null;
   jumlahSiklus: number | null;
+  /** Porsi bagi hasil atas margin/ujrah; 0 untuk Qardh yang tanpa margin. */
+  persenPendana: number;
+  persenPlatform: number;
+};
+
+/** Porsi bagi hasil yang berlaku — dibaca admin dari konfigurasi sistem. */
+export type OpsiNisbahSyariah = {
+  /** Porsi pendana atas margin/ujrah; sisanya menjadi ujrah pengelola. */
+  persenNisbahPendana?: number;
 };
 
 export type PermintaanAkadSyariah =
@@ -110,7 +120,17 @@ function validasiTenor(tenor: number, kelipatan30: boolean): void {
  */
 export function rencanaAkadSyariah(
   permintaan: PermintaanAkadSyariah,
+  opsi: OpsiNisbahSyariah = {},
 ): RencanaAkadSyariah {
+  const persenPendana = opsi.persenNisbahPendana ?? NISBAH_PENDANA_PERSEN;
+  if (
+    !Number.isFinite(persenPendana) ||
+    persenPendana < 0 ||
+    persenPendana > 100
+  ) {
+    throw new Error(`Nisbah pendana harus 0-100 persen: ${persenPendana}`);
+  }
+  const persenPlatform = 100 - persenPendana;
   validasiNominal(permintaan.pokok);
   const tenorHari = permintaan.tenorHari ?? TENOR_AKAD_BAWAAN_HARI;
   validasiTenor(tenorHari, permintaan.jenis === "rahn");
@@ -130,6 +150,7 @@ export function rencanaAkadSyariah(
     const bagi = bagiHasilMurabahah({
       hargaPokok: permintaan.pokok,
       hargaJual,
+      persenPlatform,
     });
     return {
       jenis: "murabahah",
@@ -145,6 +166,8 @@ export function rencanaAkadSyariah(
       nilaiTaksiran: null,
       ujrahPerSiklus: null,
       jumlahSiklus: null,
+      persenPendana,
+      persenPlatform,
     };
   }
 
@@ -153,6 +176,7 @@ export function rencanaAkadSyariah(
       nilaiTaksiran: permintaan.nilaiTaksiran,
       pokokGadai: permintaan.pokok,
       tenorHari,
+      persenPlatform,
     });
     return {
       jenis: "rahn",
@@ -168,6 +192,8 @@ export function rencanaAkadSyariah(
       nilaiTaksiran: bagi.nilaiTaksiran,
       ujrahPerSiklus: bagi.ujrahPerSiklus,
       jumlahSiklus: bagi.jumlahSiklus,
+      persenPendana,
+      persenPlatform,
     };
   }
 
@@ -186,6 +212,9 @@ export function rencanaAkadSyariah(
     nilaiTaksiran: null,
     ujrahPerSiklus: null,
     jumlahSiklus: null,
+    // Qardh tidak mengambil margin, jadi tidak ada porsi yang dibagi.
+    persenPendana: 0,
+    persenPlatform: 0,
   };
 }
 

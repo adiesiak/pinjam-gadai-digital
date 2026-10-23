@@ -2390,7 +2390,7 @@ function IsiRuang() {
                       <BarisAngka
                         label="Nisbah syariah (perkiraan)"
                         nilai={rupiah(proyeksiSyariah.nisbahAktif)}
-                        detail={`85% margin atau ujrah dari ${rupiah(proyeksiSyariah.pokokAktif)} pokok akad berjalan`}
+                        detail={`bagian pendana dari margin atau ujrah atas ${rupiah(proyeksiSyariah.pokokAktif)} pokok akad berjalan`}
                         tanda="perkiraan"
                         catatanRisiko="Proyeksi akad berjalan; belum menjadi uang pendana sebelum akad selesai."
                       />

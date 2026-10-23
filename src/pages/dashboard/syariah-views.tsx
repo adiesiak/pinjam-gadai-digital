@@ -159,7 +159,9 @@ export function PratinjauAkadSyariah({
         </div>
         <div>
           <p className="text-[11px] font-medium text-slate-600">
-            Nisbah pendana (85%)
+            {rencana.jenis === "qardh"
+              ? "Dikembalikan ke pendana"
+              : `Nisbah pendana (${rencana.persenPendana}%)`}
           </p>
           <p className="mt-0.5 text-lg font-semibold tabular-nums text-navy">
             {formatRupiah(rencana.pendanaTerima)}
@@ -224,12 +226,16 @@ export function PratinjauAkadSyariah({
             <dd className="font-medium text-slate-900">Rp 0</dd>
           </div>
         )}
-        <div className="flex items-baseline justify-between gap-3 py-1.5">
-          <dt className="text-slate-600">Ujrah pengelola (15%)</dt>
-          <dd className="tabular-nums text-slate-900">
-            {formatRupiah(rencana.nisbahPlatform)}
-          </dd>
-        </div>
+        {rencana.jenis !== "qardh" && (
+          <div className="flex items-baseline justify-between gap-3 py-1.5">
+            <dt className="text-slate-600">
+              {`Ujrah pengelola (${rencana.persenPlatform}%)`}
+            </dt>
+            <dd className="tabular-nums text-slate-900">
+              {formatRupiah(rencana.nisbahPlatform)}
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );
@@ -513,17 +519,21 @@ export function FormPengajuanSyariah({
   // dengan yang disimpan server, bukan salinan persentase di komponen.
   const marginSyariah =
     ketentuan?.persenMarginSyariah ?? MARGIN_MURABAHAH_BAWAAN;
+  const nisbahPendana = ketentuan?.persenNisbahPendanaSyariah;
 
   let rencana: RencanaAkadSyariah | null = null;
   let pesanRencana: string | null = null;
   try {
-    rencana = rencanaPengajuanSyariah({
-      jenis,
-      pokok: pokokDipakai,
-      tenorHari: tenor,
-      ...(jenis === "murabahah" ? { marginPersen: marginSyariah } : {}),
-      ...(jenis === "rahn" ? { nilaiTaksiran: taksiran } : {}),
-    });
+    rencana = rencanaPengajuanSyariah(
+      {
+        jenis,
+        pokok: pokokDipakai,
+        tenorHari: tenor,
+        ...(jenis === "murabahah" ? { marginPersen: marginSyariah } : {}),
+        ...(jenis === "rahn" ? { nilaiTaksiran: taksiran } : {}),
+      },
+      { persenNisbahPendana: nisbahPendana },
+    );
   } catch (err) {
     pesanRencana =
       err instanceof Error ? err.message : "Angka akad belum bisa dihitung.";

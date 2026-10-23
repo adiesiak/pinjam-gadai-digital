@@ -94,6 +94,8 @@ function LencanaStatus({ status }: { status: StatusPengajuanSyariah }) {
 export function SyariahPanel() {
   const data = useQuery(api.syariahPengajuan.daftarAdmin);
   const kandidat = useQuery(api.penyediaDana.kandidatPendana);
+  const ketentuan = useQuery(api.system.getKetentuanBiaya);
+  const nisbahPendana = ketentuan?.persenNisbahPendanaSyariah;
   const putuskan = useMutation(api.syariahPengajuan.putuskan);
   const tandaiPenyerahan = useMutation(api.syariahPengajuan.tandaiPenyerahan);
   const catatAkad = useMutation(api.syariahAkad.catatAkadSyariah);
@@ -161,17 +163,20 @@ export function SyariahPanel() {
   let pesanRencana: string | null = null;
   if (dipilih !== null) {
     try {
-      rencana = rencanaPengajuanSyariah({
-        jenis: dipilih.jenis,
-        pokok: Number(pokok),
-        tenorHari: tenor,
-        ...(dipilih.jenis === "murabahah"
-          ? { marginPersen: Number(margin) }
-          : {}),
-        ...(dipilih.jenis === "rahn"
-          ? { nilaiTaksiran: Number(taksiran) }
-          : {}),
-      });
+      rencana = rencanaPengajuanSyariah(
+        {
+          jenis: dipilih.jenis,
+          pokok: Number(pokok),
+          tenorHari: tenor,
+          ...(dipilih.jenis === "murabahah"
+            ? { marginPersen: Number(margin) }
+            : {}),
+          ...(dipilih.jenis === "rahn"
+            ? { nilaiTaksiran: Number(taksiran) }
+            : {}),
+        },
+        { persenNisbahPendana: nisbahPendana },
+      );
     } catch (err) {
       pesanRencana =
         err instanceof Error ? err.message : "Angka akad belum bisa dihitung.";
@@ -547,13 +552,17 @@ export function SyariahPanel() {
                         </dd>
                       </div>
                       <div className="flex items-baseline justify-between gap-3 py-1.5">
-                        <dt className="text-slate-600">Nisbah pendana (85%)</dt>
+                        <dt className="text-slate-600">
+                          {`Nisbah pendana (${rencana.persenPendana}%)`}
+                        </dt>
                         <dd className="tabular-nums text-slate-900">
                           {formatRupiah(rencana.pendanaTerima)}
                         </dd>
                       </div>
                       <div className="flex items-baseline justify-between gap-3 py-1.5">
-                        <dt className="text-slate-600">Ujrah pengelola (15%)</dt>
+                        <dt className="text-slate-600">
+                          {`Ujrah pengelola (${rencana.persenPlatform}%)`}
+                        </dt>
                         <dd className="tabular-nums text-slate-900">
                           {formatRupiah(rencana.nisbahPlatform)}
                         </dd>

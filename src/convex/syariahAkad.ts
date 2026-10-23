@@ -329,6 +329,7 @@ export const catatAkadSyariah = mutation({
     const pokokAkad = data?.pokok ?? args.pokok;
     const tenorHari = data?.tenorHari ?? args.tenorHari;
     const tenor = tenorHari === undefined ? {} : { tenorHari };
+    const nisbah = { persenNisbahPendana: cfg.persenNisbahPendanaSyariah };
     const rencana: RencanaAkadSyariah =
       args.jenis === "murabahah"
         ? rencanaAkadSyariah({
@@ -337,19 +338,19 @@ export const catatAkadSyariah = mutation({
             marginPersen:
               data?.marginPersen ?? args.marginPersen ?? cfg.persenMarginSyariah,
             ...tenor,
-          })
+          }, nisbah)
         : args.jenis === "rahn"
           ? rencanaAkadSyariah({
               jenis: "rahn",
               pokok: pokokAkad,
               nilaiTaksiran: data?.nilaiTaksiran ?? args.nilaiTaksiran ?? 0,
               ...tenor,
-            })
+            }, nisbah)
           : rencanaAkadSyariah({
               jenis: "qardh",
               pokok: pokokAkad,
               ...tenor,
-            });
+            }, nisbah);
 
     const saldo = await danaWalletBalance(ctx, args.pendanaId);
     if (saldo < rencana.pokok) {
@@ -380,6 +381,8 @@ export const catatAkadSyariah = mutation({
       pendanaTerima: rencana.pendanaTerima,
       nisbahPendana: rencana.nisbahPendana,
       nisbahPlatform: rencana.nisbahPlatform,
+      persenNisbahPendana: rencana.persenPendana,
+      persenNisbahPlatform: rencana.persenPlatform,
       ...(rencana.hargaJual === null ? {} : { hargaJual: rencana.hargaJual }),
       marginTotal: rencana.marginTotal,
       ...(rencana.nilaiTaksiran === null
@@ -446,6 +449,12 @@ async function ambilAkadAktif(
   if (akad.status !== "aktif") {
     throw new Error("Hanya akad yang masih aktif yang dapat diubah.");
   }
+  // Akad lama (sebelum porsi disimpan) menghitung porsi dari nominalnya.
+  const persenTersimpan = akad.persenNisbahPendana;
+  const persenDihitung =
+    akad.marginTotal !== undefined && akad.marginTotal > 0
+      ? Math.round((akad.nisbahPendana / akad.marginTotal) * 100)
+      : 0;
   return {
     akad,
     pendanaId: akad.pendanaId,
@@ -463,6 +472,10 @@ async function ambilAkadAktif(
       nilaiTaksiran: akad.nilaiTaksiran ?? null,
       ujrahPerSiklus: akad.ujrahPerSiklus ?? null,
       jumlahSiklus: akad.jumlahSiklus ?? null,
+      persenPendana: persenTersimpan ?? persenDihitung,
+      persenPlatform:
+        akad.persenNisbahPlatform ??
+        (persenDihitung === 0 ? 0 : 100 - persenDihitung),
     },
   };
 }

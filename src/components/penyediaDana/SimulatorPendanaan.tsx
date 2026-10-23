@@ -365,7 +365,7 @@ export function SimulatorPendanaan({
             {akad === "konvensional"
               ? `Imbal hasil tetap ${PERSEN_IMBAL_PENDANA}% per ${TENOR_PENDANA_HARI} hari, terpisah dari tenor pinjaman nasabah.`
               : akad === "murabahah"
-                ? "Margin disepakati di akad; nisbah pendana 85%."
+                ? "Margin disepakati di akad; porsi pendana mengikuti nisbah yang berlaku."
                 : akad === "rahn"
                   ? "Ujrah 2% dari taksiran per 30 hari; pokok kembali 100%."
                   : "Tanpa margin. Satu tiket per Rp1.000.000 penempatan."}

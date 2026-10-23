@@ -19,6 +19,7 @@ import {
 } from "@/lib/syariah/murabahah";
 import {
   DEFAULT_CONFIG,
+  NISBAH_PENDANA_BATAS,
   RETENSI_LOKASI_BATAS,
   tanpaVersiConfig,
   type SystemConfig,
@@ -437,6 +438,23 @@ export function SystemConfigPanel() {
                     )
                   }
                   hint="Sekali dari harga pokok, semua produk, seluruh tenor. Dipakai pengajuan baru."
+                  withHint
+                />
+                <SuffixInput
+                  id="cfg-nisbah-pendana-syariah"
+                  label="Nisbah Pendana Syariah (%)"
+                  value={form.persenNisbahPendanaSyariah}
+                  min={NISBAH_PENDANA_BATAS.min}
+                  max={NISBAH_PENDANA_BATAS.maks}
+                  step={1}
+                  suffix="%"
+                  onChange={(v) =>
+                    upd(
+                      "persenNisbahPendanaSyariah",
+                      Number(v) || NISBAH_PENDANA_BATAS.min,
+                    )
+                  }
+                  hint={`Sisanya ${100 - form.persenNisbahPendanaSyariah}% menjadi ujrah pengelola dari margin atau ujrah akad.`}
                   withHint
                 />
                 <SuffixInput

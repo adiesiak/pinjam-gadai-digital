@@ -28,6 +28,7 @@ export const LABEL_CONFIG: Record<string, string> = {
   persenDendaKeterlambatan: "Denda keterlambatan (% per hari)",
   persenBiayaIntegrasi: "Biaya integrasi pinjaman lama (%)",
   persenMarginSyariah: "Margin Murabahah syariah (%)",
+  persenNisbahPendanaSyariah: "Nisbah pendana syariah (%)",
   maxLtvPersen: "LTV maksimum gadai (%)",
   sessionTimeoutMenit: "Timeout sesi admin (menit)",
   vaultLat: "Latitude vault",

@@ -312,7 +312,9 @@ export const ajukan = mutation({
         ? {}
         : { nilaiTaksiran: args.nilaiTaksiran }),
     };
-    const rencana: RencanaAkadSyariah = rencanaPengajuanSyariah(permintaan);
+    const rencana: RencanaAkadSyariah = rencanaPengajuanSyariah(permintaan, {
+      persenNisbahPendana: cfg.persenNisbahPendanaSyariah,
+    });
 
     const ringkas = await plafonDenganAkadSyariah(ctx, userId);
     if (rencana.pokok > ringkas.tersedia) {
@@ -548,18 +550,25 @@ export const putuskan = mutation({
     // Murabahah atas barang katalog memakai harga SNAPSHOT saat pengajuan
     // dikirim: harga katalog bisa berubah sesudahnya, tetapi harga pokok barang
     // yang sudah disepakati tidak boleh ikut bergerak.
-    const rencana = rencanaPengajuanSyariah({
-      jenis: row.jenis,
-      pokok:
-        row.katalogId !== undefined ? row.pokok : args.pokok ?? row.pokok,
-      tenorHari,
-      ...(row.jenis === "murabahah"
-        ? { marginPersen: args.marginPersen ?? row.marginPersen ?? undefined }
-        : {}),
-      ...(row.jenis === "rahn"
-        ? { nilaiTaksiran: args.nilaiTaksiran ?? row.nilaiTaksiran ?? undefined }
-        : {}),
-    });
+    const cfg = await getConfig(ctx);
+    const rencana = rencanaPengajuanSyariah(
+      {
+        jenis: row.jenis,
+        pokok:
+          row.katalogId !== undefined ? row.pokok : args.pokok ?? row.pokok,
+        tenorHari,
+        ...(row.jenis === "murabahah"
+          ? { marginPersen: args.marginPersen ?? row.marginPersen ?? undefined }
+          : {}),
+        ...(row.jenis === "rahn"
+          ? {
+              nilaiTaksiran:
+                args.nilaiTaksiran ?? row.nilaiTaksiran ?? undefined,
+            }
+          : {}),
+      },
+      { persenNisbahPendana: cfg.persenNisbahPendanaSyariah },
+    );
 
     const ringkas = await plafonDenganAkadSyariah(ctx, row.userId);
     if (rencana.pokok > ringkas.tersedia) {

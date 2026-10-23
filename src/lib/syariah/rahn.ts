@@ -6,8 +6,9 @@
  *  - Ujrah pemeliharaan (sewa tempat) = 2% dari NILAI TAKSIRAN per 30 hari.
  *    Tenor dihitung dalam blok 30 hari (30, 60, 90), sama seperti tenor
  *    pendanaan, sehingga tidak ada pecahan hari yang harus ditafsirkan.
- *  - Ujrah dibagi dengan nisbah 85:15; 85% untuk pendana yang menyediakan dana
- *    jaminan, 15% untuk platform, dan sisa pembulatan ke pendana.
+ *  - Ujrah dibagi dengan nisbah 92:8; 92% untuk pendana yang menyediakan dana
+ *    jaminan, 8% untuk platform, dan sisa pembulatan ke pendana. Porsi itu bisa
+ *    diubah admin; parameter `persenPlatform` yang menentukan.
  *
  * Identitas yang selalu berlaku:
  *   `pendanaTerima + platformTerima = totalKewajiban`
@@ -18,7 +19,6 @@ import type { Rupiah } from "../money";
 import {
   bagiNisbah,
   floorPersen,
-  NISBAH_PENDANA_PERSEN,
   NISBAH_PLATFORM_PERSEN,
   pastikanRupiah,
 } from "./nisbah";
@@ -64,10 +64,12 @@ export function bagiHasilRahn({
   nilaiTaksiran,
   pokokGadai,
   tenorHari = SIKLUS_UJRAH_RAHN_HARI,
+  persenPlatform = NISBAH_PLATFORM_PERSEN,
 }: {
   nilaiTaksiran: Rupiah;
   pokokGadai: Rupiah;
   tenorHari?: number;
+  persenPlatform?: number;
 }): BagiHasilRahn {
   pastikanRupiah(nilaiTaksiran, "Nilai taksiran");
   pastikanRupiah(pokokGadai, "Pokok gadai");
@@ -97,7 +99,10 @@ export function bagiHasilRahn({
     UJRAH_RAHN_PERSEN_PER_30_HARI,
   );
   const ujrahTotal = ujrahPerSiklus * jumlahSiklus;
-  const { nisbahPendana, nisbahPlatform } = bagiNisbah(ujrahTotal);
+  const { nisbahPendana, nisbahPlatform } = bagiNisbah(
+    ujrahTotal,
+    persenPlatform,
+  );
 
   return {
     nilaiTaksiran,
@@ -111,8 +116,8 @@ export function bagiHasilRahn({
     pendanaTerima: pokokGadai + nisbahPendana,
     platformTerima: nisbahPlatform,
     totalKewajiban: pokokGadai + ujrahTotal,
-    persenPendana: NISBAH_PENDANA_PERSEN,
-    persenPlatform: NISBAH_PLATFORM_PERSEN,
+    persenPendana: 100 - persenPlatform,
+    persenPlatform,
     persenUjrahPer30Hari: UJRAH_RAHN_PERSEN_PER_30_HARI,
   };
 }

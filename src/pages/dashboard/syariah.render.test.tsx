@@ -67,8 +67,8 @@ function bersih(html: string, label: string): void {
   const html = renderToStaticMarkup(<PratinjauAkadSyariah rencana={rencana} />);
   ada(html, "Rp 1.150.000", "total kewajiban Murabahah");
   ada(html, "Rp 150.000", "margin Murabahah");
-  ada(html, "Rp 22.500", "ujrah pengelola Murabahah");
-  ada(html, "Rp 1.127.500", "nibah pendana Murabahah");
+  ada(html, "Rp 12.000", "ujrah pengelola Murabahah");
+  ada(html, "Rp 1.138.000", "nibah pendana Murabahah");
   bersih(html, "pratinjau Murabahah");
 }
 

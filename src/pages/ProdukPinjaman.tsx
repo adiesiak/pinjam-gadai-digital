@@ -720,8 +720,8 @@ function KalkulatorSyariah() {
         Rincian {judul}
       </h2>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-        Nisbah 85:15 berlaku untuk margin Murabahah dan ujrah Rahn. Qardh tidak
-        mengambil margin.
+        Nisbah bagi hasil disepakati di akad: bagian pendana dihitung dari
+        margin Murabahah atau ujrah Rahn. Qardh tidak mengambil margin.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Akad">
@@ -998,7 +998,7 @@ function KerangkaHalaman({
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 sm:text-base">
               {syariah
-                ? "Pinjaman syariah PINDAI memakai tiga akad: Murabahah untuk kredit barang, Rahn untuk gadai, dan Qardh untuk pinjaman kebajikan. Margin dan ujrah dibagi 85% untuk pendana, 15% untuk pengelola."
+                ? "Pinjaman syariah PINDAI memakai tiga akad: Murabahah untuk kredit barang, Rahn untuk gadai, dan Qardh untuk pinjaman kebajikan. Margin dan ujrah dibagi antara pendana dan pengelola sesuai nisbah di akad."
                 : "Pinjaman tunai harian 7, 14, atau 28 hari dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan biaya platform 5% dihitung dari uang yang kembali ke sistem."}
             </p>
 
@@ -1051,7 +1051,7 @@ function KerangkaHalaman({
                 ? [
                     {
                       label: "Murabahah",
-                      nilai: "Margin 85 : 15",
+                      nilai: "Margin disepakati",
                       detail: "Harga pokok kembali, margin dibagi nisbah.",
                     },
                     {
@@ -1132,7 +1132,7 @@ function KerangkaHalaman({
                     {
                       ikon: Package,
                       judul: "Murabahah: kredit barang",
-                      isi: "PINDAI membeli barang yang Anda pilih, lalu menjualnya dengan harga jual yang disepakati. Margin total adalah harga jual dikurangi harga pokok; 85% margin menjadi hak pendana, 15% menjadi ujrah pengelola.",
+                      isi: "PINDAI membeli barang yang Anda pilih, lalu menjualnya dengan harga jual yang disepakati. Margin total adalah harga jual dikurangi harga pokok; bagian pendana dan ujrah pengelola mengikuti nisbah di akad.",
                     },
                     {
                       ikon: HandCoins,

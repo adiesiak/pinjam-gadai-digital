@@ -3,9 +3,9 @@
  *
  * Aturan produk:
  *  - Voucher hanya boleh memotong porsi PLATFORM (ujrah pengelola). Hak
- *    Shahibul Maal (pendana) tidak pernah berkurang karena voucher: 85% dari
- *    margin/ujrah tetap dihitung dari nilai SEBELUM potongan, dan potongan
- *    dibatasi maksimum sebesar porsi platform.
+ *    Shahibul Maal (pendana) tidak pernah berkurang karena voucher: porsinya
+ *    tetap dihitung dari nilai SEBELUM potongan, dan potongan dibatasi
+ *    maksimum sebesar porsi platform.
  *  - `diskon_margin` memotong margin akad Murabahah/Qardh; `diskon_ujrah`
  *    memotong ujrah Rahn. Voucher biaya admin dan boost limit bukan aturan
  *    syariah dan ditolak di sini.
@@ -39,7 +39,7 @@ export type RincianVoucherSyariah = {
   ujrahTotal: Rupiah;
   /** Dasar yang dipotong: margin atau ujrah. */
   dasar: Rupiah;
-  /** Batas potongan: porsi platform (15%) dari dasar. */
+  /** Batas potongan: porsi platform dari dasar. */
   batasPlatform: Rupiah;
   /** Potongan yang benar-benar berlaku. */
   diskon: Rupiah;
@@ -119,5 +119,5 @@ export function kalimatVoucherSyariah(rincian: RincianVoucherSyariah): string {
   if (rincian.diskon === 0) {
     return "Pilih voucher untuk melihat potongan ujrah atau margin.";
   }
-  return `Voucher memotong ${formatRupiah(rincian.diskon)} dari porsi pengelola. Nisbah pendana 85% tetap dihitung dari nilai sebelum potongan.`;
+  return `Voucher memotong ${formatRupiah(rincian.diskon)} dari porsi pengelola. Porsi pendana tetap dihitung dari nilai sebelum potongan.`;
 }

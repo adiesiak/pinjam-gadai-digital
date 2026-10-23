@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { requireAdminSession } from "./adminAuthz";
 import {
   DEFAULT_CONFIG,
+  NISBAH_PENDANA_BATAS,
   RETENSI_LOKASI_BATAS,
   THEME_PRESETS,
   gayaAman,
@@ -97,6 +98,9 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     persenBiayaAdmin: row.persenBiayaAdmin ?? DEFAULT_CONFIG.persenBiayaAdmin,
     persenMarginSyariah:
       row.persenMarginSyariah ?? DEFAULT_CONFIG.persenMarginSyariah,
+    persenNisbahPendanaSyariah:
+      row.persenNisbahPendanaSyariah ??
+      DEFAULT_CONFIG.persenNisbahPendanaSyariah,
     persenBungaBulanan1:
       row.persenBungaBulanan1 ?? DEFAULT_CONFIG.persenBungaBulanan1,
     persenBungaBulanan3:
@@ -266,6 +270,7 @@ export const getKetentuanBiaya = query({
       // Margin Murabahah yang dipakai pengajuan BARU. Pengajuan dan akad yang
       // sudah ada menyimpan angkanya sendiri.
       persenMarginSyariah: cfg.persenMarginSyariah,
+      persenNisbahPendanaSyariah: cfg.persenNisbahPendanaSyariah,
     };
   },
 });
@@ -457,6 +462,18 @@ async function bersihkanConfigMasuk(
       `Margin Murabahah harus ${MARGIN_MURABAHAH_MIN_PERSEN}-${MARGIN_MURABAHAH_MAX_PERSEN}% dari harga pokok.`,
     );
   }
+  const nisbahPendana =
+    input.persenNisbahPendanaSyariah ??
+    DEFAULT_CONFIG.persenNisbahPendanaSyariah;
+  if (
+    !Number.isFinite(nisbahPendana) ||
+    nisbahPendana < NISBAH_PENDANA_BATAS.min ||
+    nisbahPendana > NISBAH_PENDANA_BATAS.maks
+  ) {
+    throw new Error(
+      `Nisbah pendana harus ${NISBAH_PENDANA_BATAS.min}-${NISBAH_PENDANA_BATAS.maks}% (sisanya ujrah pengelola).`,
+    );
+  }
   for (const [label, nilai] of [
     ["Bunga bulanan tenor 1 bulan", input.persenBungaBulanan1],
     ["Bunga bulanan tenor 3 bulan", input.persenBungaBulanan3],
@@ -529,6 +546,7 @@ async function bersihkanConfigMasuk(
     qrisImageId: input.qrisImageId ?? null,
     plafonPinjaman: clampPlafon(input.plafonPinjaman),
     persenMarginSyariah: marginSyariah,
+    persenNisbahPendanaSyariah: nisbahPendana,
     rekeningUsahaNama: (input.rekeningUsahaNama ?? "").trim(),
     rekeningUsahaBank: (input.rekeningUsahaBank ?? "").trim(),
     rekeningUsahaNomor: nomorUsaha,
@@ -635,6 +653,8 @@ export const saveConfig = mutation({
     persenBiayaAdmin: v.number(),
     /** Opsional: pemanggil lama tidak mengirimnya — nilai berlaku dipertahankan. */
     persenMarginSyariah: v.optional(v.number()),
+    /** Opsional: pemanggil lama tidak mengirimnya — nilai berlaku dipertahankan. */
+    persenNisbahPendanaSyariah: v.optional(v.number()),
     persenAsuransi: v.number(),
     biayaEkspresTier1: v.number(),
     biayaEkspresTier2: v.number(),
@@ -694,6 +714,8 @@ export const saveConfig = mutation({
       persenBunga: args.persenBunga,
       persenBiayaAdmin: args.persenBiayaAdmin,
       persenMarginSyariah: args.persenMarginSyariah ?? prev.persenMarginSyariah,
+      persenNisbahPendanaSyariah:
+        args.persenNisbahPendanaSyariah ?? prev.persenNisbahPendanaSyariah,
       persenAsuransi: args.persenAsuransi,
       biayaEkspresTier1: args.biayaEkspresTier1,
       biayaEkspresTier2: args.biayaEkspresTier2,

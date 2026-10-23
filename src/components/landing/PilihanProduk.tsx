@@ -21,7 +21,7 @@ const SOROTAN_KONVENSIONAL = [
 ];
 
 const AKAD_SYARIAH = [
-  { ikon: Package, judul: "Murabahah", isi: "Kredit barang, margin 85 : 15" },
+  { ikon: Package, judul: "Murabahah", isi: "Kredit barang, margin disepakati" },
   {
     ikon: HandCoins,
     judul: "Rahn",

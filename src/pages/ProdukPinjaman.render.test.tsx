@@ -69,8 +69,7 @@ function render(produk: "konvensional" | "syariah"): string {
   ada(html, "Murabahah", "akad Murabahah disebut");
   ada(html, "Rahn", "akad Rahn disebut");
   ada(html, "Qardh", "akad Qardh disebut");
-  ada(html, "85%", "nisbah pendana 85% tercetak");
-  ada(html, "15%", "ujrah pengelola 15% tercetak");
+  ada(html, "Nisbah bagi hasil", "kalimat nisbah tercetak");
   ada(html, "2%", "ujrah Rahn 2% tercetak");
   ada(html, "Ajukan akad syariah", "tombol pengajuan syariah tampil");
   ada(

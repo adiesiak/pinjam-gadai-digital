@@ -2,6 +2,7 @@
 import { TARIF_BULANAN_DEFAULT, type TarifBulanan } from "./bulanan";
 import { LOKASI_RETENSI } from "./lokasi";
 import { PLAFON_DEFAULT } from "./plafon";
+import { NISBAH_PENDANA_PERSEN } from "./syariah/nisbah";
 import { MARGIN_MURABAHAH_BAWAAN } from "./syariah/pengajuan";
 import { gayaAman, type GayaPreset } from "./template-gaya";
 import type { Id } from "../convex/_generated/dataModel";
@@ -12,6 +13,13 @@ import type { Id } from "../convex/_generated/dataModel";
  * batas atas menjaga penyimpanan tetap wajar.
  */
 export const RETENSI_LOKASI_BATAS = { min: 7, maks: 730 } as const;
+
+/**
+ * Rentang nisbah pendana yang boleh disimpan admin (persen). Sisanya menjadi
+ * ujrah pengelola. Batas bawah menjaga platform tetap punya porsi; batas atas
+ * menyisakan setidaknya satu persen untuk pengelola.
+ */
+export const NISBAH_PENDANA_BATAS = { min: 50, maks: 99 } as const;
 
 export const THEME_PRESETS = [
   "tinta",
@@ -98,6 +106,11 @@ export type SystemConfig = {
    * sudah tercatat.
    */
   persenMarginSyariah: number;
+  /**
+   * Porsi pendana atas margin/ujrah akad syariah, dalam persen; sisanya menjadi
+   * ujrah pengelola. Dibaca saat pengajuan baru dibuat dan saat akad dicatat.
+   */
+  persenNisbahPendanaSyariah: number;
   /** Biaya asuransi yang dipotong di muka (% dari pokok); 0 = tidak dipotong. */
   persenAsuransi: number;
   /**
@@ -210,6 +223,7 @@ export const DEFAULT_CONFIG: SystemConfig = {
   /** Bawaan sama dengan harga yang berlaku sebelum bisa diatur admin. */
   persenBiayaAdmin: 2,
   persenMarginSyariah: MARGIN_MURABAHAH_BAWAAN,
+  persenNisbahPendanaSyariah: NISBAH_PENDANA_PERSEN,
   /** Asuransi mati secara bawaan; admin menyalakannya bila produk memakainya. */
   persenAsuransi: 0,
   biayaEkspresTier1: 5_000,

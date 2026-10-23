@@ -4,8 +4,9 @@
  * Rumus produk:
  *   Margin Keuntungan Total = Harga Jual Akhir - Harga Pokok Barang
  *   Margin yang boleh disepakati 15-20% dari harga pokok (bukan per bulan).
- *   Hak Pendana (Shahibul Maal) = Harga Pokok + 85% Margin
- *   Hak Platform (Ujrah Pengelola) = 15% Margin (pembulatan ke bawah)
+ *   Hak Pendana (Shahibul Maal) = Harga Pokok + 92% Margin
+ *   Hak Platform (Ujrah Pengelola) = 8% Margin (pembulatan ke bawah)
+ *   Porsi itu bisa diubah admin; parameter `persenPlatform` yang menentukan.
  *
  * Harga pokok kembali 100% ke pendana karena dialah yang membeli barang lebih
  * dulu. Identitas yang selalu berlaku:
@@ -17,7 +18,6 @@ import type { Rupiah } from "../money";
 import {
   bagiNisbah,
   floorPersen,
-  NISBAH_PENDANA_PERSEN,
   NISBAH_PLATFORM_PERSEN,
   pastikanRupiah,
 } from "./nisbah";
@@ -38,9 +38,9 @@ export type BagiHasilMurabahah = {
   hargaJual: Rupiah;
   /** Harga jual dikurangi harga pokok. */
   marginTotal: Rupiah;
-  /** 85% margin, ditambah sisa pembulatan. */
+  /** Porsi pendana atas margin, ditambah sisa pembulatan. */
   nisbahPendana: Rupiah;
-  /** 15% margin, dibulatkan ke bawah. */
+  /** Porsi platform atas margin, dibulatkan ke bawah. */
   nisbahPlatform: Rupiah;
   /** Harga pokok + nisbah pendana: uang yang kembali ke pendana. */
   pendanaTerima: Rupiah;
@@ -58,9 +58,11 @@ export type BagiHasilMurabahah = {
 export function bagiHasilMurabahah({
   hargaPokok,
   hargaJual,
+  persenPlatform = NISBAH_PLATFORM_PERSEN,
 }: {
   hargaPokok: Rupiah;
   hargaJual: Rupiah;
+  persenPlatform?: number;
 }): BagiHasilMurabahah {
   pastikanRupiah(hargaPokok, "Harga pokok");
   pastikanRupiah(hargaJual, "Harga jual");
@@ -74,7 +76,10 @@ export function bagiHasilMurabahah({
   }
 
   const marginTotal = hargaJual - hargaPokok;
-  const { nisbahPendana, nisbahPlatform } = bagiNisbah(marginTotal);
+  const { nisbahPendana, nisbahPlatform } = bagiNisbah(
+    marginTotal,
+    persenPlatform,
+  );
 
   return {
     hargaPokok,
@@ -84,8 +89,8 @@ export function bagiHasilMurabahah({
     nisbahPlatform,
     pendanaTerima: hargaPokok + nisbahPendana,
     platformTerima: nisbahPlatform,
-    persenPendana: NISBAH_PENDANA_PERSEN,
-    persenPlatform: NISBAH_PLATFORM_PERSEN,
+    persenPendana: 100 - persenPlatform,
+    persenPlatform,
   };
 }
 
