@@ -46,6 +46,7 @@ import {
 import {
   LABEL_JENIS_AKAD,
   LABEL_STATUS_PENGAJUAN_SYARIAH,
+  MARGIN_MURABAHAH_BAWAAN,
   rencanaPengajuanSyariah,
   TENOR_AKAD_OPTIONS,
   type StatusPengajuanSyariah,
@@ -143,7 +144,7 @@ export function SyariahPanel() {
     setDipilih(row);
     setPokok(String(row.pokok));
     setTenor(row.tenorHari as TenorAkad);
-    setMargin(String(row.marginPersen ?? MARGIN_MURABAHAH_MIN_PERSEN));
+    setMargin(String(row.marginPersen ?? MARGIN_MURABAHAH_BAWAAN));
     setTaksiran(String(row.nilaiTaksiran ?? 0));
     setAlasan("");
     setCatatan("");

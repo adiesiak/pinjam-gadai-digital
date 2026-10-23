@@ -20,6 +20,7 @@ import {
   bagiHasilPendana,
 } from "@/lib/imbalPendana";
 import { bagiHasilMurabahah, hargaJualMurabahah } from "@/lib/syariah/murabahah";
+import { MARGIN_MURABAHAH_BAWAAN } from "@/lib/syariah/pengajuan";
 import { bagiHasilQardh } from "@/lib/syariah/qardh";
 import { bagiHasilRahn } from "@/lib/syariah/rahn";
 
@@ -69,7 +70,9 @@ export function SimulatorPendanaan({
     NOMINAL_AWAL.toLocaleString("id-ID"),
   );
   const [siklus, setSiklus] = useState<(typeof SIKLUS)[number]>(1);
-  const [marginTeks, setMarginTeks] = useState("15");
+  const [marginTeks, setMarginTeks] = useState(
+    String(MARGIN_MURABAHAH_BAWAAN),
+  );
   const [taksiranTeks, setTaksiranTeks] = useState("2.000.000");
   const [pokokGadaiTeks, setPokokGadaiTeks] = useState("1.600.000");
   const [tenorRahn, setTenorRahn] = useState<(typeof TENOR_RAHN)[number]>(30);

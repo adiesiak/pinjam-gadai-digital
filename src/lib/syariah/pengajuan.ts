@@ -18,7 +18,7 @@ import {
   rapikanNomorTujuan,
   type JenisBarangKatalog,
 } from "./katalog";
-import { MARGIN_MURABAHAH_MIN_PERSEN } from "./murabahah";
+import { MARGIN_MURABAHAH_MAX_PERSEN } from "./murabahah";
 
 /** Tenor yang boleh diajukan — Rahn membutuhkan kelipatan 30 hari. */
 export const TENOR_AKAD_OPTIONS = [30, 60, 90] as const;
@@ -26,11 +26,13 @@ export const TENOR_AKAD_OPTIONS = [30, 60, 90] as const;
 export type TenorAkad = (typeof TENOR_AKAD_OPTIONS)[number];
 
 /**
- * Margin Murabahah yang dipakai sebagai estimasi sebelum admin menetapkan:
- * batas bawah rentang, supaya estimasi tidak pernah lebih ringan dari akad
- * terendah yang boleh disepakati.
+ * Margin Murabahah bawaan untuk SEMUA produk — barang fisik maupun pulsa/PPOB.
+ *
+ * Dipakai saat pengajuan dikirim dan menjadi angka awal di panel admin. Nilainya
+ * batas atas rentang: petugas hanya bisa menurunkannya, jadi harga yang dilihat
+ * peminjam tidak pernah lebih murah daripada harga akadnya.
  */
-export const MARGIN_MURABAHAH_BAWAAN = MARGIN_MURABAHAH_MIN_PERSEN;
+export const MARGIN_MURABAHAH_BAWAAN = MARGIN_MURABAHAH_MAX_PERSEN;
 
 export type StatusPengajuanSyariah =
   | "diajukan"

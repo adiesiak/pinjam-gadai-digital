@@ -115,7 +115,7 @@ throws(
     jenis: "murabahah",
     sudahAdaAkad: false,
   });
-  eq(data.marginPersen, 15, "margin kosong memakai batas bawah 15%");
+  eq(data.marginPersen, 20, "margin kosong memakai bawaan 20%");
   eq(data.pokok, 2_000_000, "barang non-katalog tetap bisa dicatat");
 }
 

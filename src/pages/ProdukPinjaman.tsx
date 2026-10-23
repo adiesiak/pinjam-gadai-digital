@@ -55,6 +55,7 @@ import {
 } from "@/lib/loan";
 import { formatRupiahAman, kelompokkanDigit } from "@/lib/money";
 import { bagiHasilMurabahah, hargaJualMurabahah } from "@/lib/syariah/murabahah";
+import { MARGIN_MURABAHAH_BAWAAN } from "@/lib/syariah/pengajuan";
 import { bagiHasilQardh } from "@/lib/syariah/qardh";
 import { bagiHasilRahn } from "@/lib/syariah/rahn";
 import {
@@ -464,7 +465,9 @@ const VOUCHER_SIMULASI = [
 function KalkulatorSyariah() {
   const [akad, setAkad] = useState<"murabahah" | "rahn" | "qardh">("murabahah");
   const [nilaiTeks, setNilaiTeks] = useState("1.000.000");
-  const [marginTeks, setMarginTeks] = useState("15");
+  const [marginTeks, setMarginTeks] = useState(
+    String(MARGIN_MURABAHAH_BAWAAN),
+  );
   const [taksiranTeks, setTaksiranTeks] = useState("2.000.000");
   const [pokokGadaiTeks, setPokokGadaiTeks] = useState("1.600.000");
   const [tenorRahn, setTenorRahn] = useState<(typeof TENOR_RAHN)[number]>(30);

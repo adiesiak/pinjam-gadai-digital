@@ -8,7 +8,7 @@
  * angka yang mungkin masih terbawa di formulir.
  */
 import type { JenisAkadSyariah } from "./akad";
-import { MARGIN_MURABAHAH_MIN_PERSEN } from "./murabahah";
+import { MARGIN_MURABAHAH_BAWAAN } from "./pengajuan";
 
 /** Bagian baris `pengajuanSyariah` yang menentukan isi akad. */
 export type PengajuanUntukAkad = {
@@ -83,7 +83,7 @@ export function dataPencatatanDariPengajuan({
     pokok: pengajuan.pokok,
     tenorHari: pengajuan.tenorHari,
     ...(jenis === "murabahah"
-      ? { marginPersen: pengajuan.marginPersen ?? MARGIN_MURABAHAH_MIN_PERSEN }
+      ? { marginPersen: pengajuan.marginPersen ?? MARGIN_MURABAHAH_BAWAAN }
       : {}),
     ...(jenis === "rahn" ? { nilaiTaksiran: pengajuan.nilaiTaksiran ?? 0 } : {}),
   };

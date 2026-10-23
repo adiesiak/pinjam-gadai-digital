@@ -73,7 +73,7 @@ describe("pengajuan syariah — pengiriman", () => {
     ).toBe(0);
   });
 
-  it("menyimpan Murabahah dengan margin 15% dan status menunggu", async () => {
+  it("menyimpan Murabahah dengan margin bawaan 20% dan status menunggu", async () => {
     const t = convexTest(schema, modules);
     const { sesi, userId } = await siapkanPeminjam(
       t,
@@ -87,12 +87,12 @@ describe("pengajuan syariah — pengiriman", () => {
     expect(row?.status).toBe("diajukan");
     expect(row?.jenis).toBe("murabahah");
     expect(row?.pokok).toBe(300_000);
-    expect(row?.marginPersen).toBe(15);
-    expect(row?.marginTotal).toBe(45_000);
-    expect(row?.hargaJual).toBe(345_000);
-    expect(row?.totalKewajiban).toBe(345_000);
-    expect(row?.nisbahPendana).toBe(38_250);
-    expect(row?.nisbahPlatform).toBe(6_750);
+    expect(row?.marginPersen).toBe(20);
+    expect(row?.marginTotal).toBe(60_000);
+    expect(row?.hargaJual).toBe(360_000);
+    expect(row?.totalKewajiban).toBe(360_000);
+    expect(row?.nisbahPendana).toBe(51_000);
+    expect(row?.nisbahPlatform).toBe(9_000);
     expect(row?.namaPeminjam).toBe("RANI PEMINJAM");
     expect(row?.userId).toBe(userId);
   });
@@ -197,8 +197,8 @@ describe("pengajuan syariah — katalog Murabahah", () => {
     expect(row?.katalogId).toBe("el-setrika-uap");
     expect(row?.jenisBarang).toBe("fisik");
     expect(row?.nomorTujuan).toBeUndefined();
-    expect(row?.marginTotal).toBe(52_500);
-    expect(row?.totalKewajiban).toBe(402_500);
+    expect(row?.marginTotal).toBe(70_000);
+    expect(row?.totalKewajiban).toBe(420_000);
   });
 
   it("pulsa/PPOB wajib nomor tujuan dan hanya angkanya yang disimpan", async () => {
