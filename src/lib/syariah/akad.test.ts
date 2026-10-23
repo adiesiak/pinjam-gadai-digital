@@ -146,10 +146,29 @@ throws(
     rencanaAkadSyariah({
       jenis: "murabahah",
       pokok: 1_000_000,
-      marginPersen: 101,
+      marginPersen: 14,
     }),
-  "margin di atas 100% ditolak",
+  "margin di bawah 15% ditolak",
 );
+throws(
+  () =>
+    rencanaAkadSyariah({
+      jenis: "murabahah",
+      pokok: 1_000_000,
+      marginPersen: 21,
+    }),
+  "margin di atas 20% ditolak",
+);
+{
+  const batasAtas = rencanaAkadSyariah({
+    jenis: "murabahah",
+    pokok: 1_000_000,
+    marginPersen: 20,
+  });
+  eq(batasAtas.hargaJual, 1_200_000, "margin 20% masih diterima");
+  eq(batasAtas.nisbahPendana, 170_000, "nisbah pendana 85% dari margin 20%");
+  eq(batasAtas.nisbahPlatform, 30_000, "ujrah platform 15% dari margin 20%");
+}
 throws(
   () => rencanaAkadSyariah({ jenis: "qardh", pokok: 1_000_000, tenorHari: 0 }),
   "tenor nol ditolak",

@@ -32,6 +32,10 @@ import { formatRupiah } from "@/lib/money";
 import { MIN_AKAD_SYARIAH, type RencanaAkadSyariah } from "@/lib/syariah/akad";
 import { LABEL_JENIS_BARANG } from "@/lib/syariah/katalog";
 import {
+  MARGIN_MURABAHAH_MAX_PERSEN,
+  MARGIN_MURABAHAH_MIN_PERSEN,
+} from "@/lib/syariah/murabahah";
+import {
   LABEL_JENIS_AKAD,
   LABEL_STATUS_PENGAJUAN_SYARIAH,
   rencanaPengajuanSyariah,
@@ -127,7 +131,7 @@ export function SyariahPanel() {
     setDipilih(row);
     setPokok(String(row.pokok));
     setTenor(row.tenorHari as TenorAkad);
-    setMargin(String(row.marginPersen ?? 15));
+    setMargin(String(row.marginPersen ?? MARGIN_MURABAHAH_MIN_PERSEN));
     setTaksiran(String(row.nilaiTaksiran ?? 0));
     setAlasan("");
     setCatatan("");
@@ -452,18 +456,24 @@ export function SyariahPanel() {
 
                     {dipilih.jenis === "murabahah" && (
                       <div>
-                        <Label htmlFor="admin-syariah-margin">Margin (%)</Label>
+                        <Label htmlFor="admin-syariah-margin">
+                          Margin Murabahah (%)
+                        </Label>
                         <Input
                           id="admin-syariah-margin"
                           type="number"
                           inputMode="decimal"
-                          min={0}
-                          max={100}
+                          min={MARGIN_MURABAHAH_MIN_PERSEN}
+                          max={MARGIN_MURABAHAH_MAX_PERSEN}
+                          step={1}
                           value={margin}
                           disabled={busy}
                           onChange={(event) => setMargin(event.target.value)}
                           className="mt-1"
                         />
+                        <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                          {`${MARGIN_MURABAHAH_MIN_PERSEN}-${MARGIN_MURABAHAH_MAX_PERSEN}% dari harga pokok untuk seluruh tenor, bukan per bulan.`}
+                        </p>
                       </div>
                     )}
                     {dipilih.jenis === "rahn" && (

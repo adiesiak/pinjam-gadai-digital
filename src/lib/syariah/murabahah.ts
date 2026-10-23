@@ -3,6 +3,7 @@
  *
  * Rumus produk:
  *   Margin Keuntungan Total = Harga Jual Akhir - Harga Pokok Barang
+ *   Margin yang boleh disepakati 15-20% dari harga pokok (bukan per bulan).
  *   Hak Pendana (Shahibul Maal) = Harga Pokok + 85% Margin
  *   Hak Platform (Ujrah Pengelola) = 15% Margin (pembulatan ke bawah)
  *
@@ -20,6 +21,15 @@ import {
   NISBAH_PLATFORM_PERSEN,
   pastikanRupiah,
 } from "./nisbah";
+
+/**
+ * Rentang margin yang boleh disepakati: persen dari harga pokok untuk SELURUH
+ * tenor, bukan persentase bulanan. Batas bawah menjaga imbal hasil pendana
+ * tidak terlalu tipis; batas atas menjaga harga jual tetap masuk akal bagi
+ * peminjam dibanding bunga pinjaman konvensional.
+ */
+export const MARGIN_MURABAHAH_MIN_PERSEN = 15;
+export const MARGIN_MURABAHAH_MAX_PERSEN = 20;
 
 export type BagiHasilMurabahah = {
   /** Harga pokok barang yang dibiayai pendana. */

@@ -18,14 +18,19 @@ import {
   rapikanNomorTujuan,
   type JenisBarangKatalog,
 } from "./katalog";
+import { MARGIN_MURABAHAH_MIN_PERSEN } from "./murabahah";
 
 /** Tenor yang boleh diajukan — Rahn membutuhkan kelipatan 30 hari. */
 export const TENOR_AKAD_OPTIONS = [30, 60, 90] as const;
 
 export type TenorAkad = (typeof TENOR_AKAD_OPTIONS)[number];
 
-/** Margin Murabahah yang dipakai sebagai estimasi sebelum admin menetapkan. */
-export const MARGIN_MURABAHAH_BAWAAN = 15;
+/**
+ * Margin Murabahah yang dipakai sebagai estimasi sebelum admin menetapkan:
+ * batas bawah rentang, supaya estimasi tidak pernah lebih ringan dari akad
+ * terendah yang boleh disepakati.
+ */
+export const MARGIN_MURABAHAH_BAWAAN = MARGIN_MURABAHAH_MIN_PERSEN;
 
 export type StatusPengajuanSyariah =
   | "diajukan"

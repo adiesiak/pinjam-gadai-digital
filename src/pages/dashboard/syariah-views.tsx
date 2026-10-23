@@ -40,6 +40,7 @@ import {
 import {
   LABEL_JENIS_AKAD,
   LABEL_STATUS_PENGAJUAN_SYARIAH,
+  MARGIN_MURABAHAH_BAWAAN,
   rencanaPengajuanSyariah,
   susunPermintaanAjukanSyariah,
   TENOR_AKAD_OPTIONS,
@@ -53,6 +54,10 @@ import {
   nomorTujuanValid,
   type BarangKatalog,
 } from "@/lib/syariah/katalog";
+import {
+  MARGIN_MURABAHAH_MAX_PERSEN,
+  MARGIN_MURABAHAH_MIN_PERSEN,
+} from "@/lib/syariah/murabahah";
 import { cn } from "@/lib/utils";
 
 type PilihanAkad = {
@@ -823,7 +828,7 @@ export function FormPengajuanSyariah({
       <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-5 text-muted-foreground">
         <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         {jenis === "murabahah"
-          ? "Estimasi memakai margin 15%. Margin final ditetapkan petugas dan disepakati sebelum akad."
+          ? `Estimasi memakai margin ${MARGIN_MURABAHAH_BAWAAN}%. Margin final ditetapkan petugas dalam rentang ${MARGIN_MURABAHAH_MIN_PERSEN}-${MARGIN_MURABAHAH_MAX_PERSEN}% dan disepakati sebelum akad.`
           : jenis === "rahn"
             ? "Ujrah 2% dari taksiran per 30 hari. Taksiran final ditetapkan petugas."
             : "Qardh tidak mengambil margin atau ujrah. Pokok kembali 100%."}

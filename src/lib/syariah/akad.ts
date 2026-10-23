@@ -7,7 +7,7 @@
  * `convex/syariahAkad.ts` tidak punya salinan rumus kedua yang bisa menyimpang.
  *
  * Aturan produk yang dijaga:
- *  - Murabahah: margin disepakati, dibagi 85% pendana / 15% platform.
+ *  - Murabahah: margin 15-20% dari harga pokok, dibagi 85% pendana / 15% platform.
  *  - Rahn: ujrah 2% dari nilai taksiran per 30 hari, dibagi 85:15.
  *  - Qardh: margin 0%, pokok kembali 100%.
  *  - Tiket doorprize: satu per kelipatan Rp1 juta penempatan, untuk SEMUA akad —
@@ -17,7 +17,12 @@
 import { tiketPendana } from "../doorprize";
 import type { Rupiah } from "../money";
 import { bagiHasilQardh } from "./qardh";
-import { bagiHasilMurabahah, hargaJualMurabahah } from "./murabahah";
+import {
+  bagiHasilMurabahah,
+  hargaJualMurabahah,
+  MARGIN_MURABAHAH_MAX_PERSEN,
+  MARGIN_MURABAHAH_MIN_PERSEN,
+} from "./murabahah";
 import { pastikanRupiah } from "./nisbah";
 import { bagiHasilRahn, SIKLUS_UJRAH_RAHN_HARI } from "./rahn";
 
@@ -112,8 +117,14 @@ export function rencanaAkadSyariah(
 
   if (permintaan.jenis === "murabahah") {
     const marginPersen = permintaan.marginPersen;
-    if (!Number.isFinite(marginPersen) || marginPersen < 0 || marginPersen > 100) {
-      throw new Error(`Margin Murabahah harus 0-100 persen: ${marginPersen}`);
+    if (
+      !Number.isFinite(marginPersen) ||
+      marginPersen < MARGIN_MURABAHAH_MIN_PERSEN ||
+      marginPersen > MARGIN_MURABAHAH_MAX_PERSEN
+    ) {
+      throw new Error(
+        `Margin Murabahah harus ${MARGIN_MURABAHAH_MIN_PERSEN}-${MARGIN_MURABAHAH_MAX_PERSEN} persen: ${marginPersen}`,
+      );
     }
     const hargaJual = hargaJualMurabahah(permintaan.pokok, marginPersen);
     const bagi = bagiHasilMurabahah({

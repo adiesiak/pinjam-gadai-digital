@@ -35,6 +35,7 @@ import {
   type JenisAkadSyariah,
   type RencanaAkadSyariah,
 } from "../lib/syariah/akad";
+import { MARGIN_MURABAHAH_BAWAAN } from "../lib/syariah/pengajuan";
 
 /** Batas jumlah baris portofolio yang dikirim ke satu pembaca. */
 const BATAS_BARIS = 200;
@@ -252,7 +253,7 @@ export const catatAkadSyariah = mutation({
         ? rencanaAkadSyariah({
             jenis: "murabahah",
             pokok: args.pokok,
-            marginPersen: args.marginPersen ?? 0,
+            marginPersen: args.marginPersen ?? MARGIN_MURABAHAH_BAWAAN,
             ...tenor,
           })
         : args.jenis === "rahn"
