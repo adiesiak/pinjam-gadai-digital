@@ -67,7 +67,7 @@ eq(harian.jadwal, null, "skema harian tanpa tabel cicilan");
 const rekening = harian.kelompok
   .flatMap((k) => k.baris)
   .find((b) => b.label === "Rekening tujuan");
-eq(rekening?.nilai, "BCA ••••7890", "rekening disamarkan");
+eq(rekening?.nilai, "BCA •••• 7890", "rekening disamarkan");
 
 // Pinjaman yang belum dicairkan tidak punya kewajiban berjalan.
 const menunggu = susunRincianPinjaman(

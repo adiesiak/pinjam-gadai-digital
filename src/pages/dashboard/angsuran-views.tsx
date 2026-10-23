@@ -404,6 +404,10 @@ function htmlKuitansi(grup: Grup, baris: Baris): string {
       </tbody>
     </table>
     <p>Kuitansi ini dihasilkan dari jadwal angsuran PINDAI dan bukti transfer yang telah dicocokkan admin.</p>
+    <div class="warning">
+      <strong>Himbauan Keamanan Transaksi</strong>
+      <p>PINDAI tidak pernah meminta kode OTP, PIN, atau kata sandi lewat WhatsApp maupun email.</p>
+    </div>
     <p style="margin-top:16px;font-size:10px;line-height:1.5;color:#64748b">${PENAFIAN_PINDAI}<br/>${HAK_CIPTA_PINDAI}</p>
   `;
 }

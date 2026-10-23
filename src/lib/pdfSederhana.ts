@@ -5,12 +5,18 @@
  * aksi Convex (runtime default, bukan Node) tidak punya sistem berkas untuk
  * pustaka seperti PDFKit. Berkas ini hanya menyusun byte: satu jenis halaman
  * (A4), dua font baku PDF (Helvetica + Helvetica-Bold, sudah ada di setiap
- * pembaca PDF tanpa ditanam), dan tata letak baris-atas-bawah.
+ * pembaca PDF tanpa ditanam), dan dua jalur tata letak:
  *
- * Yang dibuang dengan sadar: kolom angka rata kanan. Perataan kanan butuh
- * lebar huruf sungguhan, dan tabel lebar Helvetica adalah ratusan angka yang
- * tidak bisa diketik dari ingatan tanpa salah. Karena itu laporan memakai
- * bentuk "Label: nilai" per baris, dan itu pilihan bentuk, bukan kekurangan.
+ * - `susunPdf` untuk laporan lama berbasis daftar baris (proposal dan laporan
+ *   pendana). Bentuknya dipertahankan supaya berkas yang sudah beredar tidak
+ *   berubah.
+ * - `susunPdfResmi` untuk dokumen resmi baru: banner navy, dua kartu informasi,
+ *   tabel angka rata kanan dengan nada potongan/bersih, callout total, dan
+ *   kotak peringatan. Blok diukur dulu, lalu dipenggal per halaman.
+ *
+ * Perataan kanan memakai perkiraan lebar Helvetica (lihat
+ * `PERKIRAAN_LEBAR_KARAKTER`), bukan tabel metrik huruf penuh. Untuk nominal
+ * rupiah selisihnya kecil dan tidak menggeser angka keluar kolom.
  *
  * Semua masukan dinormalkan ke Latin-1 (WinAnsi). Karakter yang tidak ada di
  * sana diganti, jadi laporan tidak pernah menampilkan kotak kosong di WhatsApp.
@@ -214,7 +220,7 @@ const PADANAN: Record<string, string> = {
   "\u2026": "...",
   "\u00b7": "-",
   "\u00d7": "x",
-  "\u2022": "-",
+  "\u2022": "*",
   "\u00a0": " ",
 };
 
@@ -286,6 +292,72 @@ export function bungkusTeks(
   if (baris !== "") hasil.push(baris);
   return hasil.length > 0 ? hasil : [""];
 }
+
+/**
+ * DOKUMEN RESMI — tata letak A4 bergaya laporan modern.
+ *
+ * Ditambahkan sebagai jalur terpisah dari `susunPdf` supaya laporan pendana dan
+ * proposal yang sudah beredar tidak berubah bentuk. Primitifnya sengaja kecil
+ * dan bertipe: banner navy, dua kartu informasi, tabel angka rata kanan dengan
+ * nada (potongan/bersih), callout total, dan kotak peringatan. Pemanggil hanya
+ * menyusun blok; pengukuran, pemenggalan halaman, dan nomor halaman diurus di
+ * sini.
+ */
+export type NadaTeksResmi = "normal" | "potongan" | "bersih" | "total" | "tautan";
+
+export type BarisKartuResmi = {
+  label: string;
+  nilai: string;
+  nada?: NadaTeksResmi;
+};
+
+export type KartuResmi = {
+  judul: string;
+  baris: BarisKartuResmi[];
+};
+
+export type BarisTabelResmi = {
+  sel: string[];
+  nada?: NadaTeksResmi;
+  tebal?: boolean;
+};
+
+export type BlokResmiPdf =
+  | {
+      jenis: "banner";
+      merek: string;
+      subjudul: string;
+      nomor: string;
+      tanggal: string;
+    }
+  /** Dua kartu informasi berdampingan; tinggi mengikuti kartu terpanjang. */
+  | { jenis: "kartu"; kiri: KartuResmi; kanan: KartuResmi }
+  | { jenis: "judul"; nomor?: string; teks: string }
+  | {
+      jenis: "tabel";
+      kepala: string[];
+      baris: BarisTabelResmi[];
+      /** Bobot lebar kolom relatif; default sama rata. */
+      bobot?: number[];
+      /** Indeks kolom yang angkanya rata kanan. */
+      rataKanan?: number[];
+    }
+  | { jenis: "paragraf"; teks: string; kecil?: boolean }
+  | { jenis: "poin"; teks: string[] }
+  | { jenis: "callout"; label: string; nilai: string; catatan?: string }
+  | { jenis: "peringatan"; judul: string; teks: string }
+  | { jenis: "jarak"; tinggi: number }
+  | { jenis: "halamanBaru" };
+
+export type DokumenResmiPdf = {
+  /** Nomor dokumen yang diulang pada header halaman lanjutan. */
+  nomor: string;
+  /** Judul ringkas untuk header halaman lanjutan. */
+  judul: string;
+  /** Teks kaki di setiap halaman. */
+  kaki: string;
+  blok: BlokResmiPdf[];
+};
 
 type BarisSiap = {
   jenis:
@@ -996,32 +1068,453 @@ function isiSampul(sampul: SampulPdf, kop?: KopPdf): string {
   return `${operasi.join("\n")}\n`;
 }
 
-/**
- * Susun berkas PDF lengkap dari daftar baris.
- *
- * Keluarannya `Uint8Array` supaya bisa langsung disimpan: di aksi Convex lewat
- * `ctx.storage.store(new Blob([byte], { type: "application/pdf" }))`, di uji
- * sebagai berkas biasa. Setiap byte berisi satu karakter Latin-1, jadi posisi
- * objek di tabel `xref` sama dengan panjang teks yang sudah ditulis.
- */
-export function susunPdf(dokumen: DokumenPdf): Uint8Array {
-  const baris = siapkanBaris(dokumen.baris);
-  const tinggiKop =
-    dokumen.kop === undefined
-      ? 0
-      : dokumen.sampul !== undefined
-        ? TINGGI_KOP_RINGKAS
-        : TINGGI_KOP;
-  const halamanIsi = bagiHalaman(baris, tinggiKop);
-  // Sampul tidak ikut nomor halaman: nomor 1 baru muncul di halaman isi pertama.
-  const aliran: string[] = [];
-  if (dokumen.sampul !== undefined) {
-    aliran.push(isiSampul(dokumen.sampul, dokumen.kop));
-  }
-  halamanIsi.forEach((halaman, i) => {
-    aliran.push(isiHalaman(halaman, dokumen, i + 1, halamanIsi.length));
-  });
+/* ==========================================================================
+   DOKUMEN RESMI — ukuran dan warna
+   ========================================================================== */
 
+const R_MARGIN = 42;
+const R_ATAS = 40;
+const R_BAWAH = 46;
+const R_LEBAR = LEBAR_HALAMAN - R_MARGIN * 2;
+const R_BANNER = 74;
+const R_JARAK_BANNER = 14;
+const R_HEADER_LANJUT = 22;
+
+const R = {
+  navy: "0.059 0.090 0.165",
+  navyLembut: "0.118 0.161 0.231",
+  sky: "0.220 0.741 0.973",
+  putih: "1 1 1",
+  bannerRedup: "0.796 0.835 0.882",
+  tinta: "0.059 0.090 0.165",
+  teks: "0.204 0.255 0.337",
+  teksLembut: "0.278 0.333 0.412",
+  label: "0.392 0.455 0.545",
+  redup: "0.580 0.639 0.722",
+  garis: "0.886 0.910 0.941",
+  kepala: "0.945 0.961 0.976",
+  kartu: "0.973 0.980 0.988",
+  merah: "0.863 0.149 0.149",
+  hijau: "0.086 0.396 0.204",
+  hijauMuda: "0.941 0.992 0.957",
+  biru: "0.118 0.306 0.847",
+  biruMuda: "0.937 0.965 1.000",
+  biruTepi: "0.749 0.859 1.000",
+  kuning: "0.573 0.251 0.055",
+  kuningTeks: "0.471 0.208 0.059",
+  kuningMuda: "1.000 0.984 0.925",
+  kuningTepi: "0.992 0.902 0.529",
+} as const;
+
+/** Isi kotak: latar dan tepi tipis, dipakai kartu, tabel, dan callout. */
+function kotakResmi(
+  x: number,
+  y: number,
+  lebar: number,
+  tinggi: number,
+  isi: string,
+  tepi?: string,
+  tebalTepi = 0.8,
+): string {
+  const operasi = [`${isi} rg ${angka(x)} ${angka(y)} ${angka(lebar)} ${angka(tinggi)} re f`];
+  if (tepi !== undefined) {
+    operasi.push(
+      `${tepi} RG ${tebalTepi} w ${angka(x)} ${angka(y)} ${angka(lebar)} ${angka(tinggi)} re S`,
+    );
+  }
+  return operasi.join("\n");
+}
+
+function teksResmi(
+  teks: string,
+  ukuran: number,
+  font: "F1" | "F2",
+  x: number,
+  y: number,
+  warna: string,
+): string {
+  return operasiTeksMentah(teks, ukuran, font, x, y, warna);
+}
+
+function teksResmiKanan(
+  teks: string,
+  ukuran: number,
+  font: "F1" | "F2",
+  kanan: number,
+  y: number,
+  warna: string,
+): string {
+  return teksResmi(
+    teks,
+    ukuran,
+    font,
+    kanan - perkiraanLebar(teks, ukuran),
+    y,
+    warna,
+  );
+}
+
+function warnaNada(nada: NadaTeksResmi | undefined): string {
+  if (nada === "potongan") return R.merah;
+  if (nada === "bersih" || nada === "total") return R.hijau;
+  if (nada === "tautan") return R.biru;
+  return R.teks;
+}
+
+/** Nominal potongan diberi tanda minus hanya bila memang ada potongannya. */
+function nilaiTabelResmi(nilai: string, nada: NadaTeksResmi | undefined): string {
+  if (nada !== "potongan") return nilai;
+  if (! nilai.startsWith("Rp ") || nilai === "Rp 0") return nilai;
+  return `-${nilai}`;
+}
+
+function garisResmi(y: number, warna = R.garis, tebal = 0.7): string {
+  return `${warna} RG ${tebal} w ${angka(R_MARGIN)} ${angka(y)} m ${angka(LEBAR_HALAMAN - R_MARGIN)} ${angka(y)} l S`;
+}
+
+/** Tinggi dua kartu informasi; kartu terpanjang yang menentukan. */
+function tinggiKartu(kartu: BlokResmiPdf & { jenis: "kartu" }): number {
+  const baris = Math.max(kartu.kiri.baris.length, kartu.kanan.baris.length);
+  return 34 + baris * 16;
+}
+
+function lebarTabelResmi(bobot: number[] | undefined, jumlah: number): number[] {
+  const dasar = bobot ?? Array.from({ length: jumlah }, () => 1);
+  const total = dasar.reduce((n, nilai) => n + nilai, 0) || 1;
+  return dasar.map((nilai) => (R_LEBAR * nilai) / total);
+}
+
+/** Tinggi satu baris tabel, termasuk deskripsi yang turun dua baris. */
+function tinggiBarisTabel(
+  baris: BarisTabelResmi,
+  lebar: number[],
+  rataKanan: number[],
+): number {
+  let barisTeks = 1;
+  baris.sel.forEach((sel, i) => {
+    if (rataKanan.includes(i)) return;
+    const potongan = bungkusTeks(sel, 8.2, Math.max(40, lebar[i] - 16)).length;
+    barisTeks = Math.max(barisTeks, potongan);
+  });
+  return Math.max(20, barisTeks * 10 + 10);
+}
+
+function tinggiBlokResmi(blok: BlokResmiPdf): number {
+  if (blok.jenis === "banner") return R_BANNER + R_JARAK_BANNER;
+  if (blok.jenis === "kartu") return tinggiKartu(blok);
+  if (blok.jenis === "judul") return 25;
+  if (blok.jenis === "tabel") {
+    const lebar = lebarTabelResmi(blok.bobot, blok.kepala.length);
+    const rataKanan = blok.rataKanan ?? [];
+    return (
+      22 +
+      blok.baris.reduce((n, baris) => n + tinggiBarisTabel(baris, lebar, rataKanan), 0) +
+      4
+    );
+  }
+  if (blok.jenis === "paragraf") {
+    const ukuran = blok.kecil === true ? 7.8 : 8.6;
+    return bungkusTeks(blok.teks, ukuran, R_LEBAR).length * 11.5 + 4;
+  }
+  if (blok.jenis === "poin") {
+    const tinggi = blok.teks.reduce(
+      (n, teks) => n + bungkusTeks(teks, 7.8, R_LEBAR - 12).length * 10.5 + 3,
+      0,
+    );
+    return tinggi + 4;
+  }
+  if (blok.jenis === "callout") {
+    const catatan =
+      blok.catatan === undefined || blok.catatan.trim() === ""
+        ? 0
+        : bungkusTeks(blok.catatan, 7.8, R_LEBAR - 24).length * 10.5 + 3;
+    return 48 + catatan;
+  }
+  if (blok.jenis === "peringatan") {
+    return 30 + bungkusTeks(blok.teks, 8, R_LEBAR - 28).length * 10.5;
+  }
+  if (blok.jenis === "jarak") return blok.tinggi;
+  return 0;
+}
+
+/* ==========================================================================
+   DOKUMEN RESMI — penggambaran blok
+   ========================================================================== */
+
+function gambarBanner(blok: BlokResmiPdf & { jenis: "banner" }, y: number): string {
+  const x = R_MARGIN;
+  const kanan = LEBAR_HALAMAN - R_MARGIN;
+  const bawah = y - R_BANNER;
+  return [
+    kotakResmi(x, bawah, R_LEBAR, R_BANNER, R.navy),
+    teksResmi(blok.merek, 21, "F2", x + 18, y - 28, R.sky),
+    teksResmi(blok.subjudul.toUpperCase(), 7.6, "F1", x + 19, y - 44, R.bannerRedup),
+    teksResmiKanan(blok.nomor, 10.5, "F2", kanan - 18, y - 27, R.putih),
+    teksResmiKanan(blok.tanggal, 7.8, "F1", kanan - 18, y - 43, R.bannerRedup),
+    `${R.navyLembut} RG 0.6 w ${angka(kanan - 250)} ${angka(bawah + 14)} m ${angka(kanan - 250)} ${angka(y - 14)} l S`,
+  ].join("\n");
+}
+
+function gambarKartu(blok: BlokResmiPdf & { jenis: "kartu" }, y: number): string {
+  const tinggi = tinggiKartu(blok);
+  const bawah = y - tinggi;
+  const celah = 12;
+  const lebar = (R_LEBAR - celah) / 2;
+  const operasi: string[] = [];
+
+  [blok.kiri, blok.kanan].forEach((kartu, indeks) => {
+    const x = R_MARGIN + indeks * (lebar + celah);
+    const kanan = x + lebar;
+    operasi.push(kotakResmi(x, bawah, lebar, tinggi, R.kartu, R.garis));
+    operasi.push(teksResmi(kartu.judul.toUpperCase(), 7.4, "F2", x + 12, y - 17, R.teksLembut));
+    operasi.push(
+      `${R.garis} RG 0.7 w ${angka(x + 12)} ${angka(y - 24)} m ${angka(kanan - 12)} ${angka(y - 24)} l S`,
+    );
+    kartu.baris.forEach((baris, i) => {
+      const garisDasar = y - 39 - i * 16;
+      operasi.push(teksResmi(baris.label, 8.1, "F1", x + 12, garisDasar, R.label));
+      const ukuran = perkiraanLebar(baris.nilai, 8.1) > lebar - 28 ? 7.2 : 8.1;
+      operasi.push(
+        teksResmiKanan(
+          baris.nilai,
+          ukuran,
+          "F2",
+          kanan - 12,
+          garisDasar,
+          warnaNada(baris.nada),
+        ),
+      );
+    });
+  });
+  return operasi.join("\n");
+}
+
+function gambarJudul(blok: BlokResmiPdf & { jenis: "judul" }, y: number): string {
+  const teks = blok.nomor === undefined ? blok.teks : `${blok.nomor}. ${blok.teks}`;
+  return teksResmi(teks, 10.5, "F2", R_MARGIN, y - 13, R.tinta);
+}
+
+function gambarTabel(blok: BlokResmiPdf & { jenis: "tabel" }, y: number): string {
+  const jumlahKolom = blok.kepala.length;
+  const lebar = lebarTabelResmi(blok.bobot, jumlahKolom);
+  const rataKanan = blok.rataKanan ?? [];
+  const operasi: string[] = [];
+  const atas = y;
+  const tinggiKepala = 22;
+
+  operasi.push(kotakResmi(R_MARGIN, y - tinggiKepala, R_LEBAR, tinggiKepala, R.kepala, R.garis));
+  let x = R_MARGIN;
+  blok.kepala.forEach((judul, i) => {
+    const posisi = rataKanan.includes(i) ? x + lebar[i] - 8 - perkiraanLebar(judul, 7.4) : x + 8;
+    operasi.push(teksResmi(judul, 7.4, "F2", posisi, y - 14, R.teksLembut));
+    x += lebar[i];
+  });
+  y -= tinggiKepala;
+
+  for (const baris of blok.baris) {
+    const tinggi = tinggiBarisTabel(baris, lebar, rataKanan);
+    const nada = baris.nada;
+    if (nada === "bersih" || nada === "total") {
+      operasi.push(kotakResmi(R_MARGIN, y - tinggi, R_LEBAR, tinggi, R.hijauMuda));
+    }
+    operasi.push(garisResmi(y));
+    let kiri = R_MARGIN;
+    baris.sel.forEach((sel, i) => {
+      const warna = baris.tebal === true ? R.tinta : warnaNada(nada);
+      const font = baris.tebal === true || nada === "bersih" || nada === "total" ? "F2" : "F1";
+      if (rataKanan.includes(i)) {
+        const nilai = nilaiTabelResmi(sel, nada);
+        operasi.push(
+          teksResmiKanan(nilai, 8.2, font, kiri + lebar[i] - 8, y - tinggi + 7.5, warna),
+        );
+      } else {
+        const potongan = bungkusTeks(sel, 8.2, Math.max(40, lebar[i] - 16));
+        potongan.forEach((bagian, n) => {
+          operasi.push(teksResmi(bagian, 8.2, font, kiri + 8, y - tinggi + 14 - n * 10, warna));
+        });
+      }
+      kiri += lebar[i];
+    });
+    y -= tinggi;
+  }
+  operasi.push(garisResmi(y), garisResmi(atas));
+  return operasi.join("\n");
+}
+
+function gambarCallout(blok: BlokResmiPdf & { jenis: "callout" }, y: number): string {
+  const catatan =
+    blok.catatan === undefined || blok.catatan.trim() === ""
+      ? []
+      : bungkusTeks(blok.catatan, 7.8, R_LEBAR - 24);
+  const tinggi = 48 + catatan.length * 10.5;
+  const bawah = y - tinggi;
+  const operasi = [
+    kotakResmi(R_MARGIN, bawah, R_LEBAR, tinggi, R.biruMuda, R.biruTepi),
+    `${R.biru} rg ${angka(R_MARGIN)} ${angka(bawah)} 3 ${angka(tinggi)} re f`,
+    teksResmi(blok.label, 8.8, "F2", R_MARGIN + 16, y - 18, R.biru),
+    teksResmiKanan(blok.nilai, 19, "F2", LEBAR_HALAMAN - R_MARGIN - 16, y - 25, R.biru),
+  ];
+  catatan.forEach((baris, i) => {
+    operasi.push(
+      teksResmi(baris, 7.8, "F1", R_MARGIN + 16, y - 36 - i * 10.5, R.teksLembut),
+    );
+  });
+  return operasi.join("\n");
+}
+
+function gambarPeringatan(blok: BlokResmiPdf & { jenis: "peringatan" }, y: number): string {
+  const potongan = bungkusTeks(blok.teks, 8, R_LEBAR - 28);
+  const tinggi = 30 + potongan.length * 10.5;
+  const bawah = y - tinggi;
+  const operasi = [
+    kotakResmi(R_MARGIN, bawah, R_LEBAR, tinggi, R.kuningMuda, R.kuningTepi),
+    `${R.kuningTepi} rg ${angka(R_MARGIN)} ${angka(bawah)} 3 ${angka(tinggi)} re f`,
+    teksResmi(`! ${blok.judul}`, 8.6, "F2", R_MARGIN + 14, y - 16, R.kuning),
+  ];
+  potongan.forEach((baris, i) => {
+    operasi.push(teksResmi(baris, 8, "F1", R_MARGIN + 14, y - 29 - i * 10.5, R.kuningTeks));
+  });
+  return operasi.join("\n");
+}
+
+function gambarBlokResmi(blok: BlokResmiPdf, y: number): string {
+  if (blok.jenis === "banner") return gambarBanner(blok, y);
+  if (blok.jenis === "kartu") return gambarKartu(blok, y);
+  if (blok.jenis === "judul") return gambarJudul(blok, y);
+  if (blok.jenis === "tabel") return gambarTabel(blok, y);
+  if (blok.jenis === "callout") return gambarCallout(blok, y);
+  if (blok.jenis === "peringatan") return gambarPeringatan(blok, y);
+  if (blok.jenis === "paragraf") {
+    const ukuran = blok.kecil === true ? 7.8 : 8.6;
+    return bungkusTeks(blok.teks, ukuran, R_LEBAR)
+      .map((baris, i) =>
+        teksResmi(
+          baris,
+          ukuran,
+          "F1",
+          R_MARGIN,
+          y - 9 - i * 11.5,
+          blok.kecil === true ? R.label : R.teksLembut,
+        ),
+      )
+      .join("\n");
+  }
+  if (blok.jenis === "poin") {
+    const operasi: string[] = [];
+    let barisY = y;
+    for (const teks of blok.teks) {
+      const potongan = bungkusTeks(teks, 7.8, R_LEBAR - 12);
+      operasi.push(`${R.redup} rg ${angka(R_MARGIN)} ${angka(barisY - 6)} 2 2 re f`);
+      potongan.forEach((bagian, i) => {
+        operasi.push(teksResmi(bagian, 7.8, "F1", R_MARGIN + 10, barisY - 8 - i * 10.5, R.label));
+      });
+      barisY -= 10.5 * potongan.length + 3;
+    }
+    return operasi.join("\n");
+  }
+  return "";
+}
+
+/** Bagi blok menjadi halaman; banner hanya boleh membuka halaman pertama. */
+function bagiHalamanResmi(blok: BlokResmiPdf[]): BlokResmiPdf[][] {
+  const halaman: BlokResmiPdf[][] = [];
+  let kini: BlokResmiPdf[] = [];
+  let y = TINGGI_HALAMAN - R_ATAS;
+
+  const batas = R_BAWAH + 12;
+  for (let i = 0; i < blok.length; i += 1) {
+    const entri = blok[i];
+    if (entri.jenis === "halamanBaru") {
+      if (kini.length > 0) {
+        halaman.push(kini);
+        kini = [];
+      }
+      y = TINGGI_HALAMAN - R_ATAS - R_HEADER_LANJUT;
+      continue;
+    }
+    const tinggi = tinggiBlokResmi(entri);
+    // Judul bagian tidak boleh tertinggal sendirian di dasar halaman. Saat
+    // blok berikutnya tidak muat, judul ikut pindah ke halaman baru.
+    const berikut = blok[i + 1];
+    const tinggiJaga =
+      entri.jenis === "judul" && berikut !== undefined && berikut.jenis !== "halamanBaru"
+        ? tinggi + tinggiBlokResmi(berikut)
+        : tinggi;
+    if (kini.length > 0 && y - tinggiJaga < batas) {
+      halaman.push(kini);
+      kini = [];
+      y = TINGGI_HALAMAN - R_ATAS - R_HEADER_LANJUT;
+    }
+    kini.push(entri);
+    y -= tinggi;
+    if (entri.jenis === "banner") {
+      y = TINGGI_HALAMAN - R_ATAS - R_BANNER - R_JARAK_BANNER;
+    }
+  }
+  if (kini.length > 0 || halaman.length === 0) halaman.push(kini);
+  return halaman;
+}
+
+function isiHalamanResmi(
+  blok: BlokResmiPdf[],
+  dok: DokumenResmiPdf,
+  nomorHalaman: number,
+  jumlahHalaman: number,
+): string {
+  const operasi: string[] = [];
+  let y = TINGGI_HALAMAN - R_ATAS;
+  const adaBanner = blok[0]?.jenis === "banner";
+
+  if (!adaBanner) {
+    operasi.push(
+      teksResmi(dok.judul, 7.6, "F2", R_MARGIN, y - 10, R.tinta),
+      teksResmiKanan(dok.nomor, 7.6, "F1", LEBAR_HALAMAN - R_MARGIN, y - 10, R.redup),
+      garisResmi(y - 18),
+    );
+    y -= R_HEADER_LANJUT;
+  }
+
+  for (const entri of blok) {
+    const tinggi = tinggiBlokResmi(entri);
+    if (entri.jenis !== "banner") {
+      operasi.push(gambarBlokResmi(entri, y));
+      y -= tinggi;
+    } else {
+      operasi.push(gambarBlokResmi(entri, y));
+      y -= R_BANNER + R_JARAK_BANNER;
+    }
+  }
+
+  // Kaki: garis rambut, disclaimer kiri, nomor halaman kanan.
+  operasi.push(garisResmi(54, R.garis));
+  const kaki =
+    dok.kaki.length > 92 ? `${dok.kaki.slice(0, 90)}...` : dok.kaki;
+  operasi.push(teksResmi(kaki, 7.2, "F1", R_MARGIN, 38, R.redup));
+  const nomor = `Halaman ${nomorHalaman} dari ${jumlahHalaman}`;
+  operasi.push(
+    teksResmiKanan(nomor, 7.2, "F1", LEBAR_HALAMAN - R_MARGIN, 38, R.redup),
+  );
+  return `${operasi.join("\n")}\n`;
+}
+
+/**
+ * Susun dokumen resmi A4 dengan banner, kartu, tabel, callout, dan peringatan.
+ *
+ * Berbeda dari `susunPdf` yang berbasis daftar baris, fungsi ini memakai blok
+ * bertipe. Pemanggil tidak perlu menghitung tinggi atau memenggal halaman:
+ * setiap blok diukur, halaman diberi header lanjutan, dan kaki menyebut nomor
+ * halaman dari total yang benar-benar terbentuk.
+ */
+export function susunPdfResmi(dok: DokumenResmiPdf): Uint8Array {
+  const halaman = bagiHalamanResmi(dok.blok);
+  const aliran = halaman.map((blok, i) =>
+    isiHalamanResmi(blok, dok, i + 1, halaman.length),
+  );
+  return susunBerkasPdf(aliran);
+}
+
+/** Buat berkas PDF dari aliran isi tiap halaman (objek + xref). */
+function susunBerkasPdf(aliran: string[]): Uint8Array {
   // Penomoran objek: 1 katalog, 2 daftar halaman, 3-4 font, lalu 2 objek per
   // halaman (objek halaman + aliran isinya).
   const NOMOR_FONT = [
@@ -1064,6 +1557,35 @@ export function susunPdf(dokumen: DokumenPdf): Uint8Array {
   for (let i = 0; i < berkas.length; i += 1)
     byte[i] = berkas.charCodeAt(i) & 0xff;
   return byte;
+}
+
+/**
+ * Susun berkas PDF lengkap dari daftar baris.
+ *
+ * Keluarannya `Uint8Array` supaya bisa langsung disimpan: di aksi Convex lewat
+ * `ctx.storage.store(new Blob([byte], { type: "application/pdf" }))`, di uji
+ * sebagai berkas biasa. Setiap byte berisi satu karakter Latin-1, jadi posisi
+ * objek di tabel `xref` sama dengan panjang teks yang sudah ditulis.
+ */
+export function susunPdf(dokumen: DokumenPdf): Uint8Array {
+  const baris = siapkanBaris(dokumen.baris);
+  const tinggiKop =
+    dokumen.kop === undefined
+      ? 0
+      : dokumen.sampul !== undefined
+        ? TINGGI_KOP_RINGKAS
+        : TINGGI_KOP;
+  const halamanIsi = bagiHalaman(baris, tinggiKop);
+  // Sampul tidak ikut nomor halaman: nomor 1 baru muncul di halaman isi pertama.
+  const aliran: string[] = [];
+  if (dokumen.sampul !== undefined) {
+    aliran.push(isiSampul(dokumen.sampul, dokumen.kop));
+  }
+  halamanIsi.forEach((halaman, i) => {
+    aliran.push(isiHalaman(halaman, dokumen, i + 1, halamanIsi.length));
+  });
+
+  return susunBerkasPdf(aliran);
 }
 
 /** Teks berkas PDF sebagai Latin-1, untuk pembacaan dan pengujian. */

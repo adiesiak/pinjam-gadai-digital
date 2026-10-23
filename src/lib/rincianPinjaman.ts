@@ -20,11 +20,15 @@ import { labelStatusPinjaman } from "./statusPinjaman";
 import { formatTanggalWIB } from "./waktu";
 
 /** Baris label/nilai pada dokumen. */
+export type NadaRincian = "potongan" | "bersih" | "total";
+
 export type BarisRincian = {
   label: string;
   nilai: string;
   /** Baris penentu: total atau dana bersih, dicetak tebal. */
   tegas?: boolean;
+  /** Nada tampilan di PDF: potongan merah, dana bersih hijau, total tebal. */
+  nada?: NadaRincian;
 };
 
 export type KelompokRincian = {
@@ -103,7 +107,7 @@ function persenDari(nilai: number, pokok: number): string {
 export function samarkanRekening(nomor: string): string {
   const bersih = nomor.replace(/\s+/g, "");
   if (bersih.length <= 4) return bersih;
-  return `••••${bersih.slice(-4)}`;
+  return `•••• ${bersih.slice(-4)}`;
 }
 
 function tanggal(ms: number): string {
@@ -186,8 +190,14 @@ export function susunRincianPinjaman(
           sim.tarif.persenBiayaLayananBulanan,
         ),
         nilai: rp(sim.potonganDiMuka),
+        nada: "potongan",
       },
-      { label: "Dana bersih ke rekening", nilai: rp(sim.danaDiterima), tegas: true },
+      {
+        label: "Dana bersih ke rekening",
+        nilai: rp(sim.danaDiterima),
+        tegas: true,
+        nada: "bersih",
+      },
     ];
     const rekening = rekeningTujuan(loan);
     if (rekening !== null) dana.push({ label: "Rekening tujuan", nilai: rekening });
@@ -213,6 +223,7 @@ export function susunRincianPinjaman(
       label: `Total yang dibayar selama ${sim.tenorBulan} bulan`,
       nilai: rp(sim.totalPengembalian),
       tegas: true,
+      nada: "total",
     });
 
     kelompok.push(
@@ -251,18 +262,35 @@ export function susunRincianPinjaman(
             {
               label: `Biaya asuransi (${persenDari(quote.biayaAsuransi, quote.pokok)}%, dipotong di muka)`,
               nilai: rp(quote.biayaAsuransi),
+              nada: "potongan" as const,
             },
           ]
         : []),
       {
         label: `Biaya admin (${persenDari(quote.biayaAdmin, quote.pokok)}%, dipotong di muka)`,
         nilai: rp(quote.biayaAdmin),
+        nada: "potongan",
       },
-      { label: "Biaya platform (0%, dipotong di muka)", nilai: rp(quote.biayaPlatform) },
+      {
+        label: "Biaya platform (0%, dipotong di muka)",
+        nilai: rp(quote.biayaPlatform),
+        ...(quote.biayaPlatform > 0 ? { nada: "potongan" as const } : {}),
+      },
       ...(quote.biayaExpress > 0
-        ? [{ label: "Biaya pencairan ekspres", nilai: rp(quote.biayaExpress) }]
+        ? [
+            {
+              label: "Biaya pencairan ekspres",
+              nilai: rp(quote.biayaExpress),
+              nada: "potongan" as const,
+            },
+          ]
         : [{ label: "Pencairan ekspres", nilai: "Tidak dipakai" }]),
-      { label: "Dana bersih ke rekening", nilai: rp(quote.danaBersihDitransfer), tegas: true },
+      {
+        label: "Dana bersih ke rekening",
+        nilai: rp(quote.danaBersihDitransfer),
+        tegas: true,
+        nada: "bersih",
+      },
     ];
     const rekening = rekeningTujuan(loan);
     if (rekening !== null) dana.push({ label: "Rekening tujuan", nilai: rekening });
@@ -274,6 +302,7 @@ export function susunRincianPinjaman(
         label: "Total kewajiban saat jatuh tempo",
         nilai: rp(quote.totalKewajibanPelunasan),
         tegas: true,
+        nada: "total",
       },
       { label: "Cara bayar", nilai: "Sekali lunas pada tanggal jatuh tempo" },
     ];
@@ -297,12 +326,17 @@ export function susunRincianPinjaman(
       },
     ];
     if (pelunasan.dendaTerlambat > 0) {
-      status.push({ label: "Denda keterlambatan", nilai: rp(pelunasan.dendaTerlambat) });
+      status.push({
+        label: "Denda keterlambatan",
+        nilai: rp(pelunasan.dendaTerlambat),
+        nada: "potongan",
+      });
     }
     status.push({
       label: "Total yang harus dibayar sekarang",
       nilai: rp(pelunasan.totalKewajibanDenganPenalti),
       tegas: true,
+      nada: "total",
     });
     kelompok.push({ judul: "Status hari ini", baris: status });
   }

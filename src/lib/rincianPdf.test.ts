@@ -48,6 +48,18 @@ ok(teks.includes("Rp 1.000.000"), "pokok pinjaman ada di dokumen");
 ok(teks.includes("Jadwal cicilan"), "skema bulanan memuat jadwal cicilan");
 ok(teks.includes("Bulan 1"), "baris cicilan pertama ada");
 ok(teks.includes("bukan bukti pembayaran"), "catatan penutup ikut tercetak");
+ok(teks.includes("RINCIAN PINJAMAN DIGITAL"), "banner dokumen tercetak");
+ok(teks.includes("Rincian Dana Yang Diterima"), "bagian dana diterima ada");
+ok(teks.includes("Rincian Kewajiban Pengembalian"), "bagian kewajiban ada");
+ok(teks.includes("Himbauan Keamanan Transaksi"), "peringatan keamanan ada");
+ok(
+  teks.includes("PINDAI tidak pernah meminta kode OTP, PIN, atau kata sandi"),
+  "pesan keamanan memakai kalimat lengkap",
+);
+ok(teks.includes("Dana bersih ke rekening"), "baris dana bersih ada");
+ok(teks.includes("-Rp "), "potongan biaya diberi tanda minus");
+ok(teks.includes("Halaman 1 dari"), "kaki halaman menyebut nomor halaman");
+ok(teks.includes("**** 7890"), "rekening tujuan tampil dalam bentuk tersamarkan");
 
 // Nama warisan bisa memuat emoji atau tanda kutip miring. Font standar PDF
 // memakai Latin-1, jadi karakter di luarnya harus dinormalkan, bukan

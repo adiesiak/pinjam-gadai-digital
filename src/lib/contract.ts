@@ -165,8 +165,8 @@ function kopSurat(jenis: "pinjaman" | "gadai" | "pendanaan", meta: ContractMeta)
     <div class="kop-kiri">
       ${LOGO_SHIELD_SVG}
       <div>
-        <p class="kop-judul">PINJAM GADAI DIGITAL (PINDAI)</p>
-        <p class="kop-sub">Platform Layanan Keuangan &amp; Ledger Digital</p>
+        <p class="kop-judul">PINDAI</p>
+        <p class="kop-sub">Dokumen Perjanjian Digital</p>
       </div>
     </div>
     <div class="kop-kanan">
@@ -227,11 +227,11 @@ function rincianKeuanganHarian(quote: LoanQuote): string {
     </thead>
     <tbody>
       <tr><td>Pokok pinjaman</td><td class="angka">${formatRupiah(quote.pokok)}</td></tr>
-      <tr><td>Potongan admin (2%)</td><td class="angka">${formatRupiah(quote.biayaAdmin)}</td></tr>
-      <tr><td>Biaya platform</td><td class="angka">${formatRupiah(quote.biayaPlatform)}</td></tr>
-      ${quote.biayaExpress > 0 ? `<tr><td>Biaya pencairan ekspres</td><td class="angka">${formatRupiah(quote.biayaExpress)}</td></tr>` : `<tr><td>Pencairan ekspres</td><td class="angka">Tidak dipilih</td></tr>`}
+      <tr><td>Potongan admin (2%)</td><td class="angka potongan">${formatRupiah(quote.biayaAdmin)}</td></tr>
+      <tr><td>Biaya platform</td><td class="angka ${quote.biayaPlatform > 0 ? "potongan" : ""}">${formatRupiah(quote.biayaPlatform)}</td></tr>
+      ${quote.biayaExpress > 0 ? `<tr><td>Biaya pencairan ekspres</td><td class="angka potongan">${formatRupiah(quote.biayaExpress)}</td></tr>` : `<tr><td>Pencairan ekspres</td><td class="angka">Tidak dipilih</td></tr>`}
       <tr><td>Total potongan di muka</td><td class="angka">${formatRupiah(quote.totalPotonganDiMuka)}</td></tr>
-      <tr><td>Dana bersih diterima</td><td class="angka">${formatRupiah(quote.danaBersihDitransfer)}</td></tr>
+      <tr class="bersih"><td>Dana bersih diterima</td><td class="angka">${formatRupiah(quote.danaBersihDitransfer)}</td></tr>
       <tr><td>Bunga</td><td class="angka">${formatRupiah(quote.bunga)}</td></tr>
       <tr class="total"><td>Total kewajiban (pokok + bunga)</td><td class="angka">${formatRupiah(quote.totalKewajibanPelunasan)}</td></tr>
     </tbody>
@@ -247,8 +247,8 @@ function rincianKeuanganBulanan(bulanan: SimulasiBulanan): string {
     <tbody>
       <tr><td>Pokok acuan</td><td class="angka">${formatRupiah(bulanan.pokokDibiayai)}</td></tr>
       <tr><td>Uang muka (0%)</td><td class="angka">${formatRupiah(bulanan.dp)}</td></tr>
-      <tr><td>Potongan di muka (${bulanan.tarif.persenBiayaLayananBulanan}%)</td><td class="angka">${formatRupiah(bulanan.potonganDiMuka)}</td></tr>
-      <tr><td>Dana bersih diterima</td><td class="angka">${formatRupiah(bulanan.danaDiterima)}</td></tr>
+      <tr><td>Potongan di muka (${bulanan.tarif.persenBiayaLayananBulanan}%)</td><td class="angka potongan">${formatRupiah(bulanan.potonganDiMuka)}</td></tr>
+      <tr class="bersih"><td>Dana bersih diterima</td><td class="angka">${formatRupiah(bulanan.danaDiterima)}</td></tr>
       <tr><td>Bunga/margin total (${bulanan.persenBungaPerBulan}%/bulan, flat)</td><td class="angka">${formatRupiah(bulanan.bungaTotal)}</td></tr>
       ${bulanan.biayaAdminCicilanTotal > 0 ? `<tr><td>Biaya admin cicilan ${bulanan.tarif.persenBiayaAdminCicilanBulanan}% (${bulanan.tenorBulan} kali bayar)</td><td class="angka">${formatRupiah(bulanan.biayaAdminCicilanTotal)}</td></tr>` : ""}
       <tr class="total"><td>Total pengembalian (${bulanan.tenorBulan} bulan)</td><td class="angka">${formatRupiah(bulanan.totalPengembalian)}</td></tr>
@@ -321,8 +321,27 @@ export function buildPinjamanContract(
     ${blokParaPihak()}
 
     <p>Perjanjian ini dibuat dan disetujui pada <strong>${tgl}</strong> atas data pengajuan yang tersimpan di aplikasi PINDAI.</p>
-    <p><strong>Pihak Pertama:</strong> Pinjam Gadai Digital (PINDAI).</p>
-    <p><strong>Pihak Kedua:</strong> ${escapeHtml(namaHurufBesar(peminjam.namaLengkap))}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}${peminjam.email ? `, email ${escapeHtml(peminjam.email)}` : ""}; informasi bank/e-wallet dan rekening/akun yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
+    <div class="info-grid">
+      <section class="info-card">
+        <h3>Informasi Dokumen</h3>
+        <dl>
+          <dt>Pihak Pertama</dt><dd>Pinjam Gadai Digital (PINDAI)</dd>
+          <dt>Tanggal</dt><dd>${tgl}</dd>
+          <dt>Nomor</dt><dd>${escapeHtml(nomorContract("pinjaman", meta.nomorReferensi))}</dd>
+          <dt>Syarat</dt><dd>${CONTRACT_TERMS_VERSION}</dd>
+        </dl>
+      </section>
+      <section class="info-card">
+        <h3>Pihak Kedua</h3>
+        <dl>
+          <dt>Nama</dt><dd>${escapeHtml(namaHurufBesar(peminjam.namaLengkap))}</dd>
+          ${peminjam.nik ? `<dt>NIK</dt><dd>${escapeHtml(peminjam.nik)}</dd>` : ""}
+          ${peminjam.email ? `<dt>Email</dt><dd>${escapeHtml(peminjam.email)}</dd>` : ""}
+          <dt>Rekening</dt><dd>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</dd>
+        </dl>
+      </section>
+    </div>
+    <p class="muted">Data di atas berasal dari pengisian pada pengajuan.</p>
 
     <h2>Pasal 1 — Pokok, Tenor, dan Status</h2>
     <ol>
@@ -336,6 +355,13 @@ export function buildPinjamanContract(
     </ol>
     <p><strong>Ringkasan rincian keuangan:</strong></p>
     ${bulanan === null ? rincianKeuanganHarian(quote) : rincianKeuanganBulanan(bulanan)}
+    <div class="tagihan">
+      <div>
+        <span>${bulanan === null ? "Total kewajiban saat jatuh tempo" : `Total pengembalian ${bulanan.tenorBulan} bulan`}</span>
+        <p>${bulanan === null ? `Pokok dan bunga, dibayar sekali pada akhir tenor ${tenorHari} hari.` : `Pokok, bunga, dan biaya admin cicilan selama ${bulanan.tenorBulan} bulan.`}</p>
+      </div>
+      <strong>${formatRupiah(bulanan === null ? quote.totalKewajibanPelunasan : bulanan.totalPengembalian)}</strong>
+    </div>
 
     <h2>Pasal 3 — Cara dan Waktu Pelunasan</h2>
     <p>${pasalKewajiban}</p>
@@ -351,6 +377,10 @@ export function buildPinjamanContract(
       ${blokPlatform()}
     </div>
     ${blokVerifikasi(meta)}
+    <div class="warning">
+      <strong>Himbauan Keamanan Transaksi</strong>
+      <p>PINDAI tidak pernah meminta kode OTP, PIN, atau kata sandi lewat WhatsApp maupun email.</p>
+    </div>
     ${footerDokumen()}
   </div>`;
 }
@@ -380,8 +410,26 @@ export function buildGadaiContract(
     <h1>${judulContract("gadai")}</h1>
     ${blokParaPihak()}
     <p>Akad ini dibuat dan disetujui pada <strong>${tgl}</strong> atas data pengajuan yang tersimpan di aplikasi PINDAI.</p>
-    <p><strong>Pihak Pertama:</strong> Pinjam Gadai Digital (PINDAI).</p>
-    <p><strong>Pihak Kedua:</strong> ${escapeHtml(namaHurufBesar(peminjam.namaLengkap))}${peminjam.nik ? `, NIK ${escapeHtml(peminjam.nik)}` : ""}; informasi rekening yang dimasukkan: <strong>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</strong>. Data ini berasal dari pengisian pada pengajuan.</p>
+    <div class="info-grid">
+      <section class="info-card">
+        <h3>Informasi Dokumen</h3>
+        <dl>
+          <dt>Pihak Pertama</dt><dd>Pinjam Gadai Digital (PINDAI)</dd>
+          <dt>Tanggal</dt><dd>${tgl}</dd>
+          <dt>Nomor</dt><dd>${escapeHtml(nomorContract("gadai", meta.nomorReferensi))}</dd>
+          <dt>Syarat</dt><dd>${CONTRACT_TERMS_VERSION}</dd>
+        </dl>
+      </section>
+      <section class="info-card">
+        <h3>Pihak Kedua</h3>
+        <dl>
+          <dt>Nama</dt><dd>${escapeHtml(namaHurufBesar(peminjam.namaLengkap))}</dd>
+          ${peminjam.nik ? `<dt>NIK</dt><dd>${escapeHtml(peminjam.nik)}</dd>` : ""}
+          <dt>Rekening</dt><dd>${peminjam.namaBank ? `${escapeHtml(peminjam.namaBank)} · ` : ""}${escapeHtml(peminjam.nomorRekening)}</dd>
+        </dl>
+      </section>
+    </div>
+    <p class="muted">Data di atas berasal dari pengisian pada pengajuan.</p>
 
     <h2>Pasal 1 — Data Barang dan Lokasi Penyimpanan</h2>
     <ol>
@@ -416,6 +464,10 @@ export function buildGadaiContract(
       ${blokPlatform()}
     </div>
     ${blokVerifikasi(meta)}
+    <div class="warning">
+      <strong>Himbauan Keamanan Transaksi</strong>
+      <p>PINDAI tidak pernah meminta kode OTP, PIN, atau kata sandi lewat WhatsApp maupun email.</p>
+    </div>
     ${footerDokumen()}
   </div>`;
 }
