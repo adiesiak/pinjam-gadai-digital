@@ -12,6 +12,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { formatDate } from "@/components/admin/admin-format";
+import { KatalogSyariahPanel } from "@/components/admin/KatalogSyariahPanel";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -80,6 +81,7 @@ function LencanaStatus({ status }: { status: StatusPengajuanSyariah }) {
 export function SyariahPanel() {
   const data = useQuery(api.syariahPengajuan.daftarAdmin);
   const putuskan = useMutation(api.syariahPengajuan.putuskan);
+  const tandaiPenyerahan = useMutation(api.syariahPengajuan.tandaiPenyerahan);
 
   const [saringan, setSaringan] = useState<Saringan>("menunggu");
   const [cari, setCari] = useState("");
@@ -90,7 +92,9 @@ export function SyariahPanel() {
   const [taksiran, setTaksiran] = useState("0");
   const [alasan, setAlasan] = useState("");
   const [catatan, setCatatan] = useState("");
+  const [referensiSerah, setReferensiSerah] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busySerah, setBusySerah] = useState(false);
 
   const baris = useMemo(() => {
     if (data === undefined) return [];
@@ -127,6 +131,7 @@ export function SyariahPanel() {
     setTaksiran(String(row.nilaiTaksiran ?? 0));
     setAlasan("");
     setCatatan("");
+    setReferensiSerah("");
   }
 
   function tutup() {
@@ -152,6 +157,26 @@ export function SyariahPanel() {
     } catch (err) {
       pesanRencana =
         err instanceof Error ? err.message : "Angka akad belum bisa dihitung.";
+    }
+  }
+
+  async function tandaiBarangTerkirim() {
+    if (dipilih === null) return;
+    setBusySerah(true);
+    try {
+      await tandaiPenyerahan({
+        id: dipilih._id,
+        referensi: referensiSerah.trim(),
+      });
+      toast.success(`Penyerahan ${dipilih.nomorReferensi} dicatat.`);
+      setReferensiSerah("");
+      setDipilih(null);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Penyerahan gagal dicatat.",
+      );
+    } finally {
+      setBusySerah(false);
     }
   }
 
@@ -276,6 +301,19 @@ export function SyariahPanel() {
                     {row.namaPeminjam}
                   </p>
                   <LencanaStatus status={row.status} />
+                  {row.status === "disetujui" && row.namaBarang !== null && (
+                    <span
+                      className={
+                        row.statusPenyerahan === "terkirim"
+                          ? "inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-900"
+                          : "inline-flex rounded-md border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
+                      }
+                    >
+                      {row.statusPenyerahan === "terkirim"
+                        ? "Barang terkirim"
+                        : "Belum diserahkan"}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-0.5 text-[11px] leading-5 text-slate-600">
                   {LABEL_JENIS_AKAD[row.jenis]} · {row.nomorReferensi} ·{" "}
@@ -512,9 +550,60 @@ export function SyariahPanel() {
                   </div>
                 </>
               ) : (
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600">
-                  Pengajuan ini sudah diputuskan. Angka akad tersimpan sebagai
-                  snapshot dan tidak berubah walau tarif produk diubah nanti.
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600">
+                    Pengajuan ini sudah diputuskan. Angka akad tersimpan sebagai
+                    snapshot dan tidak berubah walau tarif produk diubah nanti.
+                  </div>
+
+                  {dipilih.status === "disetujui" &&
+                    dipilih.namaBarang !== null &&
+                    (dipilih.statusPenyerahan === "terkirim" ? (
+                      <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-5 text-sky-900">
+                        <p className="font-semibold">Barang sudah diserahkan</p>
+                        <p className="mt-0.5 tabular-nums">
+                          {dipilih.diserahkanPada === null
+                            ? "Waktu tidak tercatat"
+                            : formatDate(dipilih.diserahkanPada)}
+                          {dipilih.referensiPenyerahan === null
+                            ? ""
+                            : ` · ${dipilih.referensiPenyerahan}`}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-slate-200 px-3 py-2.5">
+                        <Label htmlFor="admin-syariah-serah">
+                          Referensi penyerahan
+                        </Label>
+                        <Input
+                          id="admin-syariah-serah"
+                          value={referensiSerah}
+                          maxLength={120}
+                          disabled={busySerah}
+                          placeholder="No. resi, ID transaksi, atau nomor token"
+                          onChange={(event) =>
+                            setReferensiSerah(event.target.value)
+                          }
+                          className="mt-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="mt-2 min-h-11 gap-1.5"
+                          disabled={
+                            busySerah || referensiSerah.trim().length < 3
+                          }
+                          onClick={tandaiBarangTerkirim}
+                        >
+                          <Check className="size-4" aria-hidden />
+                          {busySerah ? "Menyimpan…" : "Tandai barang terkirim"}
+                        </Button>
+                        <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
+                          Catat setelah mitra benar-benar mengirim. Tanda ini
+                          muncul di dashboard peminjam dan tidak bisa ditimpa.
+                        </p>
+                      </div>
+                    ))}
                 </div>
               )}
 
@@ -555,6 +644,10 @@ export function SyariahPanel() {
           )}
         </DialogContent>
       </Dialog>
+
+      <div className="border-t border-slate-200 pt-4">
+        <KatalogSyariahPanel />
+      </div>
     </div>
   );
 }

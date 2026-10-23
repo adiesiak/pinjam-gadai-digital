@@ -246,6 +246,47 @@ describe("pengajuan syariah — katalog Murabahah", () => {
     );
   });
 
+  it("harga katalog terbaru berlaku untuk pengajuan baru, pengajuan lama tetap", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Ubah Harga", {
+      email: "admin-ubah-harga-syariah@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "Rani Harga",
+      "rani-harga-katalog@pindai.test",
+    );
+    const lama = await ajukan(peminjam, {
+      katalogId: "el-setrika-uap",
+      tujuan: "Membeli setrika untuk usaha laundry",
+    });
+
+    // Harga mitra naik sesudah pengajuan dikirim.
+    await admin.mutation(api.katalog.simpanBarang, {
+      kode: "el-setrika-uap",
+      nama: "Setrika uap 1.800 W",
+      kategori: "Elektronik",
+      jenisBarang: "fisik",
+      harga: 400_000,
+      aktif: true,
+    });
+
+    await admin.mutation(api.syariahPengajuan.putuskan, {
+      id: lama.id,
+      keputusan: "setujui",
+    });
+    const lamaSetelah = await t.run((ctx) => ctx.db.get(lama.id));
+    expect(lamaSetelah?.pokok).toBe(350_000);
+
+    const baru = await ajukan(peminjam, {
+      katalogId: "el-setrika-uap",
+      tujuan: "Membeli setrika untuk usaha laundry",
+    });
+    const baruRow = await t.run((ctx) => ctx.db.get(baru.id));
+    expect(baruRow?.pokok).toBe(400_000);
+  });
+
   it("keputusan admin tidak mengubah harga barang katalog", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "Admin Katalog Syariah", {
@@ -272,6 +313,72 @@ describe("pengajuan syariah — katalog Murabahah", () => {
 
     expect(row?.pokok).toBe(350_000);
     expect(row?.totalKewajiban).toBe(420_000);
+  });
+});
+
+describe("pengajuan syariah — penyerahan barang", () => {
+  async function siapkan(t: KonteksUji) {
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Serah Syariah", {
+      email: "admin-serah-syariah@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "Rani Serah",
+      "rani-serah-syariah@pindai.test",
+    );
+    const { id } = await ajukan(peminjam, {
+      katalogId: "el-setrika-uap",
+      tujuan: "Membeli setrika untuk usaha laundry",
+    });
+    return { admin, peminjam, id };
+  }
+
+  it("menolak penyerahan sebelum pengajuan disetujui", async () => {
+    const t = convexTest(schema, modules);
+    const { admin, id } = await siapkan(t);
+
+    await expect(
+      admin.mutation(api.syariahPengajuan.tandaiPenyerahan, {
+        id,
+        referensi: "RESI-001",
+      }),
+    ).rejects.toThrow("sudah disetujui");
+  });
+
+  it("admin mencatat penyerahan dan peminjam melihat referensinya", async () => {
+    const t = convexTest(schema, modules);
+    const { admin, peminjam, id } = await siapkan(t);
+
+    await admin.mutation(api.syariahPengajuan.putuskan, {
+      id,
+      keputusan: "setujui",
+    });
+    const sebelum = await peminjam.query(api.syariahPengajuan.daftarSaya, {});
+    expect(sebelum.find((row) => row._id === id)?.statusPenyerahan).toBe(
+      "belum",
+    );
+
+    await admin.mutation(api.syariahPengajuan.tandaiPenyerahan, {
+      id,
+      referensi: "  RESI-JNE-123  ",
+    });
+    const row = await t.run((ctx) => ctx.db.get(id));
+    expect(row?.statusPenyerahan).toBe("terkirim");
+    expect(row?.referensiPenyerahan).toBe("RESI-JNE-123");
+    expect(row?.diserahkanPada).toBeTypeOf("number");
+
+    const sesudah = await peminjam.query(api.syariahPengajuan.daftarSaya, {});
+    const saya = sesudah.find((baris) => baris._id === id);
+    expect(saya?.statusPenyerahan).toBe("terkirim");
+    expect(saya?.referensiPenyerahan).toBe("RESI-JNE-123");
+
+    await expect(
+      admin.mutation(api.syariahPengajuan.tandaiPenyerahan, {
+        id,
+        referensi: "RESI-LAIN",
+      }),
+    ).rejects.toThrow("sudah ditandai terkirim");
   });
 });
 

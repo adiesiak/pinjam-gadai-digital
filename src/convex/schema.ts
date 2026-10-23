@@ -1885,6 +1885,60 @@ const schema = defineSchema(
       .index("by_referensi", ["nomorReferensi"]),
 
     /**
+     * Katalog Murabahah yang dikelola admin.
+     *
+     * `kode` adalah referensi stabil yang disimpan pengajuan; harga di sini
+     * adalah harga pokok TERBARU dari mitra. Pengajuan yang sudah dikirim
+     * menyimpan harganya sendiri, jadi mengubah harga katalog tidak mengubah
+     * pengajuan lama — hanya pengajuan berikutnya.
+     *
+     * `aktif: false` menyembunyikan barang dari formulir tanpa menghapus
+     * riwayat. Ini juga tombol kepatuhan: produk pulsa/PPOB yang tidak lolos
+     * tinjauan dewan pengawas syariah bisa dimatikan tanpa rilis kode.
+     *
+     * Isi awal berasal dari `lib/syariah/katalog` lewat `muatKatalogAwal`.
+     * Selama satu kode belum dimuat, server memakai harga seed untuk kode itu,
+     * sehingga katalog tetap jalan walau admin belum membuka panel.
+     */
+    katalogBarang: defineTable({
+      kode: v.string(),
+      nama: v.string(),
+      kategori: v.union(
+        v.literal("Elektronik"),
+        v.literal("Peralatan usaha"),
+        v.literal("Perabot rumah"),
+        v.literal("Kendaraan"),
+        v.literal("Pulsa & data"),
+        v.literal("Token & tagihan"),
+      ),
+      jenisBarang: v.union(v.literal("fisik"), v.literal("digital")),
+      /** Harga pokok mitra — rupiah bulat. */
+      harga: v.number(),
+      aktif: v.boolean(),
+      dibuatPada: v.number(),
+      diperbaruiPada: v.number(),
+    })
+      .index("by_kode", ["kode"])
+      .index("by_aktif", ["aktif"]),
+
+    /**
+     * Riwayat perubahan harga katalog — APPEND-ONLY, satu baris per perubahan.
+     * Hanya dicatat bila harga berubah; mengganti nama atau status tidak
+     * mengotori riwayat harga.
+     */
+    katalogRiwayatHarga: defineTable({
+      kode: v.string(),
+      barangId: v.id("katalogBarang"),
+      nama: v.string(),
+      hargaLama: v.number(),
+      hargaBaru: v.number(),
+      catatan: v.optional(v.string()),
+      diubahPada: v.number(),
+      diubahOleh: v.id("users"),
+      diubahOlehLabel: v.string(),
+    }).index("by_kode", ["kode"]),
+
+    /**
      * Pengajuan akad syariah dari peminjam.
      *
      * Baris ini adalah PERMINTAAN, bukan akad dan bukan perpindahan dana.
@@ -1932,6 +1986,17 @@ const schema = defineSchema(
       ),
       /** Nomor HP / ID meter tujuan untuk barang digital. */
       nomorTujuan: v.optional(v.string()),
+      /**
+       * Penyerahan barang setelah pengajuan DISETUJUI. Dicatat admin setelah
+       * mitra benar-benar mengirim, beserta referensi yang bisa dilacak
+       * peminjam (nomor resi, ID transaksi, atau nomor token).
+       */
+      statusPenyerahan: v.optional(
+        v.union(v.literal("belum"), v.literal("terkirim")),
+      ),
+      diserahkanPada: v.optional(v.number()),
+      referensiPenyerahan: v.optional(v.string()),
+      diserahkanOlehLabel: v.optional(v.string()),
       /** Perkiraan peminjam; nilai final ditetapkan admin saat keputusan. */
       nilaiTaksiran: v.optional(v.number()),
       // ===== Angka rencana akad (estimasi saat diajukan, final saat diputuskan).

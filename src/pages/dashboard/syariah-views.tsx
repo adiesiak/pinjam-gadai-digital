@@ -20,7 +20,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -41,16 +41,17 @@ import {
   LABEL_JENIS_AKAD,
   LABEL_STATUS_PENGAJUAN_SYARIAH,
   rencanaPengajuanSyariah,
+  susunPermintaanAjukanSyariah,
   TENOR_AKAD_OPTIONS,
   type StatusPengajuanSyariah,
   type TenorAkad,
 } from "@/lib/syariah/pengajuan";
 import {
-  barangKatalog,
   CATATAN_PENGIRIMAN,
+  LABEL_JENIS_BARANG,
   labelNomorTujuan,
   nomorTujuanValid,
-  rapikanNomorTujuan,
+  type BarangKatalog,
 } from "@/lib/syariah/katalog";
 import { cn } from "@/lib/utils";
 
@@ -338,12 +339,45 @@ export function DaftarPengajuanSyariah({
 
           <p className="mt-1.5 text-[11px] leading-5 text-slate-600">{row.tujuan}</p>
 
-          {row.status === "disetujui" && (
-            <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] leading-5 text-emerald-900">
-              <Check className="mt-0.5 size-3 shrink-0" aria-hidden />
-              Angka akad sudah ditetapkan petugas. Pencairan mengikuti pencatatan
-              akad; dana belum masuk sebelum akad dicatat.
+          {row.namaBarang !== null && (
+            <p className="mt-1 text-[11px] leading-5 text-slate-700">
+              <span className="font-semibold">
+                {row.jenis === "rahn" ? "Jaminan:" : "Barang:"}
+              </span>{" "}
+              {row.namaBarang}
+              {row.jenisBarang === null
+                ? ""
+                : ` · ${LABEL_JENIS_BARANG[row.jenisBarang]}`}
+              {row.nomorTujuan === null ? "" : ` · tujuan ${row.nomorTujuan}`}
             </p>
+          )}
+
+          {row.status === "disetujui" && (
+            <div className="mt-1.5 space-y-1.5">
+              <p className="flex items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] leading-5 text-emerald-900">
+                <Check className="mt-0.5 size-3 shrink-0" aria-hidden />
+                Angka akad sudah ditetapkan petugas. Pencairan mengikuti
+                pencatatan akad; dana belum masuk sebelum akad dicatat.
+              </p>
+              {row.namaBarang !== null &&
+                (row.statusPenyerahan === "terkirim" ? (
+                  <p className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] leading-5 text-sky-900">
+                    Barang sudah diserahkan
+                    {row.diserahkanPada === null
+                      ? ""
+                      : ` ${tanggal(row.diserahkanPada)}`}
+                    {row.referensiPenyerahan === null
+                      ? ""
+                      : ` · ${row.referensiPenyerahan}`}. Simpan referensi ini
+                    untuk pencocokan bila ada kendala.
+                  </p>
+                ) : (
+                  <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] leading-5 text-slate-600">
+                    Barang belum ditandai terkirim. Petugas mencatat nomor resi,
+                    ID transaksi, atau nomor token setelah mitra mengirim.
+                  </p>
+                ))}
+            </div>
           )}
           {row.status === "ditolak" && row.alasanTolak !== null && (
             <p className="mt-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] leading-5 text-red-900">
@@ -400,6 +434,7 @@ export function FormPengajuanSyariah({
   const kyc = useQuery(api.kyc.kycSaya);
   const plafon = useQuery(api.nasabah.plafonRingkasSaya);
   const daftar = useQuery(api.syariahPengajuan.daftarSaya);
+  const katalog = useQuery(api.katalog.daftarKatalog);
   const ajukan = useMutation(api.syariahPengajuan.ajukan);
   const batalkan = useMutation(api.syariahPengajuan.batalkan);
 
@@ -425,8 +460,10 @@ export function FormPengajuanSyariah({
 
   const taksiran = Number(taksiranTeks.replace(/[^0-9]/g, ""));
   const menunggu = daftar?.find((row) => row.status === "diajukan") ?? null;
-  const barangDipilih =
-    jenis === "murabahah" && katalogId !== null ? barangKatalog(katalogId) : null;
+  const barangDipilih: BarangKatalog | null =
+    jenis === "murabahah" && katalogId !== null
+      ? katalog?.find((barang) => barang.kode === katalogId) ?? null
+      : null;
   // Barang yang harganya melewati sisa plafon tidak dianggap terpilih, supaya
   // nominal yang dikirim selalu harga barang yang benar-benar bisa dipilih.
   const barangTerpilih =
@@ -435,21 +472,17 @@ export function FormPengajuanSyariah({
       : null;
   const butuhNomorTujuan = barangTerpilih?.jenisBarang === "digital";
 
-  // Nominal di luar plafon digeser, bukan dibiarkan lalu ditolak server.
-  useEffect(() => {
-    if (tersedia === null) return;
-    setPokok((sebelumnya) =>
-      Math.min(Math.max(sebelumnya, MIN_AKAD_SYARIAH), batasPokok),
-    );
-  }, [tersedia, batasPokok]);
-
+  // Nominal di atas sisa plafon dipotong saat dibaca, bukan dibiarkan lalu
+  // ditolak server. Batas bawah tetap diperiksa mesin akad supaya pesannya
+  // menyebut aturan yang sebenarnya.
+  const pokokDipakai = Math.min(pokok, batasPokok);
 
   let rencana: RencanaAkadSyariah | null = null;
   let pesanRencana: string | null = null;
   try {
     rencana = rencanaPengajuanSyariah({
       jenis,
-      pokok,
+      pokok: pokokDipakai,
       tenorHari: tenor,
       ...(jenis === "rahn" ? { nilaiTaksiran: taksiran } : {}),
     });
@@ -458,7 +491,12 @@ export function FormPengajuanSyariah({
       err instanceof Error ? err.message : "Angka akad belum bisa dihitung.";
   }
 
-  if (kyc === undefined || plafon === undefined || daftar === undefined) {
+  if (
+    kyc === undefined ||
+    plafon === undefined ||
+    daftar === undefined ||
+    katalog === undefined
+  ) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-4" role="status">
         <span className="sr-only">Memuat data pengajuan syariah…</span>
@@ -591,7 +629,7 @@ export function FormPengajuanSyariah({
             min={MIN_AKAD_SYARIAH}
             max={batasPokok}
             step={50_000}
-            value={pokok}
+            value={pokokDipakai}
             disabled={mengirim || barangTerpilih !== null}
             onChange={(event) => {
               const angka = Number(event.target.value);
@@ -601,7 +639,7 @@ export function FormPengajuanSyariah({
           />
           <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
             {barangTerpilih === null
-              ? `${formatRupiah(pokok)} · batas ${formatRupiah(batasPokok)}`
+              ? `${formatRupiah(pokokDipakai)} · batas ${formatRupiah(batasPokok)}`
               : `Harga katalog · batas ${formatRupiah(batasPokok)}`}
           </p>
         </div>
@@ -655,11 +693,12 @@ export function FormPengajuanSyariah({
 
           {pakaiKatalog ? (
             <PemilihKatalog
-              nilai={barangTerpilih?.id ?? null}
+              daftar={katalog}
+              nilai={barangTerpilih?.kode ?? null}
               batasHarga={batasPokok}
               nonaktif={mengirim}
               onPilih={(barang) => {
-                setKatalogId(barang.id);
+                setKatalogId(barang.kode);
                 setPokok(barang.harga);
                 setNamaBarang(barang.nama);
                 setNomorTujuan("");
@@ -798,22 +837,18 @@ export function FormPengajuanSyariah({
           if (rencana === null) return;
           setMengirim(true);
           try {
-            const hasil = await ajukan({
-              jenis,
-              pokok: rencana.pokok,
-              tenorHari: tenor,
-              tujuan: tujuan.trim(),
-              ...(namaBarang.trim() === "" ? {} : { namaBarang: namaBarang.trim() }),
-              ...(jenis === "rahn" ? { nilaiTaksiran: taksiran } : {}),
-              ...(barangTerpilih === null
-                ? {}
-                : {
-                    katalogId: barangTerpilih.id,
-                    ...(butuhNomorTujuan
-                      ? { nomorTujuan: rapikanNomorTujuan(nomorTujuan) }
-                      : {}),
-                  }),
-            });
+            const hasil = await ajukan(
+              susunPermintaanAjukanSyariah({
+                jenis,
+                pokok: rencana.pokok,
+                tenorHari: tenor,
+                tujuan,
+                namaBarang,
+                ...(jenis === "rahn" ? { nilaiTaksiran: taksiran } : {}),
+                katalog: barangTerpilih,
+                nomorTujuan,
+              }),
+            );
             toast.success(`Pengajuan ${hasil.nomorReferensi} terkirim.`);
             setTujuan("");
             setNamaBarang("");

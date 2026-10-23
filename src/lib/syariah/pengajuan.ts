@@ -13,6 +13,11 @@ import {
   type JenisAkadSyariah,
   type RencanaAkadSyariah,
 } from "./akad";
+import {
+  nomorTujuanValid,
+  rapikanNomorTujuan,
+  type JenisBarangKatalog,
+} from "./katalog";
 
 /** Tenor yang boleh diajukan — Rahn membutuhkan kelipatan 30 hari. */
 export const TENOR_AKAD_OPTIONS = [30, 60, 90] as const;
@@ -104,6 +109,83 @@ export function rencanaPengajuanSyariah(
     pokok: permintaan.pokok,
     tenorHari: permintaan.tenorHari,
   });
+}
+
+/** Barang katalog yang dipilih peminjam — cukup untuk menyusun pengajuan. */
+export type BarangPengajuanSyariah = {
+  kode: string;
+  nama: string;
+  jenisBarang: JenisBarangKatalog;
+  harga: number;
+};
+
+/** Argumen `syariahPengajuan.ajukan` yang disusun formulir. */
+export type PermintaanAjukanSyariah = PermintaanPengajuanSyariah & {
+  tujuan: string;
+  namaBarang?: string;
+  katalogId?: string;
+  nomorTujuan?: string;
+};
+
+/**
+ * Susun satu pengajuan dari isian formulir.
+ *
+ * Satu tempat untuk aturan "barang katalog mengunci harga dan nama": bila
+ * peminjam memilih barang, nominal akad adalah harga katalog dan nama yang
+ * dikirim adalah nama katalog — bukan yang mungkin masih tertinggal di kolom
+ * manual. Nomor tujuan hanya ikut untuk produk digital, dan hanya angkanya.
+ *
+ * Melempar pesan Indonesia bila nomor tujuan digital tidak memenuhi syarat,
+ * supaya formulir berhenti sebelum memanggil server.
+ */
+export function susunPermintaanAjukanSyariah({
+  jenis,
+  pokok,
+  tenorHari,
+  tujuan,
+  namaBarang,
+  nilaiTaksiran,
+  katalog = null,
+  nomorTujuan = "",
+}: {
+  jenis: JenisAkadSyariah;
+  pokok: number;
+  tenorHari: number;
+  tujuan: string;
+  namaBarang?: string;
+  nilaiTaksiran?: number;
+  katalog?: BarangPengajuanSyariah | null;
+  nomorTujuan?: string;
+}): PermintaanAjukanSyariah {
+  const tujuanRapi = tujuan.trim();
+  const namaRapi = namaBarang?.trim() ?? "";
+
+  if (jenis === "murabahah" && katalog !== null) {
+    const nomor = rapikanNomorTujuan(nomorTujuan);
+    if (katalog.jenisBarang === "digital" && !nomorTujuanValid(nomor)) {
+      throw new Error("Nomor tujuan pulsa/PPOB wajib diisi 6-20 angka.");
+    }
+    return {
+      jenis,
+      pokok: katalog.harga,
+      tenorHari,
+      tujuan: tujuanRapi,
+      namaBarang: katalog.nama,
+      katalogId: katalog.kode,
+      ...(katalog.jenisBarang === "digital" ? { nomorTujuan: nomor } : {}),
+    };
+  }
+
+  return {
+    jenis,
+    pokok,
+    tenorHari,
+    tujuan: tujuanRapi,
+    ...(namaRapi === "" ? {} : { namaBarang: namaRapi }),
+    ...(jenis === "rahn" && nilaiTaksiran !== undefined
+      ? { nilaiTaksiran }
+      : {}),
+  };
 }
 
 /** Kalimat batas atas pengajuan, dipakai formulir dan pesan server. */

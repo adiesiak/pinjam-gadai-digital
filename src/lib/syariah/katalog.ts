@@ -12,12 +12,13 @@
  * harga yang dibayar peminjam. Margin ditambahkan mesin akad (`lib/syariah`),
  * jadi katalog tidak pernah menyimpan harga jual.
  *
- * Katalog ini statis dan ikut rilis kode, seperti preset doorprize: harga yang
- * dipakai server adalah harga yang sama dengan yang dilihat peminjam, dan tidak
- * ada panel admin yang bisa membuat keduanya berbeda. Setiap harga wajib berada
- * di rentang akad (MIN_AKAD_SYARIAH–MAX_AKAD_SYARIAH) — dijaga uji.
+ * Berkas ini adalah DAFTAR AWAL (seed) sekaligus sumber istilah bersama:
+ * kategori, label jenis barang, nomor tujuan, dan aturan pengiriman. Harga yang
+ * dilihat peminjam dibaca dari tabel `katalogBarang` yang dikelola admin;
+ * daftar di bawah dipakai untuk mengisi tabel itu lewat "Muat katalog awal"
+ * dan sebagai cadangan bila satu kode belum sempat dimuat. Setiap harga wajib
+ * berada di rentang akad (MIN_AKAD_SYARIAH–MAX_AKAD_SYARIAH) — dijaga uji.
  */
-import { MAX_AKAD_SYARIAH, MIN_AKAD_SYARIAH } from "./akad";
 import type { Rupiah } from "../money";
 
 /** Barang berwujud yang dikirim mitra, atau produk digital yang dikirim ke nomor tujuan. */
@@ -46,8 +47,8 @@ export const KATEGORI_KATALOG = [
 export type KategoriKatalog = (typeof KATEGORI_KATALOG)[number];
 
 export type BarangKatalog = {
-  /** Id stabil; disimpan pada pengajuan agar barangnya tetap terlacak. */
-  id: string;
+  /** Kode stabil; disimpan pada pengajuan agar barangnya tetap terlacak. */
+  kode: string;
   nama: string;
   kategori: KategoriKatalog;
   jenisBarang: JenisBarangKatalog;
@@ -58,56 +59,56 @@ export type BarangKatalog = {
 export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
   // ===== Elektronik =====
   {
-    id: "el-smartphone-128",
+    kode: "el-smartphone-128",
     nama: "Smartphone 4G 128 GB",
     kategori: "Elektronik",
     jenisBarang: "fisik",
     harga: 2_100_000,
   },
   {
-    id: "el-laptop-14",
+    kode: "el-laptop-14",
     nama: "Laptop kerja 14 inci",
     kategori: "Elektronik",
     jenisBarang: "fisik",
     harga: 6_500_000,
   },
   {
-    id: "el-tv-32",
+    kode: "el-tv-32",
     nama: "TV LED 32 inci",
     kategori: "Elektronik",
     jenisBarang: "fisik",
     harga: 2_400_000,
   },
   {
-    id: "el-kulkas-2-pintu",
+    kode: "el-kulkas-2-pintu",
     nama: "Kulkas 2 pintu 200 L",
     kategori: "Elektronik",
     jenisBarang: "fisik",
     harga: 3_300_000,
   },
   {
-    id: "el-mesin-cuci",
+    kode: "el-mesin-cuci",
     nama: "Mesin cuci 1 tabung 7 kg",
     kategori: "Elektronik",
     jenisBarang: "fisik",
     harga: 2_900_000,
   },
   {
-    id: "el-setrika-uap",
+    kode: "el-setrika-uap",
     nama: "Setrika uap 1.800 W",
     kategori: "Elektronik",
     jenisBarang: "fisik",
     harga: 350_000,
   },
   {
-    id: "el-rice-cooker",
+    kode: "el-rice-cooker",
     nama: "Rice cooker 1,8 L",
     kategori: "Elektronik",
     jenisBarang: "fisik",
     harga: 425_000,
   },
   {
-    id: "el-kipas-dinding",
+    kode: "el-kipas-dinding",
     nama: "Kipas angin dinding",
     kategori: "Elektronik",
     jenisBarang: "fisik",
@@ -116,28 +117,28 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
 
   // ===== Peralatan usaha =====
   {
-    id: "us-mesin-jahit",
+    kode: "us-mesin-jahit",
     nama: "Mesin jahit industri",
     kategori: "Peralatan usaha",
     jenisBarang: "fisik",
     harga: 3_200_000,
   },
   {
-    id: "us-freezer-display",
+    kode: "us-freezer-display",
     nama: "Freezer display 300 L",
     kategori: "Peralatan usaha",
     jenisBarang: "fisik",
     harga: 4_700_000,
   },
   {
-    id: "us-etalase",
+    kode: "us-etalase",
     nama: "Etalase kaca 120 cm",
     kategori: "Peralatan usaha",
     jenisBarang: "fisik",
     harga: 1_800_000,
   },
   {
-    id: "us-blender-heavy",
+    kode: "us-blender-heavy",
     nama: "Blender heavy duty",
     kategori: "Peralatan usaha",
     jenisBarang: "fisik",
@@ -146,21 +147,21 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
 
   // ===== Perabot rumah =====
   {
-    id: "pr-spring-bed",
+    kode: "pr-spring-bed",
     nama: "Spring bed 120 x 200",
     kategori: "Perabot rumah",
     jenisBarang: "fisik",
     harga: 2_700_000,
   },
   {
-    id: "pr-lemari-3-pintu",
+    kode: "pr-lemari-3-pintu",
     nama: "Lemari pakaian 3 pintu",
     kategori: "Perabot rumah",
     jenisBarang: "fisik",
     harga: 2_200_000,
   },
   {
-    id: "pr-meja-belajar",
+    kode: "pr-meja-belajar",
     nama: "Meja belajar dan kursi",
     kategori: "Perabot rumah",
     jenisBarang: "fisik",
@@ -169,14 +170,14 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
 
   // ===== Kendaraan =====
   {
-    id: "kd-sepeda-listrik",
+    kode: "kd-sepeda-listrik",
     nama: "Sepeda listrik 350 W",
     kategori: "Kendaraan",
     jenisBarang: "fisik",
     harga: 5_900_000,
   },
   {
-    id: "kd-motor-bebek",
+    kode: "kd-motor-bebek",
     nama: "Motor bebek 110 cc (unit mitra)",
     kategori: "Kendaraan",
     jenisBarang: "fisik",
@@ -185,21 +186,21 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
 
   // ===== Pulsa & data (non-ewallet) =====
   {
-    id: "pl-pulsa-100",
+    kode: "pl-pulsa-100",
     nama: "Pulsa 100.000",
     kategori: "Pulsa & data",
     jenisBarang: "digital",
     harga: 100_000,
   },
   {
-    id: "pl-pulsa-200",
+    kode: "pl-pulsa-200",
     nama: "Pulsa 200.000",
     kategori: "Pulsa & data",
     jenisBarang: "digital",
     harga: 200_000,
   },
   {
-    id: "pl-paket-data-100",
+    kode: "pl-paket-data-100",
     nama: "Paket data 100 GB / 30 hari",
     kategori: "Pulsa & data",
     jenisBarang: "digital",
@@ -208,14 +209,14 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
 
   // ===== Token & tagihan (non-ewallet) =====
   {
-    id: "tl-token-200",
+    kode: "tl-token-200",
     nama: "Token listrik 200.000",
     kategori: "Token & tagihan",
     jenisBarang: "digital",
     harga: 200_000,
   },
   {
-    id: "tl-token-500",
+    kode: "tl-token-500",
     nama: "Token listrik 500.000",
     kategori: "Token & tagihan",
     jenisBarang: "digital",
@@ -223,40 +224,34 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
   },
 ] as const;
 
-const PETA_KATALOG = new Map(KATALOG_MURABAHAH.map((barang) => [barang.id, barang]));
+const PETA_KATALOG = new Map(
+  KATALOG_MURABAHAH.map((barang) => [barang.kode, barang]),
+);
 
-/** Barang katalog berdasarkan id, atau null bila tidak ada. */
-export function barangKatalog(id: string): BarangKatalog | null {
-  return PETA_KATALOG.get(id) ?? null;
+/** Barang katalog berdasarkan kode, atau null bila tidak ada. */
+export function barangKatalog(kode: string): BarangKatalog | null {
+  return PETA_KATALOG.get(kode) ?? null;
 }
 
 /**
- * Barang katalog yang wajib ada — dipakai server supaya harga dan nama yang
- * dicatat berasal dari katalog ini, bukan dari angka kiriman klien.
+ * Saring daftar katalog untuk formulir: kategori, kata kunci (nama/kategori),
+ * dan batas harga. Urutan daftar dipertahankan. Daftar datang dari server
+ * (tabel `katalogBarang`) sehingga admin bisa menambah barang tanpa rilis.
  */
-export function wajibBarangKatalog(id: string): BarangKatalog {
-  const barang = barangKatalog(id);
-  if (barang === null) {
-    throw new Error("Barang katalog tidak ditemukan. Pilih ulang dari katalog.");
-  }
-  return barang;
-}
-
-/**
- * Saring katalog untuk formulir: kategori, kata kunci (nama/kategori), dan
- * batas harga (mis. sisa plafon). Urutan katalog dipertahankan.
- */
-export function cariBarangKatalog({
-  kategori,
-  kataKunci,
-  batasHarga,
-}: {
-  kategori?: KategoriKatalog;
-  kataKunci?: string;
-  batasHarga?: number;
-} = {}): BarangKatalog[] {
+export function saringBarangKatalog(
+  daftar: readonly BarangKatalog[],
+  {
+    kategori,
+    kataKunci,
+    batasHarga,
+  }: {
+    kategori?: KategoriKatalog;
+    kataKunci?: string;
+    batasHarga?: number;
+  } = {},
+): BarangKatalog[] {
   const needle = kataKunci?.trim().toLowerCase() ?? "";
-  return KATALOG_MURABAHAH.filter((barang) => {
+  return daftar.filter((barang) => {
     if (kategori !== undefined && barang.kategori !== kategori) return false;
     if (batasHarga !== undefined && barang.harga > batasHarga) return false;
     if (needle === "") return true;
@@ -264,6 +259,17 @@ export function cariBarangKatalog({
       .toLowerCase()
       .includes(needle);
   });
+}
+
+/** Saringan atas daftar awal — dipakai uji dan sebagai fallback dokumentasi. */
+export function cariBarangKatalog(
+  opsi: {
+    kategori?: KategoriKatalog;
+    kataKunci?: string;
+    batasHarga?: number;
+  } = {},
+): BarangKatalog[] {
+  return saringBarangKatalog(KATALOG_MURABAHAH, opsi);
 }
 
 /** Nomor tujuan hanya angka; pemisah spasi/strip dibuang. */
@@ -287,9 +293,3 @@ export function labelNomorTujuan(barang: BarangKatalog): string {
     ? "ID meter / nomor pelanggan"
     : "Nomor HP tujuan";
 }
-
-/** Batas akad yang juga berlaku untuk harga katalog — dipakai uji invarian. */
-export const RENTANG_HARGA_KATALOG = {
-  min: MIN_AKAD_SYARIAH,
-  max: MAX_AKAD_SYARIAH,
-} as const;

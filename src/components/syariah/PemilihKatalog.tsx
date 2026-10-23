@@ -12,10 +12,11 @@ import { useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { formatRupiah } from "@/lib/money";
+import { MIN_AKAD_SYARIAH } from "@/lib/syariah/akad";
 import {
-  cariBarangKatalog,
   KATEGORI_KATALOG,
   LABEL_JENIS_BARANG,
+  saringBarangKatalog,
   type BarangKatalog,
   type KategoriKatalog,
 } from "@/lib/syariah/katalog";
@@ -24,12 +25,15 @@ import { cn } from "@/lib/utils";
 type SaringanKategori = KategoriKatalog | "semua";
 
 export function PemilihKatalog({
+  daftar,
   nilai,
   batasHarga,
   nonaktif = false,
   onPilih,
 }: {
-  /** Id barang terpilih, atau null bila belum ada. */
+  /** Katalog aktif dari server (tabel `katalogBarang`). */
+  daftar: readonly BarangKatalog[];
+  /** Kode barang terpilih, atau null bila belum ada. */
   nilai: string | null;
   /** Sisa plafon — barang di atas angka ini tidak bisa dipilih. */
   batasHarga: number;
@@ -41,11 +45,11 @@ export function PemilihKatalog({
 
   const hasil = useMemo(
     () =>
-      cariBarangKatalog({
+      saringBarangKatalog(daftar, {
         ...(kategori === "semua" ? {} : { kategori }),
         kataKunci: cari,
       }),
-    [kategori, cari],
+    [daftar, kategori, cari],
   );
 
   const saringan: readonly { id: SaringanKategori; label: string }[] = [
@@ -94,7 +98,12 @@ export function PemilihKatalog({
         />
       </div>
 
-      {hasil.length === 0 ? (
+      {daftar.length === 0 ? (
+        <p className="mt-2 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-[11px] leading-5 text-muted-foreground">
+          Katalog belum tersedia. Tulis barang Anda sendiri, atau hubungi tim
+          PINDAI.
+        </p>
+      ) : hasil.length === 0 ? (
         <p className="mt-2 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-[11px] leading-5 text-muted-foreground">
           Tidak ada barang yang cocok. Coba kata kunci lain, atau tulis barang
           Anda sendiri di bawah.
@@ -102,10 +111,10 @@ export function PemilihKatalog({
       ) : (
         <ul className="mt-2 grid max-h-72 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
           {hasil.map((barang) => {
-            const dipilih = barang.id === nilai;
+            const dipilih = barang.kode === nilai;
             const terlaluMahal = barang.harga > batasHarga;
             return (
-              <li key={barang.id}>
+              <li key={barang.kode}>
                 <button
                   type="button"
                   aria-pressed={dipilih}
@@ -144,7 +153,9 @@ export function PemilihKatalog({
 
       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
         Harga di atas adalah harga pokok dari mitra. PINDAI membelinya lebih
-        dulu, lalu menjualnya kepada Anda dengan margin yang disepakati.
+        dulu, lalu menjualnya kepada Anda dengan margin yang disepakati. Akad
+        syariah minimal {formatRupiah(MIN_AKAD_SYARIAH)}, jadi nominal pulsa di
+        bawah angka itu belum bisa dibiayai.
       </p>
     </div>
   );

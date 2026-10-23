@@ -8,7 +8,6 @@ import {
   labelNomorTujuan,
   nomorTujuanValid,
   rapikanNomorTujuan,
-  wajibBarangKatalog,
 } from "./katalog";
 
 let passed = 0;
@@ -27,34 +26,25 @@ function ok(syarat: boolean, label: string) {
     console.error(`FAIL ${label}`);
   }
 }
-function throws(fn: () => unknown, label: string) {
-  try {
-    fn();
-    failed += 1;
-    console.error(`FAIL ${label}: seharusnya melempar`);
-  } catch {
-    passed += 1;
-  }
-}
 
 // ===== 1. Invarian isi katalog =====
 {
   const id = new Set<string>();
   const nama = new Set<string>();
   for (const barang of KATALOG_MURABAHAH) {
-    ok(!id.has(barang.id), `id unik: ${barang.id}`);
-    id.add(barang.id);
+    ok(!id.has(barang.kode), `id unik: ${barang.kode}`);
+    id.add(barang.kode);
     ok(!nama.has(barang.nama), `nama unik: ${barang.nama}`);
     nama.add(barang.nama);
     ok(
       Number.isSafeInteger(barang.harga) &&
         barang.harga >= MIN_AKAD_SYARIAH &&
         barang.harga <= MAX_AKAD_SYARIAH,
-      `harga ${barang.id} di rentang akad`,
+      `harga ${barang.kode} di rentang akad`,
     );
     ok(
       (KATEGORI_KATALOG as readonly string[]).includes(barang.kategori),
-      `kategori ${barang.id} terdaftar`,
+      `kategori ${barang.kode} terdaftar`,
     );
   }
   ok(KATALOG_MURABAHAH.length >= 20, "katalog berisi minimal 20 barang");
@@ -74,7 +64,7 @@ function throws(fn: () => unknown, label: string) {
   // E-wallet & uang tunai tidak boleh masuk: nilainya setara uang, bukan barang.
   const terlarang = ["gopay", "ovo", "dana", "shopeepay", "linkaja", "tunai", "cash"];
   for (const barang of KATALOG_MURABAHAH) {
-    const teks = `${barang.id} ${barang.nama}`.toLowerCase();
+    const teks = `${barang.kode} ${barang.nama}`.toLowerCase();
     ok(
       !terlarang.some((kata) => teks.includes(kata)),
       `bukan e-wallet/tunai: ${barang.nama}`,
@@ -86,7 +76,6 @@ function throws(fn: () => unknown, label: string) {
 {
   eq(barangKatalog("pl-pulsa-100")?.harga, 100_000, "harga pulsa 100.000");
   eq(barangKatalog("tidak-ada"), null, "id asing mengembalikan null");
-  throws(() => wajibBarangKatalog("tidak-ada"), "id asing ditolak server");
 
   const murah = cariBarangKatalog({ batasHarga: 500_000 });
   ok(murah.length > 0, "ada barang di bawah Rp500.000");
@@ -102,7 +91,7 @@ function throws(fn: () => unknown, label: string) {
   );
 
   eq(
-    cariBarangKatalog({ kataKunci: "  mesin jahit " })[0]?.id,
+    cariBarangKatalog({ kataKunci: "  mesin jahit " })[0]?.kode,
     "us-mesin-jahit",
     "kata kunci mengabaikan spasi tepi",
   );
@@ -132,13 +121,15 @@ function throws(fn: () => unknown, label: string) {
   );
   ok(!nomorTujuanValid("1".repeat(21)), "21 angka ditolak");
 
+  const token = barangKatalog("tl-token-200");
+  const pulsa = barangKatalog("pl-pulsa-100");
   eq(
-    labelNomorTujuan(wajibBarangKatalog("tl-token-200")),
+    token === null ? "" : labelNomorTujuan(token),
     "ID meter / nomor pelanggan",
     "token listrik meminta ID meter",
   );
   eq(
-    labelNomorTujuan(wajibBarangKatalog("pl-pulsa-100")),
+    pulsa === null ? "" : labelNomorTujuan(pulsa),
     "Nomor HP tujuan",
     "pulsa meminta nomor HP",
   );

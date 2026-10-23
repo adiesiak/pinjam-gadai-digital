@@ -29,12 +29,11 @@ import {
   type PermintaanPengajuanSyariah,
 } from "../lib/syariah/pengajuan";
 import {
-  barangKatalog,
   nomorTujuanValid,
   rapikanNomorTujuan,
-  wajibBarangKatalog,
   type JenisBarangKatalog,
 } from "../lib/syariah/katalog";
+import { barangKatalogTersedia } from "./katalog";
 import type { JenisAkadSyariah, RencanaAkadSyariah } from "../lib/syariah/akad";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -77,6 +76,10 @@ export type BarisPengajuanSyariah = {
   jenisBarang: JenisBarangKatalog | null;
   /** Nomor HP / ID meter tujuan untuk pulsa/PPOB. */
   nomorTujuan: string | null;
+  /** "belum" hanya bermakna setelah disetujui; null sebelum keputusan. */
+  statusPenyerahan: "belum" | "terkirim" | null;
+  diserahkanPada: number | null;
+  referensiPenyerahan: string | null;
   nilaiTaksiran: number | null;
   marginPersen: number | null;
   marginTotal: number;
@@ -106,6 +109,10 @@ function keBaris(row: Doc<"pengajuanSyariah">): BarisPengajuanSyariah {
     katalogId: row.katalogId ?? null,
     jenisBarang: row.jenisBarang ?? null,
     nomorTujuan: row.nomorTujuan ?? null,
+    statusPenyerahan:
+      row.statusPenyerahan ?? (row.status === "disetujui" ? "belum" : null),
+    diserahkanPada: row.diserahkanPada ?? null,
+    referensiPenyerahan: row.referensiPenyerahan ?? null,
     nilaiTaksiran: row.nilaiTaksiran ?? null,
     marginPersen: row.marginPersen ?? null,
     marginTotal: row.marginTotal,
@@ -259,7 +266,9 @@ export const ajukan = mutation({
     // kiriman klien. Bila katalog berubah antara halaman dimuat dan pengajuan
     // dikirim, yang dicatat adalah harga katalog yang berlaku saat ini.
     const barang =
-      args.katalogId === undefined ? null : wajibBarangKatalog(args.katalogId);
+      args.katalogId === undefined
+        ? null
+        : await barangKatalogTersedia(ctx, args.katalogId);
     if (barang !== null && args.jenis !== "murabahah") {
       throw new Error("Katalog barang hanya berlaku untuk akad Murabahah.");
     }
@@ -319,7 +328,7 @@ export const ajukan = mutation({
       ...(namaBarang === "" ? {} : { namaBarang }),
       ...(barang === null
         ? {}
-        : { katalogId: barang.id, jenisBarang: barang.jenisBarang }),
+        : { katalogId: barang.kode, jenisBarang: barang.jenisBarang }),
       ...(nomorTujuan === "" ? {} : { nomorTujuan }),
       ...(rencana.nilaiTaksiran === null
         ? {}
@@ -374,6 +383,59 @@ export const batalkan = mutation({
       "pengajuan_syariah_dibatalkan",
       row.nomorReferensi,
       "Peminjam menarik pengajuan sebelum keputusan admin.",
+    );
+    return { nomorReferensi: row.nomorReferensi };
+  },
+});
+
+/**
+ * Catat penyerahan barang atas pengajuan yang sudah disetujui.
+ *
+ * Tidak ada dana yang berpindah: ini hanya jejak bahwa mitra sudah mengirim
+ * barang/jasa, dengan referensi yang bisa dicocokkan peminjam. Sekali dicatat,
+ * tanda tidak bisa ditimpa — koreksi dilakukan lewat catatan baru di audit,
+ * supaya riwayat penyerahan tidak bisa dihapus diam-diam.
+ */
+export const tandaiPenyerahan = mutation({
+  args: {
+    id: v.id("pengajuanSyariah"),
+    referensi: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ nomorReferensi: string }> => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+    const row = await ctx.db.get(args.id);
+    if (row === null) throw new Error("Pengajuan syariah tidak ditemukan.");
+    if (row.status !== "disetujui") {
+      throw new Error(
+        "Penyerahan hanya dicatat untuk pengajuan yang sudah disetujui.",
+      );
+    }
+    if (row.statusPenyerahan === "terkirim") {
+      throw new Error("Barang pada pengajuan ini sudah ditandai terkirim.");
+    }
+    if (row.namaBarang === undefined || row.namaBarang.trim() === "") {
+      throw new Error("Pengajuan ini tidak menyebut barang yang diserahkan.");
+    }
+    const referensi = args.referensi.trim();
+    if (referensi.length < 3 || referensi.length > 120) {
+      throw new Error(
+        "Referensi penyerahan harus 3-120 karakter (nomor resi, ID transaksi, atau nomor token).",
+      );
+    }
+
+    await ctx.db.patch(args.id, {
+      statusPenyerahan: "terkirim",
+      diserahkanPada: Date.now(),
+      referensiPenyerahan: referensi,
+      diserahkanOlehLabel: admin.email ?? admin.name ?? "admin",
+    });
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "pengajuan_syariah_diserahkan",
+      row.nomorReferensi,
+      `${row.namaBarang} · referensi ${referensi}`,
     );
     return { nomorReferensi: row.nomorReferensi };
   },
@@ -473,14 +535,13 @@ export const putuskan = mutation({
     if (!apakahTenorAkad(tenorHari)) {
       throw new Error(`Tenor akad harus ${TENOR_AKAD_OPTIONS.join(" / ")} hari.`);
     }
-    // Murabahah atas barang katalog memakai harga katalog, bukan angka yang
-    // diketik ulang admin: harga barang yang dibeli PINDAI tidak bisa berubah
-    // hanya karena keputusan disimpan.
-    const barangKatalogRow =
-      row.katalogId === undefined ? null : barangKatalog(row.katalogId);
+    // Murabahah atas barang katalog memakai harga SNAPSHOT saat pengajuan
+    // dikirim: harga katalog bisa berubah sesudahnya, tetapi harga pokok barang
+    // yang sudah disepakati tidak boleh ikut bergerak.
     const rencana = rencanaPengajuanSyariah({
       jenis: row.jenis,
-      pokok: barangKatalogRow?.harga ?? args.pokok ?? row.pokok,
+      pokok:
+        row.katalogId !== undefined ? row.pokok : args.pokok ?? row.pokok,
       tenorHari,
       ...(row.jenis === "murabahah"
         ? { marginPersen: args.marginPersen ?? row.marginPersen ?? undefined }

@@ -9,6 +9,8 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { KATALOG_MURABAHAH } from "@/lib/syariah/katalog";
+
 import { PemilihKatalog } from "./PemilihKatalog";
 
 let passed = 0;
@@ -30,7 +32,12 @@ function bersih(html: string, label: string): void {
 }
 
 const hemat = renderToStaticMarkup(
-  <PemilihKatalog nilai="tl-token-200" batasHarga={300_000} onPilih={() => {}} />,
+  <PemilihKatalog
+    daftar={KATALOG_MURABAHAH}
+    nilai="tl-token-200"
+    batasHarga={300_000}
+    onPilih={() => {}}
+  />,
 );
 
 ada(hemat, "Semua", "chip kategori semua tampil");
@@ -46,7 +53,12 @@ ada(hemat, "harga pokok dari mitra", "harga pokok dijelaskan");
 bersih(hemat, "katalog dengan batas plafon");
 
 const lega = renderToStaticMarkup(
-  <PemilihKatalog nilai={null} batasHarga={10_000_000} onPilih={() => {}} />,
+  <PemilihKatalog
+    daftar={KATALOG_MURABAHAH}
+    nilai={null}
+    batasHarga={10_000_000}
+    onPilih={() => {}}
+  />,
 );
 ok(
   !lega.includes("Melebihi sisa plafon"),
@@ -54,6 +66,12 @@ ok(
 );
 ada(lega, "Cari barang, mis. mesin jahit atau token", "kolom cari tampil");
 bersih(lega, "katalog tanpa batas plafon");
+
+const kosong = renderToStaticMarkup(
+  <PemilihKatalog daftar={[]} nilai={null} batasHarga={500_000} onPilih={() => {}} />,
+);
+ada(kosong, "Katalog belum tersedia", "katalog kosong dijelaskan");
+bersih(kosong, "katalog kosong");
 
 console.log(`PemilihKatalog.render: ${passed}/${passed + failed} lulus`);
 if (failed > 0) process.exit(1);
