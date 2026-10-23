@@ -118,7 +118,28 @@ export async function simpanTitik(
      */
     mock?: boolean;
   },
-): Promise<{ waktu: number; jarakLompatKm: number | null; tanda: TandaLokasiPalsu[] }> {
+): Promise<{
+  waktu: number;
+  jarakLompatKm: number | null;
+  tanda: TandaLokasiPalsu[];
+  /** Titik dari peramban/perangkat admin saat pratinjau — sengaja tidak disimpan. */
+  dilewati?: "pratinjau";
+}> {
+  // SATU-SATUNYA gerbang pratinjau untuk lokasi. Semua jalur yang membawa sesi
+  // pengguna (heartbeat dashboard, tracking.pushTitik, dan pemanggil baru mana
+  // pun) melewati fungsi ini, jadi pagar di sini menutup seluruh jalur sekaligus.
+  // Kalau titik admin ikut tersimpan, lokasi nasabah asli tertimpa koordinat
+  // admin: peta pemantauan menunjuk orang yang salah, dan gerbang lokasi
+  // memakai titik yang bukan miliknya. Balasannya tetap berbentuk normal supaya
+  // layar pratinjau tidak berkedip galat.
+  //
+  // Jalur tanpa sesi (heartbeat native lewat token perangkat, tautan status
+  // publik) tidak terpengaruh: `sesiPratinjauAktif` mengembalikan false tanpa
+  // identitas, sehingga perangkat nasabah sendiri tetap terkirim.
+  if (await sesiPratinjauAktif(ctx)) {
+    return { waktu: Date.now(), jarakLompatKm: null, tanda: [], dilewati: "pratinjau" };
+  }
+
   if (!koordinatIndonesia(input.lat, input.lng)) {
     throw new Error(
       "Titik lokasi berada di luar wilayah Indonesia atau tidak valid. Periksa GPS perangkat Anda.",
@@ -425,14 +446,8 @@ export const catatLokasi = mutation({
   },
   handler: async (ctx, args) => {
     const { userId } = await penggunaMasuk(ctx);
-    // Pratinjau admin memakai perangkat admin, bukan perangkat nasabah. Titik
-    // GPS-nya TIDAK dicatat: kalau ikut tersimpan, lokasi nasabah asli
-    // tertimpa koordinat admin dan peta pemantauan menampilkan orang yang
-    // salah. Balasan tetap berbentuk normal supaya layar pratinjau tidak
-    // berkedip galat; yang dihapus hanya penulisannya.
-    if (await sesiPratinjauAktif(ctx)) {
-      return { waktu: Date.now(), jarakLompatKm: null, tanda: [] };
-    }
+    // Pagar pratinjau ada di `simpanTitik` supaya berlaku untuk semua jalur
+    // tulis, bukan hanya heartbeat dashboard ini.
     return await simpanTitik(ctx, userId, {
       lat: args.lat,
       lng: args.lng,
@@ -641,6 +656,14 @@ export const statusSaya = query({
     const perangkat = await perangkatAktifUntuk(ctx, userId);
     const now = Date.now();
     return {
+      /**
+       * Sesi ini adalah pratinjau admin. Klien WAJIB berhenti memantau: titik
+       * dari perangkat admin tidak boleh dibaca, dikirim, atau disimpan atas
+       * nama nasabah. Server sudah menolak penulisannya, tetapi mematikan
+       * pemantauan di klien juga menghentikan layanan lokasi native yang
+       * mengirim lewat token perangkat (di luar jalur sesi).
+       */
+      pratinjau: await sesiPratinjauAktif(ctx),
       /** Gerbang menyala — diatur tim PINDAI (Pengaturan Sistem). */
       wajib: cfg.lokasiWajib,
       /** Transaksi hanya dari aplikasi native (setelah app dirilis). */

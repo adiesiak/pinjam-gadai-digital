@@ -321,6 +321,7 @@ export function LocationGate({
     aktif &&
     didukung &&
     status !== undefined &&
+    !status.pratinjau &&
     (status.wajib !== false || status.wajibAplikasiNative);
 
   /**
@@ -381,7 +382,10 @@ export function LocationGate({
   // aplikasi akan terjebak selamanya di layar "mendaftarkan perangkat" —
   // layar itu muncul dari keadaan server, sedangkan pendaftarannya di-skip.
   useEffect(() => {
-    if (!aktif || !perangkat.native) return;
+    // Pratinjau admin: perangkat admin bukan perangkat nasabah. Jangan daftarkan,
+    // dan jangan mulai layanan lokasi native — layanan itu mengirim lewat token
+    // perangkat di luar jalur sesi, sehingga pagar server tidak menjangkaunya.
+    if (!aktif || !perangkat.native || status === undefined || status.pratinjau) return;
     const deviceId = perangkat.deviceId;
     if (deviceId === null) return;
     let dibatalkan = false;
@@ -418,7 +422,7 @@ export function LocationGate({
     return () => {
       dibatalkan = true;
     };
-  }, [aktif, perangkat, percobaanDaftar]);
+  }, [aktif, perangkat, percobaanDaftar, status?.pratinjau]);
 
   // Salinan status server untuk pemeriksaan layanan berkala di bawah.
   useEffect(() => {
@@ -510,6 +514,13 @@ export function LocationGate({
       </LayarPenuh>
     );
   }
+
+  // Pratinjau admin melewati gerbang TANPA memantau lokasi. Titik dari
+  // perangkat admin bukan milik akun yang sedang dibuka: kalau dibaca dan
+  // dikirim, lokasi nasabah asli tertimpa (server menolaknya, tetapi membaca
+  // GPS admin tetap tidak perlu). Bilah pratinjau di atas layar sudah
+  // menjelaskan bahwa sesi ini bukan sesi nasabah.
+  if (status.pratinjau) return <>{children}</>;
 
   // Kebijakan "wajib aplikasi" diperiksa LEBIH DULU daripada gerbang lokasi:
   // server menolak transaksi berdasarkan kebijakan ini walau gerbang lokasi

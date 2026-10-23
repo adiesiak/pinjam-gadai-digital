@@ -655,6 +655,20 @@ describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
       platform: "web",
     });
     expect(titik.jarakLompatKm).toBeNull();
+    expect(titik.dilewati).toBe("pratinjau");
+
+    // Jalur pelacakan kedua (tracking.pushTitik) memakai gerbang yang sama.
+    // Sebelumnya jalur ini menulis langsung ke lokasi nasabah, sehingga titik
+    // admin bisa menimpa lokasi asli walau heartbeat dashboard sudah dijaga.
+    const push = await sesiAdmin.mutation(api.tracking.pushTitik, {
+      lat: -7.3,
+      lng: 108.5,
+      akurasi: 15,
+    });
+    expect(push.ok).toBe(true);
+
+    // Klien memakai penanda ini untuk berhenti memantau GPS sama sekali.
+    expect((await sesiAdmin.query(api.lokasi.statusSaya, {})).pratinjau).toBe(true);
 
     const perangkat = await sesiAdmin.mutation(api.lokasi.daftarkanPerangkat, {
       deviceId: "perangkat-admin-1",
@@ -684,6 +698,75 @@ describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
     expect(statusLokasi[0]).toMatchObject({ lat: -6.2, lng: 106.8 });
   });
 
+  it("mengembalikan lokasi nasabah yang sempat tertimpa selama pratinjau", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const peminjam = await siapkanPengguna(t, "Rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+
+    // Titik asli nasabah, lima menit sebelum pratinjau.
+    const waktuAsli = Date.now() - 5 * 60 * 1000;
+    await t.run((ctx) =>
+      ctx.db.insert("lokasiStatus", {
+        userId: peminjam.userId,
+        lat: -6.2,
+        lng: 106.8,
+        akurasi: 10,
+        waktu: waktuAsli,
+        sumber: "web",
+        platform: "web",
+      }),
+    );
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: peminjam.userId,
+      nonce: NONCE,
+    });
+    const sesiAdmin = await sesiPratinjau(t, tiket.tiketId, peminjam.userId);
+
+    // Simulasikan jalur tulis yang lolos pagar (mis. aplikasi versi lama):
+    // lokasi nasabah berubah menjadi koordinat perangkat admin.
+    await t.run(async (ctx) => {
+      const status = await ctx.db.query("lokasiStatus").first();
+      if (status === null) throw new Error("status lokasi tidak ditemukan");
+      await ctx.db.patch(status._id, {
+        lat: -7.5,
+        lng: 110.4,
+        akurasi: 9,
+        waktu: Date.now(),
+        sumber: "web",
+      });
+    });
+
+    // Menutup pratinjau mengembalikan titik sebelum pratinjau, bukan titik admin.
+    expect(
+      await sesiAdmin.mutation(api.pratinjau.akhiriPratinjau, { nonce: NONCE }),
+    ).toEqual({ ok: true, sudahSelesai: false });
+
+    const status = await t.run((ctx) => ctx.db.query("lokasiStatus").first());
+    expect(status).toMatchObject({ lat: -6.2, lng: 106.8, waktu: waktuAsli });
+
+    // JWT pratinjau masih sah setelah catatannya ditutup. Selama peramban ini
+    // belum memulihkan sesi admin, titik lokasi tetap tidak boleh ditulis.
+    const setelahTutup = await sesiAdmin.mutation(api.lokasi.catatLokasi, {
+      lat: -7.6,
+      lng: 110.9,
+      akurasi: 11,
+      sumber: "web",
+    });
+    expect(setelahTutup.dilewati).toBe("pratinjau");
+    expect((await sesiAdmin.query(api.lokasi.statusSaya, {})).pratinjau).toBe(true);
+    expect(await t.run((ctx) => ctx.db.query("lokasiStatus").first())).toMatchObject({
+      lat: -6.2,
+      lng: 106.8,
+    });
+  });
+
   it("nasabah tanpa pratinjau tetap tercatat seperti biasa", async () => {
     const t = convexTest(schema, modules);
     const peminjam = await siapkanPengguna(t, "Rani", {
@@ -705,6 +788,7 @@ describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
       sumber: "web",
     });
     expect(typeof titik.waktu).toBe("number");
+    expect((await peminjam.sesi.query(api.lokasi.statusSaya, {})).pratinjau).toBe(false);
 
     await peminjam.sesi.mutation(api.security.recordLogin, {
       ip: "36.1.1.1",

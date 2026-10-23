@@ -204,6 +204,15 @@ export const _pakaiTiket = internalMutation({
       throw new Error("Akun yang ingin dipratinjau tidak ditemukan.");
     }
 
+    // Simpan lokasi asli SEBELUM sesi pratinjau diberikan. Ini jaring pengaman
+    // terakhir: bila ada jalur tulis lokasi yang lolos dari pagar server (mis.
+    // aplikasi versi lama atau token perangkat sisa pratinjau sebelumnya),
+    // lokasi nasabah tetap bisa dikembalikan saat pratinjau ditutup.
+    const lokasiSaatIni = await ctx.db
+      .query("lokasiStatus")
+      .withIndex("by_user", (q) => q.eq("userId", tiket.targetId))
+      .first();
+
     const berlakuHingga = sekarang + MASA_PRATINJAU_MS;
     // Sesi nyata untuk akun target, sekaligus masa berlakunya. Umurnya sama
     // dengan batas pratinjau, jadi token yang tertinggal di peramban berhenti
@@ -216,6 +225,28 @@ export const _pakaiTiket = internalMutation({
       dipakaiPada: sekarang,
       berlakuHingga,
       sesiPratinjauId: sessionId,
+      lokasiSebelum:
+        lokasiSaatIni === null
+          ? null
+          : {
+              lat: lokasiSaatIni.lat,
+              lng: lokasiSaatIni.lng,
+              akurasi: lokasiSaatIni.akurasi,
+              waktu: lokasiSaatIni.waktu,
+              sumber: lokasiSaatIni.sumber,
+              ...(lokasiSaatIni.platform === undefined
+                ? {}
+                : { platform: lokasiSaatIni.platform }),
+              ...(lokasiSaatIni.versiApp === undefined
+                ? {}
+                : { versiApp: lokasiSaatIni.versiApp }),
+              ...(lokasiSaatIni.tanda === undefined
+                ? {}
+                : { tanda: lokasiSaatIni.tanda }),
+              ...(lokasiSaatIni.identikBerturut === undefined
+                ? {}
+                : { identikBerturut: lokasiSaatIni.identikBerturut }),
+            },
     });
 
     await audit(
@@ -305,6 +336,61 @@ export const pratinjauBerjalan = query({
    mutation untuk melaporkannya dari klien. */
 
 /**
+ * Kembalikan lokasi nasabah ke titik SEBELUM pratinjau bila titik terkini
+ * ditulis setelah pratinjau dimulai.
+ *
+ * Pagar di `lokasi.simpanTitik` sudah menolak titik dari sesi pratinjau, jadi
+ * normalnya fungsi ini tidak menemukan apa pun untuk diperbaiki. Ia tetap
+ * dijalankan karena lokasi yang tertimpa koordinat admin bersifat permanen dan
+ * fatal: peta pemantauan menunjuk orang yang salah, dan gerbang lokasi memakai
+ * titik yang bukan milik nasabah. Titik asli yang lebih lama tetap tersimpan di
+ * `lokasiJejak`; yang dipulihkan di sini adalah status terkini (dasar gerbang
+ * dan peta), bukan seluruh riwayat.
+ *
+ * Bila nasabah memang sempat mengirim titik sendiri selama pratinjau, titik itu
+ * ikut diganti dengan titik sebelum pratinjau. Kegagalannya aman (titik jadi
+ * lebih lama sehingga gerbang meminta titik baru), sedangkan membiarkan titik
+ * admin adalah kesalahan yang tidak bisa dikenali lagi setelahnya.
+ */
+async function pulihkanLokasiNasabah(
+  ctx: MutationCtx,
+  baris: Doc<"pratinjauSesi">,
+): Promise<void> {
+  if (baris.lokasiSebelum === undefined || baris.dipakaiPada === undefined) return;
+
+  const status = await ctx.db
+    .query("lokasiStatus")
+    .withIndex("by_user", (q) => q.eq("userId", baris.targetId))
+    .first();
+  // `<` bukan `<=`: titik yang ditulis pada milidetik yang sama dengan mulai
+  // pratinjau bisa berasal dari perangkat admin, sedangkan memulihkan snapshot
+  // pada titik yang memang sudah asli tidak mengubah apa pun.
+  if (status === null || status.waktu < baris.dipakaiPada) return;
+
+  if (baris.lokasiSebelum === null) {
+    await ctx.db.delete(status._id);
+  } else {
+    const { lat, lng, akurasi, waktu, sumber, platform, versiApp, tanda, identikBerturut } =
+      baris.lokasiSebelum;
+    await ctx.db.patch(status._id, {
+      lat,
+      lng,
+      akurasi,
+      waktu,
+      sumber,
+      // `undefined` menghapus kolom: status lama tidak boleh membawa tanda
+      // atau metadata perangkat dari titik admin yang sempat tersimpan.
+      platform,
+      versiApp,
+      tanda,
+      identikBerturut,
+    });
+  }
+
+  await ctx.db.patch(baris._id, { lokasiDipulihkanPada: Date.now() });
+}
+
+/**
  * Tutup pratinjau dari peramban yang sedang memakainya (tombol "Kembali ke Mode
  * Admin"). Hanya akun target baris itu yang boleh menutupnya; pemanggil lain
  * tidak mendapat apa-apa dan tidak bisa menutup pratinjau orang lain.
@@ -329,6 +415,7 @@ export const akhiriPratinjau = mutation({
     if (baris.selesai !== undefined) return { ok: true, sudahSelesai: true };
 
     const sekarang = Date.now();
+    await pulihkanLokasiNasabah(ctx, baris);
     await ctx.db.patch(baris._id, { selesai: sekarang, ditutupOleh: "klien" });
     await audit(
       ctx,
@@ -516,6 +603,7 @@ async function cabutPratinjau(
     }
   }
 
+  await pulihkanLokasiNasabah(ctx, baris);
   await ctx.db.patch(baris._id, { selesai: sekarang, ditutupOleh: "admin" });
   return dicabut;
 }

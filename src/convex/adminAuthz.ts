@@ -51,6 +51,13 @@ export async function getCurrentAuthSessionId(
  * mematikannya. Barisnya dicocokkan lewat `sesiPratinjauId`, sesi yang MEMANG
  * dibuat untuk pratinjau itu, bukan sekadar "sesi yang dibuat setelah pratinjau
  * dimulai".
+ *
+ * Sesi pratinjau tetap dianggap pratinjau WALAU catatannya sudah ditutup atau
+ * batas waktunya lewat. JWT yang sudah terbit tetap sah sampai kedaluwarsa
+ * sendiri, jadi menunggu status "aktif" membuka celah: admin yang pratinjaunya
+ * diakhiri dari panel masih bisa mengirim GPS sebagai nasabah selama tokennya
+ * berlaku. Karena itu yang dicocokkan hanya identitas sesi. Sesi asli nasabah
+ * (dibuat sebelum pratinjau) tidak pernah cocok.
  */
 export async function sesiPratinjauAktif(ctx: QueryCtx): Promise<boolean> {
   const sessionId = await getAuthSessionId(ctx);
@@ -62,13 +69,7 @@ export async function sesiPratinjauAktif(ctx: QueryCtx): Promise<boolean> {
     .query("pratinjauSesi")
     .withIndex("by_target", (q) => q.eq("targetId", userId))
     .collect();
-  const sekarang = Date.now();
-  return baris.some(
-    (r) =>
-      r.sesiPratinjauId === sessionId &&
-      r.selesai === undefined &&
-      (r.berlakuHingga ?? 0) > sekarang,
-  );
+  return baris.some((r) => r.sesiPratinjauId === sessionId);
 }
 
 /** Checks the signed-in user's admin role without granting access to admin data. */

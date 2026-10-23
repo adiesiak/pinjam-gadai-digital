@@ -3260,6 +3260,34 @@ const schema = defineSchema(
       sesiPratinjauId: v.optional(v.id("authSessions")),
       /** Batas waktu sesi pratinjau. */
       berlakuHingga: v.optional(v.number()),
+      /**
+       * Titik lokasi nasabah TEPAT SEBELUM pratinjau dimulai. `null` berarti
+       * nasabah belum pernah punya titik sama sekali.
+       *
+       * Dipakai sebagai jaring pengaman: bila ada jalur tulis lokasi yang lolos
+       * (mis. aplikasi versi lama atau token perangkat yang tersisa dari
+       * pratinjau sebelumnya), lokasi asli nasabah tetap bisa dikembalikan saat
+       * pratinjau ditutup. Tanpa ini, koordinat admin menjadi "lokasi nasabah"
+       * secara permanen dan peta pemantauan menunjuk orang yang salah.
+       */
+      lokasiSebelum: v.optional(
+        v.union(
+          v.null(),
+          v.object({
+            lat: v.number(),
+            lng: v.number(),
+            akurasi: v.number(),
+            waktu: v.number(),
+            sumber: v.string(),
+            platform: v.optional(v.string()),
+            versiApp: v.optional(v.string()),
+            tanda: v.optional(v.array(v.string())),
+            identikBerturut: v.optional(v.number()),
+          }),
+        ),
+      ),
+      /** Waktu lokasi nasabah dipulihkan dari `lokasiSebelum`. */
+      lokasiDipulihkanPada: v.optional(v.number()),
       /** Waktu pratinjau ditutup. */
       selesai: v.optional(v.number()),
       /** "klien" (ditutup dari bilah pratinjau) | "admin" (dipaksa dari panel). */
