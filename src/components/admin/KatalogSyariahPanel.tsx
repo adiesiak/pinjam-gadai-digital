@@ -11,7 +11,7 @@
  * pengajuan lama.
  */
 import { useMutation, useQuery } from "convex/react";
-import { Banknote, Package, Search } from "lucide-react";
+import { Banknote, Package, Search, ShieldAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -40,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { BarisKatalogAdmin } from "@/convex/katalog";
 import { formatRupiah } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { MIN_AKAD_SYARIAH } from "@/lib/syariah/akad";
 import {
   KATEGORI_KATALOG,
@@ -75,14 +76,28 @@ export function KatalogSyariahPanel() {
     kodeRiwayat === null ? "skip" : { kode: kodeRiwayat },
   );
 
+  const semua = useMemo(() => data?.baris ?? [], [data]);
   const baris = useMemo(() => {
-    const semua = data?.baris ?? [];
     const needle = cari.trim().toLowerCase();
     if (needle === "") return semua;
     return semua.filter((item) =>
       `${item.nama} ${item.kategori} ${item.kode}`.toLowerCase().includes(needle),
     );
-  }, [data, cari]);
+  }, [semua, cari]);
+
+  /** Barang dikelompokkan per kategori dan diurutkan dari termurah, supaya
+   *  daftar 50+ baris terbaca sebagai daftar harga, bukan tumpukan acak. */
+  const grup = useMemo(
+    () =>
+      KATEGORI_KATALOG.map((kategori) => ({
+        kategori,
+        items: baris
+          .filter((item) => item.kategori === kategori)
+          .sort((a, b) => a.harga - b.harga),
+      })).filter((satu) => satu.items.length > 0),
+    [baris],
+  );
+  const jumlahAktif = semua.filter((item) => item.aktif).length;
 
   const hargaAngka = Number((isian?.harga ?? "").replace(/[^0-9]/g, ""));
   const bisaSimpan =
@@ -180,9 +195,9 @@ export function KatalogSyariahPanel() {
             Katalog Murabahah
           </h3>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-            Harga di sini adalah harga pokok dari mitra — margin ditambahkan
-            mesin akad. Pengajuan yang sudah dikirim menyimpan harganya sendiri,
-            jadi perubahan harga hanya berlaku untuk pengajuan berikutnya.
+            Harga pokok dari mitra; margin ditambahkan mesin akad. Pengajuan
+            yang sudah dikirim menyimpan harganya sendiri, jadi perubahan harga
+            hanya berlaku untuk pengajuan berikutnya.
           </p>
         </div>
         <Button
@@ -196,22 +211,27 @@ export function KatalogSyariahPanel() {
         </Button>
       </div>
 
-      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
-        Produk pulsa/PPOB bisa dimatikan di sini kapan saja — nonaktif langsung
-        menyembunyikannya dari formulir tanpa menghapus riwayat. Pastikan
-        kategori digital sudah lolos tinjauan dewan pengawas syariah sebelum
-        diaktifkan.
+      <p className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-950">
+        <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>
+          Pulsa/PPOB bisa dinonaktifkan kapan saja — langsung hilang dari
+          formulir, riwayat tetap tersimpan. Aktifkan hanya setelah lolos
+          tinjauan dewan pengawas syariah.
+        </span>
       </p>
 
       {data.belumDimuat > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3">
-          <p className="text-xs leading-5 text-slate-700">
-            {data.belumDimuat} barang masih memakai daftar awal dan belum
-            tercatat di tabel. Muat katalog awal agar semuanya bisa disunting
-            dan riwayat harganya tercatat.
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <p className="text-[11px] leading-5 text-slate-700">
+            <span className="font-semibold tabular-nums">
+              {data.belumDimuat} barang
+            </span>{" "}
+            masih memakai daftar awal dan belum tercatat di tabel. Muat katalog
+            awal agar semuanya bisa disunting dan riwayat harganya tercatat.
           </p>
           <Button
             type="button"
+            variant="outline"
             size="sm"
             className="min-h-11"
             disabled={memuatAwal}
@@ -223,64 +243,106 @@ export function KatalogSyariahPanel() {
         </div>
       )}
 
-      <div className="relative">
-        <Search
-          className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <Input
-          aria-label="Cari barang katalog"
-          value={cari}
-          onChange={(event) => setCari(event.target.value)}
-          placeholder="Cari nama, kategori, atau kode barang…"
-          className="pl-9"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-56 flex-1">
+          <Search
+            className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            aria-label="Cari barang katalog"
+            value={cari}
+            onChange={(event) => setCari(event.target.value)}
+            placeholder="Cari nama, kategori, atau kode barang…"
+            className="pl-9"
+          />
+        </div>
+        <p className="text-[11px] tabular-nums text-slate-500">
+          {cari.trim() === ""
+            ? `${semua.length} barang · ${jumlahAktif} aktif`
+            : `${baris.length} dari ${semua.length} cocok`}
+        </p>
       </div>
 
-      {baris.length === 0 ? (
+      {grup.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
-          Tidak ada barang yang cocok dengan pencarian.
+          {cari.trim() === ""
+            ? "Katalog masih kosong. Tambah barang atau muat katalog awal."
+            : "Tidak ada barang yang cocok dengan pencarian."}
         </p>
       ) : (
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-          {baris.map((item) => (
-            <li
-              key={item.kode}
-              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {item.nama}
-                  </p>
-                  {!item.aktif && (
-                    <span className="rounded-md border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                      Nonaktif
-                    </span>
-                  )}
-                  {!item.dimuat && (
-                    <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
-                      Daftar awal
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-[11px] leading-5 text-slate-600">
-                  {item.kategori} · {LABEL_JENIS_BARANG[item.jenisBarang]} ·{" "}
-                  <span className="tabular-nums">{formatRupiah(item.harga)}</span>
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-11 shrink-0"
-                onClick={() => buka(item)}
+        <div className="space-y-3">
+          {grup.map(({ kategori, items }) => {
+            const idJudul = `katalog-grup-${kategori
+              .replace(/[^a-z]+/gi, "-")
+              .toLowerCase()}`;
+            return (
+              <section
+                key={kategori}
+                aria-labelledby={idJudul}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
               >
-                Ubah
-              </Button>
-            </li>
-          ))}
-        </ul>
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2">
+                  <h4
+                    id={idJudul}
+                    className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600"
+                  >
+                    {kategori}
+                  </h4>
+                  <span className="text-[11px] tabular-nums text-slate-500">
+                    {items.length} barang
+                  </span>
+                </div>
+                <ul className="divide-y divide-slate-100">
+                  {items.map((item) => (
+                    <li
+                      key={item.kode}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-2.5",
+                        !item.aktif && "bg-slate-50/70",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {item.nama}
+                          </p>
+                          {!item.aktif && (
+                            <span className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                              Nonaktif
+                            </span>
+                          )}
+                          {!item.dimuat && (
+                            <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                              Daftar awal
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+                          {LABEL_JENIS_BARANG[item.jenisBarang]} · {item.kode}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+                        <p className="text-sm font-semibold tabular-nums text-slate-900">
+                          {formatRupiah(item.harga)}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-11 shrink-0 px-2.5 text-primary hover:bg-primary/5"
+                          onClick={() => buka(item)}
+                        >
+                          Ubah
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       )}
 
       <Dialog open={isian !== null} onOpenChange={(open) => !open && setIsian(null)}>
