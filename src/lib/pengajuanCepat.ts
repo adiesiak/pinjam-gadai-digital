@@ -129,7 +129,7 @@ export type IsianPengajuanCepat = {
   persetujuanSyarat: boolean;
   /** Titik GPS perangkat sudah tercatat pada formulir ini. */
   lokasiTercatat: boolean;
-  /** Kanvas tanda tangan sudah berisi goresan. */
+  /** Tanda tangan sudah tersimpan di KYC (formulir ini tidak punya kanvas). */
   ttdTersedia: boolean;
 };
 
@@ -232,7 +232,7 @@ export function validasiPengajuanCepat(
     return "Lokasi Anda belum tercatat. Izinkan akses lokasi, lalu ambil lokasi sekali lagi.";
   }
   if (!isian.ttdTersedia) {
-    return "Tanda tangan wajib: bubuhkan tanda tangan Anda sebelum mengirim pengajuan.";
+    return "Tanda tangan wajib: bubuhkan sekali di halaman KYC sebelum mengirim pengajuan.";
   }
   if (!isian.persetujuanSyarat) {
     return "Centang persetujuan Syarat & Ketentuan sebelum mengirim pengajuan.";

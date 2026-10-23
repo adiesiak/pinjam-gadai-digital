@@ -756,6 +756,8 @@ export const kycSaya = query({
         // Belum ada baris = belum ada persetujuan apa pun yang tercatat.
         persetujuan: null,
         persetujuanAktif: false,
+        tandaTangan: null,
+        tandaTanganPada: null,
         versiPersetujuan: VERSI_PERSETUJUAN_KYC,
         // Belum ada baris = belum ada putusan apa pun atas aturan apa pun.
         versiAturan: VERSI_ATURAN_KYC,
@@ -860,6 +862,8 @@ export const kycSaya = query({
             },
       persetujuanAktif: persetujuanAktif(row.persetujuan),
       versiPersetujuan: VERSI_PERSETUJUAN_KYC,
+      tandaTangan: row.tandaTangan ?? null,
+      tandaTanganPada: row.tandaTanganPada ?? null,
       // ===== Dasar aturan verifikasi =====
       /** Aturan yang berlaku SEKARANG (dipakai UI untuk konteks). */
       versiAturan: VERSI_ATURAN_KYC,
@@ -991,6 +995,57 @@ export const catatPersetujuanKyc = mutation({
       `Persetujuan pemrosesan data pribadi dicatat (versi penjelasan ${versi}).`,
     );
     return { ok: true as const, versi };
+  },
+});
+
+/** Batas ukuran data URL tanda tangan (PNG) — sama dengan batas di `loans`. */
+const BATAS_TANDA_TANGAN = 200_000;
+
+/**
+ * Simpan tanda tangan peminjam DI KYC — dicatat sekali, lalu dipakai ulang oleh
+ * setiap pengajuan pinjaman (lihat `loans.createLoanApplication`).
+ *
+ * Sengaja terpisah dari `simpanProgresKyc`: tanda tangan bukan bagian dari
+ * kelengkapan identitas (tidak pernah menahan atau mengubah status verifikasi),
+ * dan boleh diperbarui kapan saja — termasuk oleh nasabah yang sudah VERIFIED —
+ * tanpa memicu `REVERIFICATION_REQUIRED`.
+ */
+export const simpanTandaTanganKyc = mutation({
+  args: { tandaTangan: v.string() },
+  returns: v.object({ ok: v.literal(true), pada: v.number() }),
+  handler: async (ctx, { tandaTangan }) => {
+    const { userId, label } = await requireNasabah(ctx);
+    const row = await ctx.db
+      .query("kycProfil")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (row === null) {
+      throw new Error("Mulai modul KYC lebih dulu, lalu bubuhkan tanda tangan di sini.");
+    }
+    // Tanda tangan adalah data pribadi: sama seperti isian lain, baru boleh
+    // disimpan setelah persetujuan pemrosesan data tercatat di server.
+    await pastikanPersetujuan(ctx, row, "tanda tangan");
+    if (!tandaTangan.startsWith("data:image/png;base64,")) {
+      throw new Error("Format gambar tanda tangan tidak valid. Bubuhkan tanda tangan lagi.");
+    }
+    if (tandaTangan.length > BATAS_TANDA_TANGAN) {
+      throw new Error("Data tanda tangan terlalu besar. Hapus lalu bubuhkan tanda tangan lagi.");
+    }
+    const sekarang = Date.now();
+    await ctx.db.patch(row._id, {
+      tandaTangan,
+      tandaTanganPada: sekarang,
+      diperbaruiPada: sekarang,
+    });
+    await audit(
+      ctx,
+      userId,
+      label,
+      "kyc_tanda_tangan",
+      userId,
+      "Nasabah menyimpan gambar tanda tangan di KYC; gambar ini dipakai pada setiap pengajuan pinjaman.",
+    );
+    return { ok: true as const, pada: sekarang };
   },
 });
 

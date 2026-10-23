@@ -1,8 +1,7 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ArrowRight, Camera, Loader2, Save, ShieldCheck, Upload } from "lucide-react";
+import { ArrowRight, BadgeCheck, Camera, Loader2, Save, ShieldCheck, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import SignaturePad from "signature_pad";
 
 import {
   IdentitasKycTerverifikasi,
@@ -120,6 +119,41 @@ function persenDariPokok(potongan: number, pokok: number): string {
   return (Math.round((potongan / pokok) * 1000) / 10).toLocaleString("id-ID");
 }
 
+/**
+ * Judul satu bagian formulir pengajuan.
+ *
+ * Semua kartu memakai pola yang sama — nomor langkah, judul, satu kalimat
+ * penjelas — supaya urutan pengisian terbaca dari atas ke bawah. Sebelumnya
+ * kartu nominal dan kartu data diri memakai label kapital, sementara tenor,
+ * tujuan, dan rekening mengambang tanpa judul.
+ */
+function JudulBagian({
+  nomor,
+  judul,
+  keterangan,
+}: {
+  nomor: number;
+  judul: string;
+  keterangan?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        aria-hidden
+        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold tabular-nums text-primary"
+      >
+        {nomor}
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold text-slate-900">{judul}</h3>
+        {keterangan !== undefined && (
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{keterangan}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Formulir pengajuan pinjaman. */
 export function LoanForm({
   onCreated,
@@ -156,45 +190,10 @@ export function LoanForm({
   // pengajuan yang SAMA, bukan yang kedua.
   const [kunciKirim] = useState(() => kunciIdempotensiBaru());
   const errorRef = useRef<HTMLParagraphElement | null>(null);
-  /** Tanda tangan wajib: true selama area tanda tangan masih kosong. */
-  const [ttdKosong, setTtdKosong] = useState(true);
 
   useEffect(() => {
     if (error) errorRef.current?.focus();
   }, [error]);
-
-  // ===== Tanda tangan canvas =====
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const padRef = useRef<SignaturePad | null>(null);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const pad = new SignaturePad(canvas, {
-      backgroundColor: "rgba(255,255,255,0)",
-      penColor: "#1c1a15",
-      minWidth: 1.2,
-      maxWidth: 2.4,
-    });
-    padRef.current = pad;
-    const syncTtd = () => setTtdKosong(pad.isEmpty());
-    pad.addEventListener("endStroke", syncTtd);
-    const resize = () => {
-      const ratio = Math.max(window.devicePixelRatio || 1, 1);
-      const data = pad.toData();
-      canvas.width = canvas.offsetWidth * ratio;
-      canvas.height = canvas.offsetHeight * ratio;
-      canvas.getContext("2d")?.scale(ratio, ratio);
-      pad.clear();
-      pad.fromData(data);
-      syncTtd();
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => {
-      window.removeEventListener("resize", resize);
-      pad.off();
-    };
-  }, []);
 
   // ===== KYC =====
   const [nik, setNik] = useState("");
@@ -563,6 +562,9 @@ export function LoanForm({
   // mencerminkannya lebih dulu supaya formulir panjang tidak diisi sia-sia.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
   const kycSiap = isKycVerified(kycQuery?.status);
+  // Tanda tangan TIDAK dikumpulkan di formulir ini: nasabah membubuhkannya
+  // sekali di modul KYC, lalu server memakai gambar itu untuk pengajuan ini.
+  const ttdKyc = kycQuery?.tandaTangan ?? null;
   // Tarif denda yang berlaku — ringkasan syarat di dialog memakai angka ini,
   // bukan persentase tetap, supaya sama dengan perhitungan server.
   const tarifDenda = {
@@ -741,7 +743,6 @@ export function LoanForm({
         nik: "",
         nomorWhatsApp: "",
         sumberPenghasilan: "",
-        ttdKosong: true,
       },
       {
         tujuan,
@@ -752,7 +753,6 @@ export function LoanForm({
         nik,
         nomorWhatsApp,
         sumberPenghasilan,
-        ttdKosong,
       },
     ) || dok.ktp.id !== null || dok.selfie.id !== null || dok.slip.id !== null;
   const perluDicegahLoan = useCegahTinggalkan(kotorLoan);
@@ -845,10 +845,12 @@ export function LoanForm({
       );
       return;
     }
-    // Tanda tangan wajib — pengajuan tidak diteruskan tanpa gambar tanda tangan.
-    const pad = padRef.current;
-    if (pad === null || pad.isEmpty()) {
-      setError("Tanda tangan wajib diisi di area tanda tangan sebelum mengirim.");
+    // Tanda tangan diambil dari KYC — pengajuan tidak diteruskan bila nasabah
+    // belum pernah membubuhkannya di sana.
+    if (ttdKyc === null) {
+      setError(
+        "Tanda tangan belum tercatat di KYC. Buka halaman Verifikasi KYC, bubuhkan tanda tangan sekali, lalu kirim pengajuan ini lagi.",
+      );
       return;
     }
 
@@ -859,7 +861,6 @@ export function LoanForm({
 
   /** Kirim pengajuan setelah pengguna mencentang Syarat & Ketentuan. */
   const kirimPengajuan = async () => {
-    const pad = padRef.current;
     // Identitas pengiriman: dari isian formulir, ATAU dari baris KYC nasabah
     // ketika identitasnya sudah terverifikasi. Keduanya menghasilkan muatan
     // yang sama — server tetap memeriksa berkasnya sendiri.
@@ -867,7 +868,7 @@ export function LoanForm({
     const dokSelfieId = identitasKyc === null ? dok.selfie.id : identitasKyc.dokSelfieKtpId;
     const dokSlipId = identitasKyc === null ? dok.slip.id : identitasKyc.dokSlipGajiId;
     // Jaga-jaga: jangan kirim bila dokumen/lokasi hilang antara validasi dan klik setuju.
-    if (pad === null || !dokKtpId || !dokSelfieId || !dokSlipId || lokasi === null) return;
+    if (!dokKtpId || !dokSelfieId || !dokSlipId || lokasi === null) return;
     // Satu pengiriman saja, walau tombol setuju ditekan berulang.
     if (!kirimSekali.kunci()) return;
     if (!turnstileSiap) {
@@ -883,8 +884,6 @@ export function LoanForm({
         bukaKunciKirim();
         return;
       }
-      const ttdDataUrl = pad.toDataURL("image/png");
-
       const result = await createLoan({
         pokokPinjaman: pokok,
         // tenorHari tetap dikirim (diabaikan server) saat skema bulanan aktif.
@@ -897,7 +896,6 @@ export function LoanForm({
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
         ...(voucherId !== null ? { voucherId: voucherId as Id<"voucher"> } : {}),
-        tandaTangan: ttdDataUrl,
         // Persetujuan Syarat & Ketentuan dicatat server bersama versinya.
         persetujuanSyarat: true,
         nik: identitasKyc === null ? nik.replace(/\s+/g, "") : identitasKyc.nik,
@@ -931,8 +929,6 @@ export function LoanForm({
       setNomorRekening("");
       setCatatanPeminjam("");
       setCairEkspres(true);
-      padRef.current?.clear();
-      setTtdKosong(true);
       setSetujuOpen(false);
       setSetujuCentang(false);
     } catch (err) {
@@ -961,8 +957,13 @@ export function LoanForm({
       )}
       {/* Jumlah pinjaman */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <JudulBagian
+          nomor={1}
+          judul="Nominal dan rincian"
+          keterangan="Pilih skema dan nominal, lalu periksa potongan serta total pembayaran sebelum mengirim."
+        />
         {/* Pemilih skema harga: harian 1 jt / 28 hari, atau bulanan 1/3/6 bulan. */}
-        <div role="group" aria-label="Pilih skema pinjaman" className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+        <div role="group" aria-label="Pilih skema pinjaman" className="mt-4 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
           {([
             ["harian", "Pinjaman harian"],
             ["bulanan", "Pinjaman bulanan"],
@@ -1213,7 +1214,13 @@ export function LoanForm({
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <JudulBagian
+          nomor={2}
+          judul="Tenor, tujuan, dan pencairan"
+          keterangan="Lama pinjaman menentukan bunga. Rekening di bawah adalah tujuan pencairan yang dipakai tim PINDAI."
+        />
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="loan-tenor-trigger">Pilih lama pinjaman</Label>
           <Select
@@ -1287,7 +1294,7 @@ export function LoanForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {/* Nama hanya ditanyakan bila belum ada identitas terverifikasi: saat
             sudah terverifikasi, nama yang dipakai akad adalah nama di KYC. */}
         {identitasKyc === null && (
@@ -1306,40 +1313,79 @@ export function LoanForm({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="catatan">Catatan tambahan (boleh dikosongkan)</Label>
-        <Textarea id="catatan" value={catatanPeminjam} onChange={(e) => setCatatanPeminjam(e.target.value)} placeholder="Ceritakan singkat tujuan penggunaan uang…" rows={2} disabled={submitting} />
+        <div className="mt-4 space-y-2">
+          <Label htmlFor="catatan">Catatan tambahan (boleh dikosongkan)</Label>
+          <Textarea id="catatan" value={catatanPeminjam} onChange={(e) => setCatatanPeminjam(e.target.value)} placeholder="Ceritakan singkat tujuan penggunaan uang…" rows={2} disabled={submitting} />
+        </div>
       </div>
 
-      {/* Tanda tangan canvas */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Tanda tangan (wajib)
-        </p>
-        <p id="signature-help" className="mt-2 text-xs leading-5 text-muted-foreground">
-          Tanda tangan wajib dibubuhkan di sini. Gambar tanda tangan disimpan sebagai lampiran pengajuan.
-        </p>
-        <canvas
-          ref={canvasRef}
-          role="img"
-          aria-label="Area untuk menggambar tanda tangan (wajib)"
-          aria-describedby="signature-help"
-          className={`mt-2 h-24 w-full touch-none rounded-xl border border-dashed bg-white ${ttdKosong && error !== null ? "border-destructive" : "border-slate-300"}`}
+      {/* 3 · Tanda tangan. Tidak ada kanvas di sini: gambar diambil dari KYC. */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <JudulBagian
+          nomor={3}
+          judul="Tanda tangan"
+          keterangan="Dibubuhkan sekali di KYC, lalu dipakai otomatis untuk setiap pengajuan pinjaman."
         />
-        <div className="mt-2 flex justify-end">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            aria-label="Hapus gambar tanda tangan"
-            onClick={() => {
-              padRef.current?.clear();
-              setTtdKosong(true);
-            }}
-          >
-            Hapus tanda tangan
-          </Button>
-        </div>
+        {kycQuery === undefined ? (
+          <p className="mt-3 text-xs text-muted-foreground">Memeriksa tanda tangan KYC…</p>
+        ) : ttdKyc !== null ? (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3">
+            <img
+              src={ttdKyc}
+              alt="Tanda tangan yang tersimpan di KYC"
+              className="h-14 w-32 shrink-0 rounded-lg border border-emerald-100 bg-white object-contain p-1"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-900">
+                <BadgeCheck className="size-3.5 shrink-0" aria-hidden /> Siap dipakai
+              </p>
+              <p className="mt-0.5 text-[11px] leading-5 text-emerald-800">
+                Tanda tangan dari KYC
+                {kycQuery?.tandaTanganPada != null
+                  ? `, tercatat ${new Date(kycQuery.tandaTanganPada).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}`
+                  : ""}
+                . Gambar ini ikut tersimpan pada perjanjian pengajuan ini.
+              </p>
+            </div>
+            {onBukaKyc !== undefined && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0 bg-white"
+                onClick={onBukaKyc}
+              >
+                Kelola di KYC
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-amber-950">Belum ada tanda tangan di KYC</p>
+              <p className="mt-0.5 text-[11px] leading-5 text-amber-900">
+                Bubuhkan tanda tangan sekali di halaman Verifikasi KYC. Setelah tersimpan, pengajuan
+                ini bisa dikirim tanpa menandatangani ulang.
+              </p>
+            </div>
+            {onBukaKyc !== undefined ? (
+              <Button type="button" size="sm" className="shrink-0" onClick={onBukaKyc}>
+                Bubuhkan di KYC
+              </Button>
+            ) : (
+              <Link
+                to="/dashboard?tab=kyc"
+                className="shrink-0 text-xs font-medium text-primary underline underline-offset-2"
+              >
+                Buka Verifikasi KYC
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Data diri dan dokumen — hanya saat identitasnya belum terverifikasi.
@@ -1347,13 +1393,12 @@ export function LoanForm({
           (badge hijau di atas formulir), sehingga tidak ada yang ditanyakan
           dua kali; berkas yang sudah diperiksa petugas tidak diunggah ulang. */}
       {!identitasTersimpan && (
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Data diri dan dokumen (wajib)
-        </p>
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          Nomor KTP dan foto dokumen disimpan bersama pengajuan. PINDAI belum memeriksa apakah data dan dokumen tersebut benar atau asli.
-        </p>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <JudulBagian
+          nomor={4}
+          judul="Data diri dan dokumen"
+          keterangan="Nomor KTP dan foto dokumen disimpan bersama pengajuan. PINDAI belum memeriksa apakah data dan dokumen tersebut benar atau asli."
+        />
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="nik">Nomor KTP (NIK, 16 angka)</Label>
@@ -1726,6 +1771,7 @@ export function LoanForm({
           !turnstileSiap ||
           lokBusy ||
           !kycSiap ||
+          ttdKyc === null ||
           !batasTerbaca ||
           !adaSisa ||
           cameraDoc !== null ||

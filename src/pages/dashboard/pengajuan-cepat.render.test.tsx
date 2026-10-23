@@ -68,7 +68,11 @@ ada(cepat, "Setujui & kirim pengajuan", "tombol kirim satu halaman ada");
 ada(cepat, "api.loans.createLoanApplication", "memakai mutasi pengajuan pinjaman yang sudah ada");
 tidakAda(cepat, "useMutation(api.loans.createPawnApplication", "tidak menambah mutasi gadai");
 ada(cepat, "persetujuanSyarat: true", "persetujuan S&K tetap dicatat server");
-ada(cepat, "tandaTangan:", "tanda tangan tetap dikirim (syarat server)");
+// Tanda tangan tidak lagi digambar di formulir pengajuan: satu gambar disimpan
+// di KYC dan server menyalinnya ke setiap pengajuan.
+tidakAda(cepat, "tandaTangan:", "formulir tidak mengirim tanda tangan sendiri");
+tidakAda(cepat, "<canvas", "formulir pengajuan cepat tidak punya kanvas tanda tangan");
+ada(cepat, "tandaTanganAda", "kesiapan pengajuan mengikuti tanda tangan dari KYC");
 ada(cepat, "lokasiAjukan: titik", "titik GPS tetap dikirim (syarat server)");
 ada(
   cepat,
@@ -120,8 +124,13 @@ ada(cepat, "kalimatBatasPlafon", "kalimat batas memakai sumber kata yang sama de
 ada(cepat, "batasNominalCepat(sisaBatas)", "batas nominal mengikuti sisa batas pinjaman");
 ada(
   cepat,
-  "disabled={submitting || kurangKtp.length > 0 || !batas.adaSisa || !turnstileSiap}",
-  "tombol terkunci saat data KYC kurang, sisa batas habis, atau Turnstile belum siap",
+  "!tandaTanganAda ||",
+  "tombol terkunci saat tanda tangan KYC belum tersimpan",
+);
+ada(
+  cepat,
+  "!batas.adaSisa ||",
+  "tombol terkunci saat sisa batas habis",
 );
 
 // ===== 3. Perkabelan di modul KYC: wizard dilewati saat TERVERIFIKASI =====
@@ -130,6 +139,12 @@ ada(kyc, "isKycVerified(dataPasti.status) && !bukaDataKyc", "jalur cepat dibuka 
 ada(kyc, "<PengajuanCepatSection", "jalur cepat merender formulir satu halaman");
 ada(kyc, 'dokKtpId: dokumenTersimpan.ktpId', "id dokumen diambil dari data KYC tersimpan");
 ada(kyc, "onLihatDataKyc={() => setBukaDataKyc(true)}", "nasabah masih bisa membuka data KYC");
+ada(kyc, "<KartuTandaTanganKyc", "tanda tangan peminjam dikelola di halaman KYC");
+ada(
+  kyc,
+  "tandaTanganAda={dataPasti.tandaTangan !== null}",
+  "formulir cepat membaca tanda tangan dari baris KYC",
+);
 
 // Pencarian dibatasi pada `KycSection`, dan penanda "wizard"-nya adalah kartu
 // tahap itu sendiri (`id="kyc-tahap-isi"`) — bukan lagi `<KycStepperTigaTahap`,

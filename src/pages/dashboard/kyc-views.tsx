@@ -26,6 +26,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import SignaturePad from "signature_pad";
 import { toast } from "sonner";
 
 import { StatusKycBadge } from "@/components/StatusKycBadge";
@@ -1156,6 +1157,229 @@ function JudulTahap({ nomor, judul }: { nomor: number; judul: string }) {
 }
 
 /**
+ * TANDA TANGAN PEMINJAM DI KYC.
+ *
+ * Satu gambar, disimpan sekali di baris KYC, lalu dipakai otomatis oleh setiap
+ * pengajuan pinjaman (`loans.createLoanApplication`) — formulir pengajuan tidak
+ * lagi meminta tanda tangan sendiri. Salinan gambar tetap disimpan pada
+ * masing-masing pinjaman supaya perjanjian yang sudah terbit tidak berubah saat
+ * tanda tangan diperbarui di sini.
+ *
+ * Komponen terpisah dengan kanvasnya sendiri karena dipakai di dua tempat:
+ * langkah pertama wizard KYC (nasabah yang belum terverifikasi) dan di atas
+ * pengajuan cepat (nasabah yang sudah VERIFIED).
+ */
+export function KartuTandaTanganKyc({
+  tersimpan,
+  pada,
+}: {
+  /** Data URL PNG tanda tangan yang tersimpan di KYC, atau null. */
+  tersimpan: string | null;
+  /** Waktu server saat tanda tangan itu disimpan. */
+  pada: number | null;
+}) {
+  const simpan = useMutation(api.kyc.simpanTandaTanganKyc);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const padRef = useRef<SignaturePad | null>(null);
+  // Gambar yang sudah tersimpan ditampilkan lebih dulu; kanvas hanya dibuka
+  // saat nasabah memang perlu menggambar (belum ada, atau menekan "Ganti").
+  const [menggambar, setMenggambar] = useState(tersimpan === null);
+  // Gambar yang BARU disimpan dipegang lokal sampai query KYC membawa nilainya.
+  // Tanpa ini, setelah simpan berhasil kartu sempat kembali ke kanvas kosong
+  // (prop `tersimpan` belum berubah), lalu berganti lagi ke pratinjau.
+  const [gambarLokal, setGambarLokal] = useState<string | null>(null);
+  const gambar = tersimpan ?? gambarLokal;
+  const [kosong, setKosong] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [galat, setGalat] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!menggambar) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const pad = new SignaturePad(canvas, {
+      backgroundColor: "rgba(255,255,255,0)",
+      penColor: "#172b3a",
+      minWidth: 1.2,
+      maxWidth: 2.4,
+    });
+    padRef.current = pad;
+    const sync = () => setKosong(pad.isEmpty());
+    pad.addEventListener("endStroke", sync);
+    const resize = () => {
+      // Kanvas di dalam kartu yang belum tata letaknya (mis. tab tersembunyi)
+      // berukuran 0; tanpa pemeriksaan ini, goresan tidak akan terlihat. Ukuran
+      // diperiksa lagi saat jendela berubah, bukan hanya saat dipasang.
+      if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) return;
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      const data = pad.toData();
+      canvas.width = canvas.offsetWidth * ratio;
+      canvas.height = canvas.offsetHeight * ratio;
+      canvas.getContext("2d")?.scale(ratio, ratio);
+      pad.clear();
+      pad.fromData(data);
+      sync();
+    };
+    resize();
+    // Satu percobaan lagi setelah tata letak selesai: kartu bisa saja baru
+    // muncul (mis. sesudah panel dibuka), dan saat itu lebar kanvas belum ada.
+    const raf = window.requestAnimationFrame(resize);
+    window.addEventListener("resize", resize);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      pad.removeEventListener("endStroke", sync);
+      pad.off();
+      padRef.current = null;
+    };
+  }, [menggambar]);
+
+  const simpanGoresan = async () => {
+    const pad = padRef.current;
+    if (pad === null || pad.isEmpty()) {
+      setGalat("Bubuhkan tanda tangan di kotak sebelum menyimpan.");
+      return;
+    }
+    setBusy(true);
+    setGalat(null);
+    const dataUrl = pad.toDataURL("image/png");
+    try {
+      await simpan({ tandaTangan: dataUrl });
+      setGambarLokal(dataUrl);
+      setMenggambar(false);
+      setKosong(true);
+      toast.success("Tanda tangan tersimpan dan dipakai untuk pengajuan berikutnya.");
+    } catch (cause) {
+      setGalat(cause instanceof Error ? cause.message : "Tanda tangan gagal disimpan.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section
+      aria-labelledby="kyc-tanda-tangan-judul"
+      className="rounded-xl border border-border bg-card p-4"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3
+            id="kyc-tanda-tangan-judul"
+            className="flex items-center gap-2 text-sm font-semibold text-navy"
+          >
+            <PencilLine className="size-4 text-primary" aria-hidden /> Tanda tangan peminjam
+          </h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Cukup sekali di sini. Tanda tangan ini dipakai otomatis pada setiap
+            pengajuan pinjaman dan tercatat di perjanjiannya.
+          </p>
+        </div>
+        {gambar !== null && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+            <BadgeCheck className="size-3.5" aria-hidden /> Tersimpan
+          </span>
+        )}
+      </div>
+
+      {gambar !== null && !menggambar ? (
+        <div className="mt-3 space-y-2">
+          <img
+            src={gambar}
+            alt="Gambar tanda tangan yang tersimpan di KYC"
+            className="h-24 w-full max-w-sm rounded-lg border border-border bg-white object-contain p-2"
+          />
+          <p className="text-[11px] leading-5 text-muted-foreground">
+            Tercatat {pada !== null ? waktu(pada) : "baru saja"}. Pengajuan berikutnya memakai
+            gambar ini tanpa menandatangani ulang.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => {
+              setGalat(null);
+              setKosong(true);
+              setMenggambar(true);
+            }}
+          >
+            <PencilLine className="size-3.5" aria-hidden /> Ganti tanda tangan
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          <div className="relative overflow-hidden rounded-lg border border-border bg-white">
+            <canvas
+              ref={canvasRef}
+              role="img"
+              aria-label="Area menggambar tanda tangan peminjam"
+              className="h-28 w-full touch-none"
+            />
+            {kosong && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground"
+              >
+                Goreskan tanda tangan di sini
+              </span>
+            )}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-6 bottom-6 border-b border-dashed border-border"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5"
+              disabled={busy || kosong}
+              onClick={() => void simpanGoresan()}
+            >
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Save className="size-3.5" aria-hidden />
+              )}
+              {busy ? "Menyimpan…" : "Simpan tanda tangan"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={busy || kosong}
+              onClick={() => {
+                padRef.current?.clear();
+                setKosong(true);
+                setGalat(null);
+              }}
+            >
+              Hapus goresan
+            </Button>
+            {gambar !== null && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setMenggambar(false)}
+              >
+                Batal
+              </Button>
+            )}
+          </div>
+          {galat !== null && (
+            <p role="alert" className="text-xs leading-5 text-destructive">
+              {galat}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
  * Penjadwal simpan otomatis formulir KYC.
  *
  * Komponen terpisah, bukan efek di dalam `KycSection`: `KycSection` sudah
@@ -1482,21 +1706,28 @@ export function KycSection({
   // (mis. ingin mengganti rekening) lewat tautan di halaman itu.
   if (isKycVerified(dataPasti.status) && !bukaDataKyc) {
     return (
-      <PengajuanCepatSection
-        ktp={{
-          namaLengkap: dataPasti.isian.namaLengkap,
-          nik: dataPasti.isian.nik,
-          nomorWhatsApp: dataPasti.isian.nomorWhatsApp,
-          penghasilanBulanan: penghasilanDariTeks(dataPasti.isian.penghasilan),
-          sumberPenghasilan: dataPasti.isian.sumberPenghasilan,
-          namaBank: dataPasti.isian.namaBank,
-          nomorRekening: dataPasti.isian.nomorRekening,
-          dokKtpId: dokumenTersimpan.ktpId,
-          dokSelfieKtpId: dokumenTersimpan.selfieKtpId,
-          dokSlipGajiId: dokumenTersimpan.buktiPenghasilanId,
-        }}
-        onLihatDataKyc={() => setBukaDataKyc(true)}
-      />
+      <div className="space-y-4">
+        <KartuTandaTanganKyc
+          tersimpan={dataPasti.tandaTangan}
+          pada={dataPasti.tandaTanganPada}
+        />
+        <PengajuanCepatSection
+          tandaTanganAda={dataPasti.tandaTangan !== null}
+          ktp={{
+            namaLengkap: dataPasti.isian.namaLengkap,
+            nik: dataPasti.isian.nik,
+            nomorWhatsApp: dataPasti.isian.nomorWhatsApp,
+            penghasilanBulanan: penghasilanDariTeks(dataPasti.isian.penghasilan),
+            sumberPenghasilan: dataPasti.isian.sumberPenghasilan,
+            namaBank: dataPasti.isian.namaBank,
+            nomorRekening: dataPasti.isian.nomorRekening,
+            dokKtpId: dokumenTersimpan.ktpId,
+            dokSelfieKtpId: dokumenTersimpan.selfieKtpId,
+            dokSlipGajiId: dokumenTersimpan.buktiPenghasilanId,
+          }}
+          onLihatDataKyc={() => setBukaDataKyc(true)}
+        />
+      </div>
     );
   }
   // Draft hanya berlaku untuk data tersimpan yang SAMA: stempel berubah setiap
@@ -2160,7 +2391,18 @@ export function KycSection({
               </section>
             )}
 
-            {/* Tahap 1, langkah 2: data identitas. */}
+            {/* Tahap 1, langkah 2: tanda tangan peminjam. Satu gambar untuk
+                semua pengajuan — lihat `KartuTandaTanganKyc`. */}
+            {nomorStage === 1 && !terkunci && (
+              <div className="border-t border-border pt-4">
+                <KartuTandaTanganKyc
+                  tersimpan={dataPasti.tandaTangan}
+                  pada={dataPasti.tandaTanganPada}
+                />
+              </div>
+            )}
+
+            {/* Tahap 1, langkah 3: data identitas. */}
             {nomorStage === 1 && !terkunci && (
               <section
                 aria-labelledby="kyc-langkah-identitas"

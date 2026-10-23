@@ -876,8 +876,8 @@ ok(
   ada(modul, "{nomorStage === 1 && (", "langkah persetujuan dirender dari nomor tahap");
   ada(modul, "{nomorStage === 1 && !terkunci && (", "identitas & WhatsApp ikut satu layar");
   ok(
-    (modul.match(/nomorStage === 1 && !terkunci && \(/g) ?? []).length === 2,
-    "identitas dan nomor WhatsApp keduanya dirender di tahap 1",
+    (modul.match(/nomorStage === 1 && !terkunci && \(/g) ?? []).length === 3,
+    "identitas, nomor WhatsApp, dan tanda tangan peminjam dirender di tahap 1",
   );
   ada(
     modul,

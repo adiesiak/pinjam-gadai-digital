@@ -20,8 +20,7 @@
  */
 import { useMutation, useQuery } from "convex/react";
 import { BadgeCheck, Landmark, Loader2, MapPin, Send, ShieldCheck, Wallet } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import SignaturePad from "signature_pad";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { GerbangTurnstile, turnstileDipasang } from "@/components/GerbangTurnstile";
@@ -121,10 +120,16 @@ export function KartuRekeningTersimpan({
  */
 export function PengajuanCepatSection({
   ktp,
+  tandaTanganAda,
   onLihatDataKyc,
   onCreated,
 }: {
   ktp: DataKycTerverifikasi;
+  /**
+   * Tanda tangan sudah tersimpan di KYC. Formulir ini tidak lagi punya kanvas:
+   * gambar diambil dari KYC oleh server saat pengajuan dikirim.
+   */
+  tandaTanganAda: boolean;
   /** Pindah ke tampilan data KYC lengkap (bila nasabah ingin mengubah sesuatu). */
   onLihatDataKyc?: () => void;
   onCreated?: (nomorReferensi: string) => void;
@@ -157,7 +162,6 @@ export function PengajuanCepatSection({
   const [setujuSyarat, setSetujuSyarat] = useState(false);
   const [lokasi, setLokasi] = useState<TitikLokasi | null>(null);
   const [lokBusy, setLokBusy] = useState(false);
-  const [ttdKosong, setTtdKosong] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Jejak anti-pengiriman-palsu. Cap waktu dibuat sekali saat komponen dipasang
@@ -202,42 +206,6 @@ export function PengajuanCepatSection({
       );
     });
   }, [pokok, batas.adaSisa]);
-
-  // ===== Tanda tangan (canvas) =====
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const padRef = useRef<SignaturePad | null>(null);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const pad = new SignaturePad(canvas, {
-      backgroundColor: "rgba(255,255,255,0)",
-      penColor: "#172b3a",
-      minWidth: 1.2,
-      maxWidth: 2.4,
-    });
-    padRef.current = pad;
-    const sync = () => setTtdKosong(pad.isEmpty());
-    pad.addEventListener("endStroke", sync);
-    const resize = () => {
-      if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) return;
-      const ratio = Math.max(window.devicePixelRatio || 1, 1);
-      const data = pad.toData();
-      canvas.width = canvas.offsetWidth * ratio;
-      canvas.height = canvas.offsetHeight * ratio;
-      canvas.getContext("2d")?.scale(ratio, ratio);
-      pad.clear();
-      pad.fromData(data);
-      sync();
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => {
-      window.removeEventListener("resize", resize);
-      pad.removeEventListener("endStroke", sync);
-      pad.off();
-      padRef.current = null;
-    };
-  }, []);
 
   // ===== Lokasi (titik yang dikirim bersama pengajuan) =====
   /**
@@ -337,7 +305,7 @@ export function PengajuanCepatSection({
     rekeningBenar,
     persetujuanSyarat: setujuSyarat,
     lokasiTercatat: lokasi !== null,
-    ttdTersedia: !ttdKosong,
+    ttdTersedia: tandaTanganAda,
   };
   const kirimSekali = useKirimSekali();
 
@@ -359,20 +327,13 @@ export function PengajuanCepatSection({
       setError(pesan);
       return;
     }
-    const pad = padRef.current;
     // Jaga-jaga: syarat yang lolos validasi tapi berubah sebelum tombol selesai
-    // diproses (mis. kanvas dibersihkan) tidak boleh dikirim setengah jadi.
+    // diproses (mis. tanda tangan dihapus di KYC) tidak boleh dikirim setengah jadi.
     const dokKtpId = ktp.dokKtpId;
     const dokSelfieKtpId = ktp.dokSelfieKtpId;
     const dokSlipGajiId = ktp.dokSlipGajiId;
-    if (
-      pad === null ||
-      pad.isEmpty() ||
-      dokKtpId === null ||
-      dokSelfieKtpId === null ||
-      dokSlipGajiId === null
-    ) {
-      setError("Lengkapi tanda tangan dan dokumen sebelum mengirim pengajuan.");
+    if (!tandaTanganAda || dokKtpId === null || dokSelfieKtpId === null || dokSlipGajiId === null) {
+      setError("Lengkapi tanda tangan di KYC dan dokumen sebelum mengirim pengajuan.");
       return;
     }
     // Satu pengiriman saja walau tombol ditekan berulang.
@@ -399,7 +360,6 @@ export function PengajuanCepatSection({
         namaLengkap: ktp.namaLengkap,
         namaBank: ktp.namaBank,
         nomorRekening: ktp.nomorRekening,
-        tandaTangan: pad.toDataURL("image/png"),
         // Persetujuan dicatat server bersama versi syaratnya (jejak audit).
         persetujuanSyarat: true,
         nik: ktp.nik.replace(/\s+/g, ""),
@@ -414,8 +374,6 @@ export function PengajuanCepatSection({
         formDibukaPada,
         kunciIdempotensi: kunciKirim,
       });
-      pad.clear();
-      setTtdKosong(true);
       setSetujuSyarat(false);
       setRekeningBenar(false);
       setCairEkspres(true);
@@ -710,29 +668,6 @@ export function PengajuanCepatSection({
             </p>
           </div>
 
-          {/* Tanda tangan: tetap wajib karena server mensyaratkannya. */}
-          <div className="min-w-0 sm:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-semibold text-slate-900">Tanda tangan pengajuan</p>
-              {!ttdKosong && (
-                <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700">
-                  <ShieldCheck className="size-3.5" aria-hidden /> Tanda tangan siap
-                </span>
-              )}
-            </div>
-            <div className="relative mt-1.5 overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <canvas
-                ref={canvasRef}
-                aria-label="Kanvas tanda tangan pengajuan cepat"
-                className="h-28 w-full touch-none"
-              />
-              <span className="pointer-events-none absolute inset-x-4 bottom-8 border-b border-dashed border-slate-200" />
-              <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-slate-400">
-                {ktp.namaLengkap}
-              </span>
-            </div>
-          </div>
-
           {/* Lokasi perangkat: dicatat dari tombol kirim, tanpa tombol terpisah. */}
           <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 sm:col-span-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -803,6 +738,16 @@ export function PengajuanCepatSection({
           </p>
         )}
 
+        {!tandaTanganAda && (
+          <p
+            role="status"
+            className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900"
+          >
+            Tanda tangan belum tersimpan di KYC. Bubuhkan dulu di kartu “Tanda tangan peminjam” di
+            atas halaman ini, lalu kirim pengajuan.
+          </p>
+        )}
+
         <GerbangTurnstile className="mt-4" onSiap={setTurnstileSiap} />
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-4">
@@ -814,7 +759,13 @@ export function PengajuanCepatSection({
           <Button
             type="button"
             className="min-w-52 cursor-pointer gap-1.5 rounded-xl border-0 bg-emerald-800 text-white hover:bg-emerald-900 disabled:cursor-not-allowed"
-            disabled={submitting || kurangKtp.length > 0 || !batas.adaSisa || !turnstileSiap}
+            disabled={
+              submitting ||
+              !tandaTanganAda ||
+              kurangKtp.length > 0 ||
+              !batas.adaSisa ||
+              !turnstileSiap
+            }
             onClick={() => void kirim()}
           >
             {submitting ? (

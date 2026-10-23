@@ -2390,6 +2390,17 @@ const schema = defineSchema(
           olehLabel: v.string(),
         }),
       ),
+      /**
+       * TANDA TANGAN PEMINJAM — satu gambar (data URL PNG) yang dibubuhkan
+       * SEKALI di modul KYC, lalu dipakai ulang oleh setiap pengajuan pinjaman.
+       * Disimpan di sini, bukan di formulir pengajuan, supaya nasabah tidak
+       * menandatangani ulang di setiap pengajuan. Setiap pinjaman tetap
+       * menyimpan salinan gambarnya sendiri (`loans.tandaTanganPeminjam`) agar
+       * perjanjian yang sudah terbit tidak berubah saat tanda tangan diperbarui.
+       */
+      tandaTangan: v.optional(v.string()),
+      /** Waktu server saat gambar tanda tangan KYC terakhir disimpan. */
+      tandaTanganPada: v.optional(v.number()),
       // ===== Waktu & keputusan =====
       /** Waktu baris KYC pertama kali dibuat (server). */
       dibuatPada: v.number(),

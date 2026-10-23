@@ -516,8 +516,13 @@ export const createLoanApplication = mutation({
     namaBank: v.string(),
     nomorRekening: v.string(),
     catatanPeminjam: v.optional(v.string()),
-    /** Tanda tangan digital peminjam (canvas → data URL PNG) — WAJIB. */
-    tandaTangan: v.string(),
+    /**
+     * Cadangan tanda tangan (data URL PNG). Sumber utamanya adalah tanda tangan
+     * yang tersimpan di KYC (`kycProfil.tandaTangan`); formulir nasabah tidak
+     * lagi mengirim argumen ini. Dipertahankan supaya pemanggil lama (dan tes
+     * lama) tetap berjalan, tetapi gambar KYC selalu didahulukan.
+     */
+    tandaTangan: v.optional(v.string()),
     /**
      * Persetujuan Syarat & Ketentuan saat MENGIRIM pengajuan — WAJIB `true`.
      * Server mencatat waktunya beserta `CONTRACT_TERMS_VERSION` yang berlaku,
@@ -778,8 +783,20 @@ export const createLoanApplication = mutation({
       );
     }
 
-    // Tanda tangan digital — WAJIB: pengajuan ditolak tanpa gambar tanda tangan.
-    const tandaTangan = args.tandaTangan;
+    // Tanda tangan digital — WAJIB, dan diambil dari KYC: nasabah membubuhkan
+    // tanda tangannya SEKALI di modul KYC, lalu gambar itu dipakai untuk setiap
+    // pengajuan pinjaman. Salinannya tetap disimpan pada pinjaman ini supaya
+    // perjanjian yang sudah terbit tidak berubah saat tanda tangan diperbarui.
+    const kycRow = await ctx.db
+      .query("kycProfil")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    const tandaTangan = kycRow?.tandaTangan ?? args.tandaTangan;
+    if (tandaTangan === undefined || tandaTangan === "") {
+      throw new Error(
+        "Tanda tangan belum tercatat di KYC. Buka halaman Verifikasi KYC, bubuhkan tanda tangan sekali, lalu kirim pengajuan ini lagi.",
+      );
+    }
     if (!tandaTangan.startsWith("data:image/png;base64,")) {
       throw new Error("Tanda tangan wajib: format gambar tanda tangan tidak valid.");
     }
@@ -792,14 +809,9 @@ export const createLoanApplication = mutation({
     }
     await ensureKodePeminjam(ctx, userId);
 
-    // Ikat pengajuan ke MASTER KYC nasabah (bila sudah ada). Yang disimpan hanya
-    // REFERENSI + snapshot status — dokumen KTP/selfie tetap satu tempat di
-    // kycProfil, tidak dibaca ulang dari setiap pengajuan.
-    const kycRow = await ctx.db
-      .query("kycProfil")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-
+    // Pengajuan diikat ke MASTER KYC nasabah (`kycRow` sudah dibaca di atas):
+    // yang disimpan hanya REFERENSI + snapshot status — dokumen KTP/selfie tetap
+    // satu tempat di kycProfil, tidak dibaca ulang dari setiap pengajuan.
     const now = Date.now();
     const nomorReferensi = referenceNumber(now);
     const loanId = await ctx.db.insert("loans", {
