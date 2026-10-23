@@ -84,6 +84,27 @@ function ok(syarat: boolean, label: string) {
     "batas harga menyaring barang mahal",
   );
 
+  // Plafon awal banyak peminjam kecil: pilihan di bawah Rp1 juta dan Rp2 juta
+  // harus cukup banyak, dan tidak boleh ada satu pun yang bocor di atas batas.
+  const bawahSatuJuta = cariBarangKatalog({ batasHarga: 1_000_000 });
+  ok(
+    bawahSatuJuta.length >= 20,
+    "minimal 20 barang di bawah Rp1 juta",
+  );
+  ok(
+    bawahSatuJuta.every((b) => b.harga <= 1_000_000),
+    "tidak ada barang di atas Rp1 juta saat batas dipasang",
+  );
+  const bawahDuaJuta = cariBarangKatalog({ batasHarga: 2_000_000 });
+  ok(
+    bawahDuaJuta.length >= 30,
+    "minimal 30 barang di bawah Rp2 juta",
+  );
+  ok(
+    bawahDuaJuta.every((b) => b.harga <= 2_000_000),
+    "tidak ada barang di atas Rp2 juta saat batas dipasang",
+  );
+
   const usaha = cariBarangKatalog({ kategori: "Peralatan usaha" });
   ok(
     usaha.length > 0 && usaha.every((b) => b.kategori === "Peralatan usaha"),

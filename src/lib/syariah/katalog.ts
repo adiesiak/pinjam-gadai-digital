@@ -114,6 +114,69 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
     jenisBarang: "fisik",
     harga: 275_000,
   },
+  {
+    kode: "el-mixer-300",
+    nama: "Mixer dapur 300 W",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 325_000,
+  },
+  {
+    kode: "el-speaker-bluetooth",
+    nama: "Speaker bluetooth 20 W",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 399_000,
+  },
+  {
+    kode: "el-kipas-berdiri",
+    nama: "Kipas angin berdiri 18 inci",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 450_000,
+  },
+  {
+    kode: "el-kompor-indulsi",
+    nama: "Kompor induksi 1 tungku",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 550_000,
+  },
+  {
+    kode: "el-oven-listrik",
+    nama: "Oven listrik 25 L",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 675_000,
+  },
+  {
+    kode: "el-dispenser-air",
+    nama: "Dispenser air panas-dingin",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 875_000,
+  },
+  {
+    kode: "el-smartphone-64",
+    nama: "Smartphone 4G 64 GB",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 1_450_000,
+  },
+  {
+    kode: "el-printer-allinone",
+    nama: "Printer inkjet all-in-one",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 1_650_000,
+  },
+  {
+    kode: "el-monitor-24",
+    nama: "Monitor LED 24 inci",
+    kategori: "Elektronik",
+    jenisBarang: "fisik",
+    harga: 1_750_000,
+  },
 
   // ===== Peralatan usaha =====
   {
@@ -144,6 +207,55 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
     jenisBarang: "fisik",
     harga: 1_250_000,
   },
+  {
+    kode: "us-timbangan-digital",
+    nama: "Timbangan digital 30 kg",
+    kategori: "Peralatan usaha",
+    jenisBarang: "fisik",
+    harga: 350_000,
+  },
+  {
+    kode: "us-chopper-2l",
+    nama: "Chopper dapur 2 L",
+    kategori: "Peralatan usaha",
+    jenisBarang: "fisik",
+    harga: 425_000,
+  },
+  {
+    kode: "us-kursi-lipat",
+    nama: "Kursi lipat usaha (4 unit)",
+    kategori: "Peralatan usaha",
+    jenisBarang: "fisik",
+    harga: 480_000,
+  },
+  {
+    kode: "us-rak-toko",
+    nama: "Rak toko 4 tingkat",
+    kategori: "Peralatan usaha",
+    jenisBarang: "fisik",
+    harga: 750_000,
+  },
+  {
+    kode: "us-meja-kasir",
+    nama: "Meja kasir 120 cm",
+    kategori: "Peralatan usaha",
+    jenisBarang: "fisik",
+    harga: 1_350_000,
+  },
+  {
+    kode: "us-pompa-air",
+    nama: "Pompa air jet pump 125 W",
+    kategori: "Peralatan usaha",
+    jenisBarang: "fisik",
+    harga: 1_750_000,
+  },
+  {
+    kode: "us-genset-1000",
+    nama: "Genset 1.000 W",
+    kategori: "Peralatan usaha",
+    jenisBarang: "fisik",
+    harga: 1_950_000,
+  },
 
   // ===== Perabot rumah =====
   {
@@ -167,6 +279,69 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
     jenisBarang: "fisik",
     harga: 1_150_000,
   },
+  {
+    kode: "pr-lemari-plastik",
+    nama: "Lemari plastik 3 susun",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 275_000,
+  },
+  {
+    kode: "pr-karpet-2x3",
+    nama: "Karpet ruang tamu 2 x 3 m",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 325_000,
+  },
+  {
+    kode: "pr-kompor-gas",
+    nama: "Kompor gas 2 tungku",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 385_000,
+  },
+  {
+    kode: "pr-rak-buku",
+    nama: "Rak buku 3 tingkat",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 450_000,
+  },
+  {
+    kode: "pr-kasur-busa",
+    nama: "Kasur busa 90 x 200",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 650_000,
+  },
+  {
+    kode: "pr-meja-rias",
+    nama: "Meja rias dan cermin",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 875_000,
+  },
+  {
+    kode: "pr-lemari-2-pintu",
+    nama: "Lemari pakaian 2 pintu",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 1_550_000,
+  },
+  {
+    kode: "pr-meja-makan",
+    nama: "Meja makan 4 kursi",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 1_650_000,
+  },
+  {
+    kode: "pr-kursi-tamu",
+    nama: "Set kursi tamu 4 dudukan",
+    kategori: "Perabot rumah",
+    jenisBarang: "fisik",
+    harga: 1_850_000,
+  },
 
   // ===== Kendaraan =====
   {
@@ -182,6 +357,27 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
     kategori: "Kendaraan",
     jenisBarang: "fisik",
     harga: 9_500_000,
+  },
+  {
+    kode: "kd-helm-sni",
+    nama: "Helm standar SNI",
+    kategori: "Kendaraan",
+    jenisBarang: "fisik",
+    harga: 175_000,
+  },
+  {
+    kode: "kd-ban-motor",
+    nama: "Ban motor tubeless (sepasang)",
+    kategori: "Kendaraan",
+    jenisBarang: "fisik",
+    harga: 480_000,
+  },
+  {
+    kode: "kd-sepeda-gunung",
+    nama: "Sepeda gunung 26 inci",
+    kategori: "Kendaraan",
+    jenisBarang: "fisik",
+    harga: 1_850_000,
   },
 
   // ===== Pulsa & data (non-ewallet) =====
@@ -206,6 +402,20 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
     jenisBarang: "digital",
     harga: 150_000,
   },
+  {
+    kode: "pl-paket-data-30",
+    nama: "Paket data 30 GB / 30 hari",
+    kategori: "Pulsa & data",
+    jenisBarang: "digital",
+    harga: 105_000,
+  },
+  {
+    kode: "pl-pulsa-150",
+    nama: "Pulsa 150.000",
+    kategori: "Pulsa & data",
+    jenisBarang: "digital",
+    harga: 150_000,
+  },
 
   // ===== Token & tagihan (non-ewallet) =====
   {
@@ -221,6 +431,20 @@ export const KATALOG_MURABAHAH: readonly BarangKatalog[] = [
     kategori: "Token & tagihan",
     jenisBarang: "digital",
     harga: 500_000,
+  },
+  {
+    kode: "tl-token-100",
+    nama: "Token listrik 100.000",
+    kategori: "Token & tagihan",
+    jenisBarang: "digital",
+    harga: 100_000,
+  },
+  {
+    kode: "tl-token-300",
+    nama: "Token listrik 300.000",
+    kategori: "Token & tagihan",
+    jenisBarang: "digital",
+    harga: 300_000,
   },
 ] as const;
 
