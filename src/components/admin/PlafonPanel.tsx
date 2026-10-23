@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EmptyQueue, MetrikKartu } from "@/components/admin/admin-shared";
+import { useNilaiTertunda } from "@/hooks/use-validasi-tertunda";
 import { AturPlafonDialog, type NasabahPlafon } from "@/components/admin/AturPlafonDialog";
 import { DataDiriDialog } from "@/components/admin/DataDiriDialog";
 import { DuplikatNasabahPanel } from "@/components/admin/DuplikatNasabahPanel";
@@ -287,19 +288,23 @@ export function PlafonPanel() {
   const [masukTarget, setMasukTarget] = useState<{ userId: Id<"users">; nama: string } | null>(null);
   /** Halaman daftar nasabah yang sedang dilihat (10 baris per halaman). */
   const [halaman, setHalaman] = useState(0);
-  const data = useQuery(api.admin.daftarPlafonPeminjam, { cari: cari || undefined });
+  // Kata kunci dikirim setelah pengguna berhenti mengetik. Tanpa jeda ini setiap
+  // huruf membuat langganan query baru untuk daftar nasabah yang berat, dan
+  // daftar sempat kosong sebelum hasilnya tiba.
+  const cariTertunda = useNilaiTertunda(cari, 250);
+  const data = useQuery(api.admin.daftarPlafonPeminjam, {
+    cari: cariTertunda.trim() === "" ? undefined : cariTertunda.trim(),
+  });
   const setPlafon = useMutation(api.admin.setPlafonPeminjam);
   const hapusNasabah = useMutation(api.admin.hapusNasabah);
   const simpanNotif = useMutation(api.notifikasiNasabah.simpanPreferensiNasabah);
 
-  if (data === undefined) {
-    return (
-      <p className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-10 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Memuat plafon nasabah…
-      </p>
-    );
-  }
-
+  /** Satu baris daftar — bentuknya milik query, bukan tipe salinan di UI. */
+  type BarisPlafon = NonNullable<typeof data>["rows"][number];
+  // Saat kata kunci berubah, `useQuery` sempat mengembalikan `undefined`. Baris
+  // kosong membuat pencarian dan kartu di atas TETAP terpasang, jadi kolom
+  // pencarian tidak kehilangan fokus dan halaman tidak terlihat dimuat ulang.
+  const rows = data?.rows ?? [];
   /**
    * Satu tindakan untuk dua mutation: hanya sisi yang BENAR-BENAR berubah yang
    * dikirim, sehingga menekan "Simpan Perubahan" tanpa mengubah apa pun tidak
@@ -331,7 +336,7 @@ export function PlafonPanel() {
    * di-cast ke `Id<"users">` (query mengembalikan id sebagai string) — dan
    * setiap nama kolom tetap diperiksa tipe, bukan disamarkan oleh objek bebas.
    */
-  const dataAtur = (r: (typeof data.rows)[number]): NasabahPlafon => ({
+  const dataAtur = (r: BarisPlafon): NasabahPlafon => ({
     userId: r.userId as Id<"users">,
     nama: r.nama,
     plafonEfektif: r.plafonEfektif,
@@ -343,14 +348,14 @@ export function PlafonPanel() {
   // di-reset lewat useEffect) supaya pencarian yang mempersingkat daftar tidak
   // pernah menampilkan halaman kosong — sekaligus menghindari aturan
   // `react-hooks` yang melarang setState di dalam effect.
-  const halamanAktif = potongHalaman(data.rows, halaman, BARIS_PER_HALAMAN);
+  const halamanAktif = potongHalaman(rows, halaman, BARIS_PER_HALAMAN);
 
   /**
    * Menyalakan pengingat berlaku langsung (aman & reversibel). Mematikannya
    * lewat dialog konfirmasi dulu: satu salah klik berarti nasabah berhenti
    * diingatkan dan tunggakan baru ketahuan belakangan.
    */
-  const mintaUbahNotifikasi = (r: (typeof data.rows)[number]) => {
+  const mintaUbahNotifikasi = (r: BarisPlafon) => {
     if (r.notifTagihanAktif) {
       setMatikanNotifTarget({ userId: r.userId as Id<"users">, nama: r.nama });
       return;
@@ -424,7 +429,10 @@ export function PlafonPanel() {
               menu <strong className="text-slate-600">Kelola</strong> di kolom aksi cepat.
             </p>
             <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <MetrikKartu label="Default plafon" nilai={formatRupiah(data.default)} />
+              <MetrikKartu
+                label="Default plafon"
+                nilai={data === undefined ? "…" : formatRupiah(data.default)}
+              />
               <MetrikKartu
                 label="Rentang plafon"
                 nilai={`${formatRupiah(PLAFON_BATAS.min)} – ${formatRupiah(PLAFON_BATAS.maks)}`}
@@ -500,13 +508,21 @@ export function PlafonPanel() {
           )}
         </div>
         <p className="shrink-0 text-xs tabular-nums text-muted-foreground" aria-live="polite">
-          Menampilkan {halamanAktif.baris.length} dari {data.rows.length}
-          {data.rows.length >= 100 ? "+" : ""} data
-          {cari.trim() !== "" ? " · filter aktif" : ""}
+          {data === undefined
+            ? "Memuat daftar nasabah…"
+            : `Menampilkan ${halamanAktif.baris.length} dari ${rows.length}${rows.length >= 100 ? "+" : ""} data${cari.trim() !== "" ? " · filter aktif" : ""}`}
         </p>
       </div>
 
-      {data.rows.length === 0 ? (
+      {data === undefined ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-8 text-sm text-muted-foreground"
+        >
+          <Loader2 className="size-4 animate-spin" /> Memuat nasabah…
+        </p>
+      ) : rows.length === 0 ? (
         cari.trim() === "" ? (
           <EmptyQueue
             icon={Users}
@@ -739,13 +755,13 @@ export function PlafonPanel() {
 
       {/* Navigasi halaman: 10 nasabah per halaman. Label rentang membuat
           "18 nasabah" di atas terbaca jelas sebagai total, bukan jumlah baris. */}
-      {data.rows.length > 0 && (
+      {rows.length > 0 && (
         <nav
           aria-label="Navigasi halaman daftar nasabah"
           className="flex flex-wrap items-center justify-between gap-3"
         >
           <p className="text-xs tabular-nums text-muted-foreground">
-            {labelRentang(halamanAktif, data.rows.length)} nasabah
+            {labelRentang(halamanAktif, rows.length)} nasabah
           </p>
           {halamanAktif.totalHalaman > 1 && (
             <div className="flex flex-wrap items-center gap-1.5">
@@ -792,11 +808,12 @@ export function PlafonPanel() {
         </nav>
       )}
 
-      {/* Modal single-action: plafon DAN bunga dalam satu penyimpanan. */}
+      {/* Modal single-action: plafon DAN bunga dalam satu penyimpanan. Dialog
+          hanya dibuka dari baris yang sudah termuat, jadi `data` ada saat ini. */}
       {aturTarget !== null && (
         <AturPlafonDialog
           nasabah={aturTarget}
-          global={{ plafon: data.default }}
+          global={{ plafon: data?.default ?? 0 }}
           busy={busyAturId === aturTarget.userId}
           onClose={() => setAturTarget(null)}
           onSimpan={(nilai) => void simpanAtur(aturTarget, nilai)}

@@ -71,6 +71,21 @@ ok(
 ok(kode.includes("terbuka") && kode.includes("tampilkanTombol={false}"), "dialog pratinjau dikendalikan menu");
 ok(kode.includes("setMasukTarget({ userId: r.userId as Id<\"users\">, nama: r.nama })"), "menu membuka pratinjau akun baris itu");
 
+// Pencarian tidak boleh melepas kolomnya sendiri. Dulu panel ini `return` lebih
+// awal saat `useQuery` mengembalikan undefined, sehingga tiap huruf mengganti
+// seluruh panel dengan "Memuat…": fokus hilang dan halaman terlihat dimuat
+// ulang. Sekarang kata kunci di-debounce dan hanya daftar yang punya keadaan
+// memuatnya sendiri.
+ok(kode.includes("useNilaiTertunda(cari, 250)"), "kata kunci pencarian di-debounce");
+ok(kode.includes("const rows = data?.rows ?? []"), "baris punya cadangan saat query memuat");
+ok(!/if \(data === undefined\) \{\s*return/.test(kode), "panel tidak unmount saat query memuat");
+const posisiPencarian = kode.indexOf('aria-label="Cari nasabah berdasarkan nama atau email"');
+const posisiMemuat = kode.indexOf("{data === undefined ? (");
+ok(
+  posisiPencarian !== -1 && posisiMemuat > posisiPencarian,
+  "keadaan memuat hanya menggantikan daftar, bukan kolom pencarian",
+);
+
 if (failed > 0) {
   console.error(`\n${failed} gagal, ${passed} lulus`);
   process.exit(1);
