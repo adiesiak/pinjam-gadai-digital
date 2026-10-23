@@ -327,8 +327,8 @@ export function SyariahPanel() {
               : "Tidak ada pengajuan yang cocok dengan pencarian."}
           </p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Pengajuan Murabahah, Rahn, dan Qardh dari peminjam muncul di sini
-            setelah formulir dashboard dikirim.
+            Pengajuan Murabahah dan Rahn dari peminjam muncul di sini setelah
+            formulir dashboard dikirim.
           </p>
         </div>
       ) : (

@@ -511,4 +511,30 @@ describe("pengajuan syariah — keputusan admin", () => {
       peminjam.mutation(api.syariahPengajuan.batalkan, { id }),
     ).rejects.toThrow("Hanya pengajuan yang belum diputuskan");
   });
+
+  it("menghitung pengajuan menunggu untuk lencana menu, lalu turun setelah diputuskan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Lencana Syariah", {
+      email: "admin-lencana-syariah@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "Rani Lencana",
+      "rani-lencana-syariah@pindai.test",
+    );
+    const { id } = await ajukan(peminjam);
+
+    expect(await admin.query(api.syariahPengajuan.cacahMenunggu, {})).toBe(1);
+    await expect(
+      peminjam.query(api.syariahPengajuan.cacahMenunggu, {}),
+    ).rejects.toThrow("Akses khusus Super Admin.");
+
+    await admin.mutation(api.syariahPengajuan.putuskan, {
+      id,
+      keputusan: "setujui",
+      marginPersen: 20,
+    });
+    expect(await admin.query(api.syariahPengajuan.cacahMenunggu, {})).toBe(0);
+  });
 });

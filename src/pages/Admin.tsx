@@ -50,6 +50,11 @@ export default function Admin() {
     api.angsuran.daftarBuktiAngsuran,
     adminVerified ? {} : "skip",
   );
+  // Cacah pengajuan akad syariah yang menunggu keputusan, untuk lencana menu.
+  const syariahMenunggu = useQuery(
+    api.syariahPengajuan.cacahMenunggu,
+    adminVerified ? {} : "skip",
+  );
 
   const [loanDetail, setLoanDetail] = useState<LoanRow | null>(null);
   const [pawnDetail, setPawnDetail] = useState<PawnRow | null>(null);
@@ -160,6 +165,7 @@ export default function Admin() {
         onOpenSetup={() => setTotpSetupOpen(true)}
         kycMenunggu={kycAntrean === undefined ? null : (kycAntrean.cacah.PENDING_REVIEW ?? 0)}
         angsuranMenunggu={buktiAngsuran === undefined ? null : buktiAngsuran.jumlah}
+        syariahMenunggu={syariahMenunggu === undefined ? null : syariahMenunggu}
       />
 
       {/* Dialogs */}

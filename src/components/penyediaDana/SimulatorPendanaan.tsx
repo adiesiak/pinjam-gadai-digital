@@ -1,8 +1,8 @@
 /**
  * Simulator pendanaan untuk ruang pendana.
  *
- * Satu tempat untuk empat jalur: konvensional (skema tetap 30% per siklus 30
- * hari), Murabahah, Rahn, dan Qardh. Angka konvensional memakai
+ * Satu tempat untuk tiga jalur: konvensional (skema tetap 30% per siklus 30
+ * hari), Murabahah, dan Rahn. Angka konvensional memakai
  * `lib/imbalPendana`, angka syariah memakai `lib/syariah/*`, jadi simulator
  * tidak punya rumus sendiri yang bisa menyimpang dari catatan portofolio.
  *
@@ -21,16 +21,14 @@ import {
 } from "@/lib/imbalPendana";
 import { bagiHasilMurabahah, hargaJualMurabahah } from "@/lib/syariah/murabahah";
 import { MARGIN_MURABAHAH_BAWAAN } from "@/lib/syariah/pengajuan";
-import { bagiHasilQardh } from "@/lib/syariah/qardh";
 import { bagiHasilRahn } from "@/lib/syariah/rahn";
 
-type Akad = "konvensional" | "murabahah" | "rahn" | "qardh";
+type Akad = "konvensional" | "murabahah" | "rahn";
 
 const AKAD: readonly { id: Akad; label: string }[] = [
   { id: "konvensional", label: "Konvensional" },
   { id: "murabahah", label: "Murabahah" },
   { id: "rahn", label: "Rahn" },
-  { id: "qardh", label: "Qardh" },
 ];
 
 const SIKLUS = [1, 3, 6] as const;
@@ -155,16 +153,6 @@ export function SimulatorPendanaan({
           </>
         );
       }
-    } else if (nominal > 0) {
-      const hasil = bagiHasilQardh(nominal);
-      keuntungan = 0;
-      rincian = (
-        <>
-          <Baris label="Margin" nilai="Rp 0" />
-          <Baris label="Pokok kembali" nilai={rupiah(hasil.pendanaTerima)} />
-          <Baris label="Tiket doorprize" nilai={String(hasil.tiketDoorprize)} />
-        </>
-      );
     }
   } catch {
     keuntungan = null;
@@ -291,9 +279,7 @@ export function SimulatorPendanaan({
               >
                 {akad === "konvensional"
                   ? "Dana yang ditempatkan"
-                  : akad === "murabahah"
-                    ? "Modal harga pokok"
-                    : "Dana kebajikan"}
+                  : "Modal harga pokok"}
               </label>
               <div className="mt-1 flex items-center rounded-xl border border-slate-300 bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/20">
                 <span className="pl-3 text-xs font-medium text-slate-500">Rp</span>

@@ -88,7 +88,7 @@ cek(
   ada(html, "Pembiayaan syariah", "kartu syariah tampil");
   ada(html, "Murabahah", "akad Murabahah disebut");
   ada(html, "Rahn", "akad Rahn disebut");
-  ada(html, "Qardh", "akad Qardh disebut");
+  cek(!html.includes("Qardh"), "akad Qardh tidak lagi ditawarkan");
   ada(html, "Harian 7/14/28 hari", "ringkasan tenor konvensional");
   ada(html, 'href="/pinjaman/konvensional"', "tautan produk konvensional");
   ada(html, 'href="/pinjaman/syariah"', "tautan produk syariah");
@@ -100,9 +100,10 @@ cek(
   const html = renderToStaticMarkup(
     createElement(SimulatorPendanaan, { persenPotonganAdmin: 5 }),
   );
-  for (const akad of ["Konvensional", "Murabahah", "Rahn", "Qardh"]) {
+  for (const akad of ["Konvensional", "Murabahah", "Rahn"]) {
     ada(html, akad, `simulator menyediakan akad "${akad}"`);
   }
+  cek(!html.includes("Qardh"), "simulator tidak lagi menyediakan Qardh");
   ada(html, "Imbal hasil tetap 30% per 30 hari", "yield 30% tetap dinyatakan");
   ada(html, "Rp 1.235.000", "angka konvensional dihitung dari lib");
   ada(html, "Estimasi, bukan jaminan.", "simulator tidak menjanjikan hasil");

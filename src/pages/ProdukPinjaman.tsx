@@ -8,7 +8,7 @@
  * JSX, sehingga halaman ini tidak bisa menjanjikan angka yang berbeda dari
  * kontrak.
  *
- * Produk syariah sudah bisa diajukan dari dashboard untuk ketiga akad. Halaman
+ * Produk syariah sudah bisa diajukan dari dashboard untuk kedua akad. Halaman
  * ini menjelaskan skema dan angkanya lebih dulu; angka final tetap ditetapkan
  * petugas saat keputusan, bukan dijanjikan oleh kalkulator.
  */
@@ -21,8 +21,6 @@ import {
   HandCoins,
   Info,
   Package,
-  Ticket,
-  Wallet,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -56,7 +54,6 @@ import {
 import { formatRupiahAman, kelompokkanDigit } from "@/lib/money";
 import { bagiHasilMurabahah, hargaJualMurabahah } from "@/lib/syariah/murabahah";
 import { MARGIN_MURABAHAH_BAWAAN } from "@/lib/syariah/pengajuan";
-import { bagiHasilQardh } from "@/lib/syariah/qardh";
 import { bagiHasilRahn } from "@/lib/syariah/rahn";
 import {
   kalimatVoucherSyariah,
@@ -463,7 +460,7 @@ const VOUCHER_SIMULASI = [
 ] as const;
 
 function KalkulatorSyariah() {
-  const [akad, setAkad] = useState<"murabahah" | "rahn" | "qardh">("murabahah");
+  const [akad, setAkad] = useState<"murabahah" | "rahn">("murabahah");
   const [nilaiTeks, setNilaiTeks] = useState("1.000.000");
   const [marginTeks, setMarginTeks] = useState(
     String(MARGIN_MURABAHAH_BAWAAN),
@@ -611,56 +608,6 @@ function KalkulatorSyariah() {
           </>
         );
       }
-    } else {
-      judul = "Qardh";
-      if (nilai < LOAN_LIMITS.minPokok) {
-        isi = (
-          <p className="text-xs leading-5 text-slate-600">
-            Masukkan pokok minimal {rupiah(LOAN_LIMITS.minPokok)}.
-          </p>
-        );
-      } else {
-        const hasil = bagiHasilQardh(nilai);
-        isi = (
-          <>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5">
-                <p className="text-[11px] font-medium text-amber-900">
-                  Margin keuntungan
-                </p>
-                <p className="mt-0.5 text-lg font-semibold tabular-nums text-amber-950">
-                  Rp 0
-                </p>                  <p className="mt-0.5 text-[11px] leading-4 text-amber-900/80">
-                  Akad kebajikan tanpa margin tambahan.
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                <p className="text-[11px] font-medium text-slate-600">
-                  Tiket doorprize
-                </p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-lg font-semibold tabular-nums text-navy">
-                  <Ticket className="size-4" aria-hidden />
-                  {hasil.tiketDoorprize}
-                </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
-                  Satu tiket per {rupiah(hasil.kelipatanTiket)} dana aktif.
-                </p>
-              </div>
-            </div>
-            <dl className="mt-3">
-              <BarisAngka
-                label="Pokok dikembalikan"
-                nilai={rupiah(hasil.pendanaTerima)}
-                tebal
-              />
-              <BarisAngka
-                label="Bagian platform"
-                nilai={rupiah(hasil.platformTerima)}
-              />
-            </dl>
-          </>
-        );
-      }
     }
   } catch (error) {
     isi = (
@@ -672,7 +619,7 @@ function KalkulatorSyariah() {
 
   // ===== Simulasi voucher =====
   // Dasar potongan mengikuti akad yang sedang dihitung: margin Murabahah atau
-  // ujrah Rahn. Qardh tidak punya keduanya, jadi tidak ada yang dipotong.
+  // ujrah Rahn.
   const pilihanVoucher =
     VOUCHER_SIMULASI.find((pilihan) => pilihan.id === voucherSimId) ??
     VOUCHER_SIMULASI[0];
@@ -721,7 +668,7 @@ function KalkulatorSyariah() {
       </h2>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
         Nisbah bagi hasil disepakati di akad: bagian pendana dihitung dari
-        margin Murabahah atau ujrah Rahn. Qardh tidak mengambil margin.
+        margin Murabahah atau ujrah Rahn.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Akad">
@@ -729,7 +676,6 @@ function KalkulatorSyariah() {
           [
             { id: "murabahah", label: "Murabahah" },
             { id: "rahn", label: "Rahn" },
-            { id: "qardh", label: "Qardh" },
           ] as const
         ).map((pilihan) => (
           <button
@@ -821,9 +767,7 @@ function KalkulatorSyariah() {
                   htmlFor="syariah-nilai"
                   className="text-xs font-medium text-slate-700"
                 >
-                  {akad === "murabahah"
-                    ? "Harga pokok barang"
-                    : "Pokok pinjaman kebajikan"}
+                  Harga pokok barang
                 </label>
                 <div className="mt-1 flex min-h-11 items-center rounded-xl border border-slate-300 bg-white focus-within:border-amber-600 focus-within:ring-2 focus-within:ring-amber-600/20">
                   <span className="pl-3 text-sm text-slate-500" aria-hidden>
@@ -912,9 +856,7 @@ function KalkulatorSyariah() {
               />
             </dl>
             <p className="mt-1.5 text-[11px] leading-5 text-amber-950/80">
-              {akad === "qardh"
-                ? "Qardh tidak mengambil margin atau ujrah, jadi voucher tidak memotong apa pun."
-                : kalimatVoucherSyariah(rincianVoucher)}
+              {kalimatVoucherSyariah(rincianVoucher)}
             </p>
           </div>
 
@@ -998,7 +940,7 @@ function KerangkaHalaman({
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 sm:text-base">
               {syariah
-                ? "Pinjaman syariah PINDAI memakai tiga akad: Murabahah untuk kredit barang, Rahn untuk gadai, dan Qardh untuk pinjaman kebajikan. Margin dan ujrah dibagi antara pendana dan pengelola sesuai nisbah di akad."
+                ? "Pinjaman syariah PINDAI memakai dua akad: Murabahah untuk kredit barang dan Rahn untuk gadai. Margin dan ujrah dibagi antara pendana dan pengelola sesuai nisbah di akad."
                 : "Pinjaman tunai harian 7, 14, atau 28 hari dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan biaya platform 5% dihitung dari uang yang kembali ke sistem."}
             </p>
 
@@ -1007,9 +949,9 @@ function KerangkaHalaman({
                 <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-950">
                   <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
                   <p>
-                    Murabahah, Rahn, dan Qardh dapat diajukan dari dashboard.
-                    Angka di halaman ini adalah ilustrasi; margin, taksiran, dan
-                    angka final disepakati sebelum akad dicatat.
+                    Murabahah dan Rahn dapat diajukan dari dashboard. Angka di
+                    halaman ini adalah ilustrasi; margin, taksiran, dan angka
+                    final disepakati sebelum akad dicatat.
                   </p>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3">
@@ -1046,7 +988,9 @@ function KerangkaHalaman({
               </div>
             )}
 
-            <dl className="mt-8 grid gap-4 sm:grid-cols-3">
+            <dl
+              className={`mt-8 grid gap-4 ${syariah ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
+            >
               {(syariah
                 ? [
                     {
@@ -1058,11 +1002,6 @@ function KerangkaHalaman({
                       label: "Rahn",
                       nilai: "Ujrah 2% / 30 hari",
                       detail: "Dihitung dari nilai taksiran barang.",
-                    },
-                    {
-                      label: "Qardh",
-                      nilai: "Margin 0%",
-                      detail: "Pokok kembali utuh, plus tiket doorprize.",
                     },
                   ]
                 : [
@@ -1105,7 +1044,7 @@ function KerangkaHalaman({
         <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
           {/*
            * Syariah memakai kalkulator selebar konten, bukan kolom samping
-           * 26rem: tiga akad, dua kolom input, dan kartu hasil tidak muat di
+           * 26rem: dua akad, dua kolom input, dan kartu hasil tidak muat di
            * kolom sempit — angka rupiah saling menimpa saat dituang ke sana.
            * Konvensional tetap memakai kolom samping yang lengket.
            */}
@@ -1118,7 +1057,7 @@ function KerangkaHalaman({
           >
             <div>
               <h2 className="text-2xl font-semibold tracking-tight text-navy">
-                {syariah ? "Tiga akad, satu aturan pembagian" : "Dua skema, satu mesin hitung"}
+                {syariah ? "Dua akad, satu aturan pembagian" : "Dua skema, satu mesin hitung"}
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                 {syariah
@@ -1127,7 +1066,7 @@ function KerangkaHalaman({
               </p>
 
               {syariah ? (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-3">
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 md:gap-4">
                   {[
                     {
                       ikon: Package,
@@ -1138,11 +1077,6 @@ function KerangkaHalaman({
                       ikon: HandCoins,
                       judul: "Rahn: gadai syariah",
                       isi: "Barang jaminan ditaksir, lalu dana diserahkan dengan ujrah pemeliharaan. Ujrah 2% dari nilai taksiran per 30 hari. Pokok gadai kembali 100% ke pendana saat pelunasan.",
-                    },
-                    {
-                      ikon: Wallet,
-                      judul: "Qardh: pinjaman kebajikan",
-                      isi: "Dana dipinjamkan tanpa margin. Pendana menerima pokok kembali utuh, dan setiap kelipatan Rp1.000.000 dana aktif menambah satu tiket doorprize triwulanan.",
                     },
                   ].map((item) => (
                     <article

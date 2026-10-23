@@ -32,9 +32,10 @@ function tidakAda(html: string, teks: string, label: string): void {
   );
 
   ada(html, "Simulasikan return", "judul simulator");
-  for (const akad of ["Konvensional", "Murabahah", "Rahn", "Qardh"]) {
+  for (const akad of ["Konvensional", "Murabahah", "Rahn"]) {
     ada(html, akad, `pilihan akad "${akad}" ada`);
   }
+  tidakAda(html, "Qardh", "Qardh tidak lagi ditawarkan");
   ada(
     html,
     'aria-pressed="true"',

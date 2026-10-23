@@ -27,7 +27,6 @@ const AKAD_SYARIAH = [
     judul: "Rahn",
     isi: "Gadai, ujrah 2% per 30 hari",
   },
-  { ikon: Wallet, judul: "Qardh", isi: "Pinjaman kebajikan, margin 0%" },
 ];
 
 export function PilihanProduk({
@@ -123,11 +122,11 @@ export function PilihanProduk({
           </h3>
         </div>
         <p className="mt-2 flex-1 text-sm leading-6 text-slate-700">
-          Tiga akad dengan margin dan ujrah yang disepakati.
+          Dua akad dengan margin dan ujrah yang disepakati.
         </p>
         {ringkas ? (
           <p className="mt-2 text-xs leading-5 text-slate-600">
-            Murabahah, Rahn, dan Qardh.
+            Murabahah dan Rahn.
           </p>
         ) : (
           <ul className="mt-3 space-y-1.5">

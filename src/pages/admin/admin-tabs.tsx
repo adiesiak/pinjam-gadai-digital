@@ -110,6 +110,7 @@ export function AdminTabs({
   onOpenSetup,
   kycMenunggu = null,
   angsuranMenunggu = null,
+  syariahMenunggu = null,
 }: {
   /**
    * Kepala panel (judul/breadcrumb, notifikasi, status sistem, menu profil).
@@ -137,6 +138,8 @@ export function AdminTabs({
   kycMenunggu?: number | null;
   /** Jumlah bukti transfer angsuran yang belum dicocokkan. */
   angsuranMenunggu?: number | null;
+  /** Jumlah pengajuan akad syariah yang menunggu keputusan. */
+  syariahMenunggu?: number | null;
 }) {
   // Default "Hari Ini": ini meja kerja, bukan satu antrean. Mendarat di
   // ringkasan dulu berarti admin melihat apa yang menunggu sebelum memilih modul.
@@ -228,9 +231,9 @@ export function AdminTabs({
         {
           value: "syariah",
           label: "Pengajuan Syariah",
-          hint: "Tinjau pengajuan Murabahah, Rahn, dan Qardh; setujui angka akad atau tolak dengan alasan.",
-          badge: null,
-          hitung: "tidak",
+          hint: "Tinjau pengajuan Murabahah dan Rahn; setujui angka akad atau tolak dengan alasan.",
+          badge: syariahMenunggu === null ? null : `${syariahMenunggu}`,
+          hitung: "menunggu",
           Icon: HandCoins,
         },
         {

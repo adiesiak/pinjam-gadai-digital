@@ -41,10 +41,9 @@ function bersih(html: string, label: string): void {
   );
   ada(html, "Murabahah", "akad Murabahah tampil");
   ada(html, "Rahn", "akad Rahn tampil");
-  ada(html, "Qardh", "akad Qardh tampil");
+  ok(!html.includes("Qardh"), "akad Qardh tidak lagi ditawarkan");
   ada(html, "Kredit barang", "ringkasan Murabahah tampil");
   ada(html, "Gadai syariah", "ringkasan Rahn tampil");
-  ada(html, "Pinjaman kebajikan", "ringkasan Qardh tampil");
   ok(
     /aria-pressed="true"[^>]*>[\s\S]*?Murabahah/.test(html) ||
       /Murabahah[\s\S]*?aria-pressed="true"/.test(html),

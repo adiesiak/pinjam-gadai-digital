@@ -502,8 +502,8 @@ export default function Dashboard() {
                       Pengajuan akad syariah
                     </h2>
                     <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-                      Murabahah, Rahn, dan Qardh yang Anda ajukan, beserta
-                      keputusan petugas dan alasan penolakan bila ada.
+                      Murabahah dan Rahn yang Anda ajukan, beserta keputusan
+                      petugas dan alasan penolakan bila ada.
                     </p>
                     <DaftarPengajuanSyariah
                       className="mt-3"

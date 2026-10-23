@@ -1,7 +1,7 @@
 /**
  * Pengajuan akad syariah di dashboard peminjam.
  *
- * Peminjam memilih satu dari tiga akad, mengisi nominal dan tenor, lalu
+ * Peminjam memilih satu dari dua akad, mengisi nominal dan tenor, lalu
  * melihat estimasi yang dihitung `lib/syariah/akad` — mesin yang sama dengan
  * server. Formulir tidak menghitung margin/ujrah sendiri dan tidak pernah
  * mengirim angka final: admin menetapkan margin Murabahah dan taksiran Rahn
@@ -17,7 +17,6 @@ import {
   Info,
   Package,
   Send,
-  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -83,13 +82,6 @@ const PILIHAN_AKAD: readonly PilihanAkad[] = [
     isi: "Barang jaminan ditaksir, dana diserahkan, dan Anda membayar ujrah pemeliharaan.",
     Ikon: HandCoins,
   },
-  {
-    id: "qardh",
-    label: "Qardh",
-    ringkas: "Pinjaman kebajikan",
-    isi: "Pokok kembali 100% tanpa margin dan tanpa ujrah.",
-    Ikon: Wallet,
-  },
 ] as const;
 
 /** Pilihan akad — presentasional agar bisa dirender di uji markup. */
@@ -106,7 +98,7 @@ export function KartuPilihanAkad({
     <div
       role="group"
       aria-label="Jenis akad syariah"
-      className="grid gap-2 sm:grid-cols-3"
+      className="grid gap-2 sm:grid-cols-2"
     >
       {PILIHAN_AKAD.map((akad) => {
         const aktif = akad.id === nilai;
@@ -319,8 +311,8 @@ export function DaftarPengajuanSyariah({
             Belum ada pengajuan akad syariah
           </p>
           <p className="mt-1 text-xs leading-5 text-amber-950/80">
-            Pengajuan Murabahah, Rahn, atau Qardh yang Anda kirim akan tercatat
-            di sini beserta keputusan petugas.
+            Pengajuan Murabahah atau Rahn yang Anda kirim akan tercatat di sini
+            beserta keputusan petugas.
           </p>
           {onBukaForm !== undefined && (
             <Button
@@ -633,7 +625,7 @@ export function FormPengajuanSyariah({
   const bisaKirim =
     rencana !== null &&
     tujuan.trim().length >= 5 &&
-    (jenis === "qardh" || namaBarang.trim().length >= 3) &&
+    namaBarang.trim().length >= 3 &&
     (jenis !== "murabahah" || !pakaiKatalog || barangTerpilih !== null) &&
     (!butuhNomorTujuan || nomorTujuanValid(nomorTujuan)) &&
     !mengirim;
@@ -873,9 +865,7 @@ export function FormPengajuanSyariah({
         <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         {jenis === "murabahah"
           ? `Margin ${marginSyariah}% dari harga pokok untuk seluruh tenor. Angka final dapat disesuaikan petugas dalam rentang ${MARGIN_MURABAHAH_MIN_PERSEN}-${MARGIN_MURABAHAH_MAX_PERSEN}% sebelum akad.`
-          : jenis === "rahn"
-            ? "Ujrah 2% dari taksiran per 30 hari. Taksiran final ditetapkan petugas."
-            : "Qardh tidak mengambil margin atau ujrah. Pokok kembali 100%."}
+          : "Ujrah 2% dari taksiran per 30 hari. Taksiran final ditetapkan petugas."}
       </p>
 
       <Button

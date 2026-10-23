@@ -163,6 +163,31 @@ cek("2h panel Ringkasan tetap terpasang", html.includes('id="panel-hari-ini"'));
 cek("2i region menyebut modulnya untuk pembaca layar", html.includes('aria-label="Ringkasan"'));
 cek("2j tanpa NaN", !html.includes("NaN"));
 cek("2k tanpa undefined", !html.includes("undefined"));
+// Lencana antrean syariah dikirim sebagai prop; tombolnya harus memuat angka
+// yang sama dengan `cacahMenunggu`, bukan lencana kosong.
+const htmlLencana = renderToStaticMarkup(
+  createElement(AdminTabs, {
+    overview: { loans: [], pawns: [], kredit: [] },
+    stats: undefined,
+    syariahMenunggu: 4,
+    onOpenLoan: () => {},
+    onOpenPawn: () => {},
+    onOpenSetup: () => {},
+  }),
+);
+const awalSyariah = htmlLencana.indexOf('id="tab-syariah"');
+const blokSyariah = htmlLencana.slice(awalSyariah, awalSyariah + 2000);
+cek(
+  "2l pengajuan syariah menampilkan angka antrean",
+  awalSyariah !== -1 && blokSyariah.includes(">4<"),
+);
+cek(
+  "2m tanpa angka antrean, lencana syariah tidak dipaksakan",
+  html.includes('id="tab-syariah"') &&
+    !html
+      .slice(html.indexOf('id="tab-syariah"'), html.indexOf('id="tab-syariah"') + 2000)
+      .includes(">0<"),
+);
 
 // ===== 3. Kontrak di berkas: dua lebar, laci ponsel, dan kartu KYC =====
 const sumber = readFileSync(

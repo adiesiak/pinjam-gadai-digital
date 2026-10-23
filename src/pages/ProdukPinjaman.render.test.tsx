@@ -68,7 +68,7 @@ function render(produk: "konvensional" | "syariah"): string {
   ada(html, "Pembiayaan syariah", "judul produk syariah");
   ada(html, "Murabahah", "akad Murabahah disebut");
   ada(html, "Rahn", "akad Rahn disebut");
-  ada(html, "Qardh", "akad Qardh disebut");
+  ok(!html.includes("Qardh"), "akad Qardh tidak lagi ditawarkan");
   ada(html, "Nisbah bagi hasil", "kalimat nisbah tercetak");
   ada(html, "2%", "ujrah Rahn 2% tercetak");
   ada(html, "Ajukan akad syariah", "tombol pengajuan syariah tampil");
@@ -79,8 +79,8 @@ function render(produk: "konvensional" | "syariah"): string {
   );
   ada(
     html,
-    "Murabahah, Rahn, dan Qardh dapat diajukan",
-    "ketiga akad disebut terbuka",
+    "Murabahah dan Rahn dapat diajukan",
+    "kedua akad disebut terbuka",
   );
   ada(html, "PT Pindai Digital Solusindo", "nama entitas tercetak");
   ada(html, 'href="/pinjaman/konvensional"', "tautan ke produk konvensional");
@@ -100,7 +100,7 @@ function render(produk: "konvensional" | "syariah"): string {
 }
 
 // ===== 3. Tata letak kalkulator syariah =====
-// Kalkulator tiga akad tidak muat di kolom samping 26rem: di layar 1024-1366
+// Kalkulator dua akad tidak muat di kolom samping 26rem: di layar 1024-1366
 // px kolom hasil menyusut sampai angka rupiah saling menimpa. Karena itu ia
 // harus dirender selebar konten, di bawah penjelasan akad.
 {
@@ -118,8 +118,8 @@ function render(produk: "konvensional" | "syariah"): string {
     "kolom samping hanya dipakai kalkulator konvensional",
   );
   ok(
-    sumber.includes("sm:grid-cols-2") && sumber.includes("lg:grid-cols-3"),
-    "kartu akad memakai grid dua-tiga kolom, bukan tumpukan penuh",
+    sumber.includes('className="mt-5 grid gap-3 sm:grid-cols-2 md:gap-4"'),
+    "kartu akad memakai grid dua kolom, bukan tumpukan penuh",
   );
   ok(
     !/syariah\s*\?\s*\(\s*<KalkulatorSyariah/.test(sumber),

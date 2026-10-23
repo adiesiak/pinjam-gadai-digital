@@ -488,6 +488,25 @@ export const daftarAdmin = query({
 });
 
 /**
+ * Jumlah pengajuan yang masih menunggu keputusan — untuk lencana menu admin.
+ *
+ * Sengaja ringan: hanya membaca indeks status, tanpa memuat identitas pemohon
+ * seperti `daftarAdmin`. Panel memakainya di samping menu supaya angka antrean
+ * terlihat tanpa harus membuka modulnya lebih dulu.
+ */
+export const cacahMenunggu = query({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    await requireAdminSession(ctx);
+    const rows = await ctx.db
+      .query("pengajuanSyariah")
+      .withIndex("by_status", (q) => q.eq("status", "diajukan"))
+      .take(500);
+    return rows.length;
+  },
+});
+
+/**
  * Keputusan admin atas satu pengajuan.
  *
  * Setujui: angka final (pokok, tenor, margin Murabahah, taksiran Rahn)

@@ -191,7 +191,7 @@ export function FormPengajuanSection({
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
             {jalur === "syariah"
-              ? "Murabahah untuk barang, Rahn untuk gadai, dan Qardh untuk pinjaman kebajikan. Petugas menetapkan angka akad sebelum pencairan."
+              ? "Murabahah untuk barang dan Rahn untuk gadai. Petugas menetapkan angka akad sebelum pencairan."
               : "Pinjaman, gadai, dan kredit barang diajukan dari satu halaman ini. Pilih jenisnya di menu dropdown, lalu isi formulir yang muncul. Semua angka dihitung aplikasi dan tercatat di PINDAI."}
           </p>
         </div>
