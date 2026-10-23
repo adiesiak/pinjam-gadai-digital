@@ -28,7 +28,7 @@ import { apakahPelunasanTepatWaktu, plafonPeminjam, ringkasPlafon } from "../lib
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
-import { eksposurAkadAktif } from "./syariahPengajuan";
+import { eksposurSyariah } from "./syariahPengajuan";
 import { ROLES } from "./schema";
 import { audit } from "./system";
 
@@ -83,8 +83,10 @@ export const daftarVoucherSaya = query({
       .query("loans")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    const akadAktif = await eksposurAkadAktif(ctx, userId);
-    const ringkas = ringkasPlafon(plafon, [...pinjaman, ...akadAktif]);
+    // Eksposur syariah (akad aktif + pengajuan yang sudah disetujui) ikut
+    // menentukan sisa plafon yang bisa dipakai voucher boost.
+    const eksposur = await eksposurSyariah(ctx, userId);
+    const ringkas = ringkasPlafon(plafon, [...pinjaman, ...eksposur]);
 
     const rows = await ctx.db
       .query("voucher")

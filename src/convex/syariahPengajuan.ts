@@ -131,41 +131,73 @@ function keBaris(row: Doc<"pengajuanSyariah">): BarisPengajuanSyariah {
   };
 }
 
-/** Akad aktif dalam bentuk yang bisa dijumlahkan `ringkasPlafon`. */
-export async function eksposurAkadAktif(
+/**
+ * Eksposur syariah yang menahan plafon bersama pinjaman konvensional.
+ *
+ * Dua keadaan dihitung:
+ *  1. akad berstatus `aktif` — dananya sudah ditempatkan;
+ *  2. pengajuan berstatus `disetujui` yang belum punya `akadNomor` — nominalnya
+ *     sudah disetujui admin, jadi tidak boleh dipakai lagi oleh jalur lain.
+ *
+ * Pengajuan `diajukan` sengaja TIDAK dihitung: belum ada keputusan, sama seperti
+ * pinjaman yang belum cair. Tanpa poin 2, satu nasabah bisa mengumpulkan
+ * beberapa persetujuan yang masing-masing memakai plafon penuh.
+ *
+ * `kecualiPengajuanId` dipakai saat akad dicatat dari pengajuan itu: nominalnya
+ * sudah dihitung sebagai persetujuan, jadi tidak boleh dihitung dua kali saat
+ * memeriksa sisa plafon untuk akadnya sendiri.
+ */
+export async function eksposurSyariah(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
+  kecualiPengajuanId?: Id<"pengajuanSyariah">,
 ): Promise<{ status: string; pokokPinjaman: number }[]> {
-  const akad = await ctx.db
-    .query("akadSyariah")
-    .withIndex("by_peminjam", (q) => q.eq("peminjamId", userId))
-    .collect();
-  return akad
-    .filter((row) => row.status === "aktif")
-    .map((row) => ({ status: "didanai", pokokPinjaman: row.pokok }));
+  const [akad, pengajuan] = await Promise.all([
+    ctx.db
+      .query("akadSyariah")
+      .withIndex("by_peminjam", (q) => q.eq("peminjamId", userId))
+      .collect(),
+    ctx.db
+      .query("pengajuanSyariah")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect(),
+  ]);
+  return [
+    ...akad
+      .filter((row) => row.status === "aktif")
+      .map((row) => ({ status: "didanai", pokokPinjaman: row.pokok })),
+    ...pengajuan
+      .filter(
+        (row) =>
+          row.status === "disetujui" &&
+          row.akadNomor === undefined &&
+          row._id !== kecualiPengajuanId,
+      )
+      .map((row) => ({ status: "didanai", pokokPinjaman: row.pokok })),
+  ];
 }
 
 /**
- * Plafon tersedia dengan akad syariah AKTIF ikut menahan limit.
+ * Plafon tersedia dengan eksposur syariah ikut menahan limit.
  *
- * Pinjaman dan akad memakai satu plafon: tanpa ini, nasabah bisa memakai seluruh
- * limit di pinjaman konvensional lalu mengajukan akad syariah dengan nominal
- * penuh lagi. Pengajuan yang belum disetujui tidak menahan limit — aturan yang
- * sama dengan pinjaman yang belum cair.
+ * Pinjaman, akad, dan pengajuan yang sudah disetujui memakai satu plafon:
+ * tanpa ini, nasabah bisa memakai seluruh limit di satu jalur lalu mendapat
+ * persetujuan penuh di jalur lain.
  */
-export async function plafonDenganAkadSyariah(
+export async function plafonDenganEksposurSyariah(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
+  kecualiPengajuanId?: Id<"pengajuanSyariah">,
 ): Promise<RingkasanPlafon> {
-  const [maksimal, pinjaman, eksposurAkad] = await Promise.all([
+  const [maksimal, pinjaman, eksposur] = await Promise.all([
     plafonPeminjam(ctx, userId),
     ctx.db
       .query("loans")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect(),
-    eksposurAkadAktif(ctx, userId),
+    eksposurSyariah(ctx, userId, kecualiPengajuanId),
   ]);
-  return ringkasPlafon(maksimal, [...pinjaman, ...eksposurAkad]);
+  return ringkasPlafon(maksimal, [...pinjaman, ...eksposur]);
 }
 
 /** Peminjam yang sudah masuk, bukan akun tamu, dan bukan admin. */
@@ -317,11 +349,11 @@ export const ajukan = mutation({
       persenNisbahPendana: cfg.persenNisbahPendanaSyariah,
     });
 
-    const ringkas = await plafonDenganAkadSyariah(ctx, userId);
+    const ringkas = await plafonDenganEksposurSyariah(ctx, userId);
     if (rencana.pokok > ringkas.tersedia) {
       throw new Error(
         ringkas.terpakai > 0
-          ? `Plafon Anda ${formatRupiah(ringkas.maksimal)}, dan ${formatRupiah(ringkas.terpakai)} sedang dipakai pinjaman atau akad berjalan — sisa yang dapat diajukan ${formatRupiah(ringkas.tersedia)}.`
+          ? `Plafon Anda ${formatRupiah(ringkas.maksimal)}, dan ${formatRupiah(ringkas.terpakai)} sedang dipakai pinjaman, akad, atau pengajuan syariah yang sudah disetujui — sisa yang dapat diajukan ${formatRupiah(ringkas.tersedia)}.`
           : pesanPlafonTerlampaui(ringkas.maksimal),
       );
     }
@@ -590,7 +622,7 @@ export const putuskan = mutation({
       { persenNisbahPendana: cfg.persenNisbahPendanaSyariah },
     );
 
-    const ringkas = await plafonDenganAkadSyariah(ctx, row.userId);
+    const ringkas = await plafonDenganEksposurSyariah(ctx, row.userId);
     if (rencana.pokok > ringkas.tersedia) {
       throw new Error(
         `Nominal yang disetujui melebihi plafon tersedia ${formatRupiah(ringkas.tersedia)}. Turunkan nominal, atau tolak pengajuan ini.`,

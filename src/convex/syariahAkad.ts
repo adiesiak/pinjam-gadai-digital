@@ -25,8 +25,10 @@ import { batalkanTiketReferensi, beriTiketPendanaan } from "./doorprize";
 import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { namaTampilPendana, peranPenyedia } from "./penyediaDana";
+import { plafonDenganEksposurSyariah } from "./syariahPengajuan";
 import { ROLES } from "./schema";
 import { getConfig } from "./system";
+import { formatRupiah } from "../lib/money";
 import { kodeTanggalWIB } from "../lib/waktu";
 import {
   jurnalPelunasanSyariah,
@@ -351,6 +353,24 @@ export const catatAkadSyariah = mutation({
               pokok: pokokAkad,
               ...tenor,
             }, nisbah);
+
+    // Plafon diperiksa ULANG di sini, bukan hanya saat pengajuan disetujui:
+    // antara persetujuan dan pencatatan akad, nasabah bisa memakai plafonnya di
+    // jalur lain. Pengajuan yang sedang dicatat dikecualikan supaya nominalnya
+    // tidak terhitung dua kali (sekali sebagai persetujuan, sekali sebagai
+    // akad yang akan dibentuk).
+    if (pengajuan !== null) {
+      const ringkas = await plafonDenganEksposurSyariah(
+        ctx,
+        pengajuan.userId,
+        pengajuan._id,
+      );
+      if (rencana.pokok > ringkas.tersedia) {
+        throw new Error(
+          `Akad melebihi plafon peminjam yang tersedia ${formatRupiah(ringkas.tersedia)}. Turunkan nominal, atau selesaikan kewajiban lain lebih dulu.`,
+        );
+      }
+    }
 
     const saldo = await danaWalletBalance(ctx, args.pendanaId);
     if (saldo < rencana.pokok) {

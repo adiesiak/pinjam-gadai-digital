@@ -4,7 +4,8 @@
  * Yang dijaga:
  *  - pengajuan hanya dilayani untuk akun ber-KYC VERIFIED dan bukan admin;
  *  - angka akad dihitung mesin `lib/syariah/akad`, bukan dari klien;
- *  - akad syariah AKTIF menahan plafon yang sama dengan pinjaman konvensional;
+ *  - akad aktif DAN pengajuan yang sudah disetujui menahan plafon yang sama
+ *    dengan pinjaman konvensional, tanpa menghitung akadnya dua kali;
  *  - satu akun hanya punya satu pengajuan yang menunggu keputusan;
  *  - admin bisa menyetujui dengan angka final atau menolak dengan alasan.
  *
@@ -208,6 +209,89 @@ describe("pengajuan syariah — pengiriman", () => {
       ajukan(sesi, { jenis: "qardh", pokok: 200_000, tujuan: "Modal usaha kecil" }),
     ).resolves.toMatchObject({ nomorReferensi: expect.stringContaining("PSY-") });
   });
+
+  it("pengajuan yang disetujui menahan plafon, bukan hanya akad aktif", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await siapkanPeminjam(
+      t,
+      "Rani Disetujui",
+      "rani-disetujui-syariah@pindai.test",
+    );
+    const admin = await siapkanPengguna(t, "Admin Disetujui Syariah", {
+      email: "admin-disetujui-syariah@pindai.test",
+      role: "admin",
+    });
+
+    const { id } = await ajukan(sesi, { jenis: "qardh", pokok: 300_000 });
+    await admin.sesi.mutation(api.syariahPengajuan.putuskan, {
+      id,
+      keputusan: "setujui",
+    });
+
+    // Plafon awal Rp500.000. Rp300.000 sudah DISETUJUI, jadi hanya Rp200.000
+    // yang boleh diajukan lagi sebelum akadnya dicatat.
+    await expect(ajukan(sesi, { jenis: "qardh", pokok: 250_000 })).rejects.toThrow(
+      "sisa yang dapat diajukan Rp 200.000",
+    );
+    await expect(
+      ajukan(sesi, { jenis: "qardh", pokok: 200_000, tujuan: "Modal usaha kecil" }),
+    ).resolves.toMatchObject({ nomorReferensi: expect.stringContaining("PSY-") });
+  });
+
+  it("akad yang sudah tercatat tidak dihitung dua kali dengan persetujuannya", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await siapkanPeminjam(
+      t,
+      "Rani Akad Ganda",
+      "rani-akad-ganda-syariah@pindai.test",
+    );
+    const admin = await siapkanPengguna(t, "Admin Akad Ganda Syariah", {
+      email: "admin-akad-ganda-syariah@pindai.test",
+      role: "admin",
+    });
+
+    const { id } = await ajukan(sesi, { jenis: "qardh", pokok: 300_000 });
+    await admin.sesi.mutation(api.syariahPengajuan.putuskan, {
+      id,
+      keputusan: "setujui",
+    });
+
+    // Setelah akadnya tercatat, pengajuan tidak lagi menahan plafon sendiri;
+    // yang menahan adalah baris akad. Tanpa aturan ini nominalnya terhitung
+    // dua kali dan sisa plafon menjadi nol.
+    await t.run(async (ctx) => {
+      const akadId = await ctx.db.insert("akadSyariah", {
+        jenis: "qardh",
+        nomorReferensi: "SYR-GANDA-1",
+        pendanaId: admin.userId,
+        peminjamId: userId,
+        peminjamNama: "RANI AKAD GANDA",
+        pengajuanId: id,
+        pokok: 300_000,
+        tenorHari: 30,
+        totalKewajiban: 300_000,
+        pendanaTerima: 300_000,
+        nisbahPendana: 0,
+        nisbahPlatform: 0,
+        marginTotal: 0,
+        tiketDoorprize: 0,
+        status: "aktif",
+        jatuhTempoPada: Date.now() + 30 * HARI_MS,
+        dibuatPada: Date.now(),
+        dibuatOleh: admin.userId,
+      });
+      await ctx.db.patch(id, { akadNomor: "SYR-GANDA-1" });
+      return akadId;
+    });
+
+    // Sisa plafon tetap Rp200.000, bukan nol.
+    await expect(ajukan(sesi, { jenis: "qardh", pokok: 250_000 })).rejects.toThrow(
+      "sisa yang dapat diajukan Rp 200.000",
+    );
+    await expect(
+      ajukan(sesi, { jenis: "qardh", pokok: 200_000, tujuan: "Modal usaha kecil" }),
+    ).resolves.toMatchObject({ nomorReferensi: expect.stringContaining("PSY-") });
+  });
 });
 
 describe("pengajuan syariah — katalog Murabahah", () => {
@@ -287,11 +371,18 @@ describe("pengajuan syariah — katalog Murabahah", () => {
       email: "admin-ubah-harga-syariah@pindai.test",
       role: "admin",
     });
-    const { sesi: peminjam } = await siapkanPeminjam(
+    const { sesi: peminjam, userId } = await siapkanPeminjam(
       t,
       "Rani Harga",
       "rani-harga-katalog@pindai.test",
     );
+    // Persetujuan pertama (Rp350.000) menahan plafon, jadi naikkan limit uji
+    // supaya tes ini tetap menguji snapshot harga katalog, bukan plafon.
+    await admin.mutation(api.admin.setPlafonPeminjam, {
+      userId,
+      plafon: 2_000_000,
+      alasan: "uji snapshot harga katalog",
+    });
     const lama = await ajukan(peminjam, {
       katalogId: "el-setrika-uap",
       tujuan: "Membeli setrika untuk usaha laundry",

@@ -27,7 +27,7 @@ import { audit, getConfig, tarifDendaBerlaku } from "./system";
 import { persenBungaEfektif } from "../lib/bunga";
 import { pelunasanPinjaman, quotePinjaman, simulasiBulananPinjaman } from "../lib/loan";
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
-import { plafonDenganAkadSyariah } from "./syariahPengajuan";
+import { plafonDenganEksposurSyariah } from "./syariahPengajuan";
 import {
   profilRisiko,
   ringkasRisiko,
@@ -199,7 +199,7 @@ export const plafonRingkasSaya = query({
     const user = await ctx.db.get(userId);
     if (user === null || user.isAnonymous === true) return null;
     const [ringkas, cfg] = await Promise.all([
-      plafonDenganAkadSyariah(ctx, userId),
+      plafonDenganEksposurSyariah(ctx, userId),
       getConfig(ctx),
     ]);
     return {
@@ -258,7 +258,7 @@ export const detailNasabah = query({
 
     const now = Date.now();
     const cfg = await getConfig(ctx);
-    const ringkas = await plafonDenganAkadSyariah(ctx, userId);
+    const ringkas = await plafonDenganEksposurSyariah(ctx, userId);
 
     // Riwayat pengajuan KRONOLOGIS (paling lama → terbaru) dengan nomor urut
     // #001, #002, … supaya cerita nasabah terbaca sebagai urutan.

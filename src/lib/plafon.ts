@@ -343,22 +343,23 @@ export function pesanPlafonTerlampaui(plafon: Rupiah): string {
 
 /**
  * Pesan penolakan saat plafon MAKSIMAL masih cukup, tetapi plafon TERSEDIA
- * sudah berkurang karena pinjaman aktif. Angkanya menyebut maksimal, terpakai,
- * dan tersedia supaya nasabah paham kenapa pengajuan ditolak.
+ * sudah berkurang karena eksposur berjalan (pinjaman, akad, atau pengajuan
+ * syariah yang sudah disetujui). Angkanya menyebut maksimal, terpakai, dan
+ * tersedia supaya nasabah paham kenapa pengajuan ditolak.
  */
 export function pesanPlafonTersediaTerlampaui(ringkas: RingkasanPlafon): string {
   return (
     `Plafon Anda ${formatRupiah(ringkas.maksimal)}, dan ${formatRupiah(ringkas.terpakai)} ` +
-    `sedang dipakai pinjaman berjalan — sisa yang dapat diajukan ${formatRupiah(ringkas.tersedia)}` +
-    (ringkas.jumlahAktif > 1 ? ` (${ringkas.jumlahAktif} pinjaman aktif). ` : " (1 pinjaman aktif). ") +
-    "Lunasi pinjaman berjalan atau ajukan nominal yang lebih kecil."
+    `sedang dipakai pinjaman atau akad berjalan — sisa yang dapat diajukan ${formatRupiah(ringkas.tersedia)}` +
+    (ringkas.jumlahAktif > 1 ? ` (${ringkas.jumlahAktif} kewajiban berjalan). ` : " (1 kewajiban berjalan). ") +
+    "Lunasi kewajiban berjalan atau ajukan nominal yang lebih kecil."
   );
 }
 
 /**
  * Kalimat baku "batas mana yang berlaku" untuk seluruh layar nasabah.
  *
- * Maksimal dan terpakai hanya disebut saat ada pinjaman yang benar-benar
+ * Maksimal dan terpakai hanya disebut saat ada eksposur yang benar-benar
  * menahan plafon; tanpa itu satu angka saja yang perlu dibaca. Angkanya dari
  * ringkasan SERVER (`ringkasPlafon`) — sumber yang sama dengan validasi
  * pengajuan — sehingga kartu ringkasan, formulir, dan jalur cepat tidak
@@ -370,6 +371,6 @@ export function kalimatBatasPlafon(ringkas: RingkasanPlafon): string {
   }
   return (
     `Batas pinjaman Anda ${formatRupiah(ringkas.maksimal)}, dan ${formatRupiah(ringkas.terpakai)} ` +
-    `sedang dipakai pinjaman berjalan — yang bisa diajukan sekarang ${formatRupiah(ringkas.tersedia)}.`
+    `sedang dipakai pinjaman atau akad berjalan — yang bisa diajukan sekarang ${formatRupiah(ringkas.tersedia)}.`
   );
 }

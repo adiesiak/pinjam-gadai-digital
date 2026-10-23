@@ -64,7 +64,7 @@ import { requireGerbangLokasi } from "./lokasi";
 import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { requireKycTerverifikasi } from "./kyc";
-import { eksposurAkadAktif } from "./syariahPengajuan";
+import { eksposurSyariah } from "./syariahPengajuan";
 import {
   ambilHasilIdempoten,
   kunciIdempotensiValidator,
@@ -624,9 +624,13 @@ export const createLoanApplication = mutation({
       .query("loans")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    // Akad syariah aktif ikut menahan plafon: satu limit untuk kedua jalur.
-    const akadSyariahAktif = await eksposurAkadAktif(ctx, userId);
-    const ringkas = ringkasPlafon(plafon, [...pinjamanNasabah, ...akadSyariahAktif]);
+    // Akad syariah aktif dan pengajuan syariah yang sudah disetujui ikut
+    // menahan plafon: satu limit untuk semua jalur.
+    const eksposurSyariahNasabah = await eksposurSyariah(ctx, userId);
+    const ringkas = ringkasPlafon(plafon, [
+      ...pinjamanNasabah,
+      ...eksposurSyariahNasabah,
+    ]);
     // Voucher dipilih SEBELUM batas diperiksa: boost menambah batas pengajuan
     // ini saja, dan voucher potongan tidak menambah batas sama sekali.
     const voucherTerpilih =

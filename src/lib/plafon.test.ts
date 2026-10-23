@@ -169,7 +169,7 @@ ok(
 );
 ok(
   "dengan utang menyebut nominal terpakai",
-  kalimatBatasPlafon(rAktif).includes("Rp 500.000 sedang dipakai pinjaman berjalan"),
+  kalimatBatasPlafon(rAktif).includes("Rp 500.000 sedang dipakai pinjaman atau akad berjalan"),
 );
 ok(
   "dengan utang menyebut sisa yang bisa diajukan",
