@@ -21,7 +21,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
-import { beriTiketPendanaan } from "./doorprize";
+import { batalkanTiketReferensi, beriTiketPendanaan } from "./doorprize";
 import { akunDompetDana, appendJournal, danaWalletBalance } from "./ledger";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { namaTampilPendana, peranPenyedia } from "./penyediaDana";
@@ -35,6 +35,7 @@ import {
   type JenisAkadSyariah,
   type RencanaAkadSyariah,
 } from "../lib/syariah/akad";
+import { dataPencatatanDariPengajuan } from "../lib/syariah/pencatatan";
 import { MARGIN_MURABAHAH_BAWAAN } from "../lib/syariah/pengajuan";
 
 /** Batas jumlah baris portofolio yang dikirim ke satu pembaca. */
@@ -206,6 +207,52 @@ export const proyeksiPendanaSaya = query({
   },
 });
 
+/** Satu akad dalam bentuk yang ditampilkan ke peminjamnya. */
+export type BarisAkadPeminjam = {
+  _id: Id<"akadSyariah">;
+  nomorReferensi: string;
+  jenis: JenisAkadSyariah;
+  status: "aktif" | "selesai" | "dibatalkan";
+  pokok: number;
+  totalKewajiban: number;
+  jatuhTempoPada: number;
+  dibuatPada: number;
+  selesaiPada: number | null;
+  pengajuanId: Id<"pengajuanSyariah"> | null;
+};
+
+/**
+ * Akad milik peminjam yang sedang masuk.
+ *
+ * Persetujuan pengajuan saja tidak cukup terlihat oleh peminjam: nomor akad,
+ * jatuh tempo, dan status lunas hanya ada di baris akad. Akun tamu menerima
+ * daftar kosong, bukan galat, supaya kartu dashboard tetap termuat.
+ */
+export const akadSaya = query({
+  args: {},
+  handler: async (ctx): Promise<BarisAkadPeminjam[]> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return [];
+    const rows = await ctx.db
+      .query("akadSyariah")
+      .withIndex("by_peminjam", (q) => q.eq("peminjamId", userId))
+      .order("desc")
+      .take(BATAS_BARIS);
+    return rows.map((row) => ({
+      _id: row._id,
+      nomorReferensi: row.nomorReferensi,
+      jenis: row.jenis,
+      status: row.status,
+      pokok: row.pokok,
+      totalKewajiban: row.totalKewajiban,
+      jatuhTempoPada: row.jatuhTempoPada,
+      dibuatPada: row.dibuatPada,
+      selesaiPada: row.selesaiPada ?? null,
+      pengajuanId: row.pengajuanId ?? null,
+    }));
+  },
+});
+
 /**
  * Catat satu akad syariah atas nama penyedia dana.
  *
@@ -220,6 +267,8 @@ export const catatAkadSyariah = mutation({
     pendanaId: v.id("users"),
     peminjamNama: v.string(),
     pokok: v.number(),
+    /** Pengajuan yang disetujui; bila diisi, semua angka mengikuti pengajuan. */
+    pengajuanId: v.optional(v.id("pengajuanSyariah")),
     /** Wajib untuk Murabahah; margin total dalam persen dari harga pokok. */
     marginPersen: v.optional(v.number()),
     /** Wajib untuk Rahn; nilai barang jaminan. */
@@ -233,7 +282,34 @@ export const catatAkadSyariah = mutation({
     const { userId: adminId } = await requireAdminSession(ctx);
     rejectUnverifiedMoneyMovement();
 
-    const peminjamNama = args.peminjamNama.trim();
+    const pengajuan =
+      args.pengajuanId === undefined
+        ? null
+        : await ctx.db.get(args.pengajuanId);
+    if (args.pengajuanId !== undefined && pengajuan === null) {
+      throw new Error("Pengajuan syariah tidak ditemukan.");
+    }
+
+    let sudahAdaAkad = false;
+    if (pengajuan !== null) {
+      const akadPeminjam = await ctx.db
+        .query("akadSyariah")
+        .withIndex("by_peminjam", (q) => q.eq("peminjamId", pengajuan.userId))
+        .collect();
+      sudahAdaAkad = akadPeminjam.some(
+        (row) => row.pengajuanId === pengajuan._id && row.status !== "dibatalkan",
+      );
+    }
+    const data =
+      pengajuan === null
+        ? null
+        : dataPencatatanDariPengajuan({
+            pengajuan: { ...pengajuan, peminjamNama: pengajuan.namaPeminjam },
+            jenis: args.jenis,
+            sudahAdaAkad,
+          });
+
+    const peminjamNama = (data?.peminjamNama ?? args.peminjamNama).trim();
     if (peminjamNama.length < 2 || peminjamNama.length > 120) {
       throw new Error("Nama peminjam harus 2-120 karakter.");
     }
@@ -246,26 +322,28 @@ export const catatAkadSyariah = mutation({
 
     // Rencana akad divalidasi modul murni: nominal, tenor, margin, dan taksiran
     // memakai aturan yang sama dengan simulator dan halaman produk.
-    const tenor =
-      args.tenorHari === undefined ? {} : { tenorHari: args.tenorHari };
+    const pokokAkad = data?.pokok ?? args.pokok;
+    const tenorHari = data?.tenorHari ?? args.tenorHari;
+    const tenor = tenorHari === undefined ? {} : { tenorHari };
     const rencana: RencanaAkadSyariah =
       args.jenis === "murabahah"
         ? rencanaAkadSyariah({
             jenis: "murabahah",
-            pokok: args.pokok,
-            marginPersen: args.marginPersen ?? MARGIN_MURABAHAH_BAWAAN,
+            pokok: pokokAkad,
+            marginPersen:
+              data?.marginPersen ?? args.marginPersen ?? MARGIN_MURABAHAH_BAWAAN,
             ...tenor,
           })
         : args.jenis === "rahn"
           ? rencanaAkadSyariah({
               jenis: "rahn",
-              pokok: args.pokok,
-              nilaiTaksiran: args.nilaiTaksiran ?? 0,
+              pokok: pokokAkad,
+              nilaiTaksiran: data?.nilaiTaksiran ?? args.nilaiTaksiran ?? 0,
               ...tenor,
             })
           : rencanaAkadSyariah({
               jenis: "qardh",
-              pokok: args.pokok,
+              pokok: pokokAkad,
               ...tenor,
             });
 
@@ -289,6 +367,9 @@ export const catatAkadSyariah = mutation({
       nomorReferensi,
       pendanaId: args.pendanaId,
       peminjamNama,
+      ...(pengajuan === null
+        ? {}
+        : { peminjamId: pengajuan.userId, pengajuanId: pengajuan._id }),
       pokok: rencana.pokok,
       tenorHari: rencana.tenorHari,
       totalKewajiban: rencana.totalKewajiban,
@@ -313,6 +394,12 @@ export const catatAkadSyariah = mutation({
       dibuatPada: now,
       dibuatOleh: adminId,
     });
+
+    // Pengajuan menunjuk balik ke akadnya supaya panel admin dan dashboard
+    // peminjam tidak perlu menebak nomor akad dari daftar portofolio.
+    if (pengajuan !== null) {
+      await ctx.db.patch(pengajuan._id, { akadNomor: nomorReferensi });
+    }
 
     const jurnal = jurnalPenempatanSyariah({
       akadId,
@@ -445,6 +532,13 @@ export const batalkanAkadSyariah = mutation({
       aktor: adminId,
       lines: jurnal.lines,
     });
+
+    // Penempatan batal tidak berhak atas tiket undian. Nomor akad dilepas dari
+    // pengajuan supaya penggantinya bisa dicatat tanpa tertahan cek akad ganda.
+    await batalkanTiketReferensi(ctx, `PENDANAAN:${akad.nomorReferensi}`);
+    if (akad.pengajuanId !== undefined) {
+      await ctx.db.patch(akad.pengajuanId, { akadNomor: undefined });
+    }
 
     return { nomorReferensi: akad.nomorReferensi };
   },

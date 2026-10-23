@@ -1846,6 +1846,11 @@ const schema = defineSchema(
       peminjamNama: v.string(),
       /** Akun peminjam bila ada; kosong untuk pencatatan manual. */
       peminjamId: v.optional(v.id("users")),
+      /**
+       * Pengajuan yang menjadi dasar akad. Kosong untuk pencatatan manual di
+       * luar sistem; bila ada, angka akad mengikuti pengajuan yang disetujui.
+       */
+      pengajuanId: v.optional(v.id("pengajuanSyariah")),
       /** Pokok yang ditempatkan — rupiah bulat. */
       pokok: v.number(),
       /** Tenor akad dalam hari. */
@@ -2013,6 +2018,8 @@ const schema = defineSchema(
       diputuskanPada: v.optional(v.number()),
       diputuskanOleh: v.optional(v.id("users")),
       alasanTolak: v.optional(v.string()),
+      /** Nomor akad yang tercatat dari pengajuan ini; kosong sebelum akad. */
+      akadNomor: v.optional(v.string()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"])

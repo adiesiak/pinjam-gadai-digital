@@ -12,6 +12,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
+import { batalkanTiketReferensi } from "./doorprize";
 import schema from "./schema";
 import { modules } from "./test.setup";
 import { siapkanPengguna, type KonteksUji } from "./test.helpers";
@@ -24,6 +25,8 @@ type SeedAkad = {
   jenis: "murabahah" | "rahn" | "qardh";
   nomorReferensi: string;
   peminjamNama?: string;
+  /** Akun peminjam; kosong untuk pencatatan manual. */
+  peminjamId?: Awaited<ReturnType<typeof siapkanPengguna>>["userId"];
   pokok: number;
   nisbahPendana: number;
   nisbahPlatform: number;
@@ -40,6 +43,7 @@ async function seedAkad(t: Tx, data: SeedAkad) {
       nomorReferensi: data.nomorReferensi,
       pendanaId: data.pendanaId,
       peminjamNama: data.peminjamNama ?? "Rina Wati",
+      ...(data.peminjamId === undefined ? {} : { peminjamId: data.peminjamId }),
       pokok: data.pokok,
       tenorHari: 30,
       totalKewajiban: data.pokok + nisbahPendana + data.nisbahPlatform,
@@ -343,5 +347,107 @@ describe("akad syariah — proyeksi ringkasan", () => {
     expect(
       await peminjam.query(api.syariahAkad.proyeksiPendanaSaya, {}),
     ).toBeNull();
+  });
+});
+
+describe("akad syariah — tampilan peminjam dan tiket", () => {
+  it("peminjam hanya melihat akad atas namanya, tamu mendapat daftar kosong", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: adminId } = await siapkanPengguna(t, "Admin Akad Saya", {
+      email: "admin-akad-saya@pindai.test",
+      role: "admin",
+    });
+    const { userId: danaId } = await siapkanPengguna(t, "Dana Akad Saya", {
+      email: "dana-akad-saya@pindai.test",
+      role: "dana",
+    });
+    const { sesi: rina, userId: rinaId } = await siapkanPengguna(
+      t,
+      "Rina Akad",
+      { email: "rina-akad@pindai.test", role: "peminjam" },
+    );
+    const { userId: budiId } = await siapkanPengguna(t, "Budi Akad", {
+      email: "budi-akad@pindai.test",
+      role: "peminjam",
+    });
+    const jauh = Date.now() + 30 * 86_400_000;
+
+    await seedAkad(t, {
+      pendanaId: danaId,
+      dibuatOleh: adminId,
+      jenis: "murabahah",
+      nomorReferensi: "SYR-RINA-AKAD",
+      peminjamId: rinaId,
+      pokok: 875_000,
+      nisbahPendana: 131_250,
+      nisbahPlatform: 23_750,
+      jatuhTempoPada: jauh,
+    });
+    await seedAkad(t, {
+      pendanaId: danaId,
+      dibuatOleh: adminId,
+      jenis: "qardh",
+      nomorReferensi: "SYR-BUDI-AKAD",
+      peminjamId: budiId,
+      pokok: 1_000_000,
+      nisbahPendana: 0,
+      nisbahPlatform: 0,
+      jatuhTempoPada: jauh,
+    });
+
+    const milikRina = await rina.query(api.syariahAkad.akadSaya, {});
+    expect(milikRina.map((row) => row.nomorReferensi)).toEqual(["SYR-RINA-AKAD"]);
+    expect(milikRina[0]).toMatchObject({
+      jenis: "murabahah",
+      status: "aktif",
+      totalKewajiban: 1_030_000,
+      jatuhTempoPada: jauh,
+    });
+
+    // Tanpa identitas, kartu dashboard tetap termuat dengan daftar kosong.
+    expect(await t.query(api.syariahAkad.akadSaya, {})).toEqual([]);
+  });
+
+  it("membatalkan satu penempatan menarik semua tiket turunannya", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: danaId } = await siapkanPengguna(t, "Dana Tiket", {
+      email: "dana-tiket@pindai.test",
+      role: "dana",
+    });
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      for (const referensi of [
+        "PENDANAAN:SYR-TIKET",
+        "PENDANAAN:SYR-TIKET#2",
+        "PENDANAAN:SYR-LAIN",
+      ]) {
+        await ctx.db.insert("doorprizeTiket", {
+          pemilikId: danaId,
+          peran: "pendana",
+          periode: "2026-Q4",
+          sumber: "pendanaan_1jt",
+          referensi,
+          status: "aktif",
+          dibuatPada: now,
+        });
+      }
+    });
+
+    const dibatalkan = await t.run((ctx) =>
+      batalkanTiketReferensi(ctx, "PENDANAAN:SYR-TIKET"),
+    );
+    expect(dibatalkan).toBe(2);
+
+    const rows = await t.run((ctx) => ctx.db.query("doorprizeTiket").collect());
+    expect(
+      rows
+        .filter((row) => row.status === "batal")
+        .map((row) => row.referensi)
+        .sort(),
+    ).toEqual(["PENDANAAN:SYR-TIKET", "PENDANAAN:SYR-TIKET#2"]);
+    expect(
+      rows.find((row) => row.referensi === "PENDANAAN:SYR-LAIN")?.status,
+    ).toBe("aktif");
   });
 });

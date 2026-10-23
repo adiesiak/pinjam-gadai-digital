@@ -269,6 +269,13 @@ function tanggal(ms: number): string {
   });
 }
 
+/** Status akad yang tercatat, dilihat dari sisi peminjam. */
+const LABEL_STATUS_AKAD: Record<"aktif" | "selesai" | "dibatalkan", string> = {
+  aktif: "Berjalan",
+  selesai: "Lunas",
+  dibatalkan: "Dibatalkan",
+};
+
 /**
  * Daftar pengajuan milik peminjam, dipakai di formulir dan tab Catatan
  * Pinjaman. Angka yang tampil adalah angka tersimpan di server, bukan hitungan
@@ -282,8 +289,12 @@ export function DaftarPengajuanSyariah({
   onBukaForm?: () => void;
 }) {
   const data = useQuery(api.syariahPengajuan.daftarSaya);
+  const akad = useQuery(api.syariahAkad.akadSaya);
   const batalkan = useMutation(api.syariahPengajuan.batalkan);
   const [membatalkan, setMembatalkan] = useState<string | null>(null);
+  const akadPerNomor = new Map(
+    (akad ?? []).map((row) => [row.nomorReferensi, row]),
+  );
 
   if (data === undefined) {
     return (
@@ -323,7 +334,12 @@ export function DaftarPengajuanSyariah({
 
   return (
     <ul className={`space-y-2 ${className}`}>
-      {data.map((row) => (
+      {data.map((row) => {
+        const akadTercatat =
+          row.akadNomor === null
+            ? null
+            : akadPerNomor.get(row.akadNomor) ?? null;
+        return (
         <li
           key={row._id}
           className="rounded-xl border border-slate-200 bg-white px-3 py-3"
@@ -359,11 +375,21 @@ export function DaftarPengajuanSyariah({
 
           {row.status === "disetujui" && (
             <div className="mt-1.5 space-y-1.5">
-              <p className="flex items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] leading-5 text-emerald-900">
-                <Check className="mt-0.5 size-3 shrink-0" aria-hidden />
-                Angka akad sudah ditetapkan petugas. Pencairan mengikuti
-                pencatatan akad; dana belum masuk sebelum akad dicatat.
-              </p>
+              {row.akadNomor === null ? (
+                <p className="flex items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] leading-5 text-emerald-900">
+                  <Check className="mt-0.5 size-3 shrink-0" aria-hidden />
+                  Angka akad sudah ditetapkan petugas. Pencairan mengikuti
+                  pencatatan akad; dana belum masuk sebelum akad dicatat.
+                </p>
+              ) : (
+                <p className="flex items-start gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] leading-5 text-emerald-900">
+                  <Check className="mt-0.5 size-3 shrink-0" aria-hidden />
+                  Akad {row.akadNomor} tercatat
+                  {akadTercatat === null
+                    ? "."
+                    : ` · ${LABEL_STATUS_AKAD[akadTercatat.status]} · jatuh tempo ${tanggal(akadTercatat.jatuhTempoPada)} · total ${formatRupiah(akadTercatat.totalKewajiban)}.`}
+                </p>
+              )}
               {row.namaBarang !== null &&
                 (row.statusPenyerahan === "terkirim" ? (
                   <p className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] leading-5 text-sky-900">
@@ -422,7 +448,8 @@ export function DaftarPengajuanSyariah({
             </div>
           )}
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

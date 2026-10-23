@@ -24,9 +24,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { BarisPengajuanSyariahAdmin } from "@/convex/syariahPengajuan";
 import { formatRupiah } from "@/lib/money";
 import { MIN_AKAD_SYARIAH, type RencanaAkadSyariah } from "@/lib/syariah/akad";
@@ -84,8 +92,10 @@ function LencanaStatus({ status }: { status: StatusPengajuanSyariah }) {
 
 export function SyariahPanel() {
   const data = useQuery(api.syariahPengajuan.daftarAdmin);
+  const kandidat = useQuery(api.penyediaDana.kandidatPendana);
   const putuskan = useMutation(api.syariahPengajuan.putuskan);
   const tandaiPenyerahan = useMutation(api.syariahPengajuan.tandaiPenyerahan);
+  const catatAkad = useMutation(api.syariahAkad.catatAkadSyariah);
 
   const [saringan, setSaringan] = useState<Saringan>("menunggu");
   const [cari, setCari] = useState("");
@@ -97,8 +107,10 @@ export function SyariahPanel() {
   const [alasan, setAlasan] = useState("");
   const [catatan, setCatatan] = useState("");
   const [referensiSerah, setReferensiSerah] = useState("");
+  const [pendanaId, setPendanaId] = useState("");
   const [busy, setBusy] = useState(false);
   const [busySerah, setBusySerah] = useState(false);
+  const [busyAkad, setBusyAkad] = useState(false);
 
   const baris = useMemo(() => {
     if (data === undefined) return [];
@@ -136,6 +148,7 @@ export function SyariahPanel() {
     setAlasan("");
     setCatatan("");
     setReferensiSerah("");
+    setPendanaId("");
   }
 
   function tutup() {
@@ -181,6 +194,26 @@ export function SyariahPanel() {
       );
     } finally {
       setBusySerah(false);
+    }
+  }
+
+  async function catatAkadPengajuan() {
+    if (dipilih === null || pendanaId === "") return;
+    setBusyAkad(true);
+    try {
+      await catatAkad({
+        jenis: dipilih.jenis,
+        pendanaId: pendanaId as Id<"users">,
+        peminjamNama: dipilih.namaPeminjam,
+        pokok: dipilih.pokok,
+        pengajuanId: dipilih._id,
+      });
+      toast.success(`Akad untuk ${dipilih.nomorReferensi} dicatat.`);
+      setDipilih(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Akad gagal dicatat.");
+    } finally {
+      setBusyAkad(false);
     }
   }
 
@@ -614,6 +647,74 @@ export function SyariahPanel() {
                         </p>
                       </div>
                     ))}
+
+                  {dipilih.status === "disetujui" && (
+                    <div className="rounded-xl border border-slate-200 px-3 py-2.5">
+                      {dipilih.akadNomor !== null ? (
+                        <>
+                          <p className="text-xs font-semibold text-slate-900">
+                            Akad tercatat · {dipilih.akadNomor}
+                          </p>
+                          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                            Angka akad mengunci pokok, margin, dan tenor
+                            pengajuan ini. Pelunasan mengikuti gerbang
+                            pembayaran yang sama dengan transaksi dana lain.
+                          </p>
+                        </>
+                      ) : dipilih.jenis === "murabahah" &&
+                        dipilih.katalogId !== null &&
+                        dipilih.statusPenyerahan !== "terkirim" ? (
+                        <p className="text-[11px] leading-5 text-slate-600">
+                          Akad Murabahah menunggu barang katalog ditandai
+                          terkirim. Jual beli baru sah setelah barangnya
+                          berpindah; catat resi atau token lebih dulu.
+                        </p>
+                      ) : (
+                        <>
+                          <Label htmlFor="admin-syariah-pendana">
+                            Pencatatan akad
+                          </Label>
+                          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                            Pilih penyedia dana yang menempatkan dananya. Angka
+                            akad diambil dari pengajuan yang disetujui, bukan
+                            dari isian baru.
+                          </p>
+                          <Select
+                            value={pendanaId}
+                            onValueChange={setPendanaId}
+                          >
+                            <SelectTrigger
+                              id="admin-syariah-pendana"
+                              className="mt-2"
+                            >
+                              <SelectValue placeholder="Pilih penyedia dana" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(kandidat?.rows ?? []).map((row) => (
+                                <SelectItem key={row.userId} value={row.userId}>
+                                  {row.nama}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-2 min-h-11 gap-1.5"
+                            disabled={pendanaId === "" || busyAkad}
+                            onClick={catatAkadPengajuan}
+                          >
+                            <Check className="size-4" aria-hidden />
+                            {busyAkad ? "Mencatat…" : "Catat akad"}
+                          </Button>
+                          <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
+                            Pencatatan akad memindahkan dana, jadi masih ditutup
+                            sampai penyedia pembayaran terintegrasi.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

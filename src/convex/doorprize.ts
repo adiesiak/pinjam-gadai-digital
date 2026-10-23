@@ -184,6 +184,42 @@ export async function beriTiket(
   return dibuat;
 }
 
+/**
+ * Batalkan tiket satu penempatan dana beserta turunannya (`#2`, `#3`, …).
+ *
+ * Dipakai saat akad dibatalkan: tiket yang sudah terbit dari penempatan itu
+ * tidak boleh ikut diundi. Turunannya berurutan, jadi pencarian berhenti pada
+ * referensi pertama yang tidak ada — bukan menyapu semua tiket.
+ */
+export async function batalkanTiketReferensi(
+  ctx: MutationCtx,
+  referensi: string,
+): Promise<number> {
+  let dibatalkan = 0;
+
+  async function tandai(referensiTiket: string): Promise<boolean> {
+    const row = await ctx.db
+      .query("doorprizeTiket")
+      .withIndex("by_referensi", (q) => q.eq("referensi", referensiTiket))
+      .first();
+    if (row === null) return false;
+    if (row.status !== "batal") {
+      await ctx.db.patch(row._id, { status: "batal" });
+      dibatalkan += 1;
+    }
+    return true;
+  }
+
+  await tandai(referensi);
+  // Batas atas mengikuti penempatan terbesar (Rp500 juta = 500 tiket);
+  // pertemuannya biasanya berhenti jauh sebelum itu.
+  for (let i = 2; i <= 500; i += 1) {
+    const ada = await tandai(`${referensi}#${i}`);
+    if (!ada) break;
+  }
+  return dibatalkan;
+}
+
 /** Tiket peminjam untuk satu pelunasan tepat waktu. */
 export async function beriTiketPelunasan(
   ctx: MutationCtx,

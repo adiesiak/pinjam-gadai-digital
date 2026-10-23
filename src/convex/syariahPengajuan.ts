@@ -92,6 +92,8 @@ export type BarisPengajuanSyariah = {
   dibuatPada: number;
   diputuskanPada: number | null;
   alasanTolak: string | null;
+  /** Nomor akad yang tercatat dari pengajuan ini; null sebelum akad. */
+  akadNomor: string | null;
 };
 
 function keBaris(row: Doc<"pengajuanSyariah">): BarisPengajuanSyariah {
@@ -125,6 +127,7 @@ function keBaris(row: Doc<"pengajuanSyariah">): BarisPengajuanSyariah {
     dibuatPada: row.dibuatPada,
     diputuskanPada: row.diputuskanPada ?? null,
     alasanTolak: row.alasanTolak ?? null,
+    akadNomor: row.akadNomor ?? null,
   };
 }
 
