@@ -498,10 +498,10 @@ export function LoanForm({
   const voucherBisaDipilih = (voucherQuery?.daftar ?? []).filter(
     (row) => row.layak && (!bulanan || row.jenis === "boost_plafon"),
   );
+  // Voucher tambah limit berlaku untuk kedua skema — server hanya menolak
+  // voucher potongan biaya admin pada skema bulanan.
   const boostVoucher =
-    !bulanan && voucherDipilih?.jenis === "boost_plafon"
-      ? voucherDipilih.nilai
-      : 0;
+    voucherDipilih?.jenis === "boost_plafon" ? voucherDipilih.nilai : 0;
   // Pilihan yang tidak lagi sah dilepas, bukan dikirim lalu ditolak server:
   // nominal turun di bawah minimal voucher, atau skema berganti ke bulanan saat
   // voucher potongan biaya admin dipilih.
