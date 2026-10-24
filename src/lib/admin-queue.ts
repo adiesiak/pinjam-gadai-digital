@@ -17,8 +17,10 @@
 
 /**
  * Seluruh nilai tab panel admin, urut sesuai peta di dokumen desain §4.
- * 16 modul lama + `hari-ini` + `aplikasi` = 18 (panel "Ledger internal" dihapus
- * dari panel admin; query ledger tetap dipakai halaman /qc).
+ * `voucher` menampung pengaturan voucher nasabah (terbitkan, sunting, cabut)
+ * yang sebelumnya hanya punya mutation server tanpa layar admin.
+ * 26 modul lama + `voucher` = 27 (panel "Ledger internal" dihapus dari panel
+ * admin; query ledger tetap dipakai halaman /qc).
  * `killswitch` ditambahkan agar pintu darurat punya tempat di sidebar
  * (grup Sistem) selain tombol di header — memakai mutation
  * `system.setKillSwitch` yang sudah ada, tanpa backend baru.
@@ -43,6 +45,7 @@ export const NILAI_MODUL_ADMIN = [
   "pendana",
   "pengumuman",
   "promo",
+  "voucher",
   "whatsapp",
   "config",
   "template",
@@ -112,6 +115,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
       "pendana",
       "pengumuman",
       "promo",
+      "voucher",
       "whatsapp",
       "aplikasi",
     ],

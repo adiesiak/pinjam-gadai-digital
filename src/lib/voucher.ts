@@ -16,6 +16,7 @@
  * `sekarang` selalu dikirim pemanggil supaya kelayakan bisa diuji.
  */
 import { formatRupiah, type Rupiah } from "./money";
+import { OFFSET_WIB_MS, tanggalWIB } from "./waktu";
 
 /** Jenis voucher yang dikenal sistem. */
 export type JenisVoucher =
@@ -41,6 +42,30 @@ export const LABEL_JENIS_VOUCHER: Record<JenisVoucher, string> = {
 
 /** Status simpan voucher. `terpakai` dan `dicabut` tidak pernah layak dipakai. */
 export type StatusVoucher = "aktif" | "terpakai" | "dicabut";
+
+/**
+ * Status yang DIBACA admin: status simpan ditambah `kedaluwarsa`.
+ *
+ * Masa berlaku lewat tidak mengubah baris di basis data — voucher itu masih
+ * `aktif` dan bisa diperpanjang. Panel admin perlu membedakannya supaya voucher
+ * yang sudah tidak bisa dipakai nasabah tidak dihitung sebagai "aktif".
+ */
+export type StatusVoucherTampil = StatusVoucher | "kedaluwarsa";
+
+export const LABEL_STATUS_VOUCHER: Record<StatusVoucherTampil, string> = {
+  aktif: "Aktif",
+  terpakai: "Habis terpakai",
+  dicabut: "Dicabut",
+  kedaluwarsa: "Kedaluwarsa",
+};
+
+/** Kelas lencana status untuk panel admin (Tailwind, mengikuti token panel). */
+export const KELAS_STATUS_VOUCHER: Record<StatusVoucherTampil, string> = {
+  aktif: "border-emerald-700/30 bg-emerald-700/10 text-emerald-800",
+  terpakai: "border-slate-300 bg-slate-100 text-slate-600",
+  dicabut: "border-rose-700/30 bg-rose-700/10 text-rose-800",
+  kedaluwarsa: "border-amber-700/30 bg-amber-700/10 text-amber-800",
+};
 
 /** Satu voucher seperti yang dikirim server ke layar nasabah. */
 export type VoucherRingkas = {
@@ -182,6 +207,137 @@ export type RincianVoucherPengajuan = {
   plafonTerpakai: Rupiah;
   boostLimit: Rupiah;
 };
+
+/**
+ * Ubah tanggal input `YYYY-MM-DD` (kalender WIB) menjadi akhir hari itu.
+ *
+ * Voucher berlaku SAMPAI AKHIR tanggal yang tertulis, bukan pukul 00.00 di
+ * awalnya: admin yang menulis "31 Desember" mengharapkan voucher masih bisa
+ * dipakai sepanjang hari itu. Teks yang bukan tanggal valid menghasilkan null,
+ * bukan tanggal salah yang diam-diam tersimpan.
+ */
+export function akhirHariVoucher(teks: string): number | null {
+  const cocok = /^(\d{4})-(\d{2})-(\d{2})$/.exec(teks.trim());
+  if (cocok === null) return null;
+  const [, tahun, bulan, hari] = cocok;
+  const tengahMalamWIB = Date.UTC(Number(tahun), Number(bulan) - 1, Number(hari));
+  const cek = new Date(tengahMalamWIB);
+  // Tanggal mustahil (31 Februari) digulirkan JavaScript; tolak alih-alih
+  // menyimpan tanggal lain dari yang diketik.
+  if (cek.getUTCFullYear() !== Number(tahun)) return null;
+  if (cek.getUTCMonth() !== Number(bulan) - 1 || cek.getUTCDate() !== Number(hari)) {
+    return null;
+  }
+  return tengahMalamWIB - OFFSET_WIB_MS + 86_400_000 - 1;
+}
+
+/** Kebalikan `akhirHariVoucher`: ms → `YYYY-MM-DD` kalender WIB untuk kolom isian. */
+export function tanggalInputVoucher(ms: number): string {
+  return tanggalWIB(ms);
+}
+
+/**
+ * Status yang dibaca admin untuk satu voucher.
+ * `sekarang` dikirim pemanggil supaya bisa diuji tanpa jam perangkat.
+ */
+export function statusTampilVoucher(
+  voucher: Pick<VoucherRingkas, "status" | "berlakuSampai">,
+  sekarang: number,
+): StatusVoucherTampil {
+  if (voucher.status === "aktif" && voucher.berlakuSampai < sekarang) return "kedaluwarsa";
+  return voucher.status;
+}
+
+/** Sisa hari masa berlaku; 0 berarti berakhir hari ini atau sudah lewat. */
+export function sisaHariVoucher(berlakuSampai: number, sekarang: number): number {
+  if (!Number.isSafeInteger(berlakuSampai)) return 0;
+  return Math.max(0, Math.ceil((berlakuSampai - sekarang) / 86_400_000));
+}
+
+/** Hitungan yang ditampilkan di kepala panel voucher admin. */
+export type RingkasanVoucherAdmin = {
+  total: number;
+  aktif: number;
+  terpakai: number;
+  dicabut: number;
+  kedaluwarsa: number;
+  /** Jumlah nilai voucher yang masih bisa dipakai (hanya yang aktif). */
+  nilaiAktif: Rupiah;
+  /** Voucher aktif yang berakhir dalam 7 hari — perlu diperpanjang atau dibiarkan habis. */
+  hampirBerakhir: number;
+};
+
+/**
+ * Ringkas daftar voucher untuk panel admin. Murni: menerima baris apa adanya
+ * dan `sekarang`, tanpa membaca jam atau basis data.
+ */
+export function ringkasVoucherAdmin(
+  baris: readonly Pick<VoucherRingkas, "status" | "berlakuSampai" | "nilai">[],
+  sekarang: number,
+): RingkasanVoucherAdmin {
+  const ringkas: RingkasanVoucherAdmin = {
+    total: baris.length,
+    aktif: 0,
+    terpakai: 0,
+    dicabut: 0,
+    kedaluwarsa: 0,
+    nilaiAktif: 0 as Rupiah,
+    hampirBerakhir: 0,
+  };
+  for (const voucher of baris) {
+    const status = statusTampilVoucher(voucher, sekarang);
+    ringkas[status] += 1;
+    if (status !== "aktif") continue;
+    ringkas.nilaiAktif = (ringkas.nilaiAktif + Math.max(0, Math.floor(voucher.nilai))) as Rupiah;
+    if (sisaHariVoucher(voucher.berlakuSampai, sekarang) <= 7) ringkas.hampirBerakhir += 1;
+  }
+  return ringkas;
+}
+
+/** Batas atas kuota pemakaian satu voucher. */
+export const BATAS_PEMAKAIAN_MAKS = 10;
+
+/**
+ * Periksa isian yang boleh diubah admin atas voucher yang sudah terbit.
+ *
+ * Jenis, nilai, pemilik, dan minimal pokok sengaja TIDAK bisa disunting: angka
+ * itu sudah dibaca nasabah dan bisa sudah tercatat di pengajuan. Yang boleh
+ * diubah hanya teks judul, sisa kuota, dan masa berlaku. Mengembalikan kalimat
+ * galat pertama, atau null bila isian sah — server memakai fungsi yang sama,
+ * jadi pesan di layar tidak pernah berbeda dari penolakan server.
+ */
+export function periksaUbahVoucher(masukan: {
+  judul?: string;
+  batasPemakaian?: number;
+  berlakuSampai?: number;
+  terpakai: number;
+  sekarang: number;
+}): string | null {
+  if (masukan.judul !== undefined) {
+    const judul = masukan.judul.trim();
+    if (judul.length < 3 || judul.length > 80) {
+      return "Judul voucher harus 3–80 karakter.";
+    }
+  }
+  if (masukan.batasPemakaian !== undefined) {
+    const batas = masukan.batasPemakaian;
+    if (!Number.isSafeInteger(batas) || batas < 1 || batas > BATAS_PEMAKAIAN_MAKS) {
+      return `Batas pemakaian harus 1 sampai ${BATAS_PEMAKAIAN_MAKS} kali.`;
+    }
+    if (batas < masukan.terpakai) {
+      return `Voucher ini sudah dipakai ${masukan.terpakai} kali, jadi batasnya tidak bisa diturunkan ke ${batas}.`;
+    }
+  }
+  if (masukan.berlakuSampai !== undefined) {
+    if (
+      !Number.isSafeInteger(masukan.berlakuSampai) ||
+      masukan.berlakuSampai <= masukan.sekarang
+    ) {
+      return "Masa berlaku voucher harus di masa depan.";
+    }
+  }
+  return null;
+}
 
 export function rincianVoucherPengajuan(angka: {
   pokok: Rupiah;

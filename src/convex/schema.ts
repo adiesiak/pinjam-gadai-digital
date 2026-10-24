@@ -3546,7 +3546,11 @@ const schema = defineSchema(
       referensi: v.optional(v.string()),
     })
       .index("by_pemilik", ["pemilikId"])
-      .index("by_referensi", ["referensi"]),
+      .index("by_referensi", ["referensi"])
+      // Panel admin membaca voucher terbaru dan menyaring per status; tanpa
+      // indeks ini setiap muat panel memindai seluruh tabel.
+      .index("by_dibuatPada", ["dibuatPada"])
+      .index("by_status", ["status"]),
 
     /**
      * Bukti lolos Cloudflare Turnstile untuk satu akun.

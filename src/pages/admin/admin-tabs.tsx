@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   PanelsTopLeft,
   Smartphone,
+  TicketPercent,
   Users,
 } from "lucide-react";
 
@@ -57,6 +58,7 @@ import { UndianPanel } from "@/components/admin/UndianPanel";
 import { PlafonPanel } from "@/components/admin/PlafonPanel";
 import { PromoPinjamanPanel } from "@/components/admin/PromoPinjamanPanel";
 import { SyariahPanel } from "@/components/admin/SyariahPanel";
+import { VoucherPanel } from "@/components/admin/VoucherPanel";
 import { RekonsiliasiAngsuran } from "@/components/admin/RekonsiliasiAngsuran";
 import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
 import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
@@ -348,6 +350,14 @@ export function AdminTabs({
           Icon: Megaphone,
         },
         {
+          value: "voucher",
+          label: "Voucher Nasabah",
+          hint: "Terbitkan, sunting masa berlaku/kuota, dan cabut voucher potongan biaya atau tambah limit milik satu nasabah.",
+          badge: null,
+          hitung: "tidak",
+          Icon: TicketPercent,
+        },
+        {
           value: "whatsapp",
           label: "WhatsApp",
           hint: "Template pesan dan status kanal WhatsApp.",
@@ -551,6 +561,7 @@ export function AdminTabs({
     pendana: <KontenPendanaPanel />,
     pengumuman: <AnnouncementCms />,
     promo: <PromoPinjamanPanel />,
+    voucher: <VoucherPanel />,
     whatsapp: <WhatsAppPanel />,
     config: <SystemConfigPanel />,
     template: <WebsiteTemplatePanel />,

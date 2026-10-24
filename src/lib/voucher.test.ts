@@ -7,13 +7,19 @@
  * plafon yang terpakai tetap sebesar pokok.
  */
 import {
+  akhirHariVoucher,
   batasUntukVoucher,
   boostTersedia,
   diskonBiayaAdmin,
   kelayakanVoucher,
   nilaiVoucherApresiasi,
+  periksaUbahVoucher,
+  ringkasVoucherAdmin,
   rincianVoucherPengajuan,
+  sisaHariVoucher,
   sisaKuota,
+  statusTampilVoucher,
+  tanggalInputVoucher,
   type VoucherRingkas,
 } from "./voucher";
 
@@ -174,6 +180,103 @@ eq(nilaiVoucherApresiasi(1_000_000), 10_000, "apresiasi 1% dari pokok");
 eq(nilaiVoucherApresiasi(10_000_000), 25_000, "apresiasi dibatasi maksimum");
 eq(nilaiVoucherApresiasi(100_000), 5_000, "apresiasi punya lantai");
 eq(nilaiVoucherApresiasi(0), 0, "pokok tidak sah tidak menghasilkan voucher");
+
+// ===== Pengaturan voucher oleh admin =====
+
+// Status baca: masa berlaku lewat tidak mengubah baris di basis data, tetapi
+// panel admin harus melihatnya sebagai kedaluwarsa — bukan aktif.
+eq(
+  statusTampilVoucher(
+    { status: "aktif", berlakuSampai: SEKARANG + 86_400_000 },
+    SEKARANG,
+  ),
+  "aktif",
+  "aktif dengan masa berlaku tersisa",
+);
+eq(
+  statusTampilVoucher(
+    { status: "aktif", berlakuSampai: SEKARANG - 1 },
+    SEKARANG,
+  ),
+  "kedaluwarsa",
+  "aktif yang sudah lewat dibaca kedaluwarsa",
+);
+eq(
+  statusTampilVoucher({ status: "terpakai", berlakuSampai: SEKARANG - 1 }, SEKARANG),
+  "terpakai",
+  "status simpan dipertahankan bila bukan aktif",
+);
+
+eq(sisaHariVoucher(SEKARANG + 10 * 86_400_000, SEKARANG), 10, "sisa 10 hari");
+eq(sisaHariVoucher(SEKARANG - 5, SEKARANG), 0, "sisa hari tidak pernah negatif");
+
+eq(sisaHariVoucher(Number.NaN, SEKARANG), 0, "nilai tidak sah → 0 hari");
+
+// Ringkasan kepala panel: hanya voucher aktif menyumbang nilai dan hitungan
+// "hampir berakhir", sedangkan kedaluwarsa dihitung terpisah.
+const ringkas = ringkasVoucherAdmin(
+  [
+    { status: "aktif", berlakuSampai: SEKARANG + 3 * 86_400_000, nilai: 20_000 },
+    { status: "aktif", berlakuSampai: SEKARANG + 30 * 86_400_000, nilai: 10_000 },
+    { status: "aktif", berlakuSampai: SEKARANG - 86_400_000, nilai: 50_000 },
+    { status: "terpakai", berlakuSampai: SEKARANG + 5 * 86_400_000, nilai: 15_000 },
+    { status: "dicabut", berlakuSampai: SEKARANG + 5 * 86_400_000, nilai: 25_000 },
+  ],
+  SEKARANG,
+);
+eq(ringkas.total, 5, "total baris ringkasan");
+eq(ringkas.aktif, 2, "dua voucher aktif");
+eq(ringkas.kedaluwarsa, 1, "satu voucher kedaluwarsa");
+eq(ringkas.terpakai, 1, "satu voucher habis");
+eq(ringkas.dicabut, 1, "satu voucher dicabut");
+eq(ringkas.nilaiAktif, 30_000, "nilai aktif hanya dari yang masih berlaku");
+eq(ringkas.hampirBerakhir, 1, "hanya yang <= 7 hari dihitung hampir berakhir");
+
+// Periksa suntingan admin — satu sumber untuk layar dan server.
+eq(
+  periksaUbahVoucher({
+    judul: "Bebas biaya admin",
+    batasPemakaian: 3,
+    berlakuSampai: SEKARANG + 86_400_000,
+    terpakai: 1,
+    sekarang: SEKARANG,
+  }),
+  null,
+  "isian sunting yang sah tidak menghasilkan galat",
+);
+ok(
+  periksaUbahVoucher({ judul: "ab", terpakai: 0, sekarang: SEKARANG }) !== null,
+  "judul terlalu pendek ditolak",
+);
+ok(
+  periksaUbahVoucher({ batasPemakaian: 0, terpakai: 0, sekarang: SEKARANG }) !== null,
+  "kuota 0 ditolak",
+);
+ok(
+  periksaUbahVoucher({ batasPemakaian: 11, terpakai: 0, sekarang: SEKARANG }) !== null,
+  "kuota di atas batas maksimum ditolak",
+);
+ok(
+  periksaUbahVoucher({ batasPemakaian: 2, terpakai: 3, sekarang: SEKARANG }) !== null,
+  "kuota tidak boleh turun di bawah pemakaian",
+);
+ok(
+  periksaUbahVoucher({ berlakuSampai: SEKARANG, terpakai: 0, sekarang: SEKARANG }) !== null,
+  "masa berlaku yang sudah lewat/pas ditolak",
+);// Tanggal akhir hari WIB: voucher "31 Desember" berlaku sepanjang hari itu.
+const akhirTahun = akhirHariVoucher("2026-12-31");
+eq(
+  akhirTahun === null ? null : new Date(akhirTahun).toISOString(),
+  "2026-12-31T16:59:59.999Z",
+  "akhir hari WIB = 16.59.59.999 UTC",
+);
+eq(
+  akhirTahun === null ? null : tanggalInputVoucher(akhirTahun),
+  "2026-12-31",
+  "bolak-balik tanggal isian",
+);
+eq(akhirHariVoucher("31/12/2026"), null, "format tanggal lain ditolak");
+eq(akhirHariVoucher("2026-02-31"), null, "tanggal mustahil ditolak");
 
 const jumlah = lulus + gagal;
 console.log(`voucher.test: ${lulus}/${jumlah} lulus`);

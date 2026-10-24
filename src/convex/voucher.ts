@@ -17,14 +17,21 @@ import { v } from "convex/values";
 import {
   boostTersedia as hitungBoostTersedia,
   diskonBiayaAdmin,
+  JENIS_VOUCHER,
   kelayakanVoucher,
+  LABEL_STATUS_VOUCHER,
   nilaiVoucherApresiasi,
+  periksaUbahVoucher,
+  ringkasVoucherAdmin,
+  statusTampilVoucher,
   VOUCHER_APRESIASI_HARI,
+  type JenisVoucher,
   type VoucherRingkas,
 } from "../lib/voucher";
 import { LOAN_LIMITS } from "../lib/loan";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { plafonPeminjam, ringkasPlafon } from "../lib/plafon";
+import { formatTanggalWIB } from "../lib/waktu";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
@@ -41,6 +48,117 @@ const JENIS = v.union(
 
 /** Batas baris yang dikirim ke satu nasabah. */
 const BATAS_BARIS = 50;
+
+/**
+ * Batas baris yang dibaca panel admin dalam satu muat.
+ *
+ * Panel ini menampilkan voucher terbaru, bukan seluruh arsip: 500 baris cukup
+ * untuk beberapa tahun penerbitan dan menjaga biaya query tetap datar. Bila
+ * batas ini tercapai, panel menyebutkan bahwa angkanya dihitung dari baris
+ * terbaru — bukan diam-diam melaporkan angka yang tampak lengkap.
+ */
+const BATAS_ADMIN = 500;
+
+/** Baris yang dikirim ke layar sekaligus; sisanya bisa dicari lewat kolom cari. */
+const BATAS_TAMPIL_ADMIN = 100;
+
+const SARINGAN_STATUS_ADMIN = ["semua", "aktif", "terpakai", "dicabut", "kedaluwarsa"] as const;
+type SaringanStatusAdmin = (typeof SARINGAN_STATUS_ADMIN)[number];
+
+/** Nilai saringan yang tidak dikenal jatuh ke "semua", bukan ke daftar kosong. */
+function saringanStatusAdmin(teks: string | undefined): SaringanStatusAdmin {
+  const bersih = (teks ?? "semua").trim().toLowerCase();
+  return SARINGAN_STATUS_ADMIN.find((nilai) => nilai === bersih) ?? "semua";
+}
+
+/**
+ * Daftar voucher untuk panel admin, lengkap dengan pemilik dan hitungan.
+ *
+ * Hanya Super Admin ber-TOTP. Voucher yang masa berlakunya lewat tetap
+ * berstatus `aktif` di basis data; panel membaca `statusTampil` supaya yang
+ * sudah tidak bisa dipakai nasabah tidak terlihat seperti voucher hidup.
+ */
+export const daftarVoucherAdmin = query({
+  args: {
+    cari: v.optional(v.string()),
+    status: v.optional(v.string()),
+    jenis: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdminSession(ctx);
+    const sekarang = Date.now();
+    const saringan = saringanStatusAdmin(args.status);
+    const jenisFilter =
+      JENIS_VOUCHER.find((nilai) => nilai === (args.jenis ?? "").trim().toLowerCase()) ??
+      null;
+    const kueri = (args.cari ?? "").trim().toLowerCase();
+
+    const semua = await ctx.db
+      .query("voucher")
+      .withIndex("by_dibuatPada")
+      .order("desc")
+      .take(BATAS_ADMIN);
+
+    // Pemilik dibaca sekali per akun unik, bukan sekali per voucher.
+    const idPemilik = [...new Set(semua.map((row) => row.pemilikId as string))];
+    const akun = await Promise.all(idPemilik.map((id) => ctx.db.get(id as Id<"users">)));
+    const pemilikPer = new Map(idPemilik.map((id, i) => [id, akun[i]]));
+
+    const baris = semua.map((row) => {
+      const pemilik = pemilikPer.get(row.pemilikId as string) ?? null;
+      return {
+        row,
+        statusTampil: statusTampilVoucher(row, sekarang),
+        pemilik: {
+          userId: row.pemilikId,
+          nama: pemilik?.name?.trim() || pemilik?.email || "Tanpa nama",
+          email: pemilik?.email ?? null,
+          kodePeminjam: pemilik?.kodePeminjam ?? null,
+        },
+      };
+    });
+
+    const cocok = baris.filter(({ row, statusTampil, pemilik }) => {
+      if (saringan !== "semua" && statusTampil !== saringan) return false;
+      if (jenisFilter !== null && row.jenis !== jenisFilter) return false;
+      if (kueri === "") return true;
+      return [
+        row.kode,
+        row.judul,
+        row.referensi ?? "",
+        pemilik.nama,
+        pemilik.email ?? "",
+        pemilik.kodePeminjam ?? "",
+      ].some((teks) => teks.toLowerCase().includes(kueri));
+    });
+
+    return {
+      sekarang,
+      ringkas: ringkasVoucherAdmin(semua, sekarang),
+      /** Baris yang cocok dengan saringan — bisa lebih dari yang dikirim. */
+      total: cocok.length,
+      /** true bila arsip di luar `BATAS_ADMIN` tidak ikut dibaca. */
+      dibatasi: semua.length === BATAS_ADMIN,
+      item: cocok.slice(0, BATAS_TAMPIL_ADMIN).map(({ row, statusTampil, pemilik }) => ({
+        id: row._id,
+        kode: row.kode,
+        jenis: row.jenis as JenisVoucher,
+        judul: row.judul,
+        nilai: row.nilai,
+        minPokok: row.minPokok,
+        batasPemakaian: row.batasPemakaian,
+        terpakai: row.terpakai,
+        status: row.status,
+        statusTampil,
+        berlakuSampai: row.berlakuSampai,
+        dibuatPada: row.dibuatPada,
+        sumber: row.sumber,
+        referensi: row.referensi ?? null,
+        pemilik,
+      })),
+    };
+  },
+});
 
 /**
  * Voucher milik pembaca untuk satu pinjaman yang SEDANG diajukan.
@@ -170,6 +288,116 @@ export const pastikanVoucherApresiasiSaya = mutation({
       if (id !== null) diterbitkan += 1;
     }
     return { diterbitkan };
+  },
+});
+
+/**
+ * Sunting voucher yang belum hangus — hanya Super Admin.
+ *
+ * Yang boleh diubah hanya judul, sisa kuota, dan masa berlaku. Jenis, nilai,
+ * pemilik, dan minimal pokok sengaja dikunci: angka itu sudah terbaca nasabah
+ * dan bisa sudah tercatat pada pengajuan. Kuota tidak boleh diturunkan di bawah
+ * pemakaian yang sudah terjadi, karena itu akan membuat voucher "minus" yang
+ * tidak bisa dijelaskan ke pemakainya.
+ */
+export const ubahVoucher = mutation({
+  args: {
+    voucherId: v.id("voucher"),
+    judul: v.optional(v.string()),
+    batasPemakaian: v.optional(v.number()),
+    berlakuSampai: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    const voucher = await ctx.db.get(args.voucherId);
+    if (voucher === null) throw new Error("Voucher tidak ditemukan.");
+    if (voucher.status !== "aktif") {
+      throw new Error(
+        `Voucher ini berstatus ${LABEL_STATUS_VOUCHER[voucher.status].toLowerCase()} dan tidak bisa disunting.`,
+      );
+    }
+
+    const galat = periksaUbahVoucher({
+      judul: args.judul,
+      batasPemakaian: args.batasPemakaian,
+      berlakuSampai: args.berlakuSampai,
+      terpakai: voucher.terpakai,
+      sekarang: Date.now(),
+    });
+    if (galat !== null) throw new Error(galat);
+
+    const patch: {
+      judul?: string;
+      batasPemakaian?: number;
+      berlakuSampai?: number;
+    } = {};
+    const perubahan: string[] = [];
+    if (args.judul !== undefined) {
+      const judul = args.judul.trim();
+      if (judul !== voucher.judul) {
+        patch.judul = judul;
+        perubahan.push(`judul "${voucher.judul}" → "${judul}"`);
+      }
+    }
+    if (args.batasPemakaian !== undefined && args.batasPemakaian !== voucher.batasPemakaian) {
+      patch.batasPemakaian = args.batasPemakaian;
+      perubahan.push(`kuota ${voucher.batasPemakaian} → ${args.batasPemakaian} kali`);
+    }
+    if (args.berlakuSampai !== undefined && args.berlakuSampai !== voucher.berlakuSampai) {
+      patch.berlakuSampai = args.berlakuSampai;
+      perubahan.push(
+        `berlaku sampai ${formatTanggalWIB(voucher.berlakuSampai)} → ${formatTanggalWIB(args.berlakuSampai)}`,
+      );
+    }
+    if (perubahan.length === 0) return { ok: true, perubahan: 0 };
+
+    await ctx.db.patch(voucher._id, patch);
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "voucher_diubah",
+      voucher.kode,
+      `${voucher.judul} · ${formatRupiah(voucher.nilai)} · ${perubahan.join("; ")}`,
+    );
+    return { ok: true, perubahan: perubahan.length };
+  },
+});
+
+/**
+ * Cabut voucher aktif — hanya Super Admin, wajib beralasan.
+ *
+ * Pencabutan tidak menghapus baris: kode voucher yang sudah beredar harus tetap
+ * bisa ditelusuri di riwayat pemakaian dan audit. Voucher yang sudah habis atau
+ * sudah dicabut tidak bisa dicabut lagi, supaya tidak ada dua catatan alasan
+ * untuk satu voucher.
+ */
+export const cabutVoucher = mutation({
+  args: { voucherId: v.id("voucher"), alasan: v.string() },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    const voucher = await ctx.db.get(args.voucherId);
+    if (voucher === null) throw new Error("Voucher tidak ditemukan.");
+    if (voucher.status !== "aktif") {
+      throw new Error(
+        `Voucher ini sudah ${LABEL_STATUS_VOUCHER[voucher.status].toLowerCase()} sehingga tidak perlu dicabut.`,
+      );
+    }
+    const alasan = args.alasan.trim();
+    if (alasan.length < 3 || alasan.length > 200) {
+      throw new Error("Alasan pencabutan harus 3–200 karakter.");
+    }
+
+    await ctx.db.patch(voucher._id, { status: "dicabut" });
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "voucher_dicabut",
+      voucher.kode,
+      `${voucher.judul} · ${formatRupiah(voucher.nilai)} · ${alasan}`,
+    );
+    return { ok: true, kode: voucher.kode };
   },
 });
 

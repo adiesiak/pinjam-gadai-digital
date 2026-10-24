@@ -67,6 +67,7 @@ const LABEL: Record<string, string> = {
   whatsapp: "WhatsApp",
   aplikasi: "Aplikasi Android",
   config: "Parameter Bisnis",
+  voucher: "Voucher Nasabah",
   backup: "Backup Database",
   pengembangan: "Peta Sistem",
   audit: "Audit Trail",
