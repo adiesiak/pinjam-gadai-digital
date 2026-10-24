@@ -48,6 +48,8 @@ import {
   type JenisBarangKatalog,
   type KategoriKatalog,
 } from "@/lib/syariah/katalog";
+import { hargaJualMurabahah } from "@/lib/syariah/murabahah";
+import { MARGIN_MURABAHAH_BAWAAN } from "@/lib/syariah/pengajuan";
 
 type Isian = {
   kode: string | null;
@@ -61,6 +63,7 @@ type Isian = {
 
 export function KatalogSyariahPanel() {
   const data = useQuery(api.katalog.daftarKatalogAdmin);
+  const ketentuan = useQuery(api.system.getKetentuanBiaya);
   const muatAwal = useMutation(api.katalog.muatKatalogAwal);
   const simpan = useMutation(api.katalog.simpanBarang);
 
@@ -98,6 +101,8 @@ export function KatalogSyariahPanel() {
     [baris],
   );
   const jumlahAktif = semua.filter((item) => item.aktif).length;
+  /** Margin yang berlaku sekarang — dipakai untuk menampilkan harga akad. */
+  const marginPersen = ketentuan?.persenMarginSyariah ?? MARGIN_MURABAHAH_BAWAAN;
 
   const hargaAngka = Number((isian?.harga ?? "").replace(/[^0-9]/g, ""));
   const bisaSimpan =
@@ -198,8 +203,9 @@ export function KatalogSyariahPanel() {
             </span>
           </h3>
           <p className="mt-0.5 max-w-xl text-[11px] leading-5 text-muted-foreground">
-            Harga pokok dari mitra; margin dihitung saat akad. Perubahan harga
-            hanya berlaku untuk pengajuan berikutnya.
+            Angka besar adalah harga akad: harga pokok mitra ditambah margin{" "}
+            {marginPersen}%. Perubahan harga hanya berlaku untuk pengajuan
+            berikutnya.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -261,11 +267,11 @@ export function KatalogSyariahPanel() {
             className="pl-9"
           />
         </div>
-        <p className="text-[11px] tabular-nums text-slate-500">
-          {cari.trim() === ""
-            ? `${semua.length} barang · ${jumlahAktif} aktif`
-            : `${baris.length} dari ${semua.length} cocok`}
-        </p>
+        {cari.trim() !== "" && (
+          <p className="text-[11px] tabular-nums text-slate-500">
+            {`${baris.length} dari ${semua.length} cocok`}
+          </p>
+        )}
       </div>
 
       {grup.length === 0 ? (
@@ -337,8 +343,13 @@ export function KatalogSyariahPanel() {
                           {LABEL_JENIS_BARANG[item.jenisBarang]} · {item.kode}
                         </span>
                       </button>
-                      <span className="shrink-0 text-[13px] font-semibold tabular-nums text-slate-900">
-                        {formatRupiah(item.harga)}
+                      <span className="shrink-0 text-right">
+                        <span className="block text-[13px] font-semibold tabular-nums text-slate-900">
+                          {formatRupiah(hargaJualMurabahah(item.harga, marginPersen))}
+                        </span>
+                        <span className="block text-[10px] tabular-nums text-slate-500">
+                          pokok {formatRupiah(item.harga)}
+                        </span>
                       </span>
                       <Button
                         type="button"

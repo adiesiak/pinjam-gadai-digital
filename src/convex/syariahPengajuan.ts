@@ -491,15 +491,42 @@ export type BarisPengajuanSyariahAdmin = BarisPengajuanSyariah & {
   emailPeminjam: string | null;
 };
 
-/** Antrean pengajuan syariah untuk admin. */
+export type DaftarPengajuanSyariahAdmin = {
+  baris: BarisPengajuanSyariahAdmin[];
+  /** Masih ada pengajuan di luar `BATAS_BARIS` yang tidak ikut dimuat. */
+  terpotong: boolean;
+  /** Batas baris yang berlaku — panel menuliskannya di catatan kaki. */
+  batas: number;
+};
+
+/**
+ * Antrean pengajuan syariah untuk admin.
+ *
+ * Pengajuan yang belum diputuskan diambil lebih dulu dari indeks status, urut
+ * terlama. Tanpa itu, pengajuan yang sudah menunggu berhari-hari tergusur ke
+ * bawah oleh arsip baru dan praktis tidak pernah terlihat. Sisa kuota diisi
+ * arsip terbaru supaya riwayat keputusan tetap dekat.
+ */
 export const daftarAdmin = query({
   args: {},
-  handler: async (ctx): Promise<BarisPengajuanSyariahAdmin[]> => {
+  handler: async (ctx): Promise<DaftarPengajuanSyariahAdmin> => {
     await requireAdminSession(ctx);
-    const rows = await ctx.db
+
+    const menunggu = await ctx.db
+      .query("pengajuanSyariah")
+      .withIndex("by_status", (q) => q.eq("status", "diajukan"))
+      .take(BATAS_BARIS + 1);
+    const terbaru = await ctx.db
       .query("pengajuanSyariah")
       .order("desc")
-      .take(BATAS_BARIS);
+      .take(BATAS_BARIS + 1);
+
+    const idMenunggu = new Set(menunggu.map((row) => row._id));
+    const arsip = terbaru.filter((row) => !idMenunggu.has(row._id));
+    menunggu.sort((a, b) => a.dibuatPada - b.dibuatPada);
+
+    const total = menunggu.length + arsip.length;
+    const rows = [...menunggu, ...arsip].slice(0, BATAS_BARIS);
 
     const emailCache = new Map<Id<"users">, string | null>();
     async function email(id: Id<"users">): Promise<string | null> {
@@ -511,12 +538,16 @@ export const daftarAdmin = query({
       return nilai;
     }
 
-    return Promise.all(
-      rows.map(async (row) => ({
-        ...keBaris(row),
-        emailPeminjam: await email(row.userId),
-      })),
-    );
+    return {
+      baris: await Promise.all(
+        rows.map(async (row) => ({
+          ...keBaris(row),
+          emailPeminjam: await email(row.userId),
+        })),
+      ),
+      terpotong: total > BATAS_BARIS,
+      batas: BATAS_BARIS,
+    };
   },
 });
 

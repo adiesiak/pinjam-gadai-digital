@@ -628,4 +628,47 @@ describe("pengajuan syariah — keputusan admin", () => {
     });
     expect(await admin.query(api.syariahPengajuan.cacahMenunggu, {})).toBe(0);
   });
+
+  it("menampilkan antrean dari yang paling lama menunggu, bukan yang terbaru", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Urutan Syariah", {
+      email: "admin-urutan-syariah@pindai.test",
+      role: "admin",
+    });
+    const lama = await siapkanPeminjam(
+      t,
+      "Rani Lama",
+      "rani-lama-syariah@pindai.test",
+    );
+    const baru = await siapkanPeminjam(
+      t,
+      "Rani Baru",
+      "rani-baru-syariah@pindai.test",
+    );
+    const tengah = await siapkanPeminjam(
+      t,
+      "Rani Tengah",
+      "rani-tengah-syariah@pindai.test",
+    );
+
+    const pertama = await ajukan(lama.sesi);
+    const ketiga = await ajukan(baru.sesi);
+    const kedua = await ajukan(tengah.sesi);
+
+    const dasar = 1_700_000_000_000;
+    await t.run(async (ctx) => {
+      await ctx.db.patch(pertama.id, { dibuatPada: dasar });
+      await ctx.db.patch(kedua.id, { dibuatPada: dasar + HARI_MS });
+      await ctx.db.patch(ketiga.id, { dibuatPada: dasar + 2 * HARI_MS });
+    });
+
+    const hasil = await admin.query(api.syariahPengajuan.daftarAdmin, {});
+    expect(hasil.baris.map((row) => row._id)).toEqual([
+      pertama.id,
+      kedua.id,
+      ketiga.id,
+    ]);
+    expect(hasil.terpotong).toBe(false);
+    expect(hasil.batas).toBe(200);
+  });
 });

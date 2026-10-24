@@ -70,6 +70,36 @@ function cocok(row: BarisPengajuanSyariahAdmin, saringan: Saringan): boolean {
   return row.status === "ditolak";
 }
 
+const HARI_MS = 86_400_000;
+/** Ambang usia yang membuat baris antrean disorot — dua hari menunggu. */
+const AMBANG_MENUA_MS = 2 * HARI_MS;
+
+/**
+ * Usia tunggu satu pengajuan, mis. "menunggu 2 hari" atau "baru masuk".
+ * Angka yang sama dipakai untuk menyorot baris yang sudah terlalu lama diam.
+ */
+function usiaTunggu(dibuatPada: number, sekarang: number): string {
+  const selisih = Math.max(0, sekarang - dibuatPada);
+  const hari = Math.floor(selisih / HARI_MS);
+  if (hari >= 1) return `menunggu ${hari} hari`;
+  const jam = Math.floor(selisih / 3_600_000);
+  if (jam >= 1) return `menunggu ${jam} jam`;
+  return "baru masuk";
+}
+
+function NilaiAkad({ nominal }: { nominal: number | null }) {
+  return (
+    <p
+      className={cn(
+        "text-sm font-semibold tabular-nums",
+        nominal === null ? "text-slate-400" : "text-slate-900",
+      )}
+    >
+      {nominal === null ? "—" : formatRupiah(nominal)}
+    </p>
+  );
+}
+
 function LencanaStatus({ status }: { status: StatusPengajuanSyariah }) {
   const kelas =
     status === "disetujui"
@@ -100,6 +130,9 @@ export function SyariahPanel() {
   const tandaiPenyerahan = useMutation(api.syariahPengajuan.tandaiPenyerahan);
   const catatAkad = useMutation(api.syariahAkad.catatAkadSyariah);
 
+  const marginBawaan =
+    ketentuan?.persenMarginSyariah ?? MARGIN_MURABAHAH_BAWAAN;
+
   const [saringan, setSaringan] = useState<Saringan>("menunggu");
   const [cari, setCari] = useState("");
   const [dipilih, setDipilih] = useState<BarisPengajuanSyariahAdmin | null>(null);
@@ -115,10 +148,43 @@ export function SyariahPanel() {
   const [busySerah, setBusySerah] = useState(false);
   const [busyAkad, setBusyAkad] = useState(false);
 
+  /**
+   * Total kewajiban tiap pengajuan — angka yang benar-benar disetujui, bukan
+   * hanya pokok. Dihitung dengan mesin akad yang sama seperti modal, memakai
+   * margin yang tersimpan di baris (atau margin global untuk baris lama yang
+   * belum menyimpannya). Rahn tanpa taksiran tidak bisa dihitung: tampil "—".
+   */
+  const totalAkad = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const row of data?.baris ?? []) {
+      try {
+        map.set(
+          row._id,
+          rencanaPengajuanSyariah({
+            jenis: row.jenis,
+            pokok: row.pokok,
+            tenorHari: row.tenorHari,
+            ...(row.jenis === "murabahah"
+              ? { marginPersen: row.marginPersen ?? marginBawaan }
+              : {}),
+            ...(row.jenis === "rahn"
+              ? { nilaiTaksiran: row.nilaiTaksiran ?? 0 }
+              : {}),
+          }).totalKewajiban,
+        );
+      } catch {
+        map.set(row._id, null);
+      }
+    }
+    return map;
+  }, [data, marginBawaan]);
+
+  const sekarang = Date.now();
+
   const baris = useMemo(() => {
     if (data === undefined) return [];
     const needle = cari.trim().toLowerCase();
-    return data.filter((row) => {
+    return data.baris.filter((row) => {
       if (!cocok(row, saringan)) return false;
       if (needle === "") return true;
       return [
@@ -133,7 +199,7 @@ export function SyariahPanel() {
   }, [data, saringan, cari]);
 
   const jumlah = useMemo(() => {
-    const rows = data ?? [];
+    const rows = data?.baris ?? [];
     return {
       menunggu: rows.filter((row) => row.status === "diajukan").length,
       semua: rows.length,
@@ -331,7 +397,7 @@ export function SyariahPanel() {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-left">
+            <table className="w-full min-w-[900px] border-collapse text-left">
               <caption className="sr-only">
                 Antrean pengajuan akad syariah
               </caption>
@@ -345,6 +411,9 @@ export function SyariahPanel() {
                   </th>
                   <th scope="col" className="px-3 py-2 text-right font-semibold">
                     Pokok
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">
+                    Total akad
                   </th>
                   <th scope="col" className="px-3 py-2 font-semibold">
                     Status
@@ -382,6 +451,18 @@ export function SyariahPanel() {
                         {LABEL_JENIS_AKAD[row.jenis]} ·{" "}
                         {formatDate(row.dibuatPada)}
                       </p>
+                      {row.status === "diajukan" && (
+                        <p
+                          className={cn(
+                            "mt-0.5 text-[11px] tabular-nums",
+                            sekarang - row.dibuatPada >= AMBANG_MENUA_MS
+                              ? "font-medium text-amber-700"
+                              : "text-slate-500",
+                          )}
+                        >
+                          {usiaTunggu(row.dibuatPada, sekarang)}
+                        </p>
+                      )}
                       {row.namaBarang !== null && (
                         <p
                           className="mt-0.5 truncate text-[11px] text-slate-500"
@@ -397,6 +478,16 @@ export function SyariahPanel() {
                       </p>
                       <p className="mt-0.5 text-[11px] tabular-nums text-slate-500">
                         {row.tenorHari} hari
+                      </p>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                      <NilaiAkad nominal={totalAkad.get(row._id) ?? null} />
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {row.jenis === "murabahah"
+                          ? `margin ${row.marginPersen ?? marginBawaan}%`
+                          : (totalAkad.get(row._id) ?? null) === null
+                            ? "taksiran belum diisi"
+                            : "ujrah Rahn"}
                       </p>
                     </td>
                     <td className="px-3 py-2.5">
@@ -442,6 +533,12 @@ export function SyariahPanel() {
               konvensional.
             </span>
           </p>
+          {data.terpotong && (
+            <p className="border-t border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-900">
+              Daftar dibatasi {data.batas} baris: antrean terlama dan arsip
+              terbaru diutamakan. Sebagian pengajuan lama tidak ditampilkan.
+            </p>
+          )}
         </div>
       )}
 
