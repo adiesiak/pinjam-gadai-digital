@@ -1,5 +1,11 @@
 import { useMutation, useQuery } from "convex/react";
-import { CalendarClock, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import {
+  CalendarClock,
+  CheckCircle2,
+  Loader2,
+  RotateCcw,
+  ShieldCheck,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -29,6 +35,7 @@ export function PanelSiklusPendana() {
     hanyaJatuhTempo: false,
   });
   const cairkan = useMutation(api.siklusPendana.cairkanSiklus);
+  const putarUlang = useMutation(api.siklusPendana.putarUlangSiklus);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   if (daftar === undefined) {
@@ -46,18 +53,28 @@ export function PanelSiklusPendana() {
   const totalCair = daftar.reduce((total, row) => total + row.totalCair, 0);
   const totalKurang = daftar.reduce((total, row) => total + row.kurang, 0);
 
-  const proses = async (siklusId: Id<"siklusPendana">) => {
-    setBusyId(siklusId);
+  const proses = async (row: {
+    _id: Id<"siklusPendana">;
+    pilihanPendana: "cairkan" | "putar_ulang";
+  }) => {
+    setBusyId(row._id);
     try {
-      const hasil = await cairkan({ siklusId });
-      toast.success(
-        hasil.kurang > 0
-          ? `Siklus dicairkan. Jaminan platform menutup ${formatRupiah(hasil.kurang)}.`
-          : "Siklus dicairkan ke dompet pendana.",
-      );
+      if (row.pilihanPendana === "putar_ulang") {
+        const hasil = await putarUlang({ siklusId: row._id });
+        toast.success(
+          `Siklus diputar lagi. Pokok baru ${formatRupiah(hasil.pokokBaru)} untuk 30 hari berikutnya.`,
+        );
+      } else {
+        const hasil = await cairkan({ siklusId: row._id });
+        toast.success(
+          hasil.kurang > 0
+            ? `Siklus dicairkan. Jaminan platform menutup ${formatRupiah(hasil.kurang)}.`
+            : "Siklus dicairkan ke dompet pendana.",
+        );
+      }
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Gagal mencairkan siklus.",
+        err instanceof Error ? err.message : "Gagal memproses siklus.",
       );
     } finally {
       setBusyId(null);
@@ -78,7 +95,8 @@ export function PanelSiklusPendana() {
             <p className="mt-0.5 max-w-2xl text-xs leading-5 text-muted-foreground">
               Pokok dan Imbal Hasil pendana dikunci satu siklus. Cairkan hanya
               setelah jatuh tempo; pinjaman yang lunas lebih awal tidak
-              mempercepat pencairan.
+              mempercepat pencairan. Siklus yang dipilih pendana untuk diputar
+              lagi dibuka sebagai siklus baru 30 hari, bukan transfer.
             </p>
           </div>
         </div>
@@ -142,6 +160,22 @@ export function PanelSiklusPendana() {
                   {formatRupiah(row.potongan)} · Jatuh tempo{" "}
                   {tanggal(row.jatuhTempoPada)}
                 </p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-5 text-muted-foreground">
+                  <Badge
+                    className={
+                      row.pilihanPendana === "putar_ulang"
+                        ? "border-0 bg-sky-100 text-sky-900 hover:bg-sky-100"
+                        : "border-0 bg-slate-100 text-slate-700 hover:bg-slate-100"
+                    }
+                  >
+                    {row.pilihanLabel}
+                  </Badge>
+                  {row.belumMemilih && (
+                    <span className="text-slate-500">
+                      belum memilih, bawaan cairkan
+                    </span>
+                  )}
+                </p>
                 {row.kurang > 0 && (
                   <p className="mt-0.5 text-[11px] font-medium leading-5 text-amber-800">
                     Baru masuk {formatRupiah(row.totalMasuk)}; kurang{" "}
@@ -156,22 +190,30 @@ export function PanelSiklusPendana() {
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {row.jatuhTempo
-                      ? "Siap dicairkan"
+                      ? "Siap diproses"
                       : `${row.sisaHari} hari lagi`}
                   </p>
                 </div>
                 <Button
                   size="sm"
-                  className="gap-1.5 rounded-xl bg-[#064E3B] text-white hover:bg-[#04361f]"
+                  className={
+                    row.pilihanPendana === "putar_ulang"
+                      ? "gap-1.5 rounded-xl bg-[#0F3D3A] text-white hover:bg-[#0b2d2b]"
+                      : "gap-1.5 rounded-xl bg-[#064E3B] text-white hover:bg-[#04361f]"
+                  }
                   disabled={!row.jatuhTempo || busyId !== null}
-                  onClick={() => void proses(row._id)}
+                  onClick={() => void proses(row)}
                 >
                   {busyId === row._id ? (
                     <Loader2 className="size-3.5 animate-spin" />
+                  ) : row.pilihanPendana === "putar_ulang" ? (
+                    <RotateCcw className="size-3.5" />
                   ) : (
                     <CheckCircle2 className="size-3.5" />
                   )}
-                  Cairkan
+                  {row.pilihanPendana === "putar_ulang"
+                    ? "Putar 30 hari"
+                    : "Cairkan"}
                 </Button>
               </div>
             </li>

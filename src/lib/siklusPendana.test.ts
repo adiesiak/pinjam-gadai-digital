@@ -12,7 +12,9 @@ import {
   SIKLUS_PENDANA_HARI,
   hitungSiklusPendana,
   jatuhTempoSiklus,
+  labelPilihanSiklus,
   labelStatusSiklus,
+  pokokPutarUlang,
   sisaHariSiklus,
 } from "./siklusPendana";
 
@@ -96,7 +98,33 @@ eq(
 
 eq(labelStatusSiklus("berjalan"), "Berjalan", "label berjalan");
 eq(labelStatusSiklus("dicairkan"), "Dicairkan", "label dicairkan");
+eq(
+  labelStatusSiklus("diputar_ulang"),
+  "Diputar ulang",
+  "label diputar ulang",
+);
 eq(labelStatusSiklus("dibatalkan"), "Dibatalkan", "label dibatalkan");
+
+// Pilihan saat jatuh tempo: bawaan cairkan bila pendana tidak memilih.
+eq(labelPilihanSiklus(undefined), "Cairkan ke rekening", "belum memilih = cairkan");
+eq(labelPilihanSiklus("cairkan"), "Cairkan ke rekening", "pilihan cairkan");
+eq(
+  labelPilihanSiklus("putar_ulang"),
+  "Putar lagi 30 hari",
+  "pilihan putar ulang",
+);
+
+// Putar ulang: seluruh hak siklus menjadi pokok baru, tanpa rupiah hilang.
+eq(pokokPutarUlang(acuan.totalCair), 1_250_000, "pokok baru = total cair lama");
+const lanjutan = hitungSiklusPendana(pokokPutarUlang(acuan.totalCair));
+eq(lanjutan.totalCair, 1_562_500, "total cair siklus kedua");
+eq(
+  lanjutan.totalCair > acuan.totalCair,
+  true,
+  "siklus kedua lebih besar dari siklus pertama",
+);
+throws(() => pokokPutarUlang(0), "putar ulang pokok 0 ditolak");
+throws(() => pokokPutarUlang(1.5), "putar ulang pokok pecahan ditolak");
 
 throws(() => hitungSiklusPendana(0), "pokok 0 ditolak");
 throws(() => hitungSiklusPendana(-1), "pokok negatif ditolak");

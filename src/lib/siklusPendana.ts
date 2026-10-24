@@ -70,11 +70,39 @@ export function sisaHariSiklus(jatuhTempoPada: number, sekarang: number): number
   return Math.ceil((jatuhTempoPada - sekarang) / HARI_MS);
 }
 
-export type StatusSiklus = "berjalan" | "dicairkan" | "dibatalkan";
+export type StatusSiklus =
+  | "berjalan"
+  | "dicairkan"
+  | "diputar_ulang"
+  | "dibatalkan";
 
 /** Label status yang dibaca pendana dan admin. */
 export function labelStatusSiklus(status: StatusSiklus): string {
   if (status === "dicairkan") return "Dicairkan";
+  if (status === "diputar_ulang") return "Diputar ulang";
   if (status === "dibatalkan") return "Dibatalkan";
   return "Berjalan";
+}
+
+/** Pilihan pendana pada saat jatuh tempo. */
+export type PilihanSiklus = "cairkan" | "putar_ulang";
+
+/** Label pilihan; pendana yang belum memilih dianggap mencairkan. */
+export function labelPilihanSiklus(
+  pilihan: PilihanSiklus | undefined,
+): string {
+  return pilihan === "putar_ulang" ? "Putar lagi 30 hari" : "Cairkan ke rekening";
+}
+
+/**
+ * Pokok siklus berikutnya saat pendana memilih "putar lagi".
+ * Seluruh hak siklus — pokok + Imbal Hasil − biaya — ikut bekerja lagi, jadi
+ * tidak ada rupiah yang menganggur di dompet selama siklus berikutnya.
+ * Pembulatan ke bawah menjaga total kewajiban tidak melebihi uang yang ada.
+ */
+export function pokokPutarUlang(totalCair: number): number {
+  if (!Number.isSafeInteger(totalCair) || totalCair <= 0) {
+    throw new Error(`Total cair siklus harus rupiah bulat positif: ${totalCair}`);
+  }
+  return totalCair;
 }

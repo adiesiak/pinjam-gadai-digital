@@ -1,9 +1,14 @@
-import { useQuery } from "convex/react";
-import { CalendarClock, CircleCheck, Lock } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { CalendarClock, CircleCheck, Loader2, Lock, RotateCcw, Wallet } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah } from "@/lib/money";
+import { cn } from "@/lib/utils";
+import type { PilihanSiklus } from "@/lib/siklusPendana";
 
 function tanggal(ms: number): string {
   return new Date(ms).toLocaleDateString("id-ID", {
@@ -18,11 +23,34 @@ function tanggal(ms: number): string {
  *
  * Ini yang menjawab pertanyaan "kapan uang saya cair?": pokok + Imbal Hasil
  * baru bisa dipakai setelah admin mencairkan siklus pada hari jatuh tempo,
- * walaupun pinjaman peminjam sudah lunas lebih awal. Setelah dicairkan,
- * pendana memilih sendiri: tarik ke rekening atau tempatkan lagi.
+ * walaupun pinjaman peminjam sudah lunas lebih awal. Pendana memilih lebih
+ * dulu: dicairkan ke rekening, atau diputar lagi menjadi siklus 30 hari baru.
  */
 export function KartuSiklusPendana() {
   const siklus = useQuery(api.siklusPendana.siklusSaya, {});
+  const pilih = useMutation(api.siklusPendana.pilihSiklus);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const simpanPilihan = async (
+    siklusId: Id<"siklusPendana">,
+    pilihan: PilihanSiklus,
+  ) => {
+    setBusyId(siklusId);
+    try {
+      await pilih({ siklusId, pilihan });
+      toast.success(
+        pilihan === "putar_ulang"
+          ? "Siklus akan diputar lagi 30 hari saat jatuh tempo."
+          : "Siklus akan dicairkan ke dompet saat jatuh tempo.",
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Gagal menyimpan pilihan siklus.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   if (siklus === undefined) {
     return (
@@ -149,13 +177,64 @@ export function KartuSiklusPendana() {
                   </div>
                 </div>
 
-                <p className="mt-2 text-[11px] leading-5 text-slate-600">
-                  {row.sisaHari > 0
-                    ? `${row.sisaHari} hari lagi. `
-                    : "Sudah jatuh tempo. "}
-                  Admin mencairkan siklus pada hari jatuh tempo. Setelah masuk
-                  dompet, Anda memilih: tarik atau tempatkan lagi.
-                </p>
+                <div className="mt-3 border-t border-emerald-200/70 pt-2.5">
+                  <p className="text-[11px] font-medium text-slate-600">
+                    Saat jatuh tempo
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {(
+                      [
+                        {
+                          nilai: "cairkan" as const,
+                          label: "Cairkan ke rekening",
+                          Ikon: Wallet,
+                        },
+                        {
+                          nilai: "putar_ulang" as const,
+                          label: "Putar lagi 30 hari",
+                          Ikon: RotateCcw,
+                        },
+                      ] satisfies ReadonlyArray<{
+                        nilai: PilihanSiklus;
+                        label: string;
+                        Ikon: typeof Wallet;
+                      }>
+                    ).map(({ nilai, label, Ikon }) => {
+                      const aktif = (row.pilihanPendana ?? "cairkan") === nilai;
+                      return (
+                        <button
+                          key={nilai}
+                          type="button"
+                          aria-pressed={aktif}
+                          disabled={busyId !== null}
+                          onClick={() => void simpanPilihan(row._id, nilai)}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                            aktif
+                              ? "border-emerald-700 bg-emerald-700 text-white"
+                              : "border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50",
+                            busyId !== null && "cursor-not-allowed opacity-60",
+                          )}
+                        >
+                          {busyId === row._id ? (
+                            <Loader2 className="size-3 animate-spin" aria-hidden />
+                          ) : (
+                            <Ikon className="size-3" aria-hidden />
+                          )}
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-5 text-slate-600">
+                    {row.sisaHari > 0
+                      ? `Sisa ${row.sisaHari} hari. `
+                      : "Sudah jatuh tempo. "}
+                    {row.pilihanPendana === "putar_ulang"
+                      ? "Pokok dan Imbal Hasil menjadi pokok siklus baru 30 hari."
+                      : "Pokok dan Imbal Hasil masuk dompet, lalu bisa Anda tarik."}
+                  </p>
+                </div>
               </article>
             );
           })}

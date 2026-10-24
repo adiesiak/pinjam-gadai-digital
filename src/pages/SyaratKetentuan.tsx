@@ -361,14 +361,18 @@ const PASAL: Pasal[] = [
             Pokok {formatRupiah(LOAN_LIMITS.minPokok)} sampai{" "}
             {formatRupiah(499_999)}: tenor 7 hari (bunga{" "}
             {persenBungaHarian(100_000, 7)}%, bawaan), 14 hari ({" "}
-            {persenBungaHarian(100_000, 14)}%), atau 28 hari ({" "}
+            {persenBungaHarian(100_000, 14)}%), 21 hari ({" "}
+            {persenBungaHarian(100_000, 21)}%), atau 28 hari ({" "}
             {persenBungaHarian(100_000, 28)}%). Pokok            {formatRupiah(500_000)}{" "}
-            sampai {formatRupiah(999_999)}: tenor 14 hari ({" "}
-            {persenBungaHarian(500_000, 14)}%) atau 28 hari ({" "}
+            sampai {formatRupiah(999_999)}: tenor 7 hari ({" "}
+            {persenBungaHarian(500_000, 7)}%), 14 hari ({" "}
+            {persenBungaHarian(500_000, 14)}%), 21 hari ({" "}
+            {persenBungaHarian(500_000, 21)}%), atau 28 hari ({" "}
             {persenBungaHarian(500_000, 28)}%). Pokok{" "}
             {formatRupiah(1_000_000)} ke atas: tenor 7 hari ({" "}
             {persenBungaHarian(2_000_000, 7)}%), 14 hari ({" "}
-            {persenBungaHarian(2_000_000, 14)}%), atau 28 hari ({" "}
+            {persenBungaHarian(2_000_000, 14)}%), 21 hari ({" "}
+            {persenBungaHarian(2_000_000, 21)}%), atau 28 hari ({" "}
             {persenBungaHarian(2_000_000, 28)}%). Bunga dihitung flat dari pokok;
             total kewajiban pelunasan = pokok + bunga.
           </Ayat>

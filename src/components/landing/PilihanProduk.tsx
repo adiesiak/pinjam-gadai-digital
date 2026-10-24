@@ -15,7 +15,7 @@ import { Link } from "react-router";
 import { cn } from "@/lib/utils";
 
 const SOROTAN_KONVENSIONAL = [
-  "Tenor harian 7, 14, atau 28 hari",
+  "Tenor harian 7, 14, 21, atau 28 hari",
   "Cicilan bulanan 1, 3, atau 6 bulan",
   "Biaya admin 2% dipotong di muka",
 ];

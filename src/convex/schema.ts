@@ -1796,6 +1796,7 @@ const schema = defineSchema(
       status: v.union(
         v.literal("berjalan"),
         v.literal("dicairkan"),
+        v.literal("diputar_ulang"),
         v.literal("dibatalkan"),
       ),
       /** Rupiah bulat — akumulasi settlement yang sudah masuk dompet. */
@@ -1805,6 +1806,18 @@ const schema = defineSchema(
       /** Referensi transfer bank/e-wallet saat admin mencairkan. */
       referensiTransfer: v.optional(v.string()),
       catatan: v.optional(v.string()),
+      /**
+       * Pilihan pendana saat jatuh tempo. Tidak diisi berarti "cairkan" —
+       * perilaku lama tetap berlaku bila pendana tidak memilih.
+       */
+      pilihanPendana: v.optional(
+        v.union(v.literal("cairkan"), v.literal("putar_ulang")),
+      ),
+      pilihanDipilihPada: v.optional(v.number()),
+      /** Siklus berikutnya yang menerima pokok + Imbal Hasil siklus ini. */
+      siklusLanjutanId: v.optional(v.id("siklusPendana")),
+      /** Siklus asal bila baris ini lahir dari "putar lagi". */
+      siklusAsalId: v.optional(v.id("siklusPendana")),
     })
       .index("by_pendana", ["pendanaId"])
       .index("by_jatuhTempo", ["jatuhTempoPada"])

@@ -15,8 +15,11 @@ import { formatRupiah } from "../lib/money";
 import {
   hitungSiklusPendana,
   jatuhTempoSiklus,
+  labelPilihanSiklus,
   labelStatusSiklus,
+  pokokPutarUlang,
   sisaHariSiklus,
+  type PilihanSiklus,
   type StatusSiklus,
 } from "../lib/siklusPendana";
 
@@ -33,7 +36,16 @@ import {
  * dan jurnal tetap seimbang.
  */
 
-/** Total kewajiban siklus yang masih berjalan milik satu pendana. */
+/**
+ * Dana milik siklus berjalan yang wajib tetap di dompet pendana.
+ *
+ * Yang dikunci adalah uang yang SUDAH masuk dompet untuk siklus itu
+ * (`totalMasuk`), bukan seluruh `totalCair`: sisa yang belum masuk masih akan
+ * ditutup jaminan platform, jadi belum ada rupiah yang bisa dipakai pendana.
+ * Dengan begitu setoran baru tidak ikut terkunci oleh siklus lama, sedangkan
+ * pokok + Imbal Hasil yang sudah cair tetap tidak bisa ditarik sebelum jatuh
+ * tempo. Batas `totalCair` mencegah kelebihan settlement ikut mengunci saldo.
+ */
 export async function kewajibanSiklusAktif(
   ctx: QueryCtx,
   danaId: Id<"users">,
@@ -44,7 +56,10 @@ export async function kewajibanSiklusAktif(
     .collect();
   return rows
     .filter((row) => row.status === "berjalan")
-    .reduce((total, row) => total + row.totalCair, 0);
+    .reduce(
+      (total, row) => total + Math.min(Math.max(0, row.totalMasuk), row.totalCair),
+      0,
+    );
 }
 
 /**
@@ -66,6 +81,38 @@ export async function buatSiklusUntukAlokasi(
     jatuhTempoPada: jatuhTempoSiklus(args.sekarang),
     status: "berjalan",
     totalMasuk: 0,
+  });
+}
+
+/**
+ * Buka siklus berikutnya dari hak siklus yang sudah jatuh tempo.
+ * Dipakai jalur "putar lagi": pokok baru = totalCair siklus lama, sehingga
+ * pokok dan Imbal Hasil tetap bekerja tanpa ditransfer ke rekening.
+ */
+async function buatSiklusLanjutan(
+  ctx: MutationCtx,
+  args: {
+    pendanaId: Id<"users">;
+    siklusAsalId: Id<"siklusPendana">;
+    pokok: number;
+    sekarang: number;
+  },
+): Promise<Id<"siklusPendana">> {
+  const hitung = hitungSiklusPendana(pokokPutarUlang(args.pokok));
+  return await ctx.db.insert("siklusPendana", {
+    pendanaId: args.pendanaId,
+    pokok: hitung.pokok,
+    imbal: hitung.imbal,
+    potongan: hitung.potongan,
+    totalCair: hitung.totalCair,
+    mulaiPada: args.sekarang,
+    jatuhTempoPada: jatuhTempoSiklus(args.sekarang),
+    status: "berjalan",
+    // Pokok sudah berada di dompet pendana saat siklus dibuka, jadi langsung
+    // dihitung masuk. Sisa yang masih ditagih hanya Imbal Hasil bersih
+    // (imbal − biaya), dan itu yang ditutup jaminan saat jatuh tempo berikutnya.
+    totalMasuk: hitung.pokok,
+    siklusAsalId: args.siklusAsalId,
   });
 }
 
@@ -167,10 +214,16 @@ export const siklusSaya = query({
         mulaiPada: row.mulaiPada,
         jatuhTempoPada: row.jatuhTempoPada,
         sisaHari: sisaHariSiklus(row.jatuhTempoPada, sekarang),
+        jatuhTempo: row.jatuhTempoPada <= sekarang,
         status: row.status as StatusSiklus,
         statusLabel: labelStatusSiklus(row.status as StatusSiklus),
         totalMasuk: row.totalMasuk,
         dicairkanPada: row.dicairkanPada ?? null,
+        pilihanPendana: (row.pilihanPendana ?? null) as PilihanSiklus | null,
+        pilihanLabel: labelPilihanSiklus(
+          row.pilihanPendana as PilihanSiklus | undefined,
+        ),
+        siklusLanjutanId: row.siklusLanjutanId ?? null,
       }));
   },
 });
@@ -211,9 +264,121 @@ export const daftarSiklus = query({
           jatuhTempoPada: row.jatuhTempoPada,
           sisaHari: sisaHariSiklus(row.jatuhTempoPada, sekarang),
           jatuhTempo: row.jatuhTempoPada <= sekarang,
+          pilihanPendana: (row.pilihanPendana ?? "cairkan") as PilihanSiklus,
+          pilihanLabel: labelPilihanSiklus(
+            row.pilihanPendana as PilihanSiklus | undefined,
+          ),
+          belumMemilih: row.pilihanPendana === undefined,
         };
       }),
     );
+  },
+});
+
+/**
+ * Pendana memilih apa yang terjadi pada saat jatuh tempo.
+ *
+ * Pilihan boleh ditetapkan kapan saja selama siklus masih berjalan (termasuk
+ * sebelum jatuh tempo), supaya pendana tidak perlu menunggu di depan layar.
+ * Tanpa pilihan, siklus mengikuti perilaku lama: dicairkan oleh admin.
+ */
+export const pilihSiklus = mutation({
+  args: {
+    siklusId: v.id("siklusPendana"),
+    pilihan: v.union(v.literal("cairkan"), v.literal("putar_ulang")),
+  },
+  handler: async (ctx, { siklusId, pilihan }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Masuk dulu untuk memilih siklus.");
+    const siklus = await ctx.db.get(siklusId);
+    if (siklus === null || siklus.pendanaId !== userId) {
+      throw new Error("Siklus ini bukan milik akun Anda.");
+    }
+    if (siklus.status !== "berjalan") {
+      throw new Error("Siklus ini sudah selesai, pilihan tidak bisa diubah lagi.");
+    }
+    if (siklus.pilihanPendana === pilihan) {
+      return { ok: true as const, pilihan };
+    }
+    await ctx.db.patch(siklusId, {
+      pilihanPendana: pilihan,
+      pilihanDipilihPada: Date.now(),
+    });
+    return { ok: true as const, pilihan };
+  },
+});
+
+/**
+ * Jalankan pilihan "putar lagi" pada saat jatuh tempo.
+ *
+ * Seluruh hak siklus (pokok + Imbal Hasil − biaya) menjadi pokok siklus baru
+ * selama 30 hari berikutnya, sehingga tidak ada rupiah yang menganggur di
+ * dompet. Kekurangan settlement tetap ditutup jaminan platform lebih dulu —
+ * sama seperti pencairan — supaya pokok siklus baru benar-benar terdanai.
+ */
+export const putarUlangSiklus = mutation({
+  args: { siklusId: v.id("siklusPendana") },
+  handler: async (ctx, { siklusId }) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+    const siklus = await ctx.db.get(siklusId);
+    if (siklus === null) throw new Error("Siklus pendana tidak ditemukan.");
+    if (siklus.status !== "berjalan") {
+      throw new Error("Siklus ini sudah dicairkan atau dibatalkan.");
+    }
+    if (siklus.pilihanPendana !== "putar_ulang") {
+      throw new Error("Pendana belum memilih untuk memutar ulang siklus ini.");
+    }
+
+    const sekarang = Date.now();
+    if (sekarang < siklus.jatuhTempoPada) {
+      throw new Error("Siklus belum jatuh tempo, jadi belum bisa diputar ulang.");
+    }
+
+    const kurang = Math.max(0, siklus.totalCair - siklus.totalMasuk);
+    if (kurang > 0) {
+      await appendJournal(ctx, {
+        jenis: "payout",
+        skema: "pinjaman",
+        keterangan: `Jaminan platform untuk putar ulang siklus ${siklus._id}`,
+        aktor: admin.email ?? admin.name ?? "admin",
+        lines: [
+          {
+            akun: akunDompetDana(siklus.pendanaId),
+            arah: "debit",
+            jumlah: kurang,
+          },
+          { akun: "platform:GUARANTEE", arah: "kredit", jumlah: kurang },
+        ],
+      });
+    }
+
+    const siklusBaruId = await buatSiklusLanjutan(ctx, {
+      pendanaId: siklus.pendanaId,
+      siklusAsalId: siklusId,
+      pokok: siklus.totalCair,
+      sekarang,
+    });
+
+    await ctx.db.patch(siklusId, {
+      status: "diputar_ulang",
+      dicairkanPada: sekarang,
+      dicairkanOleh: adminId,
+      siklusLanjutanId: siklusBaruId,
+      totalMasuk: Math.max(siklus.totalMasuk, siklus.totalCair),
+    });
+
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "putar_ulang_siklus_pendana",
+      siklusId,
+      `Pokok siklus baru ${formatRupiah(siklus.totalCair)} selama 30 hari${
+        kurang > 0 ? `, ditutup jaminan platform ${formatRupiah(kurang)}` : ""
+      }`,
+    );
+
+    return { ok: true as const, siklusBaruId, pokokBaru: siklus.totalCair };
   },
 });
 

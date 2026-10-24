@@ -132,6 +132,131 @@ describe("siklus pendana 30 hari", () => {
     expect(dompet).toBe(250_000);
   });
 
+  it("memutar ulang siklus sesuai pilihan pendana: pokok baru = total cair lama", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await buatPengguna(t, "Admin Putar", {
+      email: "admin-putar@pindai.test",
+      role: "admin",
+    });
+    await aktifkanTotpUntukSesi(t, admin.userId, admin.authSessionId);
+    const pendana = await buatPengguna(t, "Pendana Putar", {
+      email: "pendana-putar@pindai.test",
+      role: "dana",
+    });
+
+    const siklusId = await t.run((ctx) =>
+      ctx.db.insert("siklusPendana", {
+        pendanaId: pendana.userId,
+        ...siklusFields(1_000_000, Date.now() - 31 * HARI_MS),
+        status: "berjalan",
+        totalMasuk: 0,
+      }),
+    );
+
+    await pendana.sesi.mutation(api.siklusPendana.pilihSiklus, {
+      siklusId,
+      pilihan: "putar_ulang",
+    });
+    expect((await t.run((ctx) => ctx.db.get(siklusId)))?.pilihanPendana).toBe(
+      "putar_ulang",
+    );
+
+    const hasil = await admin.sesi.mutation(api.siklusPendana.putarUlangSiklus, {
+      siklusId,
+    });
+    expect(hasil.pokokBaru).toBe(1_250_000);
+
+    const lama = await t.run((ctx) => ctx.db.get(siklusId));
+    expect(lama?.status).toBe("diputar_ulang");
+    expect(lama?.siklusLanjutanId).toBe(hasil.siklusBaruId);
+
+    // Pokok siklus baru adalah seluruh hak siklus lama, sudah dihitung masuk
+    // dompet; yang masih ditagih hanya Imbal Hasil bersih 30 hari berikutnya.
+    const baru = await t.run((ctx) => ctx.db.get(hasil.siklusBaruId));
+    expect(baru).toMatchObject({
+      pendanaId: pendana.userId,
+      pokok: 1_250_000,
+      imbal: 375_000,
+      potongan: 62_500,
+      totalCair: 1_562_500,
+      totalMasuk: 1_250_000,
+      siklusAsalId: siklusId,
+      status: "berjalan",
+    });
+
+    const jaminan = await t.run(async (ctx) => {
+      const entries = await ctx.db.query("ledger_entries").collect();
+      return entries.filter((e) => e.akun === "platform:GUARANTEE");
+    });
+    expect(jaminan).toHaveLength(1);
+    expect(jaminan[0]).toMatchObject({ arah: "kredit", jumlah: 1_250_000 });
+  });
+
+  it("menolak putar ulang tanpa pilihan pendana, sebelum jatuh tempo, atau milik akun lain", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await buatPengguna(t, "Admin Tolak", {
+      email: "admin-tolak-putar@pindai.test",
+      role: "admin",
+    });
+    await aktifkanTotpUntukSesi(t, admin.userId, admin.authSessionId);
+    const pendana = await buatPengguna(t, "Pendana Tolak", {
+      email: "pendana-tolak-putar@pindai.test",
+      role: "dana",
+    });
+    const lain = await buatPengguna(t, "Pendana Lain", {
+      email: "pendana-lain-putar@pindai.test",
+      role: "dana",
+    });
+
+    const siklusId = await t.run((ctx) =>
+      ctx.db.insert("siklusPendana", {
+        pendanaId: pendana.userId,
+        ...siklusFields(500_000, Date.now() - 31 * HARI_MS),
+        status: "berjalan",
+        totalMasuk: 0,
+      }),
+    );
+
+    await expect(
+      lain.sesi.mutation(api.siklusPendana.pilihSiklus, {
+        siklusId,
+        pilihan: "putar_ulang",
+      }),
+    ).rejects.toThrow(/bukan milik akun Anda/i);
+    await expect(
+      admin.sesi.mutation(api.siklusPendana.putarUlangSiklus, { siklusId }),
+    ).rejects.toThrow(/belum memilih untuk memutar ulang/i);
+
+    await pendana.sesi.mutation(api.siklusPendana.pilihSiklus, {
+      siklusId,
+      pilihan: "cairkan",
+    });
+    await expect(
+      admin.sesi.mutation(api.siklusPendana.putarUlangSiklus, { siklusId }),
+    ).rejects.toThrow(/belum memilih untuk memutar ulang/i);
+
+    const belumJatuhTempo = await t.run((ctx) =>
+      ctx.db.insert("siklusPendana", {
+        pendanaId: pendana.userId,
+        ...siklusFields(500_000, Date.now()),
+        status: "berjalan",
+        totalMasuk: 0,
+      }),
+    );
+    await pendana.sesi.mutation(api.siklusPendana.pilihSiklus, {
+      siklusId: belumJatuhTempo,
+      pilihan: "putar_ulang",
+    });
+    await expect(
+      admin.sesi.mutation(api.siklusPendana.putarUlangSiklus, {
+        siklusId: belumJatuhTempo,
+      }),
+    ).rejects.toThrow(/belum jatuh tempo/i);
+    expect(
+      (await t.run((ctx) => ctx.db.get(belumJatuhTempo)))?.status,
+    ).toBe("berjalan");
+  });
+
   it("menolak pencairan sebelum jatuh tempo", async () => {
     const t = convexTest(schema, modules);
     const admin = await buatPengguna(t, "Admin Dini", {

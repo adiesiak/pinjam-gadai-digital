@@ -527,11 +527,21 @@ export const allocateFunding = mutation({
       );
     }
 
-    // 3. Saldo dompet dari ledger — tidak boleh minus.
+    // 3. Saldo dompet dari ledger — tidak boleh minus, dan dana yang masih
+    //    terikat siklus berjalan tidak boleh ditempatkan dua kali menjadi
+    //    siklus baru (satu rupiah tidak boleh punya dua hak imbal).
     const saldo = await danaWalletBalance(ctx, userId);
-    if (saldo < args.jumlah) {
+    const terkunci = await kewajibanSiklusAktif(ctx, userId);
+    const tersedia = saldo - terkunci;
+    if (tersedia < args.jumlah) {
       throw new Error(
-        `Saldo tidak cukup. Saldo: ${formatRupiah(saldo)}, alokasi: ${formatRupiah(args.jumlah)}.`,
+        `Saldo tidak cukup. Saldo bisa ditempatkan: ${formatRupiah(
+          Math.max(0, tersedia),
+        )}, alokasi: ${formatRupiah(args.jumlah)}${
+          terkunci > 0
+            ? `. Saldo dompet ${formatRupiah(saldo)}, terkunci di siklus berjalan ${formatRupiah(terkunci)}`
+            : ""
+        }.`,
       );
     }
 
@@ -1229,9 +1239,18 @@ export const alokasiKreditBarang = mutation({
     }
 
     const saldo = await danaWalletBalance(ctx, userId);
-    if (saldo < args.jumlah) {
+    // Dana yang sudah terikat siklus 30 hari tidak boleh dipakai lagi di sini:
+    // satu rupiah hanya boleh menanggung satu penempatan.
+    const terkunci = await kewajibanSiklusAktif(ctx, userId);
+    if (saldo - terkunci < args.jumlah) {
       throw new Error(
-        `Saldo tidak cukup. Saldo: ${formatRupiah(saldo)}, alokasi: ${formatRupiah(args.jumlah)}.`,
+        `Saldo tidak cukup. Saldo bisa ditempatkan: ${formatRupiah(
+          Math.max(0, saldo - terkunci),
+        )}, alokasi: ${formatRupiah(args.jumlah)}${
+          terkunci > 0
+            ? `. Saldo dompet ${formatRupiah(saldo)}, terkunci di siklus berjalan ${formatRupiah(terkunci)}`
+            : ""
+        }.`,
       );
     }
 
