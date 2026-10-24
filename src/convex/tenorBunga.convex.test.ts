@@ -4,7 +4,7 @@
  *
  * UI boleh menyembunyikan tenor yang tidak berlaku, tetapi server tetap harus
  * menolak kombinasi nominal/tenor di luar matriks. Tes ini memastikan:
- *  - tenor 7/14/28 diterima pada setiap tier nominal;
+ *  - tenor 7/14/21/28 diterima pada setiap tier nominal;
  *  - snapshot bunga berasal dari matriks tier (26–40%), bukan angka global;
  *  - tenor 30 hari ditolak mutation.
  */
@@ -207,7 +207,7 @@ describe("matriks tenor & bunga harian", () => {
     const sesi = await peminjamSiap(t, "tenor-tolak-tigapuluh@pindai.test");
 
     await expect(ajukan(t, sesi, 500_000, 30, "tolak-tigapuluh")).rejects.toThrow(
-      /tenor yang tersedia 7 \/ 14 \/ 28 hari/,
+      /tenor yang tersedia 7 \/ 14 \/ 21 \/ 28 hari/,
     );
   });
 });

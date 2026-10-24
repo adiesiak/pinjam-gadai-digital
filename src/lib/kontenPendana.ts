@@ -149,7 +149,7 @@ export const KONTEN_PENDANA_DEFAULT: KontenPendana = {
   heroJudul:
     "Imbal Hasil {imbal} per siklus {siklus} hari, tertulis sejak awal.",
   heroDeskripsi:
-    "Setiap alokasi PINDAI menempel pada satu pinjaman dan satu pendana. Biaya platform {biaya} diambil dari uang yang kembali, bukan dari keuntungan, dan proposalnya bisa Anda unduh sekarang.",
+    "Setiap alokasi PINDAI menempel pada satu pinjaman dan satu pendana. Biaya platform {biaya} diambil dari pokok penempatan, bukan dari keuntungan, dan proposalnya bisa Anda unduh sekarang.",
   heroCatatan:
     "Proposal hanya terbuka dari ruang pendana. Catatan di bagian proposal menjelaskan apakah berkasnya disusun aplikasi atau dipasang admin.",
   prinsipJudul: "Yang membuat angkanya bisa diperiksa",
@@ -166,7 +166,7 @@ export const KONTEN_PENDANA_DEFAULT: KontenPendana = {
     },
     {
       judul: "Biaya platform diumumkan di depan",
-      isi: "Biaya {biaya} diambil dari uang yang kembali, bukan dari keuntungan. Potongan ini membiayai operasional, penagihan, dan penanganan pinjaman bermasalah.",
+      isi: "Biaya {biaya} diambil dari pokok penempatan, bukan dari keuntungan. Potongan ini membiayai operasional, penagihan, dan penanganan pinjaman bermasalah.",
     },
     {
       judul: "Hasil dibayar setelah lunas",
@@ -175,12 +175,12 @@ export const KONTEN_PENDANA_DEFAULT: KontenPendana = {
   ],
   kalkulatorJudul: "Hitung nominal Anda",
   kalkulatorDeskripsi:
-    "Masukkan nominal yang Anda rencanakan. Pembagian di kanan memakai Imbal Hasil {imbal} untuk siklus {siklus} hari dan biaya platform {biaya} dari uang yang kembali.",
+    "Masukkan nominal yang Anda rencanakan. Pembagian di kanan memakai Imbal Hasil {imbal} untuk siklus {siklus} hari dan biaya platform {biaya} dari pokok penempatan.",
   kalkulatorCatatan:
-    "Angka contoh, bukan jaminan hasil. Imbal Hasil baru menjadi uang Anda setelah pinjaman lunas, dan biaya platform {biaya} sudah dipotong dari uang yang kembali.",
+    "Angka contoh, bukan jaminan hasil. Imbal Hasil baru menjadi uang Anda setelah pinjaman lunas, dan biaya platform {biaya} dipotong dari pokok penempatan.",
   perhitunganJudul: "Lima baris yang menjelaskan semuanya",
   perhitunganDeskripsi:
-    "Tidak ada rumus tersembunyi. Perhitungan dimulai dari pokok, memakai Imbal Hasil {imbal}, lalu memotong biaya platform {biaya} dari uang yang kembali.",
+    "Tidak ada rumus tersembunyi. Perhitungan dimulai dari pokok, memakai Imbal Hasil {imbal}, lalu memotong biaya platform {biaya} dari pokok yang sama.",
   proposalJudul: "Proposal pendanaan & kemitraan strategis",
   proposalDeskripsi:
     "Berkas PDF yang bisa Anda simpan, cetak, atau kirim ke orang yang ikut memutuskan. Isinya ringkasan eksekutif dan target 2027, analisis pasar TAM, SAM, dan SOM, skema dengan simulasi Rp 5 juta sampai Rp 50 juta, cakupan biaya platform, langkah preventif, risiko, serta alur kemitraan dan kontak.",

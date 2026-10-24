@@ -37,6 +37,7 @@ import { getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { pastikanAngsuran } from "./angsuranJadwal";
 import { beriTiketPendanaan } from "./doorprize";
+import { buatSiklusUntukAlokasi, kewajibanSiklusAktif } from "./siklusPendana";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
 export const MIN_ALOKASI = 100_000;
@@ -537,14 +538,25 @@ export const allocateFunding = mutation({
     // 4. Tulis posisi alokasi. Imbal Hasil pendana TETAP: 30% dari nominal
     //    alokasi untuk siklus 30 hari, tidak diturunkan dari tenor/bunga nasabah.
     //    Snapshot ini yang menjadi hak pendana sampai pelunasan.
-    const siklus = siklusPendanaan(args.jumlah);
+    const siklusHak = siklusPendanaan(args.jumlah);
+    const sekarang = Date.now();
+    const siklusId = await buatSiklusUntukAlokasi(ctx, {
+      pendanaId: userId,
+      pokok: args.jumlah,
+      sekarang,
+    });
+    const siklusBaru = await ctx.db.get(siklusId);
     const fndRef = referenceNumber("FND");
     await ctx.db.insert("fundings", {
       loanId: args.loanId,
       danaId: userId,
       jumlahAlokasi: args.jumlah,
-      imbalHasil: siklus.lenderProfit,
-      ...siklus,
+      imbalHasil: siklusHak.lenderProfit,
+      ...siklusHak,
+      siklusId,
+      peranSiklus: "utama",
+      /** Snapshot biaya 5% dari POKOK, dibayar sekali per siklus. */
+      potonganAdmin: siklusBaru?.potongan ?? 0,
       status: "dialokasikan",
       nomorReferensi: fndRef,
     });
@@ -688,9 +700,17 @@ export const requestWithdrawal = mutation({
     // Saldo dicek di sini untuk umpan balik cepat; pemotongan final terjadi
     // saat admin memproses (jurnal) dan divalidasi ulang pada momen itu.
     const saldo = await danaWalletBalance(ctx, userId);
-    if (saldo < args.jumlah) {
+    // Dana yang masih terikat siklus 30 hari tidak boleh ditarik lebih awal.
+    const terkunci = await kewajibanSiklusAktif(ctx, userId);
+    const tersedia = saldo - terkunci;
+    if (args.jumlah > tersedia) {
       throw new Error(
-        `Saldo tidak cukup. Saldo: ${formatRupiah(saldo)}, penarikan: ${formatRupiah(args.jumlah)}.`,
+        `Saldo yang bisa ditarik ${formatRupiah(Math.max(0, tersedia))}. ` +
+          `Saldo dompet ${formatRupiah(saldo)}${
+            terkunci > 0
+              ? `, terkunci di siklus berjalan ${formatRupiah(terkunci)}`
+              : ""
+          }.`,
       );
     }
 

@@ -83,7 +83,7 @@ export const TENOR_CEPAT = TENOR_OPTIONS;
 
 /**
  * Tenor yang benar-benar boleh dipilih untuk satu nominal pengajuan cepat.
- * Produk menawarkan 7/14/28 hari; fungsi ini tetap membaca matriks agar
+ * Produk menawarkan 7/14/21/28 hari; fungsi ini tetap membaca matriks agar
  * perubahan aturan tenor hanya ditulis di `lib/loan.ts`.
  */
 export function tenorCepat(pokok: number): readonly Tenor[] {
@@ -209,7 +209,7 @@ export function validasiPengajuanCepat(
       sebutSisa ? ` Sisa batas pinjaman Anda ${formatRupiah(maks)}.` : ""
     }`;
   }
-  // Tenor resmi 7/14/28 hari. Matriks tetap menjadi satu-satunya sumber
+  // Tenor resmi 7/14/21/28 hari. Matriks tetap menjadi satu-satunya sumber
   // kebenaran bila aturan produk berubah.
   const pesanTenor = validasiTenorHarian(
     isian.pokokPinjaman,

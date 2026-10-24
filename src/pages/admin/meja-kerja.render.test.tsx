@@ -96,7 +96,7 @@ ada(html, "Aliran uang satu pinjaman", "judul kartu");
 ada(html, "Contoh satu pinjaman Rp 1.000.000", "kalimat contoh menyebut pokok Rp1.000.000");
 ada(html, "dipotong admin 2% + biaya ekspres di muka", "kalimat contoh menyebut potongan admin + ekspres");
 ada(html, "kembali 130% dari pokok", "kalimat contoh menyebut kembali 130%");
-ada(html, "dipotong 5% dari uang yang kembali", "kalimat contoh menyebut dasar potongan 5%");
+ada(html, "dipotong 5% dari pokok", "kalimat contoh menyebut dasar potongan 5%");
 
 // Delapan baris rincian, dengan label kebijakannya.
 const label = [
@@ -104,7 +104,7 @@ const label = [
   "Potongan di muka (admin 2% + ekspres)",
   "Diterima peminjam",
   "Kembali (pokok + Imbal Hasil 30%)",
-  "Potongan 5% dari uang yang kembali",
+  "Potongan 5% dari pokok",
   "Diterima pendana",
   "Imbal Hasil bersih pendana",
   "Pendapatan platform",
@@ -112,15 +112,15 @@ const label = [
 for (const teks of label) ada(html, teks, `label rincian "${teks}"`);
 
 // Angka yang diminta: 1jt dipotong 2% → 980rb diterima peminjam; kembali
-// 1,3jt; dipotong 5% dari yang kembali → penyedia dana menerima 1,235jt.
+// 1,3jt; dipotong 5% dari pokok → penyedia dana menerima 1,25jt.
 ada(html, "Rp 1.000.000", "pokok");
 ada(html, "− Rp 30.000", "potongan di muka admin + ekspres");
 ada(html, "Rp 970.000", "dana yang diterima peminjam");
 ada(html, "Rp 1.300.000", "uang yang kembali");
-ada(html, "− Rp 65.000", "potongan 5% dari uang yang kembali");
-ada(html, "Rp 1.235.000", "uang yang diterima penyedia dana");
-ada(html, "Rp 235.000", "Imbal Hasil bersih pendana");
-ada(html, "Rp 95.000", "pendapatan platform satu pinjaman");
+ada(html, "− Rp 50.000", "potongan 5% dari pokok");
+ada(html, "Rp 1.250.000", "uang yang diterima penyedia dana");
+ada(html, "Rp 250.000", "Imbal Hasil bersih pendana");
+ada(html, "Rp 80.000", "pendapatan platform satu pinjaman");
 
 // Pilihan pokok: admin bisa memeriksa nominal lain tanpa membuka modul lain.
 ada(html, "Pilih pokok pinjaman contoh", "grup pilihan pokok ada dan diberi nama");
@@ -168,12 +168,12 @@ ada(htmlKecil, "Contoh satu pinjaman Rp 500.000", "kalimat contoh mengikuti pili
 ada(htmlKecil, "− Rp 17.500", "potongan di muka dari Rp500.000");
 ada(htmlKecil, "Rp 482.500", "diterima peminjam");
 ada(htmlKecil, "Rp 650.000", "uang yang kembali");
-ada(htmlKecil, "− Rp 32.500", "potongan 5% dari yang kembali");
-ada(htmlKecil, "Rp 617.500", "diterima penyedia dana");
-ada(htmlKecil, "Rp 117.500", "Imbal Hasil bersih pendana");
-ada(htmlKecil, "Rp 50.000", "pendapatan platform");
+ada(htmlKecil, "− Rp 25.000", "potongan 5% dari pokok");
+ada(htmlKecil, "Rp 625.000", "diterima penyedia dana");
+ada(htmlKecil, "Rp 125.000", "Imbal Hasil bersih pendana");
+ada(htmlKecil, "Rp 42.500", "pendapatan platform");
 ok(
-  !htmlKecil.includes("Rp 1.235.000"),
+  !htmlKecil.includes("Rp 1.250.000"),
   "angka contoh maksimum tidak lagi tampil saat pilihan diganti",
 );
 // Tombol yang aktif harus tombol Rp500.000 — bukan hanya "ada satu yang aktif".

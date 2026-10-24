@@ -300,15 +300,15 @@ describe("pembayaran tingkat pinjaman", () => {
 
     // Ringkasan admin membaca akun spread sebagai pendapatan platform.
     const ringkasan = await data.admin.query(api.admin.ledgerSummary, {});
-    // Pendapatan = potongan admin payout Rp65.000 + margin spread Rp48.750
+    // Pendapatan = potongan admin payout Rp50.000 + margin spread Rp48.750
     // (Rp1.250 disisihkan ke dana proteksi risiko, bukan pendapatan).
-    expect(ringkasan.pendapatanPlatform).toBe(113_750);
+    expect(ringkasan.pendapatanPlatform).toBe(98_750);
 
     // Biaya layanan 5% tetap terpisah dari margin tenor.
     const fee = hasil.entries.find(
       (e) => e.akun === "platform:FEE" && e.jenis === "payout",
     );
-    expect(fee).toMatchObject({ arah: "debit", jumlah: 65_000 });
+    expect(fee).toMatchObject({ arah: "debit", jumlah: 50_000 });
     const debit = hasil.entries
       .filter((e) => e.arah === "debit")
       .reduce((acc, e) => acc + e.jumlah, 0);

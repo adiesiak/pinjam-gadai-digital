@@ -371,7 +371,7 @@ export function AdminTabs({
         {
           value: "config",
           label: "Parameter Bisnis",
-          hint: "Bunga, limit, biaya, potongan admin atas uang yang kembali, dan Mode Pemeliharaan sistem.",
+          hint: "Bunga, limit, biaya, potongan admin dari pokok pendanaan, dan Mode Pemeliharaan sistem.",
           badge: null,
           hitung: "tidak",
           Icon: Settings2,

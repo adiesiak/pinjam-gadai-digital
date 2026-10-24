@@ -52,23 +52,25 @@ export const LOAN_LIMITS = {
 } as const;
 
 /** Tenor pinjaman dalam hari — dipilih nasabah saat mengajukan (maks 28 hari). */
-export const TENOR_OPTIONS = [7, 14, 28] as const;
+export const TENOR_OPTIONS = [7, 14, 21, 28] as const;
 export type Tenor = (typeof TENOR_OPTIONS)[number];
 
 /**
  * Matriks tenor & bunga pinjaman HARIAN.
  *
  * Aturan produk yang dijaga di sini (berlaku sama di klien dan server):
- *  - Tier 1, pokok di bawah Rp500.000: 7 hari 30%, 14 hari 35%, 28 hari 40%.
+ *  - Tier 1, pokok di bawah Rp500.000: 7 hari 30%, 14 hari 35%,
+ *    21 hari 38%, 28 hari 40%.
  *  - Tier 2, pokok Rp500.000 sampai di bawah Rp1.000.000: 7 hari 28%,
- *    14 hari 32%, 28 hari 35%.
- *  - Tier 3, pokok Rp1.000.000 ke atas: 7 hari 26%, 14 hari 28%, 28 hari 30%.
+ *    14 hari 32%, 21 hari 34%, 28 hari 35%.
+ *  - Tier 3, pokok Rp1.000.000 ke atas: 7 hari 26%, 14 hari 28%,
+ *    21 hari 29%, 28 hari 30%.
  *
  * Tier teratas terbuka sampai `maxPokokPlafon` karena admin dapat memberi
  * plafon khusus di atas batas bawaan Rp1 juta. Tanpa plafon khusus, plafon
  * nasabah sendiri (Rp500 ribu/Rp1 juta) yang menahan pokoknya lebih dulu.
  *
- * Tenor 30 hari bukan pilihan produk; tenor resmi hanya 7, 14, dan 28 hari.
+ * Tenor 30 hari bukan pilihan produk; tenor resmi 7, 14, 21, dan 28 hari.
  * Kombinasi di luar baris matriks ditolak server, bukan sekadar disembunyikan.
  */
 const MATRIKS_HARIAN: readonly {
@@ -86,6 +88,7 @@ const MATRIKS_HARIAN: readonly {
     tarif: [
       { tenor: 7, persenBunga: 30 },
       { tenor: 14, persenBunga: 35 },
+      { tenor: 21, persenBunga: 38 },
       { tenor: 28, persenBunga: 40 },
     ],
   },
@@ -96,6 +99,7 @@ const MATRIKS_HARIAN: readonly {
     tarif: [
       { tenor: 7, persenBunga: 28 },
       { tenor: 14, persenBunga: 32 },
+      { tenor: 21, persenBunga: 34 },
       { tenor: 28, persenBunga: 35 },
     ],
   },
@@ -106,6 +110,7 @@ const MATRIKS_HARIAN: readonly {
     tarif: [
       { tenor: 7, persenBunga: 26 },
       { tenor: 14, persenBunga: 28 },
+      { tenor: 21, persenBunga: 29 },
       { tenor: 28, persenBunga: 30 },
     ],
   },
@@ -132,8 +137,8 @@ export function tenorHarianDefault(pokok: number): Tenor {
 }
 
 /**
- * Sesuaikan tenor lama ke pilihan terdekat yang sah. Ketiga tenor berlaku di
- * semua tier, jadi fungsi ini hanya menggeser nilai di luar 7/14/28 hari
+ * Sesuaikan tenor lama ke pilihan terdekat yang sah. Keempat tenor berlaku di
+ * semua tier, jadi fungsi ini hanya menggeser nilai di luar 7/14/21/28 hari
  * (mis. data lama 30 hari).
  */
 export function sesuaikanTenorHarian(pokok: number, tenor: number): Tenor {

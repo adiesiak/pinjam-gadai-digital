@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 
+import { PanelSiklusPendana } from "./PanelSiklusPendana";
 import { PemulihanJejakPratinjauPanel } from "./PemulihanJejakPratinjauPanel";
 import { PencatatanTransferPendana } from "./PencatatanTransferPendana";
 import { PenyediaDanaTable } from "./PenyediaDanaTable";
@@ -453,6 +454,7 @@ function TabAkunAkses() {
         <KartuBeriAkses />
       </div>
       <KartuKodeBersama />
+      <PanelSiklusPendana />
       <PenyediaDanaTable />
       <PratinjauAktifPanel />
       <PemulihanJejakPratinjauPanel />

@@ -174,7 +174,7 @@ describe("verifikasi bukti angsuran", () => {
     const biayaPendana = hasil.entries.find(
       (e) => e.akun === "platform:FEE" && e.jenis === "payout",
     );
-    expect(biayaPendana).toMatchObject({ arah: "debit", jumlah: 65_000 });
+    expect(biayaPendana).toMatchObject({ arah: "debit", jumlah: 50_000 });
 
     const debit = hasil.entries
       .filter((e) => e.arah === "debit")

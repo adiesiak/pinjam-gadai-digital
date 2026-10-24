@@ -93,7 +93,7 @@ export type SystemConfig = {
   persenBunga: number;
   /**
    * Biaya admin pinjaman yang dipotong di muka (% dari pokok). Terpisah dari
-   * `persenAdmin` (potongan atas uang yang kembali milik penyedia dana).
+   * `persenAdmin` (potongan dari pokok penempatan penyedia dana).
    * Nilai ini dipakai mesin harga untuk SEMUA pengajuan baru dan ikut
    * ditampilkan di landing page.
    */
@@ -210,10 +210,9 @@ export const DEFAULT_CONFIG: SystemConfig = {
   killSwitch: false,
   maintenanceMode: false,
   /**
-   * Potongan admin atas UANG YANG KEMBALI dari Peminjam (pokok + Imbal Hasil),
-   * bukan hanya atas Imbal Hasil penyedia dana. Contoh pokok Rp1.000.000 @30%:
-   * uang yang kembali Rp1.300.000 → potongan 5% = Rp65.000, penyedia dana
-   * menerima Rp1.235.000.
+   * Potongan admin dari POKOK penempatan penyedia dana. Contoh pokok
+   * Rp1.000.000 @30%: uang yang kembali Rp1.300.000 → potongan 5% = Rp50.000,
+   * penyedia dana menerima Rp1.250.000.
    * Dibaca saat pelunasan pinjaman — lihat lib/bagiHasil.ts dan repayLoan di
    * convex/loans.ts. Pembulatan selalu ke bawah: sisa rupiah milik penyedia dana.
    */

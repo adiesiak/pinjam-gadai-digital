@@ -192,7 +192,7 @@ export function FormPinjamanManual({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="harian">Harian (7/14/28 hari)</SelectItem>
+              <SelectItem value="harian">Harian (7/14/21/28 hari)</SelectItem>
               <SelectItem value="bulanan">Bulanan (1/3/6 bulan)</SelectItem>
             </SelectContent>
           </Select>

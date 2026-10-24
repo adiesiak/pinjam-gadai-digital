@@ -94,9 +94,9 @@ export type RincianAliranDana = {
   imbalHasil: Rupiah;
   /** Total yang kembali dari peminjam = pokok + Imbal Hasil (130%). */
   totalKembali: Rupiah;
-  /** Persen potongan platform atas uang yang kembali (5%). */
+  /** Persen potongan platform atas POKOK (5%). */
   persenPotonganPenyedia: number;
-  /** Potongan platform = persen × total yang kembali (pembulatan ke bawah). */
+  /** Potongan platform = persen × pokok (pembulatan ke bawah). */
   potonganPenyedia: Rupiah;
   /** Uang yang diterima pendana = total kembali − potongan. */
   diterimaPenyedia: Rupiah;
@@ -196,7 +196,7 @@ export function kalimatContohAliran(r: RincianAliranDana): string {
   return (
     `Contoh satu pinjaman ${formatRupiah(r.pokok)}: dipotong admin ` +
     `${r.persenPotonganDiMuka}% + biaya ekspres di muka, kembali ${r.persenImbalHasil + 100}% ` +
-    `dari pokok, lalu dipotong ${r.persenPotonganPenyedia}% dari uang yang kembali.`
+    `dari pokok, lalu dipotong ${r.persenPotonganPenyedia}% dari pokok.`
   );
 }
 
@@ -242,7 +242,7 @@ export function barisRincianAliran(
     { label: "Diterima peminjam", nilai: r.diterimaPeminjam, arah: "bersih" },
     { label: labelKembali, nilai: r.totalKembali, arah: "total" },
     {
-      label: `Potongan ${r.persenPotonganPenyedia}% dari uang yang kembali`,
+      label: `Potongan ${r.persenPotonganPenyedia}% dari pokok`,
       nilai: r.potonganPenyedia,
       arah: "potongan",
     },

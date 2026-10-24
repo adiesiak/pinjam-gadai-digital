@@ -1110,8 +1110,8 @@ export const adminStats = query({
       .filter((l) => STATUS_MENUNGGU.pinjaman.includes(l.status))
       .reduce((acc, l) => acc + (l.pokokDiajukan ?? l.pokokPinjaman), 0);
 
-    // Keuntungan admin = potongan admin atas uang yang kembali dari Peminjam
-    // (pokok + Imbal Hasil), memakai model yang sama dengan panel penyedia dana
+    // Keuntungan admin = potongan admin dari pokok pinjaman, memakai model
+    // yang sama dengan panel penyedia dana
     // (lib/bagiHasil.ts) — termasuk skema bulanan yang dihitung dari tenor
     // penuhnya. Baris warisan yang pokoknya bukan rupiah bulat dilewati agar
     // satu dokumen lama tidak merobohkan ringkasan.

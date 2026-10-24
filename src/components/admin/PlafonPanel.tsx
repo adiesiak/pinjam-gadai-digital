@@ -65,7 +65,7 @@ import { cn } from "@/lib/utils";
  * dapat menetapkan angka lain, dan kredit barang punya batas tersendiri.
  *
  * Bunga tidak diatur di panel ini: tarif pinjaman mengikuti tabel tenor website
- * (harian 7/14/28 hari sesuai nominal, bulanan mengikuti tenor), dan disimpan
+ * (harian 7/14/21/28 hari sesuai nominal, bulanan mengikuti tenor), dan disimpan
  * sebagai snapshot pada tiap pengajuan. Menghapus nasabah hanya menghapus
  * akunnya — pengajuan dan riwayat keuangannya tetap utuh.
  *
@@ -458,7 +458,7 @@ export function PlafonPanel() {
                   progresif; kredit barang memakai batas tersendiri.
                 </li>
                 <li>
-                  Bunga pinjaman selalu mengikuti tenor: harian 7/14/28 hari (26–40% sesuai nominal)
+                  Bunga pinjaman selalu mengikuti tenor: harian 7/14/21/28 hari (26–40% sesuai nominal)
                   dan bulanan 30/33/35% per bulan untuk tenor 1/3/6 bulan. Pinjaman yang sudah cair
                   tetap memakai snapshot bunganya.
                 </li>

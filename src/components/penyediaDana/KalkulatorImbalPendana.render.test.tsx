@@ -45,8 +45,8 @@ function bersih(html: string, label: string): void {
   ada(html, "30 Hari · 30% p.p.", "label tenor dan yield tampil");
   ada(html, "Rp 300.000", "imbal hasil 30% dihitung");
   ada(html, "Rp 1.300.000", "total pengembalian 130%");
-  ada(html, "Rp 65.000", "biaya platform 5% dihitung terpisah");
-  ada(html, "Rp 1.235.000", "diterima bersih setelah biaya");
+  ada(html, "Rp 50.000", "biaya platform 5% dari pokok dihitung terpisah");
+  ada(html, "Rp 1.250.000", "diterima bersih setelah biaya");
   ada(html, "Estimasi, bukan jaminan.", "sifat estimasi dinyatakan");
   ada(html, "perpanjangan atau cicil pokok nasabah tidak mengubah", "keterpisahan dijelaskan");
   tidakAda(html, "7 hari", "tenor nasabah tidak tampil");

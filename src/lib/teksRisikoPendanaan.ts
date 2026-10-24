@@ -69,7 +69,7 @@ export const POIN_RISIKO_PENDANAAN: readonly PoinRisiko[] = [
   {
     nomor: 6,
     judul: "Biaya platform (layanan) mengurangi hasil bersih",
-    isi: "Biaya platform (layanan) diambil dari uang yang kembali, sehingga keuntungan bersih yang Anda terima lebih kecil daripada bunga yang tercatat pada pinjaman.",
+    isi: "Biaya platform (layanan) dipotong dari hak pendana, sehingga keuntungan bersih yang Anda terima lebih kecil daripada Imbal Hasil yang tercatat pada pinjaman.",
   },
   {
     nomor: 7,

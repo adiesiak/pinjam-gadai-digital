@@ -59,6 +59,7 @@ import {
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
 import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
 import { RekapPendanaUnduhan } from "@/components/penyediaDana/RekapPendanaUnduhan";
+import { KartuSiklusPendana } from "@/components/penyediaDana/KartuSiklusPendana";
 import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
 import {
@@ -562,7 +563,7 @@ function DetailPinjaman({
             />
             <BarisDetail
               tebal
-              label="Biaya platform (layanan), dari uang yang kembali"
+              label="Biaya platform (layanan), dari pokok penempatan"
               nilai={rupiah(row.potonganAdmin)}
             />
             <BarisDetail
@@ -2488,6 +2489,10 @@ function IsiRuang() {
               pribadi={isPendana}
             />
 
+            {/* Siklus 30 hari: menjawab kapan pokok + imbal benar-benar cair,
+                dan bahwa pelunasan awal peminjam tidak mempercepatnya. */}
+            {isPendana && <KartuSiklusPendana />}
+
             {/* Tiket doorprize pendana: satu per kelipatan Rp1 juta penempatan dana,
                 diakumulasi selama kuartal berjalan. */}
             {isPendana && <DoorprizeWidget peran="pendana" />}
@@ -2811,7 +2816,7 @@ function IsiRuang() {
                       <strong>lunas</strong> pada ledger internal. Angka
                       keuntungan pendana dan biaya platform (layanan) di bawah
                       adalah hasil perhitungan atas kewajiban yang sudah
-                      terbayar penuh: biayanya diambil dari uang yang kembali
+                      terbayar penuh: biayanya diambil dari pokok penempatan
                       (pokok + Imbal Hasil), bukan dari Imbal Hasil saja, dan
                       bukan bukti mutasi.
                     </CatatanTab>

@@ -195,7 +195,7 @@ export function AliranDanaPinjaman({
             <KotakNilai
               label="Diterima pendana"
               nilai={formatRupiah(rincian.diterimaPenyedia)}
-              keterangan={`${labelPotonganRincian(rincian.potonganPenyedia)} · potongan ${rincian.persenPotonganPenyedia}% dari uang yang kembali`}
+              keterangan={`${labelPotonganRincian(rincian.potonganPenyedia)} · potongan ${rincian.persenPotonganPenyedia}% dari pokok`}
             />
             <KotakNilai
               label="Imbal Hasil bersih pendana"

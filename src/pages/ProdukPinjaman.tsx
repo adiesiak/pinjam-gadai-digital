@@ -321,7 +321,7 @@ function KalkulatorKonvensional({
       <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Skema">
         {(
           [
-            { id: "harian", label: "Harian (7/14/28)" },
+            { id: "harian", label: "Harian (7/14/21/28)" },
             { id: "bulanan", label: "Cicilan bulanan" },
           ] as const
         ).map((pilihan) => (
@@ -941,7 +941,7 @@ function KerangkaHalaman({
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 sm:text-base">
               {syariah
                 ? "Pinjaman syariah PINDAI memakai dua akad: Murabahah untuk kredit barang dan Rahn untuk gadai. Margin dan ujrah dibagi antara pendana dan pengelola sesuai nisbah di akad."
-                : "Pinjaman tunai harian 7, 14, atau 28 hari dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan biaya platform 5% dihitung dari uang yang kembali ke sistem."}
+                : "Pinjaman tunai harian 7, 14, atau 28 hari dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan biaya platform 5% dihitung dari pokok pinjaman."}
             </p>
 
             {syariah ? (
@@ -1007,7 +1007,7 @@ function KerangkaHalaman({
                 : [
                     {
                       label: "Tenor harian",
-                      nilai: "7 / 14 / 28 hari",
+                      nilai: "7 / 14 / 21 / 28 hari",
                       detail: "Bunga flat 26% sampai 40% sesuai nominal.",
                     },
                     {
@@ -1121,9 +1121,9 @@ function KerangkaHalaman({
                       <span>
                         Contoh: pokok {rupiah(1_000_000)} tenor 28 hari, bunga
                         30%, menghasilkan uang kembali {rupiah(1_300_000)}.
-                        Potongan platform 5% dari uang kembali menjadi{" "}
-                        {rupiah(65_000)}, sehingga pendana menerima{" "}
-                        {rupiah(1_235_000)}.
+                        Potongan platform 5% dari pokok menjadi{" "}
+                        {rupiah(50_000)}, sehingga pendana menerima{" "}
+                        {rupiah(1_250_000)}.
                       </span>
                     </p>
                   </div>

@@ -20,7 +20,7 @@ import {
   appendJournal,
   catatMarginSpread,
 } from "./ledger";
-import { bagiImbalHasil } from "../lib/bagiHasil";
+import { potonganDariPokok } from "../lib/bagiHasil";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
 import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
@@ -28,6 +28,7 @@ import { catatDanaKembali } from "./matchingQueue";
 import { quotePinjaman } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import { audit, getConfig } from "./system";
+import { pembayaranSiklus } from "./siklusPendana";
 
 const DAY_MS = 86_400_000;
 
@@ -413,7 +414,22 @@ async function catatPelunasanTotal(
   let totalPotongan = 0;
   for (const { funding, imbal } of bagian) {
     const bruto = funding.jumlahAlokasi + imbal;
-    const { potonganAdmin, imbalBersih } = bagiImbalHasil(bruto, cfg.persenAdmin);
+    let potonganAdmin: number;
+    let imbalBersih: number;
+    let akunPayout: string;
+    let kelebihan = 0;
+    const jalurSiklus = await pembayaranSiklus(ctx, funding);
+    if (jalurSiklus !== null) {
+      potonganAdmin = jalurSiklus.potonganAdmin;
+      imbalBersih = jalurSiklus.imbalBersih;
+      akunPayout = jalurSiklus.akun;
+      kelebihan = jalurSiklus.kelebihan;
+    } else {
+      // Baris lama tanpa siklus: potongan dari pokok, sisa bruto ke pendana.
+      potonganAdmin = potonganDariPokok(funding.jumlahAlokasi, cfg.persenAdmin);
+      imbalBersih = bruto - potonganAdmin;
+      akunPayout = akunDompetDana(funding.danaId);
+    }
     await appendJournal(ctx, {
       jenis: "payout",
       skema: "pinjaman",
@@ -423,13 +439,22 @@ async function catatPelunasanTotal(
           : `Pelunasan ${loan.nomorReferensi}: pembayaran ke ${funding.nomorReferensi}`,
       aktor: "platform",
       lines: [
-        { akun: akunDompetDana(funding.danaId), arah: "debit", jumlah: imbalBersih },
+        { akun: akunPayout, arah: "debit", jumlah: imbalBersih },
         ...(potonganAdmin > 0
           ? [
               {
                 akun: "platform:FEE",
                 arah: "debit" as const,
                 jumlah: potonganAdmin,
+              },
+            ]
+          : []),
+        ...(kelebihan > 0
+          ? [
+              {
+                akun: "platform:GUARANTEE",
+                arah: "debit" as const,
+                jumlah: kelebihan,
               },
             ]
           : []),

@@ -201,7 +201,7 @@ export type BarisPinjaman = {
   bunga: number;
   /** Pokok + Imbal Hasil tetap, sebelum biaya platform. */
   totalLunas: number;
-  /** Potongan admin atas pinjaman ini (persen admin × uang yang kembali). */
+  /** Potongan admin atas pinjaman ini (persen admin × pokok). */
   potonganAdmin: number;
   /** Keuntungan bersih penyedia dana = Imbal Hasil − potongan admin. */
   keuntunganPendana: number;
@@ -1326,7 +1326,7 @@ export type BarisInvestor = {
    * (lihat kebijakan di lib/bagiHasil.ts).
    */
   totalBunga: number;
-  /** Potongan admin atas uang yang kembali dari pinjaman akun ini (pokok + Imbal Hasil). */
+  /** Potongan admin dari pokok pinjaman akun ini. */
   keuntunganAdmin: number;
   /** Keuntungan bersih penyedia dana (bunga − potongan admin). */
   keuntunganPendana: number;

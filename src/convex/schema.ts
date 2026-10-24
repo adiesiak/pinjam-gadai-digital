@@ -1770,6 +1770,47 @@ const schema = defineSchema(
      * (anti-overfunding divalidasi atomik di server).
      */
     /**
+     * Satu penempatan pendana untuk siklus 30 hari.
+     *
+     * Ini LIABILITAS, bukan dompet: pokok + imbal hasil wajib dibayar pada
+     * `jatuhTempoPada`, terlepas dari kapan peminjam melunasi. Pembayaran ke
+     * pendana dikunci selama siklus berjalan, sehingga pelunasan awal tidak
+     * mempercepat pencairan.
+     *
+     * Angka `pokok`, `imbal`, `potongan`, dan `totalCair` adalah snapshot saat
+     * penempatan. `totalMasuk` adalah jumlah yang sudah masuk dompet pendana
+     * dari settlement pinjaman; selisihnya ditutup platform saat jatuh tempo.
+     */
+    siklusPendana: defineTable({
+      pendanaId: v.id("users"),
+      /** Rupiah bulat — pokok yang ditempatkan. */
+      pokok: v.number(),
+      /** Rupiah bulat — imbal hasil bruto 30% dari pokok. */
+      imbal: v.number(),
+      /** Rupiah bulat — biaya platform 5% dari pokok. */
+      potongan: v.number(),
+      /** Rupiah bulat — pokok + imbal - potongan. */
+      totalCair: v.number(),
+      mulaiPada: v.number(),
+      jatuhTempoPada: v.number(),
+      status: v.union(
+        v.literal("berjalan"),
+        v.literal("dicairkan"),
+        v.literal("dibatalkan"),
+      ),
+      /** Rupiah bulat — akumulasi settlement yang sudah masuk dompet. */
+      totalMasuk: v.number(),
+      dicairkanPada: v.optional(v.number()),
+      dicairkanOleh: v.optional(v.id("users")),
+      /** Referensi transfer bank/e-wallet saat admin mencairkan. */
+      referensiTransfer: v.optional(v.string()),
+      catatan: v.optional(v.string()),
+    })
+      .index("by_pendana", ["pendanaId"])
+      .index("by_jatuhTempo", ["jatuhTempoPada"])
+      .index("by_status", ["status"]),
+
+    /**
      * Permintaan penarikan dana ke rekening pribadinya. Dicatat
      * berpasangan di ledger saat admin memproses (append-only).
      */
@@ -1800,6 +1841,15 @@ const schema = defineSchema(
       jumlahAlokasi: v.number(),
       /** Rupiah bulat — hak Imbal Hasil pendana (30% dari bagian pokok). */
       imbalHasil: v.number(),
+      /**
+       * Siklus 30 hari yang membayar alokasi ini. Baris lama tidak punya
+       * siklus dan tetap memakai aturan settlement lama.
+       */
+      siklusId: v.optional(v.id("siklusPendana")),
+      /** ``utama`` membawa imbal 30%; ``putar`` hanya mengembalikan pokok. */
+      peranSiklus: v.optional(
+        v.union(v.literal("utama"), v.literal("putar")),
+      ),
       /**
        * Siklus fixed hak pendana — disimpan sebagai snapshot bersama alokasi.
        * Tidak pernah diturunkan dari tenor/bunga pinjaman nasabah, sehingga

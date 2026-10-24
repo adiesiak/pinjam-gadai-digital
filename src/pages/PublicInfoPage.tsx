@@ -718,14 +718,14 @@ export function PublicInfoPageView({
                       <td className="px-4 py-3">
                         <span className="block">
                           {formatRupiah(LOAN_LIMITS.minPokok)}–{formatRupiah(499_999)}: tenor
-                          7/14/28 hari, bunga 30/35/40%.
+                          7/14/21/28 hari, bunga 30/35/38/40%.
                         </span>
                         <span className="mt-1 block">
-                          {formatRupiah(500_000)}–{formatRupiah(999_999)}: tenor 7/14/28 hari,
+                          {formatRupiah(500_000)}–{formatRupiah(999_999)}: tenor 7/14/21/28 hari,
                           bunga 28/32/35%.
                         </span>
                         <span className="mt-1 block">
-                          {formatRupiah(1_000_000)}: tenor 7/14/28 hari, bunga 26/28/30%.
+                          {formatRupiah(1_000_000)}: tenor 7/14/21/28 hari, bunga 26/28/29/30%.
                         </span>
                       </td>
                       <td className="px-4 py-3">

@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminRole, requireAdminSession } from "./adminAuthz";
 import { pastikanAngsuran } from "./angsuranJadwal";
-import { bagiImbalHasil } from "../lib/bagiHasil";
+import { potonganDariPokok } from "../lib/bagiHasil";
 import {
   dendaAngsuran,
   hariTerlambatAngsuran,
@@ -23,6 +23,7 @@ import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah } from "../lib/money";
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
 import { audit, getConfig, tarifDendaBerlaku } from "./system";
+import { pembayaranSiklus } from "./siklusPendana";
 
 /** Sesi peminjam non-tamu — sama dengan gerbang `loans`. */
 async function requirePengguna(ctx: QueryCtx) {
@@ -227,7 +228,7 @@ async function jurnalAngsuran(
  * Dipanggil hanya saat angsuran terakhir lunas. Kas sudah dijurnal per
  * angsuran, jadi di sini tidak ada debit kas lagi: akun `pinjaman:<id>`
  * dikreditkan per angsuran dan sekarang didebit sebesar bruto yang sama.
- * Potongan admin dihitung dari uang yang kembali, persis `repayLoan`.
+ * Potongan admin dihitung dari pokok alokasi, persis `repayLoan`.
  */
 async function distribusikanKePendana(
   ctx: MutationCtx,
@@ -276,7 +277,22 @@ async function distribusikanKePendana(
   let totalPotongan = 0;
   for (const { funding: f, imbal } of imbalBagian) {
     const bruto = f.jumlahAlokasi + imbal;
-    const { potonganAdmin, imbalBersih } = bagiImbalHasil(bruto, cfg.persenAdmin);
+    let potonganAdmin: number;
+    let imbalBersih: number;
+    let akunPayout: string;
+    let kelebihan = 0;
+    const jalurSiklus = await pembayaranSiklus(ctx, f);
+    if (jalurSiklus !== null) {
+      potonganAdmin = jalurSiklus.potonganAdmin;
+      imbalBersih = jalurSiklus.imbalBersih;
+      akunPayout = jalurSiklus.akun;
+      kelebihan = jalurSiklus.kelebihan;
+    } else {
+      // Baris lama tanpa siklus: potongan dari pokok, sisa bruto ke pendana.
+      potonganAdmin = potonganDariPokok(f.jumlahAlokasi, cfg.persenAdmin);
+      imbalBersih = bruto - potonganAdmin;
+      akunPayout = akunDompetDana(f.danaId);
+    }
     await appendJournal(ctx, {
       jenis: "payout",
       skema: "pinjaman",
@@ -286,13 +302,22 @@ async function distribusikanKePendana(
           : `Angsuran terakhir: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
       aktor: "platform",
       lines: [
-        { akun: akunDompetDana(f.danaId), arah: "debit", jumlah: imbalBersih },
+        { akun: akunPayout, arah: "debit", jumlah: imbalBersih },
         ...(potonganAdmin > 0
           ? [
               {
                 akun: "platform:FEE",
                 arah: "debit" as const,
                 jumlah: potonganAdmin,
+              },
+            ]
+          : []),
+        ...(kelebihan > 0
+          ? [
+              {
+                akun: "platform:GUARANTEE",
+                arah: "debit" as const,
+                jumlah: kelebihan,
               },
             ]
           : []),

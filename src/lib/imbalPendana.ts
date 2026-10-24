@@ -10,16 +10,17 @@
  * Rumus:
  *   Imbal Hasil     = pokok × 30%
  *   Total kembali   = pokok + Imbal Hasil (sebelum biaya platform)
+ *   Biaya platform  = pokok × tarif (5% bawaan)
+ *   Diterima        = total kembali - biaya platform
  *
- * Biaya platform tetap dihitung terpisah oleh `bagiHasilPendana`, dari uang
- * yang kembali, supaya kebijakan biaya yang sudah berlaku tidak berubah diam-
- * diam. Yang fixed adalah HAK BRUTO pendana; angkanya tidak lagi diturunkan
- * dari bunga pinjaman nasabah.
+ * Biaya platform dihitung dari POKOK, bukan dari uang yang kembali. Dengan
+ * tarif 5%, Rp1.000.000 menghasilkan imbal Rp300.000, biaya Rp50.000, dan
+ * total cair Rp1.250.000. Yang fixed adalah HAK BRUTO pendana; angkanya tidak
+ * diturunkan dari bunga pinjaman nasabah.
  *
  * Semua nilai rupiah bulat; pembulatan imbal hasil ke bawah agar tidak ada
  * rupiah yang diciptakan.
  */
-import { bagiImbalHasil } from "./bagiHasil";
 import type { Rupiah } from "./money";
 
 /** Tenor acuan pendana untuk semua portofolio. */
@@ -78,7 +79,7 @@ export type BagiHasilPendana = {
   imbal: Rupiah;
   /** Pokok + imbal hasil, sebelum biaya platform. */
   total: Rupiah;
-  /** Biaya platform dari uang yang kembali (kebijakan Pengaturan Sistem). */
+  /** Biaya platform dari POKOK (kebijakan Pengaturan Sistem). */
   potonganAdmin: Rupiah;
   /** Uang yang benar-benar masuk dompet pendana. */
   diterima: Rupiah;
@@ -89,9 +90,9 @@ export type BagiHasilPendana = {
 /**
  * Bagi hasil pendana dengan hak bruto TETAP.
  *
- * `potonganAdmin` memakai kebijakan biaya platform yang sama dengan seluruh
- * aplikasi; yang berbeda hanya dasar hak pendana, yang kini tidak lagi dibaca
- * dari tenor atau bunga pinjaman nasabah.
+ * `potonganAdmin` memakai tarif kebijakan Pengaturan Sistem, tetapi dasarnya
+ * POKOK penempatan. Ini yang membuat total cair tidak berubah ketika imbal
+ * hasil berubah: Rp1.000.000 dengan tarif 5% selalu dipotong Rp50.000.
  */
 export function bagiHasilPendana(
   pokok: number,
@@ -99,13 +100,14 @@ export function bagiHasilPendana(
 ): BagiHasilPendana {
   const imbal = imbalPendana(pokok);
   const total = pokok + imbal;
-  const { potonganAdmin, imbalBersih } = bagiImbalHasil(total, persenPotonganAdmin);
+  const potonganAdmin = Math.floor((pokok * persenPotonganAdmin) / 100);
+  const diterima = total - potonganAdmin;
   return {
     imbal,
     total,
     potonganAdmin,
-    diterima: imbalBersih,
-    keuntungan: imbalBersih - pokok,
+    diterima,
+    keuntungan: diterima - pokok,
   };
 }
 

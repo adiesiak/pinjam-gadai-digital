@@ -53,7 +53,7 @@ export function AturanPerhitungan({
   persenPotonganAdmin,
   bukaAwal = [],
 }: {
-  /** Biaya platform (layanan) dari uang yang kembali, dari Pengaturan Sistem. */
+  /** Biaya platform (layanan) dari pokok penempatan, dari Pengaturan Sistem. */
   persenPotonganAdmin: number;
   /**
    * Nomor aturan yang dibuka sejak awal. Dipakai uji markup: isi accordion yang
@@ -104,10 +104,9 @@ export function AturanPerhitungan({
         <>
           <p>
             Biaya platform (layanan) adalah <strong>{persenPotonganAdmin}%</strong> dari{" "}
-            <strong>uang yang kembali</strong> (pokok + Imbal Hasil), bukan{" "}
-            {persenPotonganAdmin}% dari Imbal Hasil saja. Konsekuensinya: pokok kembali utuh,
-            sementara keuntungan bersih pendana lebih kecil daripada Imbal Hasil 30% yang
-            tercatat di portofolio.
+            <strong>pokok penempatan</strong>, bukan dari Imbal Hasil. Konsekuensinya: biaya
+            per siklus tetap dan mudah diperiksa, pokok kembali utuh, sementara keuntungan
+            bersih pendana adalah Imbal Hasil 30% dikurangi biaya itu.
           </p>
           <p className="mt-2">Biaya platform itulah yang dipakai untuk:</p>
           <ul className="mt-1.5 space-y-1.5">

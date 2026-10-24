@@ -62,9 +62,9 @@ ada(html, "biaya platform 5%", "biaya platform disebut");
 ada(html, "Rp 10.000.000", "nominal contoh tampil");
 ada(html, "Rp 3.000.000", "Imbal Hasil 30% tampil");
 ada(html, "Rp 13.000.000", "uang yang kembali tampil");
-ada(html, "Rp 650.000", "biaya platform 5% tampil");
-ada(html, "Rp 12.350.000", "diterima bersih tampil");
-ada(html, "Rp 2.350.000", "keuntungan bersih tampil");
+ada(html, "Rp 500.000", "biaya platform 5% dari pokok tampil");
+ada(html, "Rp 12.500.000", "diterima bersih tampil");
+ada(html, "Rp 2.500.000", "keuntungan bersih tampil");
 
 // ===== Kalkulator dan unduhan =====
 ada(html, 'id="kalkulator"', "bagian kalkulator punya sasaran tautan");
@@ -108,10 +108,10 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
 // ===== Tarif berubah: seluruh halaman ikut berubah =====
 {
   const lain = gambar(3);
-  ada(lain, "Rp 390.000", "biaya 3% dihitung ulang");
-  ada(lain, "Rp 12.610.000", "diterima bersih 3% dihitung ulang");
-  tidakAda(lain, "Rp 650.000", "biaya tarif lama tidak tertinggal");
-  tidakAda(lain, "Rp 12.350.000", "diterima tarif lama tidak tertinggal");
+  ada(lain, "Rp 300.000", "biaya 3% dari pokok dihitung ulang");
+  ada(lain, "Rp 12.700.000", "diterima bersih 3% dihitung ulang");
+  tidakAda(lain, "Rp 500.000", "biaya tarif lama tidak tertinggal");
+  tidakAda(lain, "Rp 12.500.000", "diterima tarif lama tidak tertinggal");
   ada(lain, "biaya platform 3%", "label biaya mengikuti pengaturan");
 }
 
@@ -224,7 +224,7 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
   // Token diisi dari kebijakan yang berlaku, bukan dari teks admin.
   ada(lain, "Biaya platform 5% dan Imbal Hasil 30% per 30 hari.", "token CMS diisi angka kebijakan");
   ada(lain, "Pertanyaan dari admin?", "FAQ dari CMS dipakai");
-  ada(lain, "Rp 650.000", "angka di luar teks CMS tetap dihitung");
+  ada(lain, "Rp 500.000", "angka di luar teks CMS tetap dihitung");
 }
 
 // ===== Proposal yang dipasang admin memakai catatan berkas =====

@@ -3,13 +3,13 @@
  * Run: bun src/lib/tenorHarian.test.ts
  *
  * Matriks yang dijaga:
- *  - di bawah Rp500.000: 7 hari 30%, 14 hari 35%, 28 hari 40%;
+ *  - di bawah Rp500.000: 7 hari 30%, 14 hari 35%, 21 hari 38%, 28 hari 40%;
  *  - Rp500.000 sampai di bawah Rp1.000.000: 7 hari 28%, 14 hari 32%,
- *    28 hari 35%;
+ *    21 hari 34%, 28 hari 35%;
  *  - Rp1.000.000 ke atas (sampai plafon khusus Rp10 juta): 7 hari 26%,
- *    14 hari 28%, 28 hari 30%.
+ *    14 hari 28%, 21 hari 29%, 28 hari 30%.
  *
- * Tenor resmi hanya 7/14/28 hari; tenor lain DITOLAK, bukan digeser diam-diam.
+ * Tenor resmi 7/14/21/28 hari; tenor lain DITOLAK, bukan digeser diam-diam.
  */
 import type { Rupiah } from "@/lib/money";
 import {
@@ -41,13 +41,13 @@ function ok(syarat: boolean, label: string) {
 }
 
 // ===== Batas rentang =====
-eq(tenorHarianTersedia(LOAN_LIMITS.minPokok), [7, 14, 28], "batas bawah menerima 7/14/28 hari");
-eq(tenorHarianTersedia(499_999), [7, 14, 28], "di bawah Rp500.000 menerima 7/14/28 hari");
-eq(tenorHarianTersedia(500_000), [7, 14, 28], "Rp500.000 menerima 7/14/28 hari");
-eq(tenorHarianTersedia(999_999), [7, 14, 28], "di bawah Rp1 juta menerima 7/14/28 hari");
-eq(tenorHarianTersedia(1_000_000), [7, 14, 28], "Rp1 juta menerima 7/14/28 hari");
+eq(tenorHarianTersedia(LOAN_LIMITS.minPokok), [7, 14, 21, 28], "batas bawah menerima 7/14/28 hari");
+eq(tenorHarianTersedia(499_999), [7, 14, 21, 28], "di bawah Rp500.000 menerima 7/14/28 hari");
+eq(tenorHarianTersedia(500_000), [7, 14, 21, 28], "Rp500.000 menerima 7/14/28 hari");
+eq(tenorHarianTersedia(999_999), [7, 14, 21, 28], "di bawah Rp1 juta menerima 7/14/28 hari");
+eq(tenorHarianTersedia(1_000_000), [7, 14, 21, 28], "Rp1 juta menerima 7/14/28 hari");
 eq(tenorHarianTersedia(50_000), TENOR_OPTIONS, "nominal belum sah memakai daftar produk");
-eq(tenorHarianTersedia(2_000_000), [7, 14, 28], "plafon khusus tetap menerima 7/14/28 hari");
+eq(tenorHarianTersedia(2_000_000), [7, 14, 21, 28], "plafon khusus tetap menerima 7/14/28 hari");
 eq(tenorHarianTersedia(20_000_000), TENOR_OPTIONS, "di atas langit-langit memakai daftar produk");
 
 // ===== Tenor bawaan =====
@@ -61,13 +61,16 @@ eq(tenorHarianDefault(2_000_000), 28, "Rp2 juta (plafon khusus) bawaan 28 hari")
 // ===== Bunga per kombinasi =====
 eq(persenBungaHarian(250_000, 7), 30, "Rp250.000/7 hari = 30%");
 eq(persenBungaHarian(250_000, 14), 35, "Rp250.000/14 hari = 35%");
+eq(persenBungaHarian(250_000, 21), 38, "Rp250.000/21 hari = 38%");
 eq(persenBungaHarian(250_000, 28), 40, "Rp250.000/28 hari = 40%");
 eq(persenBungaHarian(500_000, 7), 28, "Rp500.000/7 hari = 28%");
 eq(persenBungaHarian(500_000, 14), 32, "Rp500.000/14 hari = 32%");
+eq(persenBungaHarian(500_000, 21), 34, "Rp500.000/21 hari = 34%");
 eq(persenBungaHarian(500_000, 28), 35, "Rp500.000/28 hari = 35%");
 eq(persenBungaHarian(999_999, 14), 32, "Rp999.999/14 hari = 32%");
 eq(persenBungaHarian(1_000_000, 7), 26, "Rp1 juta/7 hari = 26%");
 eq(persenBungaHarian(1_000_000, 14), 28, "Rp1 juta/14 hari = 28%");
+eq(persenBungaHarian(1_000_000, 21), 29, "Rp1 juta/21 hari = 29%");
 eq(persenBungaHarian(1_000_000, 28), 30, "Rp1 juta/28 hari = 30%");
 eq(persenBungaHarian(1_000_000, 30), null, "tenor 30 hari tidak dijual");
 eq(persenBungaHarian(2_000_000, 7), 26, "Rp2 juta/7 hari = 26%");
@@ -89,7 +92,7 @@ eq(validasiTenorHarian(1_000_000, 28), null, "kombinasi penuh/28 hari sah");
 eq(validasiTenorHarian(1_000_000, 7), null, "Rp1 juta/7 hari sah");
 eq(validasiTenorHarian(500_000, 7), null, "Rp500.000/7 hari sah");
 ok(
-  validasiTenorHarian(1_000_000, 30)?.includes("7 / 14 / 28") === true,
+  validasiTenorHarian(1_000_000, 30)?.includes("7 / 14 / 21 / 28") === true,
   "tenor 30 hari ditolak dengan menyebut tenor resmi",
 );
 // Plafon khusus diteruskan pemanggil sebagai batas atas; tanpa itu, batas

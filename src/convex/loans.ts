@@ -48,7 +48,7 @@ import {
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
 import { tarifBulananDariConfig } from "../lib/system-config";
-import { bagiImbalHasil } from "../lib/bagiHasil";
+import { potonganDariPokok } from "../lib/bagiHasil";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
@@ -73,6 +73,7 @@ import {
 import { gerbangPengajuan } from "./gerbangKirim";
 import { pastikanAngsuran } from "./angsuranJadwal";
 import { dendaAngsuran } from "../lib/angsuran";
+import { pembayaranSiklus } from "./siklusPendana";
 import {
   hitungRencanaPembayaran,
   type RencanaPembayaranPinjaman,
@@ -2216,15 +2217,15 @@ export const hapusGadai = mutation({
  *   1. D platform:CASH total kewajiban | K pinjaman:<id>
  *   2. Per penyedia dana (satu jurnal seimbang):
  *      D akun dompet dana:i (uang kembali bagiannya − potongan admin)
- *      D platform:FEE (potongan admin = persen × uang kembali bagiannya)
+ *      D platform:FEE (potongan admin = persen × pokok alokasi)
  *      K pinjaman:<id> (alokasi + Imbal Hasil bagiannya)
  * Dust pembulatan proporsi imbal hasil diberikan ke penyedia dana dengan alokasi
  * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat.
  *
- * Dasar potongan: **uang yang kembali** (pokok + Imbal Hasil), bukan hanya Imbal
- * Hasil — lihat tabel kebijakan di kepala lib/bagiHasil.ts. Persentasenya dibaca
- * dari Pengaturan Sistem (`persenAdmin`) dan dihitung oleh lib/bagiHasil.ts
- * dengan pembulatan ke bawah: sisa rupiah selalu milik penyedia dana, tidak
+ * Dasar potongan: **pokok alokasi** — lihat tabel kebijakan di kepala
+ * lib/bagiHasil.ts. Persentasenya dibaca dari Pengaturan Sistem (`persenAdmin`)
+ * dan dihitung oleh lib/bagiHasil.ts dengan pembulatan ke bawah: sisa rupiah
+ * selalu milik penyedia dana, tidak
  * pernah masuk ke kas admin. Alokasi yang sudah dibayar dicap `potonganAdmin`,
  * `imbalHasilNet`, dan `diselesaikanPada` sebagai bukti audit angka yang
  * benar-benar dibayarkan (bukan hitungan ulang saat pelaporan).
@@ -2333,15 +2334,30 @@ export const repayLoan = mutation({
     let terdistribusi = 0;
     let totalPotonganAdmin = 0;
     for (const { funding: f, imbal } of imbalBagian) {
-      // Potongan admin atas UANG YANG KEMBALI bagian penyedia dana ini
-      // (alokasi + Imbal Hasil bagiannya) — kebijakan Pengaturan Sistem.
+      // Potongan admin dari POKOK alokasi ini — kebijakan Pengaturan Sistem.
       // Dipotong per alokasi, bukan sekali atas total pinjaman, supaya urutan
       // pendaftaran penyedia dana tidak mengubah hak siapa pun.
       const brutoBagian = f.jumlahAlokasi + imbal;
-      const { potonganAdmin, imbalBersih } = bagiImbalHasil(
-        brutoBagian,
-        cfg.persenAdmin,
-      );
+      // Alokasi bersiklus memakai snapshot biaya siklus (5% pokok) dan tujuan
+      // pembayaran yang ditentukan status siklus. Baris lama tetap memakai
+      // kebijakan biaya global di atas.
+      let potonganAdmin: number;
+      let imbalBersih: number;
+      let akunPayout: string;
+      let kelebihan = 0;
+      const jalurSiklus = await pembayaranSiklus(ctx, f);
+      if (jalurSiklus !== null) {
+        potonganAdmin = jalurSiklus.potonganAdmin;
+        imbalBersih = jalurSiklus.imbalBersih;
+        akunPayout = jalurSiklus.akun;
+        kelebihan = jalurSiklus.kelebihan;
+      } else {
+        // Baris lama tanpa siklus tetap memakai kebijakan biaya terkini:
+        // potongan dihitung dari pokok, bukan dari uang yang kembali.
+        potonganAdmin = potonganDariPokok(f.jumlahAlokasi, cfg.persenAdmin);
+        imbalBersih = brutoBagian - potonganAdmin;
+        akunPayout = akunDompetDana(f.danaId);
+      }
       const payout = imbalBersih;
       await appendJournal(ctx, {
         jenis: "payout",
@@ -2353,7 +2369,7 @@ export const repayLoan = mutation({
         aktor: "platform",
         lines: [
           // Debit menaikkan saldo dompet penyedia dana; kredit menurunkan akun pinjaman.
-          { akun: akunDompetDana(f.danaId), arah: "debit", jumlah: payout },
+          { akun: akunPayout, arah: "debit", jumlah: payout },
           // Potongan admin masuk kas admin; hanya ditulis bila ada nilainya.
           ...(potonganAdmin > 0
             ? [
@@ -2361,6 +2377,17 @@ export const repayLoan = mutation({
                   akun: "platform:FEE",
                   arah: "debit" as const,
                   jumlah: potonganAdmin,
+                },
+              ]
+            : []),
+          // Bagian yang melebihi hak siklus (mis. pembayaran kedua) menjadi
+          // pemulihan jaminan platform, bukan tambahan dompet pendana.
+          ...(kelebihan > 0
+            ? [
+                {
+                  akun: "platform:GUARANTEE",
+                  arah: "debit" as const,
+                  jumlah: kelebihan,
                 },
               ]
             : []),
@@ -2438,7 +2465,7 @@ export const repayLoan = mutation({
     }
 
     // 4. Sanity: total kas masuk (kewajiban + denda) = payout ke penyedia dana +
-    //    potongan admin atas uang yang kembali + fee + denda. Gagal = rollback.
+    //    potongan admin dari pokok + fee + denda. Gagal = rollback.
     //    Potongan admin TIDAK menambah kas (ia bagian dari kewajiban yang sudah
     //    masuk), jadi ia dikurangkan dari sisi yang dibayarkan — bukan ditambah.
     const totalKasMasuk = totalKewajibanDana + feePlatform + feeAdmin + pelunasan.dendaTerlambat;

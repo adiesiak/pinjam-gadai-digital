@@ -28,7 +28,7 @@ import {
  * MODAL ATUR PLAFON — satu angka, satu sumber.
  *
  * Bunga TIDAK diatur di sini: tarif pinjaman mengikuti tabel tenor website
- * (harian 7/14/28 hari sesuai nominal, bulanan mengikuti tenor), jadi angka
+ * (harian 7/14/21/28 hari sesuai nominal, bulanan mengikuti tenor), jadi angka
  * yang diketik admin tidak boleh menimpanya. Dialog ini hanya menetapkan batas
  * pinjaman nasabah; konsekuensi tarifnya dijelaskan sebagai catatan, bukan
  * sebagai isian.
@@ -197,7 +197,7 @@ export function AturPlafonDialog({
               </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                 Override berlaku untuk pengajuan berikutnya; pinjaman yang sudah cair tetap memakai
-                snapshot-nya. Bunga tetap mengikuti tenor 7/14/28 hari (harian) atau tenor bulan
+                snapshot-nya. Bunga tetap mengikuti tenor 7/14/21/28 hari (harian) atau tenor bulan
                 yang dipilih.
               </span>
             </span>
@@ -250,7 +250,7 @@ export function AturPlafonDialog({
           </div>
 
           <p className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] leading-5 text-muted-foreground">
-            Bunga pinjaman mengikuti tabel tenor website: harian 7/14/28 hari (26–40% sesuai
+            Bunga pinjaman mengikuti tabel tenor website: harian 7/14/21/28 hari (26–40% sesuai
             nominal) dan bulanan 30/33/35% per bulan untuk tenor 1/3/6 bulan. Plafon hanya
             menentukan batas pokok, bukan tarifnya.
           </p>

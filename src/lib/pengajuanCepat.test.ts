@@ -161,12 +161,12 @@ ada(tolak({ pokokPinjaman: 500_000.5 }), "minimal", "nominal pecahan ditolak");
 ada(tolak({ tenorHari: 45 }), "Pilih lama pinjaman", "tenor di luar daftar ditolak");
 ada(
   tolak({ pokokPinjaman: 500_000, tenorHari: 30 }),
-  "tenor yang tersedia 7 / 14 / 28 hari",
+  "tenor yang tersedia 7 / 14 / 21 / 28 hari",
   "Rp500.000 tidak menerima tenor 30 hari",
 );
 ada(
   tolak({ pokokPinjaman: 1_000_000, tenorHari: 30 }),
-  "tenor yang tersedia 7 / 14 / 28 hari",
+  "tenor yang tersedia 7 / 14 / 21 / 28 hari",
   "Rp1 juta tidak menerima tenor 30 hari",
 );
 ada(tolak({ tujuan: "" }), "keperluan", "keperluan kosong ditolak");

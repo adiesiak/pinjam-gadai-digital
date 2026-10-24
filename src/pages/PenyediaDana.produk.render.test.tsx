@@ -89,7 +89,7 @@ cek(
   ada(html, "Murabahah", "akad Murabahah disebut");
   ada(html, "Rahn", "akad Rahn disebut");
   cek(!html.includes("Qardh"), "akad Qardh tidak lagi ditawarkan");
-  ada(html, "Harian 7/14/28 hari", "ringkasan tenor konvensional");
+  ada(html, "Harian 7/14/21/28 hari", "ringkasan tenor konvensional");
   ada(html, 'href="/pinjaman/konvensional"', "tautan produk konvensional");
   ada(html, 'href="/pinjaman/syariah"', "tautan produk syariah");
   cek(!html.includes("undefined"), "kartu produk tanpa nilai kosong");
@@ -105,7 +105,7 @@ cek(
   }
   cek(!html.includes("Qardh"), "simulator tidak lagi menyediakan Qardh");
   ada(html, "Imbal hasil tetap 30% per 30 hari", "yield 30% tetap dinyatakan");
-  ada(html, "Rp 1.235.000", "angka konvensional dihitung dari lib");
+  ada(html, "Rp 1.250.000", "angka konvensional dihitung dari lib");
   ada(html, "Estimasi, bukan jaminan.", "simulator tidak menjanjikan hasil");
 }
 

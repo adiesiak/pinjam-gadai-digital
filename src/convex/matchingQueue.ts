@@ -8,8 +8,8 @@
  * berikutnya", supaya admin bisa mencocokkannya tanpa menghitung ulang.
  *
  * Idempoten per pinjaman (`by_loan`), jadi pelunasan yang tercatat dua kali
- * tidak menggandakan antrean. Hanya tenor 7 dan 14 hari yang masuk antrean
- * cepat; tenor 28 hari tetap menunggu keputusan admin.
+ * tidak menggandakan antrean. Tenor cepat 7, 14, dan 21 hari masuk antrean;
+ * tenor 28 hari tetap menunggu keputusan admin.
  */
 import { v } from "convex/values";
 
@@ -17,7 +17,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireAdminRole } from "./adminAuthz";
 
-export const TENOR_ANTREAN_CEPAT: readonly number[] = [7, 14];
+export const TENOR_ANTREAN_CEPAT: readonly number[] = [7, 14, 21];
 
 /**
  * Catat dana pokok yang kembali ke pool setelah pinjaman lunas. Dipanggil dari
