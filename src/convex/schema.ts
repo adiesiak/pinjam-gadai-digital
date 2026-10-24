@@ -2485,6 +2485,13 @@ const schema = defineSchema(
     kycProfil: defineTable({
       userId: v.id("users"),
       status: kycStatusValidator,
+      /**
+       * ASAL putusan terakhir. Kosong = alur normal (pengajuan mandiri +
+       * tinjauan petugas atau mesin). `manual_admin` = petugas mencatat data
+       * dan memverifikasi identitas langsung, tanpa pengajuan mandiri; jejak
+       * siapa, kapan, dan dasarnya tetap ada di `kycRiwayat` + `auditLog`.
+       */
+      sumberVerifikasi: v.optional(v.literal("manual_admin")),
       // ===== Isian identitas (semuanya opsional selama masih progres) =====
       namaLengkap: v.optional(v.string()),
       nik: v.optional(v.string()),

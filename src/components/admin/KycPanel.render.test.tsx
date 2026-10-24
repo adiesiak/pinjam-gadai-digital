@@ -78,6 +78,7 @@ const item = (overrides: Partial<ItemKycTampil> = {}): ItemKycTampil => ({
   email: "rani@pindai.test",
   kodePeminjam: "PGD-20261001-AB12",
   status: "PENDING_REVIEW",
+  sumberVerifikasi: null,
   kekurangan: [],
   aturanUsang: false,
   nomorWhatsAppTerbukti: true,
@@ -92,6 +93,7 @@ const item = (overrides: Partial<ItemKycTampil> = {}): ItemKycTampil => ({
 const detail = (overrides: Partial<DetailKycTampil> = {}): DetailKycTampil => ({
   userId: "users_1" as DetailKycTampil["userId"],
   status: "PENDING_REVIEW",
+  sumberVerifikasi: null,
   kodePeminjam: "PGD-20261001-AB12",
   email: "rani@pindai.test",
   ocrKtp: null,

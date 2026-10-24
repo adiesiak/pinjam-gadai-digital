@@ -333,6 +333,10 @@ async function ubahStatus(
 
   await ctx.db.patch(row._id, {
     status: args.ke,
+    // Setiap transisi normal menggantikan putusan terakhir. Tanpa ini, baris
+    // yang pernah diverifikasi manual akan terus berlabel "manual" setelah
+    // ditinjau ulang lewat alur biasa.
+    sumberVerifikasi: undefined,
     diperbaruiPada: args.sekarang,
     ...(args.ke === "PENDING_REVIEW" ? { diajukanPada: args.sekarang } : {}),
     ...(args.keputusan === undefined
@@ -1609,6 +1613,8 @@ export const daftarKycAdmin = query({
         /** Kode pseudonim nasabah — dipakai petugas menyebut kasus tanpa NIK. */
         kodePeminjam: s.kodePeminjam,
         status: s.status,
+        /** `manual_admin` = dicatat & diverifikasi langsung oleh petugas. */
+        sumberVerifikasi: r.sumberVerifikasi ?? null,
         kekurangan: s.kekurangan,
         /** Putusan terakhir diambil dengan aturan yang sudah tidak berlaku. */
         aturanUsang: s.aturanUsang,
@@ -1630,6 +1636,73 @@ export const daftarKycAdmin = query({
       /** Urutan status yang ditampilkan panel (IN_PROGRESS = sedang diproses). */
       urutanStatus: STATUS_ANTREAN,
     };
+  },
+});
+
+/**
+ * Pencarian nasabah untuk pencatatan KYC manual — admin ber-TOTP.
+ *
+ * Hanya akun nasabah yang bisa dipilih: admin, pendana, pengamat, dan akun tamu
+ * tidak punya identitas yang perlu diverifikasi lewat jalur ini. Status KYC ikut
+ * dikirim supaya petugas melihat siapa yang belum punya baris sama sekali dan
+ * siapa yang sudah terverifikasi — tanpa membuka satu per satu.
+ *
+ * Pencocokan memakai nama, email, kode nasabah, NIK, dan nomor WhatsApp dari
+ * data diri. Teks pencariannya tidak dikirim balik ke klien.
+ */
+export const cariNasabahUntukKycAdmin = query({
+  args: { cari: v.optional(v.string()) },
+  handler: async (ctx, { cari }) => {
+    await requireAdminSession(ctx);
+    const kata = (cari ?? "").trim().toLowerCase();
+    const [users, kycRows, profil] = await Promise.all([
+      ctx.db.query("users").collect(),
+      ctx.db.query("kycProfil").collect(),
+      ctx.db.query("nasabahProfil").collect(),
+    ]);
+    const statusPerUser = new Map(
+      kycRows.map((r) => [r.userId as string, r.status as StatusKyc]),
+    );
+    const profilPerUser = new Map(profil.map((p) => [p.userId as string, p]));
+
+    return users
+      .filter(
+        (u) => u.isAnonymous !== true && (u.role === undefined || u.role === ROLES.PEMINJAM),
+      )
+      .map((u) => {
+        const p = profilPerUser.get(u._id);
+        return {
+          userId: u._id,
+          nama: u.name ?? u.email ?? "Nasabah",
+          email: u.email ?? null,
+          kodePeminjam: u.kodePeminjam ?? null,
+          statusKyc: statusPerUser.get(u._id) ?? null,
+          adaDataDiri: p !== undefined,
+          adaFotoKtp: p?.fotoKtpId !== undefined,
+          /** Teks pencarian gabungan — dibuang sebelum dikirim. */
+          teks: [u.name, u.email, u.kodePeminjam, p?.nik, p?.nomorWhatsApp]
+            .filter((nilai) => nilai !== undefined && nilai !== null && nilai !== "")
+            .join(" ")
+            .toLowerCase(),
+        };
+      })
+      .filter((baris) => kata === "" || baris.teks.includes(kata))
+      .sort(
+        (a, b) =>
+          // Yang belum terverifikasi lebih dulu: itu yang butuh tindakan.
+          Number(a.statusKyc === "VERIFIED") - Number(b.statusKyc === "VERIFIED") ||
+          a.nama.localeCompare(b.nama),
+      )
+      .slice(0, 30)
+      .map(({ userId, nama, email, kodePeminjam, statusKyc, adaDataDiri, adaFotoKtp }) => ({
+        userId,
+        nama,
+        email,
+        kodePeminjam,
+        statusKyc,
+        adaDataDiri,
+        adaFotoKtp,
+      }));
   },
 });
 
@@ -1684,6 +1757,8 @@ export const detailKycAdmin = query({
     return {
       userId,
       status: row.status as StatusKyc,
+      /** `manual_admin` = dicatat & diverifikasi langsung oleh petugas. */
+      sumberVerifikasi: row.sumberVerifikasi ?? null,
       /** Kode pseudonim + email: cara petugas menyebut nasabah tanpa NIK. */
       kodePeminjam: user?.kodePeminjam ?? null,
       email: user?.email ?? null,
@@ -1978,6 +2053,213 @@ export const tinjauKyc = mutation({
       });
     }
     return { ok: true as const, status: keputusan as StatusKyc };
+  },
+});
+
+/**
+ * CATAT KYC MANUAL — petugas mengisi identitas dan memverifikasinya langsung.
+ *
+ * Jalur ini untuk verifikasi yang terjadi di luar alur mandiri: nasabah datang
+ * ke kantor, dokumen fisik diperiksa petugas, atau data lama belum punya baris
+ * KYC. Tidak ada pengajuan nasabah yang dilewati secara diam-diam — setiap
+ * pencatatan tetap menulis satu baris `kycRiwayat` dan satu entri `auditLog`
+ * dengan alasan `verifikasi_manual_petugas`.
+ *
+ * Kenapa tidak lewat `ubahStatus`: `TRANSISI_SAH` sengaja hanya mengizinkan
+ * VERIFIED dari PENDING_REVIEW, dan petugas tidak bisa mengirim pengajuan atas
+ * nama nasabah. Jalur manual karena itu menulis status akhirnya sendiri,
+ * dengan penjaga yang setara: admin ber-TOTP, data lengkap, pernyataan dokumen
+ * fisik sudah diperiksa, catatan 10–300 karakter, dan baris VERIFIED yang sudah
+ * ada tidak pernah ditimpa.
+ */
+export const catatKycManual = mutation({
+  args: {
+    userId: v.id("users"),
+    namaLengkap: v.string(),
+    nik: v.string(),
+    nomorWhatsApp: v.string(),
+    alamat: v.string(),
+    pekerjaan: v.string(),
+    /** Rupiah bulat, atau null bila kosong. */
+    penghasilanBulanan: v.union(v.number(), v.null()),
+    sumberPenghasilan: v.string(),
+    namaBank: v.string(),
+    nomorRekening: v.string(),
+    /** Dasar tertulis: apa yang diperiksa, di mana, dan kapan. */
+    catatanVerifikasi: v.string(),
+    /** Pernyataan petugas bahwa dokumen fisik benar-benar diperiksa. */
+    konfirmasiDokumenFisik: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+    const target = await ctx.db.get(args.userId);
+    if (target === null) throw new Error("Nasabah tidak ditemukan.");
+    if (target.role === ROLES.ADMIN) {
+      throw new Error("KYC manual tidak berlaku untuk akun admin.");
+    }
+    if (target.isAnonymous === true) {
+      throw new Error("Akun tamu tidak dapat diverifikasi manual.");
+    }
+    if (!args.konfirmasiDokumenFisik) {
+      throw new Error(
+        "Centang pernyataan bahwa dokumen fisik sudah diperiksa sebelum menyimpan.",
+      );
+    }
+
+    const olehLabel = admin.email ?? admin.name ?? "admin";
+    const catatan = args.catatanVerifikasi.trim();
+    if (catatan.length < 10) {
+      throw new Error("Catatan verifikasi manual wajib diisi minimal 10 karakter.");
+    }
+    if (catatan.length > 300) {
+      throw new Error("Catatan verifikasi manual maksimal 300 karakter.");
+    }
+
+    const { tersimpan, pesan } = bacaDataDiri({
+      namaLengkap: args.namaLengkap,
+      nik: args.nik,
+      nomorWhatsApp: args.nomorWhatsApp,
+      alamat: args.alamat,
+      pekerjaan: args.pekerjaan,
+      penghasilan:
+        args.penghasilanBulanan === null ? "" : String(args.penghasilanBulanan),
+      namaBank: args.namaBank,
+      nomorRekening: args.nomorRekening,
+    });
+    if (tersimpan === null) throw new Error(pesan ?? "Data identitas tidak valid.");
+    if (tersimpan.alamat === null) {
+      throw new Error("Alamat wajib diisi untuk verifikasi manual.");
+    }
+    if (tersimpan.pekerjaan === null) {
+      throw new Error("Pekerjaan wajib diisi untuk verifikasi manual.");
+    }
+    if (tersimpan.penghasilanBulanan === null) {
+      throw new Error("Penghasilan per bulan wajib diisi untuk verifikasi manual.");
+    }
+    const sumberPenghasilan = args.sumberPenghasilan.trim();
+    if (sumberPenghasilan.length < 3) {
+      throw new Error("Sumber penghasilan wajib diisi minimal 3 karakter.");
+    }
+
+    const lama = await ctx.db
+      .query("kycProfil")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+    if (lama?.status === "VERIFIED") {
+      throw new Error(
+        "KYC nasabah ini sudah terverifikasi. Bila datanya berubah, minta verifikasi ulang dari panel KYC.",
+      );
+    }
+
+    // Foto KTP yang sudah ada dipakai ulang: dari baris KYC bila pernah diunggah,
+    // atau dari data diri yang diisi petugas. Tidak ada berkas baru yang dibuat
+    // di jalur ini; selfie & bukti penghasilan tetap seperti sebelumnya (boleh
+    // kosong bila verifikasi dilakukan dari dokumen fisik).
+    const profil = await ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+    const ktpId = lama?.ktpId ?? profil?.fotoKtpId;
+    const selfieKtpId = lama?.selfieKtpId;
+    const buktiPenghasilanId = lama?.buktiPenghasilanId;
+    // Snapshot OCR hanya mewakili foto KTP yang dibaca saat itu. Bila jalur
+    // manual memakai foto lain dari Data Diri, teks lama tidak boleh menempel.
+    const ktpBerubah = (lama?.ktpId ?? undefined) !== ktpId;
+
+    const sekarang = Date.now();
+    // Bukti OTP tetap hanya berlaku untuk nomor yang sama; verifikasi manual
+    // TIDAK pernah diubah menjadi bukti OTP.
+    const waLama = lama?.nomorWhatsAppTerverifikasi;
+    const nomorWhatsAppTerverifikasi =
+      waLama !== undefined &&
+      normalisasiNomorWa(waLama.nomor) === tersimpan.nomorWhatsApp
+        ? waLama
+        : undefined;
+    const persetujuan =
+      lama !== null && persetujuanAktif(lama.persetujuan)
+        ? lama.persetujuan
+        : {
+            versi: VERSI_PERSETUJUAN_KYC,
+            pada: sekarang,
+            // Dicatat apa adanya: persetujuan diperoleh petugas saat verifikasi,
+            // bukan diklik nasabah di peramban.
+            olehLabel: `Petugas ${olehLabel} (verifikasi manual)`,
+          };
+
+    const isi = {
+      status: "VERIFIED" as const,
+      namaLengkap: tersimpan.namaLengkap,
+      nik: tersimpan.nik,
+      nomorWhatsApp: tersimpan.nomorWhatsApp,
+      alamat: tersimpan.alamat,
+      pekerjaan: tersimpan.pekerjaan,
+      penghasilanBulanan: tersimpan.penghasilanBulanan,
+      sumberPenghasilan,
+      namaBank: tersimpan.namaBank ?? undefined,
+      nomorRekening: tersimpan.nomorRekening ?? undefined,
+      ktpId,
+      selfieKtpId,
+      buktiPenghasilanId,
+      ...(ktpBerubah ? { ocrKtp: undefined } : {}),
+      nomorWhatsAppTerverifikasi,
+      persetujuan,
+      sumberVerifikasi: "manual_admin" as const,
+      diajukanPada: sekarang,
+      diputuskanPada: sekarang,
+      diputuskanOlehLabel: olehLabel,
+      keputusanCatatan: catatan,
+      stempelTerverifikasi: {
+        namaLengkap: tersimpan.namaLengkap,
+        nik: tersimpan.nik,
+        ktpId: ktpId ?? null,
+        selfieKtpId: selfieKtpId ?? null,
+        buktiPenghasilanId: buktiPenghasilanId ?? null,
+        pada: sekarang,
+      },
+      diperbaruiPada: sekarang,
+    };
+
+    let kycId: Id<"kycProfil">;
+    if (lama === null) {
+      kycId = await ctx.db.insert("kycProfil", {
+        userId: args.userId,
+        dibuatPada: sekarang,
+        ...isi,
+      });
+    } else {
+      await ctx.db.patch(lama._id, {
+        ...isi,
+        // Putusan manual tidak memakai aturan pemeriksaan otomatis; membiarkan
+        // versi lama berarti mengklaim pemeriksaan yang tidak pernah berjalan.
+        aturanTerverifikasi: undefined,
+      });
+      kycId = lama._id;
+    }
+
+    await catatPerubahanStatus(ctx, {
+      userId: args.userId,
+      dari: (lama?.status as StatusKyc | undefined) ?? null,
+      ke: "VERIFIED",
+      aktor: "admin",
+      aktorLabel: olehLabel,
+      aktorUserId: adminId,
+      alasan: "verifikasi_manual_petugas",
+      catatan,
+      waktu: sekarang,
+    });
+
+    // Data diri & putusan verifikasi identitas diselaraskan, sama seperti jalur
+    // tinjauan biasa — supaya dua panel tidak pernah berbeda pendapat.
+    const sesudah = await ctx.db.get(kycId);
+    if (sesudah !== null) {
+      await selaraskanDataDiri(ctx, sesudah, {
+        sumber: "admin",
+        olehLabel,
+        verifikasi: "terverifikasi",
+      });
+    }
+
+    return { ok: true as const, status: "VERIFIED" as const, userId: args.userId };
   },
 });
 

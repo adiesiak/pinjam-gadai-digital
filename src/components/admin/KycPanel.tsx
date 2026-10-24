@@ -20,6 +20,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  UserCheck,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -37,6 +38,7 @@ import {
   type IdChecklistKyc,
 } from "@/components/admin/BuktiKyc";
 import { AksiNotifikasiTagihan } from "@/components/admin/PengaturanNotifikasiNasabah";
+import { KycManualSheet } from "@/components/admin/KycManualSheet";
 import { useNilaiTertunda } from "@/hooks/use-validasi-tertunda";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
 import {
@@ -303,7 +305,13 @@ export function BarisKyc({
             pemeriksaan petugas — ia cuma berarti belum ada isian yang kurang —
             jadi menandainya hijau akan menyamar sebagai berkas yang sudah
             ditinjau. Hijau disimpan untuk status Terverifikasi di baris 1. */}
-        {berkasKurang && (
+        {item.status === "VERIFIED" && item.sumberVerifikasi === "manual_admin" && (
+          <Tanda nada="abu">
+            <UserCheck className="size-3.5 shrink-0" aria-hidden />
+            verifikasi manual
+          </Tanda>
+        )}
+        {berkasKurang && !(item.status === "VERIFIED" && item.sumberVerifikasi === "manual_admin") && (
           <Tanda nada="merah">
             <FileWarning className="size-3.5 shrink-0" aria-hidden />
             {`${item.kekurangan.length} berkas/isi kurang`}
@@ -1309,6 +1317,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
   const [tab, setTab] = useState<TabDetail>("berkas");
   const [daftarDilipat, setDaftarDilipat] = useState(false);
   const [laciTerbuka, setLaciTerbuka] = useState(false);
+  const [manualTerbuka, setManualTerbuka] = useState(false);
   const [tersalin, setTersalin] = useState(false);
   const layarSempit = useMediaQuery(KUERI_LAYAR_SEMPIT_KYC);
 
@@ -1608,11 +1617,22 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
             </Button>
           )}
         </div>
-        <p className="text-xs font-medium tabular-nums text-slate-700" aria-live="polite">
-          {cacah === null
-            ? "Memuat antrean…"
-            : `${totalSemua ?? 0} pengajuan · ${cacah.PENDING_REVIEW ?? 0} perlu ditinjau`}
-        </p>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setManualTerbuka(true)}
+          >
+            <UserCheck className="size-4" aria-hidden />
+            Catat KYC manual
+          </Button>
+          <p className="text-xs font-medium tabular-nums text-slate-700" aria-live="polite">
+            {cacah === null
+              ? "Memuat antrean…"
+              : `${totalSemua ?? 0} pengajuan · ${cacah.PENDING_REVIEW ?? 0} perlu ditinjau`}
+          </p>
+        </div>
       </div>
 
       {/* ===== Daftar antrean 320px (bisa dilipat) : rincian mengambil sisa lebar ===== */}
@@ -1675,6 +1695,12 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                     {detail.namaLengkap ?? "Nasabah"}
                   </p>
                   <StatusKycBadge status={detail.status} className="shrink-0" />
+                  {detail.status === "VERIFIED" && detail.sumberVerifikasi === "manual_admin" && (
+                    <Tanda nada="abu">
+                      <UserCheck className="size-3.5 shrink-0" aria-hidden />
+                      manual
+                    </Tanda>
+                  )}
                   <span
                     className={cn(
                       "flex min-w-0 items-center gap-0.5 rounded-lg border border-slate-200 bg-slate-50 pl-1.5",
@@ -1719,6 +1745,19 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                   </p>
                 )}
               </header>
+
+              {detail.status === "VERIFIED" && detail.sumberVerifikasi === "manual_admin" && (
+                <div className="shrink-0 border-b border-sky-200 bg-sky-50 px-3 py-2 text-[11px] leading-5 text-sky-950">
+                  <p className="font-semibold">Diverifikasi manual oleh petugas</p>
+                  <p>
+                    Dokumen fisik diperiksa langsung; bukti online (selfie dan bukti
+                    penghasilan) tidak diwajibkan pada jalur ini.
+                    {detail.keputusanCatatan === null
+                      ? ""
+                      : ` Catatan: ${detail.keputusanCatatan}`}
+                  </p>
+                </div>
+              )}
 
               {/* SUB-TAB INTERNAL — hanya area baca yang bergulir */}
               <Tabs
@@ -1947,6 +1986,23 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
           />
         </SheetContent>
       </Sheet>
+
+      {/* Jalur petugas untuk identitas yang diperiksa di luar alur mandiri. */}
+      <KycManualSheet
+        open={manualTerbuka}
+        onOpenChange={setManualTerbuka}
+        onSelesai={(userId) => {
+          // Tampilkan hasilnya: saringan "Perlu ditinjau" tidak memuat baris
+          // yang baru saja diverifikasi, jadi daftar dibuka ke semua status.
+          setManualTerbuka(false);
+          setStatus(null);
+          setHasil("semua");
+          setCari("");
+          setDari("");
+          setSampai("");
+          pilihNasabah(userId);
+        }}
+      />
 
       {/* ===== Dialog konfirmasi satu keputusan ===== */}
       <AlertDialog
