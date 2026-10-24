@@ -1,6 +1,7 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   ChevronDown,
   FileCheck,
@@ -261,7 +262,12 @@ export function LoanReviewDialog({
       toast.success("Perubahan status internal tersimpan pada ledger.");
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan keputusan.");
+      const pesan = err instanceof Error ? err.message : "Gagal menyimpan keputusan.";
+      setError(pesan);
+      // Persetujuan berhenti karena belum ada pendana. Bawa admin ke kartu
+      // pendana di tab Aliran, tempat aksi satu-klik "Setujui & salurkan" ada
+      // — bukan membiarkannya menebak tab mana yang harus dibuka.
+      if (pesan.includes("belum punya penyedia dana")) setActiveTab("aliran");
     } finally {
       setBusy(null);
     }
@@ -276,10 +282,8 @@ export function LoanReviewDialog({
     setBusy("pendana");
     setError(null);
     try {
-      // Memilih pendana pada pinjaman yang nominalnya sudah disetujui adalah
-      // langkah terakhir sebelum pencairan: server mencatat perjanjian dari
-      // persetujuan pengajuan peminjam lalu menandai dana tersalurkan.
-      const memilihPendana = pendana !== PENDANA_TETAP && pendana !== PENDANA_LEPAS;
+      // Jalur ini HANYA mencatat pendana/pendana dilepas tanpa mencairkan dana.
+      // Pencairan satu-klik ada di `pilihDanSalurkan`.
       const hasil = await simpanPendana({
         loanId: row._id,
         ...(pendana === PENDANA_TETAP
@@ -290,25 +294,91 @@ export function LoanReviewDialog({
         ...(pokokBaru !== null && pokokBaru !== row.pokokPinjaman
           ? { pokokDisetujui: pokokBaru }
           : {}),
-        ...(row.status === "disetujui" && memilihPendana ? { cairkanSekarang: true } : {}),
       });
-      if (hasil.dicairkan) {
-        toast.success(
-          "Pendana tersimpan. Perjanjian mengikuti persetujuan pengajuan dan dana ditandai tersalurkan.",
-        );
-      } else {
-        toast.success(
-          hasil.perubahan.length === 0
-            ? "Tidak ada perubahan pendana atau nominal."
-            : `Tersimpan: ${hasil.perubahan.join(", ")}`,
-        );
-      }
+      toast.success(
+        hasil.perubahan.length === 0
+          ? "Tidak ada perubahan pendana atau nominal."
+          : `Tersimpan: ${hasil.perubahan.join(", ")}`,
+      );
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan pendana.");
     } finally {
       setBusy(null);
     }
+  };
+
+  /**
+   * Satu klik: pendana + nominal yang sedang diketik disimpan, lalu dana
+   * ditandai tersalurkan — tanpa berpindah tab untuk menekan tombol kedua.
+   *
+   * Pinjaman yang masih `diajukan`/`sedang_direview` disetujui lebih dulu lewat
+   * jalur kanonik `danaiPinjaman`, jalur yang sama dengan tombol "Setujui
+   * Pengajuan". Pinjaman `disetujui` memakai `cairkanSekarang` di server.
+   */
+  const pilihDanSalurkan = async (pendanaUserId: Id<"users"> | null) => {
+    const pokokBaru = nominalPendana.trim() === "" ? null : Number(nominalPendana);
+    if (pokokBaru !== null && (!Number.isSafeInteger(pokokBaru) || pokokBaru <= 0)) {
+      setError("Nominal yang disetujui harus rupiah bulat positif.");
+      return;
+    }
+    const sudahDisetujui = row.status === "disetujui";
+    setBusy(pendanaUserId === null ? "pendana-sekarang" : `pendana-${pendanaUserId}`);
+    setError(null);
+    try {
+      const hasil = await simpanPendana({
+        loanId: row._id,
+        ...(pendanaUserId === null ? {} : { pendanaUserId }),
+        ...(pokokBaru !== null && pokokBaru !== row.pokokPinjaman
+          ? { pokokDisetujui: pokokBaru }
+          : {}),
+        ...(sudahDisetujui ? { cairkanSekarang: true } : {}),
+      });
+      if (!sudahDisetujui) {
+        // Tahap sebelum persetujuan: setujui + salurkan lewat jalur yang sama
+        // dengan tombol "Setujui Pengajuan", supaya perjanjian, jadwal angsuran,
+        // notifikasi WhatsApp, dan rincian resmi tetap tercatat.
+        await fund({ loanId: row._id });
+        toast.success(
+          "Pengajuan disetujui, pendana tercatat, dan dana ditandai tersalurkan. Rincian pinjaman dikirim otomatis ke peminjam.",
+        );
+      } else if (hasil.dicairkan) {
+        toast.success(
+          "Pendana tercatat dan dana ditandai tersalurkan. Rincian pinjaman dikirim otomatis ke peminjam.",
+        );
+      } else if (hasil.perubahan.length === 0) {
+        toast.success("Pendana tidak berubah; dana belum ditandai tersalurkan.");
+      } else {
+        toast.success(
+          `Tersimpan: ${hasil.perubahan.join(", ")}. Dana belum ditandai tersalurkan.`,
+        );
+      }
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyalurkan dana.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Pendana yang belum memegang pinjaman ini — ditampilkan sebagai daftar
+  // satu-klik pada tahap siap cair. Pendana sekarang tidak diulang di sini.
+  const kandidatLain = (kandidatQ?.rows ?? []).filter((r) => r.userId !== row.pendanaId);
+  /** Tahap sebelum dana turun: pendana boleh ditetapkan dan langsung dicairkan. */
+  const bisaSalurkan = diTahapTinjauan(row.status) && !nominalTerkunci(row.status);
+  /** Belum ada pendana sama sekali — aksi cair akan berhenti tanpa hasil. */
+  const perluPendana =
+    diTahapTinjauan(row.status) && row.pendanaId == null && row.pendanaNama == null;
+
+  /**
+   * Tanpa pendana, tombol "setujui/salurkan" di tab Detail hanya akan gagal.
+   * Antar admin ke kartu pendana, tempat satu klik sudah mencakup keduanya.
+   */
+  const arahkanPilihPendana = () => {
+    setActiveTab("aliran");
+    toast.info(
+      "Pilih pendana di kartu Pendana & pencairan — satu klik langsung menyetujui dan menyalurkan dana.",
+    );
   };
 
   const lokasi = row.lokasiAjukan;
@@ -406,11 +476,15 @@ export function LoanReviewDialog({
         sudahLunas={row.status === "lunas"}
         setujuTerkunci={bolehSetujui ? undefined : terkunciTeks}
         waTerkunci={bolehKirimWa ? undefined : waTerkunciTeks}
-        onSetujui={() =>
+        onSetujui={() => {
+          if (perluPendana) {
+            arahkanPilihPendana();
+            return;
+          }
           void (row.status === "disetujui"
             ? run("setuju", () => fund({ loanId: row._id }))
-            : run("setuju", () => ubahStatus({ loanId: row._id, status: "didanai" })))
-        }
+            : run("setuju", () => ubahStatus({ loanId: row._id, status: "didanai" })));
+        }}
         onTolak={() => void run("tolak", () => ubahStatus({ loanId: row._id, status: "ditolak" }))}
         onKirimWa={() =>
           void run("wa", () =>
@@ -652,11 +726,22 @@ export function LoanReviewDialog({
       <div className="min-w-0 space-y-3">
         {row.status !== "lunas" && (
           <section className="rounded-2xl border border-slate-200/80 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Pendana & nominal disetujui
-            </p>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Pendana &amp; pencairan
+              </p>
+              {row.status === "disetujui" && (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                  Siap disalurkan
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Pilih pendana sebelum menyetujui. Nama dan nominalnya tercatat di Audit Trail.
+              {row.status === "disetujui"
+                ? "Klik satu nama: pendana tercatat, perjanjian mengikuti persetujuan pengajuan, dan dana langsung ditandai tersalurkan."
+                : row.status === "didanai"
+                  ? "Dana sudah tersalurkan. Mengganti pendana di sini hanya mengoreksi catatan kepemilikan, bukan memindahkan uang."
+                  : "Klik satu nama untuk menyetujui sekaligus menyalurkan dana. Bila dana belum siap, catat pendananya saja di bagian bawah."}
             </p>
             <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-700">
               <Users className="size-3.5 text-primary" />
@@ -664,8 +749,131 @@ export function LoanReviewDialog({
               <span className="font-medium">{row.pendanaNama ?? "belum ada"}</span>
             </p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div>
+            {diTahapTinjauan(row.status) && !nominalTerkunci(row.status) && (
+              <div className="mt-3">
+                <Label htmlFor="nominal-disetujui" className="text-[11px] text-muted-foreground">
+                  Nominal disetujui (Rp)
+                </Label>
+                <Input
+                  id="nominal-disetujui"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={50_000}
+                  placeholder={`Tercatat: ${formatRupiah(row.pokokPinjaman)}`}
+                  value={nominalPendana}
+                  onChange={(e) => setNominalPendana(e.target.value)}
+                  disabled={busy !== null}
+                />
+                <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                  Maksimal {formatRupiah(pokokDiajukan)}. Kosongkan bila tidak diubah.
+                </p>
+              </div>
+            )}
+
+            {/* Galat aksi pendana tampil di kartu ini juga — aksi satu-klik
+                berada di tab Aliran, jauh dari kotak galat di tab Detail. */}
+            {error !== null && (
+              <p
+                role="alert"
+                className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800"
+              >
+                {error}
+              </p>
+            )}
+
+            {bisaSalurkan && (
+              <div className="mt-3 space-y-2">
+                {row.pendanaNama != null && row.pendanaNama !== "" && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-emerald-950">
+                        {row.pendanaNama}
+                      </p>
+                      <p className="text-[11px] text-emerald-800/80">
+                        {row.status === "disetujui"
+                          ? "Pendana sekarang · siap dicairkan"
+                          : "Pendana sekarang"}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={busy !== null}
+                      onClick={() => void pilihDanSalurkan(null)}
+                      className="h-9 gap-1.5 rounded-xl bg-emerald-800 px-3 text-xs font-semibold text-white hover:bg-emerald-900"
+                    >
+                      {busy === "pendana-sekarang" ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <ArrowRight className="size-3.5" />
+                      )}
+                      {row.status === "disetujui" ? "Salurkan dana" : "Setujui & salurkan"}
+                    </Button>
+                  </div>
+                )}
+
+                {kandidatQ === undefined ? (
+                  <p className="text-[11px] text-muted-foreground">Memuat daftar pendana…</p>
+                ) : kandidatLain.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-[11px] leading-4 text-muted-foreground">
+                    {row.pendanaNama == null
+                      ? "Belum ada akun yang pernah menjadi pendana. Beri akses di ruang pendana lebih dulu."
+                      : "Tidak ada pendana lain yang bisa dipilih."}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-[11px] leading-4 text-muted-foreground">
+                      {row.pendanaNama == null
+                        ? "Pilih pendana:"
+                        : row.status === "disetujui"
+                          ? "Ganti pendana sekaligus salurkan:"
+                          : "Setujui sekaligus salurkan:"}
+                    </p>
+                    <ul className="max-h-56 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
+                      {kandidatLain.map((r) => (
+                        <li key={r.userId}>
+                          <button
+                            type="button"
+                            disabled={busy !== null}
+                            onClick={() => void pilihDanSalurkan(r.userId)}
+                            className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition-colors duration-[var(--motion-fast)] hover:border-emerald-300 hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs font-semibold text-slate-900">
+                                {r.nama}
+                              </span>
+                              <span className="block truncate text-[11px] text-muted-foreground">
+                                {r.email ?? "tanpa email"}
+                                {r.aksesAktif ? "" : " · pendana lama"}
+                              </span>
+                            </span>
+                            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-emerald-800">
+                              {busy === `pendana-${r.userId}` ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <ArrowRight className="size-3.5" />
+                              )}
+                              {row.status === "disetujui" ? "Pilih & salurkan" : "Setujui & salurkan"}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Jalur cadangan: mencatat pendana TANPA mencairkan dana — dipakai
+                bila dana belum siap, atau untuk melepas pendana yang salah. */}
+            <div
+              className={bisaSalurkan ? "mt-3 border-t border-slate-100 pt-3" : "mt-3"}
+            >
+              <p className="text-[11px] font-medium text-slate-600">
+                {bisaSalurkan ? "Hanya catat pendana (tanpa mencairkan dana)" : "Koreksi pendana"}
+              </p>
+              <div className="mt-2">
                 <Label htmlFor="pendana-pinjaman" className="text-[11px] text-muted-foreground">
                   Pendana
                 </Label>
@@ -695,45 +903,15 @@ export function LoanReviewDialog({
                       : "Daftar ini memuat semua akun yang pernah menjadi pendana, termasuk pendana lama."}
                 </p>
               </div>
-
-              {diTahapTinjauan(row.status) && !nominalTerkunci(row.status) && (
-                <div>
-                  <Label htmlFor="nominal-disetujui" className="text-[11px] text-muted-foreground">
-                    Nominal disetujui (Rp)
-                  </Label>
-                  <Input
-                    id="nominal-disetujui"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    step={50_000}
-                    placeholder={`Tercatat: ${formatRupiah(row.pokokPinjaman)}`}
-                    value={nominalPendana}
-                    onChange={(e) => setNominalPendana(e.target.value)}
-                    disabled={busy !== null}
-                  />
-                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                    Maksimal {formatRupiah(pokokDiajukan)}. Kosongkan bila tidak diubah.
-                  </p>
-                </div>
-              )}
+              <Button
+                disabled={busy !== null}
+                onClick={() => void runPendana()}
+                className="mt-3 transition-all duration-[var(--motion-normal)] hover:brightness-105 hover:shadow-md active:scale-95"
+              >
+                {busy === "pendana" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Simpan pendana
+              </Button>
             </div>
-
-            {!nominalTerkunci(row.status) && (
-              <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-                {row.status === "disetujui"
-                  ? "Menyimpan pendana juga menandai dana tersalurkan."
-                  : "Pencairan dicatat setelah nominal disetujui."}
-              </p>
-            )}
-            <Button
-              disabled={busy !== null}
-              onClick={() => void runPendana()}
-              className="mt-3 transition-all duration-[var(--motion-normal)] hover:brightness-105 hover:shadow-md active:scale-95"
-            >
-              {busy === "pendana" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              {diTahapTinjauan(row.status) ? "Simpan pendana & nominal" : "Simpan pendana"}
-            </Button>
           </section>
         )}
       </div>
@@ -983,7 +1161,13 @@ export function LoanReviewDialog({
             {row.status !== "didanai" && (
               <Button
                 disabled={busy !== null}
-                onClick={() => run("fund", () => fund({ loanId: row._id }))}
+                onClick={() => {
+                  if (perluPendana) {
+                    arahkanPilihPendana();
+                    return;
+                  }
+                  void run("fund", () => fund({ loanId: row._id }));
+                }}
                 className={`rounded-xl bg-[#064E3B] px-5 text-sm font-semibold text-white hover:bg-[#021E17] ${MICRO_TOMBOL}`}
               >
                 {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
