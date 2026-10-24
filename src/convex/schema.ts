@@ -1801,6 +1801,22 @@ const schema = defineSchema(
       ),
       /** Rupiah bulat — akumulasi settlement yang sudah masuk dompet. */
       totalMasuk: v.number(),
+      /**
+       * Rupiah bulat — pokok yang sudah kembali dari pinjaman dan siap
+       * ditempatkan lagi ke pinjaman lain di dalam siklus yang sama. Dompet
+       * pendana tidak disentuh; modal kerja didanai akun jaminan platform dan
+       * seluruh hasil putaran menjadi milik platform.
+       */
+      modalSiapPutar: v.optional(v.number()),
+      /** Rupiah bulat — pokok siklus yang sedang bekerja pada pinjaman. */
+      modalDikerjakan: v.optional(v.number()),
+      /** Berapa kali modal siklus diputar ke pinjaman lain. */
+      jumlahPutaran: v.optional(v.number()),
+      /**
+       * Rupiah bulat — akumulasi bagian platform dari putaran modal (biaya
+       * alokasi + kelebihan di atas hak pendana yang sudah dibayar).
+       */
+      totalKeuntunganPutaran: v.optional(v.number()),
       dicairkanPada: v.optional(v.number()),
       dicairkanOleh: v.optional(v.id("users")),
       /** Referensi transfer bank/e-wallet saat admin mencairkan. */

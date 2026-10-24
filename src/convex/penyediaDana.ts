@@ -477,7 +477,9 @@ async function bacaPinjaman(
     .collect();
   const idAlokasi = [
     ...new Set(
-      alokasiWarisan.filter((f) => f.status !== "dibatalkan").map((f) => f.loanId),
+      alokasiWarisan
+        .filter((f) => f.status !== "dibatalkan" && f.peranSiklus !== "putar")
+        .map((f) => f.loanId),
     ),
   ];
   const warisanAlokasi = (

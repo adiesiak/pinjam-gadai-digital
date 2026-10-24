@@ -11,6 +11,12 @@
  * menyimpan hasilnya sebagai snapshot di `siklusPendana`, jadi perubahan tarif
  * di kemudian hari tidak mengubah siklus yang sudah berjalan.
  *
+ * Satu siklus 30 hari boleh memutar modalnya lebih dari sekali. Modal pokok
+ * yang kembali dari pinjaman 7/14/21 hari ditempatkan lagi ke pinjaman lain
+ * selama siklus masih berjalan. Hak pendana TIDAK bertambah: total cair tetap
+ * angka snapshot di awal siklus, sedangkan seluruh hasil putaran berikutnya
+ * menjadi pendapatan platform. Lihat `potonganPutaran`.
+ *
  * Contoh Rp1.000.000:
  *   imbal      = Rp300.000
  *   biaya      = Rp50.000
@@ -58,6 +64,25 @@ export function hitungSiklusPendana(pokok: number): HitunganSiklus {
     totalCair: pokok + imbal - potongan,
     jatuhTempoHari: SIKLUS_PENDANA_HARI,
   };
+}
+
+/**
+ * Biaya platform satu putaran modal, mengikuti tarif snapshot siklus.
+ *
+ * Tarif siklus disimpan sebagai rupiah (`potongan` atas `pokokSiklus`), bukan
+ * persen, supaya perubahan pengaturan tidak mengubah siklus yang berjalan.
+ * Proporsi dipakai agar putaran sebagian tidak menagih biaya penuh.
+ */
+export function potonganPutaran(
+  potonganSiklus: number,
+  pokokSiklus: number,
+  jumlahPutaran: number,
+): number {
+  if (!Number.isSafeInteger(jumlahPutaran) || jumlahPutaran <= 0) {
+    throw new Error(`Jumlah putaran harus rupiah bulat positif: ${jumlahPutaran}`);
+  }
+  if (pokokSiklus <= 0) return 0;
+  return Math.floor((potonganSiklus * jumlahPutaran) / pokokSiklus);
 }
 
 /** Waktu jatuh tempo dari awal siklus. */

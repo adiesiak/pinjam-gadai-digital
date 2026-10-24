@@ -257,6 +257,130 @@ describe("siklus pendana 30 hari", () => {
     ).toBe("berjalan");
   });
 
+  it("membuka modal siap putar setelah pelunasan dan mencatat keuntungan putaran", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: pendanaId } = await buatPengguna(t, "Pendana Putar Modal", {
+      email: "pendana-putar-modal@pindai.test",
+      role: "dana",
+    });
+
+    const siklusId = await t.run((ctx) =>
+      ctx.db.insert("siklusPendana", {
+        pendanaId,
+        ...siklusFields(1_000_000, Date.now() - HARI_MS),
+        status: "berjalan",
+        // Dompet pendana sudah penuh dan terkunci; modal pokok sedang bekerja
+        // di pinjaman melalui akun jaminan platform.
+        totalMasuk: 1_250_000,
+        modalSiapPutar: 0,
+        modalDikerjakan: 1_000_000,
+        jumlahPutaran: 1,
+        totalKeuntunganPutaran: 0,
+      }),
+    );
+
+    const hasil = await t.run((ctx) =>
+      pembayaranSiklus(ctx, {
+        siklusId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 300_000,
+        potonganAdmin: 50_000,
+        peranSiklus: "putar",
+        // Pinjaman tenor 7 hari membayar 26%, bukan snapshot pendana 30%.
+        bungaAktual: 260_000,
+        pelunasanPenuh: true,
+      }),
+    );
+    // Hak pendana sudah dibayar penuh, jadi seluruh uang kembali masuk ke
+    // jaminan platform. Bunga aktual 260 ribu menjadi keuntungan platform;
+    // pokok 1 juta hanya kembali, bukan keuntungan.
+    expect(hasil).toEqual({
+      akun: akunDompetDana(pendanaId),
+      potonganAdmin: 0,
+      imbalBersih: 0,
+      kelebihan: 1_300_000,
+    });
+
+    const siklus = await t.run((ctx) => ctx.db.get(siklusId));
+    expect(siklus).toMatchObject({
+      totalMasuk: 1_250_000,
+      modalSiapPutar: 1_000_000,
+      modalDikerjakan: 0,
+      totalKeuntunganPutaran: 260_000,
+    });
+  });
+
+  it("menutup putaran modal selama gerbang pembayaran belum terverifikasi", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await buatPengguna(t, "Admin Putar Modal", {
+      email: "admin-putar-modal@pindai.test",
+      role: "admin",
+    });
+    await aktifkanTotpUntukSesi(t, admin.userId, admin.authSessionId);
+    const pendana = await buatPengguna(t, "Pendana Modal Kerja", {
+      email: "pendana-modal-kerja@pindai.test",
+      role: "dana",
+    });
+    const peminjam = await buatPengguna(t, "Peminjam Modal Kerja", {
+      email: "peminjam-modal-kerja@pindai.test",
+      role: "peminjam",
+    });
+
+    const siklusId = await t.run((ctx) =>
+      ctx.db.insert("siklusPendana", {
+        pendanaId: pendana.userId,
+        ...siklusFields(1_000_000, Date.now() - HARI_MS),
+        status: "berjalan",
+        totalMasuk: 1_250_000,
+        modalSiapPutar: 1_000_000,
+        modalDikerjakan: 0,
+        jumlahPutaran: 0,
+        totalKeuntunganPutaran: 0,
+      }),
+    );
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: peminjam.userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Tambahan modal warung",
+        namaLengkap: "Peminjam Modal Kerja",
+        nomorRekening: "1234567890",
+        status: "disetujui",
+        nomorReferensi: "PGD-PUTAR-MODAL",
+        tenorHari: 7,
+      }),
+    );
+
+    await expect(
+      admin.sesi.mutation(api.alokasiDana.putarModalSiklus, {
+        siklusId,
+        loanId,
+        jumlah: 1_000_000,
+      }),
+    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
+
+    // Gagal tertutup: tidak ada modal, status pinjaman, atau alokasi yang
+    // berubah saat gerbang pembayaran belum terverifikasi.
+    const siklus = await t.run((ctx) => ctx.db.get(siklusId));
+    expect(siklus).toMatchObject({
+      totalMasuk: 1_250_000,
+      modalSiapPutar: 1_000_000,
+      modalDikerjakan: 0,
+      jumlahPutaran: 0,
+    });
+
+    const pinjaman = await t.run((ctx) => ctx.db.get(loanId));
+    expect(pinjaman?.status).toBe("disetujui");
+
+    const funding = await t.run(async (ctx) =>
+      ctx.db
+        .query("fundings")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .first(),
+    );
+    expect(funding).toBeNull();
+  });
+
   it("menolak pencairan sebelum jatuh tempo", async () => {
     const t = convexTest(schema, modules);
     const admin = await buatPengguna(t, "Admin Dini", {

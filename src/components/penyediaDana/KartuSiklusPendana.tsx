@@ -109,11 +109,6 @@ export function KartuSiklusPendana() {
       ) : (
         <div className="space-y-3 pt-3">
           {berjalan.map((row) => {
-            const masuk = Math.min(row.totalCair, Math.max(0, row.totalMasuk));
-            const persen =
-              row.totalCair > 0
-                ? Math.round((masuk / row.totalCair) * 100)
-                : 0;
             return (
               <article
                 key={row._id}
@@ -155,26 +150,20 @@ export function KartuSiklusPendana() {
                   </div>
                 </dl>
 
-                <div className="mt-2">
-                  <div className="flex items-baseline justify-between gap-3 text-[11px]">
-                    <span className="text-slate-600">Dana yang sudah masuk</span>
-                    <span className="tabular-nums font-medium text-slate-900">
-                      {formatRupiah(masuk)} / {formatRupiah(row.totalCair)}
-                    </span>
-                  </div>
-                  <div
-                    role="progressbar"
-                    aria-label="Dana siklus yang sudah masuk"
-                    aria-valuemin={0}
-                    aria-valuemax={row.totalCair}
-                    aria-valuenow={masuk}
-                    className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-emerald-100"
-                  >
-                    <span
-                      className="block h-full rounded-full bg-emerald-700"
-                      style={{ width: `${persen}%` }}
-                    />
-                  </div>
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-emerald-200/70 bg-white/70 px-2.5 py-2 text-[11px]">
+                  <span className="inline-flex items-center gap-1.5 font-medium text-emerald-900">
+                    <Lock className="size-3" aria-hidden />
+                    {row.modalDikerjakan > 0
+                      ? "Pokok sedang bekerja pada pinjaman"
+                      : "Dana terkunci sampai jatuh tempo"}
+                  </span>
+                  <span className="tabular-nums text-slate-700">
+                    {formatRupiah(
+                      row.modalDikerjakan > 0
+                        ? row.modalDikerjakan
+                        : row.totalMasuk,
+                    )}
+                  </span>
                 </div>
 
                 <div className="mt-3 border-t border-emerald-200/70 pt-2.5">

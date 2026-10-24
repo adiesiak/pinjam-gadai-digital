@@ -32,12 +32,13 @@ import {
   appendJournal,
   danaWalletBalance,
 } from "./ledger";
-import { requireBukanPratinjau } from "./adminAuthz";
-import { getConfig } from "./system";
+import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
+import { audit, getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { pastikanAngsuran } from "./angsuranJadwal";
 import { beriTiketPendanaan } from "./doorprize";
 import { buatSiklusUntukAlokasi, kewajibanSiklusAktif } from "./siklusPendana";
+import { potonganPutaran, sisaHariSiklus } from "../lib/siklusPendana";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
 export const MIN_ALOKASI = 100_000;
@@ -393,6 +394,9 @@ export const myWallet = query({
     const active: Doc<"fundings">[] = [];
     for (const f of fundings) {
       if (f.status !== "dialokasikan") continue;
+      // Putaran modal adalah pekerjaan admin di dalam satu siklus, bukan
+      // penempatan baru milik pendana; jangan dihitung dua kali.
+      if (f.peranSiklus === "putar") continue;
       const loan = await ctx.db.get(f.loanId);
       if (loan !== null && !pinjamanMilikPendana(loan, userId, namaKunci)) continue;
       active.push(f);
@@ -478,6 +482,103 @@ export const marketplace = query({
     return rows.sort((a, b) => b._creationTime - a._creationTime);
   },
 });
+
+/**
+ * Selesaikan pendanaan begitu alokasi terakhir menutup pokok pinjaman.
+ *
+ * Dipakai dua pintu: alokasi pendana biasa dan putaran modal siklus oleh
+ * admin. Idempoten lewat status pinjaman — pinjaman yang sudah `didanai`
+ * tidak dicairkan dua kali.
+ */
+async function selesaikanPendanaanPenuh(
+  ctx: MutationCtx,
+  loan: Doc<"loans">,
+): Promise<void> {
+  if (loan.status !== "disetujui") return;
+  const ringkasPenuh = ringkasPinjaman(loan);
+  const now = Date.now();
+
+  // Jurnal biaya: potongan di muka untuk KEDUA skema (harian dari quoteLoan:
+  // admin 2% + biaya ekspres; bulanan dari mesin bulanan). Seluruhnya
+  // pendapatan platform langsung — akunnya dipisah dari `platform:FEE` (denda
+  // & biaya cicilan) agar laporan margin jujur.
+  if (ringkasPenuh.totalPotonganDiMuka > 0) {
+    await appendJournal(ctx, {
+      jenis: "platform_fee",
+      skema: "pinjaman",
+      keterangan:
+        ringkasPenuh.biayaExpress > 0
+          ? `Biaya admin & pencairan ekspres ${loan.nomorReferensi}`
+          : `Biaya admin & platform ${loan.nomorReferensi}`,
+      aktor: "platform",
+      lines: [
+        {
+          akun: AKUN_PLATFORM_DIRECT_REVENUE,
+          arah: "debit",
+          jumlah: ringkasPenuh.totalPotonganDiMuka,
+        },
+        {
+          akun: `pinjaman:${loan._id}`,
+          arah: "kredit",
+          jumlah: ringkasPenuh.totalPotonganDiMuka,
+        },
+      ],
+    });
+  }
+
+  // Jurnal pencairan ke Peminjam — KEDUA skema memakai dana bersih setelah
+  // potongan di muka: harian 98% pokok; bulanan pokok − 2% (admin 2% untuk
+  // tenor 3/6, atau layanan 2% untuk tenor 1).
+  await appendJournal(ctx, {
+    jenis: "disbursement",
+    skema: "pinjaman",
+    keterangan: ringkasPenuh.skemaBulanan
+      ? `Pencairan pokok penuh ${loan.nomorReferensi} (skema bulanan)`
+      : `Pencairan dana bersih ${loan.nomorReferensi}`,
+    aktor: "platform",
+    lines: [
+      {
+        akun: `peminjam:${loan.userId}`,
+        arah: "debit",
+        jumlah: ringkasPenuh.danaDiterimaPeminjam,
+      },
+      {
+        akun: `pinjaman:${loan._id}`,
+        arah: "kredit",
+        jumlah: ringkasPenuh.danaDiterimaPeminjam,
+      },
+    ],
+  });
+
+  // Hak Imbal Hasil tiap penyedia dana memakai skema TETAP per alokasi (pokok
+  // alokasi × 30%), bukan porsi bunga nasabah. Dengan begitu perpanjangan atau
+  // cicil pokok di sisi peminjam tidak mengubah catatan hak pendana. Baca
+  // ulang alokasi dari DB — snapshot lama tidak memuat baris yang baru
+  // di-insert mutation ini.
+  const fundingsTerbaru = await ctx.db
+    .query("fundings")
+    .withIndex("by_loan", (q2) => q2.eq("loanId", loan._id))
+    .collect();
+  const aktif = fundingsTerbaru.filter((x) => x.status === "dialokasikan");
+  for (const f of aktif) {
+    const siklus = siklusPendanaan(f.jumlahAlokasi);
+    if (
+      f.imbalHasil !== siklus.lenderProfit ||
+      f.periodDuration !== siklus.periodDuration ||
+      f.expectedReturnRate !== siklus.expectedReturnRate ||
+      f.lenderProfit !== siklus.lenderProfit
+    ) {
+      await ctx.db.patch(f._id, {
+        imbalHasil: siklus.lenderProfit,
+        ...siklus,
+      });
+    }
+  }
+
+  await ctx.db.patch(loan._id, { status: "didanai", didanaiPada: now });
+  const loanSetelah = await ctx.db.get(loan._id);
+  if (loanSetelah !== null) await pastikanAngsuran(ctx, loanSetelah);
+}
 
 /**
  * Alokasikan dana ke pinjaman — ANTI-OVERFUNDING atomik:
@@ -597,87 +698,203 @@ export const allocateFunding = mutation({
     // 6. Bila penuh: cairkan dana bersih + potong fee platform.
     const terkumpulSetelah = terkumpul + args.jumlah;
     if (terkumpulSetelah === loan.pokokPinjaman) {
-      const ringkasPenuh = ringkasPinjaman(loan);
-      const now = Date.now();
-
-      // Jurnal biaya: potongan di muka untuk KEDUA skema (harian dari
-      // quoteLoan: admin 2% + biaya ekspres; bulanan dari mesin bulanan).
-      // Seluruhnya pendapatan platform langsung — akunnya dipisah dari
-      // `platform:FEE` (denda & biaya cicilan) agar laporan margin jujur.
-      if (ringkasPenuh.totalPotonganDiMuka > 0) {
-        await appendJournal(ctx, {
-          jenis: "platform_fee",
-          skema: "pinjaman",
-          keterangan: ringkasPenuh.biayaExpress > 0
-            ? `Biaya admin & pencairan ekspres ${loan.nomorReferensi}`
-            : `Biaya admin & platform ${loan.nomorReferensi}`,
-          aktor: "platform",
-          lines: [
-            {
-              akun: AKUN_PLATFORM_DIRECT_REVENUE,
-              arah: "debit",
-              jumlah: ringkasPenuh.totalPotonganDiMuka,
-            },
-            { akun: `pinjaman:${args.loanId}`, arah: "kredit", jumlah: ringkasPenuh.totalPotonganDiMuka },
-          ],
-        });
-      }
-
-      // Jurnal pencairan ke Peminjam — KEDUA skema memakai dana bersih setelah
-      // potongan di muka: harian 98% pokok; bulanan pokok − 2% (admin 2% untuk
-      // tenor 3/6, atau layanan 2% untuk tenor 1).
-      await appendJournal(ctx, {
-        jenis: "disbursement",
-        skema: "pinjaman",
-        keterangan: ringkasPenuh.skemaBulanan
-          ? `Pencairan pokok penuh ${loan.nomorReferensi} (skema bulanan)`
-          : `Pencairan dana bersih ${loan.nomorReferensi}`,
-        aktor: "platform",
-        lines: [
-          {
-            akun: `peminjam:${loan.userId}`,
-            arah: "debit",
-            jumlah: ringkasPenuh.danaDiterimaPeminjam,
-          },
-          {
-            akun: `pinjaman:${args.loanId}`,
-            arah: "kredit",
-            jumlah: ringkasPenuh.danaDiterimaPeminjam,
-          },
-        ],
-      });
-
-      // Hak Imbal Hasil tiap penyedia dana memakai skema TETAP per alokasi
-      // (pokok alokasi × 30%), bukan porsi bunga nasabah. Dengan begitu
-      // perpanjangan atau cicil pokok di sisi peminjam tidak mengubah catatan
-      // hak pendana. Baca ulang alokasi dari DB — snapshot lama tidak memuat
-      // baris yang baru di-insert mutation ini.
-      const fundingsTerbaru = await ctx.db
-        .query("fundings")
-        .withIndex("by_loan", (q2) => q2.eq("loanId", loan._id))
-        .collect();
-      const aktif = fundingsTerbaru.filter((x) => x.status === "dialokasikan");
-      for (const f of aktif) {
-        const siklus = siklusPendanaan(f.jumlahAlokasi);
-        if (
-          f.imbalHasil !== siklus.lenderProfit ||
-          f.periodDuration !== siklus.periodDuration ||
-          f.expectedReturnRate !== siklus.expectedReturnRate ||
-          f.lenderProfit !== siklus.lenderProfit
-        ) {
-          await ctx.db.patch(f._id, {
-            imbalHasil: siklus.lenderProfit,
-            ...siklus,
-          });
-        }
-      }
-
-      await ctx.db.patch(loan._id, { status: "didanai", didanaiPada: now });
-      const loanSetelah = await ctx.db.get(loan._id);
-      if (loanSetelah !== null) await pastikanAngsuran(ctx, loanSetelah);
+      await selesaikanPendanaanPenuh(ctx, loan);
     }
 
     return { success: true, terkumpulSetelah };
+  },
+});
+
+/**
+ * PUTAR MODAL SIKLUS — admin menempatkan pokok siklus yang sudah kembali ke
+ * pinjaman baru TANPA menambah hak pendana.
+ *
+ * Alurnya mengikuti alokasi biasa (dana masuk ke akun pinjaman dan pinjaman
+ * dicairkan bila penuh), tetapi:
+ *  - dananya berasal dari modal siklus yang sudah kembali. Dompet pendana dan
+ *    `totalCair` siklus TIDAK disentuh: hak pendana tetap utuh dan terkunci
+ *    sampai jatuh tempo;
+ *  - jurnal putaran memakai `platform:GUARANTEE` sebagai sumber dana. Kas
+ *    investor sudah berada di platform, dan akun jaminan mencatat posisi
+ *    modal kerja platform yang dipakai lagi;
+ *  - saat pinjaman baru lunas, pokok kembali ke `modalSiapPutar` dan seluruh
+ *    Imbal Hasil pinjaman itu menjadi pendapatan platform. Baris `putar`
+ *    tidak tampil sebagai portofolio baru di ruang pendana.
+ */
+export const putarModalSiklus = mutation({
+  args: {
+    siklusId: v.id("siklusPendana"),
+    loanId: v.id("loans"),
+    jumlah: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+    rejectUnverifiedMoneyMovement();
+
+    if (!Number.isSafeInteger(args.jumlah) || args.jumlah <= 0) {
+      throw new Error("Jumlah putaran harus rupiah bulat positif.");
+    }
+
+    const siklus = await ctx.db.get(args.siklusId);
+    if (siklus === null) throw new Error("Siklus pendana tidak ditemukan.");
+    if (siklus.status !== "berjalan") {
+      throw new Error("Siklus ini sudah selesai, modal tidak bisa diputar lagi.");
+    }
+    const sekarang = Date.now();
+    if (sekarang >= siklus.jatuhTempoPada) {
+      throw new Error(
+        "Siklus sudah jatuh tempo. Cairkan siklus, bukan memutar modalnya.",
+      );
+    }
+    const siap = siklus.modalSiapPutar ?? 0;
+    if (siap < args.jumlah) {
+      throw new Error(
+        `Modal siap diputar hanya ${formatRupiah(siap)}. ` +
+          "Tunggu pinjaman berikutnya lunas atau kurangi jumlah putaran.",
+      );
+    }
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (loan.status !== "disetujui") {
+      throw new Error("Hanya pinjaman berstatus Disetujui yang dapat didanai.");
+    }
+
+    // Tenor pinjaman harus selesai sebelum siklus pendana jatuh tempo, supaya
+    // modal yang diputar punya waktu kembali dan payout hari ke-30 tidak
+    // bergantung pada pinjaman yang masih berjalan.
+    const tenorHari =
+      loan.tenorBulan !== undefined
+        ? loan.tenorBulan * 30
+        : (loan.tenorHari ?? 7);
+    const sisaHari = sisaHariSiklus(siklus.jatuhTempoPada, sekarang);
+    if (tenorHari > sisaHari) {
+      throw new Error(
+        `Tenor pinjaman ${tenorHari} hari melewati sisa siklus ${sisaHari} hari. ` +
+          "Pilih pinjaman yang jatuh temponya lebih dulu.",
+      );
+    }
+
+    const fundings = await ctx.db
+      .query("fundings")
+      .withIndex("by_loan", (q) => q.eq("loanId", args.loanId))
+      .collect();
+    const terkumpul = fundings
+      .filter((f) => f.status === "dialokasikan")
+      .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
+    const sisa = loan.pokokPinjaman - terkumpul;
+    if (sisa <= 0) {
+      throw new Error("Pinjaman ini sudah terpenuhi penuh.");
+    }
+    if (args.jumlah > sisa) {
+      throw new Error(
+        `Melebihi sisa kebutuhan pinjaman. Sisa: ${formatRupiah(sisa)}.`,
+      );
+    }
+
+    const siklusHak = siklusPendanaan(args.jumlah);
+    const fndRef = referenceNumber("FND");
+    await ctx.db.insert("fundings", {
+      loanId: args.loanId,
+      danaId: siklus.pendanaId,
+      jumlahAlokasi: args.jumlah,
+      imbalHasil: siklusHak.lenderProfit,
+      ...siklusHak,
+      siklusId: args.siklusId,
+      peranSiklus: "putar",
+      potonganAdmin: potonganPutaran(siklus.potongan, siklus.pokok, args.jumlah),
+      status: "dialokasikan",
+      nomorReferensi: fndRef,
+    });
+
+    // Kas investor sudah dipegang platform dan haknya terkunci sampai jatuh
+    // tempo. Putaran dibukukan dari akun jaminan platform, bukan dari dompet
+    // pendana, supaya saldo dan riwayat pendana tidak berubah.
+    await appendJournal(ctx, {
+      jenis: "disbursement",
+      skema: "pinjaman",
+      keterangan: `Putar modal siklus ${fndRef} ke ${loan.nomorReferensi}`,
+      aktor: admin.email ?? admin.name ?? "admin",
+      lines: [
+        { akun: `pinjaman:${args.loanId}`, arah: "debit", jumlah: args.jumlah },
+        {
+          akun: "platform:GUARANTEE",
+          arah: "kredit",
+          jumlah: args.jumlah,
+        },
+      ],
+    });
+
+    await ctx.db.patch(args.siklusId, {
+      modalSiapPutar: siap - args.jumlah,
+      modalDikerjakan: (siklus.modalDikerjakan ?? 0) + args.jumlah,
+      jumlahPutaran: (siklus.jumlahPutaran ?? 0) + 1,
+    });
+
+    const terkumpulSetelah = terkumpul + args.jumlah;
+    if (terkumpulSetelah === loan.pokokPinjaman) {
+      await selesaikanPendanaanPenuh(ctx, loan);
+    }
+
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "putar_modal_siklus",
+      args.siklusId,
+      `Putar ${formatRupiah(args.jumlah)} ke ${loan.nomorReferensi}; ` +
+        `sisa modal siap putar ${formatRupiah(siap - args.jumlah)}`,
+    );
+
+    return {
+      success: true as const,
+      nomorReferensi: fndRef,
+      terkumpulSetelah,
+      sisaModalSiapPutar: siap - args.jumlah,
+    };
+  },
+});
+
+/**
+ * Pinjaman yang masih terbuka untuk putaran modal admin.
+ * Hanya baris yang belum terpenuhi penuh; angka sisa dihitung live.
+ */
+export const pinjamanTerbukaAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminSession(ctx);
+    // Panel admin hanya butuh pilihan terbaru; batasi pembacaan supaya
+    // halaman tidak memindai seluruh arsip pengajuan.
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_status", (q) => q.eq("status", "disetujui"))
+      .order("desc")
+      .take(25);
+
+    const rows = [];
+    for (const loan of loans) {
+      const fundings = await ctx.db
+        .query("fundings")
+        .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+        .collect();
+      const terkumpul = fundings
+        .filter((f) => f.status === "dialokasikan")
+        .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
+      const sisaKebutuhan = loan.pokokPinjaman - terkumpul;
+      if (sisaKebutuhan <= 0) continue;
+      const peminjam = await ctx.db.get(loan.userId);
+      rows.push({
+        _id: loan._id,
+        nomorReferensi: loan.nomorReferensi,
+        kodePeminjam: peminjam?.kodePeminjam ?? null,
+        tujuan: loan.tujuan,
+        pokokPinjaman: loan.pokokPinjaman,
+        sisaKebutuhan,
+        tenorHari: loan.tenorHari ?? null,
+        tenorBulan: loan.tenorBulan ?? null,
+        _creationTime: loan._creationTime,
+      });
+    }
+    return rows.sort((a, b) => b._creationTime - a._creationTime);
   },
 });
 
@@ -862,6 +1079,9 @@ export const myPortfolio = query({
       .collect();
     for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
       if (f.status !== "dialokasikan" && f.status !== "selesai") continue;
+      // Baris putaran modal dikelola di balik layar; pendana tetap melihat
+      // satu posisi siklus dengan hak yang sudah dijanjikan.
+      if (f.peranSiklus === "putar") continue;
       const loan = await ctx.db.get(f.loanId);
       if (loan === null) continue;
       if (!pinjamanMilikPendana(loan, userId, namaKunci)) continue;
@@ -963,6 +1183,9 @@ export const myFundingContracts = query({
       .collect();
     for (const f of fundings.sort((a, b) => b._creationTime - a._creationTime)) {
       if (f.status !== "dialokasikan" && f.status !== "selesai") continue;
+      // Baris putaran modal dikelola di balik layar; pendana tetap melihat
+      // satu posisi siklus dengan hak yang sudah dijanjikan.
+      if (f.peranSiklus === "putar") continue;
       const loan = await ctx.db.get(f.loanId);
       if (loan === null) continue;
       if (belumBerkontrak(loan.status)) continue;

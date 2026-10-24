@@ -34,6 +34,12 @@ import {
  * `platform:GUARANTEE`, lalu pemulihan berikutnya (bila pinjaman telat bayar)
  * masuk ke akun yang sama. Dengan begitu pendana tidak pernah dibayar dua kali
  * dan jurnal tetap seimbang.
+ *
+ * MODAL DIPUTAR DI DALAM SIKLUS: saat pinjaman tenor pendek lunas, pokoknya
+ * kembali ke dompet pendana lalu dapat ditempatkan lagi ke pinjaman lain
+ * (`putarModalSiklus`). Setiap putaran tetap menyimpan snapshot hak pendana
+ * 30 hari, tetapi pembayaran yang melebihi hak siklus dikirim ke platform —
+ * pendana hanya menerima angka siklus yang sudah dijanjikan.
  */
 
 /**
@@ -81,6 +87,10 @@ export async function buatSiklusUntukAlokasi(
     jatuhTempoPada: jatuhTempoSiklus(args.sekarang),
     status: "berjalan",
     totalMasuk: 0,
+    modalSiapPutar: 0,
+    modalDikerjakan: hitung.pokok,
+    jumlahPutaran: 0,
+    totalKeuntunganPutaran: 0,
   });
 }
 
@@ -112,6 +122,11 @@ async function buatSiklusLanjutan(
     // dihitung masuk. Sisa yang masih ditagih hanya Imbal Hasil bersih
     // (imbal − biaya), dan itu yang ditutup jaminan saat jatuh tempo berikutnya.
     totalMasuk: hitung.pokok,
+    // Seluruh hak siklus lama ada di dompet dan siap ditempatkan lagi.
+    modalSiapPutar: hitung.pokok,
+    modalDikerjakan: 0,
+    jumlahPutaran: 0,
+    totalKeuntunganPutaran: 0,
     siklusAsalId: args.siklusAsalId,
   });
 }
@@ -134,6 +149,11 @@ async function buatSiklusLanjutan(
  * `kelebihan` adalah bagian bruto yang TIDAK menjadi hak pendana pada
  * pembayaran ini. Pemanggil wajib mendebitnya ke `platform:GUARANTEE` supaya
  * jurnal tetap seimbang.
+ *
+ * Bila `pelunasanPenuh` benar (pinjaman sudah lunas, bukan angsuran sebagian),
+ * pokok alokasi ditandai kembali ke meja kerja siklus: `modalSiapPutar`
+ * bertambah dan `modalDikerjakan` berkurang. Untuk alokasi `putar`, kelebihan
+ * pembayaran setelah pokok kembali dicatat sebagai keuntungan putaran platform.
  */
 export type PembayaranSiklus = {
   akun: string;
@@ -149,6 +169,15 @@ export async function pembayaranSiklus(
     jumlahAlokasi: number;
     imbalHasil: number;
     potonganAdmin?: number;
+    peranSiklus?: "utama" | "putar";
+    /**
+     * Imbal Hasil yang benar-benar dibayar peminjam untuk alokasi ini. Tarif
+     * nasabah bisa lebih rendah dari 30%, jadi angka ini yang dipakai untuk
+     * menghitung keuntungan putaran platform, bukan snapshot pendana.
+     */
+    bungaAktual?: number;
+    /** Benar hanya saat pinjaman lunas penuh, bukan angsuran sebagian. */
+    pelunasanPenuh?: boolean;
   },
 ): Promise<PembayaranSiklus | null> {
   if (funding.siklusId === undefined) return null;
@@ -176,10 +205,34 @@ export async function pembayaranSiklus(
   const imbalBersih = Math.min(netto, sisaHak);
   const kelebihan = netto - imbalBersih;
 
+  const patch: {
+    totalMasuk?: number;
+    modalSiapPutar?: number;
+    modalDikerjakan?: number;
+    totalKeuntunganPutaran?: number;
+  } = {};
   if (imbalBersih > 0) {
-    await ctx.db.patch(siklus._id, {
-      totalMasuk: siklus.totalMasuk + imbalBersih,
-    });
+    patch.totalMasuk = siklus.totalMasuk + imbalBersih;
+  }
+  if (funding.pelunasanPenuh === true) {
+    // Pokok kembali dari pinjaman dan boleh ditempatkan lagi selama siklus
+    // masih berjalan. Hak pendana tidak ikut bertambah.
+    patch.modalSiapPutar = (siklus.modalSiapPutar ?? 0) + funding.jumlahAlokasi;
+    patch.modalDikerjakan = Math.max(
+      0,
+      (siklus.modalDikerjakan ?? 0) - funding.jumlahAlokasi,
+    );
+    if (funding.peranSiklus === "putar") {
+      // Keuntungan platform adalah bunga pinjaman yang tidak dipakai membayar
+      // sisa hak siklus. Pokok yang kembali bukan keuntungan.
+      const bungaAktual = funding.bungaAktual ?? funding.imbalHasil;
+      patch.totalKeuntunganPutaran =
+        (siklus.totalKeuntunganPutaran ?? 0) +
+        Math.max(0, bungaAktual - imbalBersih);
+    }
+  }
+  if (Object.keys(patch).length > 0) {
+    await ctx.db.patch(siklus._id, patch);
   }
   return {
     akun: akunDompetDana(siklus.pendanaId),
@@ -218,6 +271,8 @@ export const siklusSaya = query({
         status: row.status as StatusSiklus,
         statusLabel: labelStatusSiklus(row.status as StatusSiklus),
         totalMasuk: row.totalMasuk,
+        /** Pokok yang masih bekerja di pinjaman (dipakai indikator status). */
+        modalDikerjakan: row.modalDikerjakan ?? 0,
         dicairkanPada: row.dicairkanPada ?? null,
         pilihanPendana: (row.pilihanPendana ?? null) as PilihanSiklus | null,
         pilihanLabel: labelPilihanSiklus(
@@ -259,6 +314,14 @@ export const daftarSiklus = query({
           potongan: row.potongan,
           totalCair: row.totalCair,
           totalMasuk: row.totalMasuk,
+          modalSiapPutar: row.modalSiapPutar ?? 0,
+          modalDikerjakan: row.modalDikerjakan ?? 0,
+          jumlahPutaran: row.jumlahPutaran ?? 0,
+          totalKeuntunganPutaran: row.totalKeuntunganPutaran ?? 0,
+          bisaPutar:
+            row.status === "berjalan" &&
+            row.jatuhTempoPada > sekarang &&
+            (row.modalSiapPutar ?? 0) > 0,
           kurang: Math.max(0, row.totalCair - row.totalMasuk),
           mulaiPada: row.mulaiPada,
           jatuhTempoPada: row.jatuhTempoPada,

@@ -275,13 +275,25 @@ async function distribusikanKePendana(
 
   let terdistribusi = 0;
   let totalPotongan = 0;
+  let totalKelebihan = 0;
   for (const { funding: f, imbal } of imbalBagian) {
     const bruto = f.jumlahAlokasi + imbal;
     let potonganAdmin: number;
     let imbalBersih: number;
     let akunPayout: string;
     let kelebihan = 0;
-    const jalurSiklus = await pembayaranSiklus(ctx, f);
+    // Fungsi ini hanya dipanggil pada angsuran terakhir, jadi pokok alokasi
+    // sudah benar-benar kembali dan boleh diputar lagi dalam siklus.
+    // Bagian bunga aktual dipakai untuk keuntungan putaran platform.
+    const bungaAktualBagian =
+      loan.pokokPinjaman > 0
+        ? Math.floor((totalImbal * f.jumlahAlokasi) / loan.pokokPinjaman)
+        : 0;
+    const jalurSiklus = await pembayaranSiklus(ctx, {
+      ...f,
+      bungaAktual: bungaAktualBagian,
+      pelunasanPenuh: true,
+    });
     if (jalurSiklus !== null) {
       potonganAdmin = jalurSiklus.potonganAdmin;
       imbalBersih = jalurSiklus.imbalBersih;
@@ -302,7 +314,11 @@ async function distribusikanKePendana(
           : `Angsuran terakhir: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
       aktor: "platform",
       lines: [
-        { akun: akunPayout, arah: "debit", jumlah: imbalBersih },
+        // Putaran modal dengan hak siklus yang sudah dibayar tidak menulis
+        // baris dompet nol; sisa pembayarannya masuk ke jaminan platform.
+        ...(imbalBersih > 0
+          ? [{ akun: akunPayout, arah: "debit" as const, jumlah: imbalBersih }]
+          : []),
         ...(potonganAdmin > 0
           ? [
               {
@@ -334,6 +350,7 @@ async function distribusikanKePendana(
     });
     terdistribusi += imbalBersih;
     totalPotongan += potonganAdmin;
+    totalKelebihan += kelebihan;
   }
 
   const totalBruto = imbalBagian.reduce(
@@ -342,7 +359,10 @@ async function distribusikanKePendana(
   );
   // Kas yang sudah diterima = pokok + bunga seluruh angsuran. Yang dibayarkan
   // ke pendana = totalBruto; selisihnya tepat margin spread platform.
-  if (terdistribusi + totalPotongan + marginSpread !== totalPokok + totalImbal) {
+  if (
+    terdistribusi + totalPotongan + totalKelebihan + marginSpread !==
+    totalPokok + totalImbal
+  ) {
     throw new Error("Pembagian angsuran ke penyedia dana tidak seimbang. Transaksi dibatalkan.");
   }
   await catatMarginSpread(ctx, {

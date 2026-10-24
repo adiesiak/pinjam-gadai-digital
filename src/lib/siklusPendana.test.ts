@@ -15,6 +15,7 @@ import {
   labelPilihanSiklus,
   labelStatusSiklus,
   pokokPutarUlang,
+  potonganPutaran,
   sisaHariSiklus,
 } from "./siklusPendana";
 
@@ -123,6 +124,18 @@ eq(
   true,
   "siklus kedua lebih besar dari siklus pertama",
 );
+// Putaran modal: biaya mengikuti proporsi pokok siklus, hak pendana tidak ikut.
+eq(potonganPutaran(50_000, 1_000_000, 1_000_000), 50_000, "putaran penuh menagih biaya penuh");
+eq(potonganPutaran(50_000, 1_000_000, 500_000), 25_000, "putaran separuh menagih separuh biaya");
+eq(
+  potonganPutaran(50_000, 1_000_000, 333_333),
+  16_666,
+  "biaya putaran ganjil dibulatkan ke bawah",
+);
+eq(potonganPutaran(50_000, 0, 100_000), 0, "pokok siklus nol tidak menagih biaya");
+throws(() => potonganPutaran(50_000, 1_000_000, 0), "putaran 0 ditolak");
+throws(() => potonganPutaran(50_000, 1_000_000, 1.5), "putaran pecahan ditolak");
+
 throws(() => pokokPutarUlang(0), "putar ulang pokok 0 ditolak");
 throws(() => pokokPutarUlang(1.5), "putar ulang pokok pecahan ditolak");
 

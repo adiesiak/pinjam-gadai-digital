@@ -2333,6 +2333,7 @@ export const repayLoan = mutation({
 
     let terdistribusi = 0;
     let totalPotonganAdmin = 0;
+    let totalKelebihan = 0;
     for (const { funding: f, imbal } of imbalBagian) {
       // Potongan admin dari POKOK alokasi ini — kebijakan Pengaturan Sistem.
       // Dipotong per alokasi, bukan sekali atas total pinjaman, supaya urutan
@@ -2345,7 +2346,18 @@ export const repayLoan = mutation({
       let imbalBersih: number;
       let akunPayout: string;
       let kelebihan = 0;
-      const jalurSiklus = await pembayaranSiklus(ctx, f);
+      // Bagian bunga nasabah yang benar-benar menjadi milik alokasi ini.
+      // Dipakai untuk menghitung keuntungan putaran platform secara jujur;
+      // tarif tenor pendek bisa lebih rendah dari snapshot 30% pendana.
+      const bungaAktualBagian =
+        loan.pokokPinjaman > 0
+          ? Math.floor((totalBungaNasabah * f.jumlahAlokasi) / loan.pokokPinjaman)
+          : 0;
+      const jalurSiklus = await pembayaranSiklus(ctx, {
+        ...f,
+        bungaAktual: bungaAktualBagian,
+        pelunasanPenuh: true,
+      });
       if (jalurSiklus !== null) {
         potonganAdmin = jalurSiklus.potonganAdmin;
         imbalBersih = jalurSiklus.imbalBersih;
@@ -2369,7 +2381,11 @@ export const repayLoan = mutation({
         aktor: "platform",
         lines: [
           // Debit menaikkan saldo dompet penyedia dana; kredit menurunkan akun pinjaman.
-          { akun: akunPayout, arah: "debit", jumlah: payout },
+          // Putaran modal yang hak siklusnya sudah dibayar bisa menghasilkan
+          // payout nol; baris nol tidak boleh masuk jurnal.
+          ...(payout > 0
+            ? [{ akun: akunPayout, arah: "debit" as const, jumlah: payout }]
+            : []),
           // Potongan admin masuk kas admin; hanya ditulis bila ada nilainya.
           ...(potonganAdmin > 0
             ? [
@@ -2396,6 +2412,7 @@ export const repayLoan = mutation({
       });
       terdistribusi += payout;
       totalPotonganAdmin += potonganAdmin;
+      totalKelebihan += kelebihan;
       // Cap bukti audit: berapa bruto, berapa dipotong, berapa dibayarkan.
       await ctx.db.patch(f._id, {
         imbalHasil: imbal,
@@ -2472,6 +2489,7 @@ export const repayLoan = mutation({
     const totalDibayarkan =
       terdistribusi +
       totalPotonganAdmin +
+      totalKelebihan +
       selisihHak +
       feePlatform +
       feeAdmin +
