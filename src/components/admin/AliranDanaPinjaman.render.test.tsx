@@ -112,6 +112,27 @@ ok(
 );
 bersih(lunas, "markup pinjaman lunas");
 
+// ===== Promo bunga: hak pendana tetap =====
+// Peminjam hanya membayar 15%, tetapi penyedia dana tetap menerima angka
+// tarif normal 30% — kartu harus jujur menyebut siapa yang menanggung selisih.
+const promo = renderToStaticMarkup(
+  <AliranDanaPinjaman
+    pokokPinjaman={1_000_000}
+    tenorHari={7}
+    persenBunga={15}
+    promoBungaPersenNormal={30}
+    promoBungaNama="Tenor pendek"
+  />,
+);
+ada(promo, "bunga promo 15%", "promo disebut di subjudul");
+ada(promo, "Rp 1.150.000", "tagihan peminjam memakai bunga promo");
+ada(promo, "Rp 1.250.000", "diterima pendana tetap dari tarif normal");
+ada(promo, "Rp 250.000", "Imbal Hasil bersih pendana tidak turun");
+ada(promo, "Hak tetap, promo tidak memotong", "hak pendana ditandai tetap");
+ada(promo, "ditanggung platform", "selisih promo dijelaskan");
+ada(promo, "Tenor pendek", "nama kampanye promo muncul");
+bersih(promo, "markup pinjaman berpromo");
+
 // ===== Data warisan: pokok tidak sah tidak merobohkan detail pinjaman =====
 const warisan = renderToStaticMarkup(<AliranDanaPinjaman pokokPinjaman={0} />);
 ada(warisan, "Rp 0", "pokok warisan ditampilkan apa adanya");

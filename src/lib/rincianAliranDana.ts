@@ -105,6 +105,15 @@ export type RincianAliranDana = {
   /** Total jasa platform satu pinjaman = potongan di muka + potongan penyedia. */
   pendapatanPlatform: Rupiah;
   /**
+   * Selisih bunga promo yang ditanggung platform. Nol untuk pinjaman tanpa
+   * promo; angka ini TIDAK memotong hak penyedia dana.
+   */
+  subsidiPromo: Rupiah;
+  /** Tarif promo yang berlaku (persen), atau null bila tanpa promo. */
+  persenPromo: number | null;
+  /** Nama kampanye promo yang dibekukan pada pinjaman, bila ada. */
+  promoBungaNama: string | null;
+  /**
    * Pinjaman ini dikenai biaya pencairan ekspres? Peminjam boleh melepasnya,
    * jadi label rincian tidak boleh selalu menyebut "+ ekspres".
    */
@@ -181,6 +190,9 @@ export function rincianAliranDana(
     diterimaPenyedia: bagi.pendanaTerima,
     imbalBersihPenyedia: bagi.keuntunganPendana,
     pendapatanPlatform: q.totalPotonganDiMuka + bagi.potonganAdmin,
+    subsidiPromo: 0,
+    persenPromo: null,
+    promoBungaNama: null,
     // Contoh kebijakan memakai pinjaman yang mencentang cair ekspres.
     adaEkspres: true,
   };
@@ -270,6 +282,10 @@ export function rincianPinjamanNyata(
     cairEkspres?: boolean | null;
     /** Snapshot tarif potongan di muka; kosong = tarif bawaan. */
     tarifBiaya?: Partial<TarifBiaya> | null;
+    /** Tarif matriks asal bila pinjaman memakai promo bunga. */
+    promoBungaPersenNormal?: number | null;
+    /** Nama kampanye promo yang dibekukan saat pengajuan. */
+    promoBungaNama?: string | null;
   },
   persenPotonganPenyedia: number = POTONGAN_ADMIN_DEFAULT_PERSEN,
 ): RincianAliranDana {
@@ -296,6 +312,9 @@ export function rincianPinjamanNyata(
       diterimaPenyedia: pokok,
       imbalBersihPenyedia: nol,
       pendapatanPlatform: nol,
+      subsidiPromo: nol,
+      persenPromo: null,
+      promoBungaNama: pinjaman.promoBungaNama ?? null,
       adaEkspres: pakaiEkspres,
     };
   }
@@ -321,6 +340,10 @@ export function rincianPinjamanNyata(
     diterimaPenyedia: bagi.pendanaTerima,
     imbalBersihPenyedia: bagi.keuntunganPendana,
     pendapatanPlatform: potonganDiMuka + bagi.potonganAdmin,
+    subsidiPromo: bagi.subsidiPromo,
+    // Tarif yang benar-benar ditagih ke Peminjam saat promo berjalan.
+    persenPromo: bagi.subsidiPromo > 0 ? (pinjaman.persenBunga ?? null) : null,
+    promoBungaNama: pinjaman.promoBungaNama ?? null,
     adaEkspres: pakaiEkspres,
   };
 }

@@ -84,6 +84,8 @@ const MICRO_TOMBOL =
 
 type LoanRowWithOptionalProps = LoanRow & {
   readonly persenBunga?: number | null;
+  readonly promoBungaPersenNormal?: number | null;
+  readonly promoBungaNama?: string | null;
 };
 
 export function LoanReviewDialog({
@@ -185,6 +187,8 @@ export function LoanReviewDialog({
     persenBunga: rowWithOptional.persenBunga ?? null,
     cairEkspres: row.cairEkspres,
     tarifBiaya: row.tarifBiaya,
+    promoBungaPersenNormal: rowWithOptional.promoBungaPersenNormal ?? null,
+    promoBungaNama: rowWithOptional.promoBungaNama ?? null,
   });
   const tenorTeks =
     row.tenorBulan !== null ? `${row.tenorBulan} bulan` : `${row.tenorHari ?? 30} hari`;
@@ -654,6 +658,8 @@ export function LoanReviewDialog({
           persenBunga={rowWithOptional.persenBunga}
           cairEkspres={row.cairEkspres}
           tarifBiaya={row.tarifBiaya}
+          promoBungaPersenNormal={rowWithOptional.promoBungaPersenNormal ?? null}
+          promoBungaNama={rowWithOptional.promoBungaNama ?? null}
           sudahLunas={row.status === "lunas"}
         />
 

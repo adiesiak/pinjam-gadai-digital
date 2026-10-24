@@ -22,7 +22,7 @@
  *    kosong, baris terpotong, atau sudah ditutup oleh pemeriksaan lain).
  */
 import { STATUS_MENUNGGU } from "./admin-queue";
-import { bagiHasilPinjamanDari } from "./bagiHasil";
+import { PERSEN_IMBAL_PENDANA, bagiHasilPendana } from "./imbalPendana";
 import { formatRupiah } from "./money";
 import { bandingkanPendana, type MetrikPendana, type SumberPendana } from "./rekonsiliasi";
 
@@ -239,21 +239,15 @@ export function jalankanQc(input: InputQc): HasilQc {
         ],
   );
 
-  // 2) Hitung ulang dengan mesin uang tunggal (lib/bagiHasil) — angka yang
-  //    ditampilkan harus identik dengan yang dihitung dari kebijakan sekarang.
+  // 2) Hitung ulang dengan mesin hak pendana (lib/imbalPendana) — angka baris
+  //    harus identik dengan hak tetap yang dibayarkan, apa pun tenor, bunga,
+  //    atau promo yang dipakai Peminjam.
   const salahHitung: string[] = [];
   const gagalHitung: string[] = [];
   for (const b of baris) {
-    let ulang: ReturnType<typeof bagiHasilPinjamanDari>;
+    let ulang: ReturnType<typeof bagiHasilPendana>;
     try {
-      ulang = bagiHasilPinjamanDari(
-        {
-          pokokPinjaman: b.pokokPinjaman,
-          tenorBulan: b.tenorBulan,
-          persenBunga: b.persenBunga ?? cfg.persenBunga,
-        },
-        cfg.persenAdmin,
-      );
+      ulang = bagiHasilPendana(b.pokokPinjaman, cfg.persenAdmin);
     } catch (err) {
       gagalHitung.push(
         `${b.nomorReferensi}: ${err instanceof Error ? err.message : "hitung ulang gagal"}`,
@@ -261,14 +255,14 @@ export function jalankanQc(input: InputQc): HasilQc {
       continue;
     }
     if (
-      ulang.bunga !== b.bunga ||
-      ulang.totalLunas !== b.totalLunas ||
+      ulang.imbal !== b.bunga ||
+      b.pokokPinjaman + ulang.imbal !== b.totalLunas ||
       ulang.potonganAdmin !== b.potonganAdmin ||
-      ulang.keuntunganPendana !== b.keuntunganPendana ||
-      ulang.keuntunganAdmin !== b.keuntunganAdmin
+      ulang.keuntungan !== b.keuntunganPendana ||
+      ulang.potonganAdmin !== b.keuntunganAdmin
     ) {
       salahHitung.push(
-        `${b.nomorReferensi}: tampil ${rp(b.bunga)}/${rp(b.potonganAdmin)} tetapi dihitung ulang ${rp(ulang.bunga)}/${rp(ulang.potonganAdmin)}`,
+        `${b.nomorReferensi}: tampil ${rp(b.bunga)}/${rp(b.potonganAdmin)} tetapi dihitung ulang ${rp(ulang.imbal)}/${rp(ulang.potonganAdmin)}`,
       );
     }
   }
@@ -282,11 +276,15 @@ export function jalankanQc(input: InputQc): HasilQc {
     statusHitung === "lewat"
       ? "Belum ada baris pinjaman untuk dihitung ulang."
       : statusHitung === "lulus"
-        ? `${baris.length} baris dihitung ulang lewat bagiHasilPinjamanDari (bunga ${cfg.persenBunga}%, potongan admin ${cfg.persenAdmin}%) — semuanya identik.`
+        ? `${baris.length} baris dihitung ulang lewat hak pendana tetap (${PERSEN_IMBAL_PENDANA}% × pokok, potongan admin ${cfg.persenAdmin}%) — semuanya identik.`
         : statusHitung === "awas"
           ? `${gagalHitung.length} baris jatuh ke nilai nol karena masukan di luar rentang: ${batasi(gagalHitung)}`
           : `${salahHitung.length} baris tidak cocok dengan hitung ulang: ${batasi(salahHitung)}`,
-    [`bunga ${cfg.persenBunga}%`, `potongan admin ${cfg.persenAdmin}%`, `${baris.length} baris`],
+    [
+      `hak pendana ${PERSEN_IMBAL_PENDANA}%`,
+      `potongan admin ${cfg.persenAdmin}%`,
+      `${baris.length} baris`,
+    ],
   );
 
   // 3) Ringkasan ruang harus dijumlah dari baris/rekap yang sama.

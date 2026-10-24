@@ -24,6 +24,10 @@ export type LoanRow = {
   pokokDiajukan?: number;
   /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
   persenBunga: number | null;
+  /** Tarif matriks asal bila pinjaman memakai promo bunga. */
+  promoBungaPersenNormal?: number | null;
+  /** Nama kampanye promo yang dibekukan pada pinjaman. */
+  promoBungaNama?: string | null;
   /** Centang cair ekspres peminjam; null/kosong = data lama (ekspres dipakai). */
   cairEkspres?: boolean | null;
   /** Snapshot tarif potongan di muka; null/kosong = tarif bawaan. */

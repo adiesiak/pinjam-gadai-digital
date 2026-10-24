@@ -720,6 +720,9 @@ export const adminOverview = query({
             pokokPinjaman: l.pokokPinjaman,
             pokokDiajukan: l.pokokDiajukan ?? l.pokokPinjaman,
             persenBunga: l.persenBunga ?? null,
+            // Tarif matriks asal pinjaman berpromo — dasar hak penyedia dana.
+            promoBungaPersenNormal: l.promoBungaPersenNormal ?? null,
+            promoBungaNama: l.promoBungaNama ?? null,
             // Null = data lama yang dulu selalu dikenai biaya ekspres.
             cairEkspres: l.cairEkspres ?? null,
             tarifBiaya: l.tarifBiaya ?? null,
@@ -1119,6 +1122,7 @@ export const adminStats = query({
       pokokPinjaman: number;
       tenorBulan?: number;
       persenBunga?: number;
+      promoBungaPersenNormal?: number;
     }): number => {
       try {
         return bagiHasilPinjamanDari(
@@ -1126,6 +1130,7 @@ export const adminStats = query({
             pokokPinjaman: l.pokokPinjaman,
             tenorBulan: l.tenorBulan ?? null,
             persenBunga: l.persenBunga ?? cfg.persenBunga,
+            promoBungaPersenNormal: l.promoBungaPersenNormal ?? null,
           },
           cfg.persenAdmin,
         ).keuntunganAdmin;

@@ -231,7 +231,8 @@ export function PromoBungaPanel() {
           <p className="mt-1 text-sm leading-6 text-slate-600">
             Bunga promo <strong>menggantikan</strong> bunga normal tenor itu selama masa
             berlaku — bukan potongan persen dari bunga. Pinjaman yang sudah terbit tidak
-            berubah saat promo dimatikan.
+            berubah saat promo dimatikan. Hak pendana tetap dihitung dari tarif normal,
+            jadi selisihnya ditanggung platform — bukan dipotong dari imbal hasil pendana.
           </p>
         </div>
         <Button type="button" onClick={bukaBaru} className="gap-1.5">

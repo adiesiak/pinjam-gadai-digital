@@ -82,6 +82,8 @@ export function AliranDanaPinjaman({
   persenBunga = null,
   cairEkspres = null,
   tarifBiaya = null,
+  promoBungaPersenNormal = null,
+  promoBungaNama = null,
   sudahLunas = false,
   persenPotonganPenyedia,
 }: {
@@ -94,12 +96,24 @@ export function AliranDanaPinjaman({
   tenorBulan?: number | null;
   tenorHari?: number | null;
   persenBunga?: number | null;
+  /** Tarif matriks asal bila pinjaman memakai promo bunga. */
+  promoBungaPersenNormal?: number | null;
+  /** Nama kampanye promo yang dibekukan pada pinjaman. */
+  promoBungaNama?: string | null;
   /** Pinjaman sudah dilunasi → angka ini yang dibukukan, bukan proyeksi. */
   sudahLunas?: boolean;
   persenPotonganPenyedia?: number;
 }) {
   const rincian = rincianPinjamanNyata(
-    { pokokPinjaman, tenorBulan, persenBunga, cairEkspres, tarifBiaya },
+    {
+      pokokPinjaman,
+      tenorBulan,
+      persenBunga,
+      cairEkspres,
+      tarifBiaya,
+      promoBungaPersenNormal,
+      promoBungaNama,
+    },
     persenPotonganPenyedia,
   );
   const skema =
@@ -126,6 +140,9 @@ export function AliranDanaPinjaman({
             <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
               Skema {skema} · dipotong admin {rincian.persenPotonganDiMuka}%
               {rincian.adaEkspres ? " + biaya ekspres" : ""} di muka
+              {rincian.persenPromo !== null && rincian.subsidiPromo > 0
+                ? ` · bunga promo ${rincian.persenPromo}%`
+                : ""}
             </p>
           </div>
         </div>
@@ -200,13 +217,27 @@ export function AliranDanaPinjaman({
             <KotakNilai
               label="Imbal Hasil bersih pendana"
               nilai={formatRupiah(rincian.imbalBersihPenyedia)}
+              keterangan={
+                rincian.subsidiPromo > 0 ? "Hak tetap, promo tidak memotong" : undefined
+              }
             />
           </div>
+          {rincian.subsidiPromo > 0 && (
+            <p className="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-900">
+              Promo bunga {rincian.persenPromo}%
+              {promoBungaNama === null ? "" : ` “${promoBungaNama}”`} hanya mengubah tagihan
+              peminjam. Hak pendana tetap dihitung dari tarif normal; selisih{" "}
+              {formatRupiah(rincian.subsidiPromo)} ditanggung platform dari hasil putar
+              modal, bukan dari hak pendana.
+            </p>
+          )}
           <div className="mt-2.5">
             <KotakNilai
               label="Pendapatan platform"
               nilai={formatRupiah(rincian.pendapatanPlatform)}
-              keterangan={`Potongan di muka + potongan ${rincian.persenPotonganPenyedia}%`}
+              keterangan={`Potongan di muka + potongan ${rincian.persenPotonganPenyedia}%${
+                rincian.subsidiPromo > 0 ? " (belum termasuk selisih promo)" : ""
+              }`}
             />
           </div>
         </div>

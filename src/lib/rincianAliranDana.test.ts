@@ -247,6 +247,24 @@ eq(nyataHarian.potonganPenyedia, 25_000, "nyata harian: potongan 5% dari pokok")
 eq(nyataHarian.diterimaPenyedia, 625_000, "nyata harian: diterima penyedia");
 eq(nyataHarian.imbalBersihPenyedia, 125_000, "nyata harian: Imbal Hasil bersih");
 
+// ===== Promo bunga tidak mengubah hak penyedia dana =====
+// Peminjam hanya ditagih 15%, tetapi penyedia tetap menerima angka tarif
+// normal 30%; selisihnya dicatat sebagai beban promo platform.
+const promo = rincianPinjamanNyata({
+  pokokPinjaman: 1_000_000,
+  persenBunga: 15,
+  promoBungaPersenNormal: 30,
+  promoBungaNama: "Tenor pendek",
+});
+const normal = rincianPinjamanNyata({ pokokPinjaman: 1_000_000, persenBunga: 30 });
+eq(promo.imbalHasil, 150_000, "promo: Imbal Hasil peminjam memakai tarif promo");
+eq(promo.totalKembali, 1_150_000, "promo: total kembali peminjam");
+eq(promo.diterimaPenyedia, normal.diterimaPenyedia, "promo: diterima penyedia sama dengan tanpa promo");
+eq(promo.imbalBersihPenyedia, normal.imbalBersihPenyedia, "promo: imbal bersih penyedia tetap");
+eq(promo.subsidiPromo, 150_000, "promo: selisih yang ditanggung platform");
+eq(promo.persenPromo, 15, "promo: tarif promo tercatat");
+eq(promo.promoBungaNama, "Tenor pendek", "promo: nama kampanye tercatat");
+
 // Harian tanpa snapshot bunga memakai tarif bawaan akad (30%).
 eq(
   rincianPinjamanNyata({ pokokPinjaman: 500_000 }).imbalHasil,

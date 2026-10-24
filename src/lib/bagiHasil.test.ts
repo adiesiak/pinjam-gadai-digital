@@ -283,6 +283,39 @@ eq(diperpanjang.totalLunas, 1_970_000, "total kembali = pokok awal + seluruh bun
 eq(diperpanjang.potonganAdmin, 50_000, "potongan 5% dari pokok awal");
 eq(diperpanjang.keuntunganPendana, 920_000, "keuntungan = bersih - pokok awal");
 
+// ===== Promo bunga: hak pendana tetap, selisihnya ditanggung platform =====
+// Peminjam membayar bunga promo 15%, tetapi penyedia dana tetap menerima hak
+// dari tarif normal 30% — promo bukan pengurang imbal hasil pendana.
+const promo = bagiHasilPinjaman(1_000_000, 15, 5, 30);
+eq(promo.bunga, 150_000, "promo: tagihan Peminjam memakai tarif promo");
+eq(promo.totalLunas, 1_150_000, "promo: total kewajiban Peminjam");
+eq(promo.bungaPendana, 300_000, "promo: hak pendana memakai tarif normal");
+eq(promo.pendanaTerima, 1_250_000, "promo: diterima pendana tidak turun");
+eq(promo.keuntunganPendana, 250_000, "promo: keuntungan pendana tidak turun");
+eq(promo.potonganAdmin, 50_000, "promo: potongan platform tetap 5% dari pokok");
+eq(promo.subsidiPromo, 150_000, "promo: selisih bunga ditanggung platform");
+
+const promoDari = bagiHasilPinjamanDari(
+  { pokokPinjaman: 1_000_000, persenBunga: 15, promoBungaPersenNormal: 30 },
+  5,
+);
+eq(promoDari.keuntunganPendana, 250_000, "bagiHasilPinjamanDari: promo tidak memotong pendana");
+eq(promoDari.subsidiPromo, 150_000, "bagiHasilPinjamanDari: subsidi promo terlihat");
+
+// Tanpa tarif normal (atau tarif normal lebih rendah) promo diabaikan sebagai
+// subsidi, sehingga data lama tidak menciptakan beban platform.
+eq(bagiHasilPinjaman(1_000_000, 15, 5).subsidiPromo, 0, "tanpa tarif normal: tanpa subsidi");
+eq(
+  bagiHasilPinjaman(1_000_000, 15, 5, 10).subsidiPromo,
+  0,
+  "tarif normal di bawah promo diabaikan",
+);
+eq(
+  bagiHasilPinjaman(1_000_000, 15, 5, 30).keuntunganPendana,
+  bagiHasilPinjaman(1_000_000, 30, 5).keuntunganPendana,
+  "promo dan normal memberi pendana angka yang sama",
+);
+
 throws(() => bagiHasilPinjaman(-1, 30, 5), "pokok negatif ditolak");
 throws(() => bagiHasilPinjaman(1.5, 30, 5), "pokok pecahan ditolak");
 throws(() => bagiHasilPinjaman(1_000_000, -1, 5), "bunga negatif ditolak");

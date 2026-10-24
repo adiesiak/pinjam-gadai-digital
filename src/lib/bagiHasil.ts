@@ -23,6 +23,11 @@
  * potongan platform dibulatkan KE BAWAH (floor), sehingga sisa rupiah selalu
  * menjadi milik penyedia dana.
  *
+ * Promo bunga menurunkan bunga yang dibayar Peminjam, bukan hak penyedia dana.
+ * Untuk pinjaman berpromo, hak penyedia dihitung dari tarif normal
+ * (`promoBungaPersenNormal`), dan selisihnya menjadi `subsidiPromo` yang
+ * ditanggung platform dari hasil putar modalnya.
+ *
  * Semua nilai adalah rupiah bulat (integer) — tidak ada floating point.
  */
 import { hitungSimulasiBulanan } from "./bulanan";
@@ -113,6 +118,12 @@ export type PinjamanBagiHasil = {
   tenorBulan?: number | null;
   /** Snapshot bunga (persen). Kosong = tarif bawaan skema. */
   persenBunga?: number | null;
+  /**
+   * Tarif matriks asal untuk pinjaman berpromo. Promo menurunkan bunga yang
+   * dibayar Peminjam, TIDAK menurunkan hak penyedia dana: penyedia tetap
+   * dihitung dengan tarif normal ini, dan selisihnya ditanggung platform.
+   */
+  promoBungaPersenNormal?: number | null;
   /** State perpanjangan: bunga yang sudah dibayar + bunga periode berjalan. */
   bungaTerbayar?: number | null;
   nextInterestAmount?: number | null;
@@ -135,7 +146,42 @@ export type BagiHasilPinjaman = {
   keuntunganPendana: Rupiah;
   /** Keuntungan admin atas pinjaman ini (sama dengan `potonganAdmin`). */
   keuntunganAdmin: Rupiah;
+  /**
+   * Imbal Hasil acuan hak penyedia dana. Tanpa promo sama dengan `bunga`;
+   * dengan promo memakai tarif normal, sehingga promo tidak memotong haknya.
+   */
+  bungaPendana: Rupiah;
+  /** Selisih bunga promo yang menjadi beban platform (0 tanpa promo). */
+  subsidiPromo: Rupiah;
 };
+
+/**
+ * Rakit satu hasil bagi hasil dari angka yang sudah dihitung pemanggil.
+ *
+ * `bunga` adalah yang ditagih ke Peminjam (bisa tarif promo), sedangkan
+ * `bungaPendana` adalah dasar hak penyedia dana. Keduanya sama pada pinjaman
+ * tanpa promo, jadi identitas lama tetap berlaku: potongan + diterima =
+ * uang kembali. Pada pinjaman berpromo, selisihnya menjadi `subsidiPromo`.
+ */
+function rakitBagiHasil(args: {
+  pokok: Rupiah;
+  bunga: Rupiah;
+  bungaPendana: Rupiah;
+  totalLunas: Rupiah;
+  potonganAdmin: Rupiah;
+}): BagiHasilPinjaman {
+  const pendanaTerima = args.pokok + args.bungaPendana - args.potonganAdmin;
+  return {
+    bunga: args.bunga,
+    totalLunas: args.totalLunas,
+    potonganAdmin: args.potonganAdmin,
+    pendanaTerima,
+    keuntunganPendana: args.bungaPendana - args.potonganAdmin,
+    keuntunganAdmin: args.potonganAdmin,
+    bungaPendana: args.bungaPendana,
+    subsidiPromo: args.bungaPendana - args.bunga,
+  };
+}
 
 /**
  * Perhitungan bagi hasil SATU pinjaman harian (model 1 pinjaman = 1 pendana).
@@ -155,6 +201,7 @@ export function bagiHasilPinjaman(
   pokok: Rupiah,
   persenBunga: number,
   persenPotonganAdmin: number,
+  promoBungaPersenNormal?: number | null,
 ): BagiHasilPinjaman {
   if (!Number.isInteger(pokok) || !Number.isSafeInteger(pokok) || pokok < 0) {
     throw new Error(`Pokok pinjaman harus rupiah bulat non-negatif: ${pokok}`);
@@ -165,15 +212,25 @@ export function bagiHasilPinjaman(
   const bunga = percentOf(pokok, persenBunga);
   const totalLunas = pokok + bunga;
   const potonganAdmin = potonganDariPokok(pokok, persenPotonganAdmin);
-  const pendanaTerima = totalLunas - potonganAdmin;
-  return {
+  // Promo hanya boleh MENURUNKAN bunga Peminjam. Tarif normal dipakai untuk
+  // hak penyedia dana; nilai yang lebih rendah dari bunga aktual diabaikan
+  // supaya data lama tidak pernah "menaikkan" beban platform secara diam-diam.
+  const tarifNormal =
+    promoBungaPersenNormal !== undefined &&
+    promoBungaPersenNormal !== null &&
+    Number.isFinite(promoBungaPersenNormal) &&
+    promoBungaPersenNormal > persenBunga &&
+    promoBungaPersenNormal <= 100
+      ? promoBungaPersenNormal
+      : null;
+  const bungaPendana = tarifNormal === null ? bunga : percentOf(pokok, tarifNormal);
+  return rakitBagiHasil({
+    pokok,
     bunga,
+    bungaPendana,
     totalLunas,
     potonganAdmin,
-    pendanaTerima,
-    keuntunganPendana: pendanaTerima - pokok,
-    keuntunganAdmin: potonganAdmin,
-  };
+  });
 }
 
 /**
@@ -217,15 +274,13 @@ export function bagiHasilPinjamanDari(
       pinjaman.pokokPinjaman,
       persenPotonganAdmin,
     );
-    const pendanaTerima = totalLunas - potonganAdmin;
-    return {
+    return rakitBagiHasil({
+      pokok: pinjaman.pokokPinjaman,
       bunga,
+      bungaPendana: bunga,
       totalLunas,
       potonganAdmin,
-      pendanaTerima,
-      keuntunganPendana: pendanaTerima - pinjaman.pokokPinjaman,
-      keuntunganAdmin: potonganAdmin,
-    };
+    });
   }
 
   if (tenorBulan === null) {
@@ -233,6 +288,7 @@ export function bagiHasilPinjamanDari(
       pinjaman.pokokPinjaman,
       persenBunga ?? BUNGA_PINJAMAN_DEFAULT_PERSEN,
       persenPotonganAdmin,
+      pinjaman.promoBungaPersenNormal ?? null,
     );
   }
 
@@ -245,19 +301,15 @@ export function bagiHasilPinjamanDari(
   // admin cicilan tiap pembayaran bulanan. Dasar pembayaran pendana mengeluarkan
   // biaya itu lebih dulu: ia sudah menjadi pendapatan platform, jadi tidak boleh
   // ikut menjadi hak pendana (dasar = pokok + Imbal Hasil seluruh tenor).
-  const dasarPotongan =
-    simulasi.totalPengembalian - simulasi.biayaAdminCicilanTotal;
   const potonganAdmin = potonganDariPokok(
     pinjaman.pokokPinjaman,
     persenPotonganAdmin,
   );
-  const pendanaTerima = dasarPotongan - potonganAdmin;
-  return {
+  return rakitBagiHasil({
+    pokok: pinjaman.pokokPinjaman,
     bunga: simulasi.bungaTotal,
+    bungaPendana: simulasi.bungaTotal,
     totalLunas: simulasi.totalPengembalian,
     potonganAdmin,
-    pendanaTerima,
-    keuntunganPendana: pendanaTerima - pinjaman.pokokPinjaman,
-    keuntunganAdmin: potonganAdmin,
-  };
+  });
 }
