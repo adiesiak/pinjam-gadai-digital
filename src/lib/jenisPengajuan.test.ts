@@ -2,8 +2,10 @@
 import {
   JENIS_PENGAJUAN,
   JENIS_PENGAJUAN_AWAL,
+  PRODUK_AKTIF_BAWAAN,
   jenisPengajuanAktif,
   jenisPengajuanDari,
+  jenisPengajuanTersedia,
   jenisPengajuanUntukTab,
 } from "./jenisPengajuan";
 
@@ -100,6 +102,31 @@ for (const tab of ["pinjaman", "jadwal", "gadai"]) {
     `jenis untuk tab ${tab} ada di daftar`,
   );
 }
+
+// Sakelar produk dari admin menyaring pilihan tanpa mengubah urutannya.
+eq(
+  jenisPengajuanTersedia(PRODUK_AKTIF_BAWAAN)
+    .map((j) => j.id)
+    .join(","),
+  "pinjaman,gadai,kredit",
+  "semua produk aktif → tiga jenis",
+);
+eq(
+  jenisPengajuanTersedia({ ...PRODUK_AKTIF_BAWAAN, pinjaman: false })
+    .map((j) => j.id)
+    .join(","),
+  "gadai,kredit",
+  "pinjaman mati → gadai & kredit tetap tampil",
+);
+eq(
+  jenisPengajuanTersedia({
+    pinjaman: false,
+    gadai: false,
+    kredit: false,
+  }).length,
+  0,
+  "semua produk mati → tidak ada jenis ditawarkan",
+);
 
 console.log(`jenisPengajuan.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

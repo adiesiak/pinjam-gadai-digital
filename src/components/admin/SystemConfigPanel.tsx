@@ -1102,6 +1102,36 @@ export function SystemConfigPanel() {
 
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Produk Pengajuan
+                </p>
+                <SwitchRow
+                  htmlFor="cfg-produk-pinjaman"
+                  label="Pinjaman tunai"
+                  hint="Mati: formulirnya disembunyikan dan pengajuan baru ditolak. Pinjaman berjalan tidak berubah."
+                  checked={form.produkPinjamanAktif}
+                  onChange={(v) => upd("produkPinjamanAktif", v)}
+                  accent="emerald"
+                />
+                <SwitchRow
+                  htmlFor="cfg-produk-kredit"
+                  label="Kredit barang"
+                  hint="Mati: formulir kredit barang disembunyikan dan pengajuan baru ditolak."
+                  checked={form.produkKreditAktif}
+                  onChange={(v) => upd("produkKreditAktif", v)}
+                  accent="emerald"
+                />
+                <SwitchRow
+                  htmlFor="cfg-produk-gadai"
+                  label="Gadai"
+                  hint="Mati: formulir gadai disembunyikan dan pengajuan baru ditolak."
+                  checked={form.produkGadaiAktif}
+                  onChange={(v) => upd("produkGadaiAktif", v)}
+                  accent="emerald"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Notifikasi Otomatis
                 </p>
                 <SwitchRow

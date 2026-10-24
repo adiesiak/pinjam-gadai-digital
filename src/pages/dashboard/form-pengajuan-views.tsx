@@ -34,9 +34,13 @@ import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { PilihanProduk } from "@/components/landing/PilihanProduk";
 import {
   JENIS_PENGAJUAN,
+  PRODUK_AKTIF_BAWAAN,
   jenisPengajuanAktif,
   jenisPengajuanDari,
+  jenisPengajuanTersedia,
+  type BarisJenisPengajuan,
   type JenisPengajuan,
+  type ProdukAktif,
 } from "@/lib/jenisPengajuan";
 
 import { LoanForm, PawnForm } from "./forms-views";
@@ -60,11 +64,15 @@ const IKON_JENIS: Record<JenisPengajuan, typeof Wallet> = {
 export function PemilihJenisPengajuan({
   nilai,
   onUbah,
+  daftar = JENIS_PENGAJUAN,
 }: {
   nilai: string;
   onUbah: (jenis: JenisPengajuan) => void;
+  /** Hanya jenis yang dibuka admin; bawaan seluruh jenis. */
+  daftar?: ReadonlyArray<BarisJenisPengajuan>;
 }) {
-  const aktif = jenisPengajuanAktif(nilai);
+  const aktif = daftar.find((jenis) => jenis.id === nilai) ?? daftar[0];
+  if (aktif === undefined) return null;
   const IkonAktif = IKON_JENIS[aktif.id];
 
   return (
@@ -100,7 +108,7 @@ export function PemilihJenisPengajuan({
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {JENIS_PENGAJUAN.map(({ id, label }) => {
+          {daftar.map(({ id, label }) => {
             const Ikon = IKON_JENIS[id];
             return (
               <SelectItem key={id} value={id}>
@@ -167,6 +175,7 @@ export function FormPengajuanSection({
   onUbahJenis,
   onBukaKyc,
   jalurAwal = "konvensional",
+  produkAktif = PRODUK_AKTIF_BAWAAN,
 }: {
   jenis: JenisPengajuan;
   onUbahJenis: (jenis: JenisPengajuan) => void;
@@ -174,8 +183,11 @@ export function FormPengajuanSection({
   onBukaKyc?: () => void;
   /** Dipakai tautan "Ajukan akad syariah" agar jalur langsung terbuka. */
   jalurAwal?: "konvensional" | "syariah";
+  /** Sakelar produk dari admin; produk mati tidak ditawarkan di formulir. */
+  produkAktif?: ProdukAktif;
 }) {
-  const aktif = jenisPengajuanAktif(jenis);
+  const tersedia = jenisPengajuanTersedia(produkAktif);
+  const aktif = tersedia.find((baris) => baris.id === jenis) ?? tersedia[0] ?? null;
   // Jalur dipilih SEBELUM jenis pengajuan: konvensional memakai dropdown tiga
   // produk yang sudah ada, syariah memakai formulir akad sendiri. Sakelar ini
   // lokal karena hanya menyusun tampilan; server tetap memvalidasi semuanya.
@@ -192,13 +204,13 @@ export function FormPengajuanSection({
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
             {jalur === "syariah"
               ? "Murabahah untuk barang dan Rahn untuk gadai. Petugas menetapkan angka akad sebelum pencairan."
-              : "Pinjaman, gadai, dan kredit barang diajukan dari satu halaman ini. Pilih jenisnya di menu dropdown, lalu isi formulir yang muncul. Semua angka dihitung aplikasi dan tercatat di PINDAI."}
+              : "Pilih jenis di menu dropdown, lalu isi formulir yang muncul. Produk yang ditutup admin tidak tampil, dan semua angka dihitung aplikasi."}
           </p>
         </div>
         <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
           {jalur === "syariah"
             ? "3 akad syariah"
-            : `${JENIS_PENGAJUAN.length} jenis pengajuan`}
+            : `${tersedia.length} jenis pengajuan`}
         </span>
       </div>
 
@@ -228,10 +240,24 @@ export function FormPengajuanSection({
         <div className="min-w-0 animate-masuk">
           <SyariahSection onBukaKyc={onBukaKyc} />
         </div>
+      ) : tersedia.length === 0 || aktif === null ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
+          <p className="text-sm font-semibold text-amber-950">
+            Pengajuan konvensional sedang ditutup
+          </p>
+          <p className="mt-1 max-w-xl text-xs leading-5 text-amber-900">
+            Pinjaman tunai, gadai, dan kredit barang tidak menerima pengajuan baru
+            saat ini. Akad syariah tetap bisa diajukan lewat jalur di atas.
+          </p>
+        </div>
       ) : (
         <>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <PemilihJenisPengajuan nilai={jenis} onUbah={onUbahJenis} />
+            <PemilihJenisPengajuan
+              nilai={aktif.id}
+              onUbah={onUbahJenis}
+              daftar={tersedia}
+            />
           </div>
 
           {/* `key` memaksa formulir lama dilepas saat jenis berganti: isian tidak

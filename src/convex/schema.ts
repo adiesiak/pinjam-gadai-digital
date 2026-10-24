@@ -1185,6 +1185,10 @@ const schema = defineSchema(
       killSwitch: v.optional(v.boolean()),
       /** Mode perawatan: frontend menampilkan halaman pengumuman. */
       maintenanceMode: v.optional(v.boolean()),
+      /** Sakelar produk pengajuan; kosong = aktif (baris lama). */
+      produkPinjamanAktif: v.optional(v.boolean()),
+      produkKreditAktif: v.optional(v.boolean()),
+      produkGadaiAktif: v.optional(v.boolean()),
       /** Persentase biaya — diubah dari default 3/2/30 untuk penyesuaian. */
       persenAdmin: v.optional(v.number()),
       persenPlatform: v.optional(v.number()),

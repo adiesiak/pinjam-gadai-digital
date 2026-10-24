@@ -99,6 +99,24 @@ ok(
   ),
 );
 
+// Produk yang dimatikan admin hilang dari daftar: pilihan lama yang masih
+// tersimpan jatuh ke jenis yang benar-benar dibuka, bukan menampilkan kosong.
+const hanyaGadai = JENIS_PENGAJUAN.filter((jenis) => jenis.id === "gadai");
+const wajahTersaring = wajahDropdown(
+  renderToStaticMarkup(
+    <PemilihJenisPengajuan nilai="pinjaman" onUbah={() => {}} daftar={hanyaGadai} />,
+  ),
+  "Jenis pengajuan",
+);
+ok("pilihan produk mati jatuh ke jenis yang dibuka", wajahTersaring.includes("Gadai barang"));
+ok("pilihan produk mati tidak menyebut pinjaman", !wajahTersaring.includes("Pinjaman tunai"));
+ok(
+  "tanpa jenis tersedia pemilih tidak dirender",
+  renderToStaticMarkup(
+    <PemilihJenisPengajuan nilai="pinjaman" onUbah={() => {}} daftar={[]} />,
+  ) === "",
+);
+
 // --- Menu dashboard (layar sempit) ------------------------------------------
 
 function renderMenuDashboard(

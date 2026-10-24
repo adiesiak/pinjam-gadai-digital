@@ -613,6 +613,14 @@ export const createLoanApplication = mutation({
         "Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.",
       );
     }
+    // Sakelar produk: admin bisa menutup pinjaman tunai tanpa mematikan
+    // gadai/kredit. Diperiksa di server supaya formulir lama yang masih terbuka
+    // tidak bisa mengirim pengajuan.
+    if (!sys.produkPinjamanAktif) {
+      throw new Error(
+        "Pengajuan pinjaman tunai sedang ditutup. Pilih gadai atau kredit barang, atau coba lagi nanti.",
+      );
+    }
     // Batas pinjaman tunai: Rp 100.000 s.d. PLAFON NASABAH (default global
     // 1 juta, admin bisa naikkan/turunkan per orang — lib/plafon.ts).
     // Skema bulanan (tenorBulan diisi) memakai mesin yang sama dengan plafon
@@ -1289,6 +1297,11 @@ export const createPawnApplication = mutation({
     if (sys.killSwitch) {
       throw new Error(
         "Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.",
+      );
+    }
+    if (!sys.produkGadaiAktif) {
+      throw new Error(
+        "Pengajuan gadai sedang ditutup. Pilih pinjaman tunai atau kredit barang, atau coba lagi nanti.",
       );
     }
 

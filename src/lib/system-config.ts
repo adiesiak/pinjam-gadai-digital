@@ -88,6 +88,14 @@ export type SystemConfig = {
   efekMusiman: boolean;
   killSwitch: boolean;
   maintenanceMode: boolean;
+  /**
+   * Sakelar ketersediaan produk pengajuan. Mati berarti formulir produk itu
+   * disembunyikan dan pengajuan baru ditolak server; pinjaman yang sudah
+   * berjalan tidak berubah.
+   */
+  produkPinjamanAktif: boolean;
+  produkKreditAktif: boolean;
+  produkGadaiAktif: boolean;
   persenAdmin: number;
   persenPlatform: number;
   persenBunga: number;
@@ -209,6 +217,9 @@ export const DEFAULT_CONFIG: SystemConfig = {
   efekMusiman: false,
   killSwitch: false,
   maintenanceMode: false,
+  produkPinjamanAktif: true,
+  produkKreditAktif: true,
+  produkGadaiAktif: true,
   /**
    * Potongan admin dari POKOK penempatan penyedia dana. Contoh pokok
    * Rp1.000.000 @30%: uang yang kembali Rp1.300.000 → potongan 5% = Rp50.000,

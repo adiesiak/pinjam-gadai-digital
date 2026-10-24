@@ -143,6 +143,51 @@ describe("konfigurasi: versi, riwayat, rollback", () => {
     ).toEqual(["notifEmailAktif", "notifWhatsappAktif"]);
   });
 
+  it("sakelar produk tersimpan dan terbaca publik", async () => {
+    const t = buatKontek();
+    const { sesi: asAdmin } = await siapkanPengguna(t, "admin-produk", {
+      email: "admin-produk@pindai.test",
+      role: "admin",
+    });
+
+    await asAdmin.mutation(
+      api.system.saveConfig,
+      argumenConfig({ produkPinjamanAktif: false, produkGadaiAktif: false }),
+    );
+
+    expect(await t.query(api.system.getProdukAktif, {})).toEqual({
+      pinjaman: false,
+      kredit: true,
+      gadai: false,
+    });
+
+    const cfg = await asAdmin.query(api.system.getConfigAdmin, {});
+    expect(cfg.config.produkPinjamanAktif).toBe(false);
+    expect(cfg.config.produkGadaiAktif).toBe(false);
+    expect(cfg.config.produkKreditAktif).toBe(true);
+
+    const riwayat = await asAdmin.query(api.system.riwayatConfig, {});
+    expect(
+      riwayat[0].perubahan
+        .map((p) => p.kunci)
+        .filter((kunci) => kunci.startsWith("produk"))
+        .sort(),
+    ).toEqual(["produkGadaiAktif", "produkPinjamanAktif"]);
+  });
+
+  it("baris konfigurasi lama tanpa sakelar produk tetap membuka semua produk", async () => {
+    const t = buatKontek();
+    await t.run((ctx) =>
+      ctx.db.insert("systemConfig", { slot: "global", versi: 4, diperbaruiPada: 0 }),
+    );
+
+    expect(await t.query(api.system.getProdukAktif, {})).toEqual({
+      pinjaman: true,
+      kredit: true,
+      gadai: true,
+    });
+  });
+
   it("rollback membuat versi baru tanpa menghapus riwayat", async () => {
     const t = buatKontek();
     const { sesi: asAdmin } = await siapkanPengguna(t, "admin-cfg2", {

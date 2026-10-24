@@ -162,6 +162,11 @@ export const ajukanKreditBarang = mutation({
     await requireGerbangLokasi(ctx, userId, user);
     const sys = await getConfig(ctx);
     if (sys.killSwitch) throw new Error("Pengajuan sementara dihentikan oleh sistem (kill switch aktif). Coba lagi nanti.");
+    if (!sys.produkKreditAktif) {
+      throw new Error(
+        "Pengajuan kredit barang sedang ditutup. Pilih pinjaman tunai atau gadai, atau coba lagi nanti.",
+      );
+    }
     if (!(KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(args.tenorBulan)) {
       throw new Error(`Tenor kredit barang baru harus ${KREDIT_TENOR_PENGAJUAN_OPTIONS.join(" / ")} bulan (maksimal 6 bulan).`);
     }

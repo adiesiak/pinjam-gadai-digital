@@ -54,6 +54,27 @@ export const JENIS_PENGAJUAN: ReadonlyArray<BarisJenisPengajuan> = [
 /** Jenis bawaan saat halaman pengajuan dibuka pertama kali. */
 export const JENIS_PENGAJUAN_AWAL: JenisPengajuan = "pinjaman";
 
+/** Sakelar ketersediaan tiap produk, dibaca dari `system.getProdukAktif`. */
+export type ProdukAktif = Record<JenisPengajuan, boolean>;
+
+/** Sebelum konfigurasi dimuat, semua produk dianggap terbuka. */
+export const PRODUK_AKTIF_BAWAAN: ProdukAktif = {
+  pinjaman: true,
+  gadai: true,
+  kredit: true,
+};
+
+/**
+ * Jenis pengajuan yang boleh dipilih sekarang, dengan urutan tampil yang sama.
+ * Produk yang dimatikan admin hilang dari menu dropdown, bukan sekadar
+ * dinonaktifkan, supaya tidak ada formulir yang bisa diisi lalu ditolak server.
+ */
+export function jenisPengajuanTersedia(
+  produk: ProdukAktif,
+): ReadonlyArray<BarisJenisPengajuan> {
+  return JENIS_PENGAJUAN.filter((jenis) => produk[jenis.id]);
+}
+
 /** Nilai dropdown → jenis yang sah; `null` bila nilainya tidak dikenal. */
 export function jenisPengajuanDari(nilai: string): JenisPengajuan | null {
   return JENIS_PENGAJUAN.some((jenis) => jenis.id === nilai)

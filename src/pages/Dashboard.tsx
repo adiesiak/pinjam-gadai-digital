@@ -128,6 +128,9 @@ export default function Dashboard() {
   // menahan seluruh dashboard saat masih dimuat: tanpa data, tabnya cukup tanpa
   // lencana.
   const kyc = useQuery(api.kyc.kycSaya, argsPeminjam);
+  // Produk yang dibuka admin. Tanpa data, formulir menampilkan semua jenis
+  // (bawaan), lalu menyaring begitu konfigurasi tiba.
+  const produkAktif = useQuery(api.system.getProdukAktif, {});
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
   const [verifikasiTerbuka, setVerifikasiTerbuka] = useState(false);
   const loanDetail = (loans ?? []).find((loan) => loan._id === loanDetailId) ?? null;
@@ -552,6 +555,7 @@ export default function Dashboard() {
                     onUbahJenis={setJenisPengajuan}
                     onBukaKyc={() => gantiTab("kyc")}
                     jalurAwal={jalurPengajuan}
+                    produkAktif={produkAktif}
                   />
                 </TabsContent>
 

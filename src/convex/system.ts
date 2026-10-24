@@ -92,6 +92,12 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
       ((row.tema === "salju" || row.tema === "karnival") as boolean),
     killSwitch: row.killSwitch ?? DEFAULT_CONFIG.killSwitch,
     maintenanceMode: row.maintenanceMode ?? DEFAULT_CONFIG.maintenanceMode,
+    // Baris yang dibuat sebelum sakelar produk ada tetap dianggap menyala.
+    produkPinjamanAktif:
+      row.produkPinjamanAktif ?? DEFAULT_CONFIG.produkPinjamanAktif,
+    produkKreditAktif:
+      row.produkKreditAktif ?? DEFAULT_CONFIG.produkKreditAktif,
+    produkGadaiAktif: row.produkGadaiAktif ?? DEFAULT_CONFIG.produkGadaiAktif,
     persenAdmin: row.persenAdmin ?? DEFAULT_CONFIG.persenAdmin,
     persenPlatform: row.persenPlatform ?? DEFAULT_CONFIG.persenPlatform,
     persenBunga: row.persenBunga ?? DEFAULT_CONFIG.persenBunga,
@@ -271,6 +277,22 @@ export const getKetentuanBiaya = query({
       // sudah ada menyimpan angkanya sendiri.
       persenMarginSyariah: cfg.persenMarginSyariah,
       persenNisbahPendanaSyariah: cfg.persenNisbahPendanaSyariah,
+    };
+  },
+});
+
+/**
+ * Produk pengajuan yang sedang dibuka — dibaca formulir nasabah dan gerbang
+ * server. Tanpa data akun dan tanpa tarif: hanya tiga keputusan admin.
+ */
+export const getProdukAktif = query({
+  args: {},
+  handler: async (ctx) => {
+    const cfg = await getConfig(ctx);
+    return {
+      pinjaman: cfg.produkPinjamanAktif,
+      kredit: cfg.produkKreditAktif,
+      gadai: cfg.produkGadaiAktif,
     };
   },
 });
@@ -560,6 +582,12 @@ async function bersihkanConfigMasuk(
     // membiarkan nilai sekarang secara diam-diam.
     notifWhatsappAktif: kanalAktif(input.notifWhatsappAktif),
     notifEmailAktif: kanalAktif(input.notifEmailAktif),
+    // Snapshot lama (sebelum sakelar produk ada) tidak memuat kolom ini.
+    // Rollback ke snapshot itu menyalakan kembali produknya, bukan mematikan
+    // diam-diam karena nilainya undefined.
+    produkPinjamanAktif: input.produkPinjamanAktif ?? true,
+    produkKreditAktif: input.produkKreditAktif ?? true,
+    produkGadaiAktif: input.produkGadaiAktif ?? true,
   };
 }
 
@@ -647,6 +675,10 @@ export const saveConfig = mutation({
     efekMusiman: v.boolean(),
     killSwitch: v.boolean(),
     maintenanceMode: v.boolean(),
+    /** Opsional: pemanggil lama & snapshot lama mempertahankan nilai berlaku. */
+    produkPinjamanAktif: v.optional(v.boolean()),
+    produkKreditAktif: v.optional(v.boolean()),
+    produkGadaiAktif: v.optional(v.boolean()),
     persenAdmin: v.number(),
     persenPlatform: v.number(),
     persenBunga: v.number(),
@@ -709,6 +741,9 @@ export const saveConfig = mutation({
       efekMusiman: args.efekMusiman,
       killSwitch: args.killSwitch,
       maintenanceMode: args.maintenanceMode,
+      produkPinjamanAktif: args.produkPinjamanAktif ?? prev.produkPinjamanAktif,
+      produkKreditAktif: args.produkKreditAktif ?? prev.produkKreditAktif,
+      produkGadaiAktif: args.produkGadaiAktif ?? prev.produkGadaiAktif,
       persenAdmin: args.persenAdmin,
       persenPlatform: args.persenPlatform,
       persenBunga: args.persenBunga,
