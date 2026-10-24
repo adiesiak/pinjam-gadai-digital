@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { usePromoBungaAktif } from "@/hooks/use-promo-bunga";
 import {
   HAK_CIPTA_PINDAI,
   NAMA_ENTITAS_PINDAI,
@@ -52,6 +53,11 @@ import {
   type Tenor,
 } from "@/lib/loan";
 import { formatRupiahAman, kelompokkanDigit } from "@/lib/money";
+import {
+  bungaSetelahPromo,
+  pilihPromoBunga,
+  type PromoBungaRingkas,
+} from "@/lib/promoBunga";
 import { bagiHasilMurabahah, hargaJualMurabahah } from "@/lib/syariah/murabahah";
 import { MARGIN_MURABAHAH_BAWAAN } from "@/lib/syariah/pengajuan";
 import { bagiHasilRahn } from "@/lib/syariah/rahn";
@@ -105,7 +111,10 @@ function BarisAngka({
 }
 
 /** Tiga tier tarif harian, dari matriks mesin harga yang sama dengan server. */
-function TabelTarifHarian() {
+function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) {
+  // Promo bunga menggantikan tarif sel — tabel ini menampilkan angka yang
+  // benar-benar akan dipakai, bukan tarif normal yang sudah tidak berlaku.
+  const adaPromo = promos.length > 0;
   const tier = [
     { label: "Rp100.000 sampai Rp499.999", pokok: 300_000 },
     { label: "Rp500.000 sampai Rp999.999", pokok: 700_000 },
@@ -120,22 +129,41 @@ function TabelTarifHarian() {
         >
           <p className="text-sm font-medium text-slate-800">{baris.label}</p>
           <div className="grid grid-cols-3 gap-2 sm:contents">
-            {TENOR_OPTIONS.map((tenor) => (
-              <p
-                key={tenor}
-                className="rounded-lg bg-slate-50 px-2 py-1.5 text-center text-xs tabular-nums text-slate-700 sm:bg-transparent sm:p-0 sm:text-right"
-              >
-                <span className="block text-[10px] uppercase tracking-[0.1em] text-slate-500 sm:hidden">
-                  {tenor} hari
-                </span>
-                <span className="font-semibold">
-                  {persen(persenBungaHarian(baris.pokok, tenor) ?? 0)}
-                </span>
-              </p>
-            ))}
+            {TENOR_OPTIONS.map((tenor) => {
+              const normal = persenBungaHarian(baris.pokok, tenor) ?? 0;
+              const promo = pilihPromoBunga(promos, { tenor, sekarang: Date.now() });
+              return (
+                <p
+                  key={tenor}
+                  className="rounded-lg bg-slate-50 px-2 py-1.5 text-center text-xs tabular-nums text-slate-700 sm:bg-transparent sm:p-0 sm:text-right"
+                >
+                  <span className="block text-[10px] uppercase tracking-[0.1em] text-slate-500 sm:hidden">
+                    {tenor} hari
+                  </span>
+                  <span
+                    className={
+                      promo === null ? "font-semibold" : "font-semibold text-emerald-700"
+                    }
+                  >
+                    {persen(bungaSetelahPromo(normal, promo))}
+                  </span>
+                  {promo !== null && (
+                    <span className="block text-[10px] font-medium text-emerald-700">
+                      promo
+                    </span>
+                  )}
+                </p>
+              );
+            })}
           </div>
         </div>
       ))}
+      {adaPromo && (
+        <p className="py-2 text-[11px] leading-5 text-emerald-800">
+          Angka hijau adalah bunga promo yang sedang berjalan; angka lain adalah tarif
+          normal.
+        </p>
+      )}
     </div>
   );
 }
@@ -169,9 +197,11 @@ function TabelTarifBulanan({ tarif }: { tarif: TarifBulanan }) {
 function KalkulatorKonvensional({
   tarifBiaya,
   tarifBulanan,
+  promos,
 }: {
   tarifBiaya: TarifBiaya;
   tarifBulanan: TarifBulanan;
+  promos: readonly PromoBungaRingkas[];
 }) {
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const [nominalTeks, setNominalTeks] = useState("1.000.000");
@@ -188,7 +218,9 @@ function KalkulatorKonvensional({
     try {
       if (skema === "harian") {
         const tenor = sesuaikanTenorHarian(nominal, tenorHari);
-        const bunga = persenBungaHarian(nominal, tenor) ?? 0;
+        const normal = persenBungaHarian(nominal, tenor) ?? 0;
+        const promo = pilihPromoBunga(promos, { tenor, sekarang: Date.now() });
+        const bunga = bungaSetelahPromo(normal, promo);
         const q = quoteLoanBunga(nominal, bunga, { ekspres, tarif: tarifBiaya });
         isi = (
           <>
@@ -214,7 +246,8 @@ function KalkulatorKonvensional({
                 </p>
                 <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
                   {rupiah(q.pokok)} pokok + {rupiah(q.bunga)} bunga ({persen(bunga)}{" "}
-                  untuk {tenor} hari)
+                  untuk {tenor} hari
+                  {promo === null ? "" : ` · promo dari ${persen(normal)}`})
                 </p>
               </div>
             </div>
@@ -874,6 +907,7 @@ function KerangkaHalaman({
   produk,
   tarifBiaya,
   tarifBulanan,
+  promos,
   akunHref,
   akunLabel,
   memuatAkun,
@@ -881,6 +915,7 @@ function KerangkaHalaman({
   produk: JenisProduk;
   tarifBiaya: TarifBiaya;
   tarifBulanan: TarifBulanan;
+  promos: readonly PromoBungaRingkas[];
   /** Tujuan tombol akun di kepala halaman. */
   akunHref: string;
   akunLabel: string;
@@ -1104,7 +1139,7 @@ function KerangkaHalaman({
                     Persentase bunga flat dari pokok, bukan per bulan. Tenor
                     menentukan persentase yang berlaku.
                   </p>
-                  <TabelTarifHarian />
+                  <TabelTarifHarian promos={promos} />
 
                   <h3 className="mt-8 text-sm font-semibold text-slate-900">
                     Tarif cicilan bulanan
@@ -1136,6 +1171,7 @@ function KerangkaHalaman({
                 <KalkulatorKonvensional
                   tarifBiaya={tarifBiaya}
                   tarifBulanan={tarifBulanan}
+                  promos={promos}
                 />
               </div>
             )}
@@ -1205,6 +1241,7 @@ export function ProdukPinjamanView({
   produk,
   tarifBiaya = tarifBiayaAman(undefined),
   tarifBulanan = TARIF_BULANAN_DEFAULT,
+  promos = [],
   akunHref = "/auth",
   akunLabel = "Masuk",
   memuatAkun = false,
@@ -1212,6 +1249,8 @@ export function ProdukPinjamanView({
   produk: JenisProduk;
   tarifBiaya?: TarifBiaya;
   tarifBulanan?: TarifBulanan;
+  /** Promo bunga yang berlaku; kosong = tarif normal (dipakai uji). */
+  promos?: readonly PromoBungaRingkas[];
   akunHref?: string;
   akunLabel?: string;
   memuatAkun?: boolean;
@@ -1221,6 +1260,7 @@ export function ProdukPinjamanView({
       produk={produk}
       tarifBiaya={tarifBiaya}
       tarifBulanan={tarifBulanan}
+      promos={promos}
       akunHref={akunHref}
       akunLabel={akunLabel}
       memuatAkun={memuatAkun}
@@ -1231,12 +1271,14 @@ export function ProdukPinjamanView({
 /** Rute publik: tarif dibaca dari Pengaturan Sistem yang sama dengan server. */
 export default function ProdukPinjaman({ produk }: { produk: JenisProduk }) {
   const ketentuan = useQuery(api.system.getKetentuanBiaya);
+  const promos = usePromoBungaAktif();
   const { isAuthenticated, isLoading } = useAuth();
   return (
     <ProdukPinjamanView
       produk={produk}
       tarifBiaya={tarifBiayaAman(ketentuan?.tarifBiaya)}
       tarifBulanan={ketentuan?.tarifBulanan ?? TARIF_BULANAN_DEFAULT}
+      promos={promos}
       akunHref={isAuthenticated ? "/dashboard" : "/auth"}
       akunLabel={isAuthenticated ? "Buka dashboard" : "Masuk"}
       memuatAkun={isLoading}

@@ -4,6 +4,7 @@ import { CalendarClock, Loader2, Megaphone, Pencil, Plus, Trash2 } from "lucide-
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { PromoBungaPanel } from "@/components/admin/PromoBungaPanel";
 import { PromoPinjamanKartu } from "@/components/promo/PromoPinjamanKartu";
 import {
   AlertDialog,
@@ -37,9 +38,11 @@ import {
   formatPeriodePromo,
   labelPenempatan,
   periksaIsiPromo,
+  TEMPLATE_PROMO_PINJAMAN,
   tanggalKeMsWIB,
   type PenempatanPromo,
   type StatusPromo,
+  type TemplatePromoPinjaman,
 } from "@/lib/promoPinjaman";
 import { formatTanggalWIB } from "@/lib/waktu";
 
@@ -133,6 +136,20 @@ export function PromoPinjamanPanel() {
     setTerbuka(true);
   };
 
+  /**
+   * Terapkan preset teks. Tanggal dan status aktif SENGAJA tidak diubah:
+   * template membantu menulis, bukan menjadwalkan kampanye untuk admin.
+   */
+  const terapkanTemplate = (template: TemplatePromoPinjaman) => {
+    setDraf((sebelumnya) => ({
+      ...sebelumnya,
+      badge: template.badge,
+      judul: template.judul,
+      deskripsi: template.deskripsi,
+      penempatan: [...template.penempatan],
+    }));
+  };
+
   const ubahPenempatan = (id: PenempatanPromo, dicentang: boolean) => {
     setDraf((sebelumnya) => ({
       ...sebelumnya,
@@ -217,8 +234,9 @@ export function PromoPinjamanPanel() {
             Promo pinjaman
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Promo hanya mengganti teks kampanye di tempat yang dipilih. Bunga, biaya,
-            dan plafon tetap dibaca dari pengaturan yang berlaku untuk tiap nasabah.
+            Kampanye teks hanya mengganti kalimat di tempat yang dipilih. Angka bunga
+            diatur terpisah di bagian <strong>Bunga promo</strong>; biaya dan plafon tetap
+            dibaca dari pengaturan yang berlaku untuk tiap nasabah.
           </p>
         </div>
         <Button type="button" onClick={bukaBaru} className="gap-1.5">
@@ -309,6 +327,8 @@ export function PromoPinjamanPanel() {
         </ul>
       )}
 
+      <PromoBungaPanel />
+
       <Sheet open={terbuka} onOpenChange={setTerbuka}>
         {/* Form promo berisi banyak kolom teks + pratinjau: laci samping supaya
             daftar promo di belakangnya tetap terlihat. */}
@@ -325,6 +345,29 @@ export function PromoPinjamanPanel() {
           </SheetHeader>
 
           <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Mulai dari template
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {TEMPLATE_PROMO_PINJAMAN.map((template) => (
+                  <Button
+                    key={template.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => terapkanTemplate(template)}
+                  >
+                    {template.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                Template mengisi label, judul, deskripsi, dan tempat tampil. Tanggal tetap
+                seperti yang sudah diisi dan semua teks masih bisa disunting.
+              </p>
+            </div>
+
             <div>
               <Label htmlFor="promo-badge">
                 Label kecil <span className="text-slate-400">(opsional)</span>

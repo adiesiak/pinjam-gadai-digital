@@ -51,6 +51,8 @@ import { tarifBulananDariConfig } from "../lib/system-config";
 import { potonganDariPokok } from "../lib/bagiHasil";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah, type Rupiah } from "../lib/money";
+import { bungaSetelahPromo } from "../lib/promoBunga";
+import { promoBungaUntukPengajuan } from "./promoBunga";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import {
@@ -736,6 +738,23 @@ export const createLoanApplication = mutation({
       persenBungaSimpanan = persenBungaPerBulan(tenorBulanSim, tarifBulanan);
     }
 
+    // ===== Promo bunga (harian saja) =====
+    // Promo menurunkan BUNGA, bukan biaya admin, dan hanya berlaku pada skema
+    // harian: tarif bulanan sudah punya tabel tenor sendiri di Pengaturan.
+    // Bunga normal disimpan terpisah supaya rincian/kontrak bisa menyebut
+    // potongannya. Promo tidak pernah menaikkan bunga (dijaga `bungaSetelahPromo`).
+    const promoDipakai =
+      tenorBulanSim === undefined
+        ? await promoBungaUntukPengajuan(ctx, {
+            tenor: args.tenorHari,
+            sekarang: Date.now(),
+          })
+        : null;
+    const persenBungaNormal = persenBungaSimpanan;
+    if (promoDipakai !== null) {
+      persenBungaSimpanan = bungaSetelahPromo(persenBungaNormal, promoDipakai);
+    }
+
     // Nama peminjam selalu disimpan UPPERCASE agar konsisten di dashboard.
     const trimmedName = args.namaLengkap.trim().toUpperCase();
     const namaBank = args.namaBank.trim();
@@ -856,6 +875,15 @@ export const createLoanApplication = mutation({
       // setelahnya. Untuk tenor harian, nilai ini sudah dihitung dari matriks
       // di atas; untuk bulanan tetap memakai tarif akun per bulan.
       persenBunga: persenBungaSimpanan,
+      // Snapshot promo bunga: hanya bila promo benar-benar memotong bunga.
+      // Pinjaman yang tersimpan tetap utuh walau promo dimatikan kemudian.
+      ...(promoDipakai !== null && persenBungaSimpanan < persenBungaNormal
+        ? {
+            promoBungaId: promoDipakai._id,
+            promoBungaNama: promoDipakai.nama,
+            promoBungaPersenNormal: persenBungaNormal,
+          }
+        : {}),
       // Snapshot TARIF bulanan lengkap: jadwal, kontrak, dan bagi hasil pinjaman
       // ini dihitung ulang dari angka ini, bukan dari konfigurasi hari ini.
       tarifBulanan: tenorBulanSim === undefined ? undefined : tarifBulanan,

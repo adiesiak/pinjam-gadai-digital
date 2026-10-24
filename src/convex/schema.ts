@@ -302,6 +302,15 @@ const schema = defineSchema(
        */
       persenBunga: v.optional(v.number()),
       /**
+       * Promo bunga yang DIPAKAI saat pengajuan ini disimpan. Kosong = tidak
+       * ada promo yang berlaku. `persenBunga` di atas berisi angka promo,
+       * sedangkan `promoBungaPersenNormal` menyimpan tarif matriks asalnya agar
+       * rincian/kontrak bisa menyebut potongannya tanpa menebak.
+       */
+      promoBungaId: v.optional(v.id("promoBunga")),
+      promoBungaNama: v.optional(v.string()),
+      promoBungaPersenNormal: v.optional(v.number()),
+      /**
        * Snapshot TARIF skema bulanan yang berlaku saat pinjaman ini dibuat:
        * bunga tenor 1/3/6, biaya layanan di muka, dan biaya admin cicilan.
        * Kosong pada pinjaman harian dan pada data lama (pakai tarif bawaan).
@@ -3509,6 +3518,30 @@ const schema = defineSchema(
       diperbaruiPada: v.number(),
       diperbaruiOleh: v.string(),
     }).index("by_diperbarui", ["diperbaruiPada"]),
+
+    /**
+     * Promo BUNGA pinjaman harian — admin menetapkan bunga pengganti untuk
+     * tenor tertentu selama rentang tanggal. Berbeda dari `promoPinjaman` yang
+     * hanya teks kampanye: angka di sini dipakai mesin harga saat pengajuan
+     * disimpan, lalu dibekukan pada pinjaman (`promoBunga*`).
+     */
+    promoBunga: defineTable({
+      /** Nama internal yang dibaca admin, mis. "Bunga 15% tenor 7 hari". */
+      nama: v.string(),
+      /** Bunga promo persen dari pokok (1–25), menggantikan tarif matriks. */
+      persenBunga: v.number(),
+      /** Tenor harian yang mendapat promo ini (subset 7/14/21/28). */
+      tenor: v.array(v.number()),
+      /** Awal hari pertama dan akhir hari terakhir (WIB), dalam milidetik. */
+      mulai: v.number(),
+      selesai: v.number(),
+      aktif: v.boolean(),
+      dibuatPada: v.number(),
+      diperbaruiPada: v.number(),
+      diperbaruiOleh: v.string(),
+    })
+      .index("by_aktif", ["aktif", "mulai"])
+      .index("by_diperbarui", ["diperbaruiPada"]),
 
     /**
      * Voucher nasabah — potongan biaya atau tambahan limit sekali pakai.

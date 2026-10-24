@@ -344,7 +344,7 @@ export function AdminTabs({
         {
           value: "promo",
           label: "Promo Pinjaman",
-          hint: "Atur teks kampanye pinjaman dan pilih tempat tampilnya: beranda, dashboard, /promo, atau form pengajuan.",
+          hint: "Atur teks kampanye dan bunga promo harian; pilih tempat tampil banner: beranda, dashboard, /promo, atau form pengajuan.",
           badge: null,
           hitung: "tidak",
           Icon: Megaphone,

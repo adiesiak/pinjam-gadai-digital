@@ -41,6 +41,71 @@ export type DataPromoPinjaman = Pick<
   "badge" | "judul" | "deskripsi" | "mulai" | "selesai"
 >;
 
+/**
+ * Preset kampanye teks yang sering dipakai admin.
+ *
+ * Template hanya mengisi badge, judul, deskripsi, dan tempat tampil — tanggal
+ * tetap milik admin, dan semua teks masih bisa disunting sebelum disimpan. Ia
+ * ada supaya kampanye rutin tidak ditulis ulang dari nol dan supaya janji yang
+ * dilarang (mis. bunga pasti turun) tidak muncul karena kekeliruan ketik.
+ */
+export type TemplatePromoPinjaman = {
+  id: string;
+  label: string;
+  badge: string;
+  judul: string;
+  deskripsi: string;
+  penempatan: readonly PenempatanPromo[];
+};
+
+export const TEMPLATE_PROMO_PINJAMAN: readonly TemplatePromoPinjaman[] = [
+  {
+    id: "bunga-promo",
+    label: "Bunga promo",
+    badge: "BUNGA PROMO",
+    judul: "Bunga lebih ringan untuk tenor pilihan",
+    deskripsi:
+      "Promo bunga sedang berjalan untuk tenor tertentu. Angka final dihitung sistem dari tenor dan nominal yang Anda pilih di formulir pengajuan.",
+    penempatan: ["dashboard", "pengajuan", "promo"],
+  },
+  {
+    id: "cair-cepat",
+    label: "Cair hari ini",
+    badge: "CAIR CEPAT",
+    judul: "Dana ditransfer hari yang sama",
+    deskripsi:
+      "Pengajuan yang lengkap dan disetujui sebelum pukul 15.00 WIB diproses pada hari yang sama. Status pencairan selalu terlihat di dashboard.",
+    penempatan: ["beranda", "dashboard", "pengajuan"],
+  },
+  {
+    id: "tenor-pendek",
+    label: "Tenor 7 hari",
+    badge: "TENOR PENDEK",
+    judul: "Pinjam 7 hari, bayar sekali",
+    deskripsi:
+      "Cocok untuk kebutuhan yang dekat: satu kali bayar di akhir tenor, tanpa cicilan bulanan. Bunga mengikuti tenor dan nominal yang dipilih.",
+    penempatan: ["beranda", "dashboard", "pengajuan"],
+  },
+  {
+    id: "voucher-biaya",
+    label: "Voucher biaya",
+    badge: "VOUCHER",
+    judul: "Cek voucher di formulir pengajuan",
+    deskripsi:
+      "Voucher potongan biaya admin dan tambah limit tampil di formulir bila akun Anda memilikinya. Voucher hanya berlaku untuk pemiliknya.",
+    penempatan: ["dashboard", "pengajuan"],
+  },
+  {
+    id: "undian",
+    label: "Undian",
+    badge: "UNDIAN",
+    judul: "Ikut undian doorprize",
+    deskripsi:
+      "Setiap pelunasan tepat waktu menambah kesempatan pada undian triwulanan. Pemenang diundi dari catatan PINDAI dan diumumkan di aplikasi.",
+    penempatan: ["beranda", "dashboard", "promo"],
+  },
+] as const;
+
 export function labelPenempatan(id: PenempatanPromo): string {
   return PENEMPATAN_PROMO.find((p) => p.id === id)?.label ?? id;
 }

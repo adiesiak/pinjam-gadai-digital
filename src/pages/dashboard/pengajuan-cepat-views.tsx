@@ -55,6 +55,8 @@ import {
   tenorHarianDefault,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { bungaSetelahPromo, pilihPromoBunga } from "@/lib/promoBunga";
+import { formatPeriodePromo } from "@/lib/promoPinjaman";
 import {
   peringatanKemampuanBayar,
   ringkasKonsekuensi,
@@ -271,8 +273,16 @@ export function PengajuanCepatSection({
   );
   // Tarif selalu dari matriks nominal–tenor: aturan yang sama dengan yang
   // ditegakkan server, tanpa angka khusus per akun.
-  const tarifBunga =
+  const tarifNormalBunga =
     persenBungaHarian(pokokHitung, tenor) ?? PINDAI_PRICING.bungaPercent;
+  // Promo bunga memakai aturan server yang sama: menggantikan tarif tenor ini
+  // dan tidak pernah menaikkannya.
+  const promoBungaQuery = useQuery(api.promoBunga.berjalan, {});
+  const promoBunga = pilihPromoBunga(promoBungaQuery ?? [], {
+    tenor,
+    sekarang: Date.now(),
+  });
+  const tarifBunga = bungaSetelahPromo(tarifNormalBunga, promoBunga);
   // Tarif potongan dari pengaturan admin — angka di layar = angka server.
   const tarifBiaya = ketentuanBiaya?.tarifBiaya;
   const q = quoteLoanBunga(pokokHitung, tarifBunga, {
@@ -553,6 +563,15 @@ export function PengajuanCepatSection({
               Nominal ini menerima tenor {tenorTersedia.join(" / ")} hari. Bunga{" "}
               <strong className="font-semibold text-slate-800">{tarifBunga}%</strong> sesuai matriks
               produk.
+              {promoBunga !== null && (
+                <>
+                  {" "}
+                  <span className="font-medium text-emerald-800">
+                    Promo bunga {promoBunga.persenBunga}% (normal {tarifNormalBunga}%) berlaku{" "}
+                    {formatPeriodePromo(promoBunga.mulai, promoBunga.selesai)}.
+                  </span>
+                </>
+              )}
             </p>
           </div>
 
@@ -639,7 +658,9 @@ export function PengajuanCepatSection({
             </label>
             <dl className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-[11px] leading-5 sm:grid-cols-4">
               <div>
-                <dt className="text-muted-foreground">Bunga {tarifBunga}% · {tenor} hari</dt>
+                <dt className="text-muted-foreground">
+                  Bunga {tarifBunga}%{promoBunga !== null ? " (promo)" : ""} · {tenor} hari
+                </dt>
                 <dd className="font-semibold tabular-nums">{formatRupiah(q.bunga)}</dd>
               </div>
               <div>

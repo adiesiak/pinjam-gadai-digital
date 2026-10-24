@@ -67,6 +67,8 @@ import {
   tenorHarianTersedia,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { bungaSetelahPromo, pilihPromoBunga } from "@/lib/promoBunga";
+import { formatPeriodePromo } from "@/lib/promoPinjaman";
 import { diskonBiayaAdmin } from "@/lib/voucher";
 import {
   konsekuensiKeterlambatan,
@@ -482,8 +484,20 @@ export function LoanForm({
     Number(tenorHari) || tenorHarianDefault(pokok),
   );
   const tenorHarianOpsi = tenorHarianTersedia(pokok);
-  const tarifHarian =
+  const tarifNormalHarian =
     persenBungaHarian(pokok, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
+  // ===== Promo bunga =====
+  // Server memakai aturan yang sama saat pengajuan disimpan. Promo yang
+  // berlaku mengganti tarif tenor ini, jadi angka di layar tidak pernah lebih
+  // ringan/berat dari yang nanti tercatat — dan tidak pernah menaikkan bunga.
+  const promoBungaQuery = useQuery(api.promoBunga.berjalan, {});
+  const promoBunga = bulanan
+    ? null
+    : pilihPromoBunga(promoBungaQuery ?? [], {
+        tenor: tenorHarian,
+        sekarang: Date.now(),
+      });
+  const tarifHarian = bungaSetelahPromo(tarifNormalHarian, promoBunga);
   // ===== Voucher =====
   // Daftar dan kelayakan dihitung server (`voucher.daftarVoucherSaya`), sama
   // dengan yang dipakai validasi pengajuan. Klien hanya menyimpan pilihan dan
@@ -1141,9 +1155,24 @@ export function LoanForm({
           </dl>
         ) : (
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
+            {promoBunga !== null && (
+              <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                <dt className="font-medium text-emerald-900">
+                  Promo bunga {promoBunga.persenBunga}% · tenor {tenorHarian} hari (normal{" "}
+                  {tarifNormalHarian}%) · berlaku{" "}
+                  {formatPeriodePromo(promoBunga.mulai, promoBunga.selesai)}
+                </dt>
+                <dd className="font-semibold tabular-nums text-emerald-800">
+                  hemat {tarifNormalHarian - tarifHarian} poin
+                </dd>
+              </div>
+            )}
             <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-medium text-slate-700">
                 Bunga {tarifHarian}% · tenor {tenorHarian} hari
+                {promoBunga !== null && (
+                  <span className="text-emerald-700"> (promo)</span>
+                )}
               </dt>
               <dd className="font-medium tabular-nums">{formatRupiah(q.bunga)}</dd>
             </div>
