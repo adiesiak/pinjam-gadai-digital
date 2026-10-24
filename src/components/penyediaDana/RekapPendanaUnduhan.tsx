@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
 import { laporanRekapPendana, namaBerkasRekapPendana } from "@/lib/laporanPendana";
-import { susunPdf } from "@/lib/pdfSederhana";
+import { susunPdfResmi } from "@/lib/pdfSederhana";
 import { cn } from "@/lib/utils";
 
 /**
@@ -158,7 +158,7 @@ export function RekapPendanaUnduhan({ className }: { className?: string }) {
     setMengunduh(true);
     setGalat(null);
     try {
-      const byte = susunPdf(laporanRekapPendana(data));
+      const byte = susunPdfResmi(laporanRekapPendana(data));
       const blob = new Blob([new Uint8Array(byte)], { type: "application/pdf" });
       const nama = namaBerkasRekapPendana(data.dicetakPada);
       // Di aplikasi Android, unduhan blob: tidak ditangani WebView.

@@ -282,7 +282,7 @@ describe("laporan kinerja portofolio atas permintaan pendana", () => {
       const keluar = gateway.lampiran();
       expect(keluar).toHaveLength(1);
       expect(keluar[0].target).toBe(NOMOR_PENDANA);
-      expect(keluar[0].filename).toMatch(/^laporan-pendanaan-\d{4}-\d{2}-\d{2}\.pdf$/);
+      expect(keluar[0].filename).toMatch(/^PINDAI-Laporan-Pendanaan-\d{4}-\d{2}-\d{2}\.pdf$/);
       expect(keluar[0].url).not.toBe("");
       expect(keluar[0].message).toContain("salinan laporan kinerja pendanaan Anda");
       // Angka di pesan harus angka ruang pendana, bukan hitungan kedua: dibaca
@@ -390,7 +390,7 @@ describe("laporan pelunasan otomatis", () => {
       const keluar = gateway.lampiran();
       expect(keluar).toHaveLength(1);
       expect(keluar[0].target).toBe(NOMOR_PENDANA);
-      expect(keluar[0].filename).toBe("laporan-pelunasan-pnd-laporan-lunas.pdf");
+      expect(keluar[0].filename).toBe("PINDAI-Laporan-Pelunasan-pnd-laporan-lunas.pdf");
       expect(keluar[0].message).toContain("PND-LAPORAN-LUNAS");
       expect(keluar[0].message).toContain("tercatat lunas pada");
       // Keuntungan yang disebut di pesan = keuntungan yang tampil di ruang
@@ -580,7 +580,7 @@ describe("rekap pinjaman seluruh pendana", () => {
       const keluar = gateway.lampiran();
       expect(keluar).toHaveLength(1);
       expect(keluar[0].target).toBe(NOMOR_PENDANA);
-      expect(keluar[0].filename).toMatch(/^rekap-pendana-\d{4}-\d{2}-\d{2}\.pdf$/);
+      expect(keluar[0].filename).toMatch(/^PINDAI-Rekap-Pendana-\d{4}-\d{2}-\d{2}\.pdf$/);
       expect(keluar[0].message).toContain("1 pendana, 1 pinjaman");
       expect(keluar[0].message).toContain(formatRupiahAman(1_000_000));
 

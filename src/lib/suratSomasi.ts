@@ -161,7 +161,7 @@ export function nomorSuratSomasi(nomorReferensi: string, sekarang: number): stri
 /** Nama berkas PDF; nomor referensi dipertahankan supaya mudah dicari. */
 export function namaBerkasSomasi(surat: SuratSomasi): string {
   const referensi = surat.nomorSurat.split("/")[1] ?? "PINDAI";
-  return `somasi-${referensi.toLowerCase()}.pdf`;
+  return `PINDAI-Somasi-${referensi}.pdf`;
 }
 
 /**

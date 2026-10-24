@@ -68,7 +68,7 @@ const TERSEDIA: HasilSomasi = {
   berubah: false,
   bolehKirim: true,
   alasanKirim: null,
-  namaBerkas: "somasi-pnj-2026-0042.pdf",
+  namaBerkas: "PINDAI-Somasi-PNJ-2026-0042.pdf",
   kontak: { email: true, whatsapp: true },
   riwayatKirim: [],
 };

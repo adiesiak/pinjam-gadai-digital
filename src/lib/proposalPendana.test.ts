@@ -315,7 +315,7 @@ ok(!/\bundefined\b|\bNaN\b/.test(teks), "tanpa undefined atau NaN");
 // ===== Nama berkas dan nomor layanan =====
 eq(
   namaBerkasProposalPendana(WAKTU),
-  "proposal-pendanaan-pindai-2026-10-22.pdf",
+  "PINDAI-Proposal-Pendanaan-2026-10-22.pdf",
   "nama berkas memakai tanggal UTC",
 );
 eq(

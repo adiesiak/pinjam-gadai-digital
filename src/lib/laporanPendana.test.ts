@@ -23,7 +23,11 @@ import {
   type DataPortofolioPendana,
   type DataRekapPendana,
 } from "./laporanPendana";
-import { susunPdf, teksPdf, type DokumenPdf } from "./pdfSederhana";
+import {
+  susunPdfResmi,
+  teksPdf,
+  type DokumenResmiPdf,
+} from "./pdfSederhana";
 import { totalPendana, type SumberPendana } from "./tabelPendana";
 
 let passed = 0;
@@ -105,16 +109,49 @@ const PORTOFOLIO: DataPortofolioPendana = {
 };
 
 /**
- * Semua teks baris sebuah dokumen, termasuk pasangan label/nilai.
+ * Semua teks blok dokumen resmi.
  *
- * Pasangan dua kolom digabung kembali sebagai "label: nilai" supaya uji tetap
- * membaca satu fakta utuh walau di PDF label dan angkanya punya posisi sendiri.
+ * Baris tabel dua kolom digabung kembali sebagai "label: nilai" supaya uji
+ * tetap membaca satu fakta utuh walau di PDF label dan angkanya punya posisi
+ * sendiri. Tabel banyak kolom memakai pemisah " | ".
  */
-function semuaTeks(dokumen: DokumenPdf): string[] {
-  return dokumen.baris.flatMap((b) => {
-    if ("teks" in b) return [b.teks];
-    if ("label" in b) return [`${b.label}: ${b.nilai}`];
-    return [];
+function semuaTeks(dokumen: DokumenResmiPdf): string[] {
+  return dokumen.blok.flatMap((b) => {
+    switch (b.jenis) {
+      case "banner":
+        return [b.merek, b.subjudul, b.nomor, b.tanggal];
+      case "kartu":
+        return [
+          b.kiri.judul,
+          ...b.kiri.baris.map((r) => `${r.label}: ${r.nilai}`),
+          b.kanan.judul,
+          ...b.kanan.baris.map((r) => `${r.label}: ${r.nilai}`),
+        ];
+      case "judul":
+        return [b.nomor === undefined ? b.teks : `${b.nomor}. ${b.teks}`];
+      case "tabel":
+        return [
+          b.kepala.join(" | "),
+          ...b.baris.map((baris) =>
+            baris.sel.length === 2
+              ? `${baris.sel[0]}: ${baris.sel[1]}`
+              : baris.sel.join(" | "),
+          ),
+        ];
+      case "callout":
+        return [
+          `${b.label}: ${b.nilai}`,
+          ...(b.catatan === undefined || b.catatan === "" ? [] : [b.catatan]),
+        ];
+      case "paragraf":
+        return [b.teks];
+      case "poin":
+        return b.teks;
+      case "peringatan":
+        return [b.judul, b.teks];
+      default:
+        return [];
+    }
   });
 }
 
@@ -122,17 +159,16 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
 {
   const dokumen = laporanPelunasan(PELUNASAN);
   const teks = semuaTeks(dokumen);
-  ok(teks.some((t) => t.includes("Rp 1.200.000")), "keuntungan dibukukan tercetak sebagai rupiah");
   ok(
-    teks.some((t) => t.includes("Keuntungan pendana (dibukukan): Rp 1.200.000")),
-    "baris keuntungan memakai istilah ruang penyedia dana",
+    teks.some((t) => t === "Keuntungan pendana (dibukukan): Rp 1.200.000"),
+    "keuntungan dibukukan tercetak sebagai rupiah",
   );
   ok(
-    teks.some((t) => t.includes("Biaya platform (layanan): Rp 300.000")),
+    teks.some((t) => t === "Biaya platform (layanan): Rp 300.000"),
     "biaya platform tercetak terpisah dari keuntungan",
   );
   ok(
-    teks.some((t) => t.includes("Nomor referensi: PND/2026/09/0001")),
+    teks.some((t) => t.includes("PND/2026/09/0001")),
     "nomor referensi dicetak apa adanya",
   );
   ok(
@@ -154,7 +190,9 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
 
   const tertunda = laporanPelunasan({ ...PELUNASAN, transferDicatat: false });
   ok(
-    semuaTeks(tertunda).some((t) => t.includes("Catatan transfer keuntungan belum dibuat admin")),
+    semuaTeks(tertunda).some((t) =>
+      t.includes("Catatan transfer keuntungan belum dibuat admin"),
+    ),
     "transfer yang belum dicatat disebut apa adanya",
   );
 }
@@ -164,36 +202,32 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
   const dokumen = laporanPortofolio(PORTOFOLIO);
   const teks = semuaTeks(dokumen);
   ok(
-    teks.some((t) => t.includes("Total keuntungan pendana: Rp 3.600.000")),
+    teks.some((t) => t === "Total keuntungan pendana: Rp 3.600.000"),
     "total keuntungan dicetak",
   );
   ok(
-    teks.some((t) => t.includes("Keuntungan perkiraan (belum lunas): Rp 2.400.000")),
+    teks.some((t) => t === "Keuntungan perkiraan (belum lunas): Rp 2.400.000"),
     "bagian perkiraan dipisah dari yang dibukukan",
   );
   ok(
-    teks.some((t) => t.includes("Masih berjalan: Rp 10.000.000 (2 pinjaman)")),
+    teks.some((t) => t === "Masih Berjalan: Rp 10.000.000 (2 pinjaman)"),
     "saldo berjalan menyebut jumlah pinjaman yang membentuknya",
   );
   ok(
-    teks.some((t) => t.startsWith("PND/2026/09/0002")),
+    teks.some((t) => t.startsWith("PND/2026/09/0002 |")),
     "baris pinjaman berjalan memuat referensi dan tanggalnya",
   );
   ok(
-    teks.some((t) => t.includes("perkiraan Rp 1.200.000")),
+    teks.some((t) => t.includes("PND/2026/09/0002") && t.includes("Rp 1.200.000")),
     "baris pinjaman berjalan memuat angka perkiraannya",
   );
   ok(
-    teks.some((t) => t.includes("PND/2026/09/0001")),
+    teks.some((t) => t.startsWith("PND/2026/09/0001 |")),
     "baris pinjaman lunas tetap menyebut referensinya",
   );
   ok(
-    teks.some((t) => t.includes("dibukukan Rp 1.200.000")),
-    "baris pinjaman lunas memakai kata dibukukan",
-  );
-  ok(
-    teks.some((t) => t.includes("jatuh tempo")),
-    "setiap baris menyebut proyeksi jatuh tempo return",
+    teks.some((t) => t.includes("DIBUKUKAN")),
+    "kolom pinjaman lunas memakai kata dibukukan",
   );
   ok(
     teks.some((t) => t.includes("bukan janji pembayaran")),
@@ -241,7 +275,7 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
 
   const kosong = laporanPortofolio({ ...PORTOFOLIO, pinjamanBerjalan: [], pinjamanLunas: [] });
   ok(
-    semuaTeks(kosong).some((t) => t === "Belum ada pinjaman pada bagian ini."),
+    semuaTeks(kosong).filter((t) => t === "Belum ada pinjaman pada bagian ini.").length === 2,
     "bagian kosong menyatakan keadaannya, bukan dibiarkan tanpa penjelasan",
   );
 }
@@ -266,22 +300,23 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
   );
 }
 
-/* ===== 3b. Kop, kaki, dan pengulangan kop di halaman berikutnya ===== */
+/* ===== 3b. Halaman, kaki, dan nomor dokumen ===== */
 {
   const dokumen = laporanPortofolio(PORTOFOLIO);
-  ok(dokumen.kop?.nama.includes("PINDAI") === true, "laporan memakai kop PINDAI");
-  ok(dokumen.kaki?.includes("dokumen dibuat otomatis") === true, "laporan punya kaki halaman");
+  ok(dokumen.nomor === "LAPORAN PENDANAAN", "dokumen punya nomor sendiri");
+  ok(dokumen.kaki.includes("dokumen dibuat otomatis") === true, "laporan punya kaki halaman");
 
-  const pdf = teksPdf(susunPdf(dokumen));
-  ok(
-    pdf.includes("PINJAM GADAI DIGITAL \\(PINDAI\\)"),
-    "nama layanan tercetak di kop",
-  );
-  ok(pdf.includes("LAPORAN PENDANAAN"), "jenis dokumen tercetak di kanan kop");
+  const pdf = teksPdf(susunPdfResmi(dokumen));
+  ok(pdf.includes("PINDAI"), "merek tercetak di banner");
+  ok(pdf.includes("LAPORAN PENDANAAN"), "jenis dokumen tercetak di banner");
   ok(pdf.includes("Halaman 1 dari"), "nomor halaman tercetak di kaki");
-  ok(pdf.includes("PINDAI - dokumen dibuat otomatis oleh sistem"), "keterangan penerbit tercetak di kaki");
+  ok(
+    pdf.includes("PINDAI - dokumen dibuat otomatis oleh sistem"),
+    "keterangan penerbit tercetak di kaki",
+  );
+  ok(pdf.includes("/Title (LAPORAN PENDANAAN LAPORAN PENDANAAN)"), "metadata judul ditulis");
 
-  const banyak = Array.from({ length: 40 }, (_, i) => ({
+  const banyak = Array.from({ length: 25 }, (_, i) => ({
     nomorReferensi: `PND/2026/10/${2000 + i}`,
     namaPeminjam: `Peminjam ${i + 1}`,
     pokokPinjaman: 1_000_000,
@@ -290,15 +325,16 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
     tanggalReturn: T1,
   }));
   const panjang = teksPdf(
-    susunPdf(laporanPortofolio({ ...PORTOFOLIO, pinjamanBerjalan: banyak, pinjamanLunas: [] })),
+    susunPdfResmi(
+      laporanPortofolio({ ...PORTOFOLIO, pinjamanBerjalan: banyak, pinjamanLunas: [] }),
+    ),
   );
   const jumlahHalaman = Number(/\/Count (\d+)/.exec(panjang)?.[1]);
   ok(jumlahHalaman >= 2, "laporan panjang terbagi menjadi beberapa halaman");
-  const merek = "PINJAM GADAI DIGITAL \\(PINDAI\\)";
   eq(
-    panjang.split(merek).length - 1,
+    panjang.split("LAPORAN PENDANAAN - PINDAI - dokumen dibuat otomatis").length - 1,
     jumlahHalaman,
-    "kop dicetak ulang di setiap halaman",
+    "nomor dokumen + kaki dicetak di setiap halaman",
   );
   ok(
     panjang.includes(`Halaman ${jumlahHalaman} dari ${jumlahHalaman}`),
@@ -352,18 +388,24 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
   const dokumen = laporanRekapPendana(data);
   const teks = semuaTeks(dokumen);
 
-  ok(teks.some((t) => t === "Rekap pinjaman semua pendana"), "rekap punya judul sendiri");
-  ok(teks.some((t) => t === "Jumlah pendana: 2"), "jumlah pendana dihitung dari baris");
+  ok(teks.some((t) => t === "Rekap Pinjaman Semua Pendana"), "rekap punya judul sendiri");
+  ok(teks.some((t) => t === "Jumlah Pendana: 2"), "jumlah pendana dihitung dari baris");
   ok(
-    teks.some((t) => t === "Dana tersalurkan: Rp 11.600.000"),
+    teks.some((t) => t === "Dana Tersalurkan: Rp 11.600.000"),
     "dana tersalurkan total sama dengan penjumlahan baris",
   );
   ok(
     teks.some((t) => t === "Total keuntungan pendana: Rp 1.928.500"),
     "total keuntungan pendana dijumlahkan",
   );
-  ok(teks.some((t) => t === "1. ROBERT"), "setiap pendana punya bagiannya sendiri");
-  ok(teks.some((t) => t === "2. EVELYN"), "urutan pendana mengikuti rekap");
+  ok(
+    teks.some((t) => t.startsWith("ROBERT | 2 |")),
+    "setiap pendana punya barisnya sendiri",
+  );
+  ok(
+    teks.some((t) => t.startsWith("EVELYN | 1 |")),
+    "urutan pendana mengikuti rekap",
+  );
   ok(
     teks.some((t) => t === "Keuntungan perkiraan (belum lunas): Rp 1.578.500"),
     "keuntungan perkiraan total dipisah dari yang dibukukan",
@@ -373,9 +415,13 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
     "rekap tidak memuat nama peminjam",
   );
 
-  const pdf = teksPdf(susunPdf(dokumen));
-  ok(pdf.includes("KHUSUS SUPER ADMIN"), "kop rekap menandai dokumen khusus admin");
-  eq(namaBerkasRekapPendana(T1), "rekap-pendana-2026-10-02.pdf", "nama berkas rekap memakai tanggal ISO");
+  const pdf = teksPdf(susunPdfResmi(dokumen));
+  ok(pdf.includes("KHUSUS SUPER ADMIN"), "banner rekap menandai dokumen khusus admin");
+  eq(
+    namaBerkasRekapPendana(T1),
+    "PINDAI-Rekap-Pendana-2026-10-02.pdf",
+    "nama berkas rekap memakai tanggal ISO",
+  );
 
   const pesan = pesanRekapPendana(data);
   ok(pesan.includes("2 pendana"), "pesan rekap menyebut jumlah pendana");
@@ -389,7 +435,7 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
   const semua = dokumen.flatMap(semuaTeks);
   ok(!semua.some((t) => t.includes("\u2014")), "tidak ada tanda pisah panjang di isi laporan");
   ok(!semua.some((t) => t.includes("^")), "tidak ada penanda internal yang ikut tercetak");
-  const pdf = teksPdf(susunPdf(laporanPelunasan(PELUNASAN)));
+  const pdf = teksPdf(susunPdfResmi(laporanPelunasan(PELUNASAN)));
   ok(!pdf.includes("\u2014"), "tidak ada tanda pisah panjang di berkas PDF");
   ok(pdf.includes("Keuntungan pendana \\(dibukukan\\)"), "kurung pada label di-escape di PDF");
   ok(!pdf.includes("Budi Santoso"), "nama lengkap tidak ikut tercetak di berkas PDF");
@@ -411,15 +457,19 @@ function semuaTeks(dokumen: DokumenPdf): string[] {
 
   eq(
     namaBerkasPelunasan("PND/2026/09/0001"),
-    "laporan-pelunasan-pnd-2026-09-0001.pdf",
+    "PINDAI-Laporan-Pelunasan-pnd-2026-09-0001.pdf",
     "nama berkas pelunasan memakai referensi yang dislug",
   );
   eq(
     namaBerkasPortofolio(Date.UTC(2026, 9, 2)),
-    "laporan-pendanaan-2026-10-02.pdf",
+    "PINDAI-Laporan-Pendanaan-2026-10-02.pdf",
     "nama berkas portofolio memakai tanggal ISO",
   );
-  eq(namaBerkasPelunasan("///"), "laporan-pelunasan-pinjaman.pdf", "referensi kosong tetap menghasilkan nama berkas");
+  eq(
+    namaBerkasPelunasan("///"),
+    "PINDAI-Laporan-Pelunasan-pinjaman.pdf",
+    "referensi kosong tetap menghasilkan nama berkas",
+  );
 }
 
 console.log(`laporanPendana.test: ${passed} lulus, ${failed} gagal`);

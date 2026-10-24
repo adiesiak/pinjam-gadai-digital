@@ -136,7 +136,7 @@ import {
 } from "@/lib/loan";
 import { batasPelunasan, ringkasJatuhTempo } from "@/lib/jatuhTempo";
 import { laporanPortofolio, namaBerkasPortofolio } from "@/lib/laporanPendana";
-import { susunPdf } from "@/lib/pdfSederhana";
+import { susunPdfResmi } from "@/lib/pdfSederhana";
 import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
 import {
   adaFilter,
@@ -1905,7 +1905,7 @@ function IsiRuang() {
     setMengunduhLaporan(true);
     setGalatLaporan(null);
     try {
-      const byte = susunPdf(laporanPortofolio(dataLaporan));
+      const byte = susunPdfResmi(laporanPortofolio(dataLaporan));
       const blob = new Blob([new Uint8Array(byte)], {
         type: "application/pdf",
       });

@@ -83,7 +83,7 @@ function tanggalIso(ms: number): string {
 
 /** Nama berkas unduhan, mis. `proposal-pendanaan-pindai-2026-10-22.pdf`. */
 export function namaBerkasProposalPendana(dibuatPada: number): string {
-  return `proposal-pendanaan-pindai-${tanggalIso(dibuatPada)}.pdf`;
+  return `PINDAI-Proposal-Pendanaan-${tanggalIso(dibuatPada)}.pdf`;
 }
 
 /** Nomor WhatsApp layanan pelanggan dalam format yang enak dibaca. */
@@ -445,6 +445,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
   ];
 
   return {
+    judul: "PROPOSAL PENDANAAN & KEMITRAAN STRATEGIS",
     kop: {
       nama: NAMA_LAYANAN,
       keterangan: "Layanan pendanaan - proposal kemitraan strategis",

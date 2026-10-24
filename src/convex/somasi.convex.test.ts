@@ -319,7 +319,7 @@ describe("surat somasi", () => {
 
     expect(pertama.nomorSurat).toBe(kedua.nomorSurat);
     expect(pertama.base64).toBe(kedua.base64);
-    expect(pertama.namaBerkas).toBe("somasi-pnj-2026-0042.pdf");
+    expect(pertama.namaBerkas).toBe("PINDAI-Somasi-PNJ-2026-0042.pdf");
     const isi = Buffer.from(pertama.base64, "base64").toString("latin1");
     expect(isi.startsWith("%PDF-")).toBe(true);
     expect(isi).toContain(pertama.nomorSurat);
@@ -454,7 +454,7 @@ describe("surat somasi", () => {
       expect(hasil.lampiran).toBe(true);
       const kiriman = gateway.lampiran();
       expect(kiriman).toHaveLength(1);
-      expect(kiriman[0]?.filename).toBe("somasi-pnj-2026-0042.pdf");
+      expect(kiriman[0]?.filename).toBe("PINDAI-Somasi-PNJ-2026-0042.pdf");
       expect(kiriman[0]?.message).toContain("SOMASI");
 
       const log = await t.run((ctx) => ctx.db.query("somasiKirimLog").collect());

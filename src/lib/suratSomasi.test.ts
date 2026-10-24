@@ -249,7 +249,7 @@ ok(
   "tanpa rekening mengarahkan ke petugas",
 );
 
-eq(namaBerkasSomasi(surat), "somasi-pnj-2026-0042.pdf", "nama berkas");
+eq(namaBerkasSomasi(surat), "PINDAI-Somasi-PNJ-2026-0042.pdf", "nama berkas");
 
 // Bahasa surat: tanpa em dash dan tanpa klaim yang melewati batas.
 const semuaTeks = [
@@ -272,6 +272,33 @@ ok(teksPdf.includes("PT PINDAI SEJAHTERA"), "nama badan di PDF");
 ok(teksPdf.includes("SOMASI/PNJ-2026-0042/20261019"), "nomor di PDF");
 ok(!teksPdf.includes("undefined"), "tidak ada nilai kosong tercetak");
 ok(byte.length > 1_000, "PDF berisi halaman");
+
+// Huruf tidak boleh menembus garis tabel rincian kewajiban.
+type TeksPdf = { ukuran: number; y: number; teks: string };
+const halaman = [...teksPdf.matchAll(/stream\n([\s\S]*?)endstream/g)].map((m) => m[1]);
+const menembus = halaman.flatMap((isi) => {
+  const garis = [
+    ...isi.matchAll(
+      /([\d.]+ [\d.]+ [\d.]+) RG [\d.]+ w ([\d.]+) ([\d.]+) m ([\d.]+) ([\d.]+) l S/g,
+    ),
+  ]
+    .filter((m) => Math.abs(Number(m[3]) - Number(m[5])) < 0.01)
+    .map((m) => Number(m[3]));
+  return [
+    ...isi.matchAll(
+      /\/(F1|F2) ([\d.]+) Tf 1 0 0 1 ([\d.]+) ([\d.]+) Tm \(((?:[^()\\]|\\.)*)\) Tj/g,
+    ),
+  ]
+    .map((m): TeksPdf => ({ ukuran: Number(m[2]), y: Number(m[4]), teks: m[5] ?? "" }))
+    .filter(
+      (t) =>
+        t.y > 58 &&
+        garis.some(
+          (y) => y > t.y - t.ukuran * 0.21 && y < t.y + t.ukuran * 0.72,
+        ),
+    );
+});
+ok(menembus.length === 0, `tidak ada huruf menembus garis tabel: ${menembus.map((t) => t.teks).join(", ")}`);
 
 console.log(`suratSomasi: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

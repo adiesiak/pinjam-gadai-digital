@@ -108,7 +108,7 @@ describe("kiriman rincian otomatis", () => {
       const kiriman = gateway.lampiran();
       expect(kiriman).toHaveLength(1);
       expect(kiriman[0].target).toBe(NOMOR_UJI);
-      expect(kiriman[0].filename).toBe("rincian-pinjaman-PNJ-OTOMATIS.pdf");
+      expect(kiriman[0].filename).toBe("PINDAI-Rincian-Pinjaman-PNJ-OTOMATIS.pdf");
       expect(kiriman[0].message).toContain("PNJ-OTOMATIS");
 
       const log = await t.run((ctx) => ctx.db.query("rincianKirimLog").collect());

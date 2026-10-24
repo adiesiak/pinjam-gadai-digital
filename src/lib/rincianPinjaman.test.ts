@@ -129,7 +129,7 @@ for (const teks of [
 ok(htmlRincianEmail(bulanan).includes("Budi &lt;Peminjam&gt;"), "nama di-escape di HTML");
 ok(teksRincianWhatsapp(harian).includes("PNJ-2026-0012"), "pesan WA memuat nomor referensi");
 
-eq(namaBerkasRincian(bulanan), "rincian-pinjaman-PNJ-2026-0099.pdf", "nama berkas PDF");
+eq(namaBerkasRincian(bulanan), "PINDAI-Rincian-Pinjaman-PNJ-2026-0099.pdf", "nama berkas PDF");
 
 console.log(`rincianPinjaman: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

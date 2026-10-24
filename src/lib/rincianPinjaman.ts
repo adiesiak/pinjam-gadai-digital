@@ -394,7 +394,7 @@ function catatanDokumen(loan: PinjamanUntukRincian): string[] {
 /** Nama berkas PDF yang diunduh atau dilampirkan. */
 export function namaBerkasRincian(dok: DokumenRincianPinjaman): string {
   const referensi = dok.nomorReferensi.trim().replace(/[^A-Za-z0-9-]/g, "-");
-  return `rincian-pinjaman-${referensi === "" ? "pindai" : referensi}.pdf`;
+  return `PINDAI-Rincian-Pinjaman-${referensi === "" ? "pindai" : referensi}.pdf`;
 }
 
 /** Pesan WhatsApp: ringkas, karena rincian penuhnya ada di lampiran PDF. */

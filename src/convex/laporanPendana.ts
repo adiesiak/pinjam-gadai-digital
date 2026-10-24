@@ -46,7 +46,7 @@ import {
   type DataRekapPendana,
 } from "../lib/laporanPendana";
 import { normalisasiNomorWa } from "../lib/otpWa";
-import { susunPdf } from "../lib/pdfSederhana";
+import { susunPdfResmi } from "../lib/pdfSederhana";
 import { totalPendana } from "../lib/tabelPendana";
 import { ROLES } from "./schema";
 import { apiKeyGatewayWa, kirimViaGateway, type WaSettings } from "./whatsapp";
@@ -379,7 +379,7 @@ export const kirimLaporanPelunasan = internalAction({
       jenis: "laporan_pelunasan",
       nomor: data.nomor,
       namaBerkas: namaBerkasPelunasan(b.nomorReferensi),
-      byte: susunPdf(dokumen),
+      byte: susunPdfResmi(dokumen),
       pesan: pesanPelunasan({
         namaPendana: data.namaPendana,
         nomorReferensi: b.nomorReferensi,
@@ -429,7 +429,7 @@ export const kirimLaporanPortofolio = action({
       jenis: "laporan_portofolio",
       nomor: data.nomor,
       namaBerkas: namaBerkasPortofolio(dicetakPada),
-      byte: susunPdf(laporanPortofolio(angka)),
+      byte: susunPdfResmi(laporanPortofolio(angka)),
       pesan: pesanPortofolio(angka),
       olehUserId: userId,
     });
@@ -474,7 +474,7 @@ export const kirimRekapPendana = action({
       jenis: "rekap_pendana",
       nomor: tujuan,
       namaBerkas: namaBerkasRekapPendana(data.dicetakPada),
-      byte: susunPdf(laporanRekapPendana(data)),
+      byte: susunPdfResmi(laporanRekapPendana(data)),
       pesan: pesanRekapPendana(data),
       olehUserId: userId,
     });

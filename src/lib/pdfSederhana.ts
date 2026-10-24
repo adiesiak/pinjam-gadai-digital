@@ -117,6 +117,8 @@ export type KopPdf = {
 };
 
 export type DokumenPdf = {
+  /** Judul dokumen untuk metadata PDF; bukan teks yang dicetak di halaman. */
+  judul?: string;
   /** Kop surat; bila ada, isi halaman pertama turun memberinya ruang. */
   kop?: KopPdf;
   /**
@@ -1199,6 +1201,14 @@ const TABEL_TINGGI_MIN = 21;
 const HURUF_NAIK = 0.72;
 const HURUF_TURUN = 0.21;
 
+/** Ukuran huruf terkecil yang masih muat di satu sel tanpa memotong angka. */
+function ukuranMuat(teks: string, ukuran: number, lebar: number): number {
+  const muat = Math.max(20, lebar);
+  const lebarTeks = perkiraanLebar(teks, ukuran);
+  if (lebarTeks <= muat) return ukuran;
+  return Math.max(6, Math.round(((ukuran * muat) / lebarTeks) * 10) / 10);
+}
+
 /** Jumlah baris satu sel setelah dibungkus selebar kolomnya. */
 function jumlahBarisSel(sel: string, lebar: number): number {
   return bungkusTeks(sel, TABEL_UKURAN, Math.max(40, lebar - TABEL_PADDING_X * 2))
@@ -1356,12 +1366,15 @@ function gambarTabel(blok: BlokResmiPdf & { jenis: "tabel" }, y: number): string
     garisDasarTabel(TABEL_TINGGI_KEPALA, 1, TABEL_UKURAN_KEPALA);
   let x = R_MARGIN;
   blok.kepala.forEach((judul, i) => {
-    const posisi = rataKanan.includes(i)
-      ? x + lebar[i] - TABEL_PADDING_X - perkiraanLebar(judul, TABEL_UKURAN_KEPALA)
-      : x + TABEL_PADDING_X;
-    teks.push(
-      teksResmi(judul, TABEL_UKURAN_KEPALA, "F2", posisi, dasarKepala, R.teksLembut),
+    const ukuran = ukuranMuat(
+      judul,
+      TABEL_UKURAN_KEPALA,
+      lebar[i] - TABEL_PADDING_X * 2,
     );
+    const posisi = rataKanan.includes(i)
+      ? x + lebar[i] - TABEL_PADDING_X - perkiraanLebar(judul, ukuran)
+      : x + TABEL_PADDING_X;
+    teks.push(teksResmi(judul, ukuran, "F2", posisi, dasarKepala, R.teksLembut));
     x += lebar[i];
   });
   y -= TABEL_TINGGI_KEPALA;
@@ -1386,10 +1399,16 @@ function gambarTabel(blok: BlokResmiPdf & { jenis: "tabel" }, y: number): string
         baris.tebal === true || nada === "bersih" || nada === "total" ? "F2" : "F1";
       if (rataKanan.includes(i)) {
         const nilai = nilaiTabelResmi(sel, nada);
+        // Nominal panjang mengecil, bukan meluber ke kolom deskripsi.
+        const ukuran = ukuranMuat(
+          nilai,
+          TABEL_UKURAN,
+          lebar[i] - TABEL_PADDING_X * 2,
+        );
         teks.push(
           teksResmiKanan(
             nilai,
-            TABEL_UKURAN,
+            ukuran,
             font,
             kiri + lebar[i] - TABEL_PADDING_X,
             dasar,
@@ -1497,6 +1516,53 @@ function gambarBlokResmi(blok: BlokResmiPdf, y: number): string {
   return "";
 }
 
+/**
+ * Potong tabel tepat di baris yang muat, sisanya disusun ulang dengan kepala
+ * tabel yang sama di halaman berikutnya.
+ */
+function potongTabel(
+  blok: BlokResmiPdf & { jenis: "tabel" },
+  ruang: number,
+): {
+  bagian: BlokResmiPdf & { jenis: "tabel" };
+  sisa: BlokResmiPdf & { jenis: "tabel" };
+} | null {
+  const lebar = lebarTabelResmi(blok.bobot, blok.kepala.length);
+  const rataKanan = blok.rataKanan ?? [];
+  const kapasitas = ruang - TABEL_TINGGI_KEPALA - 4;
+  let terpakai = 0;
+  let jumlah = 0;
+  for (const baris of blok.baris) {
+    const tinggi = tinggiBarisTabel(baris, lebar, rataKanan);
+    if (terpakai + tinggi > kapasitas) break;
+    terpakai += tinggi;
+    jumlah += 1;
+  }
+  // Tidak ada baris yang muat, atau seluruh baris ternyata muat: bukan urusan
+  // pemotongan, melainkan pemindahan halaman.
+  if (jumlah === 0 || jumlah === blok.baris.length) return null;
+  return {
+    bagian: { ...blok, baris: blok.baris.slice(0, jumlah) },
+    sisa: { ...blok, baris: blok.baris.slice(jumlah) },
+  };
+}
+
+/**
+ * Ruang yang harus tersedia agar judul tidak tertinggal sendirian.
+ *
+ * Tabel panjang boleh berlanjut di halaman berikutnya, jadi judul hanya perlu
+ * tempat untuk kepala tabel dan tiga baris pertama — bukan seluruh tabel.
+ */
+function tinggiJagaJudul(blok: BlokResmiPdf): number {
+  if (blok.jenis !== "tabel") return tinggiBlokResmi(blok);
+  const lebar = lebarTabelResmi(blok.bobot, blok.kepala.length);
+  const rataKanan = blok.rataKanan ?? [];
+  const awal = blok.baris
+    .slice(0, 3)
+    .reduce((n, baris) => n + tinggiBarisTabel(baris, lebar, rataKanan), 0);
+  return TABEL_TINGGI_KEPALA + awal + 4;
+}
+
 /** Bagi blok menjadi halaman; banner hanya boleh membuka halaman pertama. */
 function bagiHalamanResmi(blok: BlokResmiPdf[]): BlokResmiPdf[][] {
   const halaman: BlokResmiPdf[][] = [];
@@ -1504,14 +1570,18 @@ function bagiHalamanResmi(blok: BlokResmiPdf[]): BlokResmiPdf[][] {
   let y = TINGGI_HALAMAN - R_ATAS;
 
   const batas = R_BAWAH + 12;
+  const bukaHalaman = () => {
+    if (kini.length > 0) {
+      halaman.push(kini);
+      kini = [];
+    }
+    y = TINGGI_HALAMAN - R_ATAS - R_HEADER_LANJUT;
+  };
+
   for (let i = 0; i < blok.length; i += 1) {
     const entri = blok[i];
     if (entri.jenis === "halamanBaru") {
-      if (kini.length > 0) {
-        halaman.push(kini);
-        kini = [];
-      }
-      y = TINGGI_HALAMAN - R_ATAS - R_HEADER_LANJUT;
+      bukaHalaman();
       continue;
     }
     const tinggi = tinggiBlokResmi(entri);
@@ -1520,13 +1590,46 @@ function bagiHalamanResmi(blok: BlokResmiPdf[]): BlokResmiPdf[][] {
     const berikut = blok[i + 1];
     const tinggiJaga =
       entri.jenis === "judul" && berikut !== undefined && berikut.jenis !== "halamanBaru"
-        ? tinggi + tinggiBlokResmi(berikut)
+        ? tinggi + tinggiJagaJudul(berikut)
         : tinggi;
-    if (kini.length > 0 && y - tinggiJaga < batas) {
-      halaman.push(kini);
-      kini = [];
-      y = TINGGI_HALAMAN - R_ATAS - R_HEADER_LANJUT;
+    // Tabel panjang dipotong sendiri; memindahkannya utuh lebih dulu hanya
+    // menyisakan halaman berisi judul tanpa isi.
+    if (
+      entri.jenis !== "tabel" &&
+      kini.length > 0 &&
+      y - tinggiJaga < batas
+    ) {
+      bukaHalaman();
     }
+
+    if (entri.jenis === "tabel") {
+      let sisa = entri;
+      for (;;) {
+        const tinggiSisa = tinggiBlokResmi(sisa);
+        if (y - tinggiSisa >= batas) {
+          kini.push(sisa);
+          y -= tinggiSisa;
+          break;
+        }
+        const potong = potongTabel(sisa, y - batas);
+        if (potong === null) {
+          // Halaman kosong tetapi satu baris pun tidak muat: cetak apa adanya
+          // daripada berputar tanpa akhir.
+          if (kini.length === 0) {
+            kini.push(sisa);
+            y -= tinggiSisa;
+            break;
+          }
+          bukaHalaman();
+          continue;
+        }
+        kini.push(potong.bagian);
+        bukaHalaman();
+        sisa = potong.sisa;
+      }
+      continue;
+    }
+
     kini.push(entri);
     y -= tinggi;
     if (entri.jenis === "banner") {
@@ -1567,10 +1670,11 @@ function isiHalamanResmi(
     }
   }
 
-  // Kaki: garis rambut, disclaimer kiri, nomor halaman kanan.
+  // Kaki: garis rambut, nomor dokumen + disclaimer kiri, nomor halaman kanan.
   operasi.push(garisResmi(54, R.garis));
+  const kakiPenuh = `${dok.nomor} - ${dok.kaki}`;
   const kaki =
-    dok.kaki.length > 92 ? `${dok.kaki.slice(0, 90)}...` : dok.kaki;
+    kakiPenuh.length > 92 ? `${kakiPenuh.slice(0, 90)}...` : kakiPenuh;
   operasi.push(teksResmi(kaki, 7.2, "F1", R_MARGIN, 38, R.redup));
   const nomor = `Halaman ${nomorHalaman} dari ${jumlahHalaman}`;
   operasi.push(
@@ -1592,11 +1696,22 @@ export function susunPdfResmi(dok: DokumenResmiPdf): Uint8Array {
   const aliran = halaman.map((blok, i) =>
     isiHalamanResmi(blok, dok, i + 1, halaman.length),
   );
-  return susunBerkasPdf(aliran);
+  return susunBerkasPdf(aliran, {
+    judul: `${dok.judul} ${dok.nomor}`,
+    subjek: dok.kaki,
+  });
 }
 
-/** Buat berkas PDF dari aliran isi tiap halaman (objek + xref). */
-function susunBerkasPdf(aliran: string[]): Uint8Array {
+/**
+ * Buat berkas PDF dari aliran isi tiap halaman (objek + xref).
+ *
+ * Metadata ikut ditulis supaya judul dan penerbit terbaca di daftar dokumen
+ * pembaca PDF, bukan hanya nama berkas unduhan.
+ */
+function susunBerkasPdf(
+  aliran: string[],
+  meta?: { judul: string; subjek?: string },
+): Uint8Array {
   // Penomoran objek: 1 katalog, 2 daftar halaman, 3-4 font, lalu 2 objek per
   // halaman (objek halaman + aliran isinya).
   const NOMOR_FONT = [
@@ -1623,6 +1738,16 @@ function susunBerkasPdf(aliran: string[]): Uint8Array {
     objek.push(`<< /Length ${isi.length} >>\nstream\n${isi}endstream`);
   });
 
+  // Objek info diletakkan paling akhir agar nomor halaman di atas tidak bergeser.
+  const nomorInfo = objek.length + 1;
+  if (meta !== undefined) {
+    objek.push(
+      `<< /Title (${escapePdf(meta.judul)}) /Author (PINDAI) ` +
+        `/Subject (${escapePdf(meta.subjek ?? meta.judul)}) ` +
+        `/Creator (PINDAI) /Producer (PINDAI) >>`,
+    );
+  }
+
   let berkas = "%PDF-1.4\n";
   const offset: number[] = [];
   objek.forEach((isi, i) => {
@@ -1633,7 +1758,8 @@ function susunBerkasPdf(aliran: string[]): Uint8Array {
   berkas += `xref\n0 ${objek.length + 1}\n0000000000 65535 f \n`;
   for (const posisi of offset)
     berkas += `${String(posisi).padStart(10, "0")} 00000 n \n`;
-  berkas += `trailer\n<< /Size ${objek.length + 1} /Root 1 0 R >>\nstartxref\n${offsetXref}\n%%EOF\n`;
+  const info = meta === undefined ? "" : ` /Info ${nomorInfo} 0 R`;
+  berkas += `trailer\n<< /Size ${objek.length + 1} /Root 1 0 R${info} >>\nstartxref\n${offsetXref}\n%%EOF\n`;
 
   const byte = new Uint8Array(berkas.length);
   for (let i = 0; i < berkas.length; i += 1)
@@ -1650,6 +1776,10 @@ function susunBerkasPdf(aliran: string[]): Uint8Array {
  * objek di tabel `xref` sama dengan panjang teks yang sudah ditulis.
  */
 export function susunPdf(dokumen: DokumenPdf): Uint8Array {
+  const meta =
+    dokumen.judul === undefined
+      ? undefined
+      : { judul: dokumen.judul, subjek: dokumen.kaki };
   const baris = siapkanBaris(dokumen.baris);
   const tinggiKop =
     dokumen.kop === undefined
@@ -1667,7 +1797,7 @@ export function susunPdf(dokumen: DokumenPdf): Uint8Array {
     aliran.push(isiHalaman(halaman, dokumen, i + 1, halamanIsi.length));
   });
 
-  return susunBerkasPdf(aliran);
+  return susunBerkasPdf(aliran, meta);
 }
 
 /** Teks berkas PDF sebagai Latin-1, untuk pembacaan dan pengujian. */

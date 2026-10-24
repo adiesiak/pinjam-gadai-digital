@@ -27,7 +27,11 @@
 import { formatRupiahAman } from "./money";
 import { tanggalRingkas } from "./jatuhTempo";
 import { samarkanNama } from "./nama";
-import type { BarisPdf, DokumenPdf, KopPdf } from "./pdfSederhana";
+import type {
+  BarisTabelResmi,
+  BlokResmiPdf,
+  DokumenResmiPdf,
+} from "./pdfSederhana";
 import type { SumberPendana, TotalPendana } from "./tabelPendana";
 
 /**
@@ -115,9 +119,6 @@ export type DataRekapPendana = {
  */
 const KAKI_LAPORAN = "PINDAI - dokumen dibuat otomatis oleh sistem";
 
-/** Nama layanan pada kop. Satu tempat, dipakai semua laporan. */
-const NAMA_LAYANAN = "PINJAM GADAI DIGITAL (PINDAI)";
-
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
 }
@@ -143,24 +144,19 @@ function slug(teks: string): string {
   return bersih === "" ? "pinjaman" : bersih;
 }
 
-/** Kop surat laporan: lambang dari penulis PDF, keterangan, dan rujukan. */
-function kopLaporan(keterangan: string, referensi: string): KopPdf {
-  return { nama: NAMA_LAYANAN, keterangan, referensi };
-}
-
 /** Nama berkas lampiran laporan pelunasan. */
 export function namaBerkasPelunasan(nomorReferensi: string): string {
-  return `laporan-pelunasan-${slug(nomorReferensi)}.pdf`;
+  return `PINDAI-Laporan-Pelunasan-${slug(nomorReferensi)}.pdf`;
 }
 
 /** Nama berkas lampiran laporan portofolio. */
 export function namaBerkasPortofolio(dicetakPada: number): string {
-  return `laporan-pendanaan-${tanggalIso(dicetakPada)}.pdf`;
+  return `PINDAI-Laporan-Pendanaan-${tanggalIso(dicetakPada)}.pdf`;
 }
 
 /** Nama berkas rekap seluruh pendana. */
 export function namaBerkasRekapPendana(dicetakPada: number): string {
-  return `rekap-pendana-${tanggalIso(dicetakPada)}.pdf`;
+  return `PINDAI-Rekap-Pendana-${tanggalIso(dicetakPada)}.pdf`;
 }
 
 /** Judul laporan pelunasan, dipakai di PDF dan di keterangan pesan. */
@@ -175,86 +171,103 @@ export function judulPelunasan(): string {
  * yang melunasinya, lalu apa langkah berikutnya. Status transfer disebut di
  * akhir karena itu bukan tanggung jawabnya, tetapi perlu ia ketahui.
  */
-export function laporanPelunasan(data: DataPelunasanPendana): DokumenPdf {
-  const baris: BarisPdf[] = [
-    { teks: judulPelunasan(), gaya: "judul" },
-    { teks: `${data.nomorReferensi} - ${data.namaPendana}`, gaya: "subjudul" },
-    { teks: `Dicetak ${tanggal(data.dicetakPada)} dari ruang penyedia dana`, gaya: "kecil" },
-    { garis: true },
-    { teks: "Hasil untuk Anda", gaya: "seksi" },
+export function laporanPelunasan(data: DataPelunasanPendana): DokumenResmiPdf {
+  const blok: BlokResmiPdf[] = [
     {
-      label: "Keuntungan pendana (dibukukan)",
+      jenis: "banner",
+      merek: "PINDAI",
+      subjudul: "Laporan Pelunasan Pendana",
+      nomor: data.nomorReferensi,
+      tanggal: `Dicetak ${tanggal(data.dicetakPada)}`,
+    },
+    {
+      jenis: "kartu",
+      kiri: {
+        judul: "Pendana & Pinjaman",
+        baris: [
+          { label: "Nama Pendana", nilai: data.namaPendana },
+          { label: "Peminjam", nilai: samarkanNama(data.namaPeminjam) },
+          { label: "Nomor Referensi", nilai: data.nomorReferensi },
+          { label: "Status", nilai: "Lunas", nada: "bersih" },
+        ],
+      },
+      kanan: {
+        judul: "Tanggal & Transfer",
+        baris: [
+          { label: "Dana Tersalurkan", nilai: tanggal(data.didanaiPada) },
+          { label: "Tanggal Lunas", nilai: tanggal(data.lunasPada) },
+          {
+            label: "Transfer Keuntungan",
+            nilai: data.transferDicatat ? "Sudah dicatat" : "Belum dicatat",
+            ...(data.transferDicatat ? { nada: "bersih" as const } : { nada: "potongan" as const }),
+          },
+          { label: "Dicetak", nilai: tanggal(data.dicetakPada) },
+        ],
+      },
+    },
+    { jenis: "judul", nomor: "1", teks: "Hasil untuk Anda" },
+    {
+      jenis: "tabel",
+      kepala: ["DESKRIPSI KOMPONEN", "NOMINAL"],
+      bobot: [8, 2],
+      rataKanan: [1],
+      baris: [
+        {
+          sel: ["Keuntungan pendana (dibukukan)", rupiah(data.keuntunganPendana)],
+          tebal: true,
+          nada: "bersih",
+        },
+        { sel: ["Dana tersalurkan (pokok)", rupiah(data.pokokPinjaman)] },
+        { sel: ["Total kewajiban peminjam", rupiah(data.totalLunas)] },
+        { sel: ["Biaya platform (layanan)", rupiah(data.potonganAdmin)] },
+      ],
+    },
+    {
+      jenis: "callout",
+      label: "Keuntungan yang dibukukan",
       nilai: rupiah(data.keuntunganPendana),
-      tebal: true,
-    },
-    { label: "Total kewajiban peminjam", nilai: rupiah(data.totalLunas) },
-    { label: "Biaya platform (layanan)", nilai: rupiah(data.potonganAdmin) },
-    { kosong: true },
-    { teks: "Pinjaman", gaya: "seksi" },
-    { label: "Nomor referensi", nilai: data.nomorReferensi },
-    { label: "Peminjam", nilai: samarkanNama(data.namaPeminjam) },
-    { label: "Dana tersalurkan (pokok)", nilai: rupiah(data.pokokPinjaman) },
-    { label: "Tanggal dana tersalurkan", nilai: tanggal(data.didanaiPada) },
-    { label: "Tanggal lunas", nilai: tanggal(data.lunasPada) },
-    { kosong: true },
-    {
-      teks: data.transferDicatat
+      catatan: data.transferDicatat
         ? "Catatan transfer keuntungan sudah dibuat admin."
-        : "Catatan transfer keuntungan belum dibuat admin. Keuntungan di atas tercatat lunas, tetapi pencairannya masih menunggu catatan transfer.",
-      gaya: "kecil",
+        : "Catatan transfer keuntungan belum dibuat admin. Keuntungan di atas sudah dibukukan, tetapi pencairannya masih menunggu catatan transfer.",
     },
+    { jenis: "judul", nomor: "2", teks: "Catatan" },
     {
-      teks: "Nama peminjam disamarkan. Angka di laporan ini dihitung dari pinjaman yang alokasinya atas nama akun penerima, sama dengan yang tampil di ruang penyedia dana.",
-      gaya: "kecil",
+      jenis: "poin",
+      teks: [
+        "Nama peminjam disamarkan. Angka di laporan ini dihitung dari pinjaman yang alokasinya atas nama akun penerima, sama dengan yang tampil di ruang penyedia dana.",
+        "Laporan ini salinan catatan internal PINDAI, bukan bukti transfer bank.",
+      ],
     },
   ];
   return {
-    kop: kopLaporan(
-      "Layanan gadai digital - laporan keuangan pendana",
-      "LAPORAN PELUNASAN",
-    ),
+    nomor: data.nomorReferensi,
+    judul: "LAPORAN PELUNASAN",
     kaki: KAKI_LAPORAN,
-    baris,
+    blok,
   };
 }
 
 /**
- * Baris satu pinjaman pada bagian daftar (berjalan atau lunas).
- *
- * Satu pinjaman memakai dua baris: baris kecil berisi identitas dan pokok,
- * baris kedua berisi nama yang disamarkan dengan angkanya rata kanan. Bentuk
- * ini membuat kolom keuntungan sejajar antarbaris, dan nama peminjam tetap
- * terbaca sebagai identitas baris tanpa membocorkan nama lengkap.
+ * Baris tabel daftar pinjaman. Nama peminjam disamarkan di sini, bukan di
+ * pemanggil, supaya semua kanal memakai penyamaran yang sama.
  */
-function barisDaftar(
-  judul: string,
-  nominal: string,
+function barisDaftarPinjaman(
   kumpulan: BarisPortofolioPendana[],
-): BarisPdf[] {
-  const hasil: BarisPdf[] = [{ teks: judul, gaya: "seksi" }];
-  if (kumpulan.length === 0) {
-    hasil.push({ teks: "Belum ada pinjaman pada bagian ini.", gaya: "biasa" });
-    return hasil;
-  }
-  for (const p of kumpulan.slice(0, BATAS_PINJAMAN_LAPORAN)) {
-    hasil.push({
-      teks:
-        `${p.nomorReferensi} - ${tanggal(p.tanggal)} - pokok ${rupiah(p.pokokPinjaman)} - ` +
-        `jatuh tempo ${tanggal(p.tanggalReturn)}`,
-      gaya: "kecil",
-    });
-    hasil.push({
-      label: samarkanNama(p.namaPeminjam),
-      nilai: `${nominal} ${rupiah(p.keuntunganPendana)}`,
-    });
-  }
-  if (kumpulan.length > BATAS_PINJAMAN_LAPORAN) {
-    hasil.push({
-      teks: `Dan ${kumpulan.length - BATAS_PINJAMAN_LAPORAN} pinjaman lain pada bagian ini. Daftar lengkapnya ada di ruang penyedia dana.`,
-      gaya: "kecil",
-    });
-  }
-  return hasil;
+  jenis: "berjalan" | "lunas",
+): { baris: BarisTabelResmi[]; sisa: number } {
+  const tampil = kumpulan.slice(0, BATAS_PINJAMAN_LAPORAN);
+  return {
+    baris: tampil.map((p) => ({
+      sel: [
+        p.nomorReferensi,
+        samarkanNama(p.namaPeminjam),
+        rupiah(p.pokokPinjaman),
+        rupiah(p.keuntunganPendana),
+        tanggal(jenis === "berjalan" ? p.tanggalReturn : p.tanggal),
+      ],
+    })),
+    sisa: kumpulan.length - tampil.length,
+  };
 }
 
 /**
@@ -264,65 +277,142 @@ function barisDaftar(
  * sini: laporan yang angkanya sedikit berbeda dari layar akan membuat pemiliknya
  * kehilangan kepercayaan pada kedua tempat sekaligus.
  */
-export function laporanPortofolio(data: DataPortofolioPendana): DokumenPdf {
-  const baris: BarisPdf[] = [
-    { teks: "Laporan kinerja pendanaan", gaya: "judul" },
-    { teks: `Pendana: ${data.namaPendana}`, gaya: "subjudul" },
-    { teks: `Dicetak ${tanggal(data.dicetakPada)} dari ruang penyedia dana`, gaya: "kecil" },
-    { garis: true },
-    { teks: "Ringkasan", gaya: "seksi" },
-    { label: "Dana tersalurkan", nilai: rupiah(data.totalDisalurkan) },
+export function laporanPortofolio(data: DataPortofolioPendana): DokumenResmiPdf {
+  const berjalan = barisDaftarPinjaman(data.pinjamanBerjalan, "berjalan");
+  const lunas = barisDaftarPinjaman(data.pinjamanLunas, "lunas");
+  const blok: BlokResmiPdf[] = [
     {
-      label: "Masih berjalan",
-      nilai: `${rupiah(data.saldoBerjalan)} (${data.jumlahBerjalan} pinjaman)`,
-    },
-    { label: "Keuntungan dibukukan (lunas)", nilai: rupiah(data.keuntunganDibukukan) },
-    {
-      label: "Keuntungan perkiraan (belum lunas)",
-      nilai: rupiah(data.keuntunganPerkiraan),
+      jenis: "banner",
+      merek: "PINDAI",
+      subjudul: "Laporan Kinerja Pendanaan",
+      nomor: "LAPORAN PENDANAAN",
+      tanggal: `Dicetak ${tanggal(data.dicetakPada)}`,
     },
     {
-      label: "Total keuntungan pendana",
+      jenis: "kartu",
+      kiri: {
+        judul: "Pendana",
+        baris: [
+          { label: "Nama Pendana", nilai: data.namaPendana },
+          {
+            label: "Jumlah Pinjaman",
+            nilai: `${data.jumlahBerjalan} berjalan - ${data.jumlahLunas} lunas`,
+          },
+          { label: "Dicetak", nilai: tanggal(data.dicetakPada) },
+        ],
+      },
+      kanan: {
+        judul: "Ringkasan Dana",
+        baris: [
+          { label: "Dana Tersalurkan", nilai: rupiah(data.totalDisalurkan) },
+          {
+            label: "Masih Berjalan",
+            nilai: `${rupiah(data.saldoBerjalan)} (${data.jumlahBerjalan} pinjaman)`,
+          },
+          {
+            label: "Total Keuntungan",
+            nilai: rupiah(data.totalKeuntungan),
+            nada: "bersih",
+          },
+        ],
+      },
+    },
+    { jenis: "judul", nomor: "1", teks: "Ringkasan Keuntungan" },
+    {
+      jenis: "tabel",
+      kepala: ["DESKRIPSI KOMPONEN", "NOMINAL"],
+      bobot: [8, 2],
+      rataKanan: [1],
+      baris: [
+        { sel: ["Keuntungan dibukukan (lunas)", rupiah(data.keuntunganDibukukan)] },
+        {
+          sel: [
+            "Keuntungan perkiraan (belum lunas)",
+            rupiah(data.keuntunganPerkiraan),
+          ],
+        },
+        {
+          sel: ["Total keuntungan pendana", rupiah(data.totalKeuntungan)],
+          tebal: true,
+          nada: "bersih",
+        },
+        { sel: ["Biaya platform (layanan)", rupiah(data.potonganAdmin)] },
+      ],
+    },
+    {
+      jenis: "callout",
+      label: "Total Keuntungan Pendana",
       nilai: rupiah(data.totalKeuntungan),
-      tebal: true,
+      catatan:
+        "Keuntungan perkiraan dihitung dari pinjaman yang masih berjalan dan baru menjadi uang saat pinjaman itu lunas.",
     },
-    { label: "Biaya platform (layanan)", nilai: rupiah(data.potonganAdmin) },
+    { jenis: "judul", nomor: "2", teks: "Pinjaman Berjalan" },
+  ];
+
+  if (berjalan.baris.length === 0) {
+    blok.push({
+      jenis: "paragraf",
+      teks: "Belum ada pinjaman pada bagian ini.",
+    });
+  } else {
+    blok.push({
+      jenis: "tabel",
+      kepala: ["REFERENSI", "PEMINJAM", "POKOK", "PERKIRAAN", "JATUH TEMPO"],
+      bobot: [2.1, 1.7, 1.4, 1.3, 1.5],
+      rataKanan: [2, 3],
+      baris: berjalan.baris,
+    });
+    if (berjalan.sisa > 0) {
+      blok.push({
+        jenis: "paragraf",
+        kecil: true,
+        teks: `Dan ${berjalan.sisa} pinjaman lain pada bagian ini. Daftar lengkapnya ada di ruang penyedia dana.`,
+      });
+    }
+  }
+
+  blok.push({ jenis: "judul", nomor: "3", teks: "Pinjaman Lunas" });
+  if (lunas.baris.length === 0) {
+    blok.push({
+      jenis: "paragraf",
+      teks: "Belum ada pinjaman pada bagian ini.",
+    });
+  } else {
+    blok.push({
+      jenis: "tabel",
+      kepala: ["REFERENSI", "PEMINJAM", "POKOK", "DIBUKUKAN", "TANGGAL LUNAS"],
+      bobot: [2.1, 1.7, 1.3, 1.3, 1.6],
+      rataKanan: [2, 3],
+      baris: lunas.baris,
+    });
+    if (lunas.sisa > 0) {
+      blok.push({
+        jenis: "paragraf",
+        kecil: true,
+        teks: `Dan ${lunas.sisa} pinjaman lain pada bagian ini. Daftar lengkapnya ada di ruang penyedia dana.`,
+      });
+    }
+  }
+
+  blok.push(
+    { jenis: "judul", nomor: "4", teks: "Catatan" },
     {
-      label: "Jumlah pinjaman",
-      nilai: `${data.jumlahBerjalan} berjalan - ${data.jumlahLunas} lunas`,
-    },
-    { kosong: true },
-    ...barisDaftar("Pinjaman berjalan", "perkiraan", data.pinjamanBerjalan),
-    { kosong: true },
-    ...barisDaftar("Pinjaman lunas", "dibukukan", data.pinjamanLunas),
-    { kosong: true },
-    {
-      teks: "Keuntungan perkiraan dihitung dari pinjaman yang masih berjalan: angkanya baru menjadi uang saat pinjaman itu lunas.",
-      gaya: "kecil",
-    },
-    {
-      teks: "Tanggal jatuh tempo adalah proyeksi return dari tenor pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila peminjam menunggak.",
-      gaya: "kecil",
-    },
-    {
-      teks:
+      jenis: "poin",
+      teks: [
+        "Tanggal jatuh tempo adalah proyeksi return dari tenor pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila peminjam menunggak.",
         data.transferBelumDicatat > 0
           ? `${data.transferBelumDicatat} pinjaman lunas sudah dibukukan, tetapi catatan transfer keuntungannya belum dibuat admin.`
           : "Seluruh keuntungan yang sudah dibukukan memiliki catatan transfer dari admin.",
-      gaya: "kecil",
+        "Nama peminjam disamarkan. Daftar lengkap pinjaman dan statusnya ada di ruang penyedia dana.",
+      ],
     },
-    {
-      teks: "Nama peminjam disamarkan. Daftar lengkap pinjaman dan statusnya ada di ruang penyedia dana.",
-      gaya: "kecil",
-    },
-  ];
+  );
+
   return {
-    kop: kopLaporan(
-      "Layanan gadai digital - laporan keuangan pendana",
-      "LAPORAN PENDANAAN",
-    ),
+    nomor: "LAPORAN PENDANAAN",
+    judul: "LAPORAN PENDANAAN",
     kaki: KAKI_LAPORAN,
-    baris,
+    blok,
   };
 }
 
@@ -334,93 +424,137 @@ export function laporanPortofolio(data: DataPortofolioPendana): DokumenPdf {
  * sini: rekap ini tentang posisi pendana, dan rincian pinjamannya sudah punya
  * dokumen sendiri di ruang masing-masing.
  */
-export function laporanRekapPendana(data: DataRekapPendana): DokumenPdf {
+export function laporanRekapPendana(data: DataRekapPendana): DokumenResmiPdf {
   const total = data.total;
-  const baris: BarisPdf[] = [
-    { teks: "Rekap pinjaman semua pendana", gaya: "judul" },
-    { teks: `Dicetak ${tanggal(data.dicetakPada)} dari ruang penyedia dana`, gaya: "kecil" },
-    { garis: true },
-    { teks: "Total seluruh pendana", gaya: "seksi" },
-    { label: "Jumlah pendana", nilai: String(total.jumlahPendana) },
+  const blok: BlokResmiPdf[] = [
     {
-      label: "Jumlah pinjaman",
-      nilai: `${total.jumlahPinjaman} (${total.jumlahAktif} berjalan, ${total.jumlahLunas} lunas)`,
-    },
-    { label: "Dana tersalurkan", nilai: rupiah(total.totalDisalurkan), tebal: true },
-    { label: "Masih berjalan", nilai: rupiah(total.saldoBerjalan) },
-    {
-      label: "Keuntungan dibukukan (lunas)",
-      nilai: rupiah(total.keuntunganPendanaLunas),
+      jenis: "banner",
+      merek: "PINDAI",
+      subjudul: "Rekap Pinjaman Semua Pendana",
+      nomor: "KHUSUS SUPER ADMIN",
+      tanggal: `Dicetak ${tanggal(data.dicetakPada)}`,
     },
     {
-      label: "Keuntungan perkiraan (belum lunas)",
-      nilai: rupiah(total.keuntunganPendanaBelumLunas),
+      jenis: "kartu",
+      kiri: {
+        judul: "Cakupan",
+        baris: [
+          { label: "Jumlah Pendana", nilai: String(total.jumlahPendana) },
+          {
+            label: "Jumlah Pinjaman",
+            nilai: `${total.jumlahPinjaman} (${total.jumlahAktif} berjalan, ${total.jumlahLunas} lunas)`,
+          },
+          { label: "Dicetak", nilai: tanggal(data.dicetakPada) },
+        ],
+      },
+      kanan: {
+        judul: "Total Dana",
+        baris: [
+          { label: "Dana Tersalurkan", nilai: rupiah(total.totalDisalurkan) },
+          { label: "Masih Berjalan", nilai: rupiah(total.saldoBerjalan) },
+          {
+            label: "Transfer Belum Dicatat",
+            nilai: `${total.transferBelumDicatat} pinjaman - ${rupiah(total.keuntunganBelumDicatat)}`,
+          },
+        ],
+      },
+    },
+    { jenis: "judul", nomor: "1", teks: "Total Seluruh Pendana" },
+    {
+      jenis: "tabel",
+      kepala: ["DESKRIPSI KOMPONEN", "NOMINAL"],
+      bobot: [8, 2],
+      rataKanan: [1],
+      baris: [
+        {
+          sel: ["Keuntungan dibukukan (lunas)", rupiah(total.keuntunganPendanaLunas)],
+        },
+        {
+          sel: [
+            "Keuntungan perkiraan (belum lunas)",
+            rupiah(total.keuntunganPendanaBelumLunas),
+          ],
+        },
+        {
+          sel: ["Total keuntungan pendana", rupiah(total.keuntunganPendana)],
+          tebal: true,
+          nada: "bersih",
+        },
+        { sel: ["Biaya platform (layanan)", rupiah(total.keuntunganAdmin)] },
+      ],
     },
     {
-      label: "Total keuntungan pendana",
+      jenis: "callout",
+      label: "Total Keuntungan Pendana",
       nilai: rupiah(total.keuntunganPendana),
-      tebal: true,
+      catatan: `${total.jumlahPendana} pendana, ${total.jumlahPinjaman} pinjaman. Salinan rekap internal, bukan bukti transfer.`,
     },
-    { label: "Biaya platform (layanan)", nilai: rupiah(total.keuntunganAdmin) },
-    {
-      label: "Transfer keuntungan belum dicatat",
-      nilai: `${total.transferBelumDicatat} pinjaman - ${rupiah(total.keuntunganBelumDicatat)}`,
-    },
-    { kosong: true },
-    { teks: "Rincian per pendana", gaya: "seksi" },
+    { jenis: "judul", nomor: "2", teks: "Rincian per Pendana" },
   ];
 
-  data.baris.forEach((r, i) => {
-    baris.push({ teks: `${i + 1}. ${r.nama}`, gaya: "tebal" });
-    baris.push({
-      teks: `${r.jumlahPinjaman} pinjaman - ${r.jumlahAktif} berjalan - ${r.jumlahLunas} lunas`,
-      gaya: "kecil",
+  if (data.baris.length === 0) {
+    blok.push({ jenis: "paragraf", teks: "Belum ada pendana yang bisa direkap." });
+  } else {
+    blok.push({
+      jenis: "tabel",
+      kepala: [
+        "PENDANA",
+        "PINJAMAN",
+        "TERSALURKAN",
+        "BERJALAN",
+        "DIBUKUKAN",
+        "PERKIRAAN",
+        "TOTAL",
+      ],
+      bobot: [2.3, 0.9, 1.5, 1.4, 1.4, 1.4, 1.4],
+      rataKanan: [1, 2, 3, 4, 5, 6],
+      baris: [
+        ...data.baris.map((r) => ({
+          sel: [
+            r.nama,
+            String(r.jumlahPinjaman),
+            rupiah(r.totalDisalurkan),
+            rupiah(r.saldoBerjalan),
+            rupiah(r.keuntunganPendanaLunas),
+            rupiah(r.keuntunganPendanaBelumLunas),
+            rupiah(r.keuntunganPendana),
+          ],
+        })),
+        {
+          sel: [
+            "TOTAL",
+            String(total.jumlahPinjaman),
+            rupiah(total.totalDisalurkan),
+            rupiah(total.saldoBerjalan),
+            rupiah(total.keuntunganPendanaLunas),
+            rupiah(total.keuntunganPendanaBelumLunas),
+            rupiah(total.keuntunganPendana),
+          ],
+          tebal: true,
+          nada: "total" as const,
+        },
+      ],
     });
-    baris.push({ label: "Dana tersalurkan", nilai: rupiah(r.totalDisalurkan) });
-    baris.push({ label: "Masih berjalan", nilai: rupiah(r.saldoBerjalan) });
-    baris.push({
-      label: "Keuntungan dibukukan (lunas)",
-      nilai: rupiah(r.keuntunganPendanaLunas),
-    });
-    baris.push({
-      label: "Keuntungan perkiraan (belum lunas)",
-      nilai: rupiah(r.keuntunganPendanaBelumLunas),
-    });
-    baris.push({
-      label: "Total keuntungan pendana",
-      nilai: rupiah(r.keuntunganPendana),
-      tebal: true,
-    });
-    baris.push({ label: "Biaya platform (layanan)", nilai: rupiah(r.keuntunganAdmin) });
-    if (r.transferBelumDicatat > 0) {
-      baris.push({
-        teks: `${r.transferBelumDicatat} pinjaman lunas belum memiliki catatan transfer keuntungan.`,
-        gaya: "kecil",
-      });
-    }
-    baris.push({ kosong: true });
-  });
+  }
 
-  baris.push(
-    { teks: "Cara membaca", gaya: "seksi" },
+  blok.push(
+    { jenis: "judul", nomor: "3", teks: "Cara Membaca" },
     {
-      teks: "Model 1 pinjaman = 1 pendana. Setiap angka dihitung dari pinjaman yang tercatat atas nama pendana itu.",
-      gaya: "kecil",
-    },
-    {
-      teks: "Keuntungan perkiraan berasal dari pinjaman yang masih berjalan dan baru menjadi uang saat pinjaman lunas.",
-      gaya: "kecil",
-    },
-    {
-      teks: "Nama peminjam tidak dicantumkan di rekap ini. Rincian pinjaman per pendana ada di dokumen laporan pendana masing-masing.",
-      gaya: "kecil",
+      jenis: "poin",
+      teks: [
+        "Model 1 pinjaman = 1 pendana. Setiap angka dihitung dari pinjaman yang tercatat atas nama pendana itu.",
+        "Keuntungan perkiraan berasal dari pinjaman yang masih berjalan dan baru menjadi uang saat pinjaman lunas.",
+        "Nama peminjam tidak dicantumkan di rekap ini. Rincian pinjaman per pendana ada di dokumen laporan pendana masing-masing.",
+        "Biaya platform adalah bagian PINDAI, bukan bagian pendana; angkanya dicetak terpisah agar tidak tertukar dengan keuntungan pendana.",
+      ],
     },
   );
 
   return {
-    kop: kopLaporan("Rekap internal - seluruh pendana", "KHUSUS SUPER ADMIN"),
+    nomor: "REKAP PENDANA",
+    judul: "REKAP PENDANA",
     kaki: KAKI_LAPORAN,
-    baris,
+    blok,
   };
 }
 

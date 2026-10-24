@@ -14,6 +14,7 @@ import {
   bungkusTeks,
   keLatin1,
   susunPdf,
+  susunPdfResmi,
   teksPdf,
   type DokumenPdf,
 } from "./pdfSederhana";
@@ -417,6 +418,246 @@ function masalahTataLetak(pdf: string): string[] {
     Number(/\/Count (\d+)/.exec(teksPdf(kosong))?.[1]),
     1,
     "dokumen tanpa isi tetap satu halaman",
+  );
+}
+
+/** Teks yang kotak hurufnya bersinggungan dengan garis horizontal tabel. */
+function teksBertumpuk(pdf: string): string[] {
+  const halaman = [...pdf.matchAll(/stream\n([\s\S]*?)endstream/g)].map((m) => m[1]);
+  const masalah: string[] = [];
+  for (const isi of halaman) {
+    const teks = [
+      ...isi.matchAll(
+        /\/(F1|F2) ([\d.]+) Tf 1 0 0 1 ([\d.]+) ([\d.]+) Tm \(((?:[^()\\]|\\.)*)\) Tj/g,
+      ),
+    ]
+      .map((m) => ({
+        ukuran: Number(m[2]),
+        x: Number(m[3]),
+        y: Number(m[4]),
+        teks: m[5] ?? "",
+      }))
+      .filter((t) => t.y > 58);
+    const perGaris = new Map<number, typeof teks>();
+    for (const t of teks) {
+      const kunci = Math.round(t.y);
+      perGaris.set(kunci, [...(perGaris.get(kunci) ?? []), t]);
+    }
+    for (const baris of perGaris.values()) {
+      const urut = [...baris].sort((a, b) => a.x - b.x);
+      for (let i = 1; i < urut.length; i += 1) {
+        const kiri = urut[i - 1];
+        const kanan = urut[i];
+        const akhirKiri = kiri.x + kiri.teks.length * kiri.ukuran * 0.55;
+        if (akhirKiri > kanan.x + 1) {
+          masalah.push(`"${kiri.teks}" menumpuk "${kanan.teks}"`);
+        }
+      }
+    }
+  }
+  return masalah;
+}
+
+function teksMenembusGaris(pdf: string): string[] {
+  const halaman = [...pdf.matchAll(/stream\n([\s\S]*?)endstream/g)].map((m) => m[1]);
+  return halaman.flatMap((isi) => {
+    const garis = [
+      ...isi.matchAll(
+        /([\d.]+ [\d.]+ [\d.]+) RG [\d.]+ w ([\d.]+) ([\d.]+) m ([\d.]+) ([\d.]+) l S/g,
+      ),
+    ]
+      .filter((m) => Math.abs(Number(m[3]) - Number(m[5])) < 0.01)
+      .map((m) => Number(m[3]));
+    return [
+      ...isi.matchAll(
+        /\/(F1|F2) ([\d.]+) Tf 1 0 0 1 ([\d.]+) ([\d.]+) Tm \(((?:[^()\\]|\\.)*)\) Tj/g,
+      ),
+    ]
+      .map((m) => ({ ukuran: Number(m[2]), y: Number(m[4]), teks: m[5] ?? "" }))
+      .filter(
+        (t) =>
+          t.y > 58 &&
+          garis.some(
+            (y) => y > t.y - t.ukuran * 0.21 && y < t.y + t.ukuran * 0.72,
+          ),
+      )
+      .map((t) => t.teks);
+  });
+}
+
+/* ===== 9. Dokumen resmi: tabel panjang, kaki, dan metadata ===== */
+{
+  const baris = Array.from({ length: 70 }, (_, i) => ({
+    sel: [`Baris ${i + 1}`, `Rp ${(i + 1) * 1000}`],
+  }));
+  const pdf = teksPdf(
+    susunPdfResmi({
+      nomor: "DOK-UJI",
+      judul: "UJI TABEL PANJANG",
+      kaki: "PINDAI - uji tabel",
+      blok: [
+        {
+          jenis: "banner",
+          merek: "PINDAI",
+          subjudul: "Dokumen uji",
+          nomor: "DOK-UJI",
+          tanggal: "Dicetak hari ini",
+        },
+        { jenis: "judul", teks: "Daftar panjang" },
+        {
+          jenis: "tabel",
+          kepala: ["KETERANGAN", "NOMINAL"],
+          bobot: [8, 2],
+          rataKanan: [1],
+          baris,
+        },
+      ],
+    }),
+  );
+  const halaman = [...pdf.matchAll(/stream\n([\s\S]*?)endstream/g)].map(
+    (m) => m[1],
+  );
+  ok(halaman.length >= 3, "tabel panjang dipecah ke halaman berikutnya");
+  eq((pdf.match(/Baris \d+/g) ?? []).length, 70, "tidak ada baris tabel yang hilang");
+  ok(
+    halaman.every((isi) => isi.includes("KETERANGAN")),
+    "kepala tabel dicetak di setiap halaman lanjutan",
+  );
+  eq(
+    (pdf.match(/DOK-UJI - PINDAI - uji tabel/g) ?? []).length,
+    halaman.length,
+    "nomor dokumen dan kaki dicetak di setiap halaman",
+  );
+  ok(pdf.includes("/Title (UJI TABEL PANJANG DOK-UJI)"), "metadata judul ditulis");
+  ok(pdf.includes("/Author (PINDAI)"), "metadata penerbit ditulis");
+  ok(pdf.includes("/Info"), "kamus info dirujuk dari trailer");
+
+  // Baris tabel harus duduk di antara garis, bukan menimpanya.
+  const menembus = halaman.flatMap((isi) => {
+    const aturan = [
+      ...isi.matchAll(
+        /([\d.]+ [\d.]+ [\d.]+) RG [\d.]+ w ([\d.]+) ([\d.]+) m ([\d.]+) ([\d.]+) l S/g,
+      ),
+    ]
+      .filter((m) => Math.abs(Number(m[3]) - Number(m[5])) < 0.01)
+      .map((m) => Number(m[3]));
+    return [
+      ...isi.matchAll(
+        /\/(F1|F2) ([\d.]+) Tf 1 0 0 1 ([\d.]+) ([\d.]+) Tm \(((?:[^()\\]|\\.)*)\) Tj/g,
+      ),
+    ]
+      .map((m) => ({ ukuran: Number(m[2]), y: Number(m[4]) }))
+      .filter(
+        (t) =>
+          t.y > 58 &&
+          aturan.some(
+            (y) => y > t.y - t.ukuran * 0.21 && y < t.y + t.ukuran * 0.72,
+          ),
+      );
+  });
+  eq(menembus.length, 0, "tidak ada teks dokumen resmi yang menembus garis");
+}
+
+/* ===== 10. Label panjang dan nominal besar ===== */
+{
+  const pdf = teksPdf(
+    susunPdfResmi({
+      nomor: "DOK-BESAR",
+      judul: "UJI NOMINAL BESAR",
+      kaki: "PINDAI - uji nominal",
+      blok: [
+        {
+          jenis: "banner",
+          merek: "PINDAI",
+          subjudul: "Dokumen uji nominal",
+          nomor: "DOK-BESAR",
+          tanggal: "Dicetak hari ini",
+        },
+        { jenis: "judul", teks: "Rincian kewajiban" },
+        {
+          jenis: "tabel",
+          kepala: ["DESKRIPSI KOMPONEN", "NOMINAL"],
+          bobot: [8, 2],
+          rataKanan: [1],
+          baris: [
+            {
+              sel: [
+                "Sisa pokok pinjaman setelah perpanjangan tenor dan penyesuaian admin",
+                "Rp 999.999.999",
+              ],
+            },
+            {
+              sel: [
+                "Denda keterlambatan (2% per hari, dibatasi 100% dari pokok)",
+                "Rp 1.000.000",
+              ],
+              nada: "potongan",
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  ok(pdf.includes("Rp 999.999.999"), "nominal besar tercetak utuh");
+  ok(pdf.includes("Rp 1.000.000"), "nominal denda tercetak");
+  ok(
+    pdf.includes("dibatasi 100% dari pokok"),
+    "label panjang dibungkus dan tetap terbaca",
+  );
+  eq(
+    teksMenembusGaris(pdf).length,
+    0,
+    `label/nominal besar tidak menembus garis: ${teksMenembusGaris(pdf).join(", ")}`,
+  );
+
+  const rekap = teksPdf(
+    susunPdfResmi({
+      nomor: "DOK-REKAP",
+      judul: "UJI KOLOM SEMPIT",
+      kaki: "PINDAI - uji kolom",
+      blok: [
+        {
+          jenis: "banner",
+          merek: "PINDAI",
+          subjudul: "Dokumen uji kolom",
+          nomor: "DOK-REKAP",
+          tanggal: "Dicetak hari ini",
+        },
+        {
+          jenis: "tabel",
+          kepala: [
+            "PENDANA",
+            "PINJAMAN",
+            "TERSALURKAN",
+            "BERJALAN",
+            "DIBUKUKAN",
+            "PERKIRAAN",
+            "TOTAL",
+          ],
+          bobot: [2.3, 0.9, 1.5, 1.4, 1.4, 1.4, 1.4],
+          rataKanan: [1, 2, 3, 4, 5, 6],
+          baris: [
+            {
+              sel: [
+                "ROBERT",
+                "12",
+                "Rp 999.999.999.999",
+                "Rp 999.999.999.999",
+                "Rp 999.999.999.999",
+                "Rp 999.999.999.999",
+                "Rp 999.999.999.999",
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  ok(rekap.includes("Rp 999.999.999.999"), "nominal sangat besar tetap utuh");
+  eq(
+    teksBertumpuk(rekap).length,
+    0,
+    `nominal kolom sempit tidak menumpuk tetangganya: ${teksBertumpuk(rekap).join(", ")}`,
   );
 }
 
