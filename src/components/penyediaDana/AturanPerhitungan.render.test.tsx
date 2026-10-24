@@ -91,7 +91,7 @@ for (const teks of [
 
 // 2. Biaya platform.
 ada(html, "5%</strong> dari", "persentase biaya platform disebut");
-ada(html, "pokok penempatan", "dasar biaya platform: pokok penempatan");
+ada(html, "total pengembalian", "dasar biaya platform: total pengembalian");
 ada(html, "pokok kembali utuh", "konsekuensi biaya pada pokok dijelaskan");
 ada(html, "bukan jaminan", "biaya platform tidak diklaim sebagai jaminan");
 ada(html, "tidak dijamin oleh LPS", "status penjaminan dinyatakan apa adanya");

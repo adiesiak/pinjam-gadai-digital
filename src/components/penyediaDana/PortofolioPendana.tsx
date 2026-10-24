@@ -114,7 +114,8 @@ export function PortofolioPendana({
       <p className="border-t border-slate-200 px-4 py-3 text-xs leading-5 text-muted-foreground">
         Semua angka di ruang ini dihitung dari pinjaman yang alokasinya atas nama Anda; angka
         pendana lain tidak ditampilkan. {labelKolom("admin")} adalah potongan{" "}
-        {persenLayanan}% dari pokok penempatan, bukan dari Imbal Hasil,
+        {persenLayanan}% dari total pengembalian (pokok + Imbal Hasil), dipotong dari
+        Imbal Hasil,
         dan cara hitungnya diuraikan di bagian aturan perhitungan.
       </p>
     </div>

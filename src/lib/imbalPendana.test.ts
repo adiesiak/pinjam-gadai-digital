@@ -62,9 +62,9 @@ ok(berbedaTenor.every((n) => n === 300_000), "tenor nasabah tidak mengubah hak p
 const bagi = bagiHasilPendana(1_000_000, 5);
 eq(bagi.imbal, 300_000, "imbal bruto tetap 30%");
 eq(bagi.total, 1_300_000, "total bruto 130%");
-eq(bagi.potonganAdmin, 50_000, "biaya platform 5% dari pokok");
-eq(bagi.diterima, 1_250_000, "diterima setelah biaya platform");
-eq(bagi.keuntungan, 250_000, "keuntungan bersih setelah biaya platform");
+eq(bagi.potonganAdmin, 65_000, "biaya platform 5% dari total kembali");
+eq(bagi.diterima, 1_235_000, "diterima setelah biaya platform");
+eq(bagi.keuntungan, 235_000, "keuntungan bersih setelah biaya platform");
 eq(
   bagi.potonganAdmin + bagi.diterima,
   bagi.total,

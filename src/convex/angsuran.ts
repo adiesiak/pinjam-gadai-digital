@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminRole, requireAdminSession } from "./adminAuthz";
 import { pastikanAngsuran } from "./angsuranJadwal";
-import { potonganDariPokok } from "../lib/bagiHasil";
+import { potonganDariKembali } from "../lib/bagiHasil";
 import {
   dendaAngsuran,
   hariTerlambatAngsuran,
@@ -300,8 +300,8 @@ async function distribusikanKePendana(
       akunPayout = jalurSiklus.akun;
       kelebihan = jalurSiklus.kelebihan;
     } else {
-      // Baris lama tanpa siklus: potongan dari pokok, sisa bruto ke pendana.
-      potonganAdmin = potonganDariPokok(f.jumlahAlokasi, cfg.persenAdmin);
+      // Baris lama tanpa siklus: potongan dari total kembali, sisa ke pendana.
+      potonganAdmin = potonganDariKembali(bruto, cfg.persenAdmin);
       imbalBersih = bruto - potonganAdmin;
       akunPayout = akunDompetDana(f.danaId);
     }

@@ -342,8 +342,9 @@ function KalkulatorPendanaan({
           </dl>
           <p className="mt-3 text-[11px] leading-5 text-slate-600">
             Keuntungan bersih adalah uang yang diterima dikurangi pokok. Biaya
-            platform dihitung dari pokok penempatan, jadi pokok Anda kembali utuh
-            dan sebagian Imbal Hasil dipakai untuk biaya layanan.
+            platform dihitung dari total pengembalian (pokok + Imbal Hasil), jadi
+            pokok Anda kembali utuh dan sebagian Imbal Hasil dipakai untuk biaya
+            layanan.
           </p>
         </div>
       </div>
@@ -664,8 +665,8 @@ export function JadiPendanaView({
                   isi: "Jumlah yang seharusnya masuk sebelum biaya layanan.",
                 },
                 {
-                  rumus: `Biaya platform = pokok × ${persen} = ${rupiah(contoh.potonganAdmin)}`,
-                  isi: "Dihitung dari pokok penempatan, bukan dari Imbal Hasil.",
+                  rumus: `Biaya platform = (pokok + Imbal Hasil) × ${persen} = ${rupiah(contoh.potonganAdmin)}`,
+                  isi: "Dihitung dari total pengembalian, lalu dipotong dari Imbal Hasil.",
                 },
                 {
                   rumus: `Diterima = uang kembali - biaya = ${rupiah(contoh.diterima)}`,

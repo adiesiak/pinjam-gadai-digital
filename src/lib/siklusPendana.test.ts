@@ -3,7 +3,7 @@
  * Run: bun src/lib/siklusPendana.test.ts
  *
  * Angka ditulis tangan dari kebijakan: imbal 30% dari pokok, biaya platform 5%
- * dari POKOK, satu pembayaran per siklus.
+ * dari TOTAL KEMBALI (pokok + imbal), satu pembayaran per siklus.
  */
 import {
   HARI_MS,
@@ -42,13 +42,13 @@ function throws(fn: () => unknown, label: string) {
 
 eq(SIKLUS_PENDANA_HARI, 30, "siklus 30 hari");
 eq(PERSEN_IMBAL_SIKLUS, 30, "imbal 30% per siklus");
-eq(PERSEN_POTONGAN_SIKLUS, 5, "biaya 5% dari pokok");
+eq(PERSEN_POTONGAN_SIKLUS, 5, "biaya 5% dari total kembali");
 
 const acuan = hitungSiklusPendana(1_000_000);
 eq(acuan.pokok, 1_000_000, "pokok");
 eq(acuan.imbal, 300_000, "imbal 30% dari pokok");
-eq(acuan.potongan, 50_000, "biaya 5% dari POKOK (bukan dari uang kembali)");
-eq(acuan.totalCair, 1_250_000, "total cair = pokok + imbal − biaya");
+eq(acuan.potongan, 65_000, "biaya 5% dari TOTAL KEMBALI Rp1.300.000");
+eq(acuan.totalCair, 1_235_000, "total cair = pokok + imbal − biaya");
 eq(acuan.jatuhTempoHari, 30, "jatuh tempo 30 hari");
 eq(
   acuan.potongan + acuan.totalCair,
@@ -59,8 +59,8 @@ eq(
 // Pokok tidak bulat: kedua pembulatan ke bawah, tidak ada rupiah diciptakan.
 const ganjil = hitungSiklusPendana(500_150);
 eq(ganjil.imbal, 150_045, "imbal 30% dari 500.150");
-eq(ganjil.potongan, 25_007, "5% dari 500.150 dibulatkan ke bawah");
-eq(ganjil.totalCair, 625_188, "total cair 500.150 + 150.045 − 25.007");
+eq(ganjil.potongan, 32_509, "5% dari total kembali 650.195 dibulatkan ke bawah");
+eq(ganjil.totalCair, 617_686, "total cair 500.150 + 150.045 − 32.509");
 
 for (const pokok of [100_000, 333_333, 1_000_000, 7_777_777, 50_000_000]) {
   const h = hitungSiklusPendana(pokok);
@@ -116,9 +116,10 @@ eq(
 );
 
 // Putar ulang: seluruh hak siklus menjadi pokok baru, tanpa rupiah hilang.
-eq(pokokPutarUlang(acuan.totalCair), 1_250_000, "pokok baru = total cair lama");
+eq(pokokPutarUlang(acuan.totalCair), 1_235_000, "pokok baru = total cair lama");
+// 1.235.000 + 370.500 − 80.275 = 1.525.225.
 const lanjutan = hitungSiklusPendana(pokokPutarUlang(acuan.totalCair));
-eq(lanjutan.totalCair, 1_562_500, "total cair siklus kedua");
+eq(lanjutan.totalCair, 1_525_225, "total cair siklus kedua");
 eq(
   lanjutan.totalCair > acuan.totalCair,
   true,

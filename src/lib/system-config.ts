@@ -101,7 +101,7 @@ export type SystemConfig = {
   persenBunga: number;
   /**
    * Biaya admin pinjaman yang dipotong di muka (% dari pokok). Terpisah dari
-   * `persenAdmin` (potongan dari pokok penempatan penyedia dana).
+   * `persenAdmin` (potongan dari total pengembalian penyedia dana).
    * Nilai ini dipakai mesin harga untuk SEMUA pengajuan baru dan ikut
    * ditampilkan di landing page.
    */

@@ -3,7 +3,7 @@
  *
  * Yang dijaga:
  *  - halaman konvensional menampilkan angka contoh yang sama dengan mesin
- *    `lib/bagiHasil` (potongan Rp50.000, pendana Rp1.250.000);
+ *    `lib/bagiHasil` (potongan Rp65.000, pendana Rp1.235.000);
  *  - halaman syariah memakai istilah akad dan tidak memuat kata "bunga" atau
  *    "denda" sama sekali;
  *  - pengajuan syariah diarahkan ke dashboard, bukan disembunyikan;
@@ -52,8 +52,8 @@ function render(produk: "konvensional" | "syariah"): string {
   ada(html, "Tarif harian per tier", "tabel tarif harian tampil");
   ada(html, "Tarif cicilan bulanan", "tabel tarif bulanan tampil");
   ada(html, "Cicilan bulanan", "skema bulanan disebut");
-  ada(html, "Rp 50.000", "contoh potongan platform dari mesin bagi hasil");
-  ada(html, "Rp 1.250.000", "contoh hak pendana dari mesin bagi hasil");
+  ada(html, "Rp 65.000", "contoh potongan platform dari mesin bagi hasil");
+  ada(html, "Rp 1.235.000", "contoh hak pendana dari mesin bagi hasil");
   ada(html, "PT Pindai Digital Solusindo", "nama entitas tercetak");
   ada(html, 'href="/pinjaman/syariah"', "tautan ke produk syariah");
   ada(html, 'href="/biaya"', "tautan ke halaman biaya");

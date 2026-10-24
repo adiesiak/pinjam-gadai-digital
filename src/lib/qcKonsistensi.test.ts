@@ -26,9 +26,9 @@ function ok(syarat: boolean, label: string): void {
  * Tiap kasus uji menyalin fixture ini lalu merusak SATU sisi saja.
  *
  * Angkanya mengikuti kebijakan berjalan (lihat tabel di lib/bagiHasil.ts):
- * potongan platform = 5% dari pokok Rp1.000.000 = Rp50.000, jadi penyedia
- * dana menerima Rp1.250.000 dan keuntungan bersihnya Rp250.000. Pendapatan
- * platform satu pinjaman = Rp20.000 (di muka) + Rp50.000 = Rp70.000.
+ * potongan platform = 5% dari total kembali Rp1.300.000 = Rp65.000, jadi
+ * penyedia dana menerima Rp1.235.000 dan keuntungan bersihnya Rp235.000.
+ * Pendapatan platform satu pinjaman = Rp20.000 (di muka) + Rp65.000 = Rp85.000.
  */
 function sehat(): InputQc {
   return {
@@ -36,15 +36,15 @@ function sehat(): InputQc {
       terpotong: { pinjaman: false },
       ringkasan: {
         totalBungaPinjaman: 300_000,
-        totalKeuntunganAdmin: 50_000,
-        totalKeuntunganPendana: 250_000,
+        totalKeuntunganAdmin: 65_000,
+        totalKeuntunganPendana: 235_000,
         // Peminjam tunggal ini sudah lunas: seluruh keuntungan sudah dibukukan.
-        totalKeuntunganPendanaLunas: 250_000,
+        totalKeuntunganPendanaLunas: 235_000,
         totalKeuntunganPendanaBelumLunas: 0,
-        totalKeuntunganAdminLunas: 50_000,
+        totalKeuntunganAdminLunas: 65_000,
         totalKeuntunganAdminBelumLunas: 0,
         totalTransferBelumDicatat: 1,
-        nilaiTransferBelumDicatat: 250_000,
+        nilaiTransferBelumDicatat: 235_000,
         persenBunga: 30,
         persenPotonganAdmin: 5,
       },
@@ -55,14 +55,14 @@ function sehat(): InputQc {
           totalDisalurkan: 1_000_000,
           saldoBerjalan: 0,
           totalBunga: 300_000,
-          keuntunganPendana: 250_000,
-          keuntunganPendanaLunas: 250_000,
+          keuntunganPendana: 235_000,
+          keuntunganPendanaLunas: 235_000,
           keuntunganPendanaBelumLunas: 0,
-          keuntunganAdmin: 50_000,
-          keuntunganAdminLunas: 50_000,
+          keuntunganAdmin: 65_000,
+          keuntunganAdminLunas: 65_000,
           keuntunganAdminBelumLunas: 0,
           transferBelumDicatat: 1,
-          keuntunganBelumDicatat: 250_000,
+          keuntunganBelumDicatat: 235_000,
         },
       ],
       pinjaman: [
@@ -74,9 +74,9 @@ function sehat(): InputQc {
           persenBunga: null,
           bunga: 300_000,
           totalLunas: 1_300_000,
-          potonganAdmin: 50_000,
-          keuntunganPendana: 250_000,
-          keuntunganAdmin: 50_000,
+          potonganAdmin: 65_000,
+          keuntunganPendana: 235_000,
+          keuntunganAdmin: 65_000,
         },
       ],
     },
@@ -87,9 +87,9 @@ function sehat(): InputQc {
         totalDisalurkan: 1_000_000,
         saldoBerjalan: 0,
         totalBunga: 300_000,
-        keuntunganAdmin: 50_000,
-        keuntunganPendana: 250_000,
-        keuntunganBelumDicatat: 250_000,
+        keuntunganAdmin: 65_000,
+        keuntunganPendana: 235_000,
+        keuntunganBelumDicatat: 235_000,
       },
       rows: [
         {
@@ -100,14 +100,14 @@ function sehat(): InputQc {
             totalDisalurkan: 1_000_000,
             saldoBerjalan: 0,
             totalBunga: 300_000,
-            keuntunganPendana: 250_000,
-            keuntunganAdmin: 50_000,
+            keuntunganPendana: 235_000,
+            keuntunganAdmin: 65_000,
           },
         },
       ],
     },
     stats: {
-      keuntunganAdminTercatat: 50_000,
+      keuntunganAdminTercatat: 65_000,
       keuntunganAdminBelumTercatat: 0,
       totalPinjaman: 1,
       pinjamanBaru: 0,
@@ -208,7 +208,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
   input.panel.rows[0].metrik.keuntunganPendana = 300_000;
   input.panel.ringkasan.keuntunganPendana = 300_000;
   const hasil = jalankanQc(input);
-  eq(statusDari(hasil, "identitas-agregat"), "gagal", "50.000 + 300.000 ≠ 300.000 → gagal");
+  eq(statusDari(hasil, "identitas-agregat"), "gagal", "65.000 + 300.000 ≠ 300.000 → gagal");
   eq(hasil.ringkasan.gagal, 1, "hanya identitas agregat yang gagal");
 }
 
@@ -243,9 +243,9 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
     persenBunga: null,
     bunga: 150_000,
     totalLunas: 650_000,
-    potonganAdmin: 25_000,
-    keuntunganPendana: 125_000,
-    keuntunganAdmin: 25_000,
+    potonganAdmin: 32_500,
+    keuntunganPendana: 117_500,
+    keuntunganAdmin: 32_500,
   });
   input.ruang.rekapPendana.push({
     nama: "Citra",
@@ -253,24 +253,24 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
     totalDisalurkan: 500_000,
     saldoBerjalan: 500_000,
     totalBunga: 150_000,
-    keuntunganPendana: 125_000,
+    keuntunganPendana: 117_500,
     // Pinjaman Citra masih berjalan — seluruh keuntungannya "belum lunas".
     keuntunganPendanaLunas: 0,
-    keuntunganPendanaBelumLunas: 125_000,
-    keuntunganAdmin: 25_000,
+    keuntunganPendanaBelumLunas: 117_500,
+    keuntunganAdmin: 32_500,
     keuntunganAdminLunas: 0,
-    keuntunganAdminBelumLunas: 25_000,
+    keuntunganAdminBelumLunas: 32_500,
     transferBelumDicatat: 0,
     keuntunganBelumDicatat: 0,
   });
   input.ruang.ringkasan.totalBungaPinjaman = 450_000;
-  input.ruang.ringkasan.totalKeuntunganAdmin = 75_000;
-  input.ruang.ringkasan.totalKeuntunganPendana = 375_000;
-  input.ruang.ringkasan.totalKeuntunganPendanaLunas = 250_000;
-  input.ruang.ringkasan.totalKeuntunganPendanaBelumLunas = 125_000;
-  input.ruang.ringkasan.totalKeuntunganAdminLunas = 50_000;
-  input.ruang.ringkasan.totalKeuntunganAdminBelumLunas = 25_000;
-  input.stats.keuntunganAdminBelumTercatat = 25_000;
+  input.ruang.ringkasan.totalKeuntunganAdmin = 97_500;
+  input.ruang.ringkasan.totalKeuntunganPendana = 352_500;
+  input.ruang.ringkasan.totalKeuntunganPendanaLunas = 235_000;
+  input.ruang.ringkasan.totalKeuntunganPendanaBelumLunas = 117_500;
+  input.ruang.ringkasan.totalKeuntunganAdminLunas = 65_000;
+  input.ruang.ringkasan.totalKeuntunganAdminBelumLunas = 32_500;
+  input.stats.keuntunganAdminBelumTercatat = 32_500;
   input.stats.totalPinjaman = 2;
   input.stats.totalPinjamanBerjalan = 500_000;
   const hasil = jalankanQc(input);

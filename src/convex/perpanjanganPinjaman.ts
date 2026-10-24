@@ -20,7 +20,7 @@ import {
   appendJournal,
   catatMarginSpread,
 } from "./ledger";
-import { potonganDariPokok } from "../lib/bagiHasil";
+import { potonganDariKembali } from "../lib/bagiHasil";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
 import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
@@ -426,8 +426,8 @@ async function catatPelunasanTotal(
       akunPayout = jalurSiklus.akun;
       kelebihan = jalurSiklus.kelebihan;
     } else {
-      // Baris lama tanpa siklus: potongan dari pokok, sisa bruto ke pendana.
-      potonganAdmin = potonganDariPokok(funding.jumlahAlokasi, cfg.persenAdmin);
+      // Baris lama tanpa siklus: potongan dari total kembali, sisa ke pendana.
+      potonganAdmin = potonganDariKembali(bruto, cfg.persenAdmin);
       imbalBersih = bruto - potonganAdmin;
       akunPayout = akunDompetDana(funding.danaId);
     }

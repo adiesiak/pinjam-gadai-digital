@@ -9,19 +9,20 @@
  *
  * Rumus:
  *   Imbal Hasil     = pokok × 30%
- *   Total kembali   = pokok + Imbal Hasil (sebelum biaya platform)
- *   Biaya platform  = pokok × tarif (5% bawaan)
+ *   Total kembali   = pokok + Imbal Hasil (130%)
+ *   Biaya platform  = total kembali × tarif (5% bawaan)
  *   Diterima        = total kembali - biaya platform
  *
- * Biaya platform dihitung dari POKOK, bukan dari uang yang kembali. Dengan
- * tarif 5%, Rp1.000.000 menghasilkan imbal Rp300.000, biaya Rp50.000, dan
- * total cair Rp1.250.000. Yang fixed adalah HAK BRUTO pendana; angkanya tidak
- * diturunkan dari bunga pinjaman nasabah.
+ * Biaya platform dihitung dari TOTAL KEMBALI. Dengan tarif 5%, Rp1.000.000
+ * menghasilkan imbal Rp300.000, biaya Rp65.000, dan total cair Rp1.235.000
+ * (keuntungan bersih Rp235.000). Yang fixed adalah HAK BRUTO pendana; angkanya
+ * tidak diturunkan dari bunga pinjaman nasabah.
  *
  * Semua nilai rupiah bulat; pembulatan imbal hasil ke bawah agar tidak ada
  * rupiah yang diciptakan.
  */
 import type { Rupiah } from "./money";
+import { potonganDariKembali } from "./bagiHasil";
 
 /** Tenor acuan pendana untuk semua portofolio. */
 export const TENOR_PENDANA_HARI = 30;
@@ -79,7 +80,7 @@ export type BagiHasilPendana = {
   imbal: Rupiah;
   /** Pokok + imbal hasil, sebelum biaya platform. */
   total: Rupiah;
-  /** Biaya platform dari POKOK (kebijakan Pengaturan Sistem). */
+  /** Biaya platform dari TOTAL KEMBALI (kebijakan Pengaturan Sistem). */
   potonganAdmin: Rupiah;
   /** Uang yang benar-benar masuk dompet pendana. */
   diterima: Rupiah;
@@ -90,9 +91,9 @@ export type BagiHasilPendana = {
 /**
  * Bagi hasil pendana dengan hak bruto TETAP.
  *
- * `potonganAdmin` memakai tarif kebijakan Pengaturan Sistem, tetapi dasarnya
- * POKOK penempatan. Ini yang membuat total cair tidak berubah ketika imbal
- * hasil berubah: Rp1.000.000 dengan tarif 5% selalu dipotong Rp50.000.
+ * `potonganAdmin` memakai tarif kebijakan Pengaturan Sistem dan dasarnya
+ * TOTAL KEMBALI (pokok + Imbal Hasil). Dengan tarif 5%, Rp1.000.000 selalu
+ * kembali Rp1.300.000, dipotong Rp65.000, dan pendana menerima Rp1.235.000.
  */
 export function bagiHasilPendana(
   pokok: number,
@@ -100,7 +101,7 @@ export function bagiHasilPendana(
 ): BagiHasilPendana {
   const imbal = imbalPendana(pokok);
   const total = pokok + imbal;
-  const potonganAdmin = Math.floor((pokok * persenPotonganAdmin) / 100);
+  const potonganAdmin = potonganDariKembali(total, persenPotonganAdmin);
   const diterima = total - potonganAdmin;
   return {
     imbal,

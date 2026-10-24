@@ -4,8 +4,9 @@
  * Aturan produk yang dijaga di sini:
  *  - Pokok ditempatkan untuk satu siklus 30 hari.
  *  - Imbal hasil bruto 30% dari pokok, tidak mengikuti tenor pinjaman nasabah.
- *  - Biaya platform 5% dari POKOK, dipotong sekali per siklus.
- *  - Total yang wajib dibayar pada jatuh tempo = pokok + imbal - biaya.
+ *  - Biaya platform 5% dari TOTAL KEMBALI (pokok + imbal), dipotong sekali
+ *    per siklus.
+ *  - Total yang wajib dibayar pada jatuh tempo = pokok + imbal − biaya.
  *
  * Angka ini murni: tidak membaca database, waktu, atau tenor pinjaman. Server
  * menyimpan hasilnya sebagai snapshot di `siklusPendana`, jadi perubahan tarif
@@ -19,8 +20,8 @@
  *
  * Contoh Rp1.000.000:
  *   imbal      = Rp300.000
- *   biaya      = Rp50.000
- *   total cair = Rp1.250.000
+ *   biaya      = Rp65.000
+ *   total cair = Rp1.235.000 (keuntungan bersih Rp235.000)
  */
 
 /** Panjang satu siklus penempatan pendana. */
@@ -29,7 +30,7 @@ export const SIKLUS_PENDANA_HARI = 30;
 /** Imbal hasil bruto per siklus, dalam persen dari pokok. */
 export const PERSEN_IMBAL_SIKLUS = 30;
 
-/** Biaya platform per siklus, dalam persen dari POKOK (bukan dari uang kembali). */
+/** Biaya platform per siklus, dalam persen dari TOTAL KEMBALI (pokok + imbal). */
 export const PERSEN_POTONGAN_SIKLUS = 5;
 
 /** Satu hari dalam milidetik. */
@@ -56,7 +57,11 @@ function validasiPokok(pokok: number): void {
 export function hitungSiklusPendana(pokok: number): HitunganSiklus {
   validasiPokok(pokok);
   const imbal = Math.floor((pokok * PERSEN_IMBAL_SIKLUS) / 100);
-  const potongan = Math.floor((pokok * PERSEN_POTONGAN_SIKLUS) / 100);
+  // Dasar biaya adalah hak bruto siklus (pokok + imbal), sesuai kebijakan
+  // 5% dari total kembali: Rp1.000.000 → Rp65.000, bukan Rp50.000.
+  const potongan = Math.floor(
+    ((pokok + imbal) * PERSEN_POTONGAN_SIKLUS) / 100,
+  );
   return {
     pokok,
     imbal,

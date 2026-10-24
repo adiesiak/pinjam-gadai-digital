@@ -105,7 +105,7 @@ cek(
   }
   cek(!html.includes("Qardh"), "simulator tidak lagi menyediakan Qardh");
   ada(html, "Imbal hasil tetap 30% per 30 hari", "yield 30% tetap dinyatakan");
-  ada(html, "Rp 1.250.000", "angka konvensional dihitung dari lib");
+  ada(html, "Rp 1.235.000", "angka konvensional dihitung dari lib");
   ada(html, "Estimasi, bukan jaminan.", "simulator tidak menjanjikan hasil");
 }
 

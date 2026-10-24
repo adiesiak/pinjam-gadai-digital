@@ -91,7 +91,7 @@ ada(html, "dibukukan Rp 195.000", "biaya platform yang sudah dibukukan");
 ada(html, "perkiraan Rp 715.000", "biaya platform yang masih perkiraan");
 ada(
   html,
-  "bukan dari Imbal Hasil saja, jadi pokok tetap kembali utuh",
+  "bukan dari pokok saja, jadi pokok tetap kembali utuh",
   "dasar biaya platform dijelaskan",
 );
 

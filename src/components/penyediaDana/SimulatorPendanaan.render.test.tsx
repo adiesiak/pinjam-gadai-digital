@@ -43,11 +43,11 @@ function tidakAda(html: string, teks: string, label: string): void {
   );
   ada(html, "Imbal hasil tetap 30% per 30 hari", "skema tetap dinyatakan");
 
-  // Nominal awal Rp1.000.000, biaya platform 5%.
+  // Nominal awal Rp1.000.000, biaya platform 5% dari total kembali.
   ada(html, "Rp 300.000", "imbal hasil 30% dihitung");
-  ada(html, "Rp 50.000", "biaya platform dihitung dari pokok");
-  ada(html, "Rp 1.250.000", "diterima bersih per siklus");
-  ada(html, "Rp 250.000", "keuntungan bersih per siklus");
+  ada(html, "Rp 65.000", "biaya platform dihitung dari total kembali");
+  ada(html, "Rp 1.235.000", "diterima bersih per siklus");
+  ada(html, "Rp 235.000", "keuntungan bersih per siklus");
   ada(html, "Estimasi, bukan jaminan.", "sifat estimasi dinyatakan");
   ada(
     html,

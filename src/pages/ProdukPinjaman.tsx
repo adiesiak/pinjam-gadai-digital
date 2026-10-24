@@ -42,6 +42,7 @@ import {
   TARIF_BULANAN_DEFAULT,
   type TarifBulanan,
 } from "@/lib/bulanan";
+import { bagiHasilPinjaman } from "@/lib/bagiHasil";
 import {
   LOAN_LIMITS,
   TENOR_OPTIONS,
@@ -70,6 +71,9 @@ type JenisProduk = "konvensional" | "syariah";
 
 const TENOR_BULANAN = [1, 3, 6] as const;
 const TENOR_RAHN = [30, 60, 90] as const;
+
+/** Contoh kebijakan di halaman ini dihitung mesin yang sama dengan akad. */
+const CONTOH_BAGI_HASIL = bagiHasilPinjaman(1_000_000, 30, 5);
 
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
@@ -1156,9 +1160,9 @@ function KerangkaHalaman({
                       <span>
                         Contoh: pokok {rupiah(1_000_000)} tenor 28 hari, bunga
                         30%, menghasilkan uang kembali {rupiah(1_300_000)}.
-                        Potongan platform 5% dari pokok menjadi{" "}
-                        {rupiah(50_000)}, sehingga pendana menerima{" "}
-                        {rupiah(1_250_000)}.
+                        Potongan platform 5% dari total kembali menjadi{" "}
+                        {rupiah(CONTOH_BAGI_HASIL.potonganAdmin)}, sehingga
+                        pendana menerima {rupiah(CONTOH_BAGI_HASIL.pendanaTerima)}.
                       </span>
                     </p>
                   </div>

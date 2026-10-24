@@ -563,7 +563,7 @@ function DetailPinjaman({
             />
             <BarisDetail
               tebal
-              label="Biaya platform (layanan), dari pokok penempatan"
+              label="Biaya platform (layanan), dari total pengembalian"
               nilai={rupiah(row.potonganAdmin)}
             />
             <BarisDetail
@@ -2816,9 +2816,9 @@ function IsiRuang() {
                       <strong>lunas</strong> pada ledger internal. Angka
                       keuntungan pendana dan biaya platform (layanan) di bawah
                       adalah hasil perhitungan atas kewajiban yang sudah
-                      terbayar penuh: biayanya diambil dari pokok penempatan
-                      (pokok + Imbal Hasil), bukan dari Imbal Hasil saja, dan
-                      bukan bukti mutasi.
+                      terbayar penuh: biayanya diambil dari total pengembalian
+                      (pokok + Imbal Hasil), bukan dari pokok saja, dan bukan
+                      bukti mutasi.
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}

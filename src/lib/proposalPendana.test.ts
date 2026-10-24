@@ -192,10 +192,10 @@ ada(teks, "KIIC, EJIP, Jababeka, MM2100, Sentul", "kawasan industri disebut");
 
 // ===== Skema dan contoh utama =====
 ada(teks, "30% flat", "Imbal Hasil flat dinyatakan");
-ada(teks, "5% x Pokok", "dasar biaya platform dijelaskan");
+ada(teks, "5% x (pokok + Imbal Hasil)", "dasar biaya platform dijelaskan");
 ada(teks, "Diterima bersih", "hasil bersih dinyatakan");
-ada(teks, "125% dari pokok", "diterima bersih dalam persen");
-ada(teks, "25% dari pokok", "keuntungan bersih dalam persen");
+ada(teks, "123,5% dari pokok", "diterima bersih dalam persen");
+ada(teks, "23,5% dari pokok", "keuntungan bersih dalam persen");
 
 const contoh = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, PERSEN);
 ada(
@@ -218,9 +218,9 @@ ada(
   "catatan keuntungan di pita",
 );
 eq(contoh.imbal, 3_000_000, "Imbal Hasil 10 juta adalah 3 juta");
-eq(contoh.potonganAdmin, 500_000, "biaya 5% dari 10 juta adalah 500 ribu");
-eq(contoh.diterima, 12_500_000, "diterima bersih 12,5 juta");
-eq(contoh.keuntungan, 2_500_000, "keuntungan bersih 2,5 juta");
+eq(contoh.potonganAdmin, 650_000, "biaya 5% dari total kembali 13 juta adalah 650 ribu");
+eq(contoh.diterima, 12_350_000, "diterima bersih 12,35 juta");
+eq(contoh.keuntungan, 2_350_000, "keuntungan bersih 2,35 juta");
 
 // ===== Tabel simulasi enam kolom =====
 ada(teks, "Simulasi Rp 5.000.000 sampai Rp 50.000.000", "judul simulasi");
@@ -262,7 +262,7 @@ ada(teks, "Keuntungan", "kepala kolom keuntungan");
 }
 
 // ===== Biaya, langkah preventif, risiko, kontak =====
-ada(teks, "Rp 11.250.000 per siklus", "kolam biaya platform dihitung");
+ada(teks, "Rp 14.625.000 per siklus", "kolam biaya platform dihitung");
 ada(teks, "Penagihan lapangan.", "cakupan penagihan");
 ada(teks, "Asuransi atau pengelolaan internal agunan.", "cakupan agunan");
 ada(teks, "Fasilitas jaminan dan solusi bayar.", "cakupan fasilitas bayar");
@@ -287,7 +287,7 @@ ada(teks, "wa.me/6285119574032", "tautan WhatsApp resmi");
   });
   const lain = semuaTeks(lainDok);
   const bagi = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, 2.5);
-  ada(lain, "2,5% x Pokok", "persen desimal memakai koma");
+  ada(lain, "2,5% x (pokok + Imbal Hasil)", "persen desimal memakai koma");
   ada(lain, formatRupiahAman(bagi.potonganAdmin), "biaya mengikuti tarif baru");
   ada(lain, formatRupiahAman(bagi.diterima), "diterima mengikuti tarif baru");
   ok(

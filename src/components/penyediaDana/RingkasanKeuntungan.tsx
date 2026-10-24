@@ -12,7 +12,7 @@ export type AngkaRingkasanKeuntungan = {
   totalKeuntunganPendanaBelumLunas: number;
   /** Jumlah keduanya. */
   totalKeuntunganPendana: number;
-  /** Biaya platform (layanan) dari pokok penempatan (berjalan + lunas). */
+  /** Biaya platform (layanan) dari total pengembalian (berjalan + lunas). */
   totalKeuntunganAdmin: number;
   totalKeuntunganAdminLunas: number;
   totalKeuntunganAdminBelumLunas: number;
@@ -139,8 +139,8 @@ export function RingkasanKeuntungan({
         Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas. Biaya
         platform (layanan) {formatRupiah(ringkasan.totalKeuntunganAdmin)} (dibukukan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}
-        {formatRupiah(ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari pokok penempatan,
-        bukan dari Imbal Hasil saja, jadi pokok tetap kembali utuh. Cara hitungnya ada di bagian
+        {formatRupiah(ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari total pengembalian
+        (pokok + Imbal Hasil), bukan dari pokok saja, jadi pokok tetap kembali utuh. Cara hitungnya ada di bagian
         “Aturan perhitungan” pada halaman ini.
       </p>
 

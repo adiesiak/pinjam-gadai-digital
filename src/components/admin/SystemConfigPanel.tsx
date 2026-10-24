@@ -397,7 +397,7 @@ export function SystemConfigPanel() {
                   step={0.5}
                   suffix="%"
                   onChange={(v) => upd("persenPlatform", Number(v) || 0)}
-                  hint="Biaya platform dari pokok penempatan pendana."
+                  hint="Biaya platform dari total pengembalian pendana (pokok + Imbal Hasil)."
                   withHint
                 />
                 <SuffixInput

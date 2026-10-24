@@ -1,5 +1,5 @@
 /**
- * Bagi hasil pinjaman tunai — potongan platform dari POKOK penempatan.
+ * Bagi hasil pinjaman tunai — potongan platform dari TOTAL KEMBALI.
  *
  * KEBIJAKAN PRODUK (keputusan pemilik produk, berlaku untuk skema harian dan
  * bulanan). Contoh pokok Rp1.000.000 dengan bunga 30%:
@@ -10,14 +10,15 @@
  * | Potongan di muka 2% (biaya admin) | 2% × pokok | Rp20.000 |
  * | Diterima Peminjam | pokok − potongan di muka | Rp980.000 |
  * | Uang yang kembali | pokok + Imbal Hasil (130%) | Rp1.300.000 |
- * | Potongan platform 5% | 5% × **pokok** | Rp50.000 |
- * | Diterima penyedia dana | uang kembali − potongan | Rp1.250.000 |
- * | Keuntungan bersih penyedia dana | diterima − pokok | Rp250.000 |
+ * | Potongan platform 5% | 5% × **uang kembali** | Rp65.000 |
+ * | Diterima penyedia dana | uang kembali − potongan | Rp1.235.000 |
+ * | Keuntungan bersih penyedia dana | diterima − pokok | Rp235.000 |
  *
- * Dasar potongan adalah POKOK, bukan uang yang kembali: biaya satu siklus
- * tetap Rp50.000 per Rp1.000.000, tidak ikut membesar ketika Imbal Hasil atau
- * tenor peminjam berubah. Ini juga yang membuat hak pendana sesuai dengan
- * `lib/imbalPendana.ts` dan snapshot siklus 30 hari.
+ * Dasar potongan adalah TOTAL KEMBALI (pokok + Imbal Hasil), sesuai contoh
+ * pemilik produk: 5% × Rp1.300.000 = Rp65.000, sehingga pendana menerima
+ * Rp1.235.000. Angka ini harus sama dengan `lib/imbalPendana.ts` dan snapshot
+ * siklus 30 hari — kalau salah satu sisi berubah sendiri, pengguna melihat
+ * janji yang tidak pernah dibayar.
  *
  * Pembulatan mengikuti filosofi PINDAI "pecahan tidak pernah masuk ke kas":
  * potongan platform dibulatkan KE BAWAH (floor), sehingga sisa rupiah selalu
@@ -48,21 +49,25 @@ export type BagiImbalHasil = {
 };
 
 /**
- * Potongan platform dari POKOK penempatan (kebijakan 5% dari pokok).
+ * Potongan platform dari TOTAL KEMBALI (pokok + Imbal Hasil).
  *
- * Dipakai jalur pendana: biaya per siklus tetap, tidak ikut membesar ketika
- * imbal hasil atau tenor peminjam berubah. Pembulatan ke bawah, sehingga sisa
- * rupiah selalu menjadi hak pendana.
+ * Kebijakan 5% yang disepakati pemilik produk: Rp1.000.000 dengan bunga 30%
+ * kembali Rp1.300.000, dipotong Rp65.000, pendana menerima Rp1.235.000.
+ * Pembulatan ke bawah, sehingga sisa rupiah selalu menjadi hak pendana.
  *
  * Persen → basis poin supaya aritmetikanya bilangan bulat, termasuk persentase
  * pecahan seperti 2,5%.
  */
-export function potonganDariPokok(
-  pokok: Rupiah,
+export function potonganDariKembali(
+  totalKembali: Rupiah,
   persenPotonganAdmin: number,
 ): Rupiah {
-  if (!Number.isInteger(pokok) || !Number.isSafeInteger(pokok) || pokok < 0) {
-    throw new Error(`Pokok harus rupiah bulat non-negatif: ${pokok}`);
+  if (
+    !Number.isInteger(totalKembali) ||
+    !Number.isSafeInteger(totalKembali) ||
+    totalKembali < 0
+  ) {
+    throw new Error(`Total kembali harus rupiah bulat non-negatif: ${totalKembali}`);
   }
   if (
     !Number.isFinite(persenPotonganAdmin) ||
@@ -76,15 +81,14 @@ export function potonganDariPokok(
   const basisPoin = BigInt(Math.round(persenPotonganAdmin * 100));
   return basisPoin === 0n
     ? 0
-    : Number((BigInt(pokok) * basisPoin) / 10_000n);
+    : Number((BigInt(totalKembali) * basisPoin) / 10_000n);
 }
 
 /**
  * Bagi satu nilai bruto menjadi potongan platform + sisa untuk penyedia dana.
  *
- * Dipertahankan untuk pemanggil lama yang memang punya nilai bruto sendiri.
- * Jalur pinjaman & pendana TIDAK memakainya lagi: dasarnya sekarang POKOK,
- * lewat `potonganDariPokok`.
+ * Dipakai jalur pinjaman & pendana lewat `potonganDariKembali`: dasarnya
+ * total uang yang kembali, bukan pokok.
  *
  * Melempar bila masukan bukan rupiah bulat atau persentase di luar 0–100.
  */
@@ -138,7 +142,7 @@ export type BagiHasilPinjaman = {
    * sudah milik platform, jadi bukan bagian dari uang yang dipotong).
    */
   totalLunas: Rupiah;
-  /** Bagian platform = POKOK × persen potongan (pembulatan ke bawah). */
+  /** Bagian platform = TOTAL KEMBALI × persen potongan (pembulatan ke bawah). */
   potonganAdmin: Rupiah;
   /** Yang benar-benar diterima penyedia dana = uang kembali − potongan. */
   pendanaTerima: Rupiah;
@@ -191,8 +195,8 @@ function rakitBagiHasil(args: {
  *  - `percentOf` (lib/money.ts) untuk bunga — pembulatan HALF-UP yang sama
  *    dengan `quoteLoan`/`quotePinjaman`, sehingga angkanya identik dengan
  *    kewajiban yang ditagih ke Peminjam;
- *  - `potonganDariPokok` untuk potongan — pembulatan KE BAWAH yang sama dengan
- *    yang dibukukan `convex/loans.ts` saat pelunasan.
+ *  - `potonganDariKembali` untuk potongan — pembulatan KE BAWAH yang sama
+ *    dengan yang dibukukan `convex/loans.ts` saat pelunasan.
  *
  * Identitas yang selalu berlaku: `potonganAdmin + pendanaTerima = totalLunas`
  * dan `keuntunganPendana = bunga − potonganAdmin`. Semua nilai rupiah bulat.
@@ -211,7 +215,6 @@ export function bagiHasilPinjaman(
   }
   const bunga = percentOf(pokok, persenBunga);
   const totalLunas = pokok + bunga;
-  const potonganAdmin = potonganDariPokok(pokok, persenPotonganAdmin);
   // Promo hanya boleh MENURUNKAN bunga Peminjam. Tarif normal dipakai untuk
   // hak penyedia dana; nilai yang lebih rendah dari bunga aktual diabaikan
   // supaya data lama tidak pernah "menaikkan" beban platform secara diam-diam.
@@ -224,6 +227,9 @@ export function bagiHasilPinjaman(
       ? promoBungaPersenNormal
       : null;
   const bungaPendana = tarifNormal === null ? bunga : percentOf(pokok, tarifNormal);
+  // Biaya platform dihitung dari hak pendana (pokok + Imbal Hasil), supaya
+  // promo yang menurunkan tagihan Peminjam tidak ikut menurunkan biaya.
+  const potonganAdmin = potonganDariKembali(pokok + bungaPendana, persenPotonganAdmin);
   return rakitBagiHasil({
     pokok,
     bunga,
@@ -270,8 +276,8 @@ export function bagiHasilPinjamanDari(
       Math.max(0, pinjaman.bungaTerbayar ?? 0) +
       Math.max(0, pinjaman.nextInterestAmount ?? 0);
     const totalLunas = pinjaman.pokokPinjaman + bunga;
-    const potonganAdmin = potonganDariPokok(
-      pinjaman.pokokPinjaman,
+    const potonganAdmin = potonganDariKembali(
+      pinjaman.pokokPinjaman + bunga,
       persenPotonganAdmin,
     );
     return rakitBagiHasil({
@@ -301,8 +307,8 @@ export function bagiHasilPinjamanDari(
   // admin cicilan tiap pembayaran bulanan. Dasar pembayaran pendana mengeluarkan
   // biaya itu lebih dulu: ia sudah menjadi pendapatan platform, jadi tidak boleh
   // ikut menjadi hak pendana (dasar = pokok + Imbal Hasil seluruh tenor).
-  const potonganAdmin = potonganDariPokok(
-    pinjaman.pokokPinjaman,
+  const potonganAdmin = potonganDariKembali(
+    pinjaman.pokokPinjaman + simulasi.bungaTotal,
     persenPotonganAdmin,
   );
   return rakitBagiHasil({

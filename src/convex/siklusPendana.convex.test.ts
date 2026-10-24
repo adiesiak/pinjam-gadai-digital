@@ -41,18 +41,18 @@ describe("siklus pendana 30 hari", () => {
       siklusId,
       jumlahAlokasi: 1_000_000,
       imbalHasil: 300_000,
-      potonganAdmin: 50_000,
+      potonganAdmin: 65_000,
     };
 
     const pertama = await t.run((ctx) => pembayaranSiklus(ctx, funding));
     expect(pertama).toEqual({
       akun: akunDompetDana(pendanaId),
-      potonganAdmin: 50_000,
-      imbalBersih: 1_250_000,
+      potonganAdmin: 65_000,
+      imbalBersih: 1_235_000,
       kelebihan: 0,
     });
     expect((await t.run((ctx) => ctx.db.get(siklusId)))?.totalMasuk).toBe(
-      1_250_000,
+      1_235_000,
     );
 
     // Pembayaran kedua atas siklus yang sama (mis. perpanjangan) tidak boleh
@@ -65,7 +65,7 @@ describe("siklus pendana 30 hari", () => {
       kelebihan: 1_300_000,
     });
     expect((await t.run((ctx) => ctx.db.get(siklusId)))?.totalMasuk).toBe(
-      1_250_000,
+      1_235_000,
     );
   });
 
@@ -103,12 +103,12 @@ describe("siklus pendana 30 hari", () => {
     const hasil = await admin.sesi.mutation(api.siklusPendana.cairkanSiklus, {
       siklusId,
     });
-    expect(hasil.totalCair).toBe(1_250_000);
-    expect(hasil.kurang).toBe(250_000);
+    expect(hasil.totalCair).toBe(1_235_000);
+    expect(hasil.kurang).toBe(235_000);
 
     const siklus = await t.run((ctx) => ctx.db.get(siklusId));
     expect(siklus?.status).toBe("dicairkan");
-    expect(siklus?.totalMasuk).toBe(1_250_000);
+    expect(siklus?.totalMasuk).toBe(1_235_000);
     expect(siklus?.dicairkanPada).toBeGreaterThan(0);
 
     const jaminan = await t.run(async (ctx) => {
@@ -116,7 +116,7 @@ describe("siklus pendana 30 hari", () => {
       return entries.filter((e) => e.akun === "platform:GUARANTEE");
     });
     expect(jaminan).toHaveLength(1);
-    expect(jaminan[0]).toMatchObject({ arah: "kredit", jumlah: 250_000 });
+    expect(jaminan[0]).toMatchObject({ arah: "kredit", jumlah: 235_000 });
 
     const dompet = await t.run(async (ctx) => {
       const entries = await ctx.db.query("ledger_entries").collect();
@@ -129,7 +129,7 @@ describe("siklus pendana 30 hari", () => {
     });
     // Yang dicatat di sini hanya top-up jaminan; Rp1.000.000 sebelumnya sudah
     // dijurnal oleh pemanggil settlement saat uang pinjaman masuk.
-    expect(dompet).toBe(250_000);
+    expect(dompet).toBe(235_000);
   });
 
   it("memutar ulang siklus sesuai pilihan pendana: pokok baru = total cair lama", async () => {
@@ -164,7 +164,7 @@ describe("siklus pendana 30 hari", () => {
     const hasil = await admin.sesi.mutation(api.siklusPendana.putarUlangSiklus, {
       siklusId,
     });
-    expect(hasil.pokokBaru).toBe(1_250_000);
+    expect(hasil.pokokBaru).toBe(1_235_000);
 
     const lama = await t.run((ctx) => ctx.db.get(siklusId));
     expect(lama?.status).toBe("diputar_ulang");
@@ -175,11 +175,11 @@ describe("siklus pendana 30 hari", () => {
     const baru = await t.run((ctx) => ctx.db.get(hasil.siklusBaruId));
     expect(baru).toMatchObject({
       pendanaId: pendana.userId,
-      pokok: 1_250_000,
-      imbal: 375_000,
-      potongan: 62_500,
-      totalCair: 1_562_500,
-      totalMasuk: 1_250_000,
+      pokok: 1_235_000,
+      imbal: 370_500,
+      potongan: 80_275,
+      totalCair: 1_525_225,
+      totalMasuk: 1_235_000,
       siklusAsalId: siklusId,
       status: "berjalan",
     });
@@ -189,7 +189,7 @@ describe("siklus pendana 30 hari", () => {
       return entries.filter((e) => e.akun === "platform:GUARANTEE");
     });
     expect(jaminan).toHaveLength(1);
-    expect(jaminan[0]).toMatchObject({ arah: "kredit", jumlah: 1_250_000 });
+    expect(jaminan[0]).toMatchObject({ arah: "kredit", jumlah: 1_235_000 });
   });
 
   it("menolak putar ulang tanpa pilihan pendana, sebelum jatuh tempo, atau milik akun lain", async () => {

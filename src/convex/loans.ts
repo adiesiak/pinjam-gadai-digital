@@ -48,7 +48,7 @@ import {
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
 import { tarifBulananDariConfig } from "../lib/system-config";
-import { potonganDariPokok } from "../lib/bagiHasil";
+import { potonganDariKembali } from "../lib/bagiHasil";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { bungaSetelahPromo } from "../lib/promoBunga";
@@ -2273,8 +2273,8 @@ export const hapusGadai = mutation({
  * Dust pembulatan proporsi imbal hasil diberikan ke penyedia dana dengan alokasi
  * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat.
  *
- * Dasar potongan: **pokok alokasi** — lihat tabel kebijakan di kepala
- * lib/bagiHasil.ts. Persentasenya dibaca dari Pengaturan Sistem (`persenAdmin`)
+ * Dasar potongan: **total kembali alokasi (pokok + Imbal Hasil)** — lihat
+ * tabel kebijakan di kepala lib/bagiHasil.ts. Persentasenya dibaca dari Pengaturan Sistem (`persenAdmin`)
  * dan dihitung oleh lib/bagiHasil.ts dengan pembulatan ke bawah: sisa rupiah
  * selalu milik penyedia dana, tidak
  * pernah masuk ke kas admin. Alokasi yang sudah dibayar dicap `potonganAdmin`,
@@ -2416,8 +2416,8 @@ export const repayLoan = mutation({
         kelebihan = jalurSiklus.kelebihan;
       } else {
         // Baris lama tanpa siklus tetap memakai kebijakan biaya terkini:
-        // potongan dihitung dari pokok, bukan dari uang yang kembali.
-        potonganAdmin = potonganDariPokok(f.jumlahAlokasi, cfg.persenAdmin);
+        // potongan dihitung dari total kembali (pokok + Imbal Hasil).
+        potonganAdmin = potonganDariKembali(brutoBagian, cfg.persenAdmin);
         imbalBersih = brutoBagian - potonganAdmin;
         akunPayout = akunDompetDana(f.danaId);
       }

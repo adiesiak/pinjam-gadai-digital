@@ -57,17 +57,17 @@ eq(
 // ===== 2. Opsi tier perpanjangan =====
 eq(
   opsiPerpanjangan(1_000_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
-  "7:26,14:28,28:30",
-  "pokok Rp1 juta memakai tier 7/14/28 hari",
+  "7:26,14:28,21:29,28:30",
+  "pokok Rp1 juta memakai tier 7/14/21/28 hari",
 );
 eq(
   opsiPerpanjangan(750_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
-  "7:28,14:32,28:35",
-  "pokok Rp750 ribu memakai tier 7/14/28 hari",
+  "7:28,14:32,21:34,28:35",
+  "pokok Rp750 ribu memakai tier 7/14/21/28 hari",
 );
 eq(
   opsiPerpanjangan(400_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
-  "7:30,14:35,28:40",
+  "7:30,14:35,21:38,28:40",
   "pokok Rp400 ribu kembali ke tier 7 hari",
 );
 eq(opsiPerpanjangan(99_999).length, 0, "di bawah batas pokok tidak punya opsi");

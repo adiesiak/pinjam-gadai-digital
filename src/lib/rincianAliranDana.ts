@@ -17,7 +17,7 @@
  * | Potongan pendana 5% | 5% × total yang kembali | Rp65.000 |
  * | Diterima pendana | total kembali − potongan | Rp1.235.000 |
  * | Imbal Hasil bersih pendana | diterima − pokok | Rp235.000 |
- * | Pendapatan platform | potongan di muka + potongan pendana | Rp85.000 |
+ * | Pendapatan platform | potongan di muka + potongan pendana | Rp95.000 |
  *
  * SATU PINTU UANG (penting): kedua paruh rincian ini diambil dari mesin uang
  * yang sama dengan yang menagih dan membukukan, bukan dihitung ulang di UI:
@@ -94,9 +94,9 @@ export type RincianAliranDana = {
   imbalHasil: Rupiah;
   /** Total yang kembali dari peminjam = pokok + Imbal Hasil (130%). */
   totalKembali: Rupiah;
-  /** Persen potongan platform atas POKOK (5%). */
+  /** Persen potongan platform atas TOTAL KEMBALI (5%). */
   persenPotonganPenyedia: number;
-  /** Potongan platform = persen × pokok (pembulatan ke bawah). */
+  /** Potongan platform = persen × total kembali (pembulatan ke bawah). */
   potonganPenyedia: Rupiah;
   /** Uang yang diterima pendana = total kembali − potongan. */
   diterimaPenyedia: Rupiah;
@@ -208,7 +208,7 @@ export function kalimatContohAliran(r: RincianAliranDana): string {
   return (
     `Contoh satu pinjaman ${formatRupiah(r.pokok)}: dipotong admin ` +
     `${r.persenPotonganDiMuka}% + biaya ekspres di muka, kembali ${r.persenImbalHasil + 100}% ` +
-    `dari pokok, lalu dipotong ${r.persenPotonganPenyedia}% dari pokok.`
+    `dari pokok, lalu dipotong ${r.persenPotonganPenyedia}% dari total kembali.`
   );
 }
 
@@ -254,7 +254,7 @@ export function barisRincianAliran(
     { label: "Diterima peminjam", nilai: r.diterimaPeminjam, arah: "bersih" },
     { label: labelKembali, nilai: r.totalKembali, arah: "total" },
     {
-      label: `Potongan ${r.persenPotonganPenyedia}% dari pokok`,
+      label: `Potongan ${r.persenPotonganPenyedia}% dari total kembali`,
       nilai: r.potonganPenyedia,
       arah: "potongan",
     },
