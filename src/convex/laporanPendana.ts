@@ -460,7 +460,7 @@ export const kirimRekapPendana = action({
     const tujuan = normalisasiNomorWa(nomor);
     if (tujuan === null) {
       throw new Error(
-        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
+        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia (mis. 0812 3456 7890) atau nomor luar Indonesia dengan kode negaranya (mis. +49 151 2345678).",
       );
     }
 

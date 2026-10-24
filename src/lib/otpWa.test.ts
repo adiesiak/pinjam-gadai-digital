@@ -11,6 +11,7 @@ import {
   buatSaltOtp,
   cocokKodeOtp,
   hashKodeOtp,
+  kodeNegaraFonnte,
   kodeOtpEnamDigit,
   normalisasiNomorWa,
   OTP_MASA_BERLAKU_MS,
@@ -48,8 +49,16 @@ eq(normalisasiNomorWa(""), null, "kosong ditolak");
 eq(normalisasiNomorWa("   "), null, "spasi saja ditolak");
 eq(normalisasiNomorWa("123"), null, "terlalu pendek ditolak");
 eq(normalisasiNomorWa("6281234"), null, "terlalu pendek setelah kode negara ditolak");
-eq(normalisasiNomorWa("14155552671"), null, "kode negara lain ditolak");
 eq(normalisasiNomorWa("62" + "9".repeat(20)), null, "terlalu panjang ditolak");
+eq(normalisasiNomorWa("15550100"), null, "nomor negara lain yang terlalu pendek ditolak");
+
+// Nomor luar Indonesia: kode negara wajib ada, tetapi `+`/`00`/spasi boleh.
+eq(normalisasiNomorWa("+49 151 2345 6789"), "4915123456789", "nomor Jerman dengan + diterima");
+eq(normalisasiNomorWa("0049 151 2345 6789"), "4915123456789", "awalan 00 dibuang");
+eq(normalisasiNomorWa("4915123456789"), "4915123456789", "kode negara lain tanpa + dipertahankan");
+eq(normalisasiNomorWa("+1 415 555 2671"), "14155552671", "nomor Amerika diterima");
+eq(kodeNegaraFonnte("628123456789"), "62", "nomor Indonesia memakai countryCode 62");
+eq(kodeNegaraFonnte("4915123456789"), "0", "nomor asing mematikan penambahan 62");
 
 // ===== 2. Kode 6 digit acak =====
 for (let i = 0; i < 250; i += 1) {

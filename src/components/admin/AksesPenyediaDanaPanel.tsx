@@ -85,7 +85,7 @@ function KartuBuatPendana() {
       return;
     }
     if (nomorWhatsApp.replace(/\D/g, "").length < 9) {
-      toast.error("Isi nomor WhatsApp pendana, mis. 0812 3456 7890.");
+      toast.error("Isi nomor WhatsApp pendana, mis. 0812 3456 7890 atau +49 151 2345678.");
       return;
     }
     setBusy(true);
@@ -176,7 +176,8 @@ function KartuBuatPendana() {
           </div>
           <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
             Nomor ini menjadi pintu masuk OTP WhatsApp pendana. Satu nomor hanya
-            untuk satu akun.
+            untuk satu akun. Nomor luar Indonesia ditulis dengan kode negaranya,
+            mis. +49 151 2345678.
           </p>
         </div>
         <Button type="submit" className={`w-full ${TOMBOL_EMERALD}`} disabled={busy}>

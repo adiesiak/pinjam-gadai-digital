@@ -981,8 +981,10 @@ export const kontakLaporanSaya = query({
  * ada laporan yang dikirim sampai pemiliknya mengisinya lagi — lebih baik
  * daripada mengirim laporan keuangan ke nomor lama yang mungkin bukan miliknya.
  *
- * Nomor dinormalkan ke bentuk `62…` lewat aturan yang sama dengan seluruh
- * aplikasi (`lib/otpWa`), supaya satu nomor tidak tersimpan dalam dua bentuk.
+ * Nomor dinormalkan ke bentuk internasional lewat aturan yang sama dengan
+ * seluruh aplikasi (`lib/otpWa`): nomor Indonesia menjadi `62…`, nomor negara
+ * lain disimpan dengan kode negaranya sendiri. Dengan begitu satu nomor tidak
+ * tersimpan dalam dua bentuk, termasuk nomor pendana di luar Indonesia.
  */
 export const simpanKontakLaporan = mutation({
   args: { nomor: v.string() },
@@ -1004,7 +1006,7 @@ export const simpanKontakLaporan = mutation({
     const normal = normalisasiNomorWa(bersih);
     if (normal === null) {
       throw new Error(
-        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
+        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia (mis. 0812 3456 7890) atau nomor luar Indonesia dengan kode negaranya (mis. +49 151 2345678).",
       );
     }
     // Nomor ini juga menjadi pintu masuk OTP. Bila dipakai akun lain, login
@@ -2044,7 +2046,7 @@ export const buatPendana = mutation({
     const nomor = nomorMentah === "" ? null : normalisasiNomorWa(nomorMentah);
     if (nomorMentah !== "" && nomor === null) {
       throw new Error(
-        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
+        "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia (mis. 0812 3456 7890) atau nomor luar Indonesia dengan kode negaranya (mis. +49 151 2345678).",
       );
     }
     if (nomor !== null) {
@@ -2157,7 +2159,7 @@ export const ubahAkunPendana = mutation({
         const normal = normalisasiNomorWa(mentah);
         if (normal === null) {
           throw new Error(
-            "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia, mis. 0812 3456 7890.",
+            "Nomor WhatsApp tidak dikenali. Tulis nomor Indonesia (mis. 0812 3456 7890) atau nomor luar Indonesia dengan kode negaranya (mis. +49 151 2345678).",
           );
         }
         const pemakai = await cariAkunNomor(ctx, normal);

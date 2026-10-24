@@ -73,9 +73,14 @@ eq(
   "angka terlalu pendek ditolak sebelum dikirim ke gateway",
 );
 eq(
+  kredensialMasuk("+49 151 2345 6789"),
+  { jenis: "nomor", nomor: "4915123456789" },
+  "nomor pendana luar Indonesia masuk jalur WhatsApp",
+);
+eq(
   kredensialMasuk("+1 555 0100"),
   { jenis: "tidak-valid" },
-  "nomor non-Indonesia ditolak",
+  "nomor yang terlalu pendek tetap ditolak",
 );
 
 console.log(`masukKredensial: ${passed} lulus, ${failed} gagal`);

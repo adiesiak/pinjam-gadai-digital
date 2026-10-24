@@ -178,7 +178,8 @@ const schema = defineSchema(
       /** Waktu sesi tamu terakhir diaktifkan dengan kode akses bersama. */
       aksesBersamaPada: v.optional(v.number()),
       /**
-       * Nomor WhatsApp pemilik akun (format 62…, tanpa tanda +).
+       * Nomor WhatsApp pemilik akun (format internasional tanpa tanda +:
+       * `62…` untuk Indonesia, atau kode negara lain untuk pendana asing).
        *
        * Dipakai sebagai nomor kontak untuk laporan pendana, pengingat, dan
        * salinan dokumen. Sejak login WhatsApp dibuka untuk peminjam baru, nomor

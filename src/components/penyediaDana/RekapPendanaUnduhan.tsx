@@ -116,7 +116,7 @@ export function TombolRekapPendana({
 
       <p className={cn("mt-1.5", FOLIO.catatan)}>
         {adaPendana
-          ? "Isi nomor untuk mengaktifkan tombol WhatsApp. Tombol Unduh PDF tetap bisa dipakai tanpa nomor."
+          ? "Isi nomor untuk mengaktifkan tombol WhatsApp; nomor luar Indonesia ditulis dengan kode negaranya (mis. +49 151 2345678). Tombol Unduh PDF tetap bisa dipakai tanpa nomor."
           : "Belum ada pendana pada rekap ini, jadi tidak ada berkas yang bisa dicetak."}
       </p>
 

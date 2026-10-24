@@ -238,7 +238,9 @@ function IsiUbahAkunPendana({
           />
           <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
             Dengan nomor ini pendana bisa meminta kode OTP di /auth tanpa email.
-            Kosongkan untuk menghapusnya. Satu nomor hanya untuk satu akun.
+            Nomor luar Indonesia ditulis dengan kode negaranya, mis. +49 151
+            2345678. Kosongkan untuk menghapusnya. Satu nomor hanya untuk satu
+            akun.
           </p>
         </div>
 

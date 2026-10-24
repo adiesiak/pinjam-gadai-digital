@@ -60,7 +60,8 @@ export function KontakLaporanWhatsapp({
         <h2 className={FOLIO.judul}>Laporan pendanaan</h2>
         <p className="max-w-md text-xs leading-5 text-muted-foreground">
           Salinan angka di halaman ini dalam satu berkas PDF. Unduh langsung, atau minta
-          dikirim ke WhatsApp Anda.
+          dikirim ke WhatsApp Anda. Nomor luar Indonesia ditulis dengan kode negaranya,
+          mis. +49 151 2345678.
         </p>
       </div>
 

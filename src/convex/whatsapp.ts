@@ -28,7 +28,7 @@ import {
   TEMPLATE_STATUS_DEFAULT,
 } from "../lib/statusPinjaman";
 import { validasiGatewayUrl } from "../lib/waUrl";
-import { uraiResponFonnte } from "../lib/otpWa";
+import { kodeNegaraFonnte, uraiResponFonnte } from "../lib/otpWa";
 import {
   JENIS_TEMPLATE_WA,
   LABEL_JENIS_WA,
@@ -592,7 +592,9 @@ export async function kirimViaGateway(
     ? new URLSearchParams({
         target: nomor,
         message: isi,
-        countryCode: "62",
+        // Nomor Indonesia tetap `62`; nomor negara lain memakai `0` supaya
+        // Fonnte tidak menambahkan `62` di depan kode negara aslinya.
+        countryCode: kodeNegaraFonnte(nomor),
         // `url` = berkas yang DIAMBIL Fonnte dari alamat publik; `filename`
         // = nama yang dibaca penerima.
         ...(berkas === undefined ? {} : { url: berkas.url, filename: berkas.nama }),

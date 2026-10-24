@@ -408,7 +408,8 @@ export const mintaKodeKlaim = action({
       return {
         ok: false,
         terkirim: false,
-        pesan: "Nomor WhatsApp tidak valid. Contoh: 08123456789.",
+        pesan:
+          "Nomor WhatsApp tidak valid. Contoh: 08123456789, atau nomor luar Indonesia dengan kode negaranya (mis. +49 151 2345678).",
         sisaDetik: 0,
         nomorTampil: "",
         berkasLama: 0,
@@ -696,7 +697,9 @@ async function selesaikanKlaim(
   });
 
   const bersih = normalisasiNomorWa(args.nomor);
-  if (bersih === null) return gagal("Nomor WhatsApp tidak valid.");
+  if (bersih === null) {
+    return gagal("Nomor WhatsApp tidak valid. Tulis kode negaranya untuk nomor luar Indonesia.");
+  }
 
   const digit = (args.kode ?? "").replace(/\D/g, "");
   if (digit.length !== OTP_PANJANG_KODE) {

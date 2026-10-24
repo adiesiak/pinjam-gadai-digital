@@ -71,18 +71,42 @@ export function labelTujuanOtp(tujuan: TujuanOtp): string {
 }
 
 /**
- * Normalisasi nomor WhatsApp ke bentuk `62…` (tanpa +, spasi, atau tanda
- * hubung). Mengembalikan `null` bila bentuknya tidak wajar — nomor yang tidak
- * valid tidak boleh sampai dikirim ke gateway.
+ * Normalisasi nomor WhatsApp ke bentuk internasional tanpa `+` (mis.
+ * `628123456789` atau `491512345678`).
+ *
+ * Nomor Indonesia tetap menerima tulisan lokal yang lazim (`0812…`, `812…`)
+ * dan selalu disimpan sebagai `62…`. Nomor negara lain sudah mengandung kode
+ * negaranya, jadi disimpan apa adanya — `+49…` dan `0049…` dibersihkan dulu,
+ * sedangkan `49…` diterima karena bentuk itulah yang tersimpan di akun.
+ *
+ * `null` hanya untuk bentuk yang panjangnya tidak wajar, supaya nomor rusak
+ * tidak pernah sampai ke gateway. Nomor luar Indonesia wajib ditulis dengan
+ * kode negaranya; `0812…` selalu dibaca sebagai nomor Indonesia.
  */
 export function normalisasiNomorWa(mentah: string | null | undefined): string | null {
-  const digit = (mentah ?? "").replace(/\D/g, "");
-  if (digit === "") return null;
-  let nomor = digit;
-  if (nomor.startsWith("0")) nomor = `62${nomor.slice(1)}`;
-  else if (nomor.startsWith("8")) nomor = `62${nomor}`;
-  else if (!nomor.startsWith("62")) return null;
-  return /^62\d{8,13}$/.test(nomor) ? nomor : null;
+  const teks = (mentah ?? "").trim();
+  if (teks === "") return null;
+  const berprefiksInternasional = teks.startsWith("+") || teks.startsWith("00");
+  let nomor = teks.replace(/\D/g, "");
+  if (nomor === "") return null;
+  if (teks.startsWith("00")) nomor = nomor.slice(2);
+  if (!berprefiksInternasional) {
+    if (nomor.startsWith("0")) nomor = `62${nomor.slice(1)}`;
+    else if (nomor.startsWith("8")) nomor = `62${nomor}`;
+  }
+  return /^[1-9]\d{8,14}$/.test(nomor) ? nomor : null;
+}
+
+/**
+ * Nilai `countryCode` untuk Fonnte.
+ *
+ * Fonnte mengganti `0` di depan nomor dengan `countryCode`, ATAU menambahkan
+ * kode itu bila belum ada (default `62`). Untuk nomor Indonesia hasilnya tetap
+ * `62`; untuk nomor negara lain nilainya `0`, mode yang mematikan penambahan
+ * otomatis sehingga nomor Jerman `49…` tidak berubah menjadi `6249…`.
+ */
+export function kodeNegaraFonnte(nomor: string): "62" | "0" {
+  return nomor.startsWith("62") ? "62" : "0";
 }
 
 /** Kode OTP 6 digit dari sumber acak kriptografis (rejection sampling). */

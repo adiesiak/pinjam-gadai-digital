@@ -25,6 +25,7 @@ import {
   buatSaltOtp,
   cocokKodeOtp,
   hashKodeOtp,
+  kodeNegaraFonnte,
   kodeOtpEnamDigit,
   labelTujuanOtp,
   normalisasiNomorWa,
@@ -139,7 +140,7 @@ async function nomorUntukTujuan(
     return {
       ok: false,
       pesan:
-        "Nomor WhatsApp belum tersimpan dalam format 62…. Lengkapi dan simpan nomor di modul KYC lebih dulu.",
+        "Nomor WhatsApp belum tersimpan dalam format yang dikenali. Lengkapi nomor Indonesia (mis. 0812 3456 7890) atau nomor luar Indonesia dengan kode negaranya (mis. +49 151 2345678) lebih dulu.",
     };
   }
   return { ok: true, nomor };
@@ -380,7 +381,9 @@ async function kirimFonnte(
       body: new URLSearchParams({
         target: nomor,
         message: pesan,
-        countryCode: "62",
+        // Sama dengan jalur gateway: `62` hanya untuk nomor Indonesia,
+        // sedangkan nomor negara lain memakai `0` agar tidak ditambahi 62.
+        countryCode: kodeNegaraFonnte(nomor),
       }).toString(),
     });
     const teks = (await res.text()).slice(0, 500);
