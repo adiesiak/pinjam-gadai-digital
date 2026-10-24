@@ -185,62 +185,66 @@ export function KatalogSyariahPanel() {
 
   return (
     <section aria-labelledby="judul-katalog-syariah" className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h3
             id="judul-katalog-syariah"
-            className="flex items-center gap-2 text-base font-semibold text-navy"
+            className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-base font-semibold text-navy"
           >
-            <Package className="size-4 text-amber-700" aria-hidden />
+            <Package className="size-4 shrink-0 self-center text-amber-700" aria-hidden />
             Katalog Murabahah
+            <span className="text-xs font-normal tabular-nums text-slate-500">
+              {`${semua.length} barang · ${jumlahAktif} aktif`}
+            </span>
           </h3>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-            Harga pokok dari mitra; margin ditambahkan mesin akad. Pengajuan
-            yang sudah dikirim menyimpan harganya sendiri, jadi perubahan harga
+          <p className="mt-0.5 max-w-xl text-[11px] leading-5 text-muted-foreground">
+            Harga pokok dari mitra; margin dihitung saat akad. Perubahan harga
             hanya berlaku untuk pengajuan berikutnya.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="min-h-11"
-          onClick={barangBaru}
-        >
-          Tambah barang
-        </Button>
-      </div>
-
-      <p className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-950">
-        <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        <span>
-          Pulsa/PPOB bisa dinonaktifkan kapan saja — langsung hilang dari
-          formulir, riwayat tetap tersimpan. Aktifkan hanya setelah lolos
-          tinjauan dewan pengawas syariah.
-        </span>
-      </p>
-
-      {data.belumDimuat > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-          <p className="text-[11px] leading-5 text-slate-700">
-            <span className="font-semibold tabular-nums">
-              {data.belumDimuat} barang
-            </span>{" "}
-            masih memakai daftar awal dan belum tercatat di tabel. Muat katalog
-            awal agar semuanya bisa disunting dan riwayat harganya tercatat.
-          </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {data.belumDimuat > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-9"
+              disabled={memuatAwal}
+              onClick={muat}
+            >
+              <Banknote className="size-4" aria-hidden />
+              {memuatAwal ? "Memuat…" : "Muat katalog awal"}
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="min-h-11"
-            disabled={memuatAwal}
-            onClick={muat}
+            className="min-h-9"
+            onClick={barangBaru}
           >
-            <Banknote className="size-4" aria-hidden />
-            {memuatAwal ? "Memuat…" : "Muat katalog awal"}
+            Tambah barang
           </Button>
         </div>
+      </div>
+
+      <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-950">
+        <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>
+          Pulsa/PPOB boleh dinonaktifkan kapan saja: hilang dari formulir,
+          riwayat tetap tersimpan. Aktifkan hanya setelah lolos tinjauan dewan
+          pengawas syariah.
+        </span>
+      </p>
+
+      {data.belumDimuat > 0 && (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-700">
+          <span className="font-semibold tabular-nums">
+            {data.belumDimuat} barang
+          </span>{" "}
+          masih memakai daftar awal. Muat katalog awal agar semuanya bisa
+          disunting dan riwayat harganya tercatat.
+        </p>
       )}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -271,7 +275,7 @@ export function KatalogSyariahPanel() {
             : "Tidak ada barang yang cocok dengan pencarian."}
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 xl:grid-cols-2">
           {grup.map(({ kategori, items }) => {
             const idJudul = `katalog-grup-${kategori
               .replace(/[^a-z]+/gi, "-")
@@ -280,9 +284,9 @@ export function KatalogSyariahPanel() {
               <section
                 key={kategori}
                 aria-labelledby={idJudul}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white"
               >
-                <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/80 px-3 py-1.5">
                   <h4
                     id={idJudul}
                     className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600"
@@ -298,44 +302,53 @@ export function KatalogSyariahPanel() {
                     <li
                       key={item.kode}
                       className={cn(
-                        "flex items-center gap-3 px-4 py-2.5",
-                        !item.aktif && "bg-slate-50/70",
+                        "flex items-center gap-2 px-3 py-2",
+                        !item.aktif && "bg-slate-50/60",
                       )}
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-900">
+                      <button
+                        type="button"
+                        onClick={() => buka(item)}
+                        className="min-w-0 flex-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <span
+                            className={cn(
+                              "truncate text-[13px] font-medium",
+                              item.aktif
+                                ? "text-slate-900"
+                                : "text-slate-500 line-through decoration-slate-300",
+                            )}
+                          >
                             {item.nama}
-                          </p>
+                          </span>
                           {!item.aktif && (
-                            <span className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                            <span className="rounded border border-slate-300 bg-white px-1 py-px text-[10px] font-semibold text-slate-600 no-underline">
                               Nonaktif
                             </span>
                           )}
                           {!item.dimuat && (
-                            <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                            <span className="rounded border border-amber-300 bg-amber-50 px-1 py-px text-[10px] font-semibold text-amber-900">
                               Daftar awal
                             </span>
                           )}
-                        </div>
-                        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+                        </span>
+                        <span className="block truncate text-[11px] leading-4 text-slate-500">
                           {LABEL_JENIS_BARANG[item.jenisBarang]} · {item.kode}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
-                        <p className="text-sm font-semibold tabular-nums text-slate-900">
-                          {formatRupiah(item.harga)}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="min-h-11 shrink-0 px-2.5 text-primary hover:bg-primary/5"
-                          onClick={() => buka(item)}
-                        >
-                          Ubah
-                        </Button>
-                      </div>
+                        </span>
+                      </button>
+                      <span className="shrink-0 text-[13px] font-semibold tabular-nums text-slate-900">
+                        {formatRupiah(item.harga)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-9 shrink-0 px-2 text-primary hover:bg-primary/5"
+                        onClick={() => buka(item)}
+                      >
+                        Ubah
+                      </Button>
                     </li>
                   ))}
                 </ul>

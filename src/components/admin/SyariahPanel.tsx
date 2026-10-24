@@ -7,7 +7,7 @@
  * pembayaran dibuka. Karena itu tombolnya disebut "Setujui", bukan "Cairkan".
  */
 import { useMutation, useQuery } from "convex/react";
-import { Check, HandCoins, Search, X } from "lucide-react";
+import { Check, HandCoins, Info, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -270,18 +270,15 @@ export function SyariahPanel() {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-950">
-        Setujui di sini mencatat keputusan dan angka akad. Pencatatan akad serta
-        pencairan dana tetap mengikuti gerbang pembayaran yang sama dengan
-        pinjaman konvensional.
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-4">
+      {/* Satu baris kendali: saringan berlaku sebagai tab berangka, pencarian
+          menempel di kanan. Keterangan gerbang pembayaran pindah ke kaki
+          tabel supaya antrean langsung terbaca tanpa menggulir. */}
+      <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 lg:flex-row lg:items-center">
         <div
           role="group"
           aria-label="Saring pengajuan syariah"
-          className="flex flex-wrap gap-1.5"
+          className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1"
         >
           {SARINGAN.map((opsi) => (
             <button
@@ -290,20 +287,20 @@ export function SyariahPanel() {
               aria-pressed={saringan === opsi.id}
               onClick={() => setSaringan(opsi.id)}
               className={cn(
-                "min-h-9 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 saringan === opsi.id
-                  ? "border-amber-700 bg-amber-700 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+                  ? "bg-white text-navy shadow-sm"
+                  : "text-slate-600 hover:text-slate-900",
               )}
             >
               {opsi.label}
-              <span className="ml-1.5 tabular-nums opacity-80">
+              <span className="ml-1.5 tabular-nums text-slate-500">
                 {jumlah[opsi.id]}
               </span>
             </button>
           ))}
         </div>
-        <div className="relative ml-auto w-full sm:w-72">
+        <div className="relative w-full lg:ml-auto lg:w-72">
           <Search
             className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
@@ -319,7 +316,7 @@ export function SyariahPanel() {
       </div>
 
       {baris.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center">
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center">
           <HandCoins className="mx-auto size-5 text-amber-700" aria-hidden />
           <p className="mt-2 text-sm font-semibold text-slate-900">
             {cari.trim() === ""
@@ -327,59 +324,125 @@ export function SyariahPanel() {
               : "Tidak ada pengajuan yang cocok dengan pencarian."}
           </p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Pengajuan Murabahah dan Rahn dari peminjam muncul di sini setelah
-            formulir dashboard dikirim.
+            Pengajuan Murabahah dan Rahn muncul di sini setelah formulir
+            dashboard peminjam dikirim.
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-          {baris.map((row) => (
-            <li
-              key={row._id}
-              className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {row.namaPeminjam}
-                  </p>
-                  <LencanaStatus status={row.status} />
-                  {row.status === "disetujui" && row.namaBarang !== null && (
-                    <span
-                      className={
-                        row.statusPenyerahan === "terkirim"
-                          ? "inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-900"
-                          : "inline-flex rounded-md border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
-                      }
-                    >
-                      {row.statusPenyerahan === "terkirim"
-                        ? "Barang terkirim"
-                        : "Belum diserahkan"}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-[11px] leading-5 text-slate-600">
-                  {LABEL_JENIS_AKAD[row.jenis]} · {row.nomorReferensi} ·{" "}
-                  {formatRupiah(row.pokok)} · {row.tenorHari} hari ·{" "}
-                  {formatDate(row.dibuatPada)}
-                  {row.namaBarang === null ? "" : ` · ${row.namaBarang}`}
-                </p>
-                <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
-                  {row.emailPeminjam ?? "tanpa email"} · {row.tujuan}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant={row.status === "diajukan" ? "default" : "outline"}
-                size="sm"
-                className="min-h-11 shrink-0"
-                onClick={() => buka(row)}
-              >
-                {row.status === "diajukan" ? "Tinjau" : "Lihat"}
-              </Button>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] border-collapse text-left">
+              <caption className="sr-only">
+                Antrean pengajuan akad syariah
+              </caption>
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-[0.06em] text-slate-500">
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Nasabah
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Referensi
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">
+                    Pokok
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-semibold">
+                    Status
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right font-semibold">
+                    Aksi
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {baris.map((row) => (
+                  <tr
+                    key={row._id}
+                    className="align-top transition-colors hover:bg-slate-50"
+                  >
+                    <td className="max-w-[16rem] px-3 py-2.5">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {row.namaPeminjam}
+                      </p>
+                      <p className="truncate text-[11px] text-slate-500">
+                        {row.emailPeminjam ?? "tanpa email"}
+                      </p>
+                      <p
+                        className="mt-0.5 truncate text-[11px] text-slate-500"
+                        title={row.tujuan}
+                      >
+                        {row.tujuan}
+                      </p>
+                    </td>
+                    <td className="max-w-[15rem] px-3 py-2.5">
+                      <p className="font-mono text-[11px] text-slate-600">
+                        {row.nomorReferensi}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {LABEL_JENIS_AKAD[row.jenis]} ·{" "}
+                        {formatDate(row.dibuatPada)}
+                      </p>
+                      {row.namaBarang !== null && (
+                        <p
+                          className="mt-0.5 truncate text-[11px] text-slate-500"
+                          title={row.namaBarang}
+                        >
+                          {row.namaBarang}
+                        </p>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                      <p className="text-sm font-semibold tabular-nums text-slate-900">
+                        {formatRupiah(row.pokok)}
+                      </p>
+                      <p className="mt-0.5 text-[11px] tabular-nums text-slate-500">
+                        {row.tenorHari} hari
+                      </p>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-wrap gap-1">
+                        <LencanaStatus status={row.status} />
+                        {row.status === "disetujui" &&
+                          row.namaBarang !== null && (
+                            <span
+                              className={
+                                row.statusPenyerahan === "terkirim"
+                                  ? "inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-900"
+                                  : "inline-flex rounded-md border border-slate-300 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
+                              }
+                            >
+                              {row.statusPenyerahan === "terkirim"
+                                ? "Barang terkirim"
+                                : "Belum diserahkan"}
+                            </span>
+                          )}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                      <Button
+                        type="button"
+                        variant={row.status === "diajukan" ? "default" : "outline"}
+                        size="sm"
+                        className="min-h-9 px-3"
+                        onClick={() => buka(row)}
+                      >
+                        {row.status === "diajukan" ? "Tinjau" : "Lihat"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="flex items-start gap-1.5 border-t border-slate-200 bg-slate-50/60 px-3 py-2 text-[11px] leading-5 text-slate-500">
+            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            <span>
+              Setujui mencatat angka akad. Pencatatan akad dan pencairan tetap
+              mengikuti gerbang pembayaran yang sama dengan pinjaman
+              konvensional.
+            </span>
+          </p>
+        </div>
       )}
 
       <Dialog open={dipilih !== null} onOpenChange={(open) => !open && tutup()}>
