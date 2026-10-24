@@ -625,7 +625,11 @@ const schema = defineSchema(
       // Master nasabah dicari lewat nomor WhatsApp saat klaim akun lama
       // (`convex/klaimPeminjam.ts`) — satu-satunya jalan supaya peminjam lama
       // bisa ditemukan TANPA memindai semua baris.
-      .index("by_nomorWhatsApp", ["nomorWhatsApp"]),
+      .index("by_nomorWhatsApp", ["nomorWhatsApp"])
+      // NIK dipakai untuk menolak identitas ganda (satu KTP, satu akun) dan
+      // untuk mencari nasabah dari NIK tepat di panel KYC — keduanya pencarian
+      // TEPAT, jadi cukup indeks; tidak ada pencarian sebagian.
+      .index("by_nik", ["nik"]),
 
     /**
      * OVERRIDE risiko nasabah — keputusan petugas atas grade hasil model.
@@ -2647,7 +2651,9 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       // Profil KYC juga sumber nomor WhatsApp terverifikasi; dipakai klaim
       // akun lama untuk menemukan pemilik data impor lewat nomornya.
-      .index("by_nomorWhatsApp", ["nomorWhatsApp"]),
+      .index("by_nomorWhatsApp", ["nomorWhatsApp"])
+      // NIK dari baris KYC: dasar penolakan identitas ganda antar-akun.
+      .index("by_nik", ["nik"]),
 
     /**
      * KEPUTUSAN OTOMATIS KYC — APPEND-ONLY, satu baris per pemeriksaan mesin.

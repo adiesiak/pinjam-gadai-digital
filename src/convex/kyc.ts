@@ -12,6 +12,7 @@ import {
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
 import { tautanBerkas } from "./berkas";
+import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
 import { ROLES } from "./schema";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { bacaDataDiri, galatDataDiri, type DataDiriForm } from "../lib/dataDiri";
@@ -1585,6 +1586,7 @@ export const daftarKycAdmin = query({
           aturanUsang: aturanUsang(r.aturanTerverifikasi?.versi),
           nomorWhatsAppTerbukti: nomorWaCocok(r.nomorWhatsAppTerverifikasi, r.nomorWhatsApp),
           verifikasiUlangTertunda: perluVerifikasiUlang(stempel(r), ringkas(r)),
+          sumberVerifikasi: r.sumberVerifikasi ?? null,
           dokumenBelumDiperiksa: await bacaBerkasBelumDiperiksa(r),
           diajukanPada: r.diajukanPada ?? null,
           diperbaruiPada: r.diperbaruiPada,
@@ -1639,6 +1641,67 @@ export const daftarKycAdmin = query({
   },
 });
 
+/** Alasan riwayat yang menandai pekerjaan manual oleh petugas. */
+const ALASAN_MANUAL = ["verifikasi_manual_petugas", "koreksi_manual_petugas"] as const;
+
+/**
+ * REKAP PEKERJAAN MANUAL — pengawasan jalur yang memintas pengajuan mandiri.
+ *
+ * Jalur manual adalah satu-satunya cara nasabah menjadi VERIFIED tanpa pernah
+ * mengirim pengajuan sendiri, sehingga pertanyaan pertama auditor adalah "siapa
+ * yang mencatat, berapa banyak, dan kapan". Rekap ini menjawab itu dari
+ * `kycRiwayat` (indeks `by_waktu`, tujuh hari terakhir) dan menyertakan berapa
+ * baris manual yang belum punya foto KTP — angka yang harus turun ke nol.
+ */
+export const rekapKycManualAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminSession(ctx);
+    const sekarang = Date.now();
+    const awalHari = new Date(sekarang);
+    awalHari.setHours(0, 0, 0, 0);
+    const mulaiHariIni = awalHari.getTime();
+    const tujuhHari = sekarang - 7 * 24 * 60 * 60 * 1000;
+
+    const riwayat = await ctx.db
+      .query("kycRiwayat")
+      .withIndex("by_waktu", (q) => q.gte("waktu", tujuhHari))
+      .collect();
+    const manual = riwayat.filter((r) =>
+      (ALASAN_MANUAL as readonly string[]).includes(r.alasan),
+    );
+
+    /** Kelompokkan per label petugas — nama yang tertulis di riwayat apa adanya. */
+    const kelompok = (baris: typeof manual) => {
+      const per = new Map<string, { label: string; jumlah: number; koreksi: number }>();
+      for (const r of baris) {
+        const lama = per.get(r.aktorLabel) ?? { label: r.aktorLabel, jumlah: 0, koreksi: 0 };
+        lama.jumlah += 1;
+        if (r.alasan === "koreksi_manual_petugas") lama.koreksi += 1;
+        per.set(r.aktorLabel, lama);
+      }
+      return [...per.values()].sort((a, b) => b.jumlah - a.jumlah || a.label.localeCompare(b.label));
+    };
+
+    const hariIni = manual.filter((r) => r.waktu >= mulaiHariIni);
+
+    // Baris manual yang berlaku sekarang: dipakai untuk menghitung kekurangan
+    // bukti. `ktpId` kosong berarti putusan itu tidak punya satu pun foto.
+    const kycRows = await ctx.db.query("kycProfil").collect();
+    const manualAktif = kycRows.filter(
+      (r) => r.sumberVerifikasi === "manual_admin" && r.status === "VERIFIED",
+    );
+
+    return {
+      hariIni: { total: hariIni.length, perPetugas: kelompok(hariIni) },
+      tujuhHari: { total: manual.length, perPetugas: kelompok(manual) },
+      /** Semua baris yang STATUSNYA berasal dari pencatatan manual. */
+      totalManual: manualAktif.length,
+      tanpaFotoKtp: manualAktif.filter((r) => r.ktpId === undefined).length,
+    };
+  },
+});
+
 /**
  * Pencarian nasabah untuk pencatatan KYC manual — admin ber-TOTP.
  *
@@ -1647,62 +1710,120 @@ export const daftarKycAdmin = query({
  * dikirim supaya petugas melihat siapa yang belum punya baris sama sekali dan
  * siapa yang sudah terverifikasi — tanpa membuka satu per satu.
  *
- * Pencocokan memakai nama, email, kode nasabah, NIK, dan nomor WhatsApp dari
- * data diri. Teks pencariannya tidak dikirim balik ke klien.
+ * Pencocokan memakai INDEKS untuk nilai yang bentuknya tetap (kode nasabah,
+ * NIK 16 angka, nomor WhatsApp) dan satu pemindaian tabel pengguna untuk teks
+ * bebas (nama/email). Tabel KYC dan data diri TIDAK lagi dipindai utuh: untuk
+ * setiap kandidat, keduanya dibaca lewat indeks `by_user`. Dengan begitu biaya
+ * pencarian tidak tumbuh sebesar seluruh isi tiga tabel setiap kali petugas
+ * mengetik satu huruf.
+ *
+ * Batas yang jujur: nama yang hanya cocok pada akun di luar 2.000 pengguna
+ * terbaru tidak ditemukan lewat teks bebas. Kode nasabah, NIK, dan nomor
+ * WhatsApp tetap menemukannya karena lewat indeks, bukan pemindaian.
  */
 export const cariNasabahUntukKycAdmin = query({
   args: { cari: v.optional(v.string()) },
   handler: async (ctx, { cari }) => {
     await requireAdminSession(ctx);
     const kata = (cari ?? "").trim().toLowerCase();
-    const [users, kycRows, profil] = await Promise.all([
-      ctx.db.query("users").collect(),
-      ctx.db.query("kycProfil").collect(),
-      ctx.db.query("nasabahProfil").collect(),
-    ]);
-    const statusPerUser = new Map(
-      kycRows.map((r) => [r.userId as string, r.status as StatusKyc]),
-    );
-    const profilPerUser = new Map(profil.map((p) => [p.userId as string, p]));
+    const angka = kata.replace(/\D/g, "");
+    const kandidat = new Set<Id<"users">>();
 
-    return users
-      .filter(
-        (u) => u.isAnonymous !== true && (u.role === undefined || u.role === ROLES.PEMINJAM),
-      )
-      .map((u) => {
-        const p = profilPerUser.get(u._id);
+    // 1) NIK tepat (16 angka) — indeks di KYC dan di data diri.
+    if (angka.length === 16) {
+      const [dariKyc, dariProfil] = await Promise.all([
+        ctx.db.query("kycProfil").withIndex("by_nik", (q) => q.eq("nik", angka)).take(5),
+        ctx.db.query("nasabahProfil").withIndex("by_nik", (q) => q.eq("nik", angka)).take(5),
+      ]);
+      for (const r of [...dariKyc, ...dariProfil]) kandidat.add(r.userId);
+    }
+
+    // 2) Nomor WhatsApp — dinormalkan dulu supaya "0812…" dan "62812…" cocok.
+    if (angka.length >= 8) {
+      const nomor = normalisasiNomorWa(kata);
+      if (nomor !== null) {
+        const [akun, dariKyc, dariProfil] = await Promise.all([
+          ctx.db
+            .query("users")
+            .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", nomor))
+            .take(5),
+          ctx.db
+            .query("kycProfil")
+            .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", nomor))
+            .take(5),
+          ctx.db
+            .query("nasabahProfil")
+            .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", nomor))
+            .take(5),
+        ]);
+        for (const u of akun) kandidat.add(u._id);
+        for (const r of [...dariKyc, ...dariProfil]) kandidat.add(r.userId);
+      }
+    }
+
+    // 3) Kode nasabah — pencarian persis (kode selalu huruf besar).
+    if (kata !== "") {
+      const kode = await ctx.db
+        .query("users")
+        .withIndex("by_kodePeminjam", (q) => q.eq("kodePeminjam", kata.toUpperCase()))
+        .take(5);
+      for (const u of kode) kandidat.add(u._id);
+    }
+
+    // 4) Teks bebas: nama & email. Hanya tabel pengguna yang dipindai, dan
+    //    dibatasi ke akun terbaru supaya biayanya tidak tumbuh tanpa batas.
+    if (kata === "") {
+      const terbaru = await ctx.db.query("users").order("desc").take(60);
+      for (const u of terbaru) kandidat.add(u._id);
+    } else {
+      const teks = await ctx.db.query("users").order("desc").take(2000);
+      for (const u of teks) {
+        if (`${u.name ?? ""} ${u.email ?? ""}`.toLowerCase().includes(kata)) {
+          kandidat.add(u._id);
+        }
+      }
+    }
+
+    // Status KYC & data diri dibaca per kandidat lewat indeks, bukan dari
+    // tabel yang dipindai utuh.
+    const baris = await Promise.all(
+      [...kandidat].slice(0, 200).map(async (userId) => {
+        const [u, kyc, profil] = await Promise.all([
+          ctx.db.get(userId),
+          ctx.db
+            .query("kycProfil")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first(),
+          ctx.db
+            .query("nasabahProfil")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first(),
+        ]);
+        if (u === null) return null;
+        if (u.isAnonymous === true) return null;
+        if (u.role !== undefined && u.role !== ROLES.PEMINJAM) return null;
         return {
-          userId: u._id,
+          userId,
           nama: u.name ?? u.email ?? "Nasabah",
           email: u.email ?? null,
           kodePeminjam: u.kodePeminjam ?? null,
-          statusKyc: statusPerUser.get(u._id) ?? null,
-          adaDataDiri: p !== undefined,
-          adaFotoKtp: p?.fotoKtpId !== undefined,
-          /** Teks pencarian gabungan — dibuang sebelum dikirim. */
-          teks: [u.name, u.email, u.kodePeminjam, p?.nik, p?.nomorWhatsApp]
-            .filter((nilai) => nilai !== undefined && nilai !== null && nilai !== "")
-            .join(" ")
-            .toLowerCase(),
+          statusKyc: (kyc?.status as StatusKyc | undefined) ?? null,
+          adaDataDiri: profil !== null,
+          // Foto KTP bisa tersimpan di data diri ATAU hanya di baris KYC.
+          adaFotoKtp: profil?.fotoKtpId !== undefined || kyc?.ktpId !== undefined,
         };
-      })
-      .filter((baris) => kata === "" || baris.teks.includes(kata))
+      }),
+    );
+
+    return baris
+      .filter((b): b is NonNullable<typeof b> => b !== null)
       .sort(
         (a, b) =>
           // Yang belum terverifikasi lebih dulu: itu yang butuh tindakan.
           Number(a.statusKyc === "VERIFIED") - Number(b.statusKyc === "VERIFIED") ||
           a.nama.localeCompare(b.nama),
       )
-      .slice(0, 30)
-      .map(({ userId, nama, email, kodePeminjam, statusKyc, adaDataDiri, adaFotoKtp }) => ({
-        userId,
-        nama,
-        email,
-        kodePeminjam,
-        statusKyc,
-        adaDataDiri,
-        adaFotoKtp,
-      }));
+      .slice(0, 30);
   },
 });
 
@@ -1769,6 +1890,11 @@ export const detailKycAdmin = query({
       pekerjaan: row.pekerjaan ?? null,
       penghasilanBulanan: row.penghasilanBulanan ?? null,
       sumberPenghasilan: row.sumberPenghasilan ?? null,
+      // Rekening ikut dikirim: panel koreksi manual harus bisa menampilkan nilai
+      // yang tersimpan, bukan memaksa petugas mengetik ulang dari nol. Dibiarkan
+      // opsional (bukan `null`) karena nasabah lama boleh belum mengisinya.
+      namaBank: row.namaBank,
+      nomorRekening: row.nomorRekening,
       catatanPeminjam: row.catatanPeminjam ?? null,
       namaKontakDarurat: row.namaKontakDarurat ?? null,
       nomorKontakDarurat: row.nomorKontakDarurat ?? null,
@@ -2069,9 +2195,164 @@ export const tinjauKyc = mutation({
  * VERIFIED dari PENDING_REVIEW, dan petugas tidak bisa mengirim pengajuan atas
  * nama nasabah. Jalur manual karena itu menulis status akhirnya sendiri,
  * dengan penjaga yang setara: admin ber-TOTP, data lengkap, pernyataan dokumen
- * fisik sudah diperiksa, catatan 10–300 karakter, dan baris VERIFIED yang sudah
- * ada tidak pernah ditimpa.
+ * fisik sudah diperiksa, catatan 10–300 karakter, foto KTP yang benar-benar
+ * ada, dan NIK/nomor WhatsApp yang belum dipakai akun lain.
  */
+
+/** Isian identitas jalur manual — dipakai pencatatan DAN koreksi. */
+type IsianManual = {
+  namaLengkap: string;
+  nik: string;
+  nomorWhatsApp: string;
+  alamat: string;
+  pekerjaan: string;
+  penghasilanBulanan: number | null;
+  sumberPenghasilan: string;
+  namaBank: string;
+  nomorRekening: string;
+  catatanVerifikasi: string;
+};
+
+/**
+ * Validasi & normalisasi isian jalur manual — SATU definisi untuk pencatatan
+ * baru maupun koreksi.
+ *
+ * Aturan bentuknya sama dengan formulir data diri (`bacaDataDiri`), ditambah
+ * tiga syarat yang hanya berlaku di jalur ini: alamat, pekerjaan, dan
+ * penghasilan wajib terisi, serta catatan 10–300 karakter sebagai dasar
+ * tertulis yang bisa dibaca auditor.
+ */
+function bacaIsianManual(args: IsianManual) {
+  const catatan = args.catatanVerifikasi.trim();
+  if (catatan.length < 10) {
+    throw new Error("Catatan verifikasi manual wajib diisi minimal 10 karakter.");
+  }
+  if (catatan.length > 300) {
+    throw new Error("Catatan verifikasi manual maksimal 300 karakter.");
+  }
+
+  const { tersimpan, pesan } = bacaDataDiri({
+    namaLengkap: args.namaLengkap,
+    nik: args.nik,
+    nomorWhatsApp: args.nomorWhatsApp,
+    alamat: args.alamat,
+    pekerjaan: args.pekerjaan,
+    penghasilan: args.penghasilanBulanan === null ? "" : String(args.penghasilanBulanan),
+    namaBank: args.namaBank,
+    nomorRekening: args.nomorRekening,
+  });
+  if (tersimpan === null) throw new Error(pesan ?? "Data identitas tidak valid.");
+  if (tersimpan.alamat === null) {
+    throw new Error("Alamat wajib diisi untuk verifikasi manual.");
+  }
+  if (tersimpan.pekerjaan === null) {
+    throw new Error("Pekerjaan wajib diisi untuk verifikasi manual.");
+  }
+  if (tersimpan.penghasilanBulanan === null) {
+    throw new Error("Penghasilan per bulan wajib diisi untuk verifikasi manual.");
+  }
+  const sumberPenghasilan = args.sumberPenghasilan.trim();
+  if (sumberPenghasilan.length < 3) {
+    throw new Error("Sumber penghasilan wajib diisi minimal 3 karakter.");
+  }
+  // Bidang yang wajib dikembalikan sebagai NILAI PASTI, bukan `null`: pemanggil
+  // menuliskannya langsung ke kolom yang tidak menerima null.
+  return {
+    catatan,
+    sumberPenghasilan,
+    tersimpan: {
+      namaLengkap: tersimpan.namaLengkap,
+      nik: tersimpan.nik,
+      nomorWhatsApp: tersimpan.nomorWhatsApp,
+      alamat: tersimpan.alamat,
+      pekerjaan: tersimpan.pekerjaan,
+      penghasilanBulanan: tersimpan.penghasilanBulanan,
+      namaBank: tersimpan.namaBank ?? undefined,
+      nomorRekening: tersimpan.nomorRekening ?? undefined,
+    },
+  };
+}
+
+/**
+ * Foto KTP untuk satu putusan manual.
+ *
+ * Unggahan baru diperiksa server (isi, bentuk, ukuran) sebelum dipakai; tanpa
+ * unggahan baru, foto yang sudah tersimpan dipakai ulang. Tidak ada putusan
+ * manual tanpa foto: verifikasi identitas tanpa satu pun bukti visual bukan
+ * hal yang bisa diaudit.
+ */
+async function fotoKtpManual(
+  ctx: MutationCtx,
+  args: {
+    fotoKtpId?: Id<"_storage">;
+    lama: Doc<"kycProfil"> | null;
+    profil: Doc<"nasabahProfil"> | null;
+  },
+): Promise<Id<"_storage">> {
+  if (args.fotoKtpId !== undefined) {
+    await periksaBerkasIdentitasStorage(ctx, "Foto KTP", args.fotoKtpId);
+    return args.fotoKtpId;
+  }
+  const ada = args.lama?.ktpId ?? args.profil?.fotoKtpId;
+  if (ada === undefined) {
+    throw new Error(
+      "Foto KTP wajib dilampirkan. Unggah foto KTP asli di panel ini — atau simpan dulu di Data Diri — sebelum mencatat verifikasi manual.",
+    );
+  }
+  return ada;
+}
+
+/**
+ * Akun LAIN yang sudah memakai NIK atau nomor WhatsApp ini.
+ *
+ * Jalur pencatatan nasabah manual sudah menolak identitas ganda; jalur KYC
+ * manual harus menolak hal yang sama. Tanpa ini, satu KTP bisa menjadi dua akun
+ * terverifikasi — dan itu justru tidak terlihat oleh alat "Nasabah kembar",
+ * yang hanya membandingkan baris data diri.
+ */
+async function identitasDipakaiAkunLain(
+  ctx: MutationCtx,
+  args: { userId: Id<"users">; nik: string; nomorWhatsApp: string },
+): Promise<{ nama: string; jenis: "NIK" | "nomor WhatsApp" } | null> {
+  const [kycNik, profilNik, akunWa, kycWa, profilWa] = await Promise.all([
+    ctx.db.query("kycProfil").withIndex("by_nik", (q) => q.eq("nik", args.nik)).take(5),
+    ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_nik", (q) => q.eq("nik", args.nik))
+      .take(5),
+    ctx.db
+      .query("users")
+      .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", args.nomorWhatsApp))
+      .take(5),
+    ctx.db
+      .query("kycProfil")
+      .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", args.nomorWhatsApp))
+      .take(5),
+    ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", args.nomorWhatsApp))
+      .take(5),
+  ]);
+
+  const nikPemakai = [...kycNik, ...profilNik]
+    .map((r) => r.userId)
+    .find((id) => id !== args.userId);
+  const waPemakai = [
+    ...akunWa.map((u) => u._id),
+    ...kycWa.map((r) => r.userId),
+    ...profilWa.map((r) => r.userId),
+  ].find((id) => id !== args.userId);
+  const pemakai = nikPemakai ?? waPemakai;
+  if (pemakai === undefined) return null;
+
+  const akun = await ctx.db.get(pemakai);
+  const kode = akun?.kodePeminjam === undefined ? "" : ` (${akun.kodePeminjam})`;
+  return {
+    nama: `${akun?.name ?? akun?.email ?? "akun lain"}${kode}`,
+    jenis: nikPemakai === undefined ? "nomor WhatsApp" : "NIK",
+  };
+}
+
 export const catatKycManual = mutation({
   args: {
     userId: v.id("users"),
@@ -2087,6 +2368,8 @@ export const catatKycManual = mutation({
     nomorRekening: v.string(),
     /** Dasar tertulis: apa yang diperiksa, di mana, dan kapan. */
     catatanVerifikasi: v.string(),
+    /** Foto KTP yang baru diunggah; kosong = pakai yang sudah tersimpan. */
+    fotoKtpId: v.optional(v.id("_storage")),
     /** Pernyataan petugas bahwa dokumen fisik benar-benar diperiksa. */
     konfirmasiDokumenFisik: v.boolean(),
   },
@@ -2107,38 +2390,19 @@ export const catatKycManual = mutation({
     }
 
     const olehLabel = admin.email ?? admin.name ?? "admin";
-    const catatan = args.catatanVerifikasi.trim();
-    if (catatan.length < 10) {
-      throw new Error("Catatan verifikasi manual wajib diisi minimal 10 karakter.");
-    }
-    if (catatan.length > 300) {
-      throw new Error("Catatan verifikasi manual maksimal 300 karakter.");
-    }
+    const { catatan, sumberPenghasilan, tersimpan } = bacaIsianManual(args);
 
-    const { tersimpan, pesan } = bacaDataDiri({
-      namaLengkap: args.namaLengkap,
-      nik: args.nik,
-      nomorWhatsApp: args.nomorWhatsApp,
-      alamat: args.alamat,
-      pekerjaan: args.pekerjaan,
-      penghasilan:
-        args.penghasilanBulanan === null ? "" : String(args.penghasilanBulanan),
-      namaBank: args.namaBank,
-      nomorRekening: args.nomorRekening,
+    // Satu identitas, satu akun. Menolak di sini menutup celah yang tidak
+    // terlihat oleh alat "Nasabah kembar" (yang hanya membandingkan data diri).
+    const pemakai = await identitasDipakaiAkunLain(ctx, {
+      userId: args.userId,
+      nik: tersimpan.nik,
+      nomorWhatsApp: tersimpan.nomorWhatsApp,
     });
-    if (tersimpan === null) throw new Error(pesan ?? "Data identitas tidak valid.");
-    if (tersimpan.alamat === null) {
-      throw new Error("Alamat wajib diisi untuk verifikasi manual.");
-    }
-    if (tersimpan.pekerjaan === null) {
-      throw new Error("Pekerjaan wajib diisi untuk verifikasi manual.");
-    }
-    if (tersimpan.penghasilanBulanan === null) {
-      throw new Error("Penghasilan per bulan wajib diisi untuk verifikasi manual.");
-    }
-    const sumberPenghasilan = args.sumberPenghasilan.trim();
-    if (sumberPenghasilan.length < 3) {
-      throw new Error("Sumber penghasilan wajib diisi minimal 3 karakter.");
+    if (pemakai !== null) {
+      throw new Error(
+        `${pemakai.jenis} ini sudah tercatat pada akun ${pemakai.nama}. Satu identitas hanya boleh dimiliki satu akun — gabungkan akun kembar lebih dulu.`,
+      );
     }
 
     const lama = await ctx.db
@@ -2147,19 +2411,21 @@ export const catatKycManual = mutation({
       .first();
     if (lama?.status === "VERIFIED") {
       throw new Error(
-        "KYC nasabah ini sudah terverifikasi. Bila datanya berubah, minta verifikasi ulang dari panel KYC.",
+        lama.sumberVerifikasi === "manual_admin"
+          ? "KYC nasabah ini sudah diverifikasi manual. Perbaiki datanya lewat tombol Koreksi data KYC manual."
+          : "KYC nasabah ini sudah terverifikasi. Bila datanya berubah, minta verifikasi ulang dari panel KYC.",
       );
     }
 
-    // Foto KTP yang sudah ada dipakai ulang: dari baris KYC bila pernah diunggah,
-    // atau dari data diri yang diisi petugas. Tidak ada berkas baru yang dibuat
-    // di jalur ini; selfie & bukti penghasilan tetap seperti sebelumnya (boleh
-    // kosong bila verifikasi dilakukan dari dokumen fisik).
+    // Foto KTP: unggahan baru diperiksa server, atau foto yang sudah tersimpan
+    // dipakai ulang (dari baris KYC, atau dari data diri yang diisi petugas).
+    // Selfie & bukti penghasilan tetap seperti sebelumnya — boleh kosong bila
+    // verifikasi dilakukan dari dokumen fisik.
     const profil = await ctx.db
       .query("nasabahProfil")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .first();
-    const ktpId = lama?.ktpId ?? profil?.fotoKtpId;
+    const ktpId = await fotoKtpManual(ctx, { fotoKtpId: args.fotoKtpId, lama, profil });
     const selfieKtpId = lama?.selfieKtpId;
     const buktiPenghasilanId = lama?.buktiPenghasilanId;
     // Snapshot OCR hanya mewakili foto KTP yang dibaca saat itu. Bila jalur
@@ -2260,6 +2526,155 @@ export const catatKycManual = mutation({
     }
 
     return { ok: true as const, status: "VERIFIED" as const, userId: args.userId };
+  },
+});
+
+/**
+ * KOREKSI KYC MANUAL — perbaiki salah tulis pada baris yang SUDAH terverifikasi.
+ *
+ * Tanpa jalur ini satu digit NIK yang salah tidak bisa diperbaiki: pencatatan
+ * manual menolak menimpa baris terverifikasi, sedangkan verifikasi ulang mandiri
+ * menuntut selfie & bukti penghasilan yang justru tidak dimiliki nasabah jalur
+ * manual. Koreksi menulis ulang isian dengan penjaga yang sama (admin ber-TOTP,
+ * data lengkap, foto KTP ada, NIK/WhatsApp belum dipakai akun lain), TIDAK
+ * menurunkan status, dan meninggalkan dua jejak: `kycRiwayat` beralasan
+ * `koreksi_manual_petugas` serta satu entri audit khusus.
+ *
+ * Status tetap VERIFIED karena yang berubah adalah TULISANNYA, bukan putusan
+ * identitasnya — dan stempel verifikasi ikut diperbarui supaya penanda "data ini
+ * yang diperiksa" tidak menunjuk nilai lama.
+ */
+export const koreksiKycManual = mutation({
+  args: {
+    userId: v.id("users"),
+    namaLengkap: v.string(),
+    nik: v.string(),
+    nomorWhatsApp: v.string(),
+    alamat: v.string(),
+    pekerjaan: v.string(),
+    penghasilanBulanan: v.union(v.number(), v.null()),
+    sumberPenghasilan: v.string(),
+    namaBank: v.string(),
+    nomorRekening: v.string(),
+    catatanVerifikasi: v.string(),
+    /** Foto KTP pengganti; kosong = foto yang sudah tersimpan dipakai ulang. */
+    fotoKtpId: v.optional(v.id("_storage")),
+    konfirmasiDokumenFisik: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user: admin } = await requireAdminSession(ctx);
+    const target = await ctx.db.get(args.userId);
+    if (target === null) throw new Error("Nasabah tidak ditemukan.");
+    if (target.role === ROLES.ADMIN) {
+      throw new Error("KYC manual tidak berlaku untuk akun admin.");
+    }
+    if (target.isAnonymous === true) {
+      throw new Error("Akun tamu tidak dapat diverifikasi manual.");
+    }
+    if (!args.konfirmasiDokumenFisik) {
+      throw new Error(
+        "Centang pernyataan bahwa dokumen fisik sudah diperiksa sebelum menyimpan.",
+      );
+    }
+
+    const olehLabel = admin.email ?? admin.name ?? "admin";
+    const { catatan, sumberPenghasilan, tersimpan } = bacaIsianManual(args);
+
+    const lama = await ctx.db
+      .query("kycProfil")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+    if (lama === null || lama.status !== "VERIFIED" || lama.sumberVerifikasi !== "manual_admin") {
+      throw new Error(
+        "Koreksi hanya berlaku untuk KYC yang sudah diverifikasi manual oleh petugas.",
+      );
+    }
+
+    const pemakai = await identitasDipakaiAkunLain(ctx, {
+      userId: args.userId,
+      nik: tersimpan.nik,
+      nomorWhatsApp: tersimpan.nomorWhatsApp,
+    });
+    if (pemakai !== null) {
+      throw new Error(
+        `${pemakai.jenis} ini sudah tercatat pada akun ${pemakai.nama}. Satu identitas hanya boleh dimiliki satu akun — gabungkan akun kembar lebih dulu.`,
+      );
+    }
+
+    const profil = await ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+    const ktpId = await fotoKtpManual(ctx, { fotoKtpId: args.fotoKtpId, lama, profil });
+    const ktpBerubah = lama.ktpId !== ktpId;
+
+    const sekarang = Date.now();
+    // Bukti OTP tetap berlaku hanya untuk nomor yang sama; koreksi tidak pernah
+    // mengubah dirinya menjadi bukti OTP.
+    const waLama = lama.nomorWhatsAppTerverifikasi;
+    const nomorWhatsAppTerverifikasi =
+      waLama !== undefined && normalisasiNomorWa(waLama.nomor) === tersimpan.nomorWhatsApp
+        ? waLama
+        : undefined;
+
+    await ctx.db.patch(lama._id, {
+      namaLengkap: tersimpan.namaLengkap,
+      nik: tersimpan.nik,
+      nomorWhatsApp: tersimpan.nomorWhatsApp,
+      alamat: tersimpan.alamat,
+      pekerjaan: tersimpan.pekerjaan,
+      penghasilanBulanan: tersimpan.penghasilanBulanan,
+      sumberPenghasilan,
+      namaBank: tersimpan.namaBank ?? undefined,
+      nomorRekening: tersimpan.nomorRekening ?? undefined,
+      ktpId,
+      ...(ktpBerubah ? { ocrKtp: undefined } : {}),
+      nomorWhatsAppTerverifikasi,
+      // Stempel ikut diperbarui: ia menandai data YANG DIPERIKSA, bukan data
+      // lama yang kebetulan masih tersimpan sebelum koreksi.
+      stempelTerverifikasi: {
+        namaLengkap: tersimpan.namaLengkap,
+        nik: tersimpan.nik,
+        ktpId,
+        selfieKtpId: lama.selfieKtpId ?? null,
+        buktiPenghasilanId: lama.buktiPenghasilanId ?? null,
+        pada: sekarang,
+      },
+      keputusanCatatan: catatan,
+      diperbaruiPada: sekarang,
+    });
+
+    await ctx.db.insert("kycRiwayat", {
+      userId: args.userId,
+      dari: "VERIFIED",
+      ke: "VERIFIED",
+      aktor: "admin",
+      aktorLabel: olehLabel,
+      aktorUserId: adminId,
+      alasan: "koreksi_manual_petugas",
+      catatan,
+      versiAturan: VERSI_ATURAN_KYC,
+      waktu: sekarang,
+    });
+    await audit(
+      ctx,
+      adminId,
+      olehLabel,
+      "kyc_koreksi_manual_petugas",
+      args.userId,
+      `Data KYC manual dikoreksi; status tetap VERIFIED. Catatan: ${catatan}`,
+    );
+
+    const sesudah = await ctx.db.get(lama._id);
+    if (sesudah !== null) {
+      await selaraskanDataDiri(ctx, sesudah, {
+        sumber: "admin",
+        olehLabel,
+        verifikasi: "terverifikasi",
+      });
+    }
+
+    return { ok: true as const, userId: args.userId };
   },
 });
 

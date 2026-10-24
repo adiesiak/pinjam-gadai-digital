@@ -13,7 +13,9 @@ import {
 } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
+import { requireAdminSession } from "./adminAuthz";
 import { catatLogin } from "./security";
+import { audit } from "./system";
 import { tandaiNomorWaTerverifikasi } from "./kyc";
 import {
   apiKeyGatewayWa,
@@ -574,6 +576,13 @@ async function verifikasiKodeOtp(
     kode: string;
     ip?: string;
     userAgent?: string;
+    /**
+     * Diisi bila kode diminta PETUGAS untuk nasabah (jalur KYC manual).
+     * Konsekuensinya: percobaan tidak dicatat sebagai percobaan LOGIN nasabah
+     * (mereka tidak sedang masuk), dan keberhasilannya masuk audit trail
+     * sebagai tindakan petugas — bukan login.
+     */
+    olehAdmin?: { adminId: Id<"users">; label: string };
   },
 ): Promise<HasilVerifikasi> {
   const { userId, tujuan } = args;
@@ -598,14 +607,16 @@ async function verifikasiKodeOtp(
     .filter((b) => b.dibuatPada >= sekarang - OTP_JENDELA_MS)
     .reduce((total, b) => total + b.percobaanGagal, 0);
   if (gagalSatuJam >= OTP_MAKS_GAGAL_PER_USER) {
-    await catatLogin(ctx, {
-      userId,
-      status: "diblokir",
-      metode: "wa_otp",
-      ip: (args.ip ?? "").slice(0, 64),
-      userAgent: (args.userAgent ?? "").slice(0, 200),
-      keterangan: `Batas percobaan OTP (${tujuan}) tercapai`,
-    });
+    if (args.olehAdmin === undefined) {
+      await catatLogin(ctx, {
+        userId,
+        status: "diblokir",
+        metode: "wa_otp",
+        ip: (args.ip ?? "").slice(0, 64),
+        userAgent: (args.userAgent ?? "").slice(0, 200),
+        keterangan: `Batas percobaan OTP (${tujuan}) tercapai`,
+      });
+    }
     return {
       ok: false,
       pesan: "Terlalu banyak percobaan kode. Minta kode baru lalu coba lagi nanti.",
@@ -634,14 +645,16 @@ async function verifikasiKodeOtp(
   if (!cocokKodeOtp(tantangan.kodeHash, hashCode)) {
     const baru = tantangan.percobaanGagal + 1;
     await ctx.db.patch(tantangan._id, { percobaanGagal: baru });
-    await catatLogin(ctx, {
-      userId,
-      status: "gagal",
-      metode: "wa_otp",
-      ip: (args.ip ?? "").slice(0, 64),
-      userAgent: (args.userAgent ?? "").slice(0, 200),
-      keterangan: `Kode OTP salah (ke-${baru}, tujuan ${tujuan})`,
-    });
+    if (args.olehAdmin === undefined) {
+      await catatLogin(ctx, {
+        userId,
+        status: "gagal",
+        metode: "wa_otp",
+        ip: (args.ip ?? "").slice(0, 64),
+        userAgent: (args.userAgent ?? "").slice(0, 200),
+        keterangan: `Kode OTP salah (ke-${baru}, tujuan ${tujuan})`,
+      });
+    }
     return { ok: false, pesan: "Kode OTP salah." };
   }
 
@@ -655,21 +668,36 @@ async function verifikasiKodeOtp(
       userId,
       nomor: tantangan.nomor,
       pada: sekarang,
-      olehLabel: "OTP WhatsApp",
+      olehLabel:
+        args.olehAdmin === undefined
+          ? "OTP WhatsApp"
+          : `OTP WhatsApp (petugas ${args.olehAdmin.label})`,
     });
   } else {
     // Izin transaksi sekali pakai; dihabiskan mutation finansial yang memakainya.
     await beriIzinTransaksi(ctx, userId, sekarang);
   }
 
-  await catatLogin(ctx, {
-    userId,
-    status: "berhasil",
-    metode: "wa_otp",
-    ip: (args.ip ?? "").slice(0, 64),
-    userAgent: (args.userAgent ?? "").slice(0, 200),
-    keterangan: `Menyerahkan izin ${tujuan}`,
-  });
+  if (args.olehAdmin === undefined) {
+    await catatLogin(ctx, {
+      userId,
+      status: "berhasil",
+      metode: "wa_otp",
+      ip: (args.ip ?? "").slice(0, 64),
+      userAgent: (args.userAgent ?? "").slice(0, 200),
+      keterangan: `Menyerahkan izin ${tujuan}`,
+    });
+  } else {
+    // Nomor lengkap tidak masuk audit: cukup bentuk bertopengnya.
+    await audit(
+      ctx,
+      args.olehAdmin.adminId,
+      args.olehAdmin.label,
+      "otp_wa_manual_diverifikasi",
+      userId,
+      `Nomor WhatsApp nasabah (62••••${tantangan.nomor.slice(-3)}) dibuktikan lewat OTP yang diminta petugas.`,
+    );
+  }
   return { ok: true };
 }
 
@@ -696,5 +724,139 @@ export const verifikasiOtpWa = mutation({
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
     return await verifikasiKodeOtp(ctx, { userId, tujuan, kode, ip, userAgent });
+  },
+});
+
+/* ==========================================================================
+ * KYC MANUAL — OTP diminta PETUGAS untuk nomor nasabah
+ * ========================================================================== */
+
+/**
+ * Gerbang admin untuk action pengiriman.
+ *
+ * Action tidak boleh membaca database, jadi pemeriksaan sesi admin ber-TOTP
+ * dilakukan lewat internal query ini — aturan yang sama dengan setiap panel
+ * admin lain, bukan pemeriksaan terpisah yang bisa berbeda.
+ */
+export const _gerbangAdminOtp = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    return { userId, label: user.email ?? user.name ?? "admin" };
+  },
+});
+
+/** Catat PERMINTAAN kode oleh petugas di audit trail (bukan bukti verifikasi). */
+export const _catatAuditOtpManual = internalMutation({
+  args: {
+    adminId: v.id("users"),
+    label: v.string(),
+    userId: v.id("users"),
+    nomor: v.string(),
+    terkirim: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await audit(
+      ctx,
+      args.adminId,
+      args.label,
+      "otp_wa_manual_dikirim",
+      args.userId,
+      `Kode OTP WhatsApp ${args.terkirim ? "dikirim" : "GAGAL dikirim"} ke 62••••${args.nomor.slice(-3)} atas permintaan petugas. Kode terkirim bukan bukti nomor terverifikasi.`,
+    );
+  },
+});
+
+/**
+ * KIRIM OTP WHATSAPP ATAS PERMINTAAN PETUGAS — untuk nasabah yang KYC-nya
+ * dicatat manual.
+ *
+ * Kode tidak pernah ditampilkan di panel: ia dikirim ke nomor nasabah, lalu
+ * nasabah menyebutkannya kepada petugas. Petugas hanya mengetik kode itu di
+ * `verifikasiOtpWaManualAdmin`, yang mencocokkannya lewat mesin OTP yang sama
+ * dengan jalur mandiri (hash, umur 5 menit, sekali pakai, batas percobaan).
+ * Jadi jalur ini TIDAK melemahkan aturan OTP — ia hanya memindahkan siapa yang
+ * menekan tombol kirim.
+ */
+export const kirimOtpWaManualAdmin = action({
+  args: { userId: v.id("users") },
+  returns: v.object({ ok: v.boolean(), pesan: v.string(), nomor: v.string() }),
+  handler: async (ctx, { userId }): Promise<{ ok: boolean; pesan: string; nomor: string }> => {
+    const admin = await ctx.runQuery(internal.otpWhatsapp._gerbangAdminOtp, {});
+
+    const dasar: HasilNomor = await ctx.runQuery(internal.otpWhatsapp._nomorUntukTujuan, {
+      userId,
+      tujuan: "verifikasi_nomor",
+    });
+    if (!dasar.ok) return { ok: false, pesan: dasar.pesan, nomor: "" };
+
+    const kode = kodeOtpEnamDigit();
+    const salt = buatSaltOtp();
+    const kodeHash = await hashKodeOtp(salt, kode);
+    const izin = await ctx.runMutation(internal.otpWhatsapp._simpanPermintaan, {
+      userId,
+      nomor: dasar.nomor,
+      tujuan: "verifikasi_nomor",
+      kodeHash,
+      salt,
+      maksPercobaan: OTP_MAKS_PERCOBAAN,
+      userAgent: `petugas:${admin.label}`.slice(0, 200),
+    });
+    if (!izin.ok) return { ok: false, pesan: izin.pesan, nomor: dasar.nomor };
+
+    const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+    const pesan =
+      pesanOtpDariTemplate(settings, kode, OTP_MASA_BERLAKU_MS / 60_000) ??
+      pesanOtp("verifikasi_nomor", kode);
+    const hasil = await kirimPesanOtp(ctx, dasar.nomor, pesan);
+    await ctx.runMutation(internal.otpWhatsapp._catatPengiriman, {
+      challengeId: izin.challengeId,
+      terkirim: hasil.terkirim,
+      respon: hasil.pesan,
+    });
+    await ctx.runMutation(internal.whatsapp._appendLog, {
+      nomorTujuan: dasar.nomor,
+      jenis: "otp_verifikasi_nomor_petugas",
+      isiPesan: "Kode OTP diminta petugas untuk verifikasi nomor (isi disembunyikan).",
+      status: hasil.terkirim ? "terkirim" : "gagal",
+      respon: hasil.pesan,
+      olehUserId: admin.userId,
+    });
+    await ctx.runMutation(internal.otpWhatsapp._catatAuditOtpManual, {
+      adminId: admin.userId,
+      label: admin.label,
+      userId,
+      nomor: dasar.nomor,
+      terkirim: hasil.terkirim,
+    });
+
+    return { ok: hasil.terkirim, pesan: hasil.pesan, nomor: dasar.nomor };
+  },
+});
+
+/**
+ * Cocokkan kode yang disebutkan nasabah, atas nama petugas.
+ *
+ * Memakai `verifikasiKodeOtp` yang sama dengan jalur mandiri — termasuk batas
+ * percobaan dan pengikatan nomor — sehingga tidak ada jalan pintas yang lebih
+ * longgar untuk nomor yang "dibantu" petugas.
+ */
+export const verifikasiOtpWaManualAdmin = mutation({
+  args: { userId: v.id("users"), kode: v.string() },
+  returns: v.union(
+    v.object({ ok: v.literal(true) }),
+    v.object({ ok: v.literal(false), pesan: v.string() }),
+  ),
+  handler: async (ctx, { userId, kode }): Promise<HasilVerifikasi> => {
+    const admin = await requireAdminSession(ctx);
+    return await verifikasiKodeOtp(ctx, {
+      userId,
+      tujuan: "verifikasi_nomor",
+      kode,
+      olehAdmin: {
+        adminId: admin.userId,
+        label: admin.user.email ?? admin.user.name ?? "admin",
+      },
+    });
   },
 });

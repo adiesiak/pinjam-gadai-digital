@@ -170,6 +170,14 @@ function filter(over: Partial<FilterKyc> = {}): FilterKyc {
     cocokHasil(baris({ dokumenBelumDiperiksa: true }), "dokumen_belum_diperiksa"),
     "dokumen belum diperiksa cocok",
   );
+  ok(
+    cocokHasil(baris({ sumberVerifikasi: "manual_admin" }), "manual_admin"),
+    "baris manual cocok",
+  );
+  ok(
+    !cocokHasil(baris({ sumberVerifikasi: null }), "manual_admin"),
+    "baris bukan manual tidak ikut saringan manual",
+  );
   for (const pilihan of Object.keys(LABEL_FILTER_HASIL_KYC)) {
     ok(LABEL_FILTER_HASIL_KYC[pilihan as keyof typeof LABEL_FILTER_HASIL_KYC].length > 0, `label ${pilihan} terisi`);
   }

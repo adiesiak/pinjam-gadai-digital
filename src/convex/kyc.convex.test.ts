@@ -1617,12 +1617,21 @@ describe("KYC manual oleh petugas", () => {
     konfirmasiDokumenFisik: true,
   };
 
+  /**
+   * Isian manual + foto KTP. Foto WAJIB sejak jalur ini menutup celah
+   * "terverifikasi tanpa satu pun bukti identitas", jadi setiap tes yang
+   * mengharapkan simpan berhasil harus menyertakannya.
+   */
+  async function manual(t: KonteksUji) {
+    return { ...MANUAL, fotoKtpId: await simpanGambarUji(t) };
+  }
+
   it("mencatat identitas, persetujuan, riwayat, dan putusan data diri sekaligus", async () => {
     const { t, admin, nasabah } = await siapkanDua();
 
     const hasil = await admin.sesi.mutation(api.kyc.catatKycManual, {
       userId: nasabah.userId,
-      ...MANUAL,
+      ...(await manual(t)),
     });
     expect(hasil).toMatchObject({ ok: true, status: "VERIFIED", userId: nasabah.userId });
 
@@ -1659,10 +1668,11 @@ describe("KYC manual oleh petugas", () => {
     expect(row?.stempelTerverifikasi).toMatchObject({
       namaLengkap: "SITI AMINAH",
       nik: MANUAL.nik,
-      ktpId: null,
       selfieKtpId: null,
       buktiPenghasilanId: null,
     });
+    // Foto KTP benar-benar tertaut — bukan sekadar "ada berkas di storage".
+    expect(row?.ktpId).toBeDefined();
     // Putusan manual tidak boleh mengaku diperiksa aturan otomatis.
     expect(row?.aturanTerverifikasi).toBeUndefined();
     expect(profil?.verifikasiIdentitas?.status).toBe("terverifikasi");
@@ -1715,7 +1725,10 @@ describe("KYC manual oleh petugas", () => {
 
   it("tidak menimpa KYC yang sudah terverifikasi", async () => {
     const { t, admin, nasabah } = await siapkanDua();
-    await admin.sesi.mutation(api.kyc.catatKycManual, { userId: nasabah.userId, ...MANUAL });
+    await admin.sesi.mutation(api.kyc.catatKycManual, {
+      userId: nasabah.userId,
+      ...(await manual(t)),
+    });
 
     await expect(
       admin.sesi.mutation(api.kyc.catatKycManual, {
@@ -1723,7 +1736,9 @@ describe("KYC manual oleh petugas", () => {
         ...MANUAL,
         namaLengkap: "Nama Lain",
       }),
-    ).rejects.toThrow(/sudah terverifikasi/i);
+      // Baris manual menunjuk jalan keluarnya: koreksi, bukan verifikasi ulang
+      // mandiri yang menuntut dokumen yang justru tidak ada.
+    ).rejects.toThrow(/sudah diverifikasi manual/i);
 
     const row = await t.run((ctx) =>
       ctx.db
@@ -1735,8 +1750,11 @@ describe("KYC manual oleh petugas", () => {
   });
 
   it("pencarian nasabah hanya untuk admin dan membawa status KYC", async () => {
-    const { admin, nasabah } = await siapkanDua();
-    await admin.sesi.mutation(api.kyc.catatKycManual, { userId: nasabah.userId, ...MANUAL });
+    const { t, admin, nasabah } = await siapkanDua();
+    await admin.sesi.mutation(api.kyc.catatKycManual, {
+      userId: nasabah.userId,
+      ...(await manual(t)),
+    });
 
     const hasil = await admin.sesi.query(api.kyc.cariNasabahUntukKycAdmin, { cari: "siti" });
     expect(hasil.some((b) => b.userId === nasabah.userId && b.statusKyc === "VERIFIED")).toBe(
@@ -1746,5 +1764,161 @@ describe("KYC manual oleh petugas", () => {
     await expect(
       nasabah.sesi.query(api.kyc.cariNasabahUntukKycAdmin, { cari: "siti" }),
     ).rejects.toThrow(/Akses khusus Super Admin/);
+  });
+
+  it("mencari lewat NIK dan nomor WhatsApp tanpa memindai seluruh tabel", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    await admin.sesi.mutation(api.kyc.catatKycManual, {
+      userId: nasabah.userId,
+      ...(await manual(t)),
+    });
+
+    const lewatNik = await admin.sesi.query(api.kyc.cariNasabahUntukKycAdmin, {
+      cari: MANUAL.nik,
+    });
+    expect(lewatNik.some((b) => b.userId === nasabah.userId)).toBe(true);
+
+    // Nomor ditulis dalam bentuk lokal — pencarian menormalkannya lebih dulu.
+    const lewatWa = await admin.sesi.query(api.kyc.cariNasabahUntukKycAdmin, {
+      cari: "0812-9988-7766",
+    });
+    expect(lewatWa.some((b) => b.userId === nasabah.userId)).toBe(true);
+  });
+
+  it("menolak NIK yang sudah dipakai akun lain", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    const lain = await siapkanPengguna(t, "Nasabah Lain", {
+      email: "lain-manual@pindai.test",
+      role: "peminjam",
+    });
+    await admin.sesi.mutation(api.kyc.catatKycManual, {
+      userId: lain.userId,
+      ...(await manual(t)),
+    });
+
+    await expect(
+      admin.sesi.mutation(api.kyc.catatKycManual, {
+        userId: nasabah.userId,
+        ...(await manual(t)),
+      }),
+    ).rejects.toThrow(/sudah tercatat pada akun/i);
+    // Tidak ada baris KYC kedua yang tercipta.
+    const baris = await t.run((ctx) =>
+      ctx.db
+        .query("kycProfil")
+        .withIndex("by_user", (q) => q.eq("userId", nasabah.userId))
+        .first(),
+    );
+    expect(baris).toBeNull();
+  });
+
+  it("menolak verifikasi manual tanpa satu pun foto KTP", async () => {
+    const { admin, nasabah } = await siapkanDua();
+    await expect(
+      admin.sesi.mutation(api.kyc.catatKycManual, { userId: nasabah.userId, ...MANUAL }),
+    ).rejects.toThrow(/Foto KTP wajib dilampirkan/i);
+  });
+
+  it("mengoreksi salah tulis tanpa menurunkan status", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    await admin.sesi.mutation(api.kyc.catatKycManual, {
+      userId: nasabah.userId,
+      ...(await manual(t)),
+    });
+
+    const CATATAN =
+      "Koreksi NIK: digit terakhir salah ketik. KTP asli diperiksa ulang di kantor, 25 Okt 2026.";
+    await admin.sesi.mutation(api.kyc.koreksiKycManual, {
+      userId: nasabah.userId,
+      ...MANUAL,
+      namaLengkap: "Siti Aminah Rahayu",
+      nik: "3271012345678999",
+      catatanVerifikasi: CATATAN,
+      konfirmasiDokumenFisik: true,
+    });
+
+    const kyc = await nasabah.sesi.query(api.kyc.kycSaya, {});
+    expect(kyc.status).toBe("VERIFIED");
+    expect(kyc.isian.nik).toBe("3271012345678999");
+    expect(kyc.isian.namaLengkap).toBe("SITI AMINAH RAHAYU");
+
+    const { row, riwayat, audit } = await t.run(async (ctx) => ({
+      row: await ctx.db
+        .query("kycProfil")
+        .withIndex("by_user", (q) => q.eq("userId", nasabah.userId))
+        .first(),
+      riwayat: await ctx.db.query("kycRiwayat").collect(),
+      audit: await ctx.db.query("auditLog").collect(),
+    }));
+    expect(row?.stempelTerverifikasi?.nik).toBe("3271012345678999");
+    expect(riwayat.some((r) => r.alasan === "koreksi_manual_petugas")).toBe(true);
+    expect(audit.some((a) => a.aksi === "kyc_koreksi_manual_petugas")).toBe(true);
+  });
+
+  it("koreksi hanya untuk baris manual, dan hanya oleh admin", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    // Baris VERIFIED biasa (bukan manual) tidak boleh dikoreksi lewat jalur ini.
+    await t.run((ctx) =>
+      ctx.db.insert("kycProfil", {
+        userId: nasabah.userId,
+        status: "VERIFIED",
+        namaLengkap: "RANI PUSPITA",
+        nik: MANUAL.nik,
+        nomorWhatsApp: MANUAL.nomorWhatsApp,
+        dibuatPada: Date.now(),
+        diperbaruiPada: Date.now(),
+      }),
+    );
+
+    await expect(
+      admin.sesi.mutation(api.kyc.koreksiKycManual, {
+        userId: nasabah.userId,
+        ...MANUAL,
+        konfirmasiDokumenFisik: true,
+      }),
+    ).rejects.toThrow(/diverifikasi manual/i);
+
+    await expect(
+      nasabah.sesi.mutation(api.kyc.koreksiKycManual, {
+        userId: nasabah.userId,
+        ...MANUAL,
+        konfirmasiDokumenFisik: true,
+      }),
+    ).rejects.toThrow(/Akses khusus Super Admin/i);
+  });
+
+  it("rekap menyebut pekerjaan manual hari ini dan baris tanpa foto", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    await admin.sesi.mutation(api.kyc.catatKycManual, {
+      userId: nasabah.userId,
+      ...(await manual(t)),
+    });
+
+    const rekap = await admin.sesi.query(api.kyc.rekapKycManualAdmin, {});
+    expect(rekap.totalManual).toBe(1);
+    expect(rekap.hariIni.total).toBe(1);
+    expect(rekap.hariIni.perPetugas[0]).toMatchObject({
+      label: "petugas@pindai.test",
+      jumlah: 1,
+    });
+    expect(rekap.tanpaFotoKtp).toBe(0);
+
+    await expect(
+      nasabah.sesi.query(api.kyc.rekapKycManualAdmin, {}),
+    ).rejects.toThrow(/Akses khusus Super Admin/i);
+  });
+
+  it("antrean bisa disaring ke baris yang diverifikasi manual", async () => {
+    const { t, admin, nasabah } = await siapkanDua();
+    await admin.sesi.mutation(api.kyc.catatKycManual, {
+      userId: nasabah.userId,
+      ...(await manual(t)),
+    });
+
+    const daftar = await admin.sesi.query(api.kyc.daftarKycAdmin, {
+      status: "VERIFIED",
+      hasil: "manual_admin",
+    });
+    expect(daftar.item.some((b) => b.userId === nasabah.userId)).toBe(true);
   });
 });

@@ -15,6 +15,7 @@ import {
   Loader2,
   PanelLeftClose,
   PanelLeftOpen,
+  PencilLine,
   ScanLine,
   ScrollText,
   Search,
@@ -38,7 +39,9 @@ import {
   type IdChecklistKyc,
 } from "@/components/admin/BuktiKyc";
 import { AksiNotifikasiTagihan } from "@/components/admin/PengaturanNotifikasiNasabah";
+import { KycManualOtp } from "@/components/admin/KycManualOtp";
 import { KycManualSheet } from "@/components/admin/KycManualSheet";
+import { RekapKycManual } from "@/components/admin/RekapKycManual";
 import { useNilaiTertunda } from "@/hooks/use-validasi-tertunda";
 import { StatusKycBadge } from "@/components/StatusKycBadge";
 import {
@@ -1318,6 +1321,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
   const [daftarDilipat, setDaftarDilipat] = useState(false);
   const [laciTerbuka, setLaciTerbuka] = useState(false);
   const [manualTerbuka, setManualTerbuka] = useState(false);
+  const [koreksiTerbuka, setKoreksiTerbuka] = useState<Id<"users"> | null>(null);
   const [tersalin, setTersalin] = useState(false);
   const layarSempit = useMediaQuery(KUERI_LAYAR_SEMPIT_KYC);
 
@@ -1633,6 +1637,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
               : `${totalSemua ?? 0} pengajuan · ${cacah.PENDING_REVIEW ?? 0} perlu ditinjau`}
           </p>
         </div>
+        <RekapKycManual className="w-full justify-end" />
       </div>
 
       {/* ===== Daftar antrean 320px (bisa dilipat) : rincian mengambil sisa lebar ===== */}
@@ -1756,6 +1761,22 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                       ? ""
                       : ` Catatan: ${detail.keputusanCatatan}`}
                   </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1.5 px-2 text-[11px]"
+                      onClick={() => setKoreksiTerbuka(detail.userId)}
+                    >
+                      <PencilLine className="size-3.5" aria-hidden /> Koreksi data
+                    </Button>
+                    <KycManualOtp
+                      userId={detail.userId}
+                      nomor={detail.nomorWhatsApp}
+                      terverifikasi={detail.nomorWhatsAppTerbukti}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1987,14 +2008,22 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
         </SheetContent>
       </Sheet>
 
-      {/* Jalur petugas untuk identitas yang diperiksa di luar alur mandiri. */}
+      {/* Jalur petugas untuk identitas yang diperiksa di luar alur mandiri,
+          termasuk koreksi salah tulis pada baris yang sudah terverifikasi. */}
       <KycManualSheet
-        open={manualTerbuka}
-        onOpenChange={setManualTerbuka}
+        open={manualTerbuka || koreksiTerbuka !== null}
+        koreksi={koreksiTerbuka === null ? null : { userId: koreksiTerbuka }}
+        onOpenChange={(terbuka) => {
+          if (!terbuka) {
+            setManualTerbuka(false);
+            setKoreksiTerbuka(null);
+          }
+        }}
         onSelesai={(userId) => {
           // Tampilkan hasilnya: saringan "Perlu ditinjau" tidak memuat baris
           // yang baru saja diverifikasi, jadi daftar dibuka ke semua status.
           setManualTerbuka(false);
+          setKoreksiTerbuka(null);
           setStatus(null);
           setHasil("semua");
           setCari("");

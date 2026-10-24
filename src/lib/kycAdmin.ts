@@ -44,6 +44,8 @@ export const FILTER_HASIL_KYC = [
   "verifikasi_ulang",
   /** Ada berkas yang belum lolos pemeriksaan isi di server. */
   "dokumen_belum_diperiksa",
+  /** Status VERIFIED berasal dari pencatatan petugas, bukan pengajuan mandiri. */
+  "manual_admin",
 ] as const;
 
 export type FilterHasilKyc = (typeof FILTER_HASIL_KYC)[number];
@@ -59,6 +61,7 @@ export const LABEL_FILTER_HASIL_KYC: Record<FilterHasilKyc, string> = {
   aturan_lama: "Diperiksa dengan aturan lama",
   verifikasi_ulang: "Perlu verifikasi ulang",
   dokumen_belum_diperiksa: "Dokumen belum diperiksa server",
+  manual_admin: "Diverifikasi manual oleh petugas",
 };
 
 /**
@@ -163,6 +166,8 @@ export type BarisSaringKyc = {
   verifikasiUlangTertunda: boolean;
   /** Ada berkas tersimpan yang belum lolos pemeriksaan isi di server. */
   dokumenBelumDiperiksa: boolean;
+  /** `manual_admin` bila status VERIFIED dicatat petugas (bukan pengajuan mandiri). */
+  sumberVerifikasi?: "manual_admin" | null;
   diajukanPada: number | null;
   diperbaruiPada: number;
   /**
@@ -231,6 +236,8 @@ export function cocokHasil(baris: BarisSaringKyc, hasil: FilterHasilKyc): boolea
       return baris.verifikasiUlangTertunda;
     case "dokumen_belum_diperiksa":
       return baris.dokumenBelumDiperiksa;
+    case "manual_admin":
+      return baris.sumberVerifikasi === "manual_admin";
   }
 }
 

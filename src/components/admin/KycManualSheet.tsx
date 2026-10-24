@@ -1,9 +1,13 @@
-import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, IdCard, Loader2, Search, ShieldCheck, UserCheck } from "lucide-react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { CheckCircle2, IdCard, ImageUp, Loader2, Search, ShieldCheck, UserCheck } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { StatusKycBadge } from "@/components/StatusKycBadge";
+import {
+  UnggahDokumen,
+  type DokumenTerunggah,
+} from "@/components/admin/pengajuan-manual/UnggahDokumen";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -30,66 +34,138 @@ import { LABEL_STATUS_KYC } from "@/lib/kycStatus";
 import { cn } from "@/lib/utils";
 
 /**
- * CATAT KYC MANUAL — jalur petugas untuk nasabah yang identitasnya diperiksa
- * di luar alur mandiri (datang ke kantor, dokumen fisik, atau data lama yang
- * belum punya baris KYC).
+ * CATAT / KOREKSI KYC MANUAL — jalur petugas untuk nasabah yang identitasnya
+ * diperiksa di luar alur mandiri (datang ke kantor, dokumen fisik, atau data
+ * lama yang belum punya baris KYC).
  *
- * Panel ini sengaja tidak mengunggah berkas: selfie & bukti penghasilan tidak
- * diwajibkan bila petugas memeriksa dokumen aslinya. Foto KTP yang sudah ada di
- * Data Diri tetap ikut tersimpan. Server yang memutuskan status akhir; panel ini
- * hanya mengirim isian dan menampilkan penolakan apa adanya.
+ * Dua mode, satu formulir:
+ *  - `koreksi` kosong → pencatatan baru (status berakhir VERIFIED/manual).
+ *  - `koreksi` berisi userId → perbaikan salah tulis pada baris manual yang
+ *    SUDAH terverifikasi. Hanya baris manual yang boleh dikoreksi; server yang
+ *    memutuskan, panel ini hanya mengirim isian.
+ *
+ * Foto KTP wajib ada sebelum menyimpan. Petugas boleh mengunggahnya di sini
+ * (diperiksa server: bentuk, isi, ukuran) atau memakai foto yang sudah tersimpan
+ * di Data Diri. Selfie dan bukti penghasilan tetap tidak diwajibkan pada jalur
+ * ini karena verifikasi terjadi atas dokumen fisik.
  */
 export function KycManualSheet({
   open,
   onOpenChange,
   onSelesai,
+  koreksi = null,
 }: {
   open: boolean;
   onOpenChange: (terbuka: boolean) => void;
   onSelesai: (userId: Id<"users">) => void;
+  /** Isi untuk mengoreksi baris manual yang sudah terverifikasi. */
+  koreksi?: { userId: Id<"users"> } | null;
 }) {
+  const koreksiId = koreksi?.userId ?? null;
+  const modeKoreksi = koreksiId !== null;
+
   const [cari, setCari] = useState("");
   const cariTertunda = useNilaiTertunda(cari, 300);
   // Jangan memuat seluruh daftar nasabah saat laci masih tertutup: panel KYC
   // selalu terpasang, dan pencarian ini menyentuh tabel pengguna + data diri.
   const hasil = useQuery(
     api.kyc.cariNasabahUntukKycAdmin,
-    open
+    open && !modeKoreksi
       ? { ...(cariTertunda.trim() === "" ? {} : { cari: cariTertunda.trim() }) }
       : "skip",
   );
 
-  const [dipilih, setDipilih] = useState<Id<"users"> | null>(null);
+  const [dipilih, setDipilih] = useState<Id<"users"> | null>(koreksiId);
   const dataDiri = useQuery(
     api.admin.dataDiriNasabah,
     dipilih === null ? "skip" : { userId: dipilih },
   );
+  // Rincian KYC dipakai HANYA untuk mengisi awal mode koreksi: di sana ada
+  // sumber penghasilan dan NIK yang tersimpan di baris KYC, bukan di data diri.
+  const detail = useQuery(
+    api.kyc.detailKycAdmin,
+    open && koreksiId !== null ? { userId: koreksiId } : "skip",
+  );
+
   const catat = useMutation(api.kyc.catatKycManual);
+  const simpanKoreksi = useMutation(api.kyc.koreksiKycManual);
+  const mintaUrl = useMutation(api.admin.generateDataDiriUploadUrl);
+  const periksaIsi = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
 
   const [form, setForm] = useState<DataDiriForm>(FORM_KOSONG);
   const [sumberPenghasilan, setSumberPenghasilan] = useState("");
   const [catatan, setCatatan] = useState("");
   const [setuju, setSetuju] = useState(false);
+  const [foto, setFoto] = useState<DokumenTerunggah | null>(null);
   const [terisiUntuk, setTerisiUntuk] = useState<Id<"users"> | null>(null);
   const [sudahCoba, setSudahCoba] = useState(false);
   const [busy, setBusy] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
 
-  // Isian diambil dari data diri yang sudah tersimpan (bila ada) supaya petugas
-  // tidak mengetik ulang. Dijalankan sekali per nasabah, bukan setiap query
-  // memperbarui: mengetik di tengah pemuatan tidak boleh ditimpa data lama.
+  const bersihkan = () => {
+    setCari("");
+    setDipilih(null);
+    setForm(FORM_KOSONG);
+    setSumberPenghasilan("");
+    setCatatan("");
+    setSetuju(false);
+    setFoto(null);
+    setTerisiUntuk(null);
+    setSudahCoba(false);
+    setGalat(null);
+  };
+
+  // Saat laci dibuka, pilih nasabah yang diminta (mode koreksi) atau kosongkan
+  // isian nasabah sebelumnya. Menutup laci selalu membersihkan: isian orang lain
+  // tidak boleh muncul pada pembukaan berikutnya.
   useEffect(() => {
-    if (dipilih === null || dataDiri === undefined || terisiUntuk === dipilih) return;
+    if (!open) {
+      bersihkan();
+      return;
+    }
+    if (koreksiId !== null && dipilih !== koreksiId) {
+      bersihkan();
+      setDipilih(koreksiId);
+    }
+  }, [open, koreksiId, dipilih]);
+
+  // Isian diambil dari data tersimpan supaya petugas tidak mengetik ulang.
+  // Dijalankan sekali per nasabah, bukan setiap query memperbarui: mengetik di
+  // tengah pemuatan tidak boleh ditimpa data lama.
+  useEffect(() => {
+    if (dipilih === null || terisiUntuk === dipilih) return;
+
+    if (modeKoreksi) {
+      if (detail === undefined || detail === null) return;
+      setForm({
+        namaLengkap: detail.namaLengkap ?? "",
+        nik: detail.nik ?? "",
+        nomorWhatsApp: detail.nomorWhatsApp ?? "",
+        alamat: detail.alamat ?? "",
+        pekerjaan: detail.pekerjaan ?? "",
+        penghasilan:
+          detail.penghasilanBulanan === null ? "" : String(detail.penghasilanBulanan),
+        namaBank: detail.namaBank ?? "",
+        nomorRekening: detail.nomorRekening ?? "",
+      });
+      setSumberPenghasilan(detail.sumberPenghasilan ?? "");
+      setTerisiUntuk(dipilih);
+      return;
+    }
+
+    if (dataDiri === undefined) return;
     setForm({
       ...formDariTersimpan(dataDiri.data),
       namaLengkap:
         dataDiri.data.namaLengkap.trim() === "" ? dataDiri.nama : dataDiri.data.namaLengkap,
     });
     setTerisiUntuk(dipilih);
-  }, [dipilih, dataDiri, terisiUntuk]);
+  }, [dipilih, dataDiri, detail, modeKoreksi, terisiUntuk]);
 
   const galatIsian = galatDataDiri(form);
   const galatTampil = sudahCoba ? galatIsian : {};
+  const adaFotoTersimpan = dataDiri?.fotoKtpUrl != null;
+  const adaFoto = foto !== null || adaFotoTersimpan;
 
   const pilih = (userId: Id<"users">) => {
     const item = hasil?.find((baris) => baris.userId === userId);
@@ -99,6 +175,7 @@ export function KycManualSheet({
     setSumberPenghasilan("");
     setCatatan("");
     setSetuju(false);
+    setFoto(null);
     setTerisiUntuk(null);
     setSudahCoba(false);
     setGalat(null);
@@ -106,15 +183,7 @@ export function KycManualSheet({
 
   const tutup = () => {
     onOpenChange(false);
-    setCari("");
-    setDipilih(null);
-    setForm(FORM_KOSONG);
-    setSumberPenghasilan("");
-    setCatatan("");
-    setSetuju(false);
-    setTerisiUntuk(null);
-    setSudahCoba(false);
-    setGalat(null);
+    bersihkan();
   };
 
   const kirim = async (e: FormEvent<HTMLFormElement>) => {
@@ -144,11 +213,15 @@ export function KycManualSheet({
       setGalat("Centang pernyataan bahwa dokumen fisik sudah diperiksa.");
       return;
     }
+    if (!adaFoto) {
+      setGalat("Foto KTP wajib dilampirkan sebelum menyimpan verifikasi manual.");
+      return;
+    }
 
     setBusy(true);
     try {
       const nama = form.namaLengkap.trim();
-      await catat({
+      const isian = {
         userId: dipilih,
         namaLengkap: form.namaLengkap,
         nik: form.nik,
@@ -160,9 +233,16 @@ export function KycManualSheet({
         namaBank: form.namaBank,
         nomorRekening: form.nomorRekening,
         catatanVerifikasi: catatan.trim(),
+        ...(foto === null ? {} : { fotoKtpId: foto.id }),
         konfirmasiDokumenFisik: true,
-      });
-      toast.success(`KYC ${nama} dicatat sebagai terverifikasi manual.`);
+      };
+      if (modeKoreksi) {
+        await simpanKoreksi(isian);
+        toast.success(`Data KYC manual ${nama} diperbarui. Status tetap terverifikasi.`);
+      } else {
+        await catat(isian);
+        toast.success(`KYC ${nama} dicatat sebagai terverifikasi manual.`);
+      }
       onSelesai(dipilih);
       tutup();
     } catch (err) {
@@ -171,6 +251,8 @@ export function KycManualSheet({
       setBusy(false);
     }
   };
+
+  const judul = modeKoreksi ? "Koreksi KYC manual" : "Catat KYC manual";
 
   return (
     <Sheet
@@ -185,11 +267,12 @@ export function KycManualSheet({
       >
         <SheetHeader className="px-0 pb-3 pt-4 pr-10">
           <SheetTitle className="flex items-center gap-2 text-navy">
-            <UserCheck className="size-4" aria-hidden /> Catat KYC manual
+            <UserCheck className="size-4" aria-hidden /> {judul}
           </SheetTitle>
           <SheetDescription>
-            Untuk nasabah yang identitasnya diperiksa langsung oleh petugas. Data, dasar
-            verifikasi, dan nama petugas tercatat di riwayat KYC dan Audit Trail.
+            {modeKoreksi
+              ? "Perbaiki salah tulis pada verifikasi manual. Status TETAP terverifikasi; koreksi dicatat di riwayat KYC dan Audit Trail."
+              : "Untuk nasabah yang identitasnya diperiksa langsung oleh petugas. Data, dasar verifikasi, dan nama petugas tercatat di riwayat KYC dan Audit Trail."}
           </SheetDescription>
         </SheetHeader>
 
@@ -212,7 +295,7 @@ export function KycManualSheet({
 
             <p className="text-[11px] leading-4 text-slate-600">
               Hanya akun nasabah yang muncul. Nasabah yang sudah terverifikasi tidak dapat
-              dipilih dari sini — gunakan tindakan verifikasi ulang di panel KYC.
+              dipilih dari sini — gunakan tombol Koreksi data pada panel KYC.
             </p>
 
             {hasil === undefined ? (
@@ -282,32 +365,57 @@ export function KycManualSheet({
                 <p className="mt-0.5 text-[11px] text-slate-600">
                   {dataDiri?.email ?? "tanpa email"}
                   {dataDiri?.ada === true ? " · data diri tersimpan" : " · data diri belum ada"}
-                  {dataDiri?.fotoKtpUrl !== null && dataDiri?.fotoKtpUrl !== undefined
-                    ? " · foto KTP tersedia"
-                    : ""}
+                  {adaFotoTersimpan ? " · foto KTP tersedia" : ""}
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setDipilih(null)}
-                disabled={busy}
-              >
-                Ganti
-              </Button>
+              {modeKoreksi ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDipilih(null)}
+                  disabled={busy}
+                >
+                  Ganti
+                </Button>
+              )}
             </div>
 
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
               <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-900">
-                <ShieldCheck className="size-3.5" aria-hidden /> Verifikasi tanpa pengajuan mandiri
+                <ShieldCheck className="size-3.5" aria-hidden />
+                {modeKoreksi ? "Koreksi tanpa menurunkan status" : "Verifikasi tanpa pengajuan mandiri"}
               </p>
               <p className="mt-1 text-[11px] leading-5 text-amber-950">
-                Jalur ini menandai KYC terverifikasi. Pastikan dokumen asli sudah diperiksa dan
-                nasabah menyetujui pemrosesan datanya. Catatan verifikasi wajib menjelaskan apa
-                yang diperiksa dan di mana.
+                {modeKoreksi
+                  ? "Hanya tulisan yang diperbaiki. Putusan terverifikasi tetap berlaku, dan stempel verifikasi ikut diperbarui agar menunjuk data yang benar."
+                  : "Jalur ini menandai KYC terverifikasi. Pastikan dokumen asli sudah diperiksa dan nasabah menyetujui pemrosesan datanya."}{" "}
+                Catatan verifikasi wajib menjelaskan apa yang diperiksa dan di mana.
               </p>
             </div>
+
+            <UnggahDokumen
+              label="Foto KTP"
+              keterangan={
+                adaFotoTersimpan
+                  ? "Foto KTP sudah tersimpan dan akan dipakai ulang. Unggah berkas baru hanya bila foto lama tidak terbaca."
+                  : "Wajib: unggah foto KTP asli yang diperiksa petugas. Berkas diperiksa server (harus gambar, maksimal 5 MB)."
+              }
+              accept="image/jpeg,image/png,image/webp"
+              nilai={foto}
+              onUbah={setFoto}
+              mintaUrl={() => mintaUrl({})}
+              periksa={async (id, label) => {
+                await periksaIsi({ id, label });
+              }}
+              disabled={busy}
+            />
+            <p className="flex items-start gap-1.5 text-[11px] leading-4 text-slate-600">
+              <ImageUp className="mt-0.5 size-3.5 shrink-0 text-slate-500" aria-hidden />
+              {adaFoto
+                ? "Foto KTP tersedia — syarat bukti untuk jalur manual terpenuhi."
+                : "Belum ada foto KTP. Verifikasi manual tidak bisa disimpan tanpa satu pun bukti identitas."}
+            </p>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Kolom id="kyc-manual-nama" label="Nama sesuai KTP" galat={galatTampil.namaLengkap}>
@@ -489,7 +597,7 @@ export function KycManualSheet({
                   ) : (
                     <ShieldCheck className="mr-1.5 size-3.5" aria-hidden />
                   )}
-                  Simpan verifikasi
+                  {modeKoreksi ? "Simpan koreksi" : "Simpan verifikasi"}
                 </Button>
               </div>
             </div>

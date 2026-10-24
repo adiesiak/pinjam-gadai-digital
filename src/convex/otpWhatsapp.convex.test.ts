@@ -25,7 +25,7 @@ import { describe, expect, it } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
-import { buatPengguna, type KonteksUji, type SesiUji } from "./test.helpers";
+import { buatPengguna, siapkanPengguna, type KonteksUji, type SesiUji } from "./test.helpers";
 import { modules } from "./test.setup";
 
 const NOMOR = "6281234567890";
@@ -781,6 +781,102 @@ describe("OTP WhatsApp lewat gateway panel admin", () => {
       expect(hasil.pesan).toMatch(/WHATSAPP_API_KEY/);
     } finally {
       delete process.env.WHATSAPP_API_KEY;
+    }
+  });
+});
+
+/**
+ * Jalur KYC MANUAL: petugas meminta kode untuk nomor nasabah.
+ *
+ * Yang dijaga: gerbang admin, kode tetap dikirim ke nomor NASABAH (bukan ke
+ * petugas), kirim ≠ verifikasi, dan verifikasi oleh petugas tidak menyamar
+ * sebagai login nasabah. Mesin OTP-nya sama dengan jalur mandiri, jadi batas
+ * percobaan tetap berlaku.
+ */
+describe("OTP WhatsApp atas permintaan petugas", () => {
+  const barisKyc = async (t: KonteksUji, userId: Id<"users">) =>
+    t.run((ctx) =>
+      ctx.db
+        .query("kycProfil")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .first(),
+    );
+
+  const petugas = async (t: KonteksUji) =>
+    siapkanPengguna(t, "Petugas KYC", {
+      email: "petugas-otp-manual@pindai.test",
+      role: "admin",
+    });
+
+  it("mengirim ke nomor nasabah, memverifikasi, dan mencatat audit petugas", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkan(t);
+    const admin = await petugas(t);
+    const fonnte = pasangFonnte({ jenis: "sukses" });
+    try {
+      const kirim = await admin.sesi.action(api.otpWhatsapp.kirimOtpWaManualAdmin, { userId });
+      expect(kirim.ok).toBe(true);
+      expect(kirim.nomor).toBe(NOMOR);
+      expect(fonnte.keluar[0]?.target).toBe(NOMOR);
+
+      // Kode TERKIRIM bukan bukti nomor terverifikasi.
+      expect((await barisKyc(t, userId))?.nomorWhatsAppTerverifikasi).toBeUndefined();
+
+      const kode = kodeTerkirim(fonnte.keluar);
+      const hasil = await admin.sesi.mutation(api.otpWhatsapp.verifikasiOtpWaManualAdmin, {
+        userId,
+        kode,
+      });
+      expect(hasil).toEqual({ ok: true });
+
+      const row = await barisKyc(t, userId);
+      expect(row?.nomorWhatsAppTerverifikasi?.nomor).toBe(NOMOR);
+      expect(row?.nomorWhatsAppTerverifikasi?.metode).toBe("wa_otp");
+
+      const { audit, login } = await t.run(async (ctx) => ({
+        audit: await ctx.db.query("auditLog").collect(),
+        login: await ctx.db.query("loginLogs").collect(),
+      }));
+      expect(audit.some((a) => a.aksi === "otp_wa_manual_dikirim")).toBe(true);
+      expect(audit.some((a) => a.aksi === "otp_wa_manual_diverifikasi")).toBe(true);
+      // Petugas memverifikasi nomor nasabah — itu BUKAN login nasabah.
+      expect(login.some((l) => l.userId === userId && l.status === "berhasil")).toBe(false);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
+  it("menolak pemanggil non-admin dan tetap menghitung kode yang salah", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi, userId } = await siapkan(t);
+    const admin = await petugas(t);
+    const fonnte = pasangFonnte({ jenis: "sukses" });
+    try {
+      await expect(
+        sesi.action(api.otpWhatsapp.kirimOtpWaManualAdmin, { userId }),
+      ).rejects.toThrow(/Akses khusus/i);
+      await expect(
+        sesi.mutation(api.otpWhatsapp.verifikasiOtpWaManualAdmin, { userId, kode: "123456" }),
+      ).rejects.toThrow(/Akses khusus/i);
+
+      await admin.sesi.action(api.otpWhatsapp.kirimOtpWaManualAdmin, { userId });
+      const kode = kodeTerkirim(fonnte.keluar);
+      const salah = await admin.sesi.mutation(api.otpWhatsapp.verifikasiOtpWaManualAdmin, {
+        userId,
+        kode: kodeSalah(kode),
+      });
+      expect(salah.ok).toBe(false);
+
+      const rows = await t.run((ctx) =>
+        ctx.db
+          .query("waOtpChallenges")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .collect(),
+      );
+      expect(rows[0]?.percobaanGagal).toBe(1);
+      expect((await barisKyc(t, userId))?.nomorWhatsAppTerverifikasi).toBeUndefined();
+    } finally {
+      fonnte.pulihkan();
     }
   });
 });
