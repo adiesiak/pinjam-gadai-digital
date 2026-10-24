@@ -1576,9 +1576,19 @@ async function setLoanStatus(
       : {}),
   });
 
+  const loanSetelah = (await ctx.db.get(loanId)) ?? loan;
   // Pencairan lewat jalur ubah status juga membuat jadwal angsuran — supaya
   // peminjam memegang tagihan yang sama dengan yang tampil di kontrak.
-  await pastikanAngsuran(ctx, (await ctx.db.get(loanId)) ?? loan);
+  await pastikanAngsuran(ctx, loanSetelah);
+  // Pinjaman yang ditutup lewat panel admin (mis. pencatatan pembayaran di luar
+  // aplikasi) juga memberi voucher apresiasi. Tanpa ini, nasabah yang
+  // dilunasi manual tidak pernah menerima voucher apa pun.
+  if (loanSetelah.status === "lunas") {
+    await beriVoucherApresiasi(ctx, {
+      loan: loanSetelah,
+      sekarang: loanSetelah.lunasPada ?? Date.now(),
+    });
+  }
 
   const admin = await ctx.db.get(adminId);
   const nominalBerubah = pokokPinjaman !== loan.pokokPinjaman;
@@ -2555,9 +2565,8 @@ export const repayLoan = mutation({
       tepatWaktu,
       waktu: now,
     });
-    // Voucher apresiasi terbit hanya bila pelunasannya tepat waktu DAN ada promo
-    // aktif. Idempoten lewat nomor referensi, jadi aman bila pelunasan dicatat
-    // ulang oleh admin.
+    // Voucher apresiasi terbit untuk setiap pinjaman yang lunas. Idempoten
+    // lewat nomor referensi, jadi aman bila pelunasan dicatat ulang oleh admin.
     await beriVoucherApresiasi(ctx, { loan: lunasUntukPlafon, sekarang: now });
     for (const { funding } of imbalBagian) {
       await beriTiketPendanaan(ctx, {

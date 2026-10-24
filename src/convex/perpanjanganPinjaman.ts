@@ -29,6 +29,7 @@ import { quotePinjaman } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import { audit, getConfig } from "./system";
 import { pembayaranSiklus } from "./siklusPendana";
+import { beriVoucherApresiasi } from "./voucher";
 
 const DAY_MS = 86_400_000;
 
@@ -566,6 +567,14 @@ async function catatPelunasanTotal(
     nomorReferensi: loan.nomorReferensi,
     tepatWaktu,
     waktu: receipt.tanggalTransfer,
+  });
+  // Jalur inilah yang paling sering menutup pinjaman (admin mencocokkan bukti
+  // transfer), jadi voucher apresiasi harus terbit di sini juga — dulu hanya
+  // jalur pelunasan lain yang memanggilnya, sehingga peminjam yang lunas lewat
+  // pencocokan mutasi tidak pernah menerima voucher.
+  await beriVoucherApresiasi(ctx, {
+    loan: { ...loan, status: "lunas", lunasPada: receipt.tanggalTransfer },
+    sekarang: receipt.tanggalTransfer,
   });
   for (const { funding } of bagian) {
     await beriTiketPendanaan(ctx, {

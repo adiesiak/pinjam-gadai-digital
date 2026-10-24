@@ -24,7 +24,7 @@ import {
 } from "../lib/voucher";
 import { LOAN_LIMITS } from "../lib/loan";
 import { formatRupiah, type Rupiah } from "../lib/money";
-import { apakahPelunasanTepatWaktu, plafonPeminjam, ringkasPlafon } from "../lib/plafon";
+import { plafonPeminjam, ringkasPlafon } from "../lib/plafon";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
@@ -136,6 +136,40 @@ export const daftarVoucherSaya = query({
       jumlahAktif: daftar.filter((row) => row.layak).length,
       daftar,
     };
+  },
+});
+
+/**
+ * Sisir voucher apresiasi yang belum sempat terbit untuk pinjaman yang sudah
+ * lunas milik pembaca sendiri.
+ *
+ * Penerbitan normal terjadi saat pinjaman ditutup, tetapi pinjaman lama bisa
+ * tertinggal bila ditutup lewat jalur yang belum memanggil
+ * `beriVoucherApresiasi` (mis. pelunasan yang dicocokkan admin) atau saat
+ * aturan penerbitan masih terlalu ketat. Mutation ini menutup selisih itu
+ * tanpa menyentuh akun lain; aman dipanggil berkali-kali karena penerbitan
+ * dijaga idempoten oleh nomor referensi pinjaman.
+ */
+export const pastikanVoucherApresiasiSaya = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = butuhMasuk(await getAuthUserId(ctx));
+    const user = await ctx.db.get(userId);
+    if (user === null) throw new Error("Akun tidak ditemukan.");
+    if (user.role === ROLES.ADMIN) return { diterbitkan: 0 };
+
+    const loans = await ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    let diterbitkan = 0;
+    for (const loan of loans) {
+      if (loan.status !== "lunas") continue;
+      const id = await beriVoucherApresiasi(ctx, { loan, sekarang: Date.now() });
+      if (id !== null) diterbitkan += 1;
+    }
+    return { diterbitkan };
   },
 });
 
@@ -282,32 +316,32 @@ export function hitungDiskonVoucher(
 }
 
 /**
- * Voucher apresiasi untuk pelunasan tepat waktu.
+ * Voucher apresiasi untuk pinjaman yang sudah lunas.
  *
- * Hanya terbit bila seluruh syarat terpenuhi: pinjaman lunas paling lambat
- * pada jatuh tempo, ada promo aktif di Pengurus Promo, dan nomor referensi
- * pinjaman ini belum pernah menerbitkan voucher (idempoten walau pelunasan
- * dicatat ulang).
- */
-/**
- * Bagian baris pinjaman yang dibutuhkan voucher apresiasi.
+ * Terbit SEKALI per nomor referensi, untuk pinjaman yang benar-benar sampai
+ * lunas, apa pun tanggal pelunasannya. Dua syarat lama dihapus karena membuat
+ * voucher tidak pernah sampai ke nasabah:
+ *  - dulu voucher hanya untuk pelunasan "tepat waktu", sehingga peminjam yang
+ *    telat sehari tidak menerima apa pun walau utangnya sudah selesai;
+ *  - dulu voucher menunggu promo banner aktif di Pengurus Promo. Banner itu
+ *    materi kampanye, bukan syarat hadiah, jadi saat tidak ada kampanye seluruh
+ *    penerbitan diam-diam berhenti.
  *
- * Ditulis sebagai tipe sempit, bukan `Doc<"loans">`, karena jalur pelunasan
- * mengirim salinan baris yang statusnya baru diubah menjadi `lunas` — objek
- * itu sengaja bertipe lebih longgar di sana.
+ * Nilainya tetap kecil (1% pokok, maksimum Rp25.000) dan hanya bisa dipakai
+ * sebagai potongan biaya admin pinjaman berikutnya. Idempoten lewat
+ * `referensi`: pelunasan yang dicatat ulang, verifikasi ganda, atau penyisiran
+ * voucher tertunda tidak pernah menerbitkan dua voucher untuk pinjaman yang
+ * sama.
+ *
+ * `PinjamanLunas` sengaja tipe sempit, bukan `Doc<"loans">`: jalur pelunasan
+ * mengirim salinan baris yang statusnya baru diubah menjadi `lunas`.
  */
 type PinjamanLunas = {
-  _id: Id<"loans">;
   userId: Id<"users">;
   status: string;
   nomorReferensi: string;
   pokokPinjaman: number;
   lunasPada?: number;
-  didanaiPada?: number;
-  tenorHari?: number;
-  tenorBulan?: number;
-  nextDueDate?: number;
-  terlambatAngsuran?: boolean;
 };
 
 export async function beriVoucherApresiasi(
@@ -316,7 +350,7 @@ export async function beriVoucherApresiasi(
 ): Promise<Id<"voucher"> | null> {
   const { loan } = args;
   if (loan.status !== "lunas") return null;
-  if (!apakahPelunasanTepatWaktu({ ...loan, status: "lunas" })) return null;
+  if (!Number.isSafeInteger(loan.lunasPada) || (loan.lunasPada ?? 0) <= 0) return null;
 
   const sudah = await ctx.db
     .query("voucher")
@@ -324,23 +358,13 @@ export async function beriVoucherApresiasi(
     .first();
   if (sudah !== null) return null;
 
-  const promo = await ctx.db
-    .query("promoPinjaman")
-    .withIndex("by_diperbarui")
-    .order("desc")
-    .take(50);
-  const promoAktif = promo.some(
-    (row) => row.aktif && row.mulai <= args.sekarang && args.sekarang <= row.selesai,
-  );
-  if (!promoAktif) return null;
-
   const nilai = nilaiVoucherApresiasi(loan.pokokPinjaman);
   if (nilai <= 0) return null;
 
   const id = await ctx.db.insert("voucher", {
     kode: `APR-${loan.nomorReferensi}`,
     jenis: "diskon_admin",
-    judul: "Apresiasi pelunasan tepat waktu",
+    judul: "Voucher apresiasi pelunasan",
     nilai,
     minPokok: LOAN_LIMITS.minPokok,
     batasPemakaian: 1,
@@ -358,7 +382,7 @@ export async function beriVoucherApresiasi(
     "sistem",
     "voucher_apresiasi",
     loan.nomorReferensi,
-    `Voucher bebas biaya admin ${formatRupiah(nilai)} terbit karena pelunasan tepat waktu.`,
+    `Voucher bebas biaya admin ${formatRupiah(nilai)} terbit karena pinjaman sudah lunas.`,
   );
   return id;
 }

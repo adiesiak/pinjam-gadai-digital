@@ -1048,8 +1048,7 @@ export function LoanForm({
           ) : voucherBisaDipilih.length === 0 ? (
             <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
               Tidak ada voucher yang bisa dipakai untuk nominal dan skema ini.
-              Voucher apresiasi terbit setelah pinjaman lunas tepat waktu saat
-              promo kuartalan berjalan.
+              Voucher apresiasi terbit setelah pinjaman lunas.
             </p>
           ) : (
             <>

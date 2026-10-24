@@ -450,7 +450,7 @@ async function selesaikanBilaLunas(
     waktu: dibayarPada,
   });
   // Voucher apresiasi mengikuti aturan yang sama dengan pelunasan satu kali:
-  // hanya pelunasan tepat waktu dan hanya bila promo kuartalan sedang aktif.
+  // terbit untuk setiap pinjaman yang lunas, sekali per nomor referensi.
   await beriVoucherApresiasi(ctx, { loan: lunasUntukPlafon, sekarang: dibayarPada });
 
   if (loan.pendanaId !== undefined) {

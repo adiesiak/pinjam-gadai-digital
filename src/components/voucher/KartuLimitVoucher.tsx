@@ -9,9 +9,9 @@
  * nonaktif dan menjelaskan sebabnya — menyembunyikannya membuat nasabah tidak
  * tahu kenapa vouchernya "hilang".
  */
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Ticket, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -61,7 +61,7 @@ export function DaftarVoucherSheet({
     return (
       <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-xs leading-6 text-slate-600">
         Belum ada voucher atas nama Anda. Voucher apresiasi terbit otomatis
-        setelah pinjaman lunas tepat waktu saat promo kuartalan berjalan.
+        setelah pinjaman lunas.
       </p>
     );
   }
@@ -132,7 +132,21 @@ export function DaftarVoucherSheet({
  */
 export function KartuLimitVoucher({ className = "" }: { className?: string }) {
   const data = useQuery(api.voucher.daftarVoucherSaya, {});
+  const pastikanApresiasi = useMutation(api.voucher.pastikanVoucherApresiasiSaya);
   const [buka, setBuka] = useState(false);
+  const sudahDisisir = useRef(false);
+
+  // Pinjaman yang lunas lewat jalur lama tidak punya voucher karena penerbitan
+  // saat itu belum dipanggil. Sekali per kunjungan, server menyisir pinjaman
+  // lunas milik akun ini dan menerbitkan voucher yang belum ada. Penerbitannya
+  // idempoten (dijaga nomor referensi pinjaman), jadi aman dipanggil ulang.
+  useEffect(() => {
+    if (data === undefined || data === null || sudahDisisir.current) return;
+    sudahDisisir.current = true;
+    void pastikanApresiasi({}).catch((error: unknown) => {
+      console.warn("Voucher apresiasi belum bisa disisir.", error);
+    });
+  }, [data, pastikanApresiasi]);
 
   if (data === undefined) {
     return (

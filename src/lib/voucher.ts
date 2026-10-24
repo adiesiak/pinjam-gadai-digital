@@ -221,7 +221,7 @@ export const VOUCHER_APRESIASI_MIN = 5_000;
 export const VOUCHER_APRESIASI_HARI = 90;
 
 /**
- * Nilai voucher apresiasi untuk satu pelunasan tepat waktu.
+ * Nilai voucher apresiasi untuk satu pinjaman yang sudah lunas.
  *
  * Dihitung dari pokok yang benar-benar dilunasi, 1% dan dibatasi
  * `VOUCHER_APRESIASI_MAKS`. Lantai `VOUCHER_APRESIASI_MIN` menjaga voucher

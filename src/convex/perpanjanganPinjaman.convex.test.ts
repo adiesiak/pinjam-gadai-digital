@@ -230,12 +230,21 @@ describe("pembayaran tingkat pinjaman", () => {
         .query("fundings")
         .withIndex("by_loan", (q) => q.eq("loanId", data.loanId))
         .first();
-      return { loan, funding };
+      const voucher = await ctx.db
+        .query("voucher")
+        .withIndex("by_referensi", (q) => q.eq("referensi", "PGD-PERPANJANGAN-UJI"))
+        .first();
+      return { loan, funding, voucher };
     });
     expect(akhir.loan?.status).toBe("lunas");
     expect(akhir.loan?.remainingPrincipal).toBe(0);
     expect(akhir.loan?.nextInterestAmount).toBe(0);
     expect(akhir.funding?.status).toBe("selesai");
+    // Jalur inilah yang dipakai admin untuk mencocokkan mutasi pelunasan; dulu
+    // peminjamnya lunas tanpa pernah menerima voucher apresiasi.
+    expect(akhir.voucher?.pemilikId).toBe(data.userId);
+    expect(akhir.voucher?.sumber).toBe("apresiasi");
+    expect(akhir.voucher?.nilai).toBe(10_000);
     const ledger3 = await totalLedger(t);
     expect(ledger3.rows.some((e) => e.eventType === "LOAN_REPAYMENT")).toBe(true);
     expect(ledger3.debit).toBe(ledger3.kredit);

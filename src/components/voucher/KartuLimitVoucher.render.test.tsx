@@ -89,7 +89,11 @@ const kosong = renderToStaticMarkup(
   <DaftarVoucherSheet daftar={[]} tersedia={500_000} />,
 );
 ada(kosong, "Belum ada voucher atas nama Anda", "keadaan kosong dijelaskan");
-ada(kosong, "lunas tepat waktu", "cara mendapat voucher dijelaskan");
+ada(kosong, "setelah pinjaman lunas", "cara mendapat voucher dijelaskan");
+ok(
+  !kosong.includes("promo kuartalan"),
+  "syarat promo kampanye tidak lagi disebut",
+);
 bersih(kosong, "keadaan kosong");
 
 console.log(`DaftarVoucherSheet.render: ${passed}/${passed + failed} lulus`);

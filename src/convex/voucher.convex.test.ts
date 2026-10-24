@@ -301,6 +301,110 @@ describe("voucher nasabah dan limit pembiayaan", () => {
     expect(sesudah!.limit.tersedia).toBe(500_000);
   });
 
+  it("menutup pinjaman dari panel admin menerbitkan voucher apresiasi", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-tutup", {
+      email: "admin-tutup@pindai.test",
+      role: "admin",
+    });
+    const { userId } = await siapkanPenggunaDasar(t, "rani-tutup", {
+      email: "rani-tutup@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await t.run(async (ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Tutup",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "didanai",
+        nomorReferensi: "PGD-TUTUP-PANEL",
+        tenorHari: 30,
+        didanaiPada: Date.now() - 10 * HARI_MS,
+      }),
+    );
+
+    await admin.mutation(api.loans.ubahStatusPinjaman, {
+      loanId,
+      status: "lunas",
+      reason: "Pembayaran penuh dicatat admin.",
+    });
+
+    const voucher = await t.run((ctx) =>
+      ctx.db
+        .query("voucher")
+        .withIndex("by_referensi", (q) => q.eq("referensi", "PGD-TUTUP-PANEL"))
+        .first(),
+    );
+    expect(voucher?.pemilikId).toBe(userId);
+    expect(voucher?.sumber).toBe("apresiasi");
+    expect(voucher?.nilai).toBe(10_000);
+  });
+
+  it("menyisir voucher apresiasi untuk pinjaman lunas lama, sekali saja", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPenggunaDasar(t, "rani-sisir", {
+      email: "rani-sisir@pindai.test",
+      role: "peminjam",
+    });
+    const lunasPada = Date.now() - 5 * HARI_MS;
+    await t.run(async (ctx) => {
+      // Lunas lewat jalur lama: telat, dan tidak ada promo yang aktif. Kedua
+      // syarat itu dulu menahan voucher; sekarang tidak lagi.
+      await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Sisir",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "lunas",
+        nomorReferensi: "PGD-SISIR-LUNAS",
+        tenorHari: 30,
+        didanaiPada: lunasPada - 40 * HARI_MS,
+        lunasPada,
+        terlambatAngsuran: true,
+      });
+      await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 500_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Sisir",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        // Bukan lunas, jadi tidak boleh menghasilkan voucher; status ditolak
+        // dipilih supaya tidak menahan plafon yang dipakai voucher apresiasi.
+        status: "ditolak",
+        nomorReferensi: "PGD-SISIR-BERJALAN",
+        tenorHari: 30,
+        didanaiPada: Date.now() - 2 * HARI_MS,
+      });
+    });
+
+    const pertama = await peminjam.mutation(api.voucher.pastikanVoucherApresiasiSaya, {});
+    expect(pertama.diterbitkan).toBe(1);
+
+    const data = await peminjam.query(api.voucher.daftarVoucherSaya, {});
+    expect(data!.daftar).toHaveLength(1);
+    expect(data!.daftar[0].judul).toBe("Voucher apresiasi pelunasan");
+    expect(data!.daftar[0].nilai).toBe(10_000);
+    expect(data!.daftar[0].jenis).toBe("diskon_admin");
+    expect(data!.daftar[0].layak).toBe(true);
+
+    // Idempoten: kunjungan berikutnya tidak menggandakan voucher.
+    const kedua = await peminjam.mutation(api.voucher.pastikanVoucherApresiasiSaya, {});
+    expect(kedua.diterbitkan).toBe(0);
+    const semua = await t.run((ctx) =>
+      ctx.db
+        .query("voucher")
+        .withIndex("by_pemilik", (q) => q.eq("pemilikId", userId))
+        .collect(),
+    );
+    expect(semua).toHaveLength(1);
+  });
+
   it("menolak voucher milik akun lain dan voucher akad syariah di pinjaman konvensional", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-asing", {
