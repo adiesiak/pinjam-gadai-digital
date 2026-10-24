@@ -1184,7 +1184,28 @@ function lebarTabelResmi(bobot: number[] | undefined, jumlah: number): number[] 
   return dasar.map((nilai) => (R_LEBAR * nilai) / total);
 }
 
-/** Tinggi satu baris tabel, termasuk deskripsi yang turun dua baris. */
+/**
+ * Tipografi tabel: satu sumber angka untuk tinggi baris dan garis dasar teks,
+ * supaya label dan nominal duduk sejajar di tengah baris.
+ */
+const TABEL_UKURAN = 8.2;
+const TABEL_LEADING = 10.5;
+const TABEL_PADDING_X = 8;
+const TABEL_PADDING_Y = 5;
+const TABEL_TINGGI_KEPALA = 22;
+const TABEL_UKURAN_KEPALA = 7.4;
+const TABEL_TINGGI_MIN = 21;
+/** Tinggi huruf besar dan huruf turun Helvetica, dalam kelipatan ukuran huruf. */
+const HURUF_NAIK = 0.72;
+const HURUF_TURUN = 0.21;
+
+/** Jumlah baris satu sel setelah dibungkus selebar kolomnya. */
+function jumlahBarisSel(sel: string, lebar: number): number {
+  return bungkusTeks(sel, TABEL_UKURAN, Math.max(40, lebar - TABEL_PADDING_X * 2))
+    .length;
+}
+
+/** Tinggi satu baris tabel, termasuk deskripsi yang turun beberapa baris. */
 function tinggiBarisTabel(
   baris: BarisTabelResmi,
   lebar: number[],
@@ -1193,10 +1214,32 @@ function tinggiBarisTabel(
   let barisTeks = 1;
   baris.sel.forEach((sel, i) => {
     if (rataKanan.includes(i)) return;
-    const potongan = bungkusTeks(sel, 8.2, Math.max(40, lebar[i] - 16)).length;
-    barisTeks = Math.max(barisTeks, potongan);
+    barisTeks = Math.max(barisTeks, jumlahBarisSel(sel, lebar[i]));
   });
-  return Math.max(20, barisTeks * 10 + 10);
+  return Math.max(
+    TABEL_TINGGI_MIN,
+    barisTeks * TABEL_LEADING + TABEL_PADDING_Y * 2,
+  );
+}
+
+/**
+ * Jarak garis dasar baris pertama dari dasar baris.
+ *
+ * Blok teks (bukan kotak baris) yang diletakkan di tengah: naik dan turun
+ * huruf diperhitungkan, jadi jarak ke garis atas dan bawah sama. Baris yang
+ * dibungkus dua tinggal mengulang `TABEL_LEADING` ke atas dari garis dasar
+ * pertama.
+ */
+function garisDasarTabel(
+  tinggi: number,
+  jumlahBaris: number,
+  ukuran: number,
+): number {
+  const naik = ukuran * HURUF_NAIK;
+  const turun = ukuran * HURUF_TURUN;
+  return (
+    tinggi / 2 - (naik - turun) / 2 + ((jumlahBaris - 1) * TABEL_LEADING) / 2
+  );
 }
 
 function tinggiBlokResmi(blok: BlokResmiPdf): number {
@@ -1207,7 +1250,7 @@ function tinggiBlokResmi(blok: BlokResmiPdf): number {
     const lebar = lebarTabelResmi(blok.bobot, blok.kepala.length);
     const rataKanan = blok.rataKanan ?? [];
     return (
-      22 +
+      TABEL_TINGGI_KEPALA +
       blok.baris.reduce((n, baris) => n + tinggiBarisTabel(baris, lebar, rataKanan), 0) +
       4
     );
@@ -1298,47 +1341,86 @@ function gambarTabel(blok: BlokResmiPdf & { jenis: "tabel" }, y: number): string
   const jumlahKolom = blok.kepala.length;
   const lebar = lebarTabelResmi(blok.bobot, jumlahKolom);
   const rataKanan = blok.rataKanan ?? [];
-  const operasi: string[] = [];
+  // Latar dulu, garis, lalu teks: baris hijau tidak menutupi garis batas.
+  const latar: string[] = [];
+  const garis: string[] = [];
+  const teks: string[] = [];
   const atas = y;
-  const tinggiKepala = 22;
 
-  operasi.push(kotakResmi(R_MARGIN, y - tinggiKepala, R_LEBAR, tinggiKepala, R.kepala, R.garis));
+  latar.push(
+    kotakResmi(R_MARGIN, y - TABEL_TINGGI_KEPALA, R_LEBAR, TABEL_TINGGI_KEPALA, R.kepala),
+  );
+  const dasarKepala =
+    y -
+    TABEL_TINGGI_KEPALA +
+    garisDasarTabel(TABEL_TINGGI_KEPALA, 1, TABEL_UKURAN_KEPALA);
   let x = R_MARGIN;
   blok.kepala.forEach((judul, i) => {
-    const posisi = rataKanan.includes(i) ? x + lebar[i] - 8 - perkiraanLebar(judul, 7.4) : x + 8;
-    operasi.push(teksResmi(judul, 7.4, "F2", posisi, y - 14, R.teksLembut));
+    const posisi = rataKanan.includes(i)
+      ? x + lebar[i] - TABEL_PADDING_X - perkiraanLebar(judul, TABEL_UKURAN_KEPALA)
+      : x + TABEL_PADDING_X;
+    teks.push(
+      teksResmi(judul, TABEL_UKURAN_KEPALA, "F2", posisi, dasarKepala, R.teksLembut),
+    );
     x += lebar[i];
   });
-  y -= tinggiKepala;
+  y -= TABEL_TINGGI_KEPALA;
+  garis.push(garisResmi(atas), garisResmi(y));
 
   for (const baris of blok.baris) {
     const tinggi = tinggiBarisTabel(baris, lebar, rataKanan);
     const nada = baris.nada;
     if (nada === "bersih" || nada === "total") {
-      operasi.push(kotakResmi(R_MARGIN, y - tinggi, R_LEBAR, tinggi, R.hijauMuda));
+      latar.push(kotakResmi(R_MARGIN, y - tinggi, R_LEBAR, tinggi, R.hijauMuda));
     }
-    operasi.push(garisResmi(y));
+    const barisTeks = baris.sel.reduce(
+      (n, sel, i) =>
+        rataKanan.includes(i) ? n : Math.max(n, jumlahBarisSel(sel, lebar[i])),
+      1,
+    );
+    const dasar = y - tinggi + garisDasarTabel(tinggi, barisTeks, TABEL_UKURAN);
     let kiri = R_MARGIN;
     baris.sel.forEach((sel, i) => {
       const warna = baris.tebal === true ? R.tinta : warnaNada(nada);
-      const font = baris.tebal === true || nada === "bersih" || nada === "total" ? "F2" : "F1";
+      const font =
+        baris.tebal === true || nada === "bersih" || nada === "total" ? "F2" : "F1";
       if (rataKanan.includes(i)) {
         const nilai = nilaiTabelResmi(sel, nada);
-        operasi.push(
-          teksResmiKanan(nilai, 8.2, font, kiri + lebar[i] - 8, y - tinggi + 7.5, warna),
+        teks.push(
+          teksResmiKanan(
+            nilai,
+            TABEL_UKURAN,
+            font,
+            kiri + lebar[i] - TABEL_PADDING_X,
+            dasar,
+            warna,
+          ),
         );
       } else {
-        const potongan = bungkusTeks(sel, 8.2, Math.max(40, lebar[i] - 16));
+        const potongan = bungkusTeks(
+          sel,
+          TABEL_UKURAN,
+          Math.max(40, lebar[i] - TABEL_PADDING_X * 2),
+        );
         potongan.forEach((bagian, n) => {
-          operasi.push(teksResmi(bagian, 8.2, font, kiri + 8, y - tinggi + 14 - n * 10, warna));
+          teks.push(
+            teksResmi(
+              bagian,
+              TABEL_UKURAN,
+              font,
+              kiri + TABEL_PADDING_X,
+              dasar - n * TABEL_LEADING,
+              warna,
+            ),
+          );
         });
       }
       kiri += lebar[i];
     });
     y -= tinggi;
+    garis.push(garisResmi(y));
   }
-  operasi.push(garisResmi(y), garisResmi(atas));
-  return operasi.join("\n");
+  return [...latar, ...garis, ...teks].join("\n");
 }
 
 function gambarCallout(blok: BlokResmiPdf & { jenis: "callout" }, y: number): string {

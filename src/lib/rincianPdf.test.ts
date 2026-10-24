@@ -83,5 +83,116 @@ ok(harian.startsWith("%PDF-1.4"), "skema harian menghasilkan PDF");
 ok(harian.includes("Rp 650.000"), "total kewajiban harian tercetak");
 ok(!harian.includes("Jadwal cicilan"), "skema harian tanpa tabel cicilan");
 
+/* ===== Tata letak tabel =====
+ * Huruf yang menyentuh garis tabel membuat dokumen keuangan sulit dibaca dan
+ * terlihat tidak resmi. Teks harus duduk di dalam barisnya dengan jarak yang
+ * cukup ke garis atas maupun bawah, dan nominal harus sebaris dengan labelnya.
+ */
+
+type TeksBerposisi = { ukuran: number; x: number; y: number; teks: string };
+type HalamanBerposisi = { garis: number[]; teks: TeksBerposisi[] };
+
+function posisiHalaman(pdf: string): HalamanBerposisi[] {
+  const aliran = [...pdf.matchAll(/stream\n([\s\S]*?)endstream/g)].map(
+    (m) => m[1],
+  );
+  return aliran.map((isi) => ({
+    garis: [
+      ...isi.matchAll(
+        /([\d.]+ [\d.]+ [\d.]+) RG [\d.]+ w ([\d.]+) ([\d.]+) m ([\d.]+) ([\d.]+) l S/g,
+      ),
+    ]
+      .filter((m) => Math.abs(Number(m[3]) - Number(m[5])) < 0.01)
+      .map((m) => Number(m[3])),
+    teks: [
+      ...isi.matchAll(
+        /\/(F1|F2) ([\d.]+) Tf 1 0 0 1 ([\d.]+) ([\d.]+) Tm \(((?:[^()\\]|\\.)*)\) Tj/g,
+      ),
+    ].map((m) => ({
+      ukuran: Number(m[2]),
+      x: Number(m[3]),
+      y: Number(m[4]),
+      teks: (m[5] ?? "").replace(/\\([()\\])/g, "$1"),
+    })),
+  }));
+}
+
+const posisi = posisiHalaman(teks);
+const menembusGaris = posisi.flatMap((halaman, i) =>
+  halaman.teks
+    // Kaki halaman memang berada di bawah garis kaki.
+    .filter((t) => t.y >= 58)
+    .filter((t) =>
+      halaman.garis.some(
+        (garis) =>
+          garis > t.y - t.ukuran * 0.21 && garis < t.y + t.ukuran * 0.72,
+      ),
+    )
+    .map((t) => `H${i + 1} "${t.teks}" y=${t.y}`),
+);
+ok(
+  menembusGaris.length === 0,
+  `tidak ada huruf yang menembus garis tabel${menembusGaris.length > 0 ? `: ${menembusGaris.join(", ")}` : ""}`,
+);
+
+// Satu halaman, supaya koordinat teks dan garis berasal dari lembar yang sama.
+const halamanTabel = posisi.find((halaman) =>
+  halaman.teks.some((t) => t.teks === "1. Rincian Dana Yang Diterima"),
+);
+const judulDana = halamanTabel?.teks.find(
+  (t) => t.teks === "1. Rincian Dana Yang Diterima",
+);
+const peringatan = halamanTabel?.teks.find((t) => t.teks.startsWith("! Himbauan"));
+ok(
+  judulDana !== undefined && peringatan !== undefined,
+  "tabel dana, tabel kewajiban, dan peringatan tercetak di satu halaman",
+);
+const barisTabel = (halamanTabel?.teks ?? []).filter(
+  (t) =>
+    t.ukuran === 8.2 &&
+    judulDana !== undefined &&
+    peringatan !== undefined &&
+    t.y < judulDana.y &&
+    t.y > peringatan.y,
+);
+const nominal = barisTabel.filter(
+  (t) => t.teks.startsWith("Rp ") || t.teks.startsWith("-Rp "),
+);
+const nominalTanpaLabel = nominal.filter(
+  (t) =>
+    !barisTabel.some(
+      (label) => Math.abs(label.y - t.y) < 0.01 && label.x < t.x - 20,
+    ),
+);
+ok(nominal.length >= 4, "tabel dana dan kewajiban memuat nominal");
+ok(
+  nominalTanpaLabel.length === 0,
+  `nominal sebaris dengan labelnya${nominalTanpaLabel.length > 0 ? `: ${nominalTanpaLabel.map((t) => t.teks).join(", ")}` : ""}`,
+);
+
+// Jarak napas ke garis atas dan bawah: baris tabel yang teksnya menempel di
+// garis terbaca seperti coretan, bukan dokumen resmi.
+const garisTabel = (halamanTabel?.garis ?? []).filter(
+  (y) =>
+    judulDana !== undefined &&
+    peringatan !== undefined &&
+    y < judulDana.y &&
+    y > peringatan.y,
+);
+const terlaluRapat = barisTabel.filter((t) => {
+  const naik = t.y + t.ukuran * 0.72;
+  const turun = t.y - t.ukuran * 0.21;
+  const garisAtas = garisTabel.filter((y) => y > t.y).sort((a, b) => a - b)[0];
+  const garisBawah = garisTabel.filter((y) => y < t.y).sort((a, b) => b - a)[0];
+  return (
+    (garisAtas !== undefined && garisAtas - naik < 5) ||
+    (garisBawah !== undefined && turun - garisBawah < 4)
+  );
+});
+ok(
+  terlaluRapat.length === 0,
+  `teks tabel punya jarak ke garis${terlaluRapat.length > 0 ? `: ${terlaluRapat.map((t) => `"${t.teks}" y=${t.y}`).join(", ")}` : ""}`,
+);
+
 console.log(`rincianPdf: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);
