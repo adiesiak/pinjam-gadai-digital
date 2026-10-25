@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { CariCepatAdmin } from "@/components/admin/CariCepatAdmin";
 import {
   bacaSidebarTerbuka,
   KELAS_GESER_KONTEN,
@@ -69,6 +70,7 @@ import {
   type LoanRow,
   type PawnRow,
 } from "@/components/admin/admin-shared";
+import type { Id } from "@/convex/_generated/dataModel";
 import { SkeletonKartu } from "@/components/ui/loading";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -112,6 +114,7 @@ export function AdminTabs({
   kycMenunggu = null,
   angsuranMenunggu = null,
   syariahMenunggu = null,
+  onOpenNasabah,
 }: {
   /**
    * Kepala panel (judul/breadcrumb, notifikasi, status sistem, menu profil).
@@ -141,6 +144,8 @@ export function AdminTabs({
   angsuranMenunggu?: number | null;
   /** Jumlah pengajuan akad syariah yang menunggu keputusan. */
   syariahMenunggu?: number | null;
+  /** Buka profil nasabah dari palet pencarian; kosong = hasil nasabah disembunyikan. */
+  onOpenNasabah?: (userId: Id<"users">) => void;
 }) {
   // Default "Hari Ini": ini meja kerja, bukan satu antrean. Mendarat di
   // ringkasan dulu berarti admin melihat apa yang menunggu sebelum memilih modul.
@@ -614,6 +619,11 @@ export function AdminTabs({
       {/* Layar kecil: bilah bawah + strip chip modul + sheet pencarian.
           Menggantikan `<select>` 17 opsi yang menyembunyikan isi tiap menu. */}
       <AdminNav menu={menu} activeTab={activeTab} onPilih={pilihMenu} />
+      <CariCepatAdmin
+        menu={menu}
+        onPilihModul={pilihMenu}
+        onOpenNasabah={onOpenNasabah}
+      />
 
       <main
         id="konten"

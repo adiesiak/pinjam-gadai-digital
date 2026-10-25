@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ReferralPanel } from "@/components/admin/ReferralPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -126,6 +127,7 @@ function angkaDari(teks: string): number {
  * menyalinnya ke nasabah lain.
  */
 export function VoucherPanel() {
+  const [bagian, setBagian] = useState<"voucher" | "referral">("voucher");
   const [cari, setCari] = useState("");
   const kueri = useNilaiTertunda(cari, 350);
   const [saringanStatus, setSaringanStatus] = useState<StatusVoucherTampil | "semua">(
@@ -345,6 +347,39 @@ export function VoucherPanel() {
 
   return (
     <div className="space-y-4">
+      {/* Dua bagian yang memang berbeda pekerjaan: menerbitkan voucher dan
+          meninjau klaim referral. Sebelumnya keduanya bertumpuk dalam satu
+          gulungan, sehingga klaim baru terkubur di bawah daftar voucher. */}
+      <div
+        role="tablist"
+        aria-label="Bagian voucher"
+        className="flex w-fit gap-1 rounded-xl border border-slate-200 bg-white p-1"
+      >
+        {(
+          [
+            { nilai: "voucher" as const, label: "Voucher" },
+            { nilai: "referral" as const, label: "Referral" },
+          ]
+        ).map((pilihan) => (
+          <button
+            key={pilihan.nilai}
+            type="button"
+            role="tab"
+            aria-selected={bagian === pilihan.nilai}
+            onClick={() => setBagian(pilihan.nilai)}
+            className={
+              bagian === pilihan.nilai
+                ? "rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white"
+                : "rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            }
+          >
+            {pilihan.label}
+          </button>
+        ))}
+      </div>
+
+      {bagian === "voucher" && (
+        <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="max-w-2xl">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-navy">
@@ -1021,6 +1056,9 @@ export function VoucherPanel() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </>
+      )}
+      {bagian === "referral" && <ReferralPanel />}
     </div>
   );
 }

@@ -1,12 +1,15 @@
 /**
- * Bahasa laporan PDF pendana, tersimpan di perangkat.
+ * Bahasa laporan PDF pendana.
  *
- * Hanya memengaruhi dokumen yang diunduh dari ruang pendana — bukan bahasa
- * antarmuka. Pemilik portofolio yang meneruskan laporannya ke pembaca Inggris
- * memilih sekali, lalu setiap unduhan memakai pilihan yang sama.
+ * Sumber utama adalah profil akun, sehingga pilihan yang dibuat sekali dipakai
+ * laporan WhatsApp yang disusun server dan tetap berlaku di perangkat lain.
+ * Penyimpanan perangkat hanya cadangan sebelum query selesai — bukan sumber
+ * kedua yang bisa berbeda diam-diam.
  */
+import { useMutation, useQuery } from "convex/react";
 import { useCallback, useState } from "react";
 
+import { api } from "@/convex/_generated/api";
 import type { BahasaLaporan } from "@/lib/laporanPendana";
 
 const KUNCI = "pindai.bahasa-laporan";
@@ -20,17 +23,31 @@ function baca(): BahasaLaporan {
   }
 }
 
-export function useBahasaLaporan(): [BahasaLaporan, (bhs: BahasaLaporan) => void] {
-  const [bahasa, setBahasa] = useState<BahasaLaporan>(baca);
+function simpanLokal(bhs: BahasaLaporan): void {
+  try {
+    window.localStorage.setItem(KUNCI, bhs);
+  } catch {
+    // Mode privat bisa menolak penyimpanan; profil akun tetap menyimpan pilihan.
+  }
+}
 
-  const ubah = useCallback((bhs: BahasaLaporan) => {
-    setBahasa(bhs);
-    try {
-      window.localStorage.setItem(KUNCI, bhs);
-    } catch {
-      // Mode privat bisa menolak penyimpanan; pilihan tetap berlaku di sesi ini.
-    }
-  }, []);
+export function useBahasaLaporan(): [BahasaLaporan, (bhs: BahasaLaporan) => void] {
+  const tersimpan = useQuery(api.bahasaPendana.preferensi);
+  const simpanProfil = useMutation(api.bahasaPendana.simpan);
+  const [lokal, setLokal] = useState<BahasaLaporan>(baca);
+
+  const bahasa: BahasaLaporan = tersimpan ?? lokal;
+
+  const ubah = useCallback(
+    (bhs: BahasaLaporan) => {
+      setLokal(bhs);
+      simpanLokal(bhs);
+      void simpanProfil({ bahasa: bhs }).catch(() => {
+        // Tanpa sesi, pilihan tetap berlaku di perangkat ini.
+      });
+    },
+    [simpanProfil],
+  );
 
   return [bahasa, ubah];
 }

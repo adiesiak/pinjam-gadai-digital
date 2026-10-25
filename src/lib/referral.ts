@@ -24,6 +24,12 @@ export const REFERRAL = {
   minimalPokok: LOAN_LIMITS.minPokok,
   /** Masa berlaku voucher hadiah. */
   berlakuHari: 30,
+  /**
+   * Batas klaim berhadiah untuk satu perujuk per bulan WIB. Kelebihan klaim
+   * tetap memberi hadiah pemakai kode, tetapi perujuk tidak menerima voucher
+   * lagi — menahan kode yang disebar dengan akun-akun baru.
+   */
+  hadiahMaksPerBulan: 10,
   /** Kode tidak pernah lebih panjang dari ini. */
   panjangMaks: 12,
 } as const;

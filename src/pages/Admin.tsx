@@ -8,10 +8,12 @@ import { toast } from "sonner";
 import { TotpGate, TotpSetupDialog } from "@/components/TotpGate";
 import { AppraisalDialog } from "@/components/admin/AppraisalDialog";
 import { LoanReviewDialog } from "@/components/admin/LoanReviewDialog";
+import { NasabahDetailDialog } from "@/components/admin/NasabahDetailDialog";
 import { PawnReviewDialog } from "@/components/admin/PawnReviewDialog";
 import { type LoanRow, type PawnRow } from "@/components/admin/admin-shared";
 import { KerangkaAdmin } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { hitungMenunggu } from "@/lib/admin-queue";
 import { ADMIN_ROUTE } from "@/lib/routes";
@@ -57,6 +59,7 @@ export default function Admin() {
   );
 
   const [loanDetail, setLoanDetail] = useState<LoanRow | null>(null);
+  const [nasabahDetail, setNasabahDetail] = useState<Id<"users"> | null>(null);
   const [pawnDetail, setPawnDetail] = useState<PawnRow | null>(null);
   const [appraisePawn, setAppraisePawn] = useState<PawnRow | null>(null);
 
@@ -166,6 +169,7 @@ export default function Admin() {
         kycMenunggu={kycAntrean === undefined ? null : (kycAntrean.cacah.PENDING_REVIEW ?? 0)}
         angsuranMenunggu={buktiAngsuran === undefined ? null : buktiAngsuran.jumlah}
         syariahMenunggu={syariahMenunggu === undefined ? null : syariahMenunggu}
+        onOpenNasabah={setNasabahDetail}
       />
 
       {/* Dialogs */}
@@ -179,6 +183,12 @@ export default function Admin() {
         }}
       />
       <AppraisalDialog pawn={appraisePawn} onClose={() => setAppraisePawn(null)} />
+      {nasabahDetail !== null && (
+        <NasabahDetailDialog
+          userId={nasabahDetail}
+          onClose={() => setNasabahDetail(null)}
+        />
+      )}
       <TotpSetupDialog open={totpSetupOpen} onOpenChange={setTotpSetupOpen} />
     </div>
   );

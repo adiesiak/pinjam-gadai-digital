@@ -27,6 +27,16 @@ crons.daily(
   internal.loans.generateDueReminders,
 );
 
+// Peringatan kas: 07.30 WIB, sebelum jam kerja. Hanya membaca proyeksi yang
+// sama dengan panel Kalender Kas; pesan WhatsApp dikirim bila admin mengisi
+// nomor dan saldo kas masih segar.
+crons.daily(
+  "peringatan-kas-harian",
+  { hourUTC: 0, minuteUTC: 30 },
+  internal.kalenderKas.jalankanPeringatanKas,
+  {},
+);
+
 // Pengingat WhatsApp tiap jam. Jendela kirim 08.00-20.00 WIB TIDAK diatur di
 // sini melainkan di `lib/templatePesanWa.dalamJamKirim`: penjadwal yang berjalan
 // tiap jam membuat satu aturan yang sama berlaku untuk jam berapa pun, dan

@@ -127,6 +127,7 @@ export const _dataPelunasan = internalQuery({
 
     return {
       nomor: pendana.nomorWhatsApp ?? null,
+      pendanaId,
       namaPendana: namaPendana(pendana),
       baris,
       /** Cadangan tanggal lunas untuk dokumen lama yang belum punya `lunasPada`. */
@@ -361,7 +362,11 @@ export const kirimLaporanPelunasan = internalAction({
     // tanggal itu nyata; yang tidak dilakukan adalah mengosongkan tanggal
     // pelunasan pada dokumen yang memang sudah lunas.
     const lunasPada = b.lunasPada ?? data.diputuskanPada ?? dicetakPada;
-    const dokumen = laporanPelunasan({
+    const bahasa = await ctx.runQuery(internal.bahasaPendana._untukPengguna, {
+      userId: data.pendanaId,
+    });
+    const dokumen = laporanPelunasan(
+      {
       namaPendana: data.namaPendana,
       nomorReferensi: b.nomorReferensi,
       namaPeminjam: b.namaLengkap,
@@ -371,9 +376,11 @@ export const kirimLaporanPelunasan = internalAction({
       keuntunganPendana: b.keuntunganPendana,
       didanaiPada: b.didanaiPada,
       lunasPada,
-      transferDicatat: b.transfer.status === "dicatat",
-      dicetakPada,
-    });
+        transferDicatat: b.transfer.status === "dicatat",
+        dicetakPada,
+      },
+      bahasa,
+    );
 
     return await kirimLaporanPdf(ctx, {
       jenis: "laporan_pelunasan",
@@ -392,7 +399,7 @@ export const kirimLaporanPelunasan = internalAction({
         lunasPada,
         transferDicatat: b.transfer.status === "dicatat",
         dicetakPada,
-      }),
+      }, bahasa),
       loanId,
       ...(olehUserId === undefined ? {} : { olehUserId }),
     });
@@ -424,13 +431,16 @@ export const kirimLaporanPortofolio = action({
 
     const dicetakPada = Date.now();
     const angka = angkaPortofolio(data, dicetakPada);
+    const bahasa = await ctx.runQuery(internal.bahasaPendana._untukPengguna, {
+      userId,
+    });
 
     const hasil = await kirimLaporanPdf(ctx, {
       jenis: "laporan_portofolio",
       nomor: data.nomor,
-      namaBerkas: namaBerkasPortofolio(dicetakPada),
-      byte: susunPdfResmi(laporanPortofolio(angka)),
-      pesan: pesanPortofolio(angka),
+      namaBerkas: namaBerkasPortofolio(dicetakPada, bahasa),
+      byte: susunPdfResmi(laporanPortofolio(angka, bahasa)),
+      pesan: pesanPortofolio(angka, bahasa),
       olehUserId: userId,
     });
 

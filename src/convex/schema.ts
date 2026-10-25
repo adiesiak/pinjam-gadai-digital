@@ -189,6 +189,12 @@ const schema = defineSchema(
        */
       nomorWhatsApp: v.optional(v.string()),
       /**
+       * Bahasa laporan PDF pendana: "id" (bawaan) atau "en". Disimpan di akun
+       * supaya pilihan mengikuti pendana saat masuk dari perangkat lain, dan
+       * laporan WhatsApp memakai bahasa yang sama dengan unduhan.
+       */
+      bahasaLaporan: v.optional(v.union(v.literal("id"), v.literal("en"))),
+      /**
        * Pengingat tagihan lewat WhatsApp untuk nasabah ini.
        * Hanya Super Admin yang menyalakan atau mematikannya dari panel nasabah;
        * nasabah tidak punya sakelar sendiri. Kosong = aktif. Nilai efektif
@@ -3612,6 +3618,58 @@ const schema = defineSchema(
       // indeks ini setiap muat panel memindai seluruh tabel.
       .index("by_dibuatPada", ["dibuatPada"])
       .index("by_status", ["status"]),
+
+    /**
+     * Pengaturan peringatan kas admin.
+     *
+     * Satu baris `slot = "global"`. Saldo kas disimpan bersama waktu
+     * pembaruannya: peringatan otomatis hanya berguna bila saldo yang dipakai
+     * memang saldo yang dicatat admin, bukan tebakan dari mutasi terakhir.
+     */
+    kasPengaturan: defineTable({
+      slot: v.string(),
+      aktif: v.boolean(),
+      saldoKas: v.number(),
+      saldoDiperbaruiPada: v.optional(v.number()),
+      saldoMinimum: v.number(),
+      hariPeringatan: v.number(),
+      nomorWhatsApp: v.optional(v.string()),
+      diperbaruiPada: v.number(),
+      diperbaruiOleh: v.id("users"),
+    }).index("by_slot", ["slot"]),
+
+    /**
+     * Biaya operasional berulang bulanan.
+     *
+     * Hanya nominal dan tanggal; tidak ada pembayaran yang dicatat di sini.
+     * Fungsinya memasukkan komitmen yang sudah diketahui ke proyeksi kas agar
+     * hari minus tidak mengejutkan admin.
+     */
+    biayaOperasional: defineTable({
+      judul: v.string(),
+      nominal: v.number(),
+      hariDalamBulan: v.number(),
+      aktif: v.boolean(),
+      dibuatPada: v.number(),
+      dibuatOleh: v.id("users"),
+    }).index("by_aktif", ["aktif"]),
+
+    /**
+     * Jejak peringatan kas yang pernah dihitung cron.
+     *
+     * Satu baris per tanggal WIB: cron harian tidak mengirim pesan yang sama
+     * berkali-kali pada hari yang sama, tetapi tetap mencatat hasil hitungnya.
+     */
+    kasPeringatan: defineTable({
+      tanggal: v.string(),
+      tanggalKritis: v.number(),
+      saldoProyeksi: v.number(),
+      saldoMinimum: v.number(),
+      hariKe: v.number(),
+      dibuatPada: v.number(),
+      terkirim: v.boolean(),
+      respon: v.optional(v.string()),
+    }).index("by_tanggal", ["tanggal"]),
 
     /**
      * Kode referral milik satu akun.

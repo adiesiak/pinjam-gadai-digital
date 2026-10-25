@@ -3,11 +3,13 @@
  *
  * Sumber yang dihitung (dan hanya ini, supaya angka tidak menipu):
  *  - angsuran pinjaman yang belum dibayar dan jatuh tempo dalam rentang;
- *  - siklus pendana berstatus berjalan yang jatuh tempo dalam rentang.
+ *  - siklus pendana berstatus berjalan yang jatuh tempo dalam rentang;
+ *  - biaya operasional berulang yang diisi admin (tanggal 1–31 tiap bulan,
+ *    tanggal 31 digeser ke hari terakhir bulan pendek).
  *
- * Belum termasuk gadai, kredit barang, akad syariah, denda, dan belanja
- * operasional. Panel menyebutkan cakupan itu apa adanya; kalender ini alat
- * perencanaan, bukan laporan laba rugi.
+ * Belum termasuk gadai, kredit barang, akad syariah, dan denda — barisnya tidak
+ * menyimpan tanggal jatuh tempo yang bisa diproyeksikan. Panel menyebutkan
+ * cakupan itu apa adanya; kalender ini alat perencanaan, bukan laporan laba rugi.
  *
  * Murni tanpa Convex/React; `sekarang` dikirim pemanggil supaya bisa diuji.
  */
@@ -29,6 +31,14 @@ export type BarisKalenderKas = {
   keluar: number;
   jumlahAngsuran: number;
   jumlahSiklus: number;
+  jumlahBiaya: number;
+};
+
+/** Biaya operasional berulang: nominal tetap pada satu tanggal tiap bulan. */
+export type BiayaBulanan = {
+  /** Tanggal 1–31; 31 dipakai pada hari terakhir bulan yang lebih pendek. */
+  hariDalamBulan: number;
+  nominal: number;
 };
 
 export type HasilKalenderKas = {
@@ -55,6 +65,8 @@ type MasukanKalender = {
   hari: number;
   angsuran: readonly EntriKas[];
   siklus: readonly EntriKas[];
+  /** Biaya berulang; opsional agar pemanggil lama tidak berubah. */
+  biayaBulanan?: readonly BiayaBulanan[];
 };
 
 /**
@@ -66,6 +78,7 @@ export function susunKalenderKas({
   hari,
   angsuran,
   siklus,
+  biayaBulanan = [],
 }: MasukanKalender): HasilKalenderKas {
   const jumlahHari = Math.min(60, Math.max(1, Math.trunc(hari)));
   const mulai = awalHariKasWIB(sekarang);
@@ -75,6 +88,7 @@ export function susunKalenderKas({
     keluar: 0,
     jumlahAngsuran: 0,
     jumlahSiklus: 0,
+    jumlahBiaya: 0,
   }));
 
   const indeks = (jatuhTempoPada: number): number =>
@@ -92,6 +106,22 @@ export function susunKalenderKas({
     if (i < 0 || i >= jumlahHari) continue;
     baris[i].keluar += entri.nominal;
     baris[i].jumlahSiklus += 1;
+  }
+
+  // Biaya berulang jatuh pada tanggal kalender WIB. Tanggal 29–31 digeser ke
+  // hari terakhir bulan yang lebih pendek supaya biaya tidak hilang di Februari.
+  for (const entri of baris) {
+    const tanggal = new Date(entri.tanggal + OFFSET_WIB_MS);
+    const hariBulan = tanggal.getUTCDate();
+    const hariTerakhir = new Date(
+      Date.UTC(tanggal.getUTCFullYear(), tanggal.getUTCMonth() + 1, 0),
+    ).getUTCDate();
+    for (const biaya of biayaBulanan) {
+      const target = Math.min(Math.max(1, Math.trunc(biaya.hariDalamBulan)), hariTerakhir);
+      if (hariBulan !== target) continue;
+      entri.keluar += biaya.nominal;
+      entri.jumlahBiaya += 1;
+    }
   }
 
   let totalMasuk = 0;

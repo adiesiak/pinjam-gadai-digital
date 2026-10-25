@@ -781,7 +781,21 @@ export function laporanRekapPendana(data: DataRekapPendana): DokumenResmiPdf {
  * dengan PDF membuat dua versi angka beredar di percakapan, dan yang salah
  * dibaca adalah yang paling akhir terlihat.
  */
-export function pesanPelunasan(data: DataPelunasanPendana): string {
+export function pesanPelunasan(
+  data: DataPelunasanPendana,
+  bhs: BahasaLaporan = "id",
+): string {
+  if (bhs === "en") {
+    const transfer = data.transferDicatat
+      ? "The admin has recorded the profit transfer."
+      : "The admin has not recorded the profit transfer yet.";
+    return (
+      `Hello ${data.namaPendana}, loan ${data.nomorReferensi} for ${samarkanNama(data.namaPeminjam)} ` +
+      `was settled on ${tanggalBahasa(data.lunasPada, "en")}. ` +
+      `Your booked profit is ${rupiah(data.keuntunganPendana)}. ` +
+      `${transfer} The full breakdown is in the attached PDF.`
+    );
+  }
   const transfer = data.transferDicatat
     ? "Catatan transfer keuntungannya sudah dibuat admin."
     : "Catatan transfer keuntungannya belum dibuat admin.";
@@ -810,8 +824,24 @@ export function proyeksiReturnTerdekat(
 }
 
 /** Keterangan pesan WhatsApp untuk laporan portofolio. */
-export function pesanPortofolio(data: DataPortofolioPendana): string {
+export function pesanPortofolio(
+  data: DataPortofolioPendana,
+  bhs: BahasaLaporan = "id",
+): string {
   const terdekat = proyeksiReturnTerdekat(data);
+  if (bhs === "en") {
+    const proyeksiEn =
+      terdekat === null
+        ? "No return date is projected from active loans yet. "
+        : `Nearest projected return ${tanggalBahasa(terdekat, "en")}. `;
+    return (
+      `Hello ${data.namaPendana}, here is your funding performance report as of ${tanggalBahasa(data.dicetakPada, "en")}. ` +
+      `Funds disbursed ${rupiah(data.totalDisalurkan)}, booked profit ${rupiah(data.keuntunganDibukukan)}, ` +
+      `estimated from active loans ${rupiah(data.keuntunganPerkiraan)}. ` +
+      proyeksiEn +
+      "Full figures per loan are in the attached PDF."
+    );
+  }
   const proyeksi =
     terdekat === null
       ? "Belum ada proyeksi tanggal return dari pinjaman berjalan. "

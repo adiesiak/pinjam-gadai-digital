@@ -62,6 +62,32 @@ eq(hasil.hariTerberat?.tanggal, wib(2026, 10, 27), "hari terberat = hari keluar 
 eq(hasil.baris[0].jumlahAngsuran, 1, "jumlah angsuran dihitung");
 eq(hasil.baris[2].jumlahSiklus, 1, "jumlah siklus dihitung");
 
+// ===== Biaya operasional berulang =====
+const denganBiaya = susunKalenderKas({
+  sekarang: SEKARANG,
+  hari: 7,
+  angsuran: [],
+  siklus: [],
+  biayaBulanan: [
+    { hariDalamBulan: 25, nominal: 50_000 },
+    { hariDalamBulan: 31, nominal: 75_000 },
+  ],
+});
+eq(denganBiaya.baris[0].keluar, 50_000, "biaya tanggal 25 masuk hari ini");
+eq(denganBiaya.baris[0].jumlahBiaya, 1, "satu biaya pada tanggal 25");
+eq(denganBiaya.baris[6].keluar, 75_000, "biaya tanggal 31 masuk di akhir Oktober");
+eq(denganBiaya.totalKeluar, 125_000, "total keluar memuat biaya");
+
+const februari = susunKalenderKas({
+  sekarang: wib(2026, 2, 25, 10),
+  hari: 5,
+  angsuran: [],
+  siklus: [],
+  biayaBulanan: [{ hariDalamBulan: 31, nominal: 10_000 }],
+});
+eq(februari.baris[3].keluar, 10_000, "tanggal 31 digeser ke 28 Februari");
+eq(februari.baris[4].keluar, 0, "biaya tidak jatuh dua kali");
+
 // ===== Saldo proyeksi =====
 const saldo = saldoProyeksi(hasil.baris, 500_000);
 eq(saldo[0], 600_000, "saldo setelah masuk hari pertama");

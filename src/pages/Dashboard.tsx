@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, FilePlus2, HandCoins } from "lucide-react";
+import { ArrowLeft, ChevronDown, FilePlus2, HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { tabDariParams } from "@/lib/notifikasi";
@@ -41,7 +41,7 @@ import { DoorprizeWidget } from "@/components/DoorprizeWidget";
 import { KartuReferral } from "@/components/KartuReferral";
 import { KartuLimitVoucher } from "@/components/voucher/KartuLimitVoucher";
 import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
-import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
+import { PromoDashboard } from "@/components/promo/PromoDashboard";
 
 /**
  * Rangka pemuatan dashboard: bentuknya mengikuti kartu ringkasan + daftar
@@ -134,6 +134,7 @@ export default function Dashboard() {
   // (bawaan), lalu menyaring begitu konfigurasi tiba.
   const produkAktif = useQuery(api.system.getProdukAktif, {});
   const [loanDetailId, setLoanDetailId] = useState<Id<"loans"> | null>(null);
+  const [ringkasanLengkap, setRingkasanLengkap] = useState(false);
   const [verifikasiTerbuka, setVerifikasiTerbuka] = useState(false);
   const loanDetail = (loans ?? []).find((loan) => loan._id === loanDetailId) ?? null;
 
@@ -470,17 +471,10 @@ export default function Dashboard() {
                     ke pengajuan. Riwayat dan formulir punya halamannya sendiri,
                     jadi tidak ada bagian yang muncul dua kali di layar. */}
                 <TabsContent value="ringkasan" className="mt-6 animate-masuk">
-                  {/* Promo pinjaman bukan untuk pendana; dashboard mereka ada di
-                      ruang pendana. Admin tetap melihatnya saat memantau. */}
+                  {/* Satu banner saja: promo bunga menang atas kampanye teks,
+                      supaya tagihan terdekat tidak terdorong ke bawah lipatan. */}
                   {role === "dana" ? null : (
-                    <PromoPinjamanAktif
-                      penempatan="dashboard"
-                      onAjukan={() => bukaPengajuan("pinjaman")}
-                      className="mb-4"
-                    />
-                  )}
-                  {role === "dana" ? null : (
-                    <PromoBungaAktif
+                    <PromoDashboard
                       onAjukan={() => bukaPengajuan("pinjaman")}
                       className="mb-4"
                     />
@@ -495,9 +489,37 @@ export default function Dashboard() {
                     kycStatus={kyc === undefined ? null : kyc.status}
                     onBukaKyc={() => gantiTab("kyc")}
                   />
-                  <RiwayatProgresPlafon />
-                  {role !== "dana" && <KartuReferral className="mt-4" />}
-                  <DoorprizeWidget peran="peminjam" />
+                  {/* Lapis ketiga: informasi pendukung. Disembunyikan sampai
+                      diminta agar kewajiban dan tiga angka pokok tampil dulu. */}
+                  <div className="mt-4 flex justify-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-expanded={ringkasanLengkap}
+                      onClick={() => setRingkasanLengkap((sebelumnya) => !sebelumnya)}
+                      className="gap-1.5 text-xs text-slate-600"
+                    >
+                      <ChevronDown
+                        className={
+                          ringkasanLengkap
+                            ? "size-4 rotate-180 transition-transform"
+                            : "size-4 transition-transform"
+                        }
+                        aria-hidden="true"
+                      />
+                      {ringkasanLengkap
+                        ? "Sembunyikan bagian lain"
+                        : "Lihat plafon, referral, dan doorprize"}
+                    </Button>
+                  </div>
+                  {ringkasanLengkap && (
+                    <div className="mt-4 space-y-4">
+                      <RiwayatProgresPlafon />
+                      {role !== "dana" && <KartuReferral />}
+                      <DoorprizeWidget peran="peminjam" />
+                    </div>
+                  )}
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <Button
                       type="button"
