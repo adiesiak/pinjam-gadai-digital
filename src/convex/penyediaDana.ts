@@ -158,6 +158,17 @@ async function lokasiPerangkat(
   };
 }
 
+/** Snapshot tarif bulanan yang tersimpan pada kontrak (pinjaman/kredit). */
+export type TarifBulananSnapshot = {
+  persenBungaBulanan1: number;
+  persenBungaBulanan3: number;
+  persenBungaBulanan6: number;
+  persenBungaBulanan9?: number;
+  persenBungaBulanan12?: number;
+  persenBiayaLayananBulanan: number;
+  persenBiayaAdminCicilanBulanan: number;
+};
+
 export type BarisPinjaman = {
   _id: Id<"loans">;
   nomorReferensi: string;
@@ -179,6 +190,12 @@ export type BarisPinjaman = {
     asuransiPersen: number;
     ekspres: { tier1: number; tier2: number; tier3: number };
   } | null;
+  /**
+   * Snapshot tarif bulanan kontrak. Detail ruang pendana memakainya supaya
+   * jadwal yang terlihat sama dengan kontrak, bukan tarif Pengaturan Sistem
+   * yang berlaku hari ini.
+   */
+  tarifBulanan: TarifBulananSnapshot | null;
   /** State perpanjangan: sisa pokok dan akumulasi bunga. */
   remainingPrincipal: number | null;
   bungaTerbayar: number | null;
@@ -351,6 +368,8 @@ export type BarisKredit = {
   dpPersen: number;
   tenorBulan: number;
   marginPersenPerBulan: number;
+  /** Snapshot tarif bulanan kontrak; null = tarif bawaan saat dihitung. */
+  tarifBulanan: TarifBulananSnapshot | null;
   status: string;
   diajukanPada: number;
   /** Waktu pendanaan penuh — null bila belum didanai. */
@@ -779,6 +798,7 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         persenBunga: loan.persenBunga ?? null,
         cairEkspres: loan.cairEkspres ?? null,
         tarifBiaya: loan.tarifBiaya ?? null,
+        tarifBulanan: loan.tarifBulanan ?? null,
         remainingPrincipal: loan.remainingPrincipal ?? null,
         bungaTerbayar: loan.bungaTerbayar ?? null,
         nextInterestAmount: loan.nextInterestAmount ?? null,
@@ -926,6 +946,7 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         dpPersen: item.dpPersen,
         tenorBulan: item.tenorBulan,
         marginPersenPerBulan: item.marginPersenPerBulan,
+        tarifBulanan: item.tarifBulanan ?? null,
         status: item.status,
         diajukanPada: item._creationTime,
         didanaiPada: item.didanaiPada ?? null,
