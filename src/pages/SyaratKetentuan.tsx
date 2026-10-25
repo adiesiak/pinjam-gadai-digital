@@ -42,7 +42,6 @@ import {
 } from "@/lib/tarifBiayaTeks";
 import {
   BULANAN_LIMITS,
-  BULANAN_PRICING,
   TARIF_BULANAN_DEFAULT,
   TENOR_BULANAN_OPTIONS,
   persenBungaPerBulan,
@@ -50,7 +49,11 @@ import {
   type TarifBulanan,
 } from "@/lib/bulanan";
 import { GADAI_PRICING } from "@/lib/gadai";
-import { KREDIT_BARANG_POKOK_MAKS } from "@/lib/kredit";
+import {
+  KREDIT_BARANG_POKOK_MAKS,
+  KREDIT_PRICING,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
+} from "@/lib/kredit";
 import { MAX_FILE_BYTES, GAMBAR_DITERIMA } from "@/lib/kyc";
 import { LOKASI_KEBIJAKAN } from "@/lib/lokasi";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
@@ -445,9 +448,10 @@ const PASAL: Pasal[] = [
     isi: (
       <ul className="list-disc space-y-1.5 pl-5">
         <Ayat>
-          Pengajuan baru kredit barang memakai skema bulanan dengan DP{" "}
-          {BULANAN_PRICING.dpPersen}% dan pilihan tenor{" "}
-          {TENOR_BULANAN_OPTIONS.join(", ")} bulan. Batas pokok pembiayaan
+          Pengajuan baru kredit barang memakai skema bulanan dengan DP wajib{" "}
+          {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}% dari harga
+          barang, dan pilihan tenor{" "}
+          {KREDIT_TENOR_PENGAJUAN_OPTIONS.join(", ")} bulan. Batas pokok pembiayaan
           adalah{" "}
           {new Intl.NumberFormat("id-ID", {
             style: "currency",

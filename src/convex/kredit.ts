@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 import {
   KREDIT_BARANG_POKOK_MAKS,
+  KREDIT_PRICING,
   KREDIT_TENOR_PENGAJUAN_OPTIONS,
   pokokKreditBarangDalamBatas,
   quoteKreditBarang,
@@ -170,6 +171,15 @@ export const ajukanKreditBarang = mutation({
     }
     if (!(KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(args.tenorBulan)) {
       throw new Error(`Tenor kredit barang baru harus ${KREDIT_TENOR_PENGAJUAN_OPTIONS.join(" / ")} bulan (maksimal 6 bulan).`);
+    }
+    // DP wajib sejak pengajuan: kontrak lama boleh 0%, pengajuan baru tidak.
+    if (
+      args.dpPersen < KREDIT_PRICING.dpMinPersen ||
+      args.dpPersen > KREDIT_PRICING.dpMaxPersen
+    ) {
+      throw new Error(
+        `Uang muka (DP) wajib ${KREDIT_PRICING.dpMinPersen}–${KREDIT_PRICING.dpMaxPersen}% dari harga barang.`,
+      );
     }
     const quote = quoteKreditBarang({
       hargaBarang: args.hargaBarang,

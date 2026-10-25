@@ -277,7 +277,8 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     expect(kredit).toMatchObject({
       userId,
       status: "diajukan",
-      dpPersen: 0,
+      // DP wajib: tanpa isian admin, form memakai DP bawaan 20%.
+      dpPersen: 20,
       tenorBulan: 6,
       hargaBarang: 5_000_000,
       namaLengkap: "Rani Peminjam",

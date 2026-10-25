@@ -419,7 +419,9 @@ export const catatKreditManual = mutation({
     merchant: v.string(),
     tautanBarang: v.optional(v.string()),
     hargaBarang: v.number(),
-    /** 1/3/6 bulan (skema bulanan: DP 0%, margin mengikuti tenor). */
+    /** Uang muka (% harga barang, 10–50). Kosong = DP bawaan yang wajib. */
+    dpPersen: v.optional(v.number()),
+    /** 1/3/6 bulan (skema bulanan: DP wajib dari kebijakan kredit, margin mengikuti tenor). */
     tenorBulan: v.number(),
     /** Kosong = pakai nomor rekening dari data diri nasabah. */
     nomorRekening: v.optional(v.string()),
@@ -445,18 +447,20 @@ export const catatKreditManual = mutation({
       merchant: args.merchant,
       tautanBarang: args.tautanBarang,
       hargaBarang: args.hargaBarang,
+      dpPersen: args.dpPersen,
       tenorBulan: args.tenorBulan,
       // Rekening boleh diketik admin; kalau kosong diambil dari data diri
       // nasabah — satu aturan format dengan jalur pengajuan nasabah.
       nomorRekening: args.nomorRekening ?? profil.nomorRekening ?? "",
       catatanPeminjam: args.catatanPeminjam,
     });
-    // Mesin kredit yang sama dengan jalur nasabah: DP 0%, tarif bulanan dari
-    // Pengaturan Sistem, sehingga rincian tidak bisa berbeda.
+    // Mesin kredit yang sama dengan jalur nasabah: DP dari admin (bawaan
+    // wajib bila kosong), tarif bulanan dari Pengaturan Sistem, sehingga
+    // rincian tidak bisa berbeda.
     const tarifBulanan = tarifBulananDariConfig(await getConfig(ctx));
     const quote = quoteKreditBarang({
       hargaBarang: bersih.hargaBarang,
-      dpPersen: KREDIT_ASUMSI_AWAL.dpPersen,
+      dpPersen: bersih.dpPersen,
       tenorBulan: bersih.tenorBulan,
       marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
       tarif: tarifBulanan,
@@ -480,7 +484,7 @@ export const catatKreditManual = mutation({
       merchant: bersih.merchant,
       tautanBarang: bersih.tautanBarang,
       hargaBarang: bersih.hargaBarang,
-      dpPersen: KREDIT_ASUMSI_AWAL.dpPersen,
+      dpPersen: bersih.dpPersen,
       tenorBulan: bersih.tenorBulan,
       marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
       tarifBulanan: quote.tarifBulanan,

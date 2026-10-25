@@ -18,7 +18,11 @@
  */
 import type { Id } from "../convex/_generated/dataModel";
 import { assertSimulasiBulananValid, TENOR_BULANAN_OPTIONS } from "./bulanan";
-import { KREDIT_PRICING, KREDIT_TENOR_PENGAJUAN_OPTIONS } from "./kredit";
+import {
+  KREDIT_ASUMSI_AWAL,
+  KREDIT_PRICING,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
+} from "./kredit";
 import type { JenisPengajuan } from "./jenisPengajuan";
 import {
   LOAN_LIMITS,
@@ -402,7 +406,12 @@ export type KreditManualInput = {
   merchant: string;
   tautanBarang?: string;
   hargaBarang: number;
-  /** 1/3/6 bulan (skema bulanan: DP 0% dan margin mengikuti tenor). */
+  /**
+   * Uang muka (%, 10–50 dari harga barang). Kosong = DP bawaan
+   * `KREDIT_ASUMSI_AWAL.dpPersen` — selalu wajib, tidak pernah 0.
+   */
+  dpPersen?: number;
+  /** 1/3/6 bulan (skema bulanan: DP wajib dari kebijakan kredit, margin mengikuti tenor). */
   tenorBulan: number;
   /** Rekening tujuan — sisa identitas pemohon dari data diri nasabah. */
   nomorRekening: string;
@@ -415,20 +424,31 @@ export type KreditManualBersih = {
   merchant: string;
   tautanBarang: string | undefined;
   hargaBarang: number;
+  dpPersen: number;
   tenorBulan: number;
   nomorRekening: string;
   catatanPeminjam: string | undefined;
 };
 
 /**
- * Validasi bentuk pengajuan kredit barang manual. Harga dan batas pokok
- * pembiayaan mengikuti kebijakan kredit barang; DP/margin tidak diminta karena
- * tenor 1/3/6 bulan memakai skema bulanan (DP 0%, margin dari tenor).
+ * Validasi bentuk pengajuan kredit barang manual. Harga, DP, dan batas pokok
+ * pembiayaan mengikuti kebijakan kredit barang; margin tidak diketik admin
+ * karena tenor 1/3/6 bulan memakai margin dari tenor.
  */
 export function validasiKreditManual(input: KreditManualInput): KreditManualBersih {
   if (!(KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(input.tenorBulan)) {
     throw new Error(
       `Tenor kredit barang harus ${KREDIT_TENOR_PENGAJUAN_OPTIONS.join(" / ")} bulan.`,
+    );
+  }
+  const dpPersen = input.dpPersen ?? KREDIT_ASUMSI_AWAL.dpPersen;
+  if (
+    !Number.isFinite(dpPersen) ||
+    dpPersen < KREDIT_PRICING.dpMinPersen ||
+    dpPersen > KREDIT_PRICING.dpMaxPersen
+  ) {
+    throw new Error(
+      `Uang muka (DP) wajib ${KREDIT_PRICING.dpMinPersen}–${KREDIT_PRICING.dpMaxPersen}% dari harga barang.`,
     );
   }
   if (
@@ -446,6 +466,7 @@ export function validasiKreditManual(input: KreditManualInput): KreditManualBers
     merchant: normalisasiTeks(input.merchant, "Sumber barang", 3, 80),
     tautanBarang: normalisasiTautan(input.tautanBarang),
     hargaBarang: input.hargaBarang,
+    dpPersen,
     tenorBulan: input.tenorBulan,
     nomorRekening: normalisasiRekening(input.nomorRekening),
     catatanPeminjam: normalisasiTeksOpsional(

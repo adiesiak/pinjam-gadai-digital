@@ -66,10 +66,10 @@ const ISI_BRANKAS: ReadonlyArray<{
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
       ["Nilai pembiayaan", "Hingga Rp 10 jt"],
-      ["Uang muka", "0%"],
+      ["Uang muka", "Wajib 10–50%"],
       ["Potongan di muka", "2% (biaya admin; platform 0%)"],
-      ["Tenor", "1 / 3 / 6 / 9 / 12 bulan"],
-      ["Cicilan", "Rata dari pokok penuh"],
+      ["Tenor", "1 / 3 / 6 bulan"],
+      ["Cicilan", "Rata dari pokok setelah DP"],
     ],
   },
 ];

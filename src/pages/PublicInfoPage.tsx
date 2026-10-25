@@ -46,14 +46,17 @@ import {
   tarifBulananAman,
   TENOR_BULANAN_OPTIONS,
   BULANAN_LIMITS,
-  BULANAN_PRICING,
   persenBungaPerBulan,
   type TarifBulanan,
 } from "@/lib/bulanan";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GADAI_PRICING, quoteGadai } from "@/lib/gadai";
-import { KREDIT_BARANG_POKOK_MAKS } from "@/lib/kredit";
+import {
+  KREDIT_BARANG_POKOK_MAKS,
+  KREDIT_PRICING,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
+} from "@/lib/kredit";
 import { LOKASI_KEBIJAKAN } from "@/lib/lokasi";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
 import { MAX_FILE_BYTES, GAMBAR_DITERIMA } from "@/lib/kyc";
@@ -792,14 +795,13 @@ export function PublicInfoPageView({
               <p className="text-sm leading-6 text-slate-600">
                 Kredit barang: pokok pembiayaan sampai{" "}
                 {formatRupiah(KREDIT_BARANG_POKOK_MAKS)}. Tenor{" "}
-                {TENOR_BULANAN_OPTIONS.join("/")} bulan, DP{" "}
-                {BULANAN_PRICING.dpPersen}%, potongan awal{" "}
+                {KREDIT_TENOR_PENGAJUAN_OPTIONS.join("/")} bulan, DP wajib{" "}
+                {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}%,
+                potongan awal{" "}
                 {tarifBulanan.persenBiayaLayananBulanan}%, bunga flat{" "}
                 {persenBungaPerBulan(1, tarifBulanan)}/
                 {persenBungaPerBulan(3, tarifBulanan)}/
-                {persenBungaPerBulan(6, tarifBulanan)}/
-                {persenBungaPerBulan(9, tarifBulanan)}/
-                {persenBungaPerBulan(12, tarifBulanan)}% per bulan; setiap
+                {persenBungaPerBulan(6, tarifBulanan)}% per bulan; setiap
                 cicilan bulanan dikenai biaya admin cicilan{" "}
                 {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari nominal
                 cicilan.{" "}
@@ -846,14 +848,16 @@ export function PublicInfoPageView({
               </ul>
             ) : (
               <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
-                <li>Tenor baru 1, 3, 6, 9, atau 12 bulan dengan DP 0%.</li>
+                <li>
+                  Tenor baru 1, 3, atau 6 bulan dengan DP wajib{" "}
+                  {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}% dari
+                  harga barang.
+                </li>
                 <li>
                   Biaya awal {tarifBulanan.persenBiayaLayananBulanan}% dan bunga
-                  flat dari pokok penuh: {persenBungaPerBulan(1, tarifBulanan)}%,{" "}
-                  {persenBungaPerBulan(3, tarifBulanan)}%,{" "}
-                  {persenBungaPerBulan(6, tarifBulanan)}%,{" "}
-                  {persenBungaPerBulan(9, tarifBulanan)}%, atau{" "}
-                  {persenBungaPerBulan(12, tarifBulanan)}% per bulan sesuai tenor.
+                  flat dari pokok setelah DP: {persenBungaPerBulan(1, tarifBulanan)}%,{" "}
+                  {persenBungaPerBulan(3, tarifBulanan)}%, atau{" "}
+                  {persenBungaPerBulan(6, tarifBulanan)}% per bulan sesuai tenor.
                 </li>
                 <li>
                   Biaya admin cicilan{" "}
@@ -862,8 +866,8 @@ export function PublicInfoPageView({
                 </li>
                 <li>
                   Pokok pembiayaan maksimal{" "}
-                  {formatRupiah(KREDIT_BARANG_POKOK_MAKS)}; pembelian barang
-                  ditangani di luar aplikasi.
+                  {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} setelah DP; pembelian
+                  barang ditangani di luar aplikasi.
                 </li>
               </ul>
             )}

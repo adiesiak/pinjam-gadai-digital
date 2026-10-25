@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 
 import {
   TENOR_BULANAN_OPTIONS,
-  BULANAN_PRICING,
   TARIF_BULANAN_DEFAULT,
 } from "@/lib/bulanan";
 import { BIAYA_EKSPRES_TIER, BIAYA_ROLLOVER } from "@/lib/ekonomiPlatform";
@@ -200,7 +199,9 @@ const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
     judul: "Kredit barang",
     isi: `Pengajuan baru memakai tenor ${daftarAtau(
       KREDIT_TENOR_PENGAJUAN_OPTIONS,
-    )} bulan dengan DP ${BULANAN_PRICING.dpPersen}%. Harga barang ${rp(
+    )} bulan dengan DP wajib ${KREDIT_PRICING.dpMinPersen}–${
+      KREDIT_PRICING.dpMaxPersen
+    }% dari harga barang. Harga barang ${rp(
       KREDIT_PRICING.minHargaBarang,
     )} sampai ${rp(KREDIT_PRICING.maxHargaBarang)}, dan pokok yang dibiayai dibatasi ${rp(
       KREDIT_BARANG_POKOK_MAKS,

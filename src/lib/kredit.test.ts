@@ -92,7 +92,7 @@ eq(sebagian.imbalHasil, 1_200_000, "total Imbal Hasil 50% = 1,2jt");
 eq(sebagian.totalDiterima, 5_200_000, "total diterima porsi 50%");
 eq(sebagian.persenImbalHasil, 30, "persen Imbal Hasil tetap 30%");
 
-// ---- Tenor 3 bulan: skema bulanan (DP 0%, bunga 33%/bln FLAT dari pokok) ----
+// ---- Tenor 3 bulan kontrak lama: DP 0%, bunga FLAT dari pokok penuh ----
 const pendek = quoteKreditBarang({
   hargaBarang: 10_000_000,
   dpPersen: 0,
@@ -137,6 +137,30 @@ eq(singkat.biayaAdminCicilanTotal, 260_000, "tenor 1 bulan: admin cicilan 2% dar
 eq(singkat.cicilanPerBulan, 13_260_000, "tenor 1 bulan: cicilan = pokok + Imbal Hasil + admin cicilan");
 eq(singkat.totalDibayarKonsumen, 13_460_000, "tenor 1 bulan: total Konsumen = cicilan + biaya 2% di muka");
 eq(singkat.jadwal.length, 1, "tenor 1 bulan: satu baris jadwal");
+
+// ---- DP wajib: bunga, biaya, dan porsi pendana dihitung dari pokok dibiayai ----
+const dp20 = quoteKreditBarang({
+  hargaBarang: 10_000_000,
+  dpPersen: 20,
+  tenorBulan: 3,
+  marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan,
+});
+eq(dp20.dp, 2_000_000, "DP 20% dari 10jt = 2jt");
+eq(dp20.pokokDibiayai, 8_000_000, "pokok dibiayai = harga − DP");
+eq(dp20.marginPerBulan, 1_600_000, "Imbal Hasil 20% dari pokok dibiayai 8jt");
+eq(dp20.marginTotal, 4_800_000, "total Imbal Hasil flat 3 bulan dari pokok dibiayai");
+eq(dp20.biayaAdmin, 160_000, "biaya admin 2% dari pokok dibiayai");
+eq(dp20.porsiDana, 8_000_000, "porsi pendana penuh = pokok dibiayai");
+eq(
+  dp20.jadwal.reduce((acc, row) => acc + row.pokok, 0),
+  dp20.pokokDibiayai,
+  "Σ pokok jadwal tetap sama dengan pokok dibiayai",
+);
+eq(
+  dp20.totalDibayarKonsumen,
+  dp20.dp + dp20.jadwal.reduce((acc, row) => acc + row.total, 0) + dp20.biayaLayanan,
+  "total Konsumen = DP + seluruh cicilan + biaya di muka",
+);
 // ---- Tenor 12 bulan pada Imbal Hasil minimum skema (DP + margin flat) ----
 const flatMin = quoteKreditBarang({
   hargaBarang: 10_000_000,

@@ -61,17 +61,18 @@ export function pokokKreditBarangDalamBatas(pokok: number): boolean {
 }
 
 export const KREDIT_PRICING = {
-  /** Uang muka minimum (% dari harga barang). */
+  /** Uang muka minimum (% dari harga barang) — wajib pada setiap pengajuan baru. */
   dpMinPersen: 10,
   /** Uang muka maksimum (% dari harga barang). */
   dpMaxPersen: 50,
   /**
    * Pilihan tenor kredit barang (bulan) = KREDIT_TENOR_PENGAJUAN_OPTIONS:
-   * 1/3/6 bulan dengan skema bulanan (DP 0%, biaya admin 2% dari pokok untuk
-   * SELURUH tenor resmi, dipotong di muka; bunga FLAT dari
-   * pokok penuh 30%/33%/35% per bulan sesuai tenor; TAMBAHAN biaya admin
-   * cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan). Tenor 12/24 bulan tidak
-   * ditawarkan lagi — kontrak warisan itu memakai layanan 3% di muka.
+   * 1/3/6 bulan dengan skema bulanan (DP wajib 10–50%, biaya admin 2% dari
+   * pokok dibiayai untuk SELURUH tenor resmi, dipotong di muka; bunga FLAT
+   * dari pokok dibiayai 30%/33%/35% per bulan sesuai tenor; TAMBAHAN biaya
+   * admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan).
+   * Tenor 12/24 bulan tidak ditawarkan lagi — kontrak warisan itu memakai
+   * layanan 3% di muka.
    */
   tenorBulanOptions: KREDIT_TENOR_PENGAJUAN_OPTIONS,
   /** Imbal Hasil minimum per bulan (% dari pokok dibiayai). */
@@ -95,7 +96,7 @@ export const KREDIT_PRICING = {
 
 /** Asumsi awal yang dipakai tampilan & contoh katalog. */
 export const KREDIT_ASUMSI_AWAL = {
-  dpPersen: 0,
+  dpPersen: 20,
   tenorBulan: 6,
   marginPersenPerBulan: 3.5,
   porsiDanaPersen: 100,
@@ -192,11 +193,10 @@ function bulatDuaDesimal(v: number): number {
 }
 
 /**
- * True bila tenor memakai skema bulanan kredit barang (1/3/6 bulan): DP 0%,
- * biaya 2% (admin 2%, platform dihapus) dari pokok — dipotong di muka, setiap
- * pembayaran menambah biaya admin cicilan 2% — dan bunga flat per tenor; input
- * DP/margin manual diabaikan engine. Dipakai UI agar slider yang tidak
- * berpengaruh disembunyikan.
+ * True bila tenor memakai skema bulanan kredit barang (1/3/6 bulan): DP wajib
+ * 10–50% dari harga barang, biaya 2% (admin 2%, platform dihapus) dari pokok
+ * dibiayai — dipotong di muka, setiap pembayaran menambah biaya admin cicilan
+ * 2% — dan bunga flat per tenor; margin manual diabaikan engine.
  *
  * Sengaja memakai `KREDIT_TENOR_PENGAJUAN_OPTIONS`, bukan
  * `TENOR_BULANAN_OPTIONS`: daftar tenor resmi pinjaman tunai bisa bertambah
@@ -230,16 +230,16 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       `Harga barang harus antara ${KREDIT_PRICING.minHargaBarang} dan ${KREDIT_PRICING.maxHargaBarang} rupiah.`,
     );
   }
-  // Tenor 1/3/6 bulan (skema bulanan) tidak memakai DP & margin flat —
-  // validasi keduanya dilewati; skema DP + margin (warisan 12/24) tetap ketat.
+  // DP wajib pada pengajuan baru. Engine sendiri menerima 0% agar kontrak
+  // kredit lama (dan data contoh) tetap bisa dihitung ulang; gerbang "wajib
+  // DP" ada di `ajukanKreditBarang` yang menolak di bawah dpMinPersen.
   const skemaBulanan = (KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(
     tenorBulan,
   );
   if (
-    !skemaBulanan &&
-    (!Number.isFinite(dpPersen) ||
-      dpPersen < KREDIT_PRICING.dpMinPersen ||
-      dpPersen > KREDIT_PRICING.dpMaxPersen)
+    !Number.isFinite(dpPersen) ||
+    dpPersen > KREDIT_PRICING.dpMaxPersen ||
+    dpPersen < (skemaBulanan ? 0 : KREDIT_PRICING.dpMinPersen)
   ) {
     throw new Error(
       `Uang muka (DP) harus ${KREDIT_PRICING.dpMinPersen}–${KREDIT_PRICING.dpMaxPersen}% dari harga barang.`,
@@ -262,13 +262,20 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     );
   }
 
-  // ===== Skema bulanan (tenor 1/3/6 bulan): DP 0%, fee sesuai tenor
-  // dipotong di muka, bunga menurun — mesin bulanan yang sama dengan pinjaman tunai.
-  // bunga = Imbal Hasil penyedia dana.
+  // ===== Skema bulanan (tenor 1/3/6 bulan): DP memotong pokok yang dibiayai,
+  // fee sesuai tenor dipotong di muka, bunga flat — mesin bulanan yang sama
+  // dengan pinjaman tunai. Bunga = Imbal Hasil penyedia dana.
   if (skemaBulanan) {
+    // DP dibayar Konsumen ke merchant; yang dibiayai (dan menjadi dasar bunga,
+    // biaya admin, serta porsi pendana) hanya sisa harga barangnya.
+    const dp = percentOf(hargaBarang, dpPersen);
+    const pokokDibiayai = hargaBarang - dp;
+    if (pokokDibiayai <= 0) {
+      throw new Error("Uang muka tidak boleh menutup seluruh harga barang.");
+    }
     // Skema kredit menyeragamkan biaya admin 2% di semua tenor resminya
-    // (termasuk tenor 1 bulan) — potongan di muka 2%, dana diterima 98%.
-    const sim = hitungSimulasiBulanan(hargaBarang, tenorBulan, {
+    // (termasuk tenor 1 bulan) — potongan di muka 2% dari pokok dibiayai.
+    const sim = hitungSimulasiBulanan(pokokDibiayai, tenorBulan, {
       tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
       tarif: input.tarif ?? null,
     });
@@ -286,8 +293,8 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
     );
 
     // ===== Hak penyedia dana: proporsional terhadap porsi pendanaan =====
-    // (DP 0% → pokok dibiayai = harga barang.)
-    const porsiDanaBulanan = percentOf(hargaBarang, porsiDanaPersen);
+    // Dasar porsi adalah pokok dibiayai (setelah DP), bukan harga barang.
+    const porsiDanaBulanan = percentOf(pokokDibiayai, porsiDanaPersen);
     const imbalHasilPerBulanBulanan = percentOf(sim.bungaPerBulan, porsiDanaPersen);
     const imbalHasilBulanan = percentOf(sim.bungaTotal, porsiDanaPersen);
     const persenImbalHasilBulanan =
@@ -297,8 +304,8 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
 
     return {
       hargaBarang,
-      dp: sim.dp,
-      pokokDibiayai: sim.pokokDibiayai,
+      dp,
+      pokokDibiayai,
       biayaLayanan: sim.biayaLayananTotal,
       biayaAdmin: sim.biayaAdminTotal,
       biayaPlatform: sim.biayaPlatformTotal,
@@ -308,8 +315,8 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
       cicilanPerBulan: sim.cicilanPerBulan,
       cicilanTerakhir: sim.cicilanTerakhir,
       tarifBulanan: sim.tarif,
-      // Konsumen membayar cicilan (pokok + Imbal Hasil) PLUS biaya di muka.
-      totalDibayarKonsumen: sim.totalPengembalian + sim.potonganDiMuka,
+      // Konsumen membayar DP, cicilan (pokok + Imbal Hasil), PLUS biaya di muka.
+      totalDibayarKonsumen: dp + sim.totalPengembalian + sim.potonganDiMuka,
       jadwal,
       porsiDanaPersen,
       porsiDana: porsiDanaBulanan,

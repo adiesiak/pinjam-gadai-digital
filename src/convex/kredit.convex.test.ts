@@ -52,7 +52,7 @@ describe("manual review and unverified money movement", () => {
       kategori: "Elektronik",
       merchant: "Toko mitra",
       hargaBarang: 8_000_000,
-      dpPersen: 0,
+      dpPersen: 20,
       tenorBulan: 6,
       marginPersenPerBulan: 3.5,
       namaLengkap: "Budi Peminjam",
@@ -126,5 +126,48 @@ describe("manual review and unverified money movement", () => {
     expect(depositAfter.status).toBe("menunggu_verifikasi");
     expect(entriesAfter).toBe(ledgerCountBefore);
     expect(paymentsAfter).toHaveLength(0);
+  });
+});
+
+describe("DP wajib kredit barang", () => {
+  it("menolak pengajuan tanpa DP dan menyimpan DP pada kontrak", async () => {
+    const t = convexTest(schema, modules);
+    const asPeminjam = await buatSesi(t, "peminjam-dp", {
+      email: "peminjam-dp@pindai.test",
+      role: "peminjam",
+    });
+    await asPeminjam.mutation(api.lokasi.catatLokasi, {
+      lat: -6.2,
+      lng: 106.816666,
+      akurasi: 25,
+      sumber: "web",
+    });
+    const pengajuanDasar = {
+      namaBarang: "Kulkas dua pintu",
+      kategori: "Elektronik",
+      merchant: "Toko mitra",
+      hargaBarang: 5_000_000,
+      tenorBulan: 3,
+      marginPersenPerBulan: 3.5,
+      namaLengkap: "Sari Peminjam",
+      nik: "3201234567890004",
+      nomorRekening: "1234567892",
+      nomorWhatsApp: "628123456792",
+    } as const;
+
+    await expect(
+      asPeminjam.mutation(api.kredit.ajukanKreditBarang, {
+        ...pengajuanDasar,
+        dpPersen: 0,
+      }),
+    ).rejects.toThrow("Uang muka (DP) wajib 10–50% dari harga barang.");
+
+    await asPeminjam.mutation(api.kredit.ajukanKreditBarang, {
+      ...pengajuanDasar,
+      dpPersen: 20,
+    });
+    const [pengajuan] = await asPeminjam.query(api.kredit.kreditSaya, {});
+    expect(pengajuan.dp).toBe(1_000_000);
+    expect(pengajuan.pokokDibiayai).toBe(4_000_000);
   });
 });

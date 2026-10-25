@@ -30,7 +30,6 @@ import {
   KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
   KREDIT_TENOR_PENGAJUAN_OPTIONS,
   quoteKreditBarang,
-  skemaBulananKredit,
 } from "@/lib/kredit";
 import { identitasDasarKyc } from "@/lib/kyc";
 import { isKycVerified } from "@/lib/kycStatus";
@@ -152,13 +151,13 @@ export function KreditBarangForm({
     identitasKyc.namaLengkap !== "" ||
     identitasKyc.nik !== "" ||
     identitasKyc.nomorWhatsApp !== "";
-  // Batas kredit barang terpisah dari plafon pinjaman tunai: tenor baru
-  // 1/3/6 bulan memakai DP 0%, sehingga harga = pokok dibiayai.
-  const hargaMaksPlafon = KREDIT_BARANG_POKOK_MAKS;
-
-  // Tenor 1/3/6 bulan memakai skema bulanan (DP 0%, bunga flat) — slider DP
-  // dan margin tidak berpengaruh, jadi diganti keterangan otomatis engine.
-  const bulanan = skemaBulananKredit(tenorBulan);
+  // Yang dibatasi plafon kredit barang adalah pokok dibiayai (harga setelah
+  // DP), jadi batas harga barang mengikuti DP yang dipilih.
+  const hargaMaksPlafon = useMemo(
+    () =>
+      Math.floor((KREDIT_BARANG_POKOK_MAKS * 100) / (100 - dpPersen)),
+    [dpPersen],
+  );
 
   const preview = useMemo(() => {
     try {
@@ -344,8 +343,9 @@ export function KreditBarangForm({
           />
           <p className="text-xs leading-5 text-muted-foreground">
             Rentang {formatRupiah(KREDIT_PRICING.minHargaBarang)}–
-            {formatRupiah(hargaMaksPlafon)}
-            . Batas ini terpisah dari plafon pinjaman tunai.
+            {formatRupiah(hargaMaksPlafon)}, yaitu pokok dibiayai maksimal{" "}
+            {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} setelah DP {dpPersen}%. Batas
+            ini terpisah dari plafon pinjaman tunai.
           </p>
         </div>
       </div>
@@ -359,24 +359,23 @@ export function KreditBarangForm({
         <div className="mt-4 flex items-baseline justify-between gap-3">
           <Label className="text-xs text-muted-foreground">Uang muka (DP)</Label>
           <span className="text-xs font-semibold tabular-nums">
-            {bulanan ? 0 : dpPersen}% · {formatRupiah(preview?.dp ?? 0)}
+            {dpPersen}% · {formatRupiah(preview?.dp ?? 0)}
           </span>
         </div>
-        {bulanan ? (
-          <p className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-800">
-            Tenor {tenorBulan} bulan memakai DP 0%; angka mengikuti skema kredit barang.
-          </p>
-        ) : (
-          <Slider
-            className="mt-3"
-            min={KREDIT_PRICING.dpMinPersen}
-            max={KREDIT_PRICING.dpMaxPersen}
-            step={5}
-            value={[dpPersen]}
-            onValueChange={(v) => setDpPersen(v[0] ?? KREDIT_PRICING.dpMinPersen)}
-            disabled={submitting}
-          />
-        )}
+        <Slider
+          className="mt-3"
+          min={KREDIT_PRICING.dpMinPersen}
+          max={KREDIT_PRICING.dpMaxPersen}
+          step={5}
+          value={[dpPersen]}
+          onValueChange={(v) => setDpPersen(v[0] ?? KREDIT_PRICING.dpMinPersen)}
+          disabled={submitting}
+        />
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          DP wajib {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}% dari
+          harga barang dan dibayar langsung ke merchant. Bunga serta biaya dihitung
+          dari sisa harga setelah DP.
+        </p>
 
         <div className="mt-5 flex items-baseline justify-between gap-3">
           <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
@@ -416,8 +415,16 @@ export function KreditBarangForm({
         ) : (
           <>
           <dl className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
+            <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+              <dt className="text-muted-foreground">Harga barang</dt>
+              <dd className="tabular-nums">{formatRupiah(preview.hargaBarang)}</dd>
+            </div>
+            <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+              <dt className="text-muted-foreground">DP {dpPersen}% (dibayar ke merchant)</dt>
+              <dd className="tabular-nums text-red-600">−{formatRupiah(preview.dp)}</dd>
+            </div>
             <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2.5 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="font-semibold text-emerald-800">Nilai barang (tidak dicairkan)</dt>
+              <dt className="font-semibold text-emerald-800">Pokok dibiayai (tidak dicairkan)</dt>
               <dd className="font-semibold tabular-nums text-emerald-700">
                 {formatRupiah(preview.pokokDibiayai)}
               </dd>

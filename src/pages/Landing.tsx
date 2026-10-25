@@ -798,7 +798,7 @@ export default function Landing() {
                 </span>
                 <h3 className="mt-4 text-lg font-semibold">Kredit barang</h3>
                 <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
-                  Barang elektronik dan marketplace mitra dengan DP 0%, tenor 1/3/6 bulan, biaya admin 2% (platform dihapus) dipotong di muka, dan cicilan rata dari pokok penuh.
+                  Barang elektronik dan marketplace mitra dengan DP wajib 10–50%, tenor 1/3/6 bulan, biaya admin 2% (platform dihapus) dipotong di muka, dan cicilan rata dari pokok setelah DP.
                 </p>
                 <Button asChild variant="link" className="mt-4 self-start px-0 text-primary">
                   <Link to={accountHref}>

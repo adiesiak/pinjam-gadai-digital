@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import {
@@ -65,6 +66,7 @@ export function FormKreditManual({
   const [merchant, setMerchant] = useState("");
   const [tautan, setTautan] = useState("");
   const [hargaInput, setHargaInput] = useState("");
+  const [dpPersen, setDpPersen] = useState<number>(KREDIT_ASUMSI_AWAL.dpPersen);
   const [tenorBulan, setTenorBulan] = useState<number>(KREDIT_ASUMSI_AWAL.tenorBulan);
   const [nomorRekening, setNomorRekening] = useState(nasabah.nomorRekening ?? "");
   const [catatan, setCatatan] = useState("");
@@ -75,21 +77,21 @@ export function FormKreditManual({
   const dataDiriSiap = nasabah.adaDataDiri;
 
   const harga = rupiahDariTeks(hargaInput);
-  // Pratinjau: DP 0% dan margin tenor bawaan untuk skema bulanan 1/3/6 bulan —
+  // Pratinjau: DP wajib dan margin tenor untuk skema bulanan 1/3/6 bulan —
   // angka yang sama akan dihitung ulang server saat pengajuan disimpan.
   const preview = useMemo(() => {
     if (harga === null) return null;
     try {
       return quoteKreditBarang({
         hargaBarang: harga,
-        dpPersen: KREDIT_ASUMSI_AWAL.dpPersen,
+        dpPersen,
         tenorBulan,
         marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
       });
     } catch {
       return null;
     }
-  }, [harga, tenorBulan]);
+  }, [harga, dpPersen, tenorBulan]);
 
   const kirim = async () => {
     setError(null);
@@ -105,6 +107,7 @@ export function FormKreditManual({
         merchant,
         tautanBarang: tautan,
         hargaBarang: harga,
+        dpPersen,
         tenorBulan,
         nomorRekening,
         catatanPeminjam: catatan,
@@ -128,6 +131,7 @@ export function FormKreditManual({
         merchant: bersih.merchant,
         ...(bersih.tautanBarang !== undefined ? { tautanBarang: bersih.tautanBarang } : {}),
         hargaBarang: bersih.hargaBarang,
+        dpPersen: bersih.dpPersen,
         tenorBulan: bersih.tenorBulan,
         nomorRekening: bersih.nomorRekening,
         ...(bersih.catatanPeminjam !== undefined
@@ -243,6 +247,26 @@ export function FormKreditManual({
 
       <div>
         <div className="flex items-baseline justify-between gap-3">
+          <Label className="text-xs text-muted-foreground">Uang muka (DP)</Label>
+          <span className="text-xs font-semibold tabular-nums">
+            {dpPersen}% · {formatRupiah(preview?.dp ?? 0)}
+          </span>
+        </div>
+        <Slider
+          className="mt-3"
+          min={KREDIT_PRICING.dpMinPersen}
+          max={KREDIT_PRICING.dpMaxPersen}
+          step={5}
+          value={[dpPersen]}
+          onValueChange={(v) => setDpPersen(v[0] ?? KREDIT_PRICING.dpMinPersen)}
+          disabled={busy}
+        />
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          Wajib {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}% dari
+          harga barang; bunga dan biaya dihitung dari sisa harga setelah DP.
+        </p>
+
+        <div className="mt-5 flex items-baseline justify-between gap-3">
           <Label className="text-xs text-muted-foreground">Tenor cicilan</Label>
           <span className="text-xs font-semibold tabular-nums">{tenorBulan} bulan</span>
         </div>
@@ -274,7 +298,7 @@ export function FormKreditManual({
         <div>
           <dl className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
             <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
-              <dt className="text-muted-foreground">Pokok dibiayai (DP 0%)</dt>
+              <dt className="text-muted-foreground">Pokok dibiayai (setelah DP {dpPersen}%)</dt>
               <dd className="tabular-nums text-navy">{formatRupiah(preview.pokokDibiayai)}</dd>
             </div>
             <div className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
@@ -291,9 +315,9 @@ export function FormKreditManual({
             </div>
           </dl>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            Angka ini dihitung ulang server saat disimpan. DP 0% untuk tenor 1/3/6 bulan, dan
-            kredit barang bukan pencairan uang tunai — PINDAI tidak membeli barang atau mengirim
-            dana ke merchant.
+            Angka ini dihitung ulang server saat disimpan. DP {dpPersen}% dari harga
+            barang dipakai sebagai uang muka Konsumen, dan kredit barang bukan pencairan uang
+            tunai — PINDAI tidak membeli barang atau mengirim dana ke merchant.
           </p>
         </div>
       )}
