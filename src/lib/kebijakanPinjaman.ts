@@ -25,9 +25,9 @@
  * Marjin per bulan menurut kebijakan tenor. Marjin TOTAL satu tenor adalah
  * angka ini dikali jumlah bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%.
  *
- * Angka ini adalah kebijakan produk, bukan tarif yang sedang berlaku di mesin.
- * Penerapannya ke harga dan pembayaran dilakukan bersama migrasi porsi margin;
- * modul ini menjadi sumber tunggal untuk gerbang syarat dan tampilan proyeksi.
+ * Angka ini adalah kebijakan produk. Tarif bawaan mesin bulanan
+ * (`BULANAN_PRICING`) menyamakan nilainya, sehingga perhitungan, kontrak, dan
+ * proyeksi pendana memakai marjin yang sama dengan gerbang syarat di sini.
  */
 export const MARJIN_PER_BULAN: Readonly<Record<number, number>> = {
   1: 30,

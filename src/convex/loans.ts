@@ -548,7 +548,7 @@ export const createLoanApplication = mutation({
     /**
      * Tenor bulanan (DP 0%, potongan di muka 2% — biaya admin 2% untuk tenor
      * 3/6, biaya layanan 2% untuk tenor 1, biaya platform dihapus; bunga flat
-     * dari pokok penuh mengikuti tarif akun, bawaan 30%/33%/35% per bulan untuk
+     * dari pokok penuh mengikuti tarif akun, bawaan 30%/20%/12% per bulan untuk
      * tenor 1/3/6 bulan; biaya admin
      * cicilan 2% pada setiap pembayaran) — pinjaman DI LUAR plafon 1 jt / 28
      * hari. Bila diisi, `tenorHari` diabaikan.
@@ -736,7 +736,8 @@ export const createLoanApplication = mutation({
         persenBungaHarian(args.pokokPinjaman, args.tenorHari) ?? PINDAI_PRICING.bungaPercent;
     } else {
       // Skema bulanan: bunga per bulan mengikuti tenor dan tarif yang berlaku
-      // (bawaan 30/33/35% per bulan), sama dengan tabel di halaman ketentuan.
+      // (bawaan 30/20/12% per bulan, marjin total 30/60/72%), sama dengan tabel
+      // di halaman ketentuan.
       persenBungaSimpanan = persenBungaPerBulan(tenorBulanSim, tarifBulanan);
     }
 

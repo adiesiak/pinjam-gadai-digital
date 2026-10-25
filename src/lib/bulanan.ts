@@ -14,9 +14,9 @@
  *    selalu 2% (dana diterima 98%), berapa pun tenor yang dipilih.
  *  - Bunga/margin (hak penyedia dana) — FLAT dari pokok penuh, sama besar setiap
  *    bulan (tidak menurun dari sisa pokok):
- *      tenor 1 bulan  → 30% / bulan
- *      tenor 3 bulan  → 33% / bulan
- *      tenor ≥ 6 bln  → 35% / bulan
+ *      tenor 1 bulan  → 30% / bulan (marjin 30%)
+ *      tenor 3 bulan  → 20% / bulan (marjin total 60%)
+ *      tenor ≥ 6 bln  → 12% / bulan (marjin total 72%)
  *  - Cicilan = angsuran pokok + bunga bulan itu. Karena bunga flat, cicilan
  *    bulanan rata (bulan terakhir hanya menyerap pembulatan pokok).
  *  - SETIAP tenor bulanan resmi (1, 3, dan 6 bulan) dikenai biaya admin
@@ -132,11 +132,17 @@ export const BULANAN_PRICING = {
   biayaPlatformPersen: 0,
   /** Bunga tenor 1 bulan (%/bulan, flat dari pokok penuh). */
   bungaTenor1PersenPerBulan: 30,
-  /** Bunga tenor 3–5 bulan (%/bulan, flat dari pokok penuh). */
-  bungaTenor3_5PersenPerBulan: 33,
-  /** Bunga tenor ≥ 6 bulan (%/bulan, flat dari pokok penuh). */
-  bungaMin6PersenPerBulan: 35,
-  /** Batas profit total terhadap pokok untuk tenor resmi (tertinggi 6 bln ≈ 218%). */
+  /**
+   * Bunga tenor 3–5 bulan (%/bulan, flat dari pokok penuh). 20% × 3 bulan =
+   * marjin total 60%, sesuai kebijakan tenor di `lib/kebijakanPinjaman`.
+   */
+  bungaTenor3_5PersenPerBulan: 20,
+  /**
+   * Bunga tenor ≥ 6 bulan (%/bulan, flat dari pokok penuh). 12% × 6 bulan =
+   * marjin total 72%, sesuai kebijakan tenor di `lib/kebijakanPinjaman`.
+   */
+  bungaMin6PersenPerBulan: 12,
+  /** Batas profit total terhadap pokok untuk tenor resmi (tertinggi 6 bln = 72%). */
   maxProfitTotalPersen: 230,
 } as const;
 

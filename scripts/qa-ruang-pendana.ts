@@ -206,7 +206,7 @@ const aturanTertutup = renderToStaticMarkup(
 cek(
   aturanTertutup.includes(">05<") &&
     aturanTertutup.includes(
-      "tenor 30 hari · yield 30% p.p. · biaya platform (layanan) 5%",
+      "siklus 30 hari · porsi pendana 78,33% · porsi platform 21,67%",
     ),
   "nomor bagian 05 dan skema tetap tercetak saat aturannya tertutup",
 );
@@ -419,16 +419,16 @@ for (const pita of ["Dana pendana", "Hasil pendana", "Platform"]) {
 
 // 7. Istilah biaya 5%: nama yang dipilih pemilik, tanpa sisa istilah lama yang
 // masih terbaca pengguna di bagian yang benar-benar dirender.
-const bagianBerbiaya: readonly (readonly [string, string])[] = [
-  ["aturan perhitungan", aturan],
-  ["ringkasan keuntungan", keuntungan],
-  ["tabel pendana", tabelPendana],
-  ["rincian baris tabel", rincianTerbuka],
+const bagianBerbiaya: readonly (readonly [string, string, string])[] = [
+  ["aturan perhitungan", aturan, "Porsi platform"],
+  ["ringkasan keuntungan", keuntungan, "Porsi platform"],
+  ["tabel pendana", tabelPendana, "Biaya platform (layanan)"],
+  ["rincian baris tabel", rincianTerbuka, "Biaya platform (layanan)"],
 ];
-for (const [nama, html] of bagianBerbiaya) {
+for (const [nama, html, label] of bagianBerbiaya) {
   cek(
-    html.includes("Biaya platform (layanan)"),
-    `${nama} menyebut biaya 5% sebagai "Biaya platform (layanan)"`,
+    html.includes(label),
+    `${nama} menyebut bagian platform sebagai "${label}"`,
   );
   cek(
     !/potongan admin/i.test(html),

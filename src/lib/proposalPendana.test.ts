@@ -174,7 +174,7 @@ eq(
 ada(teks, "Ringkasan eksekutif", "bagian ringkasan eksekutif");
 ada(teks, "Potensi pasar dan koridor industri", "bagian potensi pasar");
 ada(teks, "Skema pendanaan", "bagian skema");
-ada(teks, "Biaya platform dan mitigasi risiko", "bagian biaya dan risiko");
+ada(teks, "Porsi platform dan mitigasi risiko", "bagian porsi dan risiko");
 ada(teks, "Alur kemitraan", "bagian alur kemitraan");
 
 // ===== Target 2027 dan pasar =====
@@ -192,7 +192,7 @@ ada(teks, "KIIC, EJIP, Jababeka, MM2100, Sentul", "kawasan industri disebut");
 
 // ===== Skema dan contoh utama =====
 ada(teks, "30% flat", "Imbal Hasil flat dinyatakan");
-ada(teks, "5% x (pokok + Imbal Hasil)", "dasar biaya platform dijelaskan");
+ada(teks, "5% x marjin", "dasar porsi platform dijelaskan");
 ada(teks, "Diterima bersih", "hasil bersih dinyatakan");
 ada(teks, "123,5% dari pokok", "diterima bersih dalam persen");
 ada(teks, "23,5% dari pokok", "keuntungan bersih dalam persen");
@@ -218,7 +218,7 @@ ada(
   "catatan keuntungan di pita",
 );
 eq(contoh.imbal, 3_000_000, "Imbal Hasil 10 juta adalah 3 juta");
-eq(contoh.potonganAdmin, 650_000, "biaya 5% dari total kembali 13 juta adalah 650 ribu");
+eq(contoh.potonganAdmin, 650_000, "porsi 21,67% dari marjin 3 juta adalah 650 ribu");
 eq(contoh.diterima, 12_350_000, "diterima bersih 12,35 juta");
 eq(contoh.keuntungan, 2_350_000, "keuntungan bersih 2,35 juta");
 
@@ -287,12 +287,16 @@ ada(teks, "wa.me/6285119574032", "tautan WhatsApp resmi");
   });
   const lain = semuaTeks(lainDok);
   const bagi = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, 2.5);
-  ada(lain, "2,5% x (pokok + Imbal Hasil)", "persen desimal memakai koma");
-  ada(lain, formatRupiahAman(bagi.potonganAdmin), "biaya mengikuti tarif baru");
-  ada(lain, formatRupiahAman(bagi.diterima), "diterima mengikuti tarif baru");
+  ada(lain, "2,5% x marjin", "persen desimal memakai koma");
+  ada(lain, "Porsi platform (layanan) 2,5%", "label porsi memakai tarif tersimpan");
+  eq(
+    bagi.diterima,
+    contoh.diterima,
+    "porsi 13/60 tidak berubah oleh tarif biaya lama",
+  );
   ok(
-    !lain.includes(formatRupiahAman(contoh.diterima)),
-    "dokumen tidak menyisakan hasil tarif lama",
+    lain.includes(formatRupiahAman(contoh.diterima)),
+    "dokumen memakai angka porsi yang sama",
   );
 }
 {

@@ -8,7 +8,8 @@
  * Skema harian: Rp 100 rb sampai 1 jt / maks 28 hari. Skema bulanan: sampai
  * plafon tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor 1/3/6 bulan
  * (DP 0%, potongan di muka 2% untuk semua tenor; bunga FLAT dari pokok penuh
- * mengikuti tarif akun, bawaan 30%/33%/35% per bulan untuk tenor 1/3/6; setiap
+ * mengikuti tarif akun, bawaan 30%/20%/12% per bulan untuk tenor 1/3/6 (marjin
+ * total 30%/60%/72%); setiap
  * pembayaran bulanan dikenai biaya admin cicilan 2%). Angka di bawah ini sengaja
  * tidak lebih besar dari plafon — lihat lib/plafon.ts.
  */

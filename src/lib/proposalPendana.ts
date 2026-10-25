@@ -109,10 +109,9 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
     NOMINAL_CONTOH_PROPOSAL,
     data.persenPotonganAdmin,
   );
-  // Biaya dihitung dari total pengembalian (pokok + Imbal Hasil), jadi porsi
-  // pokok yang terpakai = tarif × 1,3 — bukan tarif itu sendiri. Angkanya
-  // diturunkan dari mesin, bukan ditulis sebagai konstanta, supaya tarif
-  // berapa pun tetap benar.
+  // Porsi platform diambil dari marjin pinjaman (47 : 13). Angkanya diturunkan
+  // dari mesin, bukan ditulis sebagai konstanta, supaya tetap sama dengan
+  // pencairan sebenarnya.
   const persenBiayaPokok =
     Math.round((contoh.potonganAdmin / NOMINAL_CONTOH_PROPOSAL) * 10000) / 100;
   const persenDiterima =
@@ -148,7 +147,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
       gaya: "biasa",
     },
     {
-      teks: `Skema untuk pendana berjalan singkat: dana ditempatkan untuk satu siklus ${TENOR_PENDANA_HARI} hari, lalu pokok kembali bersama Imbal Hasil ${PERSEN_IMBAL_PENDANA}% flat yang dihitung dari pokok pendanaan. Biaya platform ${persen} diambil dari total pengembalian (pokok + Imbal Hasil), sehingga pendana menerima ${formatPersen(persenDiterima)} dari pokok dan keuntungan bersih ${formatPersen(persenKeuntungan)} per siklus.`,
+      teks: `Skema untuk pendana berjalan singkat: dana ditempatkan untuk satu siklus ${TENOR_PENDANA_HARI} hari, lalu pokok kembali bersama marjin ${PERSEN_IMBAL_PENDANA}% flat yang dihitung dari pokok pendanaan. Marjin itu dibagi 47 : 13, sehingga porsi platform ${persen} diambil dari marjin (bukan dari pokok) dan pendana menerima ${formatPersen(persenDiterima)} dari pokok dengan keuntungan bersih ${formatPersen(persenKeuntungan)} per siklus.`,
       gaya: "biasa",
     },
     {
@@ -222,8 +221,8 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
       nilai: "Pokok + Imbal Hasil (130%)",
     },
     {
-      label: "Biaya platform",
-      nilai: `${persen} x (pokok + Imbal Hasil)`,
+      label: "Porsi platform",
+      nilai: `${persen} x marjin`,
     },
     {
       label: "Diterima bersih",
@@ -247,7 +246,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
     },
     { label: "Uang yang kembali", nilai: rupiah(contoh.total) },
     {
-      label: `Biaya platform (layanan) ${persen}`,
+      label: `Porsi platform (layanan) ${persen}`,
       nilai: rupiah(contoh.potonganAdmin),
     },
     {
@@ -258,7 +257,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
       },
     },
     {
-      teks: "Biaya platform dihitung dari total pengembalian (pokok + Imbal Hasil), lalu dipotong dari Imbal Hasil. Pokok kembali utuh, sedangkan keuntungan bersih adalah Imbal Hasil 30% dikurangi biaya itu.",
+      teks: "Porsi platform diambil dari marjin pinjaman (bagian 47 : 13), bukan dari pokok. Pokok kembali utuh, sedangkan keuntungan bersih pendana adalah 78,33% dari marjin itu.",
       gaya: "kecil",
     },
 
@@ -304,12 +303,12 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
 
     { jarak: 10 },
     {
-      teks: "Biaya platform dan mitigasi risiko",
+      teks: "Porsi platform dan mitigasi risiko",
       gaya: "seksi",
     },
     { garis: true },
     {
-      teks: `Biaya platform ${persen} dihitung dari total pengembalian (pokok + Imbal Hasil) agar biayanya sebanding dengan hasil yang dibayarkan. Pada skala 300 nasabah dengan tiket rata-rata Rp 750.000, biaya platform yang terkumpul sekitar ${rupiah(kolamBiaya)} per siklus. Angka itu membiayai penagihan lapangan, pengelolaan agunan, dan fasilitas pembayaran peminjam.`,
+      teks: `Porsi platform ${persen} dihitung dari marjin pinjaman, sehingga biayanya sebanding dengan hasil yang dibayarkan tanpa memotong pokok. Pada skala 300 nasabah dengan tiket rata-rata Rp 750.000, porsi platform yang terkumpul sekitar ${rupiah(kolamBiaya)} per siklus. Angka itu membiayai penagihan lapangan, pengelolaan agunan, dan fasilitas pembayaran peminjam.`,
       gaya: "biasa",
     },
     { teks: "Penagihan lapangan.", gaya: "tebal" },
@@ -466,7 +465,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
         },
         { nilai: "300", label: "Nasabah aktif per bulan" },
       ],
-      catatan: `Imbal Hasil dihitung dari pokok yang Anda danai, bukan dari bunga pinjaman peminjam. Biaya platform ${persen} diambil dari total pengembalian (pokok + Imbal Hasil).`,
+      catatan: `Imbal Hasil dihitung dari pokok yang Anda danai, bukan dari bunga pinjaman peminjam. Porsi platform ${persen} diambil dari marjin pinjaman.`,
       isi: [
         "Ringkasan eksekutif dan target 2027",
         "Potensi pasar: TAM, SAM, dan SOM",
