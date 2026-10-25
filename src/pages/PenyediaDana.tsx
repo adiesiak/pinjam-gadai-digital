@@ -604,7 +604,7 @@ function DetailPinjaman({
           bantuan={{
             istilah: "total pengembalian pendana",
             penjelasan:
-              "Pokok pendanaan ditambah Imbal Hasil tetap 30% untuk siklus 30 hari, sebelum biaya platform.",
+              "Pokok pendanaan ditambah porsi pendana atas marjin pinjaman (78,33% dari marjin), sebelum porsi platform dipotong.",
           }}
         />
       </div>
