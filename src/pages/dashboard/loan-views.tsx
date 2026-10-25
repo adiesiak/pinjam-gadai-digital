@@ -340,7 +340,7 @@ function ActiveLoanCard({
       </dl>
 
       <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
-        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini mengikuti catatan PINDAI. Pinjaman harian dapat memilih bayar bunga saja, cicil pokok, atau pelunasan total; status berubah setelah bukti transfer dicocokkan admin. {bulanan ? "Jadwal bulanan bersifat ilustrasi." : "Nilai kewajiban mengikuti perhitungan aplikasi."}
+        Semua nominal, status aktif, dana bersih, dan status pelunasan di halaman ini mengikuti catatan PINDAI. Pinjaman harian dapat memilih bayar bunga saja, cicil pokok, atau pelunasan total; status berubah setelah bukti transfer dicocokkan admin. {bulanan ? "Total di atas mencakup seluruh tenor; tagihan per bulan ada di tab Cicilan." : "Nilai kewajiban mengikuti perhitungan aplikasi."}
       </p>
 
       {loan.pelunasan && (
@@ -384,7 +384,7 @@ function ActiveLoanCard({
       <div className="mt-5 flex flex-wrap gap-2">
         <Button variant="outline" onClick={() => onOpenDetail(loan._id)}>
           <CalendarClock className="mr-1.5 size-4" />
-          {bulanan ? "Ajukan cicilan" : "Atur pembayaran"}
+          Atur pembayaran
         </Button>
         <Button asChild variant="outline">
           <a

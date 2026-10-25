@@ -31,7 +31,7 @@ import { DashboardBottomNav, labelTujuan, type TabBadge } from "./dashboard/dash
 import { LoanDetailDialog } from "./dashboard/detail-dialogs";
 import { PersetujuanVerifikasiPembayaran } from "@/components/PersetujuanVerifikasiPembayaran";
 import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
-import { AngsuranSection } from "./dashboard/angsuran-views";
+import { AngsuranSection, TagihanBerikutnyaRingkas } from "./dashboard/angsuran-views";
 import { CatatanPinjamanSection } from "./dashboard/history-views";
 import { DaftarPengajuanSyariah } from "./dashboard/syariah-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
@@ -478,6 +478,17 @@ export default function Dashboard() {
                       onAjukan={() => bukaPengajuan("pinjaman")}
                       className="mb-4"
                     />
+                  )}
+                  {/* Tagihan angsuran terdekat langsung di Ringkasan. Halaman
+                      Cicilan tetap memegang dialog pembayaran; kartu ini hanya
+                      memilih tagihan paling awal dari data server yang sama. */}
+                  {angsuran !== undefined && (
+                    <div className="mb-4">
+                      <TagihanBerikutnyaRingkas
+                        data={angsuran}
+                        onBukaCicilan={() => gantiTab("cicilan")}
+                      />
+                    </div>
                   )}
                   <ActiveLoanSection
                     schedule={schedule ?? []}

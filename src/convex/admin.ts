@@ -1213,6 +1213,8 @@ export const adminStats = query({
       totalKreditBerjalan,
       pinjamanTerlambat,
       totalDendaBerjalan,
+      /** Tarif yang benar-benar dipakai penagihan; 0 berarti denda dimatikan. */
+      persenDendaKeterlambatan: cfg.persenDendaKeterlambatan,
       pinjamanDisetujui,
       totalPinjamanBerjalan,
       totalPinjamanDiajukan,

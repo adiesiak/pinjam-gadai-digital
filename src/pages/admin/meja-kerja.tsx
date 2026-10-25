@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import {
   BellRing,
   ChevronRight,
+  CircleAlert,
   ClipboardList,
   Coins,
   MapPin,
@@ -176,6 +177,13 @@ export function MejaKerja({
   const lokasi = angkaRingkas(
     stats === undefined ? undefined : jumlahPerhatianLokasi(stats),
   );
+  // Denda 0% adalah pilihan sah, tetapi berbahaya bila ada pinjaman terlambat:
+  // tagihan tidak bertambah dan pesan penagihan menyebut angka yang tetap.
+  // Peringatan ini hanya muncul saat keduanya benar-benar terjadi.
+  const dendaNol =
+    stats !== undefined &&
+    stats.persenDendaKeterlambatan === 0 &&
+    stats.pinjamanTerlambat > 0;
 
   return (
     <motion.section
@@ -185,6 +193,39 @@ export function MejaKerja({
       animate="show"
       className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4"
     >
+      {dendaNol && (
+        <motion.div
+          variants={fadeUpItem}
+          role="status"
+          className="rounded-xl border border-red-300 bg-red-50 p-3 sm:col-span-2 min-[380px]:rounded-2xl min-[380px]:p-4 sm:p-5 xl:col-span-4"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-white text-red-700">
+              <CircleAlert className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-red-900">
+                Tarif denda keterlambatan 0%
+              </p>
+              <p className="mt-0.5 text-xs leading-5 text-red-800">
+                {stats?.pinjamanTerlambat} pinjaman sudah lewat jatuh tempo, tetapi
+                tagihannya tidak bertambah karena denda dimatikan. Atur tarifnya di
+                Pengaturan Parameter Bisnis bila denda memang perlu berjalan.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl"
+              onClick={() => onBukaModul("config")}
+            >
+              Buka pengaturan
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Notifikasi khusus cair ekspres: hanya muncul bila ada pengajuan yang
           benar-benar menunggu. Angkanya dibaca dari antrean yang sama dengan
           tab Pinjaman, jadi lencana ini tidak bisa berbeda dari daftar. */}

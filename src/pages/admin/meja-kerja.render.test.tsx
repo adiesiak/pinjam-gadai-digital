@@ -14,6 +14,7 @@ import { formatRupiah } from "@/lib/money";
 import { PILIHAN_POKOK_RINCIAN } from "@/lib/rincianAliranDana";
 
 import { MejaKerja } from "./meja-kerja";
+import type { AdminStatsData } from "./admin-shell";
 
 let passed = 0;
 let failed = 0;
@@ -82,6 +83,74 @@ const html = renderPanel();
   ok(
     !html.includes("pengajuan cair ekspres menunggu keputusan"),
     "tanpa antrean ekspres notifikasi tidak muncul",
+  );
+}
+
+/** Statistik lengkap dengan nilai netral; satu bidang ditimpa per kasus uji. */
+function statsUji(over: Partial<AdminStatsData> = {}): AdminStatsData {
+  return {
+    pinjamanBaru: 0,
+    gadaiProses: 0,
+    totalPinjaman: 0,
+    totalGadai: 0,
+    pinjamanDisetujui: 0,
+    totalPinjamanBerjalan: 0,
+    totalPinjamanDiajukan: 0,
+    keuntunganAdminTercatat: 0,
+    keuntunganAdminBelumTercatat: 0,
+    pinjamanTerlambat: 0,
+    persenDendaKeterlambatan: 2,
+    nilaiTaksiranDisetujui: 0,
+    totalGadaiBerjalan: 0,
+    totalKreditBerjalan: 0,
+    gpsMismatch: 0,
+    pinjamanTanpaLokasi: 0,
+    titikDicurigai: 0,
+    peringatanLokasiAktif: 0,
+    ...over,
+  };
+}
+
+// Peringatan denda 0%: hanya muncul saat tarif benar-benar 0 DAN ada tunggakan.
+{
+  const denganNol = renderToStaticMarkup(
+    <MejaKerja
+      overview={{ loans: [], pawns: [], kredit: [] }}
+      stats={statsUji({ pinjamanTerlambat: 3, persenDendaKeterlambatan: 0 })}
+      onBukaModul={() => {}}
+    />,
+  );
+  ada(denganNol, "Tarif denda keterlambatan 0%", "peringatan denda nol tampil");
+  ada(
+    denganNol,
+    "3 pinjaman sudah lewat jatuh tempo",
+    "peringatan menyebut jumlah pinjaman terlambat",
+  );
+  ada(denganNol, "Buka pengaturan", "peringatan menawarkan jalan ke pengaturan");
+  bersih(denganNol, "markup peringatan denda nol");
+
+  const normal = renderToStaticMarkup(
+    <MejaKerja
+      overview={{ loans: [], pawns: [], kredit: [] }}
+      stats={statsUji({ pinjamanTerlambat: 3, persenDendaKeterlambatan: 2 })}
+      onBukaModul={() => {}}
+    />,
+  );
+  ok(
+    !normal.includes("Tarif denda keterlambatan 0%"),
+    "peringatan tidak muncul saat tarif denda 2%",
+  );
+
+  const tanpaTunggakan = renderToStaticMarkup(
+    <MejaKerja
+      overview={{ loans: [], pawns: [], kredit: [] }}
+      stats={statsUji({ pinjamanTerlambat: 0, persenDendaKeterlambatan: 0 })}
+      onBukaModul={() => {}}
+    />,
+  );
+  ok(
+    !tanpaTunggakan.includes("Tarif denda keterlambatan 0%"),
+    "peringatan tidak muncul bila tidak ada pinjaman terlambat",
   );
 }
 

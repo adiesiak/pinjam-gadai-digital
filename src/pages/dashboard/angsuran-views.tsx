@@ -7,7 +7,7 @@ import {
   ReceiptText,
   Wallet,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ManualPaymentEvidenceForm, ManualPaymentEvidenceHistory } from "@/components/ManualPaymentEvidenceForm";
 import { ContractPrintButton } from "@/components/contract/ContractPrintButton";
@@ -191,6 +191,95 @@ function KartuBerikutnya({
         </span>
       </div>
     </article>
+  );
+}
+
+/**
+ * Tagihan berikutnya untuk tab Ringkasan.
+ *
+ * Hanya dipakai bila pinjaman punya LEBIH DARI SATU angsuran (skema bulanan).
+ * Pinjaman harian sudah menampilkan kewajiban yang sama di kartu pinjaman;
+ * mengulanginya di sini hanya membuat Ringkasan punya dua angka besar yang
+ * mirip. Angka diambil dari `myAngsuran` — sumber yang sama dengan halaman
+ * Cicilan dan rekonsiliasi admin — jadi tidak ada perhitungan kedua di layar.
+ */
+export function TagihanBerikutnyaRingkas({
+  data,
+  onBukaCicilan,
+}: {
+  data: DataAngsuran;
+  onBukaCicilan: () => void;
+}) {
+  const terdekat = useMemo(() => {
+    const kandidat = data.grup
+      .filter((grup) => grup.ringkasan.jumlah > 1)
+      .map((grup) => ({ grup, baris: grup.ringkasan.berikutnya }))
+      .filter((x): x is { grup: Grup; baris: Baris } => x.baris !== null);
+    kandidat.sort((a, b) => a.baris.jatuhTempoPada - b.baris.jatuhTempoPada);
+    return kandidat[0] ?? null;
+  }, [data]);
+
+  if (terdekat === null) return null;
+  const { grup, baris } = terdekat;
+  const tagihan = baris.total + baris.dendaBerjalan;
+  const waktu =
+    baris.hariTerlambat > 0
+      ? `terlambat ${baris.hariTerlambat} hari`
+      : baris.sisaHari === 0
+        ? "jatuh tempo hari ini"
+        : `${baris.sisaHari} hari lagi`;
+  const menunggu = baris.status === "menunggu_verifikasi";
+
+  return (
+    <section
+      aria-labelledby="judul-tagihan-berikutnya"
+      className={`rounded-2xl border p-4 shadow-sm sm:p-5 ${
+        baris.tampilan === "terlambat"
+          ? "border-red-200 bg-red-50/40"
+          : "border-slate-200 bg-white"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p id="judul-tagihan-berikutnya" className="text-xs text-muted-foreground">
+            Tagihan berikutnya ·{" "}
+            <span className="font-mono font-semibold text-navy">{grup.nomorReferensi}</span>
+          </p>
+          <p className="mt-1 break-words text-2xl font-semibold tabular-nums text-emerald-800">
+            {formatRupiah(tagihan)}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            Angsuran {baris.nomor} dari {grup.ringkasan.jumlah} · jatuh tempo{" "}
+            {formatTanggalWIB(baris.jatuhTempoPada)} · {waktu}
+          </p>
+        </div>
+        <Lencana tampilan={baris.tampilan} />
+      </div>
+
+      {baris.dendaBerjalan > 0 && (
+        <p className="mt-3 rounded-xl border border-red-200 bg-white/70 px-3 py-2 text-xs leading-5 text-red-800">
+          Sudah termasuk denda {formatRupiah(baris.dendaBerjalan)}. Denda berhenti
+          bertambah setelah bukti transfer diterima.
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          className="gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
+          onClick={onBukaCicilan}
+        >
+          <ReceiptText className="size-4" aria-hidden />
+          {menunggu ? "Lihat status verifikasi" : "Buka halaman Cicilan"}
+        </Button>
+        <span className="text-[11px] leading-5 text-muted-foreground">
+          {menunggu
+            ? "Bukti sudah dikirim dan sedang dicocokkan. Tidak perlu mengirim ulang."
+            : "Pilih angsuran di sana, lalu unggah bukti transfer."}
+        </span>
+      </div>
+    </section>
   );
 }
 

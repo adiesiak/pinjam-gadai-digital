@@ -329,6 +329,19 @@ function semuaTemplateSah(nilai: Readonly<Record<string, string>>): boolean {
   return true;
 }
 
+/**
+ * Warna lencana status pengiriman.
+ *
+ * `mengirim` adalah klaim yang belum selesai: pengingat baru menulis status ini
+ * sebelum gateway menjawab. Ia bukan kegagalan, jadi tidak boleh tampil merah
+ * seperti `gagal` — tetapi juga tidak boleh tampak sukses sebelum ada jawaban.
+ */
+function kelasStatusLog(status: string): string {
+  if (status === "terkirim") return "bg-emerald-100 text-emerald-800 hover:bg-emerald-100";
+  if (status === "mengirim") return "bg-amber-100 text-amber-800 hover:bg-amber-100";
+  return "bg-red-100 text-red-700 hover:bg-red-100";
+}
+
 export function WhatsAppPanel() {
   const data = useQuery(api.whatsapp.getAdminConfig);
   const save = useMutation(api.whatsapp.saveConfig);
@@ -693,15 +706,7 @@ export function WhatsAppPanel() {
                         <p className="text-[11px] tabular-nums text-muted-foreground">
                           {formatWaktuWIB(log.waktu)} WIB
                         </p>
-                        <Badge
-                          className={
-                            log.status === "terkirim"
-                              ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                              : "bg-red-100 text-red-700 hover:bg-red-100"
-                          }
-                        >
-                          {log.status}
-                        </Badge>
+                        <Badge className={kelasStatusLog(log.status)}>{log.status}</Badge>
                       </div>
                       <p className="mt-1 text-sm font-medium tabular-nums text-slate-900">
                         {log.nomorTujuan}
@@ -758,15 +763,7 @@ export function WhatsAppPanel() {
                             {jenisRamahWa(log.jenis)}
                           </TableCell>
                           <TableCell className="align-top">
-                            <Badge
-                              className={
-                                log.status === "terkirim"
-                                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                                  : "bg-red-100 text-red-700 hover:bg-red-100"
-                              }
-                            >
-                              {log.status}
-                            </Badge>
+                            <Badge className={kelasStatusLog(log.status)}>{log.status}</Badge>
                           </TableCell>
                           <TableCell className="max-w-[16rem] whitespace-normal align-top text-xs text-slate-700">
                             <span className="line-clamp-2">{log.isiPesan}</span>

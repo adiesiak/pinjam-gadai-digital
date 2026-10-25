@@ -407,10 +407,43 @@ describe("pengingat WhatsApp otomatis", () => {
       // Tanpa state perpanjangan, pesan jatuh ke tenor awal dan kehilangan denda.
       expect(gateway.keluar[0].message).toContain("Rp 781.000");
       expect(gateway.keluar[0].message).toContain("denda Rp 96.000");
+
+      // Klaim yang dibuat sebelum kirim harus selesai dengan isi sebenarnya,
+      // bukan tertinggal sebagai "sedang dikirim" di riwayat admin.
+      const logs = await t.run((ctx) => ctx.db.query("waLogs").collect());
+      expect(logs).toHaveLength(1);
+      expect(logs[0].status).toBe("terkirim");
+      expect(logs[0].isiPesan).toContain("Rp 781.000");
     } finally {
       gateway.pulihkan();
       vi.useRealTimers();
     }
+  });
+
+  it("klaim pengingat hanya lolos sekali per pinjaman dan jenis dalam sehari", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "rani", {
+      email: "rani-klaim@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await seedPinjaman(t, { userId, status: "didanai", sisaHari: 3 });
+
+    const pertama = await t.mutation(internal.whatsapp._klaimPengingat, {
+      loanId,
+      jenis: "terlambat_2",
+      nomorTujuan: NOMOR_PEMINJAM,
+    });
+    const kedua = await t.mutation(internal.whatsapp._klaimPengingat, {
+      loanId,
+      jenis: "terlambat_2",
+      nomorTujuan: NOMOR_PEMINJAM,
+    });
+
+    expect(pertama.klaim).toBe(true);
+    expect(kedua.klaim).toBe(false);
+    const logs = await t.run((ctx) => ctx.db.query("waLogs").collect());
+    expect(logs).toHaveLength(1);
+    expect(logs[0].status).toBe("mengirim");
   });
 
   it("endpoint Fonnte memakai target/message walau panel menyimpan nama lain", async () => {

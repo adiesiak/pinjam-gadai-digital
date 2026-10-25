@@ -41,6 +41,8 @@ export type AdminStatsData = {
   /** Keuntungan admin dari pinjaman berjalan (belum dibukukan). */
   keuntunganAdminBelumTercatat: number;
   pinjamanTerlambat: number;
+  /** Tarif denda harian yang berlaku (% pokok). 0 berarti denda dimatikan. */
+  persenDendaKeterlambatan?: number;
   nilaiTaksiranDisetujui: number;
   /** Total pokok gadai yang masih berjalan (sisa pokok, gadai aktif). */
   totalGadaiBerjalan: number;

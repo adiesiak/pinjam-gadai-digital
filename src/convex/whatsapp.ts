@@ -400,6 +400,65 @@ export const _appendLog = internalMutation({
   },
 });
 
+/**
+ * Klaim ATOMIK satu pengingat untuk (pinjaman, jenis, hari ini).
+ *
+ * Penjadwal membaca log lebih dulu, lalu mengirim. Dua cron yang berjalan
+ * hampir bersamaan bisa sama-sama membaca "belum ada log" dan mengirim pesan
+ * yang sama dua kali. Mutation ini memindahkan keputusan itu ke satu transaksi:
+ * baris log klaim dibuat SEBELUM pesan berangkat, dan hanya pemanggil pertama
+ * yang mendapat `klaim: true`. Pemanggil berikutnya melihat klaim itu dan
+ * berhenti tanpa mengirim.
+ *
+ * Baris klaim juga menjadi jejak bila action berhenti di tengah jalan: status
+ * `mengirim` yang tertinggal lebih jujur daripada pesan ganda yang tak terlihat
+ * di log.
+ */
+export const _klaimPengingat = internalMutation({
+  args: {
+    loanId: v.id("loans"),
+    jenis: v.string(),
+    nomorTujuan: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const sejak = awalHariUtc(Date.now());
+    const logs = await ctx.db
+      .query("waLogs")
+      .withIndex("by_loan", (q) => q.eq("loanId", args.loanId))
+      .collect();
+    const sudah = logs.some((row) => row.waktu >= sejak && row.jenis === args.jenis);
+    if (sudah) return { klaim: false as const, logId: null };
+    const logId = await ctx.db.insert("waLogs", {
+      loanId: args.loanId,
+      nomorTujuan: args.nomorTujuan,
+      jenis: args.jenis,
+      isiPesan: "(sedang dikirim)",
+      status: "mengirim",
+      waktu: Date.now(),
+    });
+    return { klaim: true as const, logId };
+  },
+});
+
+/** Tulis hasil akhir ke baris klaim — pesan asli, status, dan jawaban gateway. */
+export const _selesaikanKlaimPengingat = internalMutation({
+  args: {
+    logId: v.id("waLogs"),
+    isiPesan: v.string(),
+    status: v.string(),
+    respon: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const row = await ctx.db.get(args.logId);
+    if (row === null) return;
+    await ctx.db.patch(args.logId, {
+      isiPesan: args.isiPesan,
+      status: args.status,
+      respon: args.respon,
+    });
+  },
+});
+
 /** Settings tanpa gerbang — hanya bisa dipanggil internal (action ini). */
 export const _getSettings = internalQuery({
   args: {},
@@ -1303,11 +1362,17 @@ export const jalankanPengingatJatuhTempo = internalAction({
           });
           tanpaNomor += 1;
         } else {
-          const hasil = await kirimViaGateway(apiKey, settings, p.nomorWhatsApp, isi);
-          await ctx.runMutation(internal.whatsapp._appendLog, {
+          // Klaim SEBELUM mengirim: cron yang berjalan bersamaan tidak bisa
+          // sama-sama mengirim pesan yang sama untuk pinjaman ini.
+          const klaim = await ctx.runMutation(internal.whatsapp._klaimPengingat, {
             loanId: p.loanId,
-            nomorTujuan: p.nomorWhatsApp,
             jenis: r.jenis,
+            nomorTujuan: p.nomorWhatsApp,
+          });
+          if (!klaim.klaim) continue;
+          const hasil = await kirimViaGateway(apiKey, settings, p.nomorWhatsApp, isi);
+          await ctx.runMutation(internal.whatsapp._selesaikanKlaimPengingat, {
+            logId: klaim.logId,
             isiPesan: isi,
             status: hasil.ok ? "terkirim" : "gagal",
             respon: hasil.respon,
