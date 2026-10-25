@@ -98,6 +98,8 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
               ["KTP", urls.ktpUrl],
               ["Selfie + KTP", urls.selfieUrl],
               ["Slip gaji", urls.slipUrl],
+              ["Kartu Keluarga", urls.kartuKeluargaUrl],
+              ["Bukti domisili", urls.buktiDomisiliUrl],
             ] as const).map(([label, url]) =>
               url ? (
                 <div

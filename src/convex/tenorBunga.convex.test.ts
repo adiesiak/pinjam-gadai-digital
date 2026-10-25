@@ -176,7 +176,8 @@ describe("matriks tenor & bunga harian", () => {
     await ajukan(t, sesi, 500_000, 14, "override-harian");
     expect((await pinjamanTerakhir(t))?.persenBunga).toBe(32);
 
-    // Skema bulanan memakai tarif tenor (3 bulan = 20% per bulan).
+    // Skema bulanan memakai tarif tenor, bukan override akun. Tenor 1 bulan
+    // dipakai di sini karena tenor 3/6 bulan punya minimum pokok Rp3.000.000.
     const ktp = await simpanBerkasUji(t, "ktp-override-bulanan");
     const selfie = await simpanBerkasUji(t, "selfie-override-bulanan");
     const slip = await simpanBerkasUji(t, "slip-override-bulanan");
@@ -187,7 +188,7 @@ describe("matriks tenor & bunga harian", () => {
       namaBank: "BCA",
       nomorRekening: "1234567890",
       tenorHari: 28,
-      tenorBulan: 3,
+      tenorBulan: 1,
       nik: "3201234567890003",
       nomorWhatsApp: "628123456791",
       penghasilanBulanan: 4_000_000,
@@ -199,7 +200,31 @@ describe("matriks tenor & bunga harian", () => {
       persetujuanSyarat: true,
       tandaTangan: TTD,
     });
-    expect((await pinjamanTerakhir(t))?.persenBunga).toBe(20);
+    expect((await pinjamanTerakhir(t))?.persenBunga).toBe(30);
+
+    // Tenor 3 bulan menuntut pokok minimal Rp3.000.000: pengajuan kecil ditolak
+    // dengan kalimat kebijakan, bukan diterima lalu bermasalah kemudian.
+    await expect(
+      sesi.mutation(api.loans.createLoanApplication, {
+        pokokPinjaman: 100_000,
+        tujuan: "Modal usaha kecil",
+        namaLengkap: "Rani Peminjam",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        tenorHari: 28,
+        tenorBulan: 3,
+        nik: "3201234567890003",
+        nomorWhatsApp: "628123456791",
+        penghasilanBulanan: 4_000_000,
+        sumberPenghasilan: "Usaha warung",
+        dokKtpId: ktp,
+        dokSelfieKtpId: selfie,
+        dokSlipGajiId: slip,
+        lokasiAjukan: { ...TITIK, waktu: Date.now() },
+        persetujuanSyarat: true,
+        tandaTangan: TTD,
+      }),
+    ).rejects.toThrow(/minimal pokok 3\.000\.000/i);
   });
 
   it("tenor 30 hari ditolak pada semua tier", async () => {
@@ -250,5 +275,61 @@ describe("pilihan cair ekspres dari peminjam", () => {
     expect(detail?.quote.biayaExpress).toBe(10_000);
     expect(detail?.quote.totalPotonganDiMuka).toBe(30_000);
     expect(detail?.quote.danaBersihDitransfer).toBe(970_000);
+  });
+});
+
+describe("jaminan tambahan tenor panjang", () => {
+  it("menolak pokok di bawah Rp3 juta, lalu menuntut KK, domisili, dan penitipan ATM", async () => {
+    const t = convexTest(schema, modules);
+    const sesi = await peminjamSiap(t, "jaminan-tenor@pindai.test", 5_000_000);
+    const ktp = await simpanBerkasUji(t, "ktp-jaminan");
+    const selfie = await simpanBerkasUji(t, "selfie-jaminan");
+    const slip = await simpanBerkasUji(t, "slip-jaminan");
+    const dasar = {
+      tujuan: "Modal usaha kecil",
+      namaLengkap: "Rani Peminjam",
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+      tenorHari: 28,
+      tenorBulan: 3,
+      nik: "3201234567890003",
+      nomorWhatsApp: "628123456791",
+      penghasilanBulanan: 4_000_000,
+      sumberPenghasilan: "Usaha warung",
+      dokKtpId: ktp,
+      dokSelfieKtpId: selfie,
+      dokSlipGajiId: slip,
+      lokasiAjukan: { ...TITIK, waktu: Date.now() },
+      persetujuanSyarat: true as const,
+      tandaTangan: TTD,
+    };
+
+    // Minimum pokok tenor 3 bulan.
+    await expect(
+      sesi.mutation(api.loans.createLoanApplication, {
+        ...dasar,
+        pokokPinjaman: 2_000_000,
+      }),
+    ).rejects.toThrow(/minimal pokok 3\.000\.000/i);
+
+    // Pokok memenuhi minimum, tetapi jaminan tambahan belum ada.
+    await expect(
+      sesi.mutation(api.loans.createLoanApplication, {
+        ...dasar,
+        pokokPinjaman: 3_000_000,
+      }),
+    ).rejects.toThrow(/Kartu Keluarga/i);
+
+    const kk = await simpanBerkasUji(t, "kk-jaminan");
+    const domisili = await simpanBerkasUji(t, "domisili-jaminan");
+    const hasil = await sesi.mutation(api.loans.createLoanApplication, {
+      ...dasar,
+      pokokPinjaman: 3_000_000,
+      dokKartuKeluargaId: kk,
+      dokBuktiDomisiliId: domisili,
+      atmDititipkan: true,
+      nomorTandaTerimaAtm: "ATM/2026/0142",
+    });
+    expect(hasil.nomorReferensi.length).toBeGreaterThan(0);
   });
 });

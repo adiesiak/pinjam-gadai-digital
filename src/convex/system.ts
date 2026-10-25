@@ -1134,6 +1134,8 @@ export const snapshotData = query({
       await tambahDokumen("ktp", l.nomorReferensi, l.dokKtpId);
       await tambahDokumen("selfie_ktp", l.nomorReferensi, l.dokSelfieKtpId);
       await tambahDokumen("slip_gaji", l.nomorReferensi, l.dokSlipGajiId);
+      await tambahDokumen("kartu_keluarga", l.nomorReferensi, l.dokKartuKeluargaId);
+      await tambahDokumen("bukti_domisili", l.nomorReferensi, l.dokBuktiDomisiliId);
     }
     for (const p of pawns) {
       await tambahDokumen("foto_barang", p.nomorReferensi, p.fotoBarangId);

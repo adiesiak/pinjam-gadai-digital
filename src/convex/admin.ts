@@ -869,15 +869,21 @@ export const dokumenKycUrls = query({
     await requireAdmin(ctx);
     const loan = await ctx.db.get(loanId);
     if (loan === null) return null;
-    const [ktp, selfie, slip] = await Promise.all([
+    const [ktp, selfie, slip, kartuKeluarga, domisili] = await Promise.all([
       tautanBerkas(loan.dokKtpId),
       tautanBerkas(loan.dokSelfieKtpId),
       tautanBerkas(loan.dokSlipGajiId),
+      tautanBerkas(loan.dokKartuKeluargaId),
+      tautanBerkas(loan.dokBuktiDomisiliId),
     ]);
     return {
       ktpUrl: ktp,
       selfieUrl: selfie,
       slipUrl: slip,
+      kartuKeluargaUrl: kartuKeluarga,
+      buktiDomisiliUrl: domisili,
+      atmDititipkan: loan.atmDititipkan ?? false,
+      nomorTandaTerimaAtm: loan.nomorTandaTerimaAtm ?? null,
       nik: loan.nik ?? null,
       nomorWhatsApp: loan.nomorWhatsApp ?? null,
       penghasilanBulanan: loan.penghasilanBulanan ?? null,

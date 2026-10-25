@@ -48,6 +48,7 @@ import {
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
 import { tarifBulananDariConfig } from "../lib/system-config";
+import { periksaMinimumPokok, syaratUnderwriting } from "../lib/kebijakanPinjaman";
 import { potonganDariKembali } from "../lib/bagiHasil";
 import { siklusPendanaan } from "../lib/imbalPendana";
 
@@ -562,6 +563,15 @@ export const createLoanApplication = mutation({
     dokKtpId: v.id("_storage"),
     dokSelfieKtpId: v.id("_storage"),
     dokSlipGajiId: v.id("_storage"),
+    /**
+     * Jaminan tambahan: wajib untuk tenor 3/6 bulan dan pokok Rp3.000.000 ke
+     * atas. Kosong pada pinjaman kecil berjangka pendek — gerbangnya diperiksa
+     * `syaratUnderwriting`, bukan dari klien.
+     */
+    dokKartuKeluargaId: v.optional(v.id("_storage")),
+    dokBuktiDomisiliId: v.optional(v.id("_storage")),
+    atmDititipkan: v.optional(v.boolean()),
+    nomorTandaTerimaAtm: v.optional(v.string()),
     /** Lokasi real (GPS device) saat pengajuan — wajib, bukan input manual. */
     lokasiAjukan: v.object({
       lat: v.number(),
@@ -682,6 +692,10 @@ export const createLoanApplication = mutation({
       assertSimulasiBulananValid(args.pokokPinjaman, args.tenorBulan, {
         tarif: tarifBulanan,
       });
+      // Tenor panjang menanggung pokok lebih besar, jadi minimumnya ikut naik:
+      // Rp3.000.000 untuk 3 dan 6 bulan. Tenor 1 bulan tetap fleksibel.
+      const pesanMinimum = periksaMinimumPokok(args.pokokPinjaman, args.tenorBulan);
+      if (pesanMinimum !== null) throw new Error(pesanMinimum);
       tenorBulanSim = args.tenorBulan;
     } else {
       // Batas atas = plafon TERSEDIA nasabah, bukan batas produk Rp1 juta:
@@ -821,6 +835,51 @@ export const createLoanApplication = mutation({
     ] as const) {
       await periksaBerkasIdentitasStorage(ctx, label, id);
     }
+
+    // ===== Jaminan tambahan =====
+    // Tenor 3/6 bulan atau pokok Rp3.000.000 ke atas menambah Kartu Keluarga,
+    // bukti domisili, dan penitipan kartu ATM. Aturannya dibaca dari kebijakan
+    // yang sama dengan tampilan syarat, bukan dari klien. PIN tidak pernah
+    // diminta: yang dicatat hanya nomor tanda terima penitipan.
+    const syarat = syaratUnderwriting({
+      tenorBulan: args.tenorBulan ?? null,
+      pokok: args.pokokPinjaman,
+    });
+    const nomorTandaTerima = (args.nomorTandaTerimaAtm ?? "").trim();
+    if (syarat.penitipanAtm) {
+      if (args.dokKartuKeluargaId === undefined) {
+        throw new Error(
+          "Foto Kartu Keluarga wajib untuk tenor 3/6 bulan atau pokok Rp3.000.000 ke atas.",
+        );
+      }
+      await periksaBerkasIdentitasStorage(
+        ctx,
+        "Foto Kartu Keluarga",
+        args.dokKartuKeluargaId,
+        { bolehPdf: true },
+      );
+      if (args.dokBuktiDomisiliId === undefined) {
+        throw new Error(
+          "Bukti domisili (tagihan PLN atau PDAM) wajib untuk tenor 3/6 bulan atau pokok Rp3.000.000 ke atas.",
+        );
+      }
+      await periksaBerkasIdentitasStorage(
+        ctx,
+        "Bukti domisili",
+        args.dokBuktiDomisiliId,
+        { bolehPdf: true },
+      );
+      if (args.atmDititipkan !== true) {
+        throw new Error(
+          "Penitipan kartu ATM wajib dicatat untuk tenor 3/6 bulan atau pokok Rp3.000.000 ke atas.",
+        );
+      }
+      if (!/^[A-Za-z0-9/-]{3,40}$/.test(nomorTandaTerima)) {
+        throw new Error(
+          "Nomor tanda terima penitipan ATM wajib diisi (3–40 huruf, angka, tanda hubung, atau garis miring). PIN tidak diminta.",
+        );
+      }
+    }
     // Lokasi real wajib: bukan (0,0), koordinat valid, dan segar (≤10 menit).
     const lok = args.lokasiAjukan;
     const lokValid =
@@ -922,6 +981,16 @@ export const createLoanApplication = mutation({
       dokKtpId: args.dokKtpId,
       dokSelfieKtpId: args.dokSelfieKtpId,
       dokSlipGajiId: args.dokSlipGajiId,
+      ...(syarat.penitipanAtm && args.dokKartuKeluargaId !== undefined
+        ? {
+            dokKartuKeluargaId: args.dokKartuKeluargaId,
+            ...(args.dokBuktiDomisiliId !== undefined
+              ? { dokBuktiDomisiliId: args.dokBuktiDomisiliId }
+              : {}),
+            atmDititipkan: true,
+            nomorTandaTerimaAtm: nomorTandaTerima,
+          }
+        : {}),
       lokasiAjukan: { ...lok, waktu: now },
       tandaTanganPeminjam: tandaTangan,
       tandaTanganPada: now,
@@ -2176,7 +2245,13 @@ export const hapusPinjaman = mutation({
       },
     );
     await ctx.db.delete(loanId);
-    for (const storageId of [loan.dokKtpId, loan.dokSelfieKtpId, loan.dokSlipGajiId]) {
+    for (const storageId of [
+      loan.dokKtpId,
+      loan.dokSelfieKtpId,
+      loan.dokSlipGajiId,
+      loan.dokKartuKeluargaId,
+      loan.dokBuktiDomisiliId,
+    ]) {
       if (storageId !== undefined && await ctx.storage.getMetadata(storageId) !== null) {
         await ctx.storage.delete(storageId);
       }

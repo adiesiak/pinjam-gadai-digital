@@ -1272,6 +1272,8 @@ export function LoanReviewDialog({
               ["KTP", dokumenQ.ktpUrl],
               ["Selfie + KTP", dokumenQ.selfieUrl],
               ["Bukti penghasilan", dokumenQ.slipUrl],
+              ["Kartu Keluarga", dokumenQ.kartuKeluargaUrl],
+              ["Bukti domisili", dokumenQ.buktiDomisiliUrl],
             ] as const).map(([label, url]) =>
               url ? (
                 <PenampilDokumen key={label} src={url} label={label} />
@@ -1285,6 +1287,13 @@ export function LoanReviewDialog({
               ),
             )}
           </div>
+        )}
+        {dokumenQ !== null && dokumenQ !== undefined && dokumenQ.atmDititipkan && (
+          <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs leading-5 text-emerald-900">
+            Kartu ATM dititipkan — nomor tanda terima{" "}
+            <strong className="font-mono">{dokumenQ.nomorTandaTerimaAtm ?? "belum dicatat"}</strong>.
+            PIN tidak diminta dan tidak disimpan.
+          </p>
         )}
       </DialogContent>
     </Dialog>

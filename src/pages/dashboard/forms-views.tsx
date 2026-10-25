@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { UnggahDokumen } from "@/components/admin/pengajuan-manual/UnggahDokumen";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useCegahTinggalkan, useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
@@ -48,6 +49,7 @@ import {
   type KycFileKey,
 } from "@/lib/kyc";
 import { isKycVerified } from "@/lib/kycStatus";
+import { periksaMinimumPokok, syaratUnderwriting } from "@/lib/kebijakanPinjaman";
 import {
   BULANAN_LIMITS,
   hitungSimulasiBulanan,
@@ -209,6 +211,15 @@ export function LoanForm({
     selfie: { id: null, busy: false },
     slip: { id: null, busy: false },
   });
+  // Berkas jaminan tambahan (tenor 3/6 bulan atau pokok >= 3 juta). Disimpan
+  // terpisah dari `dok` karena slotnya tidak dipakai modul KYC: hanya pengajuan
+  // ini yang membutuhkannya.
+  const [dokJaminan, setDokJaminan] = useState<{
+    kk: { id: Id<"_storage">; nama: string } | null;
+    domisili: { id: Id<"_storage">; nama: string } | null;
+  }>({ kk: null, domisili: null });
+  const [atmDititipkan, setAtmDititipkan] = useState(false);
+  const [nomorTandaTerimaAtm, setNomorTandaTerimaAtm] = useState("");
   const [cameraDoc, setCameraDoc] = useState<{ key: KycFileKey; label: string } | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -476,6 +487,13 @@ export function LoanForm({
   const sim = bulanan
     ? simulasiBulananAman(pokok, tenorBulanNum, undefined, tarifBulananConfig)
     : null;
+  // Jaminan tambahan mengikuti kebijakan yang sama dengan server: tenor 3/6
+  // bulan atau pokok Rp3.000.000 ke atas. Nilainya hanya menentukan tampilan —
+  // penerimaan berkasnya tetap diperiksa `loans.createLoanApplication`.
+  const syaratJaminan = syaratUnderwriting({
+    tenorBulan: bulanan ? tenorBulanNum : null,
+    pokok,
+  });
   // Tenor harian mengikuti matriks nominal. Pilihan yang tidak sah digeser ke
   // tenor terdekat supaya dropdown dan rincian tidak pernah berbeda dari yang
   // diterima server.
@@ -813,6 +831,15 @@ export function LoanForm({
       );
       return;
     }
+    // Tenor 3/6 bulan menanggung pokok lebih besar: minimumnya Rp3.000.000.
+    // Kalimatnya datang dari kebijakan yang sama dengan server.
+    if (bulanan) {
+      const pesanMinimum = periksaMinimumPokok(pokok, tenorBulanNum);
+      if (pesanMinimum !== null) {
+        setError(pesanMinimum);
+        return;
+      }
+    }
     if (!adaSisa) {
       setError(keteranganNominal);
       return;
@@ -864,6 +891,28 @@ export function LoanForm({
       if (!dok.ktp.id || !dok.selfie.id || !dok.slip.id) {
         setError(
           "Lengkapi foto KTP, selfie sambil memegang KTP, dan bukti penghasilan (kamera atau berkas).",
+        );
+        return;
+      }
+    }
+    // Jaminan tambahan — diperiksa juga di server. PIN tidak pernah diminta:
+    // yang dicatat hanya nomor tanda terima penitipan kartu ATM.
+    if (syaratJaminan.penitipanAtm) {
+      if (dokJaminan.kk === null || dokJaminan.domisili === null) {
+        setError(
+          "Lengkapi foto Kartu Keluarga dan bukti domisili (tagihan PLN atau PDAM) untuk tenor 3/6 bulan atau pokok Rp3.000.000 ke atas.",
+        );
+        return;
+      }
+      if (!atmDititipkan) {
+        setError(
+          "Centang penitipan kartu ATM untuk tenor 3/6 bulan atau pokok Rp3.000.000 ke atas. PIN tidak diminta.",
+        );
+        return;
+      }
+      if (!/^[A-Za-z0-9/-]{3,40}$/.test(nomorTandaTerimaAtm.trim())) {
+        setError(
+          "Isi nomor tanda terima penitipan ATM (3–40 huruf, angka, tanda hubung, atau garis miring).",
         );
         return;
       }
@@ -943,6 +992,18 @@ export function LoanForm({
         dokKtpId: dokKtpId as Id<"_storage">,
         dokSelfieKtpId: dokSelfieId as Id<"_storage">,
         dokSlipGajiId: dokSlipId as Id<"_storage">,
+        // Hanya dikirim saat jaminan tambahan memang diminta; server memeriksa
+        // ulang kewajibannya sendiri.
+        ...(syaratJaminan.penitipanAtm &&
+        dokJaminan.kk !== null &&
+        dokJaminan.domisili !== null
+          ? {
+              dokKartuKeluargaId: dokJaminan.kk.id,
+              dokBuktiDomisiliId: dokJaminan.domisili.id,
+              atmDititipkan: true,
+              nomorTandaTerimaAtm: nomorTandaTerimaAtm.trim(),
+            }
+          : {}),
         lokasiAjukan: lokasi,
         jebakan,
         formDibukaPada,
@@ -961,6 +1022,9 @@ export function LoanForm({
       setNamaBank("");
       setNomorRekening("");
       setCatatanPeminjam("");
+      setDokJaminan({ kk: null, domisili: null });
+      setAtmDititipkan(false);
+      setNomorTandaTerimaAtm("");
       setCairEkspres(true);
       setSetujuOpen(false);
       setSetujuCentang(false);
@@ -1669,6 +1733,74 @@ export function LoanForm({
           })}
         </div>
       </div>
+      )}
+
+      {/* Jaminan tambahan: hanya muncul saat kebijakan memintanya (tenor 3/6
+          bulan atau pokok Rp3.000.000 ke atas), jadi pengajuan kecil berjangka
+          pendek tetap ringkas. PIN tidak pernah diminta di sini. */}
+      {syaratJaminan.penitipanAtm && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <JudulBagian
+            nomor={5}
+            judul="Jaminan tambahan"
+            keterangan="Tenor 3/6 bulan atau pokok Rp3.000.000 ke atas memerlukan Kartu Keluarga, bukti domisili, dan penitipan kartu ATM. PIN tidak pernah diminta."
+          />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <UnggahDokumen
+              label="Foto Kartu Keluarga"
+              keterangan="Foto seluruh halaman KK. Pastikan nomor KK dan nama anggota keluarga terbaca."
+              accept="image/*,application/pdf"
+              nilai={dokJaminan.kk}
+              onUbah={(dokumen) => setDokJaminan((p) => ({ ...p, kk: dokumen }))}
+              mintaUrl={() => generateUploadUrl()}
+              periksa={async (id, label) => {
+                await periksaIsi({ id, label });
+              }}
+              disabled={submitting}
+            />
+            <UnggahDokumen
+              label="Bukti domisili (PLN/PDAM)"
+              keterangan="Tagihan listrik atau air tiga bulan terakhir atas nama Anda. Alamat harus sama dengan KTP."
+              accept="image/*,application/pdf"
+              nilai={dokJaminan.domisili}
+              onUbah={(dokumen) => setDokJaminan((p) => ({ ...p, domisili: dokumen }))}
+              mintaUrl={() => generateUploadUrl()}
+              periksa={async (id, label) => {
+                await periksaIsi({ id, label });
+              }}
+              disabled={submitting}
+            />
+          </div>
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="atm-dititipkan"
+                checked={atmDititipkan}
+                onCheckedChange={(nilai) => setAtmDititipkan(nilai === true)}
+                disabled={submitting}
+                className="mt-0.5"
+              />
+              <label htmlFor="atm-dititipkan" className="text-sm leading-6 text-slate-800">
+                Kartu ATM saya sudah dititipkan ke petugas PINDAI beserta nomor tanda
+                terimanya. Saya memahami PIN tidak pernah diminta, dikirim, atau disimpan.
+              </label>
+            </div>
+            <div className="mt-3">
+              <Label htmlFor="atm-tanda-terima">Nomor tanda terima penitipan ATM</Label>
+              <Input
+                id="atm-tanda-terima"
+                value={nomorTandaTerimaAtm}
+                onChange={(e) => setNomorTandaTerimaAtm(e.target.value)}
+                placeholder="mis. ATM/2026/0142"
+                className="mt-1 max-w-64 font-mono"
+                disabled={submitting || !atmDititipkan}
+              />
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                Tulis nomor dari tanda terima petugas — bukan PIN, dan bukan nomor kartu.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {error && (

@@ -405,6 +405,19 @@ const schema = defineSchema(
       dokKtpId: v.optional(v.id("_storage")),
       dokSelfieKtpId: v.optional(v.id("_storage")),
       dokSlipGajiId: v.optional(v.id("_storage")),
+      /**
+       * Berkas jaminan tambahan — wajib untuk tenor 3/6 bulan dan pokok
+       * Rp3.000.000 ke atas (lihat `lib/kebijakanPinjaman`). Foto Kartu
+       * Keluarga dan bukti domisili (tagihan PLN/PDAM).
+       */
+      dokKartuKeluargaId: v.optional(v.id("_storage")),
+      dokBuktiDomisiliId: v.optional(v.id("_storage")),
+      /**
+       * Penitipan fisik kartu ATM. Hanya centang + nomor tanda terima yang
+       * disimpan; PIN tidak pernah diminta, dikirim, atau disimpan.
+       */
+      atmDititipkan: v.optional(v.boolean()),
+      nomorTandaTerimaAtm: v.optional(v.string()),
       /** Tanda tangan elektronik Peminjam (data URL PNG dari canvas). */
       tandaTanganPeminjam: v.optional(v.string()),
       /** Waktu tanda tangan elektronik Peminjam. */

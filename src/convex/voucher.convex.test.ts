@@ -93,8 +93,10 @@ async function ajukanBulanan(
     namaLengkap: "Rani Peminjam",
     namaBank: "BCA",
     nomorRekening: "1234567890",
+    // Tenor 1 bulan: tenor 3/6 bulan punya minimum pokok Rp3.000.000, sedangkan
+    // berkas uji ini memakai plafon kecil. Tarif bulanan tetap dipakai.
     tenorHari: 30,
-    tenorBulan: 3,
+    tenorBulan: 1,
     nik: "3201234567890003",
     nomorWhatsApp: "628123456791",
     penghasilanBulanan: 4_000_000,
