@@ -514,6 +514,43 @@ async function susunNotifikasi(
     }
   }
 
+  // ===== Sumber 8b: cicilan kredit barang yang didanai akun ini tercatat
+  //
+  // Sumbernya alokasi (`kreditFundings`), bukan pengajuan: pendana hanya boleh
+  // menerima kabar dari kredit yang porsinya memang miliknya. Yang dilaporkan
+  // cicilan TERAKHIR per alokasi — bukan setiap baris lama — supaya pusat
+  // notifikasi tidak dibanjiri riwayat cicilan yang sudah lewat.
+  if (pengguna !== null) {
+    const alokasiKredit = await ctx.db
+      .query("kreditFundings")
+      .withIndex("by_dana", (q) => q.eq("danaId", userId))
+      .collect();
+    for (const f of alokasiKredit.filter((a) => a.status !== "dibatalkan").slice(0, 8)) {
+      const kredit = await ctx.db.get(f.kreditId);
+      if (kredit === null) continue;
+      const terakhir = await ctx.db
+        .query("kreditPayments")
+        .withIndex("by_kredit", (q) => q.eq("kreditId", f.kreditId))
+        .order("desc")
+        .first();
+      if (terakhir === null || terakhir.waktu <= f._creationTime) continue;
+      item.push({
+        kunci: `pendana:kredit:${f.kreditId}:${terakhir.bulanKe}`,
+        sumber: "pendana",
+        ref: f.kreditId,
+        jenis: terakhir.bulanKe >= kredit.tenorBulan ? "sukses" : "info",
+        judul:
+          terakhir.bulanKe >= kredit.tenorBulan
+            ? "Kredit yang Anda danai tercatat lunas"
+            : "Cicilan kredit yang Anda danai sudah dibayar",
+        ringkasan: `${kredit.nomorReferensi} · ${kredit.namaBarang} · cicilan ${terakhir.bulanKe}/${kredit.tenorBulan} sebesar ${formatRupiahAman(terakhir.totalDibayar)} · ${kalimatWaktu(terakhir.waktu, sekarang)}. Progres dan hak Imbal Hasil terlihat di ruang pendana.`,
+        waktu: terakhir.waktu,
+        tautan: "/penyedia-dana",
+        dibaca: false,
+      });
+    }
+  }
+
   // ===== Sumber 9: versi aplikasi Android yang baru diumumkan
   //
   // Sumbernya `pembaruanAplikasi` — baris yang HANYA ditulis admin saat benar-

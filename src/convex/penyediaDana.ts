@@ -993,13 +993,42 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
     const rekapPendana = [...rekapMap.values()].sort(
       (a, b) => b.totalDisalurkan - a.totalDisalurkan,
     );
-    // Blok kredit hanya ditempelkan ke pendana yang sudah punya baris rekap
-    // pinjaman tunai. Pendana yang hanya menempatkan dana di kredit barang
-    // tetap terlihat di tab Kredit, bukan dipaksa masuk tabel 30 hari ini.
+    // Blok kredit ditempelkan ke baris pendana yang sudah ada. Pendana yang
+    // HANYA punya alokasi kredit barang tetap mendapat baris — kalau tidak,
+    // portofolio pribadinya kosong dan posisinya tidak pernah terlihat di
+    // ruang pendana. Kolom pinjaman tunainya nol; blok kreditnya yang menjelaskan
+    // mengapa baris itu ada.
     for (const r of rekapPendana) {
       const blok = kreditPerPendana.get(r.nama);
       if (blok !== undefined) r.kredit = blok;
     }
+    for (const [nama, blok] of kreditPerPendana) {
+      if (rekapPendana.some((r) => r.nama === nama)) continue;
+      rekapPendana.push({
+        nama,
+        jumlahPinjaman: 0,
+        jumlahAktif: 0,
+        jumlahLunas: 0,
+        totalDisalurkan: 0,
+        saldoBerjalan: 0,
+        totalBunga: 0,
+        keuntunganPendana: 0,
+        keuntunganPendanaLunas: 0,
+        keuntunganPendanaBelumLunas: 0,
+        keuntunganAdmin: 0,
+        keuntunganAdminLunas: 0,
+        keuntunganAdminBelumLunas: 0,
+        transferTercatat: 0,
+        transferBelumDicatat: 0,
+        keuntunganBelumDicatat: 0,
+        kredit: blok,
+      });
+    }
+    rekapPendana.sort(
+      (a, b) =>
+        b.totalDisalurkan - a.totalDisalurkan ||
+        (b.kredit?.pokok ?? 0) - (a.kredit?.pokok ?? 0),
+    );
 
     // Ringkasan dihitung dari baris yang benar-benar dikirim (Zero Fake Data).
     const ringkasan = {

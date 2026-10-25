@@ -117,7 +117,8 @@ function ringkasKredit(row: Doc<"kreditBarang">, dibayarBulan = 0) {
     biayaAdminCicilanTotal: quote?.biayaAdminCicilanTotal ?? null,
     cicilanPerBulan: quote?.cicilanPerBulan ?? null,
     cicilanTerakhir: quote?.cicilanTerakhir ?? null,
-    imbalHasilPlatform: quote?.marginTotal ?? null,
+    /** Total margin kontrak selama tenor — hak pendana, bukan margin platform. */
+    marginKontrak: quote?.marginTotal ?? null,
     totalDibayarKonsumen: quote?.totalDibayarKonsumen ?? null,
     jadwal: quote?.jadwal ?? [],
     totalDiterimaPlatform: quote?.totalDiterima ?? null,

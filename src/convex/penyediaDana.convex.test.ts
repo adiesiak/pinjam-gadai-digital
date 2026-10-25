@@ -571,7 +571,15 @@ describe("ruang penyedia dana (lihat saja)", () => {
       pendana: "Penyedia Uji",
     });
     expect(hasil.ringkasan.nilaiPinjaman).toBe(1_500_000);
-    expect(hasil.rekapPendana).toEqual([]);
+    // Pinjaman yang belum tersalurkan tidak menambah kolom pinjaman tunai,
+    // tetapi pendana tetap muncul karena ia punya alokasi kredit barang.
+    expect(hasil.rekapPendana).toHaveLength(1);
+    expect(hasil.rekapPendana[0]).toMatchObject({
+      nama: "Penyedia Uji",
+      jumlahPinjaman: 0,
+      totalDisalurkan: 0,
+      kredit: { jumlahAlokasi: 1, pokok: 4_800_000 },
+    });
     expect(JSON.stringify(hasil)).not.toContain(RAHASIA.nik);
     expect(await t.run((ctx) => ctx.db.query("ledger_entries").collect())).toEqual([]);
   });

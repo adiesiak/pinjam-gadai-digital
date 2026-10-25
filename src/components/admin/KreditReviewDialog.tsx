@@ -26,6 +26,7 @@ import { formatRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
 
 import { formatDate } from "./admin-format";
+import { CatatCicilanKredit } from "./CatatCicilanKredit";
 import { KreditStatusBadge } from "./KreditStatusBadge";
 import { KotakRingkas } from "./KotakRingkas";
 
@@ -194,8 +195,8 @@ export function KreditReviewDialog({
                 <KotakRingkas
                   label="Marjin kontrak"
                   nilai={
-                    row.imbalHasilPlatform != null
-                      ? formatRupiah(row.imbalHasilPlatform)
+                    row.marginKontrak != null
+                      ? formatRupiah(row.marginKontrak)
                       : "—"
                   }
                   keterangan={`${row.marginPersenPerBulan}% / bulan · hak pendana`}
@@ -338,6 +339,67 @@ export function KreditReviewDialog({
                   )}
                   Tandai dana tersalurkan
                 </Button>
+              </div>
+            ) : row.status === "didanai" ? (
+              <div>
+                <CatatCicilanKredit
+                  key={`${row._id}-${row.dibayarBulan}`}
+                  row={row}
+                />
+                {row.jadwal.length > 0 && (
+                  <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+                    <table className="w-full text-left text-[11px]">
+                      <caption className="sr-only">Jadwal cicilan kredit</caption>
+                      <thead className="bg-slate-50 text-slate-500">
+                        <tr>
+                          <th scope="col" className="px-3 py-1.5 font-semibold">Bulan</th>
+                          <th scope="col" className="px-3 py-1.5 text-right font-semibold">Pokok</th>
+                          <th scope="col" className="px-3 py-1.5 text-right font-semibold">Margin</th>
+                          <th scope="col" className="px-3 py-1.5 text-right font-semibold">Total</th>
+                          <th scope="col" className="px-3 py-1.5 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {row.jadwal.map((j) => {
+                          const lunas = j.bulan <= row.dibayarBulan;
+                          const berikut = j.bulan === row.dibayarBulan + 1;
+                          return (
+                            <tr
+                              key={j.bulan}
+                              className={berikut ? "bg-emerald-50/60" : undefined}
+                            >
+                              <td className="px-3 py-1.5 tabular-nums text-slate-700">
+                                {j.bulan}/{row.totalBulan}
+                              </td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-slate-700">
+                                {formatRupiah(j.pokok)}
+                              </td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-slate-700">
+                                {formatRupiah(j.margin)}
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-semibold tabular-nums text-slate-900">
+                                {formatRupiah(j.total)}
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <span
+                                  className={
+                                    lunas
+                                      ? "font-semibold text-emerald-700"
+                                      : berikut
+                                        ? "font-semibold text-amber-700"
+                                        : "text-slate-500"
+                                  }
+                                >
+                                  {lunas ? "Lunas" : berikut ? "Berikutnya" : "Belum"}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="mt-3 text-xs text-slate-500">

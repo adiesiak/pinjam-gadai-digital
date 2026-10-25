@@ -1664,6 +1664,12 @@ const schema = defineSchema(
       /** Sisa pokok dibiayai setelah pembayaran ini (snapshot). */
       sisaPokokSetelah: v.number(),
       waktu: v.number(),
+      /** Referensi mutasi bank yang dicocokkan admin (opsional: data lama). */
+      referensiMutasi: v.optional(v.string()),
+      /** Bukti transfer peminjam yang dicocokkan untuk cicilan ini. */
+      receiptId: v.optional(v.id("manualPaymentReceipts")),
+      /** Admin yang mencatat penerimaan uang. */
+      dicatatOleh: v.optional(v.id("users")),
     })
       .index("by_kredit", ["kreditId"])
       .index("by_user", ["userId"]),

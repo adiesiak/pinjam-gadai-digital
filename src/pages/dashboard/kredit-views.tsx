@@ -3,6 +3,7 @@ import { Link2, Loader2, PackageCheck, Send, ShoppingBag, TrendingUp } from "luc
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { ManualPaymentEvidenceForm } from "@/components/ManualPaymentEvidenceForm";
 import {
   IdentitasKycTerverifikasi,
   MedanDariKyc,
@@ -82,7 +83,7 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     label: "Alokasi historis",
     className: "gradient-primary border-0 text-primary-foreground",
     description:
-      "Status historis: alokasi yang pernah dimasukkan. Cicilan ditangani di luar aplikasi, belum tersedia sebagai tindakan di sini.",
+      "Dana pembiayaan sudah tersalurkan. Kirim bukti transfer cicilan di bawah; admin mencocokkannya dengan mutasi bank lalu mencatatnya di ledger.",
   },
   lunas: {
     label: "Lunas",
@@ -274,7 +275,7 @@ export function KreditBarangForm({
           <ShoppingBag className="size-4 text-primary" /> Barang yang dicantumkan
         </p>
         <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-          Informasi barang, tautan, merchant, dan harga berasal dari masukan pengguna. Pengajuan mencatat data di PINDAI; pembelian dan pembayaran ke merchant ditangani di luar aplikasi.
+          Informasi barang, tautan, merchant, dan harga berasal dari masukan pengguna. Pengajuan mencatat data di PINDAI; pembelian ke merchant dan perpindahan uang tetap di luar aplikasi, sedangkan bukti transfer cicilan dicatat di sini.
         </p>
         <div className="mt-4 space-y-2">
           <Label htmlFor="kredit-nama-barang">Nama barang</Label>
@@ -604,7 +605,7 @@ export function KreditSayaSection() {
       <EmptyState
         icon={ShoppingBag}
         title="Belum ada pengajuan kredit barang"
-        body="Catat barang, uang muka, tenor, dan cicilan. Pembelian dan pembayaran ditangani di luar aplikasi."
+        body="Catat barang, uang muka, tenor, dan cicilan. Setelah dana tersalurkan, bukti transfer cicilan bisa dikirim dari halaman ini."
       />
     );
   }
@@ -694,10 +695,10 @@ export function KreditSayaSection() {
                   <dd className="font-semibold tabular-nums">{formatRupiah(k.totalDiterimaPlatform)}</dd>
                 </div>
               )}
-              {k.imbalHasilPlatform !== null && (
+              {k.marginKontrak !== null && (
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                  <dt className="text-muted-foreground">Imbal hasil (estimasi)</dt>
-                  <dd className="tabular-nums">{formatRupiah(k.imbalHasilPlatform)}</dd>
+                  <dt className="text-muted-foreground">Marjin kontrak (estimasi)</dt>
+                  <dd className="tabular-nums">{formatRupiah(k.marginKontrak)}</dd>
                 </div>
               )}
             </dl>
@@ -706,20 +707,54 @@ export function KreditSayaSection() {
               <section className="mt-3 rounded-xl border border-slate-200 px-3 py-2.5 text-xs">
                 <h3 className="font-medium">Perkiraan cicilan per bulan</h3>
                 <ul className="mt-2 divide-y divide-slate-100">
-                  {k.jadwal.map((cicilan) => (
-                    <li key={cicilan.bulan} className="flex flex-wrap justify-between gap-2 py-2">
-                      <span>Bulan {cicilan.bulan}: pokok {formatRupiah(cicilan.pokok)} · imbal hasil {formatRupiah(cicilan.margin)}</span>
-                      <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
-                    </li>
-                  ))}
+                  {k.jadwal.map((cicilan) => {
+                    const lunas = cicilan.bulan <= k.dibayarBulan;
+                    const berikut = cicilan.bulan === k.dibayarBulan + 1;
+                    return (
+                      <li key={cicilan.bulan} className="flex flex-wrap justify-between gap-2 py-2">
+                        <span>
+                          Bulan {cicilan.bulan}: pokok {formatRupiah(cicilan.pokok)} · imbal hasil{" "}
+                          {formatRupiah(cicilan.margin)}{" "}
+                          <span
+                            className={
+                              lunas
+                                ? "font-semibold text-emerald-700"
+                                : berikut
+                                  ? "font-semibold text-amber-700"
+                                  : "text-muted-foreground"
+                            }
+                          >
+                            · {lunas ? "tercatat" : berikut ? "berikutnya" : "belum"}
+                          </span>
+                        </span>
+                        <span className="font-semibold tabular-nums">{formatRupiah(cicilan.total)}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
-                <p className="mt-2 text-muted-foreground">Estimasi dihitung dari data pengajuan yang tersimpan; bukan tagihan atau bukti pembayaran aktual.</p>
+                <p className="mt-2 text-muted-foreground">
+                  Tagihan dihitung dari data pengajuan yang tersimpan. Status “tercatat” berarti admin
+                  sudah mencocokkan uang masuk; sisanya masih perkiraan jadwal.
+                </p>
               </section>
             )}
-            <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <p className="mt-3 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <PackageCheck className="size-3.5 text-primary" />
-              Tenor {k.tenorBulan} bulan · DP tersimpan {k.dpPersen}%
+              Tenor {k.tenorBulan} bulan · DP tersimpan {k.dpPersen}% · cicilan tercatat{" "}
+              <strong className="text-slate-800">
+                {k.dibayarBulan}/{k.totalBulan}
+              </strong>
             </p>
+
+            {k.status === "didanai" && k.cicilanBerikut !== null && (
+              <ManualPaymentEvidenceForm
+                jenis="kredit_barang"
+                targetId={k._id}
+                reference={`${k.nomorReferensi} · bulan ${k.cicilanBerikut.bulan}`}
+                suggestedAmount={k.cicilanBerikut.total}
+                kunciJumlah
+              />
+            )}
 
             <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-muted-foreground">
               {meta.description}
