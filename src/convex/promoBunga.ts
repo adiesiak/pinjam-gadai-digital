@@ -20,6 +20,7 @@ import {
   type PromoBungaRingkas,
 } from "../lib/promoBunga";
 import { percentOf } from "../lib/money";
+import { kelompokkanMingguan } from "../lib/trenPromo";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
@@ -273,6 +274,9 @@ export const efektivitas = query({
     let totalSubsidi = 0;
     let dibatasi = false;
     const baris = [];
+    // Satu pinjaman hanya punya satu promo, jadi kontribusi mingguan bisa
+    // dikumpulkan lintas kampanye tanpa risiko terhitung dua kali.
+    const kontribusiMinggu: { waktu: number; subsidi: number }[] = [];
 
     for (const promo of promos) {
       const diambil = await ctx.db
@@ -295,14 +299,22 @@ export const efektivitas = query({
       let perkiraan = false;
       for (const loan of loans) {
         pokok += loan.pokokPinjaman;
+        let subsidiPinjaman = 0;
         const normal = loan.promoBungaPersenNormal;
-        if (normal === undefined || normal <= 0) continue;
-        const persenPromo = loan.promoBungaPersen ?? promo.persenBunga;
-        if (loan.promoBungaPersen === undefined) perkiraan = true;
-        if (persenPromo >= normal) continue;
-        subsidi +=
-          percentOf(loan.pokokPinjaman, normal) -
-          percentOf(loan.pokokPinjaman, persenPromo);
+        if (normal !== undefined && normal > 0) {
+          const persenPromo = loan.promoBungaPersen ?? promo.persenBunga;
+          if (loan.promoBungaPersen === undefined) perkiraan = true;
+          if (persenPromo < normal) {
+            subsidiPinjaman =
+              percentOf(loan.pokokPinjaman, normal) -
+              percentOf(loan.pokokPinjaman, persenPromo);
+          }
+        }
+        subsidi += subsidiPinjaman;
+        kontribusiMinggu.push({
+          waktu: loan.diajukanPada ?? loan._creationTime,
+          subsidi: subsidiPinjaman,
+        });
       }
 
       totalPinjaman += loans.length;
@@ -328,6 +340,7 @@ export const efektivitas = query({
 
     return {
       baris,
+      tren: kelompokkanMingguan(kontribusiMinggu),
       total: {
         promo: promos.length,
         pinjaman: totalPinjaman,

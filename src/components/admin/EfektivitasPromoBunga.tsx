@@ -7,24 +7,30 @@
  * promo hari ini, jadi laporan tidak berubah saat kampanye disunting.
  */
 import { useQuery } from "convex/react";
-import { BarChart3, Download, Info } from "lucide-react";
+import { BarChart3, Download, FileText, Info } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { csvEfektivitasPromo } from "@/lib/csvPromoBunga";
+import { buatPdfLaporanPromo } from "@/lib/laporanPromoPdf";
 import {
   KELAS_STATUS_PROMO_BUNGA,
   LABEL_STATUS_PROMO_BUNGA,
 } from "@/lib/promoBunga";
 import { formatRupiahAman } from "@/lib/money";
 import { formatPeriodePromo, tanggalKeMsWIB } from "@/lib/promoPinjaman";
-import { tanggalWIB } from "@/lib/waktu";
+import { formatTanggalWIB, tanggalWIB } from "@/lib/waktu";
+import type { TrenMingguan } from "@/lib/trenPromo";
 
-/** Unduh teks CSV sebagai berkas; BOM supaya Excel membaca UTF-8. */
-function unduhCsv(nama: string, isi: string): void {
-  const blob = new Blob([`\uFEFF${isi}`], { type: "text/csv;charset=utf-8" });
+/** Unduh isi berkas dari memori; tidak ada permintaan jaringan. */
+function unduhBerkas(nama: string, isi: string | Uint8Array, tipe: string): void {
+  // Salin ke ArrayBuffer biasa: tipe `Uint8Array` di TS 5.7 masih membawa
+  // ArrayBufferLike (termasuk SharedArrayBuffer) yang bukan BlobPart.
+  const bagian: BlobPart =
+    typeof isi === "string" ? isi : (new Uint8Array(isi).buffer as ArrayBuffer);
+  const blob = new Blob([bagian], { type: tipe });
   const url = URL.createObjectURL(blob);
   const tautan = document.createElement("a");
   tautan.href = url;
@@ -33,6 +39,11 @@ function unduhCsv(nama: string, isi: string): void {
   tautan.click();
   tautan.remove();
   URL.revokeObjectURL(url);
+}
+
+/** CSV dengan BOM supaya Excel membaca UTF-8. */
+function unduhCsv(nama: string, isi: string): void {
+  unduhBerkas(nama, `\uFEFF${isi}`, "text/csv;charset=utf-8");
 }
 
 export function EfektivitasPromoBunga({ className }: { className?: string }) {
@@ -96,28 +107,72 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
             Semua tanggal
           </Button>
         )}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="ml-auto gap-1.5"
-          disabled={data === undefined || data.baris.length === 0}
-          onClick={() => {
-            if (data === undefined) return;
-            unduhCsv(
-              `efektivitas-promo-${tanggalWIB(Date.now())}.csv`,
-              csvEfektivitasPromo(
-                data.baris.map((baris) => ({
-                  ...baris,
-                  status: LABEL_STATUS_PROMO_BUNGA[baris.status],
+        <div className="ml-auto flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={data === undefined || data.baris.length === 0}
+            onClick={() => {
+              if (data === undefined) return;
+              unduhCsv(
+                `efektivitas-promo-${tanggalWIB(Date.now())}.csv`,
+                csvEfektivitasPromo(
+                  data.baris.map((baris) => ({
+                    ...baris,
+                    status: LABEL_STATUS_PROMO_BUNGA[baris.status],
+                  })),
+                ),
+              );
+            }}
+          >
+            <Download className="size-3.5" aria-hidden="true" />
+            CSV
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            disabled={data === undefined || data.baris.length === 0}
+            onClick={() => {
+              if (data === undefined) return;
+              const berkas = buatPdfLaporanPromo({
+                baris: data.baris.map((baris) => ({
+                  nama: baris.nama,
+                  status: baris.status,
+                  persenBunga: baris.persenBunga,
+                  tenor: baris.tenor,
+                  mulai: baris.mulai,
+                  selesai: baris.selesai,
+                  pinjaman: baris.pinjaman,
+                  pokok: baris.pokok,
+                  subsidi: baris.subsidi,
                 })),
-              ),
-            );
-          }}
-        >
-          <Download className="size-3.5" aria-hidden="true" />
-          Unduh CSV
-        </Button>
+                tren: data.tren,
+                total: data.total,
+                periode:
+                  mulaiMs === undefined && selesaiMs === undefined
+                    ? null
+                    : {
+                        ...(mulaiMs === undefined ? {} : { dari: mulaiMs }),
+                        ...(selesaiMs === undefined ? {} : { sampai: selesaiMs }),
+                      },
+                dibuatPada: Date.now(),
+                dibatasi: data.dibatasi,
+              });
+              unduhBerkas(
+                `laporan-promo-${tanggalWIB(Date.now())}.pdf`,
+                berkas,
+                "application/pdf",
+              );
+            }}
+          >
+            <FileText className="size-3.5" aria-hidden="true" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       {data === undefined ? (
@@ -132,6 +187,19 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
         </p>
       ) : (
         <>
+          {data.tren.length > 0 && (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs font-semibold text-slate-800">Tren mingguan</p>
+                <p className="text-[10px] text-slate-500">
+                  Batang = subsidi bunga · angka di atas = jumlah pinjaman · minggu mulai
+                  Senin (WIB)
+                </p>
+              </div>
+              <GrafikTrenPromo tren={data.tren} />
+            </div>
+          )}
+
           <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <AngkaRingkas label="Pinjaman" nilai={String(data.total.pinjaman)} />
             <AngkaRingkas label="Pokok" nilai={formatRupiahAman(data.total.pokok)} />
@@ -208,6 +276,111 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * Grafik batang SVG biasa, bukan pustaka grafik: `recharts` di repo ini gagal
+ * dimuat di lingkungan build (lihat RingkasanAnalitik). Satu seri batang cukup —
+ * subsidi (rupiah) dan pemakaian (jumlah) beda skala, jadi jumlah pinjaman
+ * dicetak di atas batangnya alih-alih dipaksa ke sumbu kedua.
+ */
+export function GrafikTrenPromo({ tren }: { tren: readonly TrenMingguan[] }) {
+  const LEBAR = 560;
+  const TINGGI = 176;
+  const KIRI = 58;
+  const KANAN = 8;
+  const ATAS = 24;
+  const BAWAH = 28;
+  const lebarPlot = LEBAR - KIRI - KANAN;
+  const tinggiPlot = TINGGI - ATAS - BAWAH;
+
+  // Dua belas minggu terakhir supaya batang tetap terbaca di panel selebar apa pun.
+  const tampil = tren.slice(-12);
+  const maks = Math.max(1, ...tampil.map((baris) => baris.subsidi));
+  const langkah = lebarPlot / tampil.length;
+  const lebarBatang = Math.min(38, langkah * 0.52);
+
+  const ringkas = (nilai: number): string => {
+    if (nilai >= 1_000_000) {
+      return `Rp${(nilai / 1_000_000).toLocaleString("id-ID", {
+        maximumFractionDigits: 1,
+      })}jt`;
+    }
+    if (nilai >= 1_000) return `Rp${Math.round(nilai / 1_000)}rb`;
+    return `Rp${nilai}`;
+  };
+
+  const total = tampil.reduce((jumlah, baris) => jumlah + baris.subsidi, 0);
+
+  return (
+    <svg
+      viewBox={`0 0 ${LEBAR} ${TINGGI}`}
+      className="mt-2 h-44 w-full"
+      role="img"
+      aria-label={`Tren subsidi promo ${tampil.length} minggu terakhir, total ${formatRupiahAman(total)}`}
+    >
+      {[0, 0.5, 1].map((bagian) => {
+        const y = ATAS + tinggiPlot * (1 - bagian);
+        return (
+          <g key={bagian}>
+            <line
+              x1={KIRI}
+              x2={LEBAR - KANAN}
+              y1={y}
+              y2={y}
+              stroke="#e2e8f0"
+              strokeDasharray={bagian === 0 ? undefined : "3 4"}
+            />
+            <text x={KIRI - 6} y={y + 3} textAnchor="end" fontSize={9} fill="#64748b">
+              {ringkas(maks * bagian)}
+            </text>
+          </g>
+        );
+      })}
+
+      {tampil.map((baris, indeks) => {
+        const tinggi = (baris.subsidi / maks) * tinggiPlot;
+        const x = KIRI + indeks * langkah + (langkah - lebarBatang) / 2;
+        const y = ATAS + tinggiPlot - tinggi;
+        return (
+          <g key={baris.mulai}>
+            <rect
+              x={x}
+              y={y}
+              width={lebarBatang}
+              height={Math.max(1, tinggi)}
+              rx={3}
+              fill="#047857"
+              opacity={0.85}
+            >
+              <title>
+                {`Minggu ${formatTanggalWIB(baris.mulai)} · ${baris.pinjaman} pinjaman · ${formatRupiahAman(baris.subsidi)}`}
+              </title>
+            </rect>
+            <text
+              x={x + lebarBatang / 2}
+              y={Math.max(ATAS - 6, y - 6)}
+              textAnchor="middle"
+              fontSize={9}
+              fill="#0f172a"
+              fontWeight={600}
+            >
+              {baris.pinjaman}
+            </text>
+            <text
+              x={x + lebarBatang / 2}
+              y={TINGGI - 8}
+              textAnchor="middle"
+              fontSize={9}
+              fill="#64748b"
+            >
+              {formatTanggalWIB(baris.mulai, { day: "numeric", month: "short" })}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 

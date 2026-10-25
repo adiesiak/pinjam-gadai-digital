@@ -19,6 +19,7 @@ import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { PilihanProdukSection } from "@/components/landing/PilihanProduk";
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
+import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
@@ -310,6 +311,15 @@ export default function LandingHome() {
           penempatan="beranda"
           className="mx-auto mt-8 w-full max-w-6xl px-4 sm:px-6"
         />
+
+        {/* Angka promo bunga tampil langsung di beranda: pengunjung melihat
+            bunga dan tenornya tanpa membuka halaman produk lebih dulu. */}
+        <div className="mx-auto mt-6 w-full max-w-6xl px-4 sm:px-6">
+          <PromoBungaAktif
+            onAjukan={() => navigate("/dashboard?tab=form")}
+            labelAksi="Ajukan pinjaman"
+          />
+        </div>
 
         <section
           aria-labelledby="layanan-title"

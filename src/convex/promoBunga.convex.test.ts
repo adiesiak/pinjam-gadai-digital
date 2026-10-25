@@ -293,6 +293,9 @@ describe("promo bunga harian", () => {
     expect(laporan.total.subsidi).toBe(45_000);
     expect(laporan.total.pinjaman).toBe(1);
     expect(laporan.dibatasi).toBe(false);
+    expect(laporan.tren).toHaveLength(1);
+    expect(laporan.tren[0].pinjaman).toBe(1);
+    expect(laporan.tren[0].subsidi).toBe(45_000);
 
     // Saringan tanggal memakai waktu pengajuan pinjaman, bukan tanggal promo:
     // rentang yang belum berjalan tidak boleh meminjam angka kampanye lama.
@@ -302,6 +305,7 @@ describe("promo bunga harian", () => {
     expect(kosong.total.pinjaman).toBe(0);
     expect(kosong.total.subsidi).toBe(0);
     expect(kosong.baris[0]?.pinjaman).toBe(0);
+    expect(kosong.tren).toHaveLength(0);
 
     const sudahLewat = await admin.query(api.promoBunga.efektivitas, {
       sampai: Date.now() - HARI_MS,
