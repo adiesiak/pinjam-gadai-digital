@@ -294,6 +294,27 @@ describe("promo bunga harian", () => {
     expect(laporan.total.pinjaman).toBe(1);
     expect(laporan.dibatasi).toBe(false);
 
+    // Saringan tanggal memakai waktu pengajuan pinjaman, bukan tanggal promo:
+    // rentang yang belum berjalan tidak boleh meminjam angka kampanye lama.
+    const kosong = await admin.query(api.promoBunga.efektivitas, {
+      dari: Date.now() + HARI_MS,
+    });
+    expect(kosong.total.pinjaman).toBe(0);
+    expect(kosong.total.subsidi).toBe(0);
+    expect(kosong.baris[0]?.pinjaman).toBe(0);
+
+    const sudahLewat = await admin.query(api.promoBunga.efektivitas, {
+      sampai: Date.now() - HARI_MS,
+    });
+    expect(sudahLewat.total.pinjaman).toBe(0);
+
+    const hariIni = await admin.query(api.promoBunga.efektivitas, {
+      dari: Date.now() - HARI_MS,
+      sampai: Date.now() + HARI_MS,
+    });
+    expect(hariIni.total.pinjaman).toBe(1);
+    expect(hariIni.total.subsidi).toBe(45_000);
+
     await expect(peminjam.query(api.promoBunga.efektivitas, {})).rejects.toThrow(
       /Akses khusus Super Admin/,
     );

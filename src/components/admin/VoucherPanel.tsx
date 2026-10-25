@@ -729,7 +729,9 @@ export function VoucherPanel() {
                     ? "Nilai di bawah adalah poin persen: 5 berarti bunga turun lima poin, bukan Rp5."
                     : draf.jenis === "tambah_tenor"
                       ? "Nilai di bawah adalah jumlah hari tambahan pada jatuh tempo."
-                      : "Nilai di bawah dibaca sebagai potongan biaya, tidak menambah limit."}
+                      : draf.jenis === "diskon_ujrah" || draf.jenis === "diskon_margin"
+                        ? "Voucher akad syariah: potongan ini dibebankan ke porsi pengelola, hak pendana tetap utuh."
+                        : "Nilai di bawah dibaca sebagai potongan biaya, tidak menambah limit."}
               </p>
             </div>
 

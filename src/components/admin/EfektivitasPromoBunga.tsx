@@ -7,18 +7,44 @@
  * promo hari ini, jadi laporan tidak berubah saat kampanye disunting.
  */
 import { useQuery } from "convex/react";
-import { BarChart3, Info } from "lucide-react";
+import { BarChart3, Download, Info } from "lucide-react";
+import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
+import { csvEfektivitasPromo } from "@/lib/csvPromoBunga";
 import {
   KELAS_STATUS_PROMO_BUNGA,
   LABEL_STATUS_PROMO_BUNGA,
 } from "@/lib/promoBunga";
 import { formatRupiahAman } from "@/lib/money";
-import { formatPeriodePromo } from "@/lib/promoPinjaman";
+import { formatPeriodePromo, tanggalKeMsWIB } from "@/lib/promoPinjaman";
+import { tanggalWIB } from "@/lib/waktu";
+
+/** Unduh teks CSV sebagai berkas; BOM supaya Excel membaca UTF-8. */
+function unduhCsv(nama: string, isi: string): void {
+  const blob = new Blob([`\uFEFF${isi}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const tautan = document.createElement("a");
+  tautan.href = url;
+  tautan.download = nama;
+  document.body.appendChild(tautan);
+  tautan.click();
+  tautan.remove();
+  URL.revokeObjectURL(url);
+}
 
 export function EfektivitasPromoBunga({ className }: { className?: string }) {
-  const data = useQuery(api.promoBunga.efektivitas, {});
+  const [dari, setDari] = useState("");
+  const [sampai, setSampai] = useState("");
+  const mulaiMs = dari === "" ? undefined : (tanggalKeMsWIB(dari) ?? undefined);
+  const selesaiMs = sampai === "" ? undefined : (tanggalKeMsWIB(sampai, true) ?? undefined);
+  const data = useQuery(api.promoBunga.efektivitas, {
+    ...(mulaiMs === undefined ? {} : { dari: mulaiMs }),
+    ...(selesaiMs === undefined ? {} : { sampai: selesaiMs }),
+  });
+  const adaSaringan = dari !== "" || sampai !== "";
 
   return (
     <section className={className} aria-labelledby="judul-efektivitas-promo">
@@ -36,13 +62,73 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
         </p>
       </div>
 
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <label className="text-[11px] font-medium text-slate-600">
+          Pengajuan dari
+          <Input
+            type="date"
+            className="mt-0.5 h-9 w-36"
+            value={dari}
+            max={sampai === "" ? undefined : sampai}
+            onChange={(e) => setDari(e.target.value)}
+          />
+        </label>
+        <label className="text-[11px] font-medium text-slate-600">
+          sampai
+          <Input
+            type="date"
+            className="mt-0.5 h-9 w-36"
+            value={sampai}
+            min={dari === "" ? undefined : dari}
+            onChange={(e) => setSampai(e.target.value)}
+          />
+        </label>
+        {adaSaringan && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setDari("");
+              setSampai("");
+            }}
+          >
+            Semua tanggal
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="ml-auto gap-1.5"
+          disabled={data === undefined || data.baris.length === 0}
+          onClick={() => {
+            if (data === undefined) return;
+            unduhCsv(
+              `efektivitas-promo-${tanggalWIB(Date.now())}.csv`,
+              csvEfektivitasPromo(
+                data.baris.map((baris) => ({
+                  ...baris,
+                  status: LABEL_STATUS_PROMO_BUNGA[baris.status],
+                })),
+              ),
+            );
+          }}
+        >
+          <Download className="size-3.5" aria-hidden="true" />
+          Unduh CSV
+        </Button>
+      </div>
+
       {data === undefined ? (
         <p role="status" className="mt-3 text-xs text-slate-500">
           Menghitung pemakaian promo…
         </p>
       ) : data.baris.length === 0 ? (
         <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-3 py-4 text-xs text-slate-500">
-          Belum ada promo bunga yang dibuat, jadi belum ada yang bisa diukur.
+          {adaSaringan
+            ? "Tidak ada pinjaman promo pada rentang tanggal ini. Longgarkan tanggalnya atau pilih Semua tanggal."
+            : "Belum ada promo bunga yang dibuat, jadi belum ada yang bisa diukur."}
         </p>
       ) : (
         <>

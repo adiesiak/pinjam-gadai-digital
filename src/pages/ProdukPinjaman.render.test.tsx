@@ -127,6 +127,40 @@ function render(produk: "konvensional" | "syariah"): string {
   );
 }
 
+// ===== 4. Banner bunga promo =====
+// Harga promo sudah tampil hijau di tabel; banner ini menyebut kampanyenya
+// secara utuh dan hanya untuk jalur konvensional.
+{
+  const promos = [
+    {
+      _id: "promo-uji",
+      nama: "Bunga 15 tenor 7",
+      persenBunga: 15,
+      tenor: [7],
+      mulai: Date.UTC(2026, 9, 25) - 7 * 3_600_000,
+      selesai: Date.UTC(2026, 9, 31, 23, 59) - 7 * 3_600_000,
+      aktif: true,
+    },
+  ];
+  const konvensional = renderToStaticMarkup(
+    <MemoryRouter>
+      <ProdukPinjamanView produk="konvensional" promos={promos} />
+    </MemoryRouter>,
+  ).replace(/&amp;/g, "&");
+  ada(konvensional, "Bunga promo", "banner promo tampil di halaman publik");
+  ada(konvensional, "15%", "bunga promo tercetak di banner");
+  ada(konvensional, "tenor 7 hari", "tenor promo tercetak di banner");
+  ada(konvensional, "31 Oktober 2026", "tanggal berakhir promo tercetak");
+  bersih(konvensional, "banner promo konvensional");
+
+  const syariah = renderToStaticMarkup(
+    <MemoryRouter>
+      <ProdukPinjamanView produk="syariah" promos={promos} />
+    </MemoryRouter>,
+  );
+  tidakAda(syariah, "Bunga promo", "banner promo tidak masuk halaman syariah");
+}
+
 if (gagal > 0) {
   console.error(`\n${gagal} gagal, ${lulus} lulus`);
   process.exit(1);

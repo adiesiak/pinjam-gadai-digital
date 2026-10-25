@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
+import { KartuPromoBunga } from "@/components/promo/PromoBungaAktif";
 import { usePromoBungaAktif } from "@/hooks/use-promo-bunga";
 import {
   HAK_CIPTA_PINDAI,
@@ -1025,6 +1026,12 @@ function KerangkaHalaman({
                   <Link to="/biaya">Lihat semua biaya</Link>
                 </Button>
               </div>
+            )}
+
+            {/* Banner promo hanya untuk jalur konvensional: promo bunga tidak
+                berlaku pada akad syariah yang memakai margin dan ujrah. */}
+            {!syariah && promos.length > 0 && (
+              <KartuPromoBunga daftar={promos} className="mt-8" />
             )}
 
             <dl

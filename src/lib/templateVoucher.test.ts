@@ -87,6 +87,14 @@ ok(
   TEMPLATE_VOUCHER.some((t) => t.jenis === "tambah_tenor" && t.nilai === 7),
   "ada template tenor +7 hari",
 );
+ok(
+  TEMPLATE_VOUCHER.some((t) => t.jenis === "diskon_ujrah" && t.nilai === 50_000),
+  "ada template potongan ujrah syariah",
+);
+ok(
+  TEMPLATE_VOUCHER.some((t) => t.jenis === "diskon_margin" && t.nilai === 100_000),
+  "ada template potongan margin syariah",
+);
 
 const jumlah = lulus + gagal;
 console.log(`templateVoucher.test: ${lulus}/${jumlah} lulus`);

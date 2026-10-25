@@ -97,6 +97,28 @@ export const TEMPLATE_VOUCHER: readonly TemplateVoucher[] = [
     batasPemakaian: 1,
     berlakuHari: 30,
   },
+  {
+    id: "ujrah-50",
+    label: "Ujrah −Rp50.000",
+    keterangan: "Memotong ujrah Rahn dari porsi pengelola; hak pendana tetap utuh.",
+    jenis: "diskon_ujrah",
+    judul: "Potongan ujrah akad Rahn",
+    nilai: 50_000,
+    minPokok: LOAN_LIMITS.minPokok,
+    batasPemakaian: 1,
+    berlakuHari: 30,
+  },
+  {
+    id: "margin-100",
+    label: "Margin −Rp100.000",
+    keterangan: "Memotong margin Murabahah dari porsi pengelola, bukan dari pendana.",
+    jenis: "diskon_margin",
+    judul: "Potongan margin akad Murabahah",
+    nilai: 100_000,
+    minPokok: LOAN_LIMITS.minPokok,
+    batasPemakaian: 1,
+    berlakuHari: 30,
+  },
 ] as const;
 
 /** Akhir hari WIB setelah `hari` hari dari `sekarang`. */

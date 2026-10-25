@@ -254,8 +254,12 @@ export async function promoBungaUntukPengajuan(
  * promo saat ini sebagai perkiraan; angkanya ditandai `perkiraan` pada baris.
  */
 export const efektivitas = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    /** Batas waktu pengajuan (ms), inklusif. Kosong = tanpa batas. */
+    dari: v.optional(v.number()),
+    sampai: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
     await requireAdminSession(ctx);
     const sekarang = Date.now();
     const promos = await ctx.db
@@ -271,11 +275,20 @@ export const efektivitas = query({
     const baris = [];
 
     for (const promo of promos) {
-      const loans = await ctx.db
+      const diambil = await ctx.db
         .query("loans")
         .withIndex("by_promoBunga", (q) => q.eq("promoBungaId", promo._id))
         .take(BATAS_PINJAMAN_PROMO);
-      if (loans.length >= BATAS_PINJAMAN_PROMO) dibatasi = true;
+      if (diambil.length >= BATAS_PINJAMAN_PROMO) dibatasi = true;
+      const loans = diambil.filter((loan) => {
+        // Tanggal pengajuan yang dicatat admin (data lama) menang atas waktu
+        // baris dibuat, supaya saringan tanggal membaca tanggal yang sama
+        // dengan yang dilihat admin di antrean.
+        const waktu = loan.diajukanPada ?? loan._creationTime;
+        if (args.dari !== undefined && waktu < args.dari) return false;
+        if (args.sampai !== undefined && waktu > args.sampai) return false;
+        return true;
+      });
 
       let pokok = 0;
       let subsidi = 0;
