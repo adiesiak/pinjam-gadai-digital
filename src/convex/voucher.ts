@@ -9,7 +9,9 @@
  *
  * Voucher TIDAK mengubah plafon pokok: potongan biaya admin hanya membuat dana
  * yang diterima lebih besar. Hanya `boost_plafon` yang menambah batas, sekali
- * pakai, dan langsung hangus saat pengajuan tersimpan.
+ * pakai, dan langsung hangus saat pengajuan tersimpan. `diskon_bunga` (poin
+ * persen) dan `tambah_tenor` (hari) hanya untuk skema harian; keduanya dibaca
+ * `loans.createLoanApplication` dan dibekukan sebagai snapshot pinjaman.
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
@@ -19,8 +21,10 @@ import {
   diskonBiayaAdmin,
   JENIS_VOUCHER,
   kelayakanVoucher,
+  labelNilaiVoucher,
   LABEL_STATUS_VOUCHER,
   nilaiVoucherApresiasi,
+  periksaNilaiVoucher,
   periksaUbahVoucher,
   ringkasVoucherAdmin,
   statusTampilVoucher,
@@ -44,6 +48,8 @@ const JENIS = v.union(
   v.literal("diskon_ujrah"),
   v.literal("diskon_margin"),
   v.literal("boost_plafon"),
+  v.literal("diskon_bunga"),
+  v.literal("tambah_tenor"),
 );
 
 /** Batas baris yang dikirim ke satu nasabah. */
@@ -358,7 +364,7 @@ export const ubahVoucher = mutation({
       user.email ?? user.name ?? "admin",
       "voucher_diubah",
       voucher.kode,
-      `${voucher.judul} · ${formatRupiah(voucher.nilai)} · ${perubahan.join("; ")}`,
+      `${voucher.judul} · ${labelNilaiVoucher(voucher.jenis, voucher.nilai)} · ${perubahan.join("; ")}`,
     );
     return { ok: true, perubahan: perubahan.length };
   },
@@ -395,7 +401,7 @@ export const cabutVoucher = mutation({
       user.email ?? user.name ?? "admin",
       "voucher_dicabut",
       voucher.kode,
-      `${voucher.judul} · ${formatRupiah(voucher.nilai)} · ${alasan}`,
+      `${voucher.judul} · ${labelNilaiVoucher(voucher.jenis, voucher.nilai)} · ${alasan}`,
     );
     return { ok: true, kode: voucher.kode };
   },
@@ -424,9 +430,10 @@ export const terbitkanVoucher = mutation({
     if (pemilik.role === ROLES.ADMIN) {
       throw new Error("Voucher tidak diterbitkan untuk akun admin.");
     }
-    if (!Number.isSafeInteger(args.nilai) || args.nilai <= 0) {
-      throw new Error("Nilai voucher harus rupiah bulat positif.");
-    }
+    // Satuan `nilai` bergantung pada jenis: rupiah untuk potongan biaya/limit,
+    // poin persen untuk potongan bunga, dan hari untuk tambah tenor.
+    const nilaiGalat = periksaNilaiVoucher(args.jenis, args.nilai);
+    if (nilaiGalat !== null) throw new Error(nilaiGalat);
     if (!Number.isSafeInteger(args.minPokok) || args.minPokok < LOAN_LIMITS.minPokok) {
       throw new Error(
         `Minimal pengajuan voucher tidak boleh di bawah ${formatRupiah(LOAN_LIMITS.minPokok)}.`,
@@ -467,7 +474,7 @@ export const terbitkanVoucher = mutation({
       user.email ?? user.name ?? "admin",
       "voucher_diterbitkan",
       kode,
-      `${judul} · ${args.jenis} · ${formatRupiah(args.nilai)} · untuk ${pemilik.email ?? pemilik.name ?? pemilik._id}`,
+      `${judul} · ${args.jenis} · ${labelNilaiVoucher(args.jenis, args.nilai)} · untuk ${pemilik.email ?? pemilik.name ?? pemilik._id}`,
     );
     return { id, kode };
   },
@@ -496,9 +503,14 @@ export async function voucherUntukPengajuan(
   if (voucher.jenis === "diskon_ujrah" || voucher.jenis === "diskon_margin") {
     throw new Error("Voucher akad syariah belum bisa dipakai untuk pinjaman konvensional.");
   }
-  if (args.skema === "bulanan" && voucher.jenis === "diskon_admin") {
+  if (
+    args.skema === "bulanan" &&
+    (voucher.jenis === "diskon_admin" ||
+      voucher.jenis === "diskon_bunga" ||
+      voucher.jenis === "tambah_tenor")
+  ) {
     throw new Error(
-      "Voucher bebas biaya admin hanya berlaku untuk pinjaman harian. Gunakan voucher tambah limit.",
+      "Voucher bebas biaya admin, potongan bunga, dan tambah tenor hanya berlaku untuk pinjaman harian. Gunakan voucher tambah limit.",
     );
   }
 

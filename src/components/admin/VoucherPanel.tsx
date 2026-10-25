@@ -54,7 +54,10 @@ import {
   KELAS_STATUS_VOUCHER,
   LABEL_JENIS_VOUCHER,
   LABEL_STATUS_VOUCHER,
+  labelNilaiVoucher,
+  periksaNilaiVoucher,
   periksaUbahVoucher,
+  satuanVoucher,
   sisaHariVoucher,
   tanggalInputVoucher,
   type JenisVoucher,
@@ -171,8 +174,9 @@ export function VoucherPanel() {
       return;
     }
     const nilai = angkaDari(draf.nilai);
-    if (!Number.isSafeInteger(nilai) || nilai <= 0) {
-      setPesan("Nilai voucher harus angka rupiah lebih dari nol.");
+    const nilaiGalat = periksaNilaiVoucher(draf.jenis, nilai);
+    if (nilaiGalat !== null) {
+      setPesan(nilaiGalat);
       return;
     }
     const minPokok = angkaDari(draf.minPokok);
@@ -297,7 +301,8 @@ export function VoucherPanel() {
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
             Voucher hanya berlaku untuk pemiliknya. Potongan biaya admin membuat dana
-            diterima lebih besar tanpa mengubah pokok, sedangkan tambah limit menaikkan
+            diterima lebih besar, potongan bunga menurunkan tagihan pinjaman harian, tambah
+            tenor memundurkan jatuh tempo tanpa menaikkan bunga, dan tambah limit menaikkan
             batas pengajuan sekali pakai.
           </p>
         </div>
@@ -452,8 +457,8 @@ export function VoucherPanel() {
                     </p>
                   </div>
 
-                  <div className="text-sm font-semibold tabular-nums text-emerald-800">
-                    {formatRupiahAman(baris.nilai)}
+                  <div className="text-sm font-semibold text-emerald-800">
+                    {labelNilaiVoucher(baris.jenis, baris.nilai)}
                   </div>
 
                   <div className="text-xs text-slate-600">
@@ -630,7 +635,11 @@ export function VoucherPanel() {
               <p className="mt-1 text-[11px] leading-4 text-slate-500">
                 {draf.jenis === "boost_plafon"
                   ? "Nilai di bawah dibaca sebagai tambahan limit sekali pakai."
-                  : "Nilai di bawah dibaca sebagai potongan biaya, tidak menambah limit."}
+                  : draf.jenis === "diskon_bunga"
+                    ? "Nilai di bawah adalah poin persen: 5 berarti bunga turun lima poin, bukan Rp5."
+                    : draf.jenis === "tambah_tenor"
+                      ? "Nilai di bawah adalah jumlah hari tambahan pada jatuh tempo."
+                      : "Nilai di bawah dibaca sebagai potongan biaya, tidak menambah limit."}
               </p>
             </div>
 
@@ -650,17 +659,32 @@ export function VoucherPanel() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="voucher-nilai">Nilai (Rp)</Label>
+                <Label htmlFor="voucher-nilai">
+                  {satuanVoucher(draf.jenis) === "rupiah"
+                    ? "Nilai (Rp)"
+                    : satuanVoucher(draf.jenis) === "persen"
+                      ? "Potongan bunga (poin %)"
+                      : "Tambahan tenor (hari)"}
+                </Label>
                 <Input
                   id="voucher-nilai"
                   className="mt-1 tabular-nums"
                   inputMode="numeric"
                   value={draf.nilai}
-                  placeholder="25.000"
+                  placeholder={
+                    satuanVoucher(draf.jenis) === "rupiah"
+                      ? "25.000"
+                      : satuanVoucher(draf.jenis) === "persen"
+                        ? "5"
+                        : "7"
+                  }
                   onChange={(e) =>
                     setDraf((sebelumnya) => ({
                       ...sebelumnya,
-                      nilai: kelompokkanDigit(e.target.value),
+                      nilai:
+                        satuanVoucher(sebelumnya.jenis) === "rupiah"
+                          ? kelompokkanDigit(e.target.value)
+                          : e.target.value.replace(/\D/g, "").slice(0, 2),
                     }))
                   }
                 />
@@ -765,8 +789,8 @@ export function VoucherPanel() {
                 </div>
                 <div className="mt-1 flex justify-between gap-2">
                   <dt>Nilai</dt>
-                  <dd className="tabular-nums text-slate-800">
-                    {formatRupiahAman(drafUbah.voucher.nilai)}
+                  <dd className="text-slate-800">
+                    {labelNilaiVoucher(drafUbah.voucher.jenis, drafUbah.voucher.nilai)}
                   </dd>
                 </div>
                 <div className="mt-1 flex justify-between gap-2">

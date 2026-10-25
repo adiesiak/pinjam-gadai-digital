@@ -463,6 +463,18 @@ const schema = defineSchema(
       voucherDiskon: v.optional(v.number()),
       /** Tambahan limit sekali pakai yang membuat pokok ini lolos plafon. */
       voucherBoost: v.optional(v.number()),
+      /**
+       * Potongan bunga dari voucher, dalam poin persen. Bunga efektif pinjaman
+       * sudah dikurangi angka ini saat pengajuan disimpan; disimpan terpisah
+       * supaya kontrak bisa menyebut asal potongannya.
+       */
+      voucherDiskonBunga: v.optional(v.number()),
+      /**
+       * Tambahan hari tenor dari voucher. `tenorHari` sudah memuat tambahan ini,
+       * sehingga jatuh tempo memakai angka yang sama; kolom ini hanya jejak
+       * asal-usulnya.
+       */
+      voucherTambahTenor: v.optional(v.number()),
     })
       .index("by_user", ["userId"])
       .index("by_status", ["status"])
@@ -3544,7 +3556,8 @@ const schema = defineSchema(
       .index("by_diperbarui", ["diperbaruiPada"]),
 
     /**
-     * Voucher nasabah — potongan biaya atau tambahan limit sekali pakai.
+     * Voucher nasabah — potongan biaya/bunga, tambahan limit, atau tambahan
+     * tenor sekali pakai.
      *
      * `pemilikId` selalu diisi: voucher hanya berlaku untuk akun yang dituju,
      * sehingga tidak ada kode voucher publik yang bisa dipakai siapa saja.
@@ -3559,9 +3572,14 @@ const schema = defineSchema(
         v.literal("diskon_ujrah"),
         v.literal("diskon_margin"),
         v.literal("boost_plafon"),
+        v.literal("diskon_bunga"),
+        v.literal("tambah_tenor"),
       ),
       judul: v.string(),
-      /** Rupiah: nilai potongan, atau tambahan limit untuk `boost_plafon`. */
+      /**
+       * Angka sesuai jenis: rupiah untuk potongan biaya/limit, poin persen
+       * untuk `diskon_bunga`, dan hari untuk `tambah_tenor`.
+       */
       nilai: v.number(),
       /** Pokok pengajuan minimum agar voucher boleh dipakai. */
       minPokok: v.number(),

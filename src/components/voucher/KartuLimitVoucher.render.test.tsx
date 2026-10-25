@@ -50,6 +50,34 @@ const DAFTAR: VoucherDenganKelayakan[] = [
     alasan: null,
   },
   {
+    _id: "v3",
+    kode: "VCR-100003-456",
+    jenis: "diskon_bunga",
+    judul: "Bunga ringan minggu ini",
+    nilai: 5,
+    minPokok: 100_000,
+    batasPemakaian: 1,
+    terpakai: 0,
+    status: "aktif",
+    berlakuSampai,
+    layak: true,
+    alasan: null,
+  },
+  {
+    _id: "v4",
+    kode: "VCR-100004-567",
+    jenis: "tambah_tenor",
+    judul: "Tempo lebih longgar",
+    nilai: 7,
+    minPokok: 100_000,
+    batasPemakaian: 1,
+    terpakai: 0,
+    status: "aktif",
+    berlakuSampai,
+    layak: true,
+    alasan: null,
+  },
+  {
     _id: "v2",
     kode: "VCR-100002-345",
     jenis: "boost_plafon",
@@ -83,6 +111,12 @@ ada(
 ada(html, "Limit Anda saat ini Rp 500.000", "alasan menyebut limit nasabah");
 ada(html, "tambah limit Rp 500.000", "jenis boost dijelaskan sebagai tambahan limit");
 ada(html, "potongan Rp 20.000", "voucher potongan menyebut nilai potongannya");
+ada(html, "bunga −5%", "potongan bunga ditulis poin persen, bukan rupiah");
+ada(html, "tenor +7 hari", "tambah tenor ditulis dalam hari");
+ok(
+  !html.includes("potongan Rp 5") && !html.includes("potongan Rp 7"),
+  "poin bunga dan hari tenor tidak dicetak sebagai rupiah",
+);
 bersih(html, "daftar voucher");
 
 const kosong = renderToStaticMarkup(

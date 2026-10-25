@@ -113,7 +113,13 @@ async function terbitkan(
   admin: Sesi,
   args: {
     pemilikId: Id<"users">;
-    jenis: "diskon_admin" | "diskon_ujrah" | "diskon_margin" | "boost_plafon";
+    jenis:
+      | "diskon_admin"
+      | "diskon_ujrah"
+      | "diskon_margin"
+      | "boost_plafon"
+      | "diskon_bunga"
+      | "tambah_tenor";
     nilai: number;
     minPokok: number;
     judul?: string;
@@ -299,6 +305,109 @@ describe("voucher nasabah dan limit pembiayaan", () => {
 
     const sesudah = await peminjam.query(api.voucher.daftarVoucherSaya, {});
     expect(sesudah!.limit.tersedia).toBe(500_000);
+  });
+
+  it("voucher potongan bunga menurunkan bunga pinjaman tanpa mengubah tarif normal pendana", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-bunga", {
+      email: "admin-bunga@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam, userId } = await siapkanPeminjam(
+      t,
+      "rani-bunga",
+      "rani-bunga@pindai.test",
+    );
+    const kyc = await unggahKyc(t);
+    const { id: voucherId } = await terbitkan(admin, {
+      pemilikId: userId,
+      jenis: "diskon_bunga",
+      nilai: 5,
+      minPokok: 100_000,
+    });
+
+    const hasil = await ajukanHarian(peminjam, kyc, 300_000, voucherId);
+    const loan = await t.run(async (ctx) => {
+      const rows = await ctx.db
+        .query("loans")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
+    });
+
+    // Tarif 7 hari untuk Rp300.000 adalah 30%; voucher 5 poin menurunkannya
+    // menjadi 25%, dan tarif normal tetap disimpan untuk hak pendana.
+    expect(loan?.persenBunga).toBe(25);
+    expect(loan?.promoBungaPersenNormal).toBe(30);
+    expect(loan?.voucherDiskonBunga).toBe(5);
+    expect(loan?.voucherDiskon).toBe(0);
+  });
+
+  it("voucher tambah tenor memundurkan jatuh tempo dengan tarif tenor semula", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-tenor", {
+      email: "admin-tenor@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam, userId } = await siapkanPeminjam(
+      t,
+      "rani-tenor",
+      "rani-tenor@pindai.test",
+    );
+    const kyc = await unggahKyc(t);
+    const { id: voucherId } = await terbitkan(admin, {
+      pemilikId: userId,
+      jenis: "tambah_tenor",
+      nilai: 7,
+      minPokok: 100_000,
+    });
+
+    const hasil = await ajukanHarian(peminjam, kyc, 300_000, voucherId);
+    const loan = await t.run(async (ctx) => {
+      const rows = await ctx.db
+        .query("loans")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
+    });
+
+    // Tenor tersimpan 7 + 7 hari, tetapi bunga tetap tarif 7 hari (30%).
+    expect(loan?.tenorHari).toBe(14);
+    expect(loan?.persenBunga).toBe(30);
+    expect(loan?.voucherTambahTenor).toBe(7);
+  });
+
+  it("potongan bunga dan tambah tenor ditolak untuk skema bulanan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-bulan-bunga", {
+      email: "admin-bulan-bunga@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam, userId } = await siapkanPeminjam(
+      t,
+      "rani-bulan-bunga",
+      "rani-bulan-bunga@pindai.test",
+    );
+    const kyc = await unggahKyc(t);
+    const { id: potongan } = await terbitkan(admin, {
+      pemilikId: userId,
+      jenis: "diskon_bunga",
+      nilai: 5,
+      minPokok: 100_000,
+    });
+    const { id: tenor } = await terbitkan(admin, {
+      pemilikId: userId,
+      jenis: "tambah_tenor",
+      nilai: 7,
+      minPokok: 100_000,
+    });
+
+    await expect(ajukanBulanan(peminjam, kyc, 300_000, potongan)).rejects.toThrow(
+      /hanya berlaku untuk pinjaman harian/,
+    );
+    await expect(ajukanBulanan(peminjam, kyc, 300_000, tenor)).rejects.toThrow(
+      /hanya berlaku untuk pinjaman harian/,
+    );
   });
 
   it("menutup pinjaman dari panel admin menerbitkan voucher apresiasi", async () => {

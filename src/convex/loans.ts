@@ -755,6 +755,21 @@ export const createLoanApplication = mutation({
       persenBungaSimpanan = bungaSetelahPromo(persenBungaNormal, promoDipakai);
     }
 
+    // ===== Voucher potongan bunga & tambah tenor (khusus harian) =====
+    // Potongan bunga memakai poin persen, bukan rupiah. Ia diterapkan SETELAH
+    // promo dan tidak boleh membuat bunga negatif. Tarif sebelum potongan
+    // disimpan sebagai `promoBungaPersenNormal` supaya hak penyedia dana tetap
+    // dihitung dari tarif penuh — promo dan voucher adalah subsidi platform,
+    // bukan pengurang Imbal Hasil pendana.
+    const voucherDipakai = voucherTerpilih?.voucher ?? null;
+    const potonganBungaVoucher =
+      voucherDipakai?.jenis === "diskon_bunga" ? voucherDipakai.nilai : 0;
+    const tambahanTenorVoucher =
+      voucherDipakai?.jenis === "tambah_tenor" ? voucherDipakai.nilai : 0;
+    if (potonganBungaVoucher > 0) {
+      persenBungaSimpanan = Math.max(0, persenBungaSimpanan - potonganBungaVoucher);
+    }
+
     // Nama peminjam selalu disimpan UPPERCASE agar konsisten di dashboard.
     const trimmedName = args.namaLengkap.trim().toUpperCase();
     const namaBank = args.namaBank.trim();
@@ -865,7 +880,9 @@ export const createLoanApplication = mutation({
       nomorRekening: trimmedAccount,
       status: "diajukan",
       nomorReferensi,
-      tenorHari: args.tenorHari,
+      // Voucher tambah tenor memperpanjang jatuh tempo tanpa menaikkan tarif:
+      // bunga di atas sudah dihitung dari tenor dasar pilihan nasabah.
+      tenorHari: args.tenorHari + tambahanTenorVoucher,
       // Hanya skema harian yang punya biaya ekspres; skema bulanan memakai
       // potongan 2% tetap, jadi pilihan ini tidak disimpan di sana.
       cairEkspres: tenorBulanSim === undefined ? cairEkspres : undefined,
@@ -875,12 +892,14 @@ export const createLoanApplication = mutation({
       // setelahnya. Untuk tenor harian, nilai ini sudah dihitung dari matriks
       // di atas; untuk bulanan tetap memakai tarif akun per bulan.
       persenBunga: persenBungaSimpanan,
-      // Snapshot promo bunga: hanya bila promo benar-benar memotong bunga.
-      // Pinjaman yang tersimpan tetap utuh walau promo dimatikan kemudian.
-      ...(promoDipakai !== null && persenBungaSimpanan < persenBungaNormal
+      // Snapshot tarif sebelum promo/voucher: hanya bila benar-benar ada
+      // potongan. Pinjaman yang tersimpan tetap utuh walau promo dimatikan
+      // atau voucher dicabut kemudian.
+      ...(persenBungaSimpanan < persenBungaNormal
         ? {
-            promoBungaId: promoDipakai._id,
-            promoBungaNama: promoDipakai.nama,
+            ...(promoDipakai !== null
+              ? { promoBungaId: promoDipakai._id, promoBungaNama: promoDipakai.nama }
+              : {}),
             promoBungaPersenNormal: persenBungaNormal,
           }
         : {}),
@@ -906,6 +925,12 @@ export const createLoanApplication = mutation({
             voucherKode: voucherTerpilih.voucher!.kode,
             voucherDiskon: diskonVoucher,
             voucherBoost: voucherTerpilih.boost,
+            ...(potonganBungaVoucher > 0
+              ? { voucherDiskonBunga: potonganBungaVoucher }
+              : {}),
+            ...(tambahanTenorVoucher > 0
+              ? { voucherTambahTenor: tambahanTenorVoucher }
+              : {}),
           }
         : {}),
     });

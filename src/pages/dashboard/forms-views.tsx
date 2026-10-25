@@ -66,10 +66,10 @@ import {
   tenorHarianDefault,
   tenorHarianTersedia,
 } from "@/lib/loan";
-import { formatRupiah } from "@/lib/money";
+import { formatRupiah, percentOf } from "@/lib/money";
 import { bungaSetelahPromo, pilihPromoBunga } from "@/lib/promoBunga";
 import { formatPeriodePromo } from "@/lib/promoPinjaman";
-import { diskonBiayaAdmin } from "@/lib/voucher";
+import { diskonBiayaAdmin, labelNilaiVoucher } from "@/lib/voucher";
 import {
   konsekuensiKeterlambatan,
   peringatanKemampuanBayar,
@@ -512,20 +512,39 @@ export function LoanForm({
   const voucherBisaDipilih = (voucherQuery?.daftar ?? []).filter(
     (row) =>
       row.layak &&
-      (row.jenis === "diskon_admin" || row.jenis === "boost_plafon") &&
+      (row.jenis === "diskon_admin" ||
+        row.jenis === "boost_plafon" ||
+        row.jenis === "diskon_bunga" ||
+        row.jenis === "tambah_tenor") &&
       (!bulanan || row.jenis === "boost_plafon"),
   );
-  // Voucher tambah limit berlaku untuk kedua skema — server hanya menolak
-  // voucher potongan biaya admin pada skema bulanan.
+  // Voucher tambah limit berlaku untuk kedua skema. Potongan bunga dan tambah
+  // tenor hanya untuk skema harian — server menolaknya untuk skema bulanan.
   const boostVoucher =
     voucherDipilih?.jenis === "boost_plafon" ? voucherDipilih.nilai : 0;
+  // Voucher potongan bunga memakai poin persen, bukan rupiah. Bunga efektif
+  // inilah yang dipakai mesin harga di layar, sama dengan yang disimpan server
+  // (server mengurangi tarif setelah promo dengan angka voucher yang sama).
+  const diskonBungaVoucher =
+    !bulanan && voucherDipilih?.jenis === "diskon_bunga" ? voucherDipilih.nilai : 0;
+  const tambahanTenorVoucher =
+    !bulanan && voucherDipilih?.jenis === "tambah_tenor" ? voucherDipilih.nilai : 0;
+  const tarifEfektif = Math.max(0, tarifHarian - diskonBungaVoucher);
+  // Bunga sebelum voucher, untuk menyebut rupiah yang benar-benar dihemat —
+  // dihitung dengan pembulatan `percentOf` yang sama seperti mesin harga.
+  const bungaSebelumVoucher =
+    diskonBungaVoucher > 0 ? percentOf(pokok, tarifHarian) : 0;
   // Pilihan yang tidak lagi sah dilepas, bukan dikirim lalu ditolak server:
   // nominal turun di bawah minimal voucher, atau skema berganti ke bulanan saat
   // voucher potongan biaya admin dipilih.
   useEffect(() => {
     if (voucherDipilih === null) return;
-    if (bulanan && voucherDipilih.jenis === "diskon_admin") setVoucherId(null);
-    else if (voucherDipilih.minPokok > pokok) setVoucherId(null);
+    if (
+      bulanan &&
+      voucherDipilih.jenis !== "boost_plafon"
+    ) {
+      setVoucherId(null);
+    } else if (voucherDipilih.minPokok > pokok) setVoucherId(null);
   }, [bulanan, pokok, voucherDipilih]);
   const adminPersen = tarifBiaya?.adminPersen ?? PINDAI_PRICING.adminFeePercent;
   // Potongan voucher dibatasi biaya admin yang benar-benar ada (fungsi yang
@@ -534,7 +553,7 @@ export function LoanForm({
     !bulanan && voucherDipilih?.jenis === "diskon_admin"
       ? diskonBiayaAdmin(voucherDipilih, Math.floor((pokok * adminPersen) / 100))
       : 0;
-  const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifHarian, {
+  const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifEfektif, {
     ekspres: !bulanan && cairEkspres,
     ...(tarifBiaya !== undefined ? { tarif: tarifBiaya } : {}),
     ...(diskonVoucher > 0 ? { diskonAdmin: diskonVoucher } : {}),
@@ -1078,10 +1097,7 @@ export function LoanForm({
                   <SelectItem value="tanpa">Tanpa voucher</SelectItem>
                   {voucherBisaDipilih.map((row) => (
                     <SelectItem key={row._id} value={row._id}>
-                      {row.judul} ·{" "}
-                      {row.jenis === "boost_plafon"
-                        ? `+${formatRupiah(row.nilai)} limit`
-                        : `−${formatRupiah(row.nilai)} biaya admin`}
+                      {row.judul} · {labelNilaiVoucher(row.jenis, row.nilai)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1089,9 +1105,13 @@ export function LoanForm({
               <p className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
                 {boostVoucher > 0
                   ? `Voucher ini menambah batas pengajuan ${formatRupiah(boostVoucher)} sekali pakai. Plafon yang terpakai tetap sebesar pokok.`
-                  : diskonVoucher > 0
-                    ? `Biaya admin dibebaskan ${formatRupiah(diskonVoucher)}. Plafon yang terpakai tetap sebesar pokok, jadi tidak ada limit yang dikembalikan.`
-                    : "Pilih voucher untuk melihat potongannya di rincian."}
+                  : diskonBungaVoucher > 0
+                    ? `Bunga turun ${diskonBungaVoucher} poin (dari ${tarifHarian}% menjadi ${tarifEfektif}%). Kewajiban pelunasan ikut turun.`
+                    : tambahanTenorVoucher > 0
+                      ? `Jatuh tempo mundur ${tambahanTenorVoucher} hari, dari tenor ${tenorHarian} menjadi ${tenorHarian + tambahanTenorVoucher} hari. Bunga tidak bertambah.`
+                      : diskonVoucher > 0
+                        ? `Biaya admin dibebaskan ${formatRupiah(diskonVoucher)}. Plafon yang terpakai tetap sebesar pokok, jadi tidak ada limit yang dikembalikan.`
+                        : "Pilih voucher untuk melihat potongannya di rincian."}
               </p>
             </>
           )}
@@ -1167,11 +1187,27 @@ export function LoanForm({
                 </dd>
               </div>
             )}
+            {diskonBungaVoucher > 0 && (
+              <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
+                <dt className="font-medium text-emerald-900">
+                  Voucher {voucherDipilih?.kode ?? "voucher"} memotong bunga{" "}
+                  {diskonBungaVoucher} poin: {tarifHarian}% menjadi {tarifEfektif}%
+                </dt>
+                <dd className="font-semibold tabular-nums text-emerald-800">
+                  hemat {formatRupiah(bungaSebelumVoucher - q.bunga)}
+                </dd>
+              </div>
+            )}
             <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-medium text-slate-700">
-                Bunga {tarifHarian}% · tenor {tenorHarian} hari
+                Bunga {tarifEfektif}% · tenor {tenorHarian + tambahanTenorVoucher} hari
                 {promoBunga !== null && (
                   <span className="text-emerald-700"> (promo)</span>
+                )}
+                {tambahanTenorVoucher > 0 && (
+                  <span className="text-emerald-700">
+                    {" "}(termasuk bonus {tambahanTenorVoucher} hari)
+                  </span>
                 )}
               </dt>
               <dd className="font-medium tabular-nums">{formatRupiah(q.bunga)}</dd>
@@ -1293,8 +1329,11 @@ export function LoanForm({
           {!bulanan && (
             <p className="text-xs leading-5 text-muted-foreground">
               Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari. Bunga{" "}
-              <strong className="font-semibold text-slate-800">{tarifHarian}%</strong> sesuai matriks
+              <strong className="font-semibold text-slate-800">{tarifEfektif}%</strong> sesuai matriks
               produk.
+              {tambahanTenorVoucher > 0
+                ? ` Voucher menambah ${tambahanTenorVoucher} hari, jadi jatuh tempo ${tenorHarian + tambahanTenorVoucher} hari.`
+                : ""}
             </p>
           )}
         </div>

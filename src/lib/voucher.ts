@@ -7,6 +7,15 @@
  *    hanya uang yang diterimanya lebih besar.
  *  - `boost_plafon` menambah batas pengajuan sekali pakai. Ia tidak memotong
  *    biaya apa pun dan hangus setelah satu pengajuan.
+ *  - `diskon_bunga` memotong bunga dalam poin persen. Nilainya bukan rupiah:
+ *    "5" berarti bunga turun lima poin, bukan potongan Rp5.
+ *  - `tambah_tenor` menambah hari jatuh tempo. Nilainya juga bukan rupiah:
+ *    "7" berarti tenor bertambah tujuh hari dengan tarif tenor semula.
+ *
+ * Satuan `nilai` karena itu berbeda per jenis. `satuanVoucher` dan
+ * `labelNilaiVoucher` adalah satu-satunya tempat yang boleh menerjemahkan
+ * angka itu menjadi teks, supaya panel admin dan layar nasabah tidak
+ * menuliskan "Rp5" untuk voucher lima poin bunga.
  *
  * Voucher ujrah/margin adalah aturan akad syariah dan tinggal di
  * `lib/syariah/voucher.ts` — di sini hanya nama jenisnya, supaya satu daftar
@@ -23,22 +32,87 @@ export type JenisVoucher =
   | "diskon_admin"
   | "diskon_ujrah"
   | "diskon_margin"
-  | "boost_plafon";
+  | "boost_plafon"
+  | "diskon_bunga"
+  | "tambah_tenor";
 
 export const JENIS_VOUCHER: readonly JenisVoucher[] = [
   "diskon_admin",
+  "boost_plafon",
+  "diskon_bunga",
+  "tambah_tenor",
   "diskon_ujrah",
   "diskon_margin",
-  "boost_plafon",
 ] as const;
 
 /** Label manusiawi untuk tiap jenis — dipakai panel admin dan kartu nasabah. */
 export const LABEL_JENIS_VOUCHER: Record<JenisVoucher, string> = {
   diskon_admin: "Bebas biaya admin",
+  boost_plafon: "Tambah limit",
+  diskon_bunga: "Potongan bunga",
+  tambah_tenor: "Tambah tenor",
   diskon_ujrah: "Potongan ujrah",
   diskon_margin: "Potongan margin",
-  boost_plafon: "Tambah limit",
 };
+
+/** Satuan angka `nilai` untuk satu jenis voucher. */
+export type SatuanVoucher = "rupiah" | "persen" | "hari";
+
+/**
+ * Satuan nilai voucher.
+ *
+ * Tiga jenis memakai rupiah (potongan biaya/limit), sedangkan potongan bunga
+ * memakai poin persen dan tambah tenor memakai hari. Pemanggil WAJIB membaca
+ * fungsi ini sebelum memformat angka; mencetak `nilai` sebagai rupiah untuk
+ * kedua jenis baru menghasilkan janji yang salah ke nasabah.
+ */
+export function satuanVoucher(jenis: JenisVoucher): SatuanVoucher {
+  if (jenis === "diskon_bunga") return "persen";
+  if (jenis === "tambah_tenor") return "hari";
+  return "rupiah";
+}
+
+/** Batas nilai yang masuk akal untuk tiap jenis voucher. */
+export const BATAS_NILAI_VOUCHER: Record<
+  JenisVoucher,
+  { min: number; max: number }
+> = {
+  diskon_admin: { min: 1, max: 10_000_000 },
+  boost_plafon: { min: 1, max: 10_000_000 },
+  diskon_ujrah: { min: 1, max: 10_000_000 },
+  diskon_margin: { min: 1, max: 10_000_000 },
+  /** Poin persen: 5 berarti bunga turun 5 poin, bukan potongan Rp5. */
+  diskon_bunga: { min: 1, max: 25 },
+  /** Hari tambahan: 7 berarti jatuh tempo mundur seminggu. */
+  tambah_tenor: { min: 1, max: 30 },
+};
+
+/** Pesan galat pertama untuk nilai voucher, atau null bila sah. */
+export function periksaNilaiVoucher(jenis: JenisVoucher, nilai: number): string | null {
+  const batas = BATAS_NILAI_VOUCHER[jenis];
+  const satuan = satuanVoucher(jenis);
+  if (!Number.isSafeInteger(nilai) || nilai < batas.min || nilai > batas.max) {
+    if (satuan === "persen") {
+      return `Potongan bunga harus ${batas.min}–${batas.max} poin persen.`;
+    }
+    if (satuan === "hari") {
+      return `Tambahan tenor harus ${batas.min}–${batas.max} hari.`;
+    }
+    return "Nilai voucher harus rupiah bulat positif.";
+  }
+  return null;
+}
+
+/**
+ * Angka voucher dalam satu kalimat siap tampil, mis.
+ * "potongan Rp 25.000", "bunga −5%", "tenor +7 hari", "tambah limit Rp 500.000".
+ */
+export function labelNilaiVoucher(jenis: JenisVoucher, nilai: number): string {
+  if (jenis === "diskon_bunga") return `bunga −${nilai}%`;
+  if (jenis === "tambah_tenor") return `tenor +${nilai} hari`;
+  if (jenis === "boost_plafon") return `tambah limit ${formatRupiah(nilai as Rupiah)}`;
+  return `potongan ${formatRupiah(nilai as Rupiah)}`;
+}
 
 /** Status simpan voucher. `terpakai` dan `dicabut` tidak pernah layak dipakai. */
 export type StatusVoucher = "aktif" | "terpakai" | "dicabut";
@@ -73,8 +147,11 @@ export type VoucherRingkas = {
   kode: string;
   jenis: JenisVoucher;
   judul: string;
-  /** Rupiah: nilai potongan, atau tambahan limit untuk `boost_plafon`. */
-  nilai: Rupiah;
+  /**
+   * Angka sesuai `satuanVoucher`: rupiah untuk potongan biaya/limit, poin
+   * persen untuk potongan bunga, dan hari untuk tambah tenor.
+   */
+  nilai: number;
   /** Pokok pengajuan minimum agar voucher ini boleh dipakai. */
   minPokok: Rupiah;
   batasPemakaian: number;
@@ -272,7 +349,10 @@ export type RingkasanVoucherAdmin = {
  * dan `sekarang`, tanpa membaca jam atau basis data.
  */
 export function ringkasVoucherAdmin(
-  baris: readonly Pick<VoucherRingkas, "status" | "berlakuSampai" | "nilai">[],
+  baris: readonly Pick<
+    VoucherRingkas,
+    "status" | "berlakuSampai" | "nilai" | "jenis"
+  >[],
   sekarang: number,
 ): RingkasanVoucherAdmin {
   const ringkas: RingkasanVoucherAdmin = {
@@ -288,6 +368,10 @@ export function ringkasVoucherAdmin(
     const status = statusTampilVoucher(voucher, sekarang);
     ringkas[status] += 1;
     if (status !== "aktif") continue;
+    // Hanya voucher berharga rupiah yang boleh dijumlahkan. Menambahkan poin
+    // bunga atau hari tenor ke total rupiah menghasilkan angka yang tidak
+    // berarti apa pun di kepala panel.
+    if (satuanVoucher(voucher.jenis) !== "rupiah") continue;
     ringkas.nilaiAktif = (ringkas.nilaiAktif + Math.max(0, Math.floor(voucher.nilai))) as Rupiah;
     if (sisaHariVoucher(voucher.berlakuSampai, sekarang) <= 7) ringkas.hampirBerakhir += 1;
   }

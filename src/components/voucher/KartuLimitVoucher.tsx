@@ -27,6 +27,7 @@ import { tanggalRingkas } from "@/lib/jatuhTempo";
 import { formatRupiah } from "@/lib/money";
 import {
   LABEL_JENIS_VOUCHER,
+  labelNilaiVoucher,
   type JenisVoucher,
   type VoucherRingkas,
 } from "@/lib/voucher";
@@ -91,9 +92,7 @@ export function DaftarVoucherSheet({
                 <p className="mt-0.5 text-[11px] leading-5 text-slate-600">
                   {LABEL_JENIS_VOUCHER[voucher.jenis as JenisVoucher] ?? voucher.jenis}
                   {" · "}
-                  {voucher.jenis === "boost_plafon"
-                    ? `tambah limit ${formatRupiah(voucher.nilai)}`
-                    : `potongan ${formatRupiah(voucher.nilai)}`}
+                  {labelNilaiVoucher(voucher.jenis, voucher.nilai)}
                   {" · "}
                   berlaku sampai {tanggalRingkas(voucher.berlakuSampai)}
                 </p>

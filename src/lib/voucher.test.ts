@@ -12,8 +12,11 @@ import {
   boostTersedia,
   diskonBiayaAdmin,
   kelayakanVoucher,
+  labelNilaiVoucher,
   nilaiVoucherApresiasi,
+  periksaNilaiVoucher,
   periksaUbahVoucher,
+  satuanVoucher,
   ringkasVoucherAdmin,
   rincianVoucherPengajuan,
   sisaHariVoucher,
@@ -216,20 +219,27 @@ eq(sisaHariVoucher(Number.NaN, SEKARANG), 0, "nilai tidak sah → 0 hari");
 // "hampir berakhir", sedangkan kedaluwarsa dihitung terpisah.
 const ringkas = ringkasVoucherAdmin(
   [
-    { status: "aktif", berlakuSampai: SEKARANG + 3 * 86_400_000, nilai: 20_000 },
-    { status: "aktif", berlakuSampai: SEKARANG + 30 * 86_400_000, nilai: 10_000 },
-    { status: "aktif", berlakuSampai: SEKARANG - 86_400_000, nilai: 50_000 },
-    { status: "terpakai", berlakuSampai: SEKARANG + 5 * 86_400_000, nilai: 15_000 },
-    { status: "dicabut", berlakuSampai: SEKARANG + 5 * 86_400_000, nilai: 25_000 },
+    { status: "aktif", jenis: "diskon_admin", berlakuSampai: SEKARANG + 3 * 86_400_000, nilai: 20_000 },
+    { status: "aktif", jenis: "boost_plafon", berlakuSampai: SEKARANG + 30 * 86_400_000, nilai: 10_000 },
+    { status: "aktif", jenis: "diskon_admin", berlakuSampai: SEKARANG - 86_400_000, nilai: 50_000 },
+    { status: "terpakai", jenis: "diskon_admin", berlakuSampai: SEKARANG + 5 * 86_400_000, nilai: 15_000 },
+    { status: "dicabut", jenis: "diskon_admin", berlakuSampai: SEKARANG + 5 * 86_400_000, nilai: 25_000 },
+    // Poin bunga dan hari tenor tidak ikut dijumlahkan sebagai rupiah.
+    { status: "aktif", jenis: "diskon_bunga", berlakuSampai: SEKARANG + 10 * 86_400_000, nilai: 5 },
+    { status: "aktif", jenis: "tambah_tenor", berlakuSampai: SEKARANG + 10 * 86_400_000, nilai: 7 },
   ],
   SEKARANG,
 );
-eq(ringkas.total, 5, "total baris ringkasan");
-eq(ringkas.aktif, 2, "dua voucher aktif");
+eq(ringkas.total, 7, "total baris ringkasan");
+eq(ringkas.aktif, 4, "empat voucher aktif");
 eq(ringkas.kedaluwarsa, 1, "satu voucher kedaluwarsa");
 eq(ringkas.terpakai, 1, "satu voucher habis");
 eq(ringkas.dicabut, 1, "satu voucher dicabut");
-eq(ringkas.nilaiAktif, 30_000, "nilai aktif hanya dari yang masih berlaku");
+eq(
+  ringkas.nilaiAktif,
+  30_000,
+  "nilai aktif hanya rupiah dan hanya dari yang masih berlaku",
+);
 eq(ringkas.hampirBerakhir, 1, "hanya yang <= 7 hari dihitung hampir berakhir");
 
 // Periksa suntingan admin — satu sumber untuk layar dan server.
@@ -277,6 +287,52 @@ eq(
 );
 eq(akhirHariVoucher("31/12/2026"), null, "format tanggal lain ditolak");
 eq(akhirHariVoucher("2026-02-31"), null, "tanggal mustahil ditolak");
+
+// ===== Satuan & nilai jenis baru =====
+eq(satuanVoucher("diskon_admin"), "rupiah", "potongan admin memakai rupiah");
+eq(satuanVoucher("boost_plafon"), "rupiah", "boost memakai rupiah");
+eq(satuanVoucher("diskon_bunga"), "persen", "potongan bunga memakai poin persen");
+eq(satuanVoucher("tambah_tenor"), "hari", "tambah tenor memakai hari");
+
+eq(
+  labelNilaiVoucher("diskon_bunga", 5),
+  "bunga −5%",
+  "label poin bunga bukan rupiah",
+);
+eq(
+  labelNilaiVoucher("tambah_tenor", 7),
+  "tenor +7 hari",
+  "label tambahan tenor dalam hari",
+);
+eq(
+  labelNilaiVoucher("diskon_admin", 25_000),
+  "potongan Rp 25.000",
+  "label potongan admin tetap rupiah",
+);
+
+eq(periksaNilaiVoucher("diskon_bunga", 1), null, "satu poin bunga sah");
+eq(periksaNilaiVoucher("diskon_bunga", 25), null, "25 poin bunga sah");
+ok(
+  periksaNilaiVoucher("diskon_bunga", 0) !== null,
+  "nol poin bunga ditolak",
+);
+ok(
+  periksaNilaiVoucher("diskon_bunga", 26) !== null,
+  "di atas 25 poin bunga ditolak",
+);
+eq(periksaNilaiVoucher("tambah_tenor", 7), null, "tujuh hari tenor sah");
+ok(
+  periksaNilaiVoucher("tambah_tenor", 31) !== null,
+  "tambahan tenor di atas 30 hari ditolak",
+);
+ok(
+  periksaNilaiVoucher("tambah_tenor", 0) !== null,
+  "tambahan tenor nol hari ditolak",
+);
+ok(
+  periksaNilaiVoucher("diskon_admin", 0) !== null,
+  "potongan rupiah nol ditolak",
+);
 
 const jumlah = lulus + gagal;
 console.log(`voucher.test: ${lulus}/${jumlah} lulus`);
