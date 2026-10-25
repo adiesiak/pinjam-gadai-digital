@@ -42,10 +42,12 @@ let promoUji:
 const convexReact = await import("convex/react");
 mock.module("convex/react", () => ({
   ...convexReact,
-  // Banner promo memakai hook yang sama; tanpa kampanye ia harus kosong,
-  // bukan menerima teks CMS beranda.
+  // Tiap query dibedakan dari bentuk argumennya. Query tanpa argumen adalah
+  // konten CMS; query berargumen `{}` (tarif dan promo bunga) tidak boleh
+  // menerima objek CMS — bentuk datanya berbeda, dan banner promo akan mencoba
+  // mengulang objek alih-alih daftar.
   useQuery: (_query: unknown, args?: { penempatan?: string }) => {
-    if (args?.penempatan === undefined) return cmsUji;
+    if (args === undefined) return cmsUji;
     return args.penempatan === "beranda" ? promoUji : undefined;
   },
 }));
@@ -192,6 +194,32 @@ for (const role of ["peminjam", "dana"]) {
   ada(denganPromo, "Promo uji beranda", "label kampanye ikut tampil");
   ada(denganPromo, 'href="/auth?returnTo=/dashboard"', "CTA kampanye menuju pendaftaran");
   promoUji = undefined;
+}
+
+// 9. Bagian yang ditambahkan agar pengunjung tidak perlu membuka halaman lain
+//    untuk melihat angka, alur, dan kanal bantuan.
+{
+  const markup = render({ isAuthenticated: false, user: undefined });
+  ada(markup, 'id="kalkulator"', "beranda memasang kalkulator interaktif");
+  ada(markup, "Total pelunasan", "kalkulator menampilkan total pelunasan");
+  ada(markup, 'id="dokumen-judul"', "beranda menjelaskan alur & dokumen");
+  ada(markup, "Selfie sambil memegang KTP", "dokumen verifikasi disebut");
+  ada(markup, 'id="faq-beranda-judul"', "pertanyaan umum tampil di beranda");
+  ada(markup, 'id="banding-judul"', "tabel banding produk ada");
+  ada(markup, "Murabahah", "kolom syariah menyebut akadnya");
+  ada(
+    markup,
+    'href="/akses-bersama"',
+    "ruang pendana dibuka lewat kode akses bersama",
+  );
+  tidakAda(
+    markup,
+    'href="/jadi-pendana"',
+    "beranda tetap tidak menautkan proposal pendanaan",
+  );
+  ada(markup, "wa.me", "footer menyediakan kanal WhatsApp CS");
+  ada(markup, 'aria-label="Aksi cepat"', "aksi lengket ponsel tersedia");
+  ada(markup, "Ajukan pinjaman", "CTA tamu memakai kata ajukan");
 }
 
 console.log(`qa-landing-rute: ${lulus} lulus, ${gagal} gagal`);

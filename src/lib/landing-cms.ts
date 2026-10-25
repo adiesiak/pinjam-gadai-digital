@@ -44,6 +44,12 @@ export type KontenLandingTersimpan = {
   panduanCtaKalkulator?: string;
   panduanCtaSyarat?: string;
   panduan?: ReadonlyArray<Partial<ItemPanduan>>;
+  kalkulatorJudul?: string;
+  kalkulatorDeskripsi?: string;
+  dokumenJudul?: string;
+  dokumenDeskripsi?: string;
+  faqJudul?: string;
+  faqDeskripsi?: string;
   footerDeskripsi?: string;
 };
 
@@ -64,6 +70,15 @@ export type KontenLanding = {
   panduanCtaKalkulator: string;
   panduanCtaSyarat: string;
   panduan: readonly ItemPanduan[];
+  /** Kepala bagian kalkulator; isi kalkulatornya tetap dari mesin harga. */
+  kalkulatorJudul: string;
+  kalkulatorDeskripsi: string;
+  /** Kepala bagian alur & dokumen. */
+  dokumenJudul: string;
+  dokumenDeskripsi: string;
+  /** Kepala bagian pertanyaan umum; daftar tanyanya tetap di kode. */
+  faqJudul: string;
+  faqDeskripsi: string;
   footerDeskripsi: string;
 };
 
@@ -91,6 +106,8 @@ export const BATAS_LANDING = {
   panduanCta: 40,
   itemJudul: 60,
   itemIsi: 240,
+  bagianJudul: 100,
+  bagianDeskripsi: 300,
   footerDeskripsi: 300,
 } as const;
 
@@ -104,14 +121,14 @@ export const JUMLAH_PANDUAN = 3;
  * konten sendiri, jadi perlakukan sebagai copy publik, bukan placeholder.
  */
 export const KONTEN_LANDING_DEFAULT: KontenLanding = {
-  heroEyebrow: "Informasi layanan PINDAI",
-  heroJudul1: "Biaya dan status",
-  heroJudul2: "terlihat sebelum melangkah.",
+  heroEyebrow: "Pinjaman tunai, gadai, dan cicilan barang",
+  heroJudul1: "Ajukan pinjaman,",
+  heroJudul2: "biayanya jelas di depan.",
   heroDeskripsi:
-    "PINDAI mencatat pilihan pinjaman, gadai, dan kredit barang beserta perhitungannya. Perpindahan dana dan penanganan barang berlangsung di luar aplikasi.",
+    "PINDAI menghitung potongan, bunga, dan total kewajiban sebelum pengajuan dikirim. Pilih nominal dan tenor, lihat angkanya, lalu putuskan; pencairan dana ditangani tim PINDAI di luar aplikasi.",
   heroCtaSekunder: "Lihat kalkulator",
   heroMikro:
-    "Kalkulator memberi ilustrasi berdasarkan nominal dan tenor pilihan, bukan persetujuan atau bukti pembayaran.",
+    "Ilustrasi dari aturan yang berlaku, bukan persetujuan pinjaman dan bukan bukti transfer.",
   layananEyebrow: "Tiga jenis catatan",
   layananJudul: "Pilih layanan untuk ditinjau",
   layananCta: "Lihat rincian",
@@ -154,6 +171,15 @@ export const KONTEN_LANDING_DEFAULT: KontenLanding = {
       isi: "Ketahui bagaimana akses akun, status, dan data ditangani.",
     },
   ],
+  kalkulatorJudul: "Hitung dulu, baru putuskan.",
+  kalkulatorDeskripsi:
+    "Ubah nominal dan tenor untuk melihat potongan, bunga, dan total kewajiban. Hasilnya memakai aturan yang sama dengan formulir pengajuan.",
+  dokumenJudul: "Satu alur, dokumen yang bisa diunduh.",
+  dokumenDeskripsi:
+    "Verifikasi identitas selesai sebelum pengajuan dikirim. Setiap langkah meninggalkan catatan dan dokumen yang bisa Anda periksa lagi.",
+  faqJudul: "Yang biasanya ditanyakan lebih dulu.",
+  faqDeskripsi:
+    "Empat jawaban singkat sebelum membuat akun. Pertanyaan lain ada di halaman pertanyaan umum.",
   footerDeskripsi:
     "Aplikasi pencatatan pinjaman, gadai, dan kredit barang. Perpindahan dana serta penanganan barang berada di luar aplikasi.",
 };
@@ -262,6 +288,32 @@ export function lengkapiKontenLanding(
       BATAS_LANDING.panduanCta,
     ),
     panduan,
+    kalkulatorJudul: teks(
+      nilai?.kalkulatorJudul,
+      b.kalkulatorJudul,
+      BATAS_LANDING.bagianJudul,
+    ),
+    kalkulatorDeskripsi: teks(
+      nilai?.kalkulatorDeskripsi,
+      b.kalkulatorDeskripsi,
+      BATAS_LANDING.bagianDeskripsi,
+    ),
+    dokumenJudul: teks(
+      nilai?.dokumenJudul,
+      b.dokumenJudul,
+      BATAS_LANDING.bagianJudul,
+    ),
+    dokumenDeskripsi: teks(
+      nilai?.dokumenDeskripsi,
+      b.dokumenDeskripsi,
+      BATAS_LANDING.bagianDeskripsi,
+    ),
+    faqJudul: teks(nilai?.faqJudul, b.faqJudul, BATAS_LANDING.bagianJudul),
+    faqDeskripsi: teks(
+      nilai?.faqDeskripsi,
+      b.faqDeskripsi,
+      BATAS_LANDING.bagianDeskripsi,
+    ),
     footerDeskripsi: teks(
       nilai?.footerDeskripsi,
       b.footerDeskripsi,

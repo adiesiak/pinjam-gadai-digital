@@ -71,6 +71,12 @@ const VALIDASI_LANDING = v.object({
       }),
     ),
   ),
+  kalkulatorJudul: v.optional(v.string()),
+  kalkulatorDeskripsi: v.optional(v.string()),
+  dokumenJudul: v.optional(v.string()),
+  dokumenDeskripsi: v.optional(v.string()),
+  faqJudul: v.optional(v.string()),
+  faqDeskripsi: v.optional(v.string()),
   footerDeskripsi: v.optional(v.string()),
 });
 
@@ -425,6 +431,21 @@ export const save = mutation({
           judul: bersih(item.judul, BATAS_LANDING.itemJudul),
           isi: bersih(item.isi, BATAS_LANDING.itemIsi),
         })),
+        kalkulatorJudul: bersih(
+          l.kalkulatorJudul,
+          BATAS_LANDING.bagianJudul,
+        ),
+        kalkulatorDeskripsi: bersih(
+          l.kalkulatorDeskripsi,
+          BATAS_LANDING.bagianDeskripsi,
+        ),
+        dokumenJudul: bersih(l.dokumenJudul, BATAS_LANDING.bagianJudul),
+        dokumenDeskripsi: bersih(
+          l.dokumenDeskripsi,
+          BATAS_LANDING.bagianDeskripsi,
+        ),
+        faqJudul: bersih(l.faqJudul, BATAS_LANDING.bagianJudul),
+        faqDeskripsi: bersih(l.faqDeskripsi, BATAS_LANDING.bagianDeskripsi),
         footerDeskripsi: bersih(
           l.footerDeskripsi,
           BATAS_LANDING.footerDeskripsi,

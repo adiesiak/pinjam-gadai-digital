@@ -4,6 +4,7 @@ import {
   Calculator,
   FileText,
   LockKeyhole,
+  MessageCircle,
   ShieldCheck,
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -25,7 +26,14 @@ import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { BiayaBerlaku } from "@/components/landing/BiayaBerlaku";
+import { BandingProduk } from "@/components/landing/BandingProduk";
+import { CtaLengket } from "@/components/landing/CtaLengket";
+import { DokumenPerlindungan } from "@/components/landing/DokumenPerlindungan";
+import { FaqBeranda } from "@/components/landing/FaqBeranda";
+import { KalkulatorBeranda } from "@/components/landing/KalkulatorBeranda";
+import { RuangPendanaBeranda } from "@/components/landing/RuangPendanaBeranda";
 import { tarifBiayaAman, type TarifBiaya } from "@/lib/loan";
+import { urlChatCs } from "@/lib/kontak";
 import {
   JUMLAH_KARTU_LAYANAN,
   JUMLAH_PANDUAN,
@@ -129,6 +137,8 @@ export default function LandingHome() {
    */
   const ketentuanBiaya = useQuery(api.system.getKetentuanBiaya, {});
   const tarif = tarifBiayaAman(ketentuanBiaya?.tarifBiaya);
+  /** Tarif bulanan untuk kalkulator beranda; kosong → tarif bawaan. */
+  const tarifBulanan = ketentuanBiaya?.tarifBulanan;
   /** Teks CMS dipasangkan dengan rute/ikon tetap; CMS tidak mengubah tujuan. */
   const layanan = Array.from({ length: JUMLAH_KARTU_LAYANAN }, (_, i) => ({
     ...konten.layanan[i],
@@ -197,10 +207,14 @@ export default function LandingHome() {
       : isAuthenticated
         ? "/dashboard"
         : "/auth";
-  const accountLabel = isAuthenticated ? "Buka dashboard" : "Buat akun";
+  // Tamu melihat aksi yang sebenarnya mereka tuju; satu klik langsung ke
+  // halaman masuk dengan tujuan yang sudah terisi.
+  const accountLabel = isAuthenticated ? "Buka dashboard" : "Ajukan pinjaman";
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
+    // Ruang bawah ekstra di ponsel: bilah aksi lengket tidak boleh menutupi
+    // baris terakhir footer.
+    <div className="min-h-screen w-full overflow-x-hidden bg-background pb-24 text-foreground sm:pb-0">
       <a className="skip-link" href="#konten">
         Lewati ke konten utama
       </a>
@@ -306,20 +320,23 @@ export default function LandingHome() {
             konvensional dan syariah punya aturan serta kalkulator sendiri. */}
         <PilihanProdukSection />
 
-        {/* Kampanye hanya muncul saat admin benar-benar menerbitkannya. */}
-        <PromoPinjamanAktif
-          penempatan="beranda"
-          className="mx-auto mt-8 w-full max-w-6xl px-4 sm:px-6"
-        />
-
-        {/* Angka promo bunga tampil langsung di beranda: pengunjung melihat
-            bunga dan tenornya tanpa membuka halaman produk lebih dulu. */}
-        <div className="mx-auto mt-6 w-full max-w-6xl px-4 sm:px-6">
+        {/* Dua banner kampanye berbagi satu kolom dan satu jarak: kalau hanya
+            salah satu yang terbit, tidak ada celah ganda yang tersisa. */}
+        <div className="mx-auto mt-8 w-full max-w-6xl space-y-3 px-4 sm:px-6">
+          <PromoPinjamanAktif penempatan="beranda" />
           <PromoBungaAktif
             onAjukan={() => navigate("/dashboard?tab=form")}
             labelAksi="Ajukan pinjaman"
           />
         </div>
+
+        {/* Kalkulator memakai mesin harga yang sama dengan `/biaya`, jadi
+            angka di beranda tidak bisa berbeda dari formulir pengajuan. */}
+        <KalkulatorBeranda
+          judul={konten.kalkulatorJudul}
+          deskripsi={konten.kalkulatorDeskripsi}
+          tarifBulanan={tarifBulanan}
+        />
 
         <section
           aria-labelledby="layanan-title"
@@ -376,7 +393,20 @@ export default function LandingHome() {
 
         <BiayaBerlaku tarif={tarif} />
 
+        <BandingProduk tarif={tarif} />
+
         <DemoPengajuanTerlihat tarif={tarif} />
+
+        <DokumenPerlindungan
+          judul={konten.dokumenJudul}
+          deskripsi={konten.dokumenDeskripsi}
+        />
+
+        <FaqBeranda
+          judul={konten.faqJudul}
+          deskripsi={konten.faqDeskripsi}
+          tarif={tarif}
+        />
 
         <DoorprizeRingkas
           accountHref={accountHref}
@@ -442,6 +472,8 @@ export default function LandingHome() {
           </div>
         </section>
 
+        <RuangPendanaBeranda />
+
         <div className="pindai-bawah-lipatan">
           <PasangAplikasi />
         </div>
@@ -493,6 +525,31 @@ export default function LandingHome() {
             <Link to="/aplikasi">Aplikasi Android</Link>
             <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
           </nav>
+          {/* Kanal bantuan: nomor CS dibaca dari `lib/kontak`, bukan disalin di
+              sini, supaya tidak ada nomor lama yang tertinggal di halaman. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4 text-sm md:col-span-2">
+            <a
+              href={urlChatCs("Halo PINDAI, saya ingin bertanya tentang layanan.")}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center gap-2 font-semibold text-primary hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <MessageCircle className="size-4" aria-hidden="true" />
+              Chat CS di WhatsApp
+            </a>
+            <Link
+              to="/akses-bersama"
+              className="inline-flex min-h-11 items-center text-slate-600 hover:text-primary"
+            >
+              Ruang pendana
+            </Link>
+            <Link
+              to="/pinjaman/syariah"
+              className="inline-flex min-h-11 items-center text-slate-600 hover:text-primary"
+            >
+              Akad syariah
+            </Link>
+          </div>
           <p className="max-w-2xl text-xs leading-5 text-slate-500 md:col-span-2">
             {PENAFIAN_PINDAI}
           </p>
@@ -501,6 +558,8 @@ export default function LandingHome() {
           </p>
         </div>
       </footer>
+
+      <CtaLengket href={accountHref} label={accountLabel} />
     </div>
   );
 }

@@ -111,7 +111,8 @@ export function LandingCmsPanel() {
             Konten Beranda
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Teks hero, tiga kartu layanan, panduan, dan footer halaman{" "}
+            Teks hero, tiga kartu layanan, panduan, kalkulator, FAQ, dan footer
+            halaman{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">/</code>.
             Tautan dan ikon tetap diatur kode; di sini hanya tulisannya.
           </p>
@@ -298,6 +299,59 @@ export function LandingCmsPanel() {
               />
             </fieldset>
           ))}
+        </Bagian>
+
+        <Bagian judul="Kalkulator, alur, dan FAQ">
+          <p className="text-xs leading-5 text-muted-foreground">
+            Hanya kepala bagian yang bisa diubah. Angka kalkulator, langkah
+            alur, dan daftar pertanyaan tetap dari kode supaya tidak
+            bertentangan dengan mesin harga.
+          </p>
+          <Field
+            id="landing-kalkulator-judul"
+            label="Judul bagian kalkulator"
+            max={BATAS_LANDING.bagianJudul}
+            value={nilai.kalkulatorJudul}
+            onChange={(v) => ubah("kalkulatorJudul", v)}
+          />
+          <Field
+            id="landing-kalkulator-deskripsi"
+            label="Pengantar kalkulator"
+            area
+            max={BATAS_LANDING.bagianDeskripsi}
+            value={nilai.kalkulatorDeskripsi}
+            onChange={(v) => ubah("kalkulatorDeskripsi", v)}
+          />
+          <Field
+            id="landing-dokumen-judul"
+            label="Judul bagian alur & dokumen"
+            max={BATAS_LANDING.bagianJudul}
+            value={nilai.dokumenJudul}
+            onChange={(v) => ubah("dokumenJudul", v)}
+          />
+          <Field
+            id="landing-dokumen-deskripsi"
+            label="Pengantar alur & dokumen"
+            area
+            max={BATAS_LANDING.bagianDeskripsi}
+            value={nilai.dokumenDeskripsi}
+            onChange={(v) => ubah("dokumenDeskripsi", v)}
+          />
+          <Field
+            id="landing-faq-judul"
+            label="Judul bagian pertanyaan umum"
+            max={BATAS_LANDING.bagianJudul}
+            value={nilai.faqJudul}
+            onChange={(v) => ubah("faqJudul", v)}
+          />
+          <Field
+            id="landing-faq-deskripsi"
+            label="Pengantar pertanyaan umum"
+            area
+            max={BATAS_LANDING.bagianDeskripsi}
+            value={nilai.faqDeskripsi}
+            onChange={(v) => ubah("faqDeskripsi", v)}
+          />
         </Bagian>
 
         <Bagian judul="Footer">

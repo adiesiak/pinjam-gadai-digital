@@ -2428,6 +2428,13 @@ const schema = defineSchema(
               }),
             ),
           ),
+          /** Kepala bagian kalkulator, alur & dokumen, dan pertanyaan umum. */
+          kalkulatorJudul: v.optional(v.string()),
+          kalkulatorDeskripsi: v.optional(v.string()),
+          dokumenJudul: v.optional(v.string()),
+          dokumenDeskripsi: v.optional(v.string()),
+          faqJudul: v.optional(v.string()),
+          faqDeskripsi: v.optional(v.string()),
           footerDeskripsi: v.optional(v.string()),
         }),
       ),
