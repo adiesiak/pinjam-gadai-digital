@@ -29,6 +29,7 @@ import { quotePinjaman } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import { audit, getConfig } from "./system";
 import { pembayaranSiklus } from "./siklusPendana";
+import { selesaikanReferralPelunasan } from "./referral";
 import { beriVoucherApresiasi } from "./voucher";
 
 const DAY_MS = 86_400_000;
@@ -573,6 +574,10 @@ async function catatPelunasanTotal(
   // jalur pelunasan lain yang memanggilnya, sehingga peminjam yang lunas lewat
   // pencocokan mutasi tidak pernah menerima voucher.
   await beriVoucherApresiasi(ctx, {
+    loan: { ...loan, status: "lunas", lunasPada: receipt.tanggalTransfer },
+    sekarang: receipt.tanggalTransfer,
+  });
+  await selesaikanReferralPelunasan(ctx, {
     loan: { ...loan, status: "lunas", lunasPada: receipt.tanggalTransfer },
     sekarang: receipt.tanggalTransfer,
   });

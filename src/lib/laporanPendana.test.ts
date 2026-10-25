@@ -472,5 +472,42 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
   );
 }
 
+/* ===== 6. Versi bahasa Inggris ===== */
+{
+  const porto = semuaTeks(laporanPortofolio(PORTOFOLIO, "en"));
+  ok(porto.some((t) => t === "Funding Performance Report"), "banner portofolio versi Inggris");
+  ok(
+    porto.some((t) => t.startsWith("Booked profit (settled):")),
+    "label keuntungan versi Inggris",
+  );
+  ok(porto.some((t) => t.startsWith("REFERENCE | BORROWER")), "kepala tabel versi Inggris");
+  ok(porto.some((t) => t.includes("Printed")), "tanggal cetak versi Inggris");
+  ok(!porto.some((t) => t.includes("Pinjaman Berjalan")), "versi Inggris tidak mencampur label Indonesia");
+  eq(
+    namaBerkasPortofolio(T1, "en"),
+    "PINDAI-Funding-Report-2026-10-02.pdf",
+    "nama berkas portofolio versi Inggris",
+  );
+
+  const pelunasan = semuaTeks(laporanPelunasan(PELUNASAN, "en"));
+  ok(
+    pelunasan.some((t) => t === "Investor Settlement Report"),
+    "banner pelunasan versi Inggris",
+  );
+  ok(pelunasan.some((t) => t === "1. Your Return"), "judul bagian versi Inggris");
+  ok(
+    pelunasan.some((t) => t === "Status: Settled"),
+    "status lunas versi Inggris",
+  );
+  ok(!pelunasan.some((t) => t.includes("Hasil untuk Anda")), "versi Inggris tidak memakai teks Indonesia");
+
+  // Bawaan tetap Indonesia, supaya pemanggil lama tidak berubah.
+  const bawaan = semuaTeks(laporanPortofolio(PORTOFOLIO));
+  ok(
+    bawaan.some((t) => t === "2. Pinjaman Berjalan"),
+    "tanpa argumen tetap bahasa Indonesia",
+  );
+}
+
 console.log(`laporanPendana.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

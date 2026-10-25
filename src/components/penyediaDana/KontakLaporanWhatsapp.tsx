@@ -31,6 +31,8 @@ export function KontakLaporanWhatsapp({
   onSimpan,
   onKirim,
   onUnduh,
+  bahasa,
+  onUbahBahasa,
   className,
 }: {
   nomor: string | null;
@@ -43,6 +45,10 @@ export function KontakLaporanWhatsapp({
   onSimpan: (nomor: string) => void;
   onKirim: () => void;
   onUnduh: () => void;
+  /** Bahasa PDF yang diunduh; bawaan Indonesia. */
+  bahasa?: "id" | "en";
+  /** Bila diisi, pilihan bahasa tampil di kartu ini. */
+  onUbahBahasa?: (bahasa: "id" | "en") => void;
   className?: string;
 }) {
   const [isian, setIsian] = useState("");
@@ -110,6 +116,36 @@ export function KontakLaporanWhatsapp({
 
         <div className="sm:border-l sm:border-slate-200 sm:pl-3">
           <p className="text-xs font-semibold text-navy">Laporan kinerja pendanaan</p>
+          {onUbahBahasa !== undefined && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="text-[11px] text-slate-500">Bahasa PDF</span>
+              <div
+                role="group"
+                aria-label="Bahasa PDF laporan"
+                className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5"
+              >
+                {([
+                  { nilai: "id" as const, label: "Indonesia" },
+                  { nilai: "en" as const, label: "English" },
+                ]).map((pilihan) => (
+                  <button
+                    key={pilihan.nilai}
+                    type="button"
+                    aria-pressed={(bahasa ?? "id") === pilihan.nilai}
+                    onClick={() => onUbahBahasa(pilihan.nilai)}
+                    className={cn(
+                      "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                      (bahasa ?? "id") === pilihan.nilai
+                        ? "bg-emerald-800 text-white"
+                        : "text-slate-600 hover:bg-slate-50",
+                    )}
+                  >
+                    {pilihan.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="mt-1.5 flex flex-wrap gap-2">
             <Button
               type="button"

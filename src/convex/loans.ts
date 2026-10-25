@@ -82,6 +82,7 @@ import {
 } from "../lib/perpanjanganPinjaman";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
+import { selesaikanReferralPelunasan } from "./referral";
 import {
   beriVoucherApresiasi,
   hitungDiskonVoucher,
@@ -1643,10 +1644,9 @@ async function setLoanStatus(
   // aplikasi) juga memberi voucher apresiasi. Tanpa ini, nasabah yang
   // dilunasi manual tidak pernah menerima voucher apa pun.
   if (loanSetelah.status === "lunas") {
-    await beriVoucherApresiasi(ctx, {
-      loan: loanSetelah,
-      sekarang: loanSetelah.lunasPada ?? Date.now(),
-    });
+    const waktuLunas = loanSetelah.lunasPada ?? Date.now();
+    await beriVoucherApresiasi(ctx, { loan: loanSetelah, sekarang: waktuLunas });
+    await selesaikanReferralPelunasan(ctx, { loan: loanSetelah, sekarang: waktuLunas });
   }
 
   const admin = await ctx.db.get(adminId);
@@ -2627,6 +2627,7 @@ export const repayLoan = mutation({
     // Voucher apresiasi terbit untuk setiap pinjaman yang lunas. Idempoten
     // lewat nomor referensi, jadi aman bila pelunasan dicatat ulang oleh admin.
     await beriVoucherApresiasi(ctx, { loan: lunasUntukPlafon, sekarang: now });
+    await selesaikanReferralPelunasan(ctx, { loan: lunasUntukPlafon, sekarang: now });
     for (const { funding } of imbalBagian) {
       await beriTiketPendanaan(ctx, {
         pemilikId: funding.danaId,

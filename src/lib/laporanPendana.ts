@@ -150,8 +150,12 @@ export function namaBerkasPelunasan(nomorReferensi: string): string {
 }
 
 /** Nama berkas lampiran laporan portofolio. */
-export function namaBerkasPortofolio(dicetakPada: number): string {
-  return `PINDAI-Laporan-Pendanaan-${tanggalIso(dicetakPada)}.pdf`;
+export function namaBerkasPortofolio(
+  dicetakPada: number,
+  bhs: BahasaLaporan = "id",
+): string {
+  const awalan = bhs === "en" ? "PINDAI-Funding-Report" : "PINDAI-Laporan-Pendanaan";
+  return `${awalan}-${tanggalIso(dicetakPada)}.pdf`;
 }
 
 /** Nama berkas rekap seluruh pendana. */
@@ -164,6 +168,218 @@ export function judulPelunasan(): string {
   return "Laporan pelunasan pinjaman";
 }
 
+/** Bahasa dokumen laporan pendana. */
+export type BahasaLaporan = "id" | "en";
+
+/**
+ * Teks laporan dua bahasa.
+ *
+ * Angka, nama, dan status tetap dihitung di tempat yang sama; hanya label dan
+ * kalimatnya yang berganti. Versi Indonesia adalah bawaan, sehingga pemanggil
+ * lama dan uji lama tidak berubah.
+ */
+type TeksLaporan = {
+  kaki: string;
+  belumTercatat: string;
+  dicetak: string;
+  subPelunasan: string;
+  kartuPendanaPinjaman: string;
+  namaPendana: string;
+  peminjam: string;
+  nomorReferensi: string;
+  status: string;
+  lunas: string;
+  kartuTanggalTransfer: string;
+  danaTersalurkan: string;
+  tanggalLunas: string;
+  transferKeuntungan: string;
+  sudahDicatat: string;
+  belumDicatat: string;
+  dicetakLabel: string;
+  hasilUntukAnda: string;
+  deskripsiNominal: readonly [string, string];
+  keuntunganDibukukan: string;
+  pokokTersalur: string;
+  totalKewajiban: string;
+  biayaPlatform: string;
+  keuntunganCallout: string;
+  transferSudah: string;
+  transferBelum: string;
+  catatan: string;
+  poinPelunasan: readonly [string, string];
+  judulDokPelunasan: string;
+  subPortofolio: string;
+  nomorDokPortofolio: string;
+  pendana: string;
+  jumlahPinjaman: string;
+  berjalanKata: string;
+  lunasKata: string;
+  ringkasanDana: string;
+  masihBerjalan: string;
+  totalKeuntungan: string;
+  ringkasanKeuntungan: string;
+  keuntunganLunas: string;
+  keuntunganPerkiraan: string;
+  totalKeuntunganPendana: string;
+  catatanPerkiraan: string;
+  pinjamanBerjalan: string;
+  pinjamanLunas: string;
+  kosong: string;
+  kepalaBerjalan: readonly [string, string, string, string, string];
+  kepalaLunas: readonly [string, string, string, string, string];
+  sisaLain: (n: number) => string;
+  poinProyeksi: string;
+  poinTransferLunas: (n: number) => string;
+  poinTransferSemua: string;
+  poinNamaSamar: string;
+  judulDokPortofolio: string;
+};
+
+const TEKS: Record<BahasaLaporan, TeksLaporan> = {
+  id: {
+    kaki: KAKI_LAPORAN,
+    belumTercatat: "belum tercatat",
+    dicetak: "Dicetak",
+    subPelunasan: "Laporan Pelunasan Pendana",
+    kartuPendanaPinjaman: "Pendana & Pinjaman",
+    namaPendana: "Nama Pendana",
+    peminjam: "Peminjam",
+    nomorReferensi: "Nomor Referensi",
+    status: "Status",
+    lunas: "Lunas",
+    kartuTanggalTransfer: "Tanggal & Transfer",
+    danaTersalurkan: "Dana Tersalurkan",
+    tanggalLunas: "Tanggal Lunas",
+    transferKeuntungan: "Transfer Keuntungan",
+    sudahDicatat: "Sudah dicatat",
+    belumDicatat: "Belum dicatat",
+    dicetakLabel: "Dicetak",
+    hasilUntukAnda: "Hasil untuk Anda",
+    deskripsiNominal: ["DESKRIPSI KOMPONEN", "NOMINAL"],
+    keuntunganDibukukan: "Keuntungan pendana (dibukukan)",
+    pokokTersalur: "Dana tersalurkan (pokok)",
+    totalKewajiban: "Total kewajiban peminjam",
+    biayaPlatform: "Biaya platform (layanan)",
+    keuntunganCallout: "Keuntungan yang dibukukan",
+    transferSudah: "Catatan transfer keuntungan sudah dibuat admin.",
+    transferBelum:
+      "Catatan transfer keuntungan belum dibuat admin. Keuntungan di atas sudah dibukukan, tetapi pencairannya masih menunggu catatan transfer.",
+    catatan: "Catatan",
+    poinPelunasan: [
+      "Nama peminjam disamarkan. Angka di laporan ini dihitung dari pinjaman yang alokasinya atas nama akun penerima, sama dengan yang tampil di ruang penyedia dana.",
+      "Laporan ini salinan catatan internal PINDAI, bukan bukti transfer bank.",
+    ],
+    judulDokPelunasan: "LAPORAN PELUNASAN",
+    subPortofolio: "Laporan Kinerja Pendanaan",
+    nomorDokPortofolio: "LAPORAN PENDANAAN",
+    pendana: "Pendana",
+    jumlahPinjaman: "Jumlah Pinjaman",
+    berjalanKata: "berjalan",
+    lunasKata: "lunas",
+    ringkasanDana: "Ringkasan Dana",
+    masihBerjalan: "Masih Berjalan",
+    totalKeuntungan: "Total Keuntungan",
+    ringkasanKeuntungan: "Ringkasan Keuntungan",
+    keuntunganLunas: "Keuntungan dibukukan (lunas)",
+    keuntunganPerkiraan: "Keuntungan perkiraan (belum lunas)",
+    totalKeuntunganPendana: "Total keuntungan pendana",
+    catatanPerkiraan:
+      "Keuntungan perkiraan dihitung dari pinjaman yang masih berjalan dan baru menjadi uang saat pinjaman itu lunas.",
+    pinjamanBerjalan: "Pinjaman Berjalan",
+    pinjamanLunas: "Pinjaman Lunas",
+    kosong: "Belum ada pinjaman pada bagian ini.",
+    kepalaBerjalan: ["REFERENSI", "PEMINJAM", "POKOK", "PERKIRAAN", "JATUH TEMPO"],
+    kepalaLunas: ["REFERENSI", "PEMINJAM", "POKOK", "DIBUKUKAN", "TANGGAL LUNAS"],
+    sisaLain: (n) =>
+      `Dan ${n} pinjaman lain pada bagian ini. Daftar lengkapnya ada di ruang penyedia dana.`,
+    poinProyeksi:
+      "Tanggal jatuh tempo adalah proyeksi return dari tenor pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila peminjam menunggak.",
+    poinTransferLunas: (n) =>
+      `${n} pinjaman lunas sudah dibukukan, tetapi catatan transfer keuntungannya belum dibuat admin.`,
+    poinTransferSemua:
+      "Seluruh keuntungan yang sudah dibukukan memiliki catatan transfer dari admin.",
+    poinNamaSamar:
+      "Nama peminjam disamarkan. Daftar lengkap pinjaman dan statusnya ada di ruang penyedia dana.",
+    judulDokPortofolio: "LAPORAN PENDANAAN",
+  },
+  en: {
+    kaki: "PINDAI - automatically generated document",
+    belumTercatat: "not recorded",
+    dicetak: "Printed",
+    subPelunasan: "Investor Settlement Report",
+    kartuPendanaPinjaman: "Investor & Loan",
+    namaPendana: "Investor",
+    peminjam: "Borrower",
+    nomorReferensi: "Reference Number",
+    status: "Status",
+    lunas: "Settled",
+    kartuTanggalTransfer: "Dates & Transfer",
+    danaTersalurkan: "Funds Disbursed",
+    tanggalLunas: "Settled On",
+    transferKeuntungan: "Profit Transfer",
+    sudahDicatat: "Recorded",
+    belumDicatat: "Not recorded",
+    dicetakLabel: "Printed",
+    hasilUntukAnda: "Your Return",
+    deskripsiNominal: ["COMPONENT", "AMOUNT"],
+    keuntunganDibukukan: "Investor profit (booked)",
+    pokokTersalur: "Funds disbursed (principal)",
+    totalKewajiban: "Total borrower obligation",
+    biayaPlatform: "Platform fee (service)",
+    keuntunganCallout: "Booked profit",
+    transferSudah: "The admin has recorded the profit transfer.",
+    transferBelum:
+      "The admin has not recorded the profit transfer yet. The profit above is booked, but payout is waiting for the transfer record.",
+    catatan: "Notes",
+    poinPelunasan: [
+      "Borrower names are masked. The figures in this report come from loans allocated to the receiving account, the same figures shown in the investor room.",
+      "This report is a copy of PINDAI internal records, not a bank transfer receipt.",
+    ],
+    judulDokPelunasan: "SETTLEMENT REPORT",
+    subPortofolio: "Funding Performance Report",
+    nomorDokPortofolio: "FUNDING REPORT",
+    pendana: "Investor",
+    jumlahPinjaman: "Loans",
+    berjalanKata: "active",
+    lunasKata: "settled",
+    ringkasanDana: "Fund Summary",
+    masihBerjalan: "Still Active",
+    totalKeuntungan: "Total Profit",
+    ringkasanKeuntungan: "Profit Summary",
+    keuntunganLunas: "Booked profit (settled)",
+    keuntunganPerkiraan: "Estimated profit (not yet settled)",
+    totalKeuntunganPendana: "Total investor profit",
+    catatanPerkiraan:
+      "Estimated profit comes from loans still running and only becomes cash when those loans are settled.",
+    pinjamanBerjalan: "Active Loans",
+    pinjamanLunas: "Settled Loans",
+    kosong: "No loans in this section yet.",
+    kepalaBerjalan: ["REFERENCE", "BORROWER", "PRINCIPAL", "ESTIMATE", "DUE DATE"],
+    kepalaLunas: ["REFERENCE", "BORROWER", "PRINCIPAL", "BOOKED", "SETTLED ON"],
+    sisaLain: (n) => `Plus ${n} more loans in this section. The full list is in the investor room.`,
+    poinProyeksi:
+      "Due dates are projected returns from the loan tenor, not a payment promise. Payment can be later when a borrower falls behind.",
+    poinTransferLunas: (n) =>
+      `${n} settled loans are booked, but the admin has not recorded their profit transfers yet.`,
+    poinTransferSemua: "Every booked profit has a transfer record from the admin.",
+    poinNamaSamar:
+      "Borrower names are masked. The full loan list and statuses are in the investor room.",
+    judulDokPortofolio: "FUNDING REPORT",
+  },
+};
+
+/** Tanggal ringkas bahasa Inggris; jalur Indonesia tetap memakai `tanggalRingkas`. */
+function tanggalBahasa(ms: number | null, bhs: BahasaLaporan): string {
+  if (bhs === "id") return tanggal(ms);
+  if (ms === null) return TEKS.en.belumTercatat;
+  return new Date(ms).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  });
+}
+
 /**
  * Susun laporan pelunasan satu pinjaman.
  *
@@ -171,78 +387,77 @@ export function judulPelunasan(): string {
  * yang melunasinya, lalu apa langkah berikutnya. Status transfer disebut di
  * akhir karena itu bukan tanggung jawabnya, tetapi perlu ia ketahui.
  */
-export function laporanPelunasan(data: DataPelunasanPendana): DokumenResmiPdf {
+export function laporanPelunasan(
+  data: DataPelunasanPendana,
+  bhs: BahasaLaporan = "id",
+): DokumenResmiPdf {
+  const t = TEKS[bhs];
   const blok: BlokResmiPdf[] = [
     {
       jenis: "banner",
       merek: "PINDAI",
-      subjudul: "Laporan Pelunasan Pendana",
+      subjudul: t.subPelunasan,
       nomor: data.nomorReferensi,
-      tanggal: `Dicetak ${tanggal(data.dicetakPada)}`,
+      tanggal: `${t.dicetak} ${tanggalBahasa(data.dicetakPada, bhs)}`,
     },
     {
       jenis: "kartu",
       kiri: {
-        judul: "Pendana & Pinjaman",
+        judul: t.kartuPendanaPinjaman,
         baris: [
-          { label: "Nama Pendana", nilai: data.namaPendana },
-          { label: "Peminjam", nilai: samarkanNama(data.namaPeminjam) },
-          { label: "Nomor Referensi", nilai: data.nomorReferensi },
-          { label: "Status", nilai: "Lunas", nada: "bersih" },
+          { label: t.namaPendana, nilai: data.namaPendana },
+          { label: t.peminjam, nilai: samarkanNama(data.namaPeminjam) },
+          { label: t.nomorReferensi, nilai: data.nomorReferensi },
+          { label: t.status, nilai: t.lunas, nada: "bersih" },
         ],
       },
       kanan: {
-        judul: "Tanggal & Transfer",
+        judul: t.kartuTanggalTransfer,
         baris: [
-          { label: "Dana Tersalurkan", nilai: tanggal(data.didanaiPada) },
-          { label: "Tanggal Lunas", nilai: tanggal(data.lunasPada) },
+          { label: t.danaTersalurkan, nilai: tanggalBahasa(data.didanaiPada, bhs) },
+          { label: t.tanggalLunas, nilai: tanggalBahasa(data.lunasPada, bhs) },
           {
-            label: "Transfer Keuntungan",
-            nilai: data.transferDicatat ? "Sudah dicatat" : "Belum dicatat",
+            label: t.transferKeuntungan,
+            nilai: data.transferDicatat ? t.sudahDicatat : t.belumDicatat,
             ...(data.transferDicatat ? { nada: "bersih" as const } : { nada: "potongan" as const }),
           },
-          { label: "Dicetak", nilai: tanggal(data.dicetakPada) },
+          { label: t.dicetakLabel, nilai: tanggalBahasa(data.dicetakPada, bhs) },
         ],
       },
     },
-    { jenis: "judul", nomor: "1", teks: "Hasil untuk Anda" },
+    { jenis: "judul", nomor: "1", teks: t.hasilUntukAnda },
     {
       jenis: "tabel",
-      kepala: ["DESKRIPSI KOMPONEN", "NOMINAL"],
+      kepala: [...t.deskripsiNominal],
       bobot: [8, 2],
       rataKanan: [1],
       baris: [
         {
-          sel: ["Keuntungan pendana (dibukukan)", rupiah(data.keuntunganPendana)],
+          sel: [t.keuntunganDibukukan, rupiah(data.keuntunganPendana)],
           tebal: true,
           nada: "bersih",
         },
-        { sel: ["Dana tersalurkan (pokok)", rupiah(data.pokokPinjaman)] },
-        { sel: ["Total kewajiban peminjam", rupiah(data.totalLunas)] },
-        { sel: ["Biaya platform (layanan)", rupiah(data.potonganAdmin)] },
+        { sel: [t.pokokTersalur, rupiah(data.pokokPinjaman)] },
+        { sel: [t.totalKewajiban, rupiah(data.totalLunas)] },
+        { sel: [t.biayaPlatform, rupiah(data.potonganAdmin)] },
       ],
     },
     {
       jenis: "callout",
-      label: "Keuntungan yang dibukukan",
+      label: t.keuntunganCallout,
       nilai: rupiah(data.keuntunganPendana),
-      catatan: data.transferDicatat
-        ? "Catatan transfer keuntungan sudah dibuat admin."
-        : "Catatan transfer keuntungan belum dibuat admin. Keuntungan di atas sudah dibukukan, tetapi pencairannya masih menunggu catatan transfer.",
+      catatan: data.transferDicatat ? t.transferSudah : t.transferBelum,
     },
-    { jenis: "judul", nomor: "2", teks: "Catatan" },
+    { jenis: "judul", nomor: "2", teks: t.catatan },
     {
       jenis: "poin",
-      teks: [
-        "Nama peminjam disamarkan. Angka di laporan ini dihitung dari pinjaman yang alokasinya atas nama akun penerima, sama dengan yang tampil di ruang penyedia dana.",
-        "Laporan ini salinan catatan internal PINDAI, bukan bukti transfer bank.",
-      ],
+      teks: [...t.poinPelunasan],
     },
   ];
   return {
     nomor: data.nomorReferensi,
-    judul: "LAPORAN PELUNASAN",
-    kaki: KAKI_LAPORAN,
+    judul: t.judulDokPelunasan,
+    kaki: t.kaki,
     blok,
   };
 }
@@ -254,6 +469,7 @@ export function laporanPelunasan(data: DataPelunasanPendana): DokumenResmiPdf {
 function barisDaftarPinjaman(
   kumpulan: BarisPortofolioPendana[],
   jenis: "berjalan" | "lunas",
+  bhs: BahasaLaporan,
 ): { baris: BarisTabelResmi[]; sisa: number } {
   const tampil = kumpulan.slice(0, BATAS_PINJAMAN_LAPORAN);
   return {
@@ -263,7 +479,7 @@ function barisDaftarPinjaman(
         samarkanNama(p.namaPeminjam),
         rupiah(p.pokokPinjaman),
         rupiah(p.keuntunganPendana),
-        tanggal(jenis === "berjalan" ? p.tanggalReturn : p.tanggal),
+        tanggalBahasa(jenis === "berjalan" ? p.tanggalReturn : p.tanggal, bhs),
       ],
     })),
     sisa: kumpulan.length - tampil.length,
@@ -277,62 +493,63 @@ function barisDaftarPinjaman(
  * sini: laporan yang angkanya sedikit berbeda dari layar akan membuat pemiliknya
  * kehilangan kepercayaan pada kedua tempat sekaligus.
  */
-export function laporanPortofolio(data: DataPortofolioPendana): DokumenResmiPdf {
-  const berjalan = barisDaftarPinjaman(data.pinjamanBerjalan, "berjalan");
-  const lunas = barisDaftarPinjaman(data.pinjamanLunas, "lunas");
+export function laporanPortofolio(
+  data: DataPortofolioPendana,
+  bhs: BahasaLaporan = "id",
+): DokumenResmiPdf {
+  const t = TEKS[bhs];
+  const berjalan = barisDaftarPinjaman(data.pinjamanBerjalan, "berjalan", bhs);
+  const lunas = barisDaftarPinjaman(data.pinjamanLunas, "lunas", bhs);
   const blok: BlokResmiPdf[] = [
     {
       jenis: "banner",
       merek: "PINDAI",
-      subjudul: "Laporan Kinerja Pendanaan",
-      nomor: "LAPORAN PENDANAAN",
-      tanggal: `Dicetak ${tanggal(data.dicetakPada)}`,
+      subjudul: t.subPortofolio,
+      nomor: t.nomorDokPortofolio,
+      tanggal: `${t.dicetak} ${tanggalBahasa(data.dicetakPada, bhs)}`,
     },
     {
       jenis: "kartu",
       kiri: {
-        judul: "Pendana",
+        judul: t.pendana,
         baris: [
-          { label: "Nama Pendana", nilai: data.namaPendana },
+          { label: t.namaPendana, nilai: data.namaPendana },
           {
-            label: "Jumlah Pinjaman",
-            nilai: `${data.jumlahBerjalan} berjalan - ${data.jumlahLunas} lunas`,
+            label: t.jumlahPinjaman,
+            nilai: `${data.jumlahBerjalan} ${t.berjalanKata} - ${data.jumlahLunas} ${t.lunasKata}`,
           },
-          { label: "Dicetak", nilai: tanggal(data.dicetakPada) },
+          { label: t.dicetakLabel, nilai: tanggalBahasa(data.dicetakPada, bhs) },
         ],
       },
       kanan: {
-        judul: "Ringkasan Dana",
+        judul: t.ringkasanDana,
         baris: [
           { label: "Dana Tersalurkan", nilai: rupiah(data.totalDisalurkan) },
           {
-            label: "Masih Berjalan",
+            label: t.masihBerjalan,
             nilai: `${rupiah(data.saldoBerjalan)} (${data.jumlahBerjalan} pinjaman)`,
           },
           {
-            label: "Total Keuntungan",
+            label: t.totalKeuntungan,
             nilai: rupiah(data.totalKeuntungan),
             nada: "bersih",
           },
         ],
       },
     },
-    { jenis: "judul", nomor: "1", teks: "Ringkasan Keuntungan" },
+    { jenis: "judul", nomor: "1", teks: t.ringkasanKeuntungan },
     {
       jenis: "tabel",
-      kepala: ["DESKRIPSI KOMPONEN", "NOMINAL"],
+      kepala: [...t.deskripsiNominal],
       bobot: [8, 2],
       rataKanan: [1],
       baris: [
-        { sel: ["Keuntungan dibukukan (lunas)", rupiah(data.keuntunganDibukukan)] },
+        { sel: [t.keuntunganLunas, rupiah(data.keuntunganDibukukan)] },
         {
-          sel: [
-            "Keuntungan perkiraan (belum lunas)",
-            rupiah(data.keuntunganPerkiraan),
-          ],
+          sel: [t.keuntunganPerkiraan, rupiah(data.keuntunganPerkiraan)],
         },
         {
-          sel: ["Total keuntungan pendana", rupiah(data.totalKeuntungan)],
+          sel: [t.totalKeuntunganPendana, rupiah(data.totalKeuntungan)],
           tebal: true,
           nada: "bersih",
         },
@@ -341,23 +558,22 @@ export function laporanPortofolio(data: DataPortofolioPendana): DokumenResmiPdf 
     },
     {
       jenis: "callout",
-      label: "Total Keuntungan Pendana",
+      label: t.totalKeuntunganPendana,
       nilai: rupiah(data.totalKeuntungan),
-      catatan:
-        "Keuntungan perkiraan dihitung dari pinjaman yang masih berjalan dan baru menjadi uang saat pinjaman itu lunas.",
+      catatan: t.catatanPerkiraan,
     },
-    { jenis: "judul", nomor: "2", teks: "Pinjaman Berjalan" },
+    { jenis: "judul", nomor: "2", teks: t.pinjamanBerjalan },
   ];
 
   if (berjalan.baris.length === 0) {
     blok.push({
       jenis: "paragraf",
-      teks: "Belum ada pinjaman pada bagian ini.",
+      teks: t.kosong,
     });
   } else {
     blok.push({
       jenis: "tabel",
-      kepala: ["REFERENSI", "PEMINJAM", "POKOK", "PERKIRAAN", "JATUH TEMPO"],
+      kepala: [...t.kepalaBerjalan],
       bobot: [2.1, 1.7, 1.4, 1.3, 1.5],
       rataKanan: [2, 3],
       baris: berjalan.baris,
@@ -366,21 +582,21 @@ export function laporanPortofolio(data: DataPortofolioPendana): DokumenResmiPdf 
       blok.push({
         jenis: "paragraf",
         kecil: true,
-        teks: `Dan ${berjalan.sisa} pinjaman lain pada bagian ini. Daftar lengkapnya ada di ruang penyedia dana.`,
+        teks: t.sisaLain(berjalan.sisa),
       });
     }
   }
 
-  blok.push({ jenis: "judul", nomor: "3", teks: "Pinjaman Lunas" });
+  blok.push({ jenis: "judul", nomor: "3", teks: t.pinjamanLunas });
   if (lunas.baris.length === 0) {
     blok.push({
       jenis: "paragraf",
-      teks: "Belum ada pinjaman pada bagian ini.",
+      teks: t.kosong,
     });
   } else {
     blok.push({
       jenis: "tabel",
-      kepala: ["REFERENSI", "PEMINJAM", "POKOK", "DIBUKUKAN", "TANGGAL LUNAS"],
+      kepala: [...t.kepalaLunas],
       bobot: [2.1, 1.7, 1.3, 1.3, 1.6],
       rataKanan: [2, 3],
       baris: lunas.baris,
@@ -389,29 +605,29 @@ export function laporanPortofolio(data: DataPortofolioPendana): DokumenResmiPdf 
       blok.push({
         jenis: "paragraf",
         kecil: true,
-        teks: `Dan ${lunas.sisa} pinjaman lain pada bagian ini. Daftar lengkapnya ada di ruang penyedia dana.`,
+        teks: t.sisaLain(lunas.sisa),
       });
     }
   }
 
   blok.push(
-    { jenis: "judul", nomor: "4", teks: "Catatan" },
+    { jenis: "judul", nomor: "4", teks: t.catatan },
     {
       jenis: "poin",
       teks: [
-        "Tanggal jatuh tempo adalah proyeksi return dari tenor pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila peminjam menunggak.",
+        t.poinProyeksi,
         data.transferBelumDicatat > 0
-          ? `${data.transferBelumDicatat} pinjaman lunas sudah dibukukan, tetapi catatan transfer keuntungannya belum dibuat admin.`
-          : "Seluruh keuntungan yang sudah dibukukan memiliki catatan transfer dari admin.",
-        "Nama peminjam disamarkan. Daftar lengkap pinjaman dan statusnya ada di ruang penyedia dana.",
+          ? t.poinTransferLunas(data.transferBelumDicatat)
+          : t.poinTransferSemua,
+        t.poinNamaSamar,
       ],
     },
   );
 
   return {
-    nomor: "LAPORAN PENDANAAN",
-    judul: "LAPORAN PENDANAAN",
-    kaki: KAKI_LAPORAN,
+    nomor: t.nomorDokPortofolio,
+    judul: t.judulDokPortofolio,
+    kaki: t.kaki,
     blok,
   };
 }

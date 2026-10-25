@@ -3596,7 +3596,7 @@ const schema = defineSchema(
       batasPemakaian: v.number(),
       terpakai: v.number(),
       pemilikId: v.id("users"),
-      sumber: v.union(v.literal("admin"), v.literal("apresiasi")),
+      sumber: v.union(v.literal("admin"), v.literal("apresiasi"), v.literal("referral")),
       status: v.union(v.literal("aktif"), v.literal("terpakai"), v.literal("dicabut")),
       berlakuSampai: v.number(),
       dibuatPada: v.number(),
@@ -3611,6 +3611,52 @@ const schema = defineSchema(
       // Panel admin membaca voucher terbaru dan menyaring per status; tanpa
       // indeks ini setiap muat panel memindai seluruh tabel.
       .index("by_dibuatPada", ["dibuatPada"])
+      .index("by_status", ["status"]),
+
+    /**
+     * Kode referral milik satu akun.
+     *
+     * Satu akun satu kode; kode dibuat saat nasabah membukanya, bukan saat
+     * mendaftar, supaya akun yang tidak pernah dipakai tidak menumpuk kode.
+     */
+    referralKode: defineTable({
+      userId: v.id("users"),
+      kode: v.string(),
+      dibuatPada: v.number(),
+      /** Jumlah klaim yang tercatat memakai kode ini (termasuk yang belum lunas). */
+      totalKlaim: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_kode", ["kode"]),
+
+    /**
+     * Satu pemakaian kode referral.
+     *
+     * `pengundangId` adalah akun pemakai kode; `perujukId` pemilik kode.
+     * Hadiah baru terbit saat pinjaman pengundang lunas, jadi status awal
+     * selalu `menunggu_lunas`. `_id` baris ini menjadi bagian nomor referensi
+     * voucher hadiah, sehingga pelunasan yang dicatat ulang tidak menggandakan
+     * hadiah.
+     */
+    referralKlaim: defineTable({
+      kodeId: v.id("referralKode"),
+      kode: v.string(),
+      perujukId: v.id("users"),
+      pengundangId: v.id("users"),
+      diklaimPada: v.number(),
+      status: v.union(
+        v.literal("menunggu_lunas"),
+        v.literal("hadiah_diberikan"),
+        v.literal("batal"),
+      ),
+      loanId: v.optional(v.id("loans")),
+      hadiahDiberikanPada: v.optional(v.number()),
+      voucherPerujukId: v.optional(v.id("voucher")),
+      voucherPengundangId: v.optional(v.id("voucher")),
+    })
+      .index("by_perujuk", ["perujukId"])
+      .index("by_pengundang", ["pengundangId"])
+      .index("by_kode", ["kodeId"])
       .index("by_status", ["status"]),
 
     /**

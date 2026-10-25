@@ -490,6 +490,12 @@ export function VoucherPanel() {
                           Apresiasi
                         </span>
                       )}
+                      {baris.sumber === "referral" && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-700/30 bg-emerald-700/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                          <BadgeCheck className="size-3" aria-hidden="true" />
+                          Referral
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 truncate text-sm font-medium text-slate-900">
                       {baris.judul}

@@ -38,6 +38,7 @@ import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
 import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
+import { KartuReferral } from "@/components/KartuReferral";
 import { KartuLimitVoucher } from "@/components/voucher/KartuLimitVoucher";
 import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
@@ -495,6 +496,7 @@ export default function Dashboard() {
                     onBukaKyc={() => gantiTab("kyc")}
                   />
                   <RiwayatProgresPlafon />
+                  {role !== "dana" && <KartuReferral className="mt-4" />}
                   <DoorprizeWidget peran="peminjam" />
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <Button

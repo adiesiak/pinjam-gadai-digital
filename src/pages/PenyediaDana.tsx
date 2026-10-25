@@ -128,6 +128,7 @@ import type {
   LokasiTitik,
 } from "@/convex/penyediaDana";
 import { useAuth } from "@/hooks/use-auth";
+import { useBahasaLaporan } from "@/hooks/use-bahasa-laporan";
 import { quoteKreditBarang } from "@/lib/kredit";
 import {
   BULAN_MS,
@@ -1849,6 +1850,9 @@ function IsiRuang() {
   const [mengirimLaporan, setMengirimLaporan] = useState(false);
   const [mengunduhLaporan, setMengunduhLaporan] = useState(false);
   const [galatLaporan, setGalatLaporan] = useState<string | null>(null);
+  // Pilihan bahasa hanya untuk PDF yang diunduh; kiriman WhatsApp tetap
+  // memakai laporan Indonesia yang disusun server.
+  const [bahasaLaporan, ubahBahasaLaporan] = useBahasaLaporan();
 
   /** Simpan nomor laporan milik akun yang sedang masuk. */
   async function simpanNomorLaporan(nomor: string) {
@@ -1906,11 +1910,11 @@ function IsiRuang() {
     setMengunduhLaporan(true);
     setGalatLaporan(null);
     try {
-      const byte = susunPdfResmi(laporanPortofolio(dataLaporan));
+      const byte = susunPdfResmi(laporanPortofolio(dataLaporan, bahasaLaporan));
       const blob = new Blob([new Uint8Array(byte)], {
         type: "application/pdf",
       });
-      const nama = namaBerkasPortofolio(dataLaporan.dicetakPada);
+      const nama = namaBerkasPortofolio(dataLaporan.dicetakPada, bahasaLaporan);
       // Di aplikasi Android, unduhan blob: tidak ditangani WebView.
       if (await unduhLewatAplikasi(nama, "application/pdf", blob)) return;
       const url = URL.createObjectURL(blob);
@@ -2591,6 +2595,8 @@ function IsiRuang() {
                   onSimpan={simpanNomorLaporan}
                   onKirim={kirimLaporanWhatsapp}
                   onUnduh={() => void unduhLaporanPdf()}
+                  bahasa={bahasaLaporan}
+                  onUbahBahasa={ubahBahasaLaporan}
                 />
               )}
 

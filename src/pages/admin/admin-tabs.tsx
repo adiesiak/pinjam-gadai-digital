@@ -4,6 +4,7 @@ import {
   Banknote,
   BellRing,
   BookOpen,
+  CalendarRange,
   ClipboardList,
   Database,
   FileText,
@@ -48,6 +49,7 @@ import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
 import { VerifikasiLokasiPanel } from "@/components/admin/VerifikasiLokasiPanel";
+import { KalenderKasPanel } from "@/components/admin/KalenderKasPanel";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { KycPanel } from "@/components/admin/KycPanel";
 import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
@@ -252,6 +254,14 @@ export function AdminTabs({
           badge: angsuranMenunggu === null ? null : `${angsuranMenunggu}`,
           hitung: "menunggu",
           Icon: Landmark,
+        },
+        {
+          value: "kalender",
+          label: "Kalender Kas",
+          hint: "Proyeksi 30 hari uang masuk dari angsuran dan uang keluar untuk pencairan siklus pendana.",
+          badge: null,
+          hitung: "tidak",
+          Icon: CalendarRange,
         },
         {
           value: "plafon",
@@ -544,6 +554,7 @@ export function AdminTabs({
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
     undian: <UndianPanel />,
     rekonsiliasi: <RekonsiliasiAngsuran />,
+    kalender: <KalenderKasPanel />,
     // Peta live + audit verifikasi dari tautan WhatsApp: dua sisi data lokasi
     // yang sama (titik dari `/cek-status` juga mengalir ke peta lewat jejak
     // lokasi), jadi sengaja satu modul — bukan tab tersendiri di sidebar.

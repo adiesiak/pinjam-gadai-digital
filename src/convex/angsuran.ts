@@ -17,6 +17,7 @@ import {
   type RingkasanAngsuran,
 } from "../lib/angsuran";
 import { beriTiketPelunasan } from "./doorprize";
+import { selesaikanReferralPelunasan } from "./referral";
 import { beriVoucherApresiasi } from "./voucher";
 import { akunDompetDana, appendJournal, catatMarginSpread } from "./ledger";
 import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
@@ -452,6 +453,11 @@ async function selesaikanBilaLunas(
   // Voucher apresiasi mengikuti aturan yang sama dengan pelunasan satu kali:
   // terbit untuk setiap pinjaman yang lunas, sekali per nomor referensi.
   await beriVoucherApresiasi(ctx, { loan: lunasUntukPlafon, sekarang: dibayarPada });
+  // Hadiah referral menunggu momen yang sama: pinjaman pemakai kode lunas.
+  await selesaikanReferralPelunasan(ctx, {
+    loan: lunasUntukPlafon,
+    sekarang: dibayarPada,
+  });
 
   if (loan.pendanaId !== undefined) {
     await ctx.scheduler.runAfter(0, internal.laporanPendana.kirimLaporanPelunasan, {

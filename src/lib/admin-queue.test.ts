@@ -395,8 +395,8 @@ eq(
 
 eq(
   NILAI_MODUL_ADMIN.length,
-  27,
-  "27 nilai modul yang ada (konvensional menggabungkan pinjaman, gadai, kredit; voucher baru)",
+  28,
+  "28 nilai modul yang ada (konvensional menggabungkan pinjaman, gadai, kredit; voucher dan kalender kas)",
 );
 eq(
   new Set(NILAI_MODUL_ADMIN).size,
@@ -421,13 +421,13 @@ eq(
 );
 eq(
   GRUP_NAV.map((g) => g.modul.length).join(","),
-  "1,8,3,8,7",
-  "jumlah modul tiap tab (1+8+3+8+7 = 27)",
+  "1,9,3,8,7",
+  "jumlah modul tiap tab (1+9+3+8+7 = 28)",
 );
 eq(
   GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),
   NILAI_MODUL_ADMIN.length,
-  "GRUP_NAV memuat seluruh modul yang sudah ada (27)",
+  "GRUP_NAV memuat seluruh modul yang sudah ada (28)",
 );
 
 // Modul default tiap grup harus salah satu anggotanya.
