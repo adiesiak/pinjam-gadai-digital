@@ -47,6 +47,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useNilaiTertunda } from "@/hooks/use-validasi-tertunda";
 import { LOAN_LIMITS } from "@/lib/loan";
 import { kelompokkanDigit, formatRupiahAman } from "@/lib/money";
+import { isiTemplateVoucher, TEMPLATE_VOUCHER, type TemplateVoucher } from "@/lib/templateVoucher";
 import {
   akhirHariVoucher,
   BATAS_PEMAKAIAN_MAKS,
@@ -82,7 +83,7 @@ const SARINGAN_STATUS: { value: StatusVoucherTampil | "semua"; label: string }[]
 const HARI_DEFAULT = 30;
 
 type DrafTerbit = {
-  pemilik: Nasabah | null;
+  penerima: Nasabah[];
   jenis: JenisVoucher;
   judul: string;
   nilai: string;
@@ -93,7 +94,7 @@ type DrafTerbit = {
 
 function drafTerbit(): DrafTerbit {
   return {
-    pemilik: null,
+    penerima: [],
     jenis: "diskon_admin",
     judul: "",
     nilai: "",
@@ -139,6 +140,7 @@ export function VoucherPanel() {
   });
 
   const terbitkan = useMutation(api.voucher.terbitkanVoucher);
+  const terbitkanMassal = useMutation(api.voucher.terbitkanVoucherMassal);
   const ubah = useMutation(api.voucher.ubahVoucher);
   const cabut = useMutation(api.voucher.cabutVoucher);
 
@@ -155,6 +157,7 @@ export function VoucherPanel() {
   const [alasan, setAlasan] = useState("");
   const [pesan, setPesan] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
+  const [waktuTemplate] = useState(() => Date.now());
 
   const bukaTerbit = () => {
     setDraf(drafTerbit());
@@ -163,9 +166,47 @@ export function VoucherPanel() {
     setTerbitTerbuka(true);
   };
 
+  /** Tambah satu penerima; klik ulang pada nama yang sama tidak menggandakan. */
+  const tambahPenerima = (nasabah: Nasabah) => {
+    setDraf((sebelumnya) =>
+      sebelumnya.penerima.some((baris) => baris.userId === nasabah.userId)
+        ? sebelumnya
+        : { ...sebelumnya, penerima: [...sebelumnya.penerima, nasabah] },
+    );
+    setCariPemilik("");
+  };
+
+  const buangPenerima = (userId: Nasabah["userId"]) => {
+    setDraf((sebelumnya) => ({
+      ...sebelumnya,
+      penerima: sebelumnya.penerima.filter((baris) => baris.userId !== userId),
+    }));
+  };
+
+  /**
+   * Template mengisi angka dan masa berlaku, tetapi tidak memilih penerima:
+   * voucher selalu milik akun yang dipilih admin, bukan dibagikan ke semua.
+   */
+  const pakaiTemplateVoucher = (template: TemplateVoucher) => {
+    const isi = isiTemplateVoucher(template, waktuTemplate);
+    setDraf((sebelumnya) => ({
+      ...sebelumnya,
+      jenis: isi.jenis,
+      judul: isi.judul,
+      nilai:
+        satuanVoucher(isi.jenis) === "rupiah"
+          ? kelompokkanDigit(String(isi.nilai))
+          : String(isi.nilai),
+      minPokok: kelompokkanDigit(String(isi.minPokok)),
+      batasPemakaian: String(isi.batasPemakaian),
+      berlakuSampai: tanggalInputVoucher(isi.berlakuSampai),
+    }));
+    setPesan(null);
+  };
+
   const kirimTerbit = async () => {
-    if (draf.pemilik === null) {
-      setPesan("Pilih nasabah penerima voucher lebih dulu.");
+    if (draf.penerima.length === 0) {
+      setPesan("Pilih minimal satu nasabah penerima voucher.");
       return;
     }
     const judul = draf.judul.trim();
@@ -204,16 +245,27 @@ export function VoucherPanel() {
     setSibuk(true);
     setPesan(null);
     try {
-      const hasil = await terbitkan({
-        pemilikId: draf.pemilik.userId,
+      const dasar = {
         jenis: draf.jenis,
         judul,
         nilai,
         minPokok,
         batasPemakaian,
         berlakuSampai,
-      });
-      toast.success(`Voucher ${hasil.kode} terbit untuk ${draf.pemilik.nama}.`);
+      };
+      if (draf.penerima.length === 1) {
+        const hasil = await terbitkan({
+          ...dasar,
+          pemilikId: draf.penerima[0].userId,
+        });
+        toast.success(`Voucher ${hasil.kode} terbit untuk ${draf.penerima[0].nama}.`);
+      } else {
+        const hasil = await terbitkanMassal({
+          ...dasar,
+          pemilikIds: draf.penerima.map((baris) => baris.userId),
+        });
+        toast.success(`Voucher terbit untuk ${hasil.jumlah} nasabah sekaligus.`);
+      }
       setTerbitTerbuka(false);
     } catch (galat) {
       setPesan(galat instanceof Error ? galat.message : "Voucher gagal diterbitkan.");
@@ -537,80 +589,118 @@ export function VoucherPanel() {
           <SheetHeader className="px-0 pt-4 pb-2 pr-10">
             <SheetTitle>Terbitkan voucher</SheetTitle>
             <SheetDescription>
-              Pilih satu nasabah, lalu tentukan nilainya. Voucher tidak bisa dipindahkan ke
-              akun lain setelah terbit.
+              Pilih satu atau beberapa nasabah, lalu tentukan nilainya. Tiap nasabah menerima
+              voucher sendiri dan voucher tidak bisa dipindahkan ke akun lain setelah terbit.
             </SheetDescription>
           </SheetHeader>
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="voucher-cari-nasabah">Nasabah penerima</Label>
-              {draf.pemilik === null ? (
-                <>
-                  <Input
-                    id="voucher-cari-nasabah"
-                    className="mt-1"
-                    value={cariPemilik}
-                    onChange={(e) => setCariPemilik(e.target.value)}
-                    placeholder="Nama, email, NIK, atau kode nasabah"
-                  />
-                  <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-slate-200">
-                    {hasilNasabah === undefined ? (
-                      <p className="px-3 py-2 text-xs text-slate-500">Mencari nasabah…</p>
-                    ) : hasilNasabah.hasil.length === 0 ? (
-                      <p className="px-3 py-2 text-xs text-slate-500">
-                        Tidak ada nasabah yang cocok.
-                      </p>
-                    ) : (
-                      <ul className="divide-y divide-slate-100">
-                        {hasilNasabah.hasil.map((nasabah) => (
-                          <li key={nasabah.userId}>
-                            <button
-                              type="button"
-                              className="w-full px-3 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
-                              onClick={() => {
-                                setDraf((sebelumnya) => ({ ...sebelumnya, pemilik: nasabah }));
-                                setCariPemilik("");
-                              }}
-                            >
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="voucher-cari-nasabah">Nasabah penerima</Label>
+                <span className="text-xs tabular-nums text-slate-400">
+                  {draf.penerima.length} dipilih
+                </span>
+              </div>
+              <Input
+                id="voucher-cari-nasabah"
+                className="mt-1"
+                value={cariPemilik}
+                onChange={(e) => setCariPemilik(e.target.value)}
+                placeholder="Nama, email, NIK, atau kode nasabah"
+              />
+              <div className="mt-2 max-h-44 overflow-y-auto rounded-lg border border-slate-200">
+                {hasilNasabah === undefined ? (
+                  <p className="px-3 py-2 text-xs text-slate-500">Mencari nasabah…</p>
+                ) : hasilNasabah.hasil.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-slate-500">
+                    Tidak ada nasabah yang cocok.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {hasilNasabah.hasil.map((nasabah) => {
+                      const sudah = draf.penerima.some(
+                        (baris) => baris.userId === nasabah.userId,
+                      );
+                      return (
+                        <li key={nasabah.userId}>
+                          <button
+                            type="button"
+                            disabled={sudah}
+                            className="w-full px-3 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none disabled:cursor-default disabled:bg-emerald-50/60"
+                            onClick={() => tambahPenerima(nasabah)}
+                          >
+                            <span className="flex items-center justify-between gap-2">
                               <span className="block truncate text-sm font-medium text-slate-900">
                                 {nasabah.nama}
                               </span>
-                              <span className="block truncate text-[11px] text-slate-500">
-                                {nasabah.email ?? "tanpa email"}
-                                {nasabah.kodePeminjam === null
-                                  ? ""
-                                  : ` · ${nasabah.kodePeminjam}`}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-900">
-                      {draf.pemilik.nama}
-                    </p>
-                    <p className="truncate text-[11px] text-slate-600">
-                      {draf.pemilik.email ?? "tanpa email"}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      setDraf((sebelumnya) => ({ ...sebelumnya, pemilik: null }))
-                    }
-                  >
-                    Ganti
-                  </Button>
-                </div>
+                              {sudah && (
+                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                                  Terpilih
+                                </span>
+                              )}
+                            </span>
+                            <span className="block truncate text-[11px] text-slate-500">
+                              {nasabah.email ?? "tanpa email"}
+                              {nasabah.kodePeminjam === null
+                                ? ""
+                                : ` · ${nasabah.kodePeminjam}`}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+              {draf.penerima.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {draf.penerima.map((nasabah) => (
+                    <li
+                      key={nasabah.userId}
+                      className="inline-flex items-center gap-1 rounded-full border border-emerald-700/30 bg-emerald-700/5 py-0.5 pl-2.5 pr-1 text-xs text-emerald-900"
+                    >
+                      <span className="max-w-40 truncate">{nasabah.nama}</span>
+                      <button
+                        type="button"
+                        className="rounded-full p-0.5 hover:bg-emerald-700/10"
+                        aria-label={`Keluarkan ${nasabah.nama} dari penerima`}
+                        onClick={() => buangPenerima(nasabah.userId)}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                Satu voucher per nasabah. Pilih lebih dari satu untuk menerbitkan voucher yang
+                sama sekaligus (maksimal 50 penerima).
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                Template siap pakai
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {TEMPLATE_VOUCHER.map((template) => (
+                  <Button
+                    key={template.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    title={template.keterangan}
+                    onClick={() => pakaiTemplateVoucher(template)}
+                  >
+                    {template.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                Template mengisi jenis, nilai, kuota, dan masa berlaku. Penerima tetap dipilih
+                sendiri dan semua kolom masih bisa disunting.
+              </p>
             </div>
 
             <div>
@@ -751,7 +841,9 @@ export function VoucherPanel() {
               onClick={() => void kirimTerbit()}
             >
               {sibuk && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-              Terbitkan untuk nasabah
+              {draf.penerima.length > 1
+                ? `Terbitkan untuk ${draf.penerima.length} nasabah`
+                : "Terbitkan untuk nasabah"}
             </Button>
           </SheetFooter>
         </SheetContent>

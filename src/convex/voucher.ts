@@ -407,6 +407,100 @@ export const cabutVoucher = mutation({
   },
 });
 
+type IsiTerbit = {
+  jenis: JenisVoucher;
+  judul: string;
+  nilai: number;
+  minPokok: number;
+  batasPemakaian?: number;
+  berlakuSampai: number;
+};
+
+/** Batas penerima satu kali terbit massal; di atas ini admin memecahnya sendiri. */
+const BATAS_TERBIT_MASSAL = 50;
+
+/**
+ * Validasi isi voucher yang sama untuk penerbitan tunggal maupun massal.
+ * Dikembalikan dalam bentuk sudah dirapikan supaya kedua jalur menyimpan
+ * baris dengan bentuk identik.
+ */
+function siapkanIsiTerbit(args: IsiTerbit): {
+  jenis: JenisVoucher;
+  judul: string;
+  nilai: number;
+  minPokok: number;
+  batas: number;
+  berlakuSampai: number;
+} {
+  // Satuan `nilai` bergantung pada jenis: rupiah untuk potongan biaya/limit,
+  // poin persen untuk potongan bunga, dan hari untuk tambah tenor.
+  const nilaiGalat = periksaNilaiVoucher(args.jenis, args.nilai);
+  if (nilaiGalat !== null) throw new Error(nilaiGalat);
+  if (!Number.isSafeInteger(args.minPokok) || args.minPokok < LOAN_LIMITS.minPokok) {
+    throw new Error(
+      `Minimal pengajuan voucher tidak boleh di bawah ${formatRupiah(LOAN_LIMITS.minPokok)}.`,
+    );
+  }
+  if (!Number.isSafeInteger(args.berlakuSampai) || args.berlakuSampai <= Date.now()) {
+    throw new Error("Masa berlaku voucher harus di masa depan.");
+  }
+  const batas = args.batasPemakaian ?? 1;
+  if (!Number.isSafeInteger(batas) || batas <= 0 || batas > 10) {
+    throw new Error("Batas pemakaian harus 1 sampai 10 kali.");
+  }
+  const judul = args.judul.trim();
+  if (judul.length < 3 || judul.length > 80) {
+    throw new Error("Judul voucher harus 3–80 karakter.");
+  }
+  return {
+    jenis: args.jenis,
+    judul,
+    nilai: args.nilai,
+    minPokok: args.minPokok,
+    batas,
+    berlakuSampai: args.berlakuSampai,
+  };
+}
+
+/** Pemeriksaan penerima; admin tidak boleh menerima voucher nasabah. */
+async function pastikanPenerima(ctx: MutationCtx, pemilikId: Id<"users">) {
+  const pemilik = await ctx.db.get(pemilikId);
+  if (pemilik === null) throw new Error("Akun penerima voucher tidak ditemukan.");
+  if (pemilik.role === ROLES.ADMIN) {
+    throw new Error("Voucher tidak diterbitkan untuk akun admin.");
+  }
+  return pemilik;
+}
+
+/** Sisipkan satu baris voucher untuk satu pemilik. */
+async function sisipkanVoucher(
+  ctx: MutationCtx,
+  args: {
+    pemilikId: Id<"users">;
+    isi: ReturnType<typeof siapkanIsiTerbit>;
+    olehId: Id<"users">;
+    sekarang: number;
+  },
+): Promise<{ id: Id<"voucher">; kode: string }> {
+  const kode = `VCR-${String(args.sekarang).slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
+  const id = await ctx.db.insert("voucher", {
+    kode,
+    jenis: args.isi.jenis,
+    judul: args.isi.judul,
+    nilai: args.isi.nilai,
+    minPokok: args.isi.minPokok,
+    batasPemakaian: args.isi.batas,
+    terpakai: 0,
+    pemilikId: args.pemilikId,
+    sumber: "admin",
+    status: "aktif",
+    berlakuSampai: args.isi.berlakuSampai,
+    dibuatPada: args.sekarang,
+    dibuatOleh: args.olehId,
+  });
+  return { id, kode };
+}
+
 /**
  * Terbitkan voucher untuk satu akun — hanya Super Admin.
  *
@@ -425,48 +519,14 @@ export const terbitkanVoucher = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdminSession(ctx);
-    const pemilik = await ctx.db.get(args.pemilikId);
-    if (pemilik === null) throw new Error("Akun penerima voucher tidak ditemukan.");
-    if (pemilik.role === ROLES.ADMIN) {
-      throw new Error("Voucher tidak diterbitkan untuk akun admin.");
-    }
-    // Satuan `nilai` bergantung pada jenis: rupiah untuk potongan biaya/limit,
-    // poin persen untuk potongan bunga, dan hari untuk tambah tenor.
-    const nilaiGalat = periksaNilaiVoucher(args.jenis, args.nilai);
-    if (nilaiGalat !== null) throw new Error(nilaiGalat);
-    if (!Number.isSafeInteger(args.minPokok) || args.minPokok < LOAN_LIMITS.minPokok) {
-      throw new Error(
-        `Minimal pengajuan voucher tidak boleh di bawah ${formatRupiah(LOAN_LIMITS.minPokok)}.`,
-      );
-    }
+    const pemilik = await pastikanPenerima(ctx, args.pemilikId);
+    const isi = siapkanIsiTerbit(args);
     const sekarang = Date.now();
-    if (!Number.isSafeInteger(args.berlakuSampai) || args.berlakuSampai <= sekarang) {
-      throw new Error("Masa berlaku voucher harus di masa depan.");
-    }
-    const batas = args.batasPemakaian ?? 1;
-    if (!Number.isSafeInteger(batas) || batas <= 0 || batas > 10) {
-      throw new Error("Batas pemakaian harus 1 sampai 10 kali.");
-    }
-    const judul = args.judul.trim();
-    if (judul.length < 3 || judul.length > 80) {
-      throw new Error("Judul voucher harus 3–80 karakter.");
-    }
-
-    const kode = `VCR-${String(sekarang).slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
-    const id = await ctx.db.insert("voucher", {
-      kode,
-      jenis: args.jenis,
-      judul,
-      nilai: args.nilai,
-      minPokok: args.minPokok,
-      batasPemakaian: batas,
-      terpakai: 0,
+    const { id, kode } = await sisipkanVoucher(ctx, {
       pemilikId: args.pemilikId,
-      sumber: "admin",
-      status: "aktif",
-      berlakuSampai: args.berlakuSampai,
-      dibuatPada: sekarang,
-      dibuatOleh: userId,
+      isi,
+      olehId: userId,
+      sekarang,
     });
     await audit(
       ctx,
@@ -474,9 +534,65 @@ export const terbitkanVoucher = mutation({
       user.email ?? user.name ?? "admin",
       "voucher_diterbitkan",
       kode,
-      `${judul} · ${args.jenis} · ${labelNilaiVoucher(args.jenis, args.nilai)} · untuk ${pemilik.email ?? pemilik.name ?? pemilik._id}`,
+      `${isi.judul} · ${isi.jenis} · ${labelNilaiVoucher(isi.jenis, isi.nilai)} · untuk ${pemilik.email ?? pemilik.name ?? pemilik._id}`,
     );
     return { id, kode };
+  },
+});
+
+/**
+ * Terbitkan voucher yang sama untuk beberapa nasabah sekaligus.
+ *
+ * Tetap satu voucher per akun (bukan satu kode untuk semua), supaya kuota,
+ * pencabutan, dan audit tetap per nasabah. Seluruh penerima diperiksa lebih
+ * dulu: satu akun admin di daftar membatalkan seluruh kiriman, bukan
+ * meninggalkan sebagian voucher yang sudah terbit tanpa laporan.
+ */
+export const terbitkanVoucherMassal = mutation({
+  args: {
+    pemilikIds: v.array(v.id("users")),
+    jenis: JENIS,
+    judul: v.string(),
+    nilai: v.number(),
+    minPokok: v.number(),
+    batasPemakaian: v.optional(v.number()),
+    berlakuSampai: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    const unik = [...new Set(args.pemilikIds)];
+    if (unik.length === 0) throw new Error("Pilih minimal satu nasabah penerima.");
+    if (unik.length > BATAS_TERBIT_MASSAL) {
+      throw new Error(`Sekali terbit maksimal ${BATAS_TERBIT_MASSAL} nasabah.`);
+    }
+
+    const isi = siapkanIsiTerbit(args);
+    const penerima = await Promise.all(unik.map((id) => pastikanPenerima(ctx, id)));
+    const sekarang = Date.now();
+    const hasil: { id: Id<"voucher">; kode: string; nama: string }[] = [];
+    for (const [indeks, pemilikId] of unik.entries()) {
+      const { id, kode } = await sisipkanVoucher(ctx, {
+        pemilikId,
+        isi,
+        olehId: userId,
+        sekarang,
+      });
+      hasil.push({
+        id,
+        kode,
+        nama: penerima[indeks].email ?? penerima[indeks].name ?? String(pemilikId),
+      });
+    }
+
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "voucher_diterbitkan_massal",
+      hasil[0]?.kode ?? "-",
+      `${isi.judul} · ${isi.jenis} · ${labelNilaiVoucher(isi.jenis, isi.nilai)} · ${hasil.length} nasabah`,
+    );
+    return { jumlah: hasil.length, kode: hasil.map((baris) => baris.kode) };
   },
 });
 

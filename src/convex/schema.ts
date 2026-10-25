@@ -309,6 +309,13 @@ const schema = defineSchema(
        */
       promoBungaId: v.optional(v.id("promoBunga")),
       promoBungaNama: v.optional(v.string()),
+      /**
+       * Bunga promo yang benar-benar dipakai saat pengajuan (persen). Disimpan
+       * terpisah dari `persenBunga` karena voucher potongan bunga bisa
+       * menurunkannya lagi; laporan subsidi promo harus memakai angka promo
+       * itu, bukan tarif akhir setelah voucher.
+       */
+      promoBungaPersen: v.optional(v.number()),
       promoBungaPersenNormal: v.optional(v.number()),
       /**
        * Snapshot TARIF skema bulanan yang berlaku saat pinjaman ini dibuat:
@@ -486,7 +493,10 @@ const schema = defineSchema(
       // lama, `convex/klaimPeminjam.ts`). Nomor disimpan sudah ternormalisasi
       // (62…) oleh jalur pengajuan, jadi kecocokan bisa lewat indeks ini —
       // bukan pemindaian seluruh tabel.
-      .index("by_nomorWhatsApp", ["nomorWhatsApp"]),
+      .index("by_nomorWhatsApp", ["nomorWhatsApp"])
+      // Laporan efektivitas promo membaca pinjaman yang memakai satu promo;
+      // tanpa indeks ini laporan harus memindai seluruh tabel pinjaman.
+      .index("by_promoBunga", ["promoBungaId"]),
 
     /**
      * DRAF pengajuan pinjaman tunai — pekerjaan yang belum dikirim.

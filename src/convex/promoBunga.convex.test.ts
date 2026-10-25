@@ -185,6 +185,9 @@ describe("promo bunga harian", () => {
     expect(loan?.promoBungaId).toBe(promoId);
     expect(loan?.promoBungaNama).toBe("Bunga 15 tenor 7");
     expect(loan?.promoBungaPersenNormal).toBe(30);
+    // Tarif promo dibekukan terpisah, supaya laporan subsidi tidak tertukar
+    // dengan potongan voucher bunga yang mungkin dipakai bersamaan.
+    expect(loan?.promoBungaPersen).toBe(15);
 
     // Tenor 14 tidak termasuk promo, jadi tarif matriks berlaku (35%).
     const kedua = await ajukanHarian(peminjam, kyc, 14);
@@ -255,6 +258,45 @@ describe("promo bunga harian", () => {
     expect(loanPertama?.persenBunga).toBe(15);
     expect(loanKedua?.persenBunga).toBe(30);
     expect(loanKedua?.promoBungaId).toBeUndefined();
+  });
+
+  it("laporan efektivitas menghitung pemakaian dan subsidi promo", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-promo-efektif", {
+      email: "admin-promo-efektif@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "rani-efektif",
+      "rani-efektif@pindai.test",
+    );
+    const kyc = await unggahKyc(t);
+
+    const { id: promoId } = await buatPromo(admin, {
+      nama: "Bunga 15 tenor 7",
+      persenBunga: 15,
+      tenor: [7],
+    });
+    await ajukanHarian(peminjam, kyc, 7);
+    // Pengajuan tanpa promo tidak boleh ikut terhitung pada kampanye mana pun.
+    await ajukanHarian(peminjam, kyc, 14);
+
+    const laporan = await admin.query(api.promoBunga.efektivitas, {});
+    expect(laporan.baris).toHaveLength(1);
+    const baris = laporan.baris[0];
+    expect(baris.id).toBe(promoId);
+    expect(baris.pinjaman).toBe(1);
+    // Pokok Rp300.000: normal 30% = Rp90.000, promo 15% = Rp45.000.
+    expect(baris.subsidi).toBe(45_000);
+    expect(baris.perkiraan).toBe(false);
+    expect(laporan.total.subsidi).toBe(45_000);
+    expect(laporan.total.pinjaman).toBe(1);
+    expect(laporan.dibatasi).toBe(false);
+
+    await expect(peminjam.query(api.promoBunga.efektivitas, {})).rejects.toThrow(
+      /Akses khusus Super Admin/,
+    );
   });
 
   it("menolak nasabah mengatur promo bunga", async () => {

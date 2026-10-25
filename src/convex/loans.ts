@@ -898,7 +898,13 @@ export const createLoanApplication = mutation({
       ...(persenBungaSimpanan < persenBungaNormal
         ? {
             ...(promoDipakai !== null
-              ? { promoBungaId: promoDipakai._id, promoBungaNama: promoDipakai.nama }
+              ? {
+                  promoBungaId: promoDipakai._id,
+                  promoBungaNama: promoDipakai.nama,
+                  // Dibekukan terpisah: laporan subsidi promo memakai angka
+                  // promo ini, bukan tarif akhir setelah voucher bunga.
+                  promoBungaPersen: promoDipakai.persenBunga,
+                }
               : {}),
             promoBungaPersenNormal: persenBungaNormal,
           }

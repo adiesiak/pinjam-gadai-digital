@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { PilihanProduk } from "@/components/landing/PilihanProduk";
 import {
@@ -231,7 +232,10 @@ export function FormPengajuanSection({
       </div>
 
       {jalur === "konvensional" && (
-        <PromoPinjamanAktif penempatan="pengajuan" className="mt-4" />
+        <>
+          <PromoPinjamanAktif penempatan="pengajuan" className="mt-4" />
+          <PromoBungaAktif className="mt-4" />
+        </>
       )}
 
       <Separator className="my-4" />

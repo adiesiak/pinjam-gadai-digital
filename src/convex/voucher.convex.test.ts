@@ -752,4 +752,60 @@ describe("pengaturan voucher oleh admin", () => {
       peminjam.mutation(api.voucher.cabutVoucher, { voucherId: id, alasan: "coba" }),
     ).rejects.toThrow(/Akses khusus Super Admin/);
   });
+
+  it("menerbitkan voucher yang sama untuk beberapa nasabah, satu baris per akun", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-massal-vcr", {
+      email: "admin-massal-vcr@pindai.test",
+      role: "admin",
+    });
+    const { userId: rani } = await siapkanPenggunaDasar(t, "rani-massal-vcr", {
+      email: "rani-massal-vcr@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: sari } = await siapkanPenggunaDasar(t, "sari-massal-vcr", {
+      email: "sari-massal-vcr@pindai.test",
+      role: "peminjam",
+    });
+    const dasar = {
+      jenis: "diskon_bunga" as const,
+      judul: "Bunga lebih ringan",
+      nilai: 5,
+      minPokok: 100_000,
+      batasPemakaian: 1,
+      berlakuSampai: Date.now() + 30 * HARI_MS,
+    };
+
+    const hasil = await admin.mutation(api.voucher.terbitkanVoucherMassal, {
+      ...dasar,
+      // Duplikat dalam satu kiriman tidak boleh menghasilkan dua voucher.
+      pemilikIds: [rani, sari, rani],
+    });
+    expect(hasil.jumlah).toBe(2);
+    expect(new Set(hasil.kode).size).toBe(2);
+
+    const rows = await t.run((ctx) => ctx.db.query("voucher").collect());
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.pemilikId).sort()).toEqual([rani, sari].sort());
+    expect(rows.every((row) => row.jenis === "diskon_bunga" && row.nilai === 5)).toBe(true);
+
+    await expect(
+      admin.mutation(api.voucher.terbitkanVoucherMassal, { ...dasar, pemilikIds: [] }),
+    ).rejects.toThrow(/minimal satu nasabah/);
+
+    const { userId: adminKedua } = await siapkanPenggunaDasar(t, "admin-kedua-vcr", {
+      email: "admin-kedua-vcr@pindai.test",
+      role: "admin",
+    });
+    await expect(
+      admin.mutation(api.voucher.terbitkanVoucherMassal, {
+        ...dasar,
+        pemilikIds: [rani, adminKedua],
+      }),
+    ).rejects.toThrow(/akun admin/);
+    // Satu penerima tidak sah membatalkan seluruh kiriman: tidak ada voucher
+    // tambahan yang terlanjur terbit.
+    const sesudah = await t.run((ctx) => ctx.db.query("voucher").collect());
+    expect(sesudah).toHaveLength(2);
+  });
 });

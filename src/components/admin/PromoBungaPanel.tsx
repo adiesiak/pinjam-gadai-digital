@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { EfektivitasPromoBunga } from "@/components/admin/EfektivitasPromoBunga";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -401,6 +402,8 @@ export function PromoBungaPanel() {
           ))}
         </ul>
       )}
+
+      <EfektivitasPromoBunga className="border-t border-slate-100 pt-3" />
 
       <Sheet open={terbuka} onOpenChange={setTerbuka}>
         <SheetContent

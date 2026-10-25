@@ -39,6 +39,7 @@ import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-vi
 import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
 import { KartuLimitVoucher } from "@/components/voucher/KartuLimitVoucher";
+import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 
 /**
@@ -477,6 +478,12 @@ export default function Dashboard() {
                       className="mb-4"
                     />
                   )}
+                  {role === "dana" ? null : (
+                    <PromoBungaAktif
+                      onAjukan={() => bukaPengajuan("pinjaman")}
+                      className="mb-4"
+                    />
+                  )}
                   <ActiveLoanSection
                     schedule={schedule ?? []}
                     onOpenDetail={setLoanDetailId}
@@ -549,6 +556,7 @@ export default function Dashboard() {
                    * tetap satu angka plafon tanpa voucher, jadi tidak ada dua
                    * kartu yang menyebut limit dengan cara berbeda.
                    */}
+                  <PromoBungaAktif className="mb-4" />
                   <KartuLimitVoucher className="mb-4" />
                   <FormPengajuanSection
                     jenis={jenisPengajuan}
