@@ -809,6 +809,31 @@ export function SystemConfigPanel() {
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Setoran penyedia dana
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                  Saat aktif, pendana dapat mengajukan setoran dari ruang pendana.
+                  Setoran masuk antrean pencocokan mutasi; saldo tidak berubah
+                  sebelum admin mencocokkannya.
+                </p>
+                <div className="mt-3">
+                  <SwitchRow
+                    htmlFor="cfg-deposit-manual"
+                    label="Terima pengajuan setoran manual"
+                    hint={
+                      form.manualDepositEnabled
+                        ? "Formulir setoran tampil di ruang pendana."
+                        : "Formulir setoran disembunyikan; penempatan dicatat admin."
+                    }
+                    checked={form.manualDepositEnabled}
+                    onChange={(v) => upd("manualDepositEnabled", v)}
+                    accent="emerald"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Identitas surat resmi
                 </p>
                 <p className="mt-1 text-[11px] leading-4 text-muted-foreground">

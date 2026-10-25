@@ -562,6 +562,40 @@ cek(
   );
 }
 
+// 10. Ringkasan yang menjawab pertanyaan pendana lebih dulu.
+// Tab, angka siklus, dan pinjaman berjalan dibaca dari sumbernya; isi tabnya
+// sendiri ditahan uji render bagian masing-masing.
+cek(
+  /isPendana\s*\?\s*tabPendana\s*:\s*tabPengelola/.test(halaman),
+  "daftar tab mengikuti peran pembaca",
+);
+cek(
+  /tabTampil\.includes\("belum"\)/.test(halaman) &&
+    /tabTampil\.includes\("ditolak"\)/.test(halaman) &&
+    /tabTampil\.includes\("gadai"\)/.test(halaman),
+  "tiga tab yang kosong untuk pendana tidak dirender baginya",
+);
+cek(
+  halaman.includes("api.siklusPendana.siklusSaya") &&
+    halaman.includes("siklusBerikut"),
+  "tanggal cair siklus berikutnya dibaca di puncak halaman",
+);
+cek(
+  halaman.includes('aria-labelledby="judul-sedang-berjalan"'),
+  "pinjaman berjalan punya blok ringkas sebelum bagian penjelasan",
+);
+cek(
+  halaman.includes("<AjukanPenempatan") &&
+    /isPendana\s*&&\s*<AjukanPenempatan/.test(halaman),
+  "pendana bisa mengajukan penempatan dari ruangnya sendiri",
+);
+cek(
+  ["2", "4", "6"].every((nomor) =>
+    halaman.includes(`nomor: ${nomor}, teks:`),
+  ),
+  "navigasi jangkar memuat bagian 2, 4, dan 6 yang sebelumnya dilewati",
+);
+
 const jumlah = lulus + gagal;
 console.log(`qa-ruang-pendana: ${lulus}/${jumlah} lulus`);
 if (gagal > 0) process.exit(1);

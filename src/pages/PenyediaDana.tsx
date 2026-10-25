@@ -2,6 +2,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeftRight,
   BadgeCheck,
+  CalendarClock,
   Coins,
   Eye,
   ExternalLink,
@@ -57,6 +58,7 @@ import {
   CATATAN_INTERNAL_SINGKAT,
 } from "@/lib/teksRisikoPendanaan";
 import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam";
+import { AjukanPenempatan } from "@/components/penyediaDana/AjukanPenempatan";
 import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
 import { RekapPendanaUnduhan } from "@/components/penyediaDana/RekapPendanaUnduhan";
 import { KartuSiklusPendana } from "@/components/penyediaDana/KartuSiklusPendana";
@@ -1732,7 +1734,12 @@ function FormUbahPinjaman({
 
 function IsiRuang() {
   const { user } = useAuth();
-  const [tab, setTab] = useState("belum");
+  /**
+   * Tab disimpan sebagai PILIHAN, bukan nilai awal yang dipatok: peran baru
+   * diketahui setelah sesi selesai dimuat, dan pendana tidak punya tab
+   * "Ditinjau". Selama belum memilih, tab pertama mengikuti peran.
+   */
+  const [tabPilihan, setTabPilihan] = useState<string | null>(null);
   const [detail, setDetail] = useState<IsiDetail | null>(null);
   const [ubah, setUbah] = useState<BarisPinjaman | null>(null);
   // Pencatatan keuntungan pendana: target disimpan sebagai data ringkas supaya
@@ -1770,6 +1777,37 @@ function IsiRuang() {
    * untuk dibandingkan dan tidak pernah dibuka untuknya.
    */
   const isPendana = role === "dana";
+  /**
+   * Tab yang BERLAKU untuk tiap pembaca. Pendana tidak punya baris gadai
+   * (barang jaminan tidak punya alokasi dana, jadi server mengirim daftar
+   * kosong) dan tidak membuka antrean "Ditinjau" milik orang lain; ketiga tab
+   * itu hanya menambah kolom tanpa isi di ruangnya. Urutan tampilnya tetap
+   * urutan di bawah, bukan urutan daftar ini.
+   */
+  const tabPengelola = [
+    "produk",
+    "belum",
+    "didanai",
+    "lunas",
+    "ditolak",
+    "gadai",
+    "kredit",
+    "lokasi",
+    "transfer",
+  ];
+  const tabPendana = ["produk", "didanai", "lunas", "kredit", "transfer", "lokasi"];
+  const tabTampil = isPendana ? tabPendana : tabPengelola;
+  const tab = tabPilihan ?? (isPendana ? "didanai" : "belum");
+  const setTab = setTabPilihan;
+  // Siklus pendana dibaca juga di sini: pertanyaan "kapan uang saya cair"
+  // dijawab di puncak halaman, bukan hanya di kartu siklus jauh di bawah.
+  const siklusSaya = useQuery(
+    api.siklusPendana.siklusSaya,
+    isPendana ? {} : ("skip" as const),
+  );
+  const siklusBerikut = (siklusSaya ?? [])
+    .filter((s) => s.status === "berjalan")
+    .sort((a, b) => a.jatuhTempoPada - b.jatuhTempoPada)[0];
   const kunciSendiri = kunciNama(user?.name);
   const tampilNama = (nama: string): string =>
     namaRuangan(
@@ -1844,7 +1882,7 @@ function IsiRuang() {
   // sehingga salinan manual dan salinan terkirim tidak pernah berbeda.
   const dataLaporan = useQuery(
     api.laporanPendana.dataLaporanPortofolio,
-    user === undefined ? ("skip" as const) : {},
+    user === undefined || !isPendana ? ("skip" as const) : {},
   );
   const [menyimpanKontak, setMenyimpanKontak] = useState(false);
   const [mengirimLaporan, setMengirimLaporan] = useState(false);
@@ -2263,12 +2301,14 @@ function IsiRuang() {
                 )}
               </div>
               <h1 className="mt-4 text-3xl font-semibold tracking-tight text-navy sm:text-4xl">
-                Ringkasan Pendanaan
+                {isPendana ? "Portofolio Pendanaan Anda" : "Ringkasan Pendanaan"}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                Halaman ini memantau posisi dana pendana: berapa yang sudah
-                tersalurkan, berapa yang masih berjalan, dan berapa keuntungan
-                yang sudah dibukukan maupun yang masih perkiraan.
+                {isPendana
+                  ? "Halaman ini melacak dana yang Anda tempatkan: berapa yang sudah tersalurkan, berapa yang masih berjalan, dan berapa imbal hasil yang sudah dibukukan maupun yang masih perkiraan."
+                  : role === "admin"
+                    ? "Halaman ini memantau posisi dana seluruh pendana: berapa yang sudah tersalurkan, berapa yang masih berjalan, dan berapa keuntungan yang sudah dibukukan maupun yang masih perkiraan."
+                    : "Halaman ini menampilkan posisi dana yang dapat Anda pantau: berapa yang sudah tersalurkan, berapa yang masih berjalan, dan berapa keuntungan yang sudah dibukukan maupun yang masih perkiraan."}
               </p>
 
               {/* Peringatan risiko duduk tepat di bawah judul: pembaca harus tahu
@@ -2283,8 +2323,11 @@ function IsiRuang() {
               >
                 {[
                   { id: "ringkasan", nomor: 1, teks: "Ringkasan" },
+                  { id: "kesehatan", nomor: 2, teks: "Kesehatan" },
                   { id: ANCHOR_RISIKO_PENDANAAN, nomor: 3, teks: "Risiko" },
+                  { id: "persetujuan", nomor: 4, teks: "Persetujuan" },
                   { id: "aturan-perhitungan", nomor: 5, teks: "Aturan hitung" },
+                  { id: "keuntungan", nomor: 6, teks: "Keuntungan" },
                   { id: "pendana", nomor: 7, teks: "Pendana" },
                   { id: "daftar-pengajuan", nomor: 8, teks: "Daftar pinjaman" },
                 ].map((bagian) => (
@@ -2357,7 +2400,11 @@ function IsiRuang() {
                 <KartuRingkasan
                   label="Dana tersalurkan"
                   nilai={rupiah(angkaPortofolio.danaTersalurkan)}
-                  detail="pokok pinjaman berjalan + lunas, semua pendana"
+                  detail={
+                    isPendana
+                      ? "pokok pinjaman atas nama Anda, berjalan + lunas"
+                      : "pokok pinjaman berjalan + lunas, semua pendana"
+                  }
                   icon={<HandCoins className="size-4" />}
                   aksen="tersalurkan"
                 />
@@ -2433,11 +2480,117 @@ function IsiRuang() {
               <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
                 {CATATAN_INTERNAL_SINGKAT}
               </p>
+
+              {siklusBerikut !== undefined && (
+                <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs leading-5 text-emerald-950">
+                  <CalendarClock className="size-3.5 shrink-0" aria-hidden="true" />
+                  {siklusBerikut.jatuhTempo ? (
+                    <>
+                      Siklus <strong>{rupiah(siklusBerikut.totalCair)}</strong> sudah
+                      jatuh tempo sejak {tanggalRingkas(siklusBerikut.jatuhTempoPada)} dan
+                      menunggu pencairan admin.
+                    </>
+                  ) : (
+                    <>
+                      Siklus berikutnya cair{" "}
+                      <strong>{tanggalRingkas(siklusBerikut.jatuhTempoPada)}</strong>{" "}
+                      sebesar <strong>{rupiah(siklusBerikut.totalCair)}</strong>
+                      {siklusBerikut.pilihanPendana === "putar_ulang"
+                        ? " dan diputar lagi 30 hari."
+                        : siklusBerikut.pilihanPendana === "cairkan"
+                          ? " ke rekening Anda."
+                          : ". Pilih cair ke rekening atau putar lagi di kartu siklus."}
+                    </>
+                  )}
+                </p>
+              )}
             </section>
+
+            {/* Pinjaman berjalan diletakkan tepat di bawah angka pokok:
+                pertanyaan "pinjaman saya bagaimana" dijawab sebelum bagian
+                penjelasan, bukan setelah menggulir melewati semuanya. */}
+            {tampilDidanai.length > 0 && (
+              <section
+                aria-labelledby="judul-sedang-berjalan"
+                className="animate-masuk mt-5"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 pb-2">
+                  <h2 id="judul-sedang-berjalan" className="text-sm font-semibold text-navy">
+                    Sedang berjalan
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      {tampilDidanai.length} pinjaman ·{" "}
+                      {rupiah(
+                        tampilDidanai.reduce(
+                          (total, b) => total + b.pokokPinjaman,
+                          0,
+                        ),
+                      )}{" "}
+                      pokok
+                    </span>
+                  </h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1 text-xs"
+                    onClick={() => {
+                      setTab("didanai");
+                      document
+                        .getElementById("daftar-pengajuan")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                  >
+                    Lihat semua
+                  </Button>
+                </div>
+                <ul className="divide-y divide-slate-200">
+                  {tampilDidanai.slice(0, 3).map((b) => {
+                    const tampilan = ringkasJatuhTempo(b, sekarang);
+                    return (
+                      <li
+                        key={b._id}
+                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5 text-xs"
+                      >
+                        <span className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className="truncate font-medium uppercase text-slate-900">
+                            {tampilNama(b.namaLengkap)}
+                          </span>
+                          <span className="font-mono text-[11px] text-slate-500">
+                            {b.nomorReferensi}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-3">
+                          <span className="font-semibold tabular-nums text-navy">
+                            {rupiah(b.pokokPinjaman)}
+                          </span>
+                          <span
+                            className={
+                              tampilan.mencolok
+                                ? "text-[11px] font-medium text-rose-700"
+                                : "text-[11px] font-medium text-slate-600"
+                            }
+                          >
+                            {tampilan.ada
+                              ? `${tampilan.teks} · ${tampilan.hitung}`
+                              : tampilan.hitung}
+                          </span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+
+            {/* Satu-satunya jalan pendana menambah penempatan dari ruangnya
+                sendiri. Alur setoran manual sudah ada di server; kartu ini yang
+                membuatnya bisa dipakai tanpa menunggu admin mencatat manual. */}
+            {isPendana && <AjukanPenempatan />}
 
             {/* Kesehatan portofolio dulu, lalu penjelasan risikonya: keadaan dana
                 sebelum aturan mainnya. */}
-            <KesehatanPortofolio angka={kesehatan} />
+            <div id="kesehatan" className="scroll-mt-20">
+              <KesehatanPortofolio angka={kesehatan} />
+            </div>
 
             <PanelRisikoPendanaan />
 
@@ -2449,22 +2602,24 @@ function IsiRuang() {
              * setinggi kartunya — supaya tidak ada lompatan tata letak saat
              * kartunya masuk.
              */}
-            {persetujuan === undefined && bolehLihat && (
-              <MemuatBaris
-                teks="Memuat status persetujuan risiko…"
-                className="mt-4"
-              />
-            )}
-            {persetujuan !== undefined && (
-              <PersetujuanRisikoPendana
-                status={persetujuan}
-                peran={persetujuan.peran}
-                bolehSetuju={persetujuan.bolehSetuju}
-                menyimpan={menyimpanSetuju}
-                galat={galatSetuju}
-                onSetuju={setujuiRisiko}
-              />
-            )}
+            <div id="persetujuan" className="scroll-mt-20">
+              {persetujuan === undefined && bolehLihat && (
+                <MemuatBaris
+                  teks="Memuat status persetujuan risiko…"
+                  className="mt-4"
+                />
+              )}
+              {persetujuan !== undefined && (
+                <PersetujuanRisikoPendana
+                  status={persetujuan}
+                  peran={persetujuan.peran}
+                  bolehSetuju={persetujuan.bolehSetuju}
+                  menyimpan={menyimpanSetuju}
+                  galat={galatSetuju}
+                  onSetuju={setujuiRisiko}
+                />
+              )}
+            </div>
 
             {/* Pengingat jatuh tempo pribadi pendana — sesudah keadaan dana dan
                 risikonya, tetapi sebelum aturan hitung dan angka keuntungan,
@@ -2488,10 +2643,12 @@ function IsiRuang() {
             {/* Ringkasan keuntungan selalu tampil: pertanyaan pendana
                 ("berapa yang sudah jadi uang, berapa yang masih perkiraan")
                 dijawab di puncak halaman, bukan di tengah daftar angka. */}
-            <RingkasanKeuntungan
-              ringkasan={data.ringkasan}
-              pribadi={isPendana}
-            />
+            <div id="keuntungan" className="scroll-mt-20">
+              <RingkasanKeuntungan
+                ringkasan={data.ringkasan}
+                pribadi={isPendana}
+              />
+            </div>
 
             {/* Siklus 30 hari: menjawab kapan pokok + imbal benar-benar cair,
                 dan bahwa pelunasan awal peminjam tidak mempercepatnya. */}
@@ -2505,9 +2662,21 @@ function IsiRuang() {
                 Hanya untuk akun pendana; admin memakai tabel rekap di bawah. */}
             {isPendana && (
               <>
-                <KalkulatorImbalPendana
-                  persenPotonganAdmin={data.ringkasan.persenPotonganAdmin}
-                />
+                {/*
+                 * Kalkulator dilipat: ia alat bantu, bukan keadaan dana.
+                 * Pendana yang hanya ingin melihat posisinya tidak perlu
+                 * melewati formulir simulasi setiap kali membuka halaman.
+                 */}
+                <details className={`${FOLIO.jalur} mt-4 px-4 py-3`}>
+                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                    Simulasi penempatan
+                  </summary>
+                  <div className="mt-3">
+                    <KalkulatorImbalPendana
+                      persenPotonganAdmin={data.ringkasan.persenPotonganAdmin}
+                    />
+                  </div>
+                </details>
                 <PortofolioPendanaanSection />
               </>
             )}
@@ -2617,7 +2786,7 @@ function IsiRuang() {
             >
               <TabsList
                 aria-label="Kategori pengajuan"
-                className="sticky top-14 z-30 h-auto w-full flex-wrap justify-start gap-x-1 rounded-none border-b border-gold/40 bg-white p-0"
+                className="sticky top-14 z-30 h-auto w-full flex-nowrap justify-start gap-x-1 overflow-x-auto rounded-none border-b border-gold/40 bg-white p-0 [scrollbar-width:none] [&_button]:whitespace-nowrap lg:flex-wrap [&::-webkit-scrollbar]:hidden"
               >
                 <TabsTrigger
                   value="produk"
@@ -2625,15 +2794,17 @@ function IsiRuang() {
                 >
                   <Layers className="size-3.5" /> Produk
                 </TabsTrigger>
-                <TabsTrigger
-                  value="belum"
-                  className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
-                >
-                  <Timer className="size-3.5" /> Ditinjau
-                  <span className="ml-0.5 text-xs font-semibold tabular-nums text-slate-600 group-data-[state=active]:text-emerald-800">
-                    {pinjamanBaru.length}
-                  </span>
-                </TabsTrigger>
+                {tabTampil.includes("belum") && (
+                  <TabsTrigger
+                    value="belum"
+                    className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
+                  >
+                    <Timer className="size-3.5" /> Ditinjau
+                    <span className="ml-0.5 text-xs font-semibold tabular-nums text-slate-600 group-data-[state=active]:text-emerald-800">
+                      {pinjamanBaru.length}
+                    </span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger
                   value="didanai"
                   className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
@@ -2652,24 +2823,28 @@ function IsiRuang() {
                     {pinjamanLunas.length}
                   </span>
                 </TabsTrigger>
-                <TabsTrigger
-                  value="ditolak"
-                  className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
-                >
-                  <XCircle className="size-3.5" /> Ditolak
-                  <span className="ml-0.5 text-xs font-semibold tabular-nums text-slate-600 group-data-[state=active]:text-emerald-800">
-                    {pinjamanDitolak.length}
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="gadai"
-                  className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
-                >
-                  <Package className="size-3.5" /> Gadai
-                  <span className="ml-0.5 text-xs font-semibold tabular-nums text-slate-600 group-data-[state=active]:text-emerald-800">
-                    {data.ringkasan.jumlahGadai}
-                  </span>
-                </TabsTrigger>
+                {tabTampil.includes("ditolak") && (
+                  <TabsTrigger
+                    value="ditolak"
+                    className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
+                  >
+                    <XCircle className="size-3.5" /> Ditolak
+                    <span className="ml-0.5 text-xs font-semibold tabular-nums text-slate-600 group-data-[state=active]:text-emerald-800">
+                      {pinjamanDitolak.length}
+                    </span>
+                  </TabsTrigger>
+                )}
+                {tabTampil.includes("gadai") && (
+                  <TabsTrigger
+                    value="gadai"
+                    className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
+                  >
+                    <Package className="size-3.5" /> Gadai
+                    <span className="ml-0.5 text-xs font-semibold tabular-nums text-slate-600 group-data-[state=active]:text-emerald-800">
+                      {data.ringkasan.jumlahGadai}
+                    </span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger
                   value="kredit"
                   className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
