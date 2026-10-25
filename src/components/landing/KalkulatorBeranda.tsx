@@ -11,6 +11,7 @@ import { Link } from "react-router";
 
 import type { TarifBulanan } from "@/lib/bulanan";
 
+import { JudulBagian } from "./JudulBagian";
 import { LiveCalculator } from "./LiveCalculator";
 
 const CATATAN = [
@@ -37,18 +38,14 @@ export function KalkulatorBeranda({
     >
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 sm:py-18 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-12">
         <div className="lg:sticky lg:top-24">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Kalkulator
-          </p>
-          <h2
+          <JudulBagian
             id="kalkulator-judul"
-            className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
-          >
-            {judul}
-          </h2>
-          <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
-            {deskripsi}
-          </p>
+            label="Kalkulator"
+            judul={judul}
+            deskripsi={deskripsi}
+            className="border-t-0 pt-0"
+            deskripsiClassName="max-w-md"
+          />
           <ul className="mt-5 space-y-2.5">
             {CATATAN.map((baris) => (
               <li

@@ -28,6 +28,8 @@ import {
 } from "@/lib/demoPengajuan";
 import type { TarifBiaya } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+
+import { JudulBagian } from "./JudulBagian";
 import { fadeIn, transition, transitionReduced } from "@/lib/motion";
 import { LABEL_STATUS_PINJAMAN } from "@/lib/statusPinjaman";
 
@@ -302,22 +304,13 @@ export function DemoPengajuan({
       className="border-t border-border bg-background"
     >
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
-        <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Demo alur
-          </p>
-          <h2
-            id="demo-pengajuan-judul"
-            className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
-          >
-            Cara mengajukan pinjaman
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Lima layar, satu pengajuan: dari masuk dengan WhatsApp sampai catatan
-            pinjaman tersimpan. Demo berjalan sendiri — tekan langkah mana pun
-            untuk melompat ke sana.
-          </p>
-        </div>
+        <JudulBagian
+          id="demo-pengajuan-judul"
+          label="Demo alur"
+          judul="Cara mengajukan pinjaman"
+          deskripsi="Lima layar, satu pengajuan: dari masuk dengan WhatsApp sampai catatan pinjaman tersimpan. Demo berjalan sendiri — tekan langkah mana pun untuk melompat ke sana."
+          className="max-w-2xl border-t-0 pt-0"
+        />
 
         <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start">
           <div className="min-w-0">

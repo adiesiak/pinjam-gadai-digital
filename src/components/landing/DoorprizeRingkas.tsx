@@ -9,6 +9,8 @@ import {
 import { TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 
+import { JudulBagian } from "./JudulBagian";
+
 export interface DoorprizeRingkasProps {
   /** Tujuan tombol: dashboard bila sudah masuk, halaman masuk bila belum. */
   accountHref: string;
@@ -55,19 +57,14 @@ export function DoorprizeRingkas({
     >
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 sm:py-18 lg:grid-cols-[1.25fr_0.75fr] lg:items-start">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Doorprize triwulanan
-          </p>
-          <h2
+          <JudulBagian
             id="doorprize-ringkas-judul"
-            className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
-          >
-            {judulDoorprizeKuartal(kuartal)}
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            Tiket terkumpul otomatis selama kuartal berjalan, lalu diundi pada
-            akhir kuartal. Tiket kuartal berikutnya mulai dari nol.
-          </p>
+            label="Doorprize triwulanan"
+            judul={judulDoorprizeKuartal(kuartal)}
+            deskripsi="Tiket terkumpul otomatis selama kuartal berjalan, lalu diundi pada akhir kuartal. Tiket kuartal berikutnya mulai dari nol."
+            className="border-t-0 pt-0"
+            deskripsiClassName="max-w-2xl"
+          />
 
           <ul className="mt-6 grid gap-5 sm:grid-cols-2">
             <li className="border-t border-border pt-4">

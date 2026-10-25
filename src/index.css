@@ -243,6 +243,14 @@
   font-style: var(--display-italic);
   font-weight: var(--display-weight);
 }
+/* Judul bagian: serif tegak. Hero memakai `font-display` (miring) untuk satu
+   frasa penekanan; judul tiap bagian memakai serif yang sama tanpa kemiringan
+   supaya halaman beranda terbaca seperti dokumen resmi, bukan tumpukan blok. */
+@utility font-judul {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: var(--display-weight);
+}
 @utility rounded-kartu {
   border-radius: var(--radius-kartu);
 }

@@ -8,6 +8,8 @@
  */
 import { Check, FileText } from "lucide-react";
 
+import { JudulBagian } from "./JudulBagian";
+
 const LANGKAH = [
   {
     judul: "Masuk dengan OTP WhatsApp",
@@ -54,45 +56,45 @@ export function DokumenPerlindungan({
       className="border-t border-border bg-background"
     >
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
-        <div className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Alur &amp; dokumen
-          </p>
-          <h2
-            id="dokumen-judul"
-            className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
-          >
-            {judul}
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{deskripsi}</p>
-        </div>
+        <JudulBagian
+          id="dokumen-judul"
+          label="Alur & dokumen"
+          judul={judul}
+          deskripsi={deskripsi}
+          className="max-w-2xl border-t-0 pt-0"
+        />
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
-          <ol className="grid gap-3 sm:grid-cols-2">
+        <div className="mt-8 grid gap-4 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
+          {/* Empat langkah dibaca sebagai satu urutan, jadi tempatnya satu
+              kartu berderet dengan nomor serif di kiri, bukan empat kotak
+              setara yang memecah urutannya. */}
+          <ol className="overflow-hidden rounded-kartu border border-border bg-card">
             {LANGKAH.map((langkah, i) => (
               <li
                 key={langkah.judul}
-                className="rounded-kartu border border-border bg-card p-4"
+                className="flex gap-4 border-b border-border px-5 py-4 last:border-b-0"
               >
-                <p className="font-mono text-[11px] font-semibold tracking-[0.14em] text-primary">
+                <span className="font-judul w-8 shrink-0 text-lg leading-none tabular-nums text-gold-foreground">
                   {String(i + 1).padStart(2, "0")}
-                </p>
-                <p className="mt-1.5 text-sm font-semibold text-slate-900">
-                  {langkah.judul}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  {langkah.isi}
-                </p>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {langkah.judul}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    {langkah.isi}
+                  </p>
+                </div>
               </li>
             ))}
           </ol>
 
-          <div className="grid gap-3">
-            <div className="rounded-kartu border border-border bg-card p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <div className="grid gap-4">
+            <div className="rounded-kartu border border-border bg-card p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-foreground">
                 Disiapkan sebelum mengajukan
               </p>
-              <ul className="mt-2.5 space-y-1.5">
+              <ul className="mt-3 space-y-1.5">
                 {SIAPKAN.map((baris) => (
                   <li
                     key={baris}
@@ -108,12 +110,12 @@ export function DokumenPerlindungan({
               </ul>
             </div>
 
-            <div className="rounded-kartu border border-border bg-card p-4">
-              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <div className="rounded-kartu border border-border bg-card p-5">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-foreground">
                 <FileText className="size-3.5 text-primary" aria-hidden="true" />
                 Diterima setelah pengajuan
               </p>
-              <ul className="mt-2.5 space-y-1.5">
+              <ul className="mt-3 space-y-1.5">
                 {DITERIMA.map((baris) => (
                   <li
                     key={baris}

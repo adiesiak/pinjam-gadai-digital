@@ -71,48 +71,57 @@ export function PasangAplikasi() {
       aria-labelledby="pasang-aplikasi-judul"
       className="border-y border-border bg-muted"
     >
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="max-w-xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Aplikasi PINDAI
-          </p>
-          <h2
-            id="pasang-aplikasi-judul"
-            className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
-          >
-            PINDAI di layar utama
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Satu tombol. Bila peramban Anda mengizinkan, PINDAI langsung
-            terpasang; bila belum, panduan untuk perangkat ini terbuka dan
-            tinggal diikuti.
-          </p>
-          <p className="mt-3 text-xs leading-5 text-slate-600">
-            Aplikasi berjalan dari peramban, tanpa berkas unduhan. PINDAI belum
-            ada di Play Store maupun App Store.
-          </p>
-        </div>
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
+        <div className="grid gap-8 rounded-kartu border border-border bg-card p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center lg:gap-12">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+              Aplikasi PINDAI
+            </p>
+            <h2
+              id="pasang-aplikasi-judul"
+              className="mt-2.5 font-judul text-[1.7rem] leading-[1.15] tracking-tight text-foreground sm:text-[2.1rem]"
+            >
+              PINDAI di layar utama
+            </h2>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
+              Satu tombol. Bila peramban Anda mengizinkan, PINDAI langsung
+              terpasang; bila belum, panduan untuk perangkat ini terbuka dan
+              tinggal diikuti.
+            </p>
+            <p className="mt-3 max-w-xl text-xs leading-5 text-slate-500">
+              Aplikasi berjalan dari peramban, tanpa berkas unduhan. PINDAI
+              belum ada di Play Store maupun App Store.
+            </p>
+          </div>
 
-        <div className="max-w-xs">
-          <Button
-            type="button"
-            onClick={mulaiPasang}
-            className="min-h-12 gap-2 rounded-tombol bg-primary px-6 text-primary-foreground hover:bg-primary/90"
-          >
-            <Download className="size-4" aria-hidden="true" />
-            Pasang aplikasi
-          </Button>
-          <a
-            href="/pindai.apk"
-            download="PINDAI.apk"
-            className="mt-3 inline-flex min-h-11 items-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Unduh APK Android (pasang manual)
-          </a>
-          <p className="mt-1 text-[11px] leading-5 text-slate-500">
-            Untuk Android yang tidak menampilkan tawaran pemasangan. Izinkan
-            “instal dari sumber ini” saat diminta.
-          </p>
+          {/* Kotak pemasangan dipisah dari penjelasan supaya tombolnya punya
+              tempat sendiri, tidak mengambang di samping dua paragraf. */}
+          <div className="rounded-kartu border border-border bg-muted p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+              Pasang sekarang
+            </p>
+            <Button
+              type="button"
+              onClick={mulaiPasang}
+              className="mt-3 min-h-12 w-full gap-2 rounded-tombol bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Download className="size-4" aria-hidden="true" />
+              Pasang aplikasi
+            </Button>
+            <div className="mt-4 border-t border-border pt-4">
+              <a
+                href="/pindai.apk"
+                download="PINDAI.apk"
+                className="inline-flex min-h-11 items-center text-xs font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Unduh APK Android (pasang manual)
+              </a>
+              <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                Untuk Android yang tidak menampilkan tawaran pemasangan.
+                Izinkan “instal dari sumber ini” saat diminta.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

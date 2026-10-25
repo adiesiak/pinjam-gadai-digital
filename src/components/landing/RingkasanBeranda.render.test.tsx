@@ -17,6 +17,7 @@ import { MemoryRouter } from "react-router";
 
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
 import { KELIPATAN_TIKET_PENDANA } from "@/lib/doorprize";
+import { TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 
 let passed = 0;
@@ -53,8 +54,13 @@ ok(doorprize.includes("31 Desember 2026"), "tanggal undian dihitung, bukan ditul
 ok(doorprize.includes('id="doorprize-ringkas-judul"'), "section menunjuk judulnya");
 
 // ── 2. Sumber tiket sama dengan aturan mesin ──
+// Tenor yang berhak atas tiket adalah daftar mesin, bukan angka yang ditulis
+// ulang di uji: saat tenor 21 hari ditambahkan, uji ini ikut benar sendiri.
 ok(
-  doorprize.includes("7, 14, atau 28 hari"),
+  TENOR_OPTIONS.slice(0, -1).every((hari) =>
+    doorprize.includes(`${hari}, `),
+  ) &&
+    doorprize.includes(`${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari`),
   "tenor tiket dibaca dari TENOR_OPTIONS",
 );
 ok(

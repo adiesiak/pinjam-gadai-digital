@@ -19,6 +19,8 @@ import { TENOR_AKAD_OPTIONS } from "@/lib/syariah/pengajuan";
 import { UJRAH_RAHN_PERSEN_PER_30_HARI } from "@/lib/syariah/rahn";
 import { persenTeks } from "@/lib/tarifBiayaTeks";
 
+import { JudulBagian } from "./JudulBagian";
+
 type Baris = { label: string; konvensional: string; syariah: string };
 
 function barisBanding(tarif: TarifBiaya): readonly Baris[] {
@@ -60,23 +62,15 @@ export function BandingProduk({ tarif }: { tarif: TarifBiaya }) {
       className="border-t border-border bg-muted"
     >
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-              Banding produk
-            </p>
-            <h2
-              id="banding-judul"
-              className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
-            >
-              Konvensional atau syariah, bedanya di akad.
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              Keduanya punya formulir, dokumen, dan perhitungan sendiri. Tabel
-              ini membantu memilih jalur sebelum masuk ke pengajuan.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
+        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+          <JudulBagian
+            id="banding-judul"
+            label="Banding produk"
+            judul="Konvensional atau syariah, bedanya di akad."
+            deskripsi="Keduanya punya formulir, dokumen, dan perhitungan sendiri. Tabel ini membantu memilih jalur sebelum masuk ke pengajuan."
+            className="max-w-2xl flex-1 border-t-0 pt-0"
+          />
+          <div className="mb-1 flex flex-wrap gap-x-5 gap-y-2">
             <Link
               to="/pinjaman/konvensional"
               className="min-h-11 inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4"

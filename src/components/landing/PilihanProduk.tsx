@@ -14,6 +14,8 @@ import { Link } from "react-router";
 
 import { cn } from "@/lib/utils";
 
+import { JudulBagian } from "./JudulBagian";
+
 const SOROTAN_KONVENSIONAL = [
   "Tenor harian 7, 14, 21, atau 28 hari",
   "Cicilan bulanan 1, 3, atau 6 bulan",
@@ -182,29 +184,24 @@ export function PilihanProdukSection() {
   return (
     <section
       aria-labelledby="pilihan-produk-title"
-      className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12"
+      className="mx-auto max-w-6xl px-4 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-12"
     >
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2
-            id="pilihan-produk-title"
-            className="text-2xl font-semibold tracking-tight text-navy"
-          >
-            Dua jalur pembiayaan, dipisah sejak awal
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Produk konvensional dan syariah punya aturan, dokumen, dan
-            kalkulator sendiri. Pilih jalurnya sebelum mengajukan.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+        <JudulBagian
+          id="pilihan-produk-title"
+          label="Produk"
+          judul="Dua jalur pembiayaan, dipisah sejak awal"
+          deskripsi="Produk konvensional dan syariah punya aturan, dokumen, dan kalkulator sendiri. Pilih jalurnya sebelum mengajukan."
+          className="max-w-2xl flex-1"
+        />
         <Link
           to="/biaya"
-          className="min-h-11 text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mb-1 min-h-11 text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Bandingkan biaya
         </Link>
       </div>
-      <PilihanProduk className="mt-5" />
+      <PilihanProduk className="mt-7" />
     </section>
   );
 }

@@ -17,6 +17,8 @@ import {
 import type { TarifBiaya } from "@/lib/loan";
 import { rincianPotonganDiMuka } from "@/lib/tarifBiayaTeks";
 
+import { JudulBagian } from "./JudulBagian";
+
 function daftarTanya(tarif: TarifBiaya) {
   return [
     {
@@ -56,18 +58,14 @@ export function FaqBeranda({
     >
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 sm:py-18 lg:grid-cols-[0.7fr_1.3fr] lg:gap-14">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Pertanyaan umum
-          </p>
-          <h2
+          <JudulBagian
             id="faq-beranda-judul"
-            className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
-          >
-            {judul}
-          </h2>
-          <p className="mt-3 max-w-sm text-sm leading-6 text-slate-600">
-            {deskripsi}
-          </p>
+            label="Pertanyaan umum"
+            judul={judul}
+            deskripsi={deskripsi}
+            className="border-t-0 pt-0"
+            deskripsiClassName="max-w-sm"
+          />
           <Link
             to="/faq"
             className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4"
@@ -77,7 +75,11 @@ export function FaqBeranda({
           </Link>
         </div>
 
-        <Accordion type="single" collapsible className="border-t border-border">
+        <Accordion
+          type="single"
+          collapsible
+          className="rounded-kartu border border-border bg-card px-5"
+        >
           {daftar.map((item, i) => (
             <AccordionItem key={item.q} value={`faq-${i}`}>
               <AccordionTrigger className="min-h-14 text-sm font-semibold text-slate-900">

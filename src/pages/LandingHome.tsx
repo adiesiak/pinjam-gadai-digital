@@ -4,7 +4,6 @@ import {
   Calculator,
   FileText,
   LockKeyhole,
-  MessageCircle,
   ShieldCheck,
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -23,17 +22,17 @@ import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
 import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
-import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
-import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { BiayaBerlaku } from "@/components/landing/BiayaBerlaku";
 import { BandingProduk } from "@/components/landing/BandingProduk";
 import { CtaLengket } from "@/components/landing/CtaLengket";
 import { DokumenPerlindungan } from "@/components/landing/DokumenPerlindungan";
 import { FaqBeranda } from "@/components/landing/FaqBeranda";
+import { FooterBeranda } from "@/components/landing/FooterBeranda";
+import { JudulBagian } from "@/components/landing/JudulBagian";
+import { GelombangPattern } from "@/components/landing/KartuHeroPindai";
 import { KalkulatorBeranda } from "@/components/landing/KalkulatorBeranda";
 import { RuangPendanaBeranda } from "@/components/landing/RuangPendanaBeranda";
 import { tarifBiayaAman, type TarifBiaya } from "@/lib/loan";
-import { urlChatCs } from "@/lib/kontak";
 import {
   JUMLAH_KARTU_LAYANAN,
   JUMLAH_PANDUAN,
@@ -218,7 +217,7 @@ export default function LandingHome() {
       <a className="skip-link" href="#konten">
         Lewati ke konten utama
       </a>
-      <header className="sticky top-0 z-40 border-b border-border bg-background">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             to="/"
@@ -342,17 +341,14 @@ export default function LandingHome() {
           aria-labelledby="layanan-title"
           className="border-t border-border bg-muted"
         >
-          <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-              {konten.layananEyebrow}
-            </p>
-            <h2
+          <div className="mx-auto max-w-6xl px-4 pb-14 pt-10 sm:px-6 sm:pb-18 sm:pt-12">
+            <JudulBagian
               id="layanan-title"
-              className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl"
-            >
-              {konten.layananJudul}
-            </h2>
-            <div className="mt-7 grid gap-4 md:grid-cols-3">
+              label={konten.layananEyebrow}
+              judul={konten.layananJudul}
+              className="max-w-2xl border-t-0 pt-0"
+            />
+            <div className="mt-8 grid gap-4 md:grid-cols-3 md:gap-5">
               {layanan.map((item, i) => {
                 // Angka utama tiap kartu datang dari konstanta mesin, sehingga
                 // tiga kartu tidak lagi tampak seragam tanpa isi.
@@ -360,29 +356,44 @@ export default function LandingHome() {
                 return (
                   <article
                     key={item.href}
-                    className="shadow-kartu flex h-full flex-col rounded-kartu border border-border bg-card p-5 sm:p-6"
+                    className="group flex h-full flex-col overflow-hidden rounded-kartu border border-border bg-card transition-colors hover:border-primary/35"
                   >
-                    <h3 className="text-lg font-semibold">{item.judul}</h3>
-                    <p className="mt-4 font-display text-3xl leading-none tabular-nums text-slate-900">
-                      {sorotan.angka}
-                      <span className="ml-1.5 text-sm font-medium text-slate-600">
-                        {sorotan.satuan}
-                      </span>
-                    </p>
-                    <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-                      {sorotan.label}
-                    </p>
-                    <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">
-                      {item.ringkasan}
-                    </p>
-                    <p className="mt-4 border-t border-border pt-3 text-xs font-medium text-muted-foreground">
-                      {item.detail}
-                    </p>
+                    {/* Kepala kartu memuat nama produk dan angka mesin: itu
+                        dua hal yang dicari orang lebih dulu, jadi keduanya
+                        dinaikkan di atas daftar penjelasan. */}
+                    <div className="border-b border-border px-5 pb-4 pt-5">
+                      <h3 className="font-judul text-xl leading-snug text-foreground">
+                        {item.judul}
+                      </h3>
+                      <p className="mt-3 flex items-baseline gap-2">
+                        <span className="font-judul text-[2.6rem] leading-none tabular-nums text-foreground">
+                          {sorotan.angka}
+                        </span>
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+                          {sorotan.satuan}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex flex-1 flex-col px-5 py-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                        {sorotan.label}
+                      </p>
+                      <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
+                        {item.ringkasan}
+                      </p>
+                      <p className="mt-4 border-t border-border pt-3 text-xs font-medium text-muted-foreground">
+                        {item.detail}
+                      </p>
+                    </div>
                     <Link
-                      className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex min-h-12 items-center justify-between border-t border-border px-5 text-sm font-semibold text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                       to={item.href}
                     >
                       {konten.layananCta}
+                      <ArrowRight
+                        className="size-4 transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
                     </Link>
                   </article>
                 );
@@ -417,20 +428,14 @@ export default function LandingHome() {
           aria-labelledby="panduan-title"
           className="pindai-bawah-lipatan mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18"
         >
-          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-14">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                {konten.panduanEyebrow}
-              </p>
-              <h2
+              <JudulBagian
                 id="panduan-title"
-                className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl"
-              >
-                {konten.panduanJudul}
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                {konten.panduanDeskripsi}
-              </p>
+                label={konten.panduanEyebrow}
+                judul={konten.panduanJudul}
+                deskripsi={konten.panduanDeskripsi}
+              />
               <div className="mt-6 flex flex-wrap gap-3">
                 <Button
                   asChild
@@ -443,14 +448,14 @@ export default function LandingHome() {
                 </Button>
               </div>
             </div>
-            <ul className="divide-y divide-border border-y border-border">
+            <ul className="divide-y divide-border overflow-hidden rounded-kartu border border-border bg-card">
               {panduan.map(({ href, ikon: Icon, judul, isi }) => (
                 <li key={href}>
                   <Link
                     to={href}
-                    className="flex min-h-20 items-start gap-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="group flex min-h-24 items-start gap-4 px-4 py-4 transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-5"
                   >
-                    <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+                    <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
                       <Icon className="size-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -462,7 +467,7 @@ export default function LandingHome() {
                       </span>
                     </span>
                     <ArrowRight
-                      className="mt-1 size-4 shrink-0 text-slate-500"
+                      className="mt-2.5 size-4 shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
                     />
                   </Link>
@@ -478,86 +483,85 @@ export default function LandingHome() {
           <PasangAplikasi />
         </div>
 
-        <section className="border-y border-border bg-background">
-          <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div className="flex items-start gap-3">
-              <BadgeCheck
-                className="mt-0.5 size-5 shrink-0 text-primary"
-                aria-hidden="true"
-              />
-              <p className="max-w-2xl text-sm leading-6 text-slate-700">
-                Semua angka pada kalkulator adalah ilustrasi dari aturan yang
-                tercantum. Persetujuan dan perpindahan dana tidak dilakukan
-                otomatis oleh aplikasi.
+        {/* Penutup: satu panel, bukan pita teks. Panel ini memakai motif ombak
+            yang sama dengan hero sebagai penanda akhir halaman, dan catatan
+            kejujuran angka tetap dibawa apa adanya. */}
+        <section
+          aria-labelledby="penutup-judul"
+          className="relative overflow-hidden border-t border-border bg-secondary"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+          >
+            <GelombangPattern
+              ragam="latar"
+              opacity={0.16}
+              preserveAspectRatio="xMidYMid slice"
+              style={{
+                maskImage:
+                  "radial-gradient(120% 110% at 100% 0%, rgba(0,0,0,0.9), transparent 64%)",
+                WebkitMaskImage:
+                  "radial-gradient(120% 110% at 100% 0%, rgba(0,0,0,0.9), transparent 64%)",
+              }}
+            />
+          </div>
+
+          <div className="relative mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+                Sebelum mengajukan
+              </p>
+              <h2
+                id="penutup-judul"
+                className="mt-2.5 font-judul text-[1.9rem] leading-[1.1] tracking-tight text-foreground sm:text-[2.5rem]"
+              >
+                Angkanya dulu,
+                <br className="hidden sm:block" /> keputusannya kemudian.
+              </h2>
+              <p className="mt-4 flex max-w-xl items-start gap-2.5 text-sm leading-6 text-slate-700">
+                <BadgeCheck
+                  className="mt-0.5 size-4 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                <span>
+                  Semua angka pada kalkulator adalah ilustrasi dari aturan yang
+                  tercantum. Persetujuan dan perpindahan dana tidak dilakukan
+                  otomatis oleh aplikasi.
+                </span>
               </p>
             </div>
-            <Link
-              to="/faq"
-              className="min-h-11 shrink-0 self-start text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-center"
-            >
-              Baca pertanyaan umum
-            </Link>
+
+            <div className="rounded-kartu border border-gold/40 bg-card p-5 shadow-kartu">
+              <p className="text-sm font-semibold text-foreground">
+                Mulai dari hitungan Anda.
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                Nominal dan tenor bisa diubah kapan saja sebelum dikirim.
+              </p>
+              <div className="mt-4 grid gap-2">
+                <Button
+                  asChild
+                  className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <Link to={accountHref}>{accountLabel}</Link>
+                </Button>
+                <Button asChild variant="outline" className="min-h-11">
+                  <Link to="/biaya">Hitung biaya dulu</Link>
+                </Button>
+              </div>
+              <Link
+                to="/faq"
+                className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Baca pertanyaan umum
+              </Link>
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="bg-background">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1fr_auto] md:items-end">
-          <div>
-            <Link to="/" className="inline-flex items-center gap-2.5">
-              <VaultLogo size={30} />
-              <span className="text-sm font-semibold tracking-[0.16em]">
-                PINDAI
-              </span>
-            </Link>
-            <p className="mt-3 max-w-md text-xs leading-5 text-slate-600">
-              {konten.footerDeskripsi}
-            </p>
-          </div>
-          <nav
-            aria-label="Tautan informasi"
-            className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600"
-          >
-            <Link to="/biaya">Biaya</Link>
-            <Link to="/cara-kerja">Cara kerja</Link>
-            <Link to="/keamanan">Keamanan</Link>
-            <Link to="/faq">FAQ</Link>
-            <Link to="/aplikasi">Aplikasi Android</Link>
-            <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
-          </nav>
-          {/* Kanal bantuan: nomor CS dibaca dari `lib/kontak`, bukan disalin di
-              sini, supaya tidak ada nomor lama yang tertinggal di halaman. */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4 text-sm md:col-span-2">
-            <a
-              href={urlChatCs("Halo PINDAI, saya ingin bertanya tentang layanan.")}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 font-semibold text-primary hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <MessageCircle className="size-4" aria-hidden="true" />
-              Chat CS di WhatsApp
-            </a>
-            <Link
-              to="/akses-bersama"
-              className="inline-flex min-h-11 items-center text-slate-600 hover:text-primary"
-            >
-              Ruang pendana
-            </Link>
-            <Link
-              to="/pinjaman/syariah"
-              className="inline-flex min-h-11 items-center text-slate-600 hover:text-primary"
-            >
-              Akad syariah
-            </Link>
-          </div>
-          <p className="max-w-2xl text-xs leading-5 text-slate-500 md:col-span-2">
-            {PENAFIAN_PINDAI}
-          </p>
-          <p className="text-xs text-slate-500 md:col-span-2">
-            {HAK_CIPTA_PINDAI} · Ketentuan {CONTRACT_TERMS_VERSION}
-          </p>
-        </div>
-      </footer>
+      <FooterBeranda deskripsi={konten.footerDeskripsi} />
 
       <CtaLengket href={accountHref} label={accountLabel} />
     </div>
