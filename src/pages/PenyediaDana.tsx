@@ -1,6 +1,5 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
-  ArrowLeftRight,
   BadgeCheck,
   CalendarClock,
   Coins,
@@ -73,7 +72,6 @@ import { PilihanProduk } from "@/components/landing/PilihanProduk";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { PortofolioPendana } from "@/components/penyediaDana/PortofolioPendana";
 import { TabelPendana } from "@/components/penyediaDana/TabelPendana";
-import { LaporanTransferPendana } from "@/components/penyediaDana/LaporanTransferPendana";
 import {
   DialogBatalkanKeuntungan,
   DialogCatatKeuntungan,
@@ -1793,9 +1791,8 @@ function IsiRuang() {
     "gadai",
     "kredit",
     "lokasi",
-    "transfer",
   ];
-  const tabPendana = ["produk", "didanai", "lunas", "kredit", "transfer", "lokasi"];
+  const tabPendana = ["produk", "didanai", "lunas", "kredit", "lokasi"];
   const tabTampil = isPendana ? tabPendana : tabPengelola;
   const tab = tabPilihan ?? (isPendana ? "didanai" : "belum");
   const setTab = setTabPilihan;
@@ -1837,15 +1834,6 @@ function IsiRuang() {
   const titik = useQuery(
     api.penyediaDana.titikPeminjam,
     user === undefined || !bolehLihat || tab !== "lokasi"
-      ? ("skip" as const)
-      : {},
-  );
-  // Riwayat catatan transfer hanya dibaca saat tabnya dibuka — sama alasannya
-  // dengan titik lokasi: pembacaan tabel besar tidak ikut berjalan untuk
-  // pengunjung yang hanya melihat daftar pengajuan.
-  const laporanTransfer = useQuery(
-    api.penyediaDana.laporanTransferPendana,
-    user === undefined || !bolehLihat || tab !== "transfer"
       ? ("skip" as const)
       : {},
   );
@@ -2867,26 +2855,12 @@ function IsiRuang() {
                     </span>
                   )}
                 </TabsTrigger>
-                {/* Lencana tab ini menghitung catatan yang MASIH MENUNGGU
-                    dicatat admin — satu angka yang benar-benar perlu dilihat
-                    pendana, bukan jumlah seluruh riwayat. */}
-                <TabsTrigger
-                  value="transfer"
-                  className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
-                >
-                  <ArrowLeftRight className="size-3.5" /> Transfer
-                  {laporanTransfer !== undefined && (
-                    <span className="ml-0.5 text-xs font-semibold tabular-nums text-slate-600 group-data-[state=active]:text-emerald-800">
-                      {laporanTransfer.ringkasan.jumlahBelumDicatat}
-                    </span>
-                  )}
-                </TabsTrigger>
               </TabsList>
 
               {/* Saringan di atas tabel data pinjaman — nama peminjam dan
                   pendana. Disembunyikan di tab peta: daftarnya bukan
                   pengajuan, dan tab gadai tidak punya kolom pendana. */}
-              {tab !== "lokasi" && tab !== "transfer" && tab !== "produk" && (
+              {tab !== "lokasi" && tab !== "produk" && (
                 <SaringanPengajuan
                   cari={filter.cari}
                   onCari={(nilai) =>
@@ -3294,24 +3268,6 @@ function IsiRuang() {
                       batas={data.batas}
                     />
                   </>
-                )}
-              </TabsContent>
-
-              {/* ===== Transfer keuntungan: riwayat catatan + rekonsiliasi ===== */}
-              <TabsContent value="transfer" className="mt-4">
-                {laporanTransfer === undefined ? (
-                  <p className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">
-                    <MemuatBaris teks="Memuat catatan transfer…" />
-                  </p>
-                ) : (
-                  <LaporanTransferPendana
-                    rows={laporanTransfer.rows}
-                    belum={laporanTransfer.belum}
-                    ringkasan={laporanTransfer.ringkasan}
-                    idSaya={laporanTransfer.idSaya}
-                    namaTampil={tampilNama}
-                    terpotong={laporanTransfer.terpotong}
-                  />
                 )}
               </TabsContent>
 
