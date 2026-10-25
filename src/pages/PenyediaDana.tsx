@@ -60,6 +60,7 @@ import { PetaLokasiPeminjam } from "@/components/penyediaDana/PetaLokasiPeminjam
 import { AjukanPenempatan } from "@/components/penyediaDana/AjukanPenempatan";
 import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
 import { RekapPendanaUnduhan } from "@/components/penyediaDana/RekapPendanaUnduhan";
+import { TombolWaPembayaran } from "@/components/penyediaDana/TombolWaPembayaran";
 import { KartuSiklusPendana } from "@/components/penyediaDana/KartuSiklusPendana";
 import { RingkasanKeuntungan } from "@/components/penyediaDana/RingkasanKeuntungan";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
@@ -2493,6 +2494,12 @@ function IsiRuang() {
                 </p>
               )}
             </section>
+
+            {/* Jalur cepat admin: pendana yang bertanya lewat WhatsApp biasanya
+                ingin rekening tujuan setoran. Rekeningnya sudah dibaca halaman
+                ini dari Pengaturan Sistem, jadi kartunya cukup mengirim draf —
+                hanya untuk admin, bukan pendana atau pemantau. */}
+            {role === "admin" && <TombolWaPembayaran />}
 
             {/* Pinjaman berjalan diletakkan tepat di bawah angka pokok:
                 pertanyaan "pinjaman saya bagaimana" dijawab sebelum bagian
