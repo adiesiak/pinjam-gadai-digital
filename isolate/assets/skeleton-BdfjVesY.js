@@ -1,1 +1,0 @@
-import{j as s}from"./framer-motion-lJ-Satfj.js";import{C as o}from"./index-DLAAAhmE.js";function r({className:t,...e}){return s.jsx("div",{"data-slot":"skeleton",className:o("animate-pulse rounded-md bg-slate-200/70",t),...e})}export{r as S};
