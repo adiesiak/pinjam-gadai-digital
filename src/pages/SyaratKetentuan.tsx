@@ -200,8 +200,10 @@ function AyatTarifBulanan({ kredit = false }: { kredit?: boolean }) {
         </>
       )}
       <strong>{tarifBulanan.persenBungaBulanan1}%</strong> untuk tenor 1 bulan,{" "}
-      <strong>{tarifBulanan.persenBungaBulanan3}%</strong> untuk tenor 3 bulan,
-      dan <strong>{tarifBulanan.persenBungaBulanan6}%</strong> untuk tenor 6
+      <strong>{tarifBulanan.persenBungaBulanan3}%</strong> untuk tenor 3 bulan,{" "}
+      <strong>{tarifBulanan.persenBungaBulanan6}%</strong> untuk tenor 6 bulan,{" "}
+      <strong>{tarifBulanan.persenBungaBulanan9}%</strong> untuk tenor 9 bulan,
+      dan <strong>{tarifBulanan.persenBungaBulanan12}%</strong> untuk tenor 12
       bulan. Bunga khusus akun dapat berbeda. Potongan awal{" "}
       {tarifBulanan.persenBiayaLayananBulanan}% berlaku pada skema bulanan;
       setiap pembayaran bulanan juga dikenai biaya admin cicilan{" "}

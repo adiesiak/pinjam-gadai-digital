@@ -12,9 +12,9 @@
  *     porsinya.
  *
  *  2. Marjin tenor bulanan adalah marjin TOTAL sepanjang tenor, bukan per
- *     bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%, 9 bulan 108%, 12 bulan
- *     144% (12% per bulan sejak tenor 6). Nilainya dibaca dari tarif bawaan
- *     `lib/bulanan` supaya tidak ada angka kedua yang bisa berbeda.
+ *     bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%, 9 bulan 90%, 12 bulan 96%
+ *     (12%/10%/8% per bulan untuk tenor 6/9/12). Nilainya dibaca dari tarif
+ *     bawaan `lib/bulanan` supaya tidak ada angka kedua yang bisa berbeda.
  *     Tenor 3 bulan ke atas hanya untuk pokok mulai Rp3.000.000.
  *
  * Syarat dokumen mengikuti risiko: tenor 1 bulan cukup KTP, selfie, dan KK;
@@ -25,7 +25,7 @@
 /**
  * Marjin per bulan menurut kebijakan tenor. Marjin TOTAL satu tenor adalah
  * angka ini dikali jumlah bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%,
- * 9 bulan 108%, 12 bulan 144% — 12% per bulan sejak tenor 6.
+ * 9 bulan 90%, 12 bulan 96% — 12%/10%/8% per bulan untuk tenor 6/9/12.
  *
  * Angka ini adalah kebijakan produk. Tarif bawaan mesin bulanan
  * (`BULANAN_PRICING`) menyamakan nilainya, sehingga perhitungan, kontrak, dan
@@ -35,8 +35,8 @@ export const MARJIN_PER_BULAN: Readonly<Record<number, number>> = {
   1: 30,
   3: 20,
   6: 12,
-  9: 12,
-  12: 12,
+  9: 10,
+  12: 8,
 };
 
 /** Porsi marjin: pendana 47/60, platform 13/60. */

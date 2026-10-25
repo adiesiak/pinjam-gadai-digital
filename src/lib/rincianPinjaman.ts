@@ -73,7 +73,7 @@ export type PinjamanUntukRincian = {
   tenorBulan?: number | null;
   persenBunga?: number | null;
   /** Snapshot tarif skema bulanan; null/kosong = tarif bawaan. */
-  tarifBulanan?: TarifBulanan | null;
+  tarifBulanan?: Partial<TarifBulanan> | null;
   /** Centang cair ekspres peminjam; null/kosong = data lama (ekspres dipakai). */
   cairEkspres?: boolean | null;
   /** Snapshot tarif potongan di muka; null/kosong = tarif bawaan. */

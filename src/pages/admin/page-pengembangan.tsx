@@ -193,7 +193,7 @@ const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
     judul: "Skema bulanan",
     isi: `Tenor ${daftarAtau(
       TENOR_BULANAN_OPTIONS,
-    )} bulan. Bunga flat per bulan dari pokok penuh, biaya layanan di muka, dan biaya admin cicilan diatur di Pengaturan Parameter Bisnis (bawaan ${TARIF_BULANAN_DEFAULT.persenBungaBulanan1}%/${TARIF_BULANAN_DEFAULT.persenBungaBulanan3}%/${TARIF_BULANAN_DEFAULT.persenBungaBulanan6}% untuk tenor 1/3/6 bulan, biaya layanan ${TARIF_BULANAN_DEFAULT.persenBiayaLayananBulanan}% di muka, admin cicilan ${TARIF_BULANAN_DEFAULT.persenBiayaAdminCicilanBulanan}% dari nominal cicilan). Tarif yang berlaku DIBEKUKAN pada pinjaman saat pengajuan, jadi pinjaman lama tidak ikut berubah. Angsuran pokok dibagi rata dan bulan terakhir menyerap sisa pembulatan.`,
+    )} bulan. Bunga flat per bulan dari pokok penuh, biaya layanan di muka, dan biaya admin cicilan diatur di Pengaturan Parameter Bisnis (bawaan ${TARIF_BULANAN_DEFAULT.persenBungaBulanan1}%/${TARIF_BULANAN_DEFAULT.persenBungaBulanan3}%/${TARIF_BULANAN_DEFAULT.persenBungaBulanan6}%/${TARIF_BULANAN_DEFAULT.persenBungaBulanan9}%/${TARIF_BULANAN_DEFAULT.persenBungaBulanan12}% untuk tenor 1/3/6/9/12 bulan, biaya layanan ${TARIF_BULANAN_DEFAULT.persenBiayaLayananBulanan}% di muka, admin cicilan ${TARIF_BULANAN_DEFAULT.persenBiayaAdminCicilanBulanan}% dari nominal cicilan). Tarif yang berlaku DIBEKUKAN pada pinjaman saat pengajuan, jadi pinjaman lama tidak ikut berubah. Angsuran pokok dibagi rata dan bulan terakhir menyerap sisa pembulatan.`,
     rujukan: "src/lib/bulanan.ts, lib/system-config.ts",
   },
   {

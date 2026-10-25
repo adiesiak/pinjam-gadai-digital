@@ -41,6 +41,8 @@ const KUNCI_TARIF_BULANAN = [
   "persenBungaBulanan1",
   "persenBungaBulanan3",
   "persenBungaBulanan6",
+  "persenBungaBulanan9",
+  "persenBungaBulanan12",
   "persenBiayaLayananBulanan",
   "persenBiayaAdminCicilanBulanan",
 ] as const satisfies readonly (keyof ConfigForm)[];
@@ -300,6 +302,8 @@ export function SystemConfigPanel() {
           persenBungaBulanan1: form.persenBungaBulanan1,
           persenBungaBulanan3: form.persenBungaBulanan3,
           persenBungaBulanan6: form.persenBungaBulanan6,
+          persenBungaBulanan9: form.persenBungaBulanan9,
+          persenBungaBulanan12: form.persenBungaBulanan12,
           persenBiayaLayananBulanan: form.persenBiayaLayananBulanan,
           persenBiayaAdminCicilanBulanan: form.persenBiayaAdminCicilanBulanan,
         },
@@ -585,6 +589,30 @@ export function SystemConfigPanel() {
                     step={0.5}
                     suffix="%"
                     onChange={(v) => upd("persenBungaBulanan6", Number(v) || 0)}
+                    hint="Flat dari pokok penuh."
+                    withHint
+                  />
+                  <SuffixInput
+                    id="cfg-bunga-bulanan-9"
+                    label="Bunga tenor 9 bulan (%/bulan)"
+                    value={form.persenBungaBulanan9}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    suffix="%"
+                    onChange={(v) => upd("persenBungaBulanan9", Number(v) || 0)}
+                    hint="Flat dari pokok penuh."
+                    withHint
+                  />
+                  <SuffixInput
+                    id="cfg-bunga-bulanan-12"
+                    label="Bunga tenor 12 bulan (%/bulan)"
+                    value={form.persenBungaBulanan12}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    suffix="%"
+                    onChange={(v) => upd("persenBungaBulanan12", Number(v) || 0)}
                     hint="Flat dari pokok penuh."
                     withHint
                   />

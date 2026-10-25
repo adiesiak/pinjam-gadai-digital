@@ -8,15 +8,18 @@
  * Aturan skema:
  *  - Uang muka (DP) 0% → pokok dibiayai = harga/pokok penuh.
  *  - Angsuran pokok per bulan = pokok ÷ tenor (bulan terakhir menyerap sisa).
- *  - Tenor 3 dan 6 bulan: biaya admin 2% (platform 0%) dari pokok, DIPOTONG DI
- *    MUKA dari dana yang diterima (tidak diamortisasi ke cicilan). Tenor lain
- *    memakai biaya layanan 2%, juga dipotong di muka — jadi potongan di muka
- *    selalu 2% (dana diterima 98%), berapa pun tenor yang dipilih.
+ *  - Tenor 3, 6, 9, dan 12 bulan: biaya admin 2% (platform 0%) dari pokok,
+ *    DIPOTONG DI MUKA dari dana yang diterima (tidak diamortisasi ke cicilan).
+ *    Tenor 1 memakai biaya layanan 2%, juga dipotong di muka — jadi potongan
+ *    di muka selalu 2% (dana diterima 98%), berapa pun tenor yang dipilih.
  *  - Bunga/margin (hak penyedia dana) — FLAT dari pokok penuh, sama besar setiap
  *    bulan (tidak menurun dari sisa pokok):
  *      tenor 1 bulan   → 30% / bulan (marjin total 30%)
  *      tenor 3 bulan   → 20% / bulan (marjin total 60%)
- *      tenor ≥ 6 bulan → 12% / bulan (6 bln 72%, 9 bln 108%, 12 bln 144%)
+ *      tenor 6 bulan   → 12% / bulan (marjin total 72%)
+ *      tenor 9 bulan   → 10% / bulan (marjin total 90%)
+ *      tenor 12 bulan  →  8% / bulan (marjin total 96%)
+ *    Kelima angka itu masing-masing bisa diatur admin di Pengaturan Sistem.
  *  - Cicilan = angsuran pokok + bunga bulan itu. Karena bunga flat, cicilan
  *    bulanan rata (bulan terakhir hanya menyerap pembulatan pokok).
  *  - SETIAP tenor bulanan resmi (1, 3, 6, 9, dan 12 bulan) dikenai biaya
@@ -55,8 +58,12 @@ export interface TarifBulanan {
   persenBungaBulanan1: number;
   /** Bunga flat tenor 3–5 bulan (% dari pokok penuh, per bulan). */
   persenBungaBulanan3: number;
-  /** Bunga flat tenor 6 bulan ke atas (% dari pokok penuh, per bulan). */
+  /** Bunga flat tenor 6 bulan (% dari pokok penuh, per bulan). */
   persenBungaBulanan6: number;
+  /** Bunga flat tenor 9 bulan (% dari pokok penuh, per bulan). */
+  persenBungaBulanan9: number;
+  /** Bunga flat tenor 12 bulan (% dari pokok penuh, per bulan). */
+  persenBungaBulanan12: number;
   /** Biaya layanan yang dipotong di muka (% dari pokok), semua tenor bulanan. */
   persenBiayaLayananBulanan: number;
   /** Biaya admin yang dibayar bersama SETIAP cicilan (% dari nominal cicilan). */
@@ -73,17 +80,35 @@ export interface TarifBulanan {
 export function tarifBulananAman(
   nilai?: Partial<TarifBulanan> | null,
 ): TarifBulanan {
+  const jepit = (angka: number): number => Math.min(100, Math.max(0, angka));
   const ambil = (kunci: keyof TarifBulanan): number => {
     const angka = nilai?.[kunci];
     if (angka === undefined || !Number.isFinite(angka)) {
       return TARIF_BULANAN_DEFAULT[kunci];
     }
-    return Math.min(100, Math.max(0, angka));
+    return jepit(angka);
+  };
+  /**
+   * Tenor 9 dan 12 bulan bisa punya tarif sendiri. Snapshot pinjaman yang
+   * terbit SEBELUM kolom itu ada hanya menyimpan tarif tenor 6 bulan, jadi
+   * tarif itulah yang dipakai saat kolom barunya kosong — kontrak yang sudah
+   * berjalan tidak boleh berubah angka hanya karena kolom baru ditambahkan.
+   */
+  const ambilWarisan = (
+    kunci: "persenBungaBulanan9" | "persenBungaBulanan12",
+  ): number => {
+    const angka = nilai?.[kunci];
+    if (angka !== undefined && Number.isFinite(angka)) return jepit(angka);
+    const bunga6 = nilai?.persenBungaBulanan6;
+    if (bunga6 !== undefined && Number.isFinite(bunga6)) return jepit(bunga6);
+    return TARIF_BULANAN_DEFAULT[kunci];
   };
   return {
     persenBungaBulanan1: ambil("persenBungaBulanan1"),
     persenBungaBulanan3: ambil("persenBungaBulanan3"),
     persenBungaBulanan6: ambil("persenBungaBulanan6"),
+    persenBungaBulanan9: ambilWarisan("persenBungaBulanan9"),
+    persenBungaBulanan12: ambilWarisan("persenBungaBulanan12"),
     persenBiayaLayananBulanan: ambil("persenBiayaLayananBulanan"),
     persenBiayaAdminCicilanBulanan: ambil("persenBiayaAdminCicilanBulanan"),
   };
@@ -137,14 +162,18 @@ export const BULANAN_PRICING = {
    */
   bungaTenor3_5PersenPerBulan: 20,
   /**
-   * Bunga tenor ≥ 6 bulan (%/bulan, flat dari pokok penuh). 12% × 6 bulan =
+   * Bunga tenor 6 bulan (%/bulan, flat dari pokok penuh). 12% × 6 bulan =
    * marjin total 72%, sesuai kebijakan tenor di `lib/kebijakanPinjaman`.
    */
   bungaMin6PersenPerBulan: 12,
+  /** Bunga tenor 9 bulan (%/bulan) — dipangkas supaya tenor panjang tetap masuk. */
+  bungaTenor9PersenPerBulan: 10,
+  /** Bunga tenor 12 bulan (%/bulan) — marjin total 96%. */
+  bungaTenor12PersenPerBulan: 8,
   /**
-   * Batas profit total terhadap pokok untuk tenor resmi — tertinggi 12 bulan:
-   * bunga 144% + potongan di muka 2% + biaya admin cicilan. Batas ini penjaga
-   * salah konfigurasi admin, bukan angka yang dijanjikan ke nasabah.
+   * Batas profit total terhadap pokok untuk tenor resmi: bunga tenor terpanjang
+   * (96% pada 12 bulan) + potongan di muka 2% + biaya admin cicilan. Batas ini
+   * penjaga salah konfigurasi admin, bukan angka yang dijanjikan ke nasabah.
    */
   maxProfitTotalPersen: 230,
 } as const;
@@ -154,6 +183,8 @@ export const TARIF_BULANAN_DEFAULT: TarifBulanan = {
   persenBungaBulanan1: BULANAN_PRICING.bungaTenor1PersenPerBulan,
   persenBungaBulanan3: BULANAN_PRICING.bungaTenor3_5PersenPerBulan,
   persenBungaBulanan6: BULANAN_PRICING.bungaMin6PersenPerBulan,
+  persenBungaBulanan9: BULANAN_PRICING.bungaTenor9PersenPerBulan,
+  persenBungaBulanan12: BULANAN_PRICING.bungaTenor12PersenPerBulan,
   persenBiayaLayananBulanan: BULANAN_PRICING.biayaLayananPersen,
   persenBiayaAdminCicilanBulanan: BULANAN_PRICING.biayaAdminCicilanPersen,
 };
@@ -179,6 +210,8 @@ export function persenBungaPerBulan(
     throw new Error("Tenor harus bilangan bulan positif.");
   }
   const angka = tarifBulananAman(tarif);
+  if (tenorBulan >= 12) return angka.persenBungaBulanan12;
+  if (tenorBulan >= 9) return angka.persenBungaBulanan9;
   if (tenorBulan >= 6) return angka.persenBungaBulanan6;
   if (tenorBulan >= 3) return angka.persenBungaBulanan3;
   return angka.persenBungaBulanan1;

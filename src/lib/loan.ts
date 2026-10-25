@@ -396,7 +396,7 @@ export function simulasiBulananPinjaman(loan: {
   tenorBulan: number;
   persenBunga?: number;
   /** Snapshot tarif bulanan pinjaman; kosong = tarif bawaan. */
-  tarifBulanan?: TarifBulanan | null;
+  tarifBulanan?: Partial<TarifBulanan> | null;
 }): ReturnType<typeof hitungSimulasiBulanan> {
   return hitungSimulasiBulanan(loan.pokokPinjaman, loan.tenorBulan, {
     ...(loan.persenBunga === undefined ? {} : { persenBungaPerBulan: loan.persenBunga }),
@@ -572,7 +572,7 @@ export function pelunasanPinjaman(
     /** Snapshot bunga per nasabah; kosong = default global. */
     persenBunga?: number;
     /** Snapshot tarif bulanan pinjaman; kosong = tarif bawaan. */
-    tarifBulanan?: TarifBulanan | null;
+    tarifBulanan?: Partial<TarifBulanan> | null;
     /** State perpanjangan: sisa pokok, jatuh tempo, dan bunga periode berjalan. */
     remainingPrincipal?: number;
     currentTierRate?: number;

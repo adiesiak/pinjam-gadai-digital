@@ -335,6 +335,9 @@ const schema = defineSchema(
           persenBungaBulanan1: v.number(),
           persenBungaBulanan3: v.number(),
           persenBungaBulanan6: v.number(),
+          /** Kosong pada snapshot lama: tarif tenor 6 bulan yang berlaku. */
+          persenBungaBulanan9: v.optional(v.number()),
+          persenBungaBulanan12: v.optional(v.number()),
           persenBiayaLayananBulanan: v.number(),
           persenBiayaAdminCicilanBulanan: v.number(),
         }),
@@ -1257,6 +1260,9 @@ const schema = defineSchema(
       persenBungaBulanan1: v.optional(v.number()),
       persenBungaBulanan3: v.optional(v.number()),
       persenBungaBulanan6: v.optional(v.number()),
+      /** Bunga flat tenor 9 dan 12 bulan (% per bulan); kosong = ikut tenor 6. */
+      persenBungaBulanan9: v.optional(v.number()),
+      persenBungaBulanan12: v.optional(v.number()),
       /** Biaya layanan skema bulanan yang dipotong di muka (% dari pokok). */
       persenBiayaLayananBulanan: v.optional(v.number()),
       /** Biaya admin cicilan bulanan (% dari nominal cicilan tiap pembayaran). */
@@ -1605,6 +1611,9 @@ const schema = defineSchema(
           persenBungaBulanan1: v.number(),
           persenBungaBulanan3: v.number(),
           persenBungaBulanan6: v.number(),
+          /** Kosong pada snapshot lama: tarif tenor 6 bulan yang berlaku. */
+          persenBungaBulanan9: v.optional(v.number()),
+          persenBungaBulanan12: v.optional(v.number()),
           persenBiayaLayananBulanan: v.number(),
           persenBiayaAdminCicilanBulanan: v.number(),
         }),

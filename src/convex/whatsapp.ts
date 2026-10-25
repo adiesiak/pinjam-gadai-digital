@@ -149,7 +149,7 @@ type PinjamanPesan = {
    * tagihan dari tenor awal, bukan periode yang sedang berjalan, sehingga total
    * di WhatsApp bisa berbeda dari ledger dan dashboard.
    */
-  tarifBulanan?: TarifBulanan | null;
+  tarifBulanan?: Partial<TarifBulanan> | null;
   remainingPrincipal?: number;
   nextDueDate?: number;
   nextInterestAmount?: number;

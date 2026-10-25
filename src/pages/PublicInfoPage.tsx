@@ -731,9 +731,11 @@ export function PublicInfoPageView({
                       <td className="px-4 py-3">
                         {tarifBulanan.persenBungaBulanan1}%/{" "}
                         {tarifBulanan.persenBungaBulanan3}%/{" "}
-                        {tarifBulanan.persenBungaBulanan6}% per bulan dari pokok
-                        penuh untuk tenor 1/3/6 bulan (tarif dasar; bunga khusus
-                        akun dapat berbeda)
+                        {tarifBulanan.persenBungaBulanan6}/{" "}
+                        {tarifBulanan.persenBungaBulanan9}/{" "}
+                        {tarifBulanan.persenBungaBulanan12}% per bulan dari pokok
+                        penuh untuk tenor 1/3/6/9/12 bulan (tarif dasar; bunga
+                        khusus akun dapat berbeda)
                       </td>
                     </tr>
                     <tr>
@@ -795,7 +797,9 @@ export function PublicInfoPageView({
                 {tarifBulanan.persenBiayaLayananBulanan}%, bunga flat{" "}
                 {persenBungaPerBulan(1, tarifBulanan)}/
                 {persenBungaPerBulan(3, tarifBulanan)}/
-                {persenBungaPerBulan(6, tarifBulanan)}% per bulan; setiap
+                {persenBungaPerBulan(6, tarifBulanan)}/
+                {persenBungaPerBulan(9, tarifBulanan)}/
+                {persenBungaPerBulan(12, tarifBulanan)}% per bulan; setiap
                 cicilan bulanan dikenai biaya admin cicilan{" "}
                 {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari nominal
                 cicilan.{" "}
@@ -842,18 +846,19 @@ export function PublicInfoPageView({
               </ul>
             ) : (
               <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
-                <li>Tenor baru 1, 3, atau 6 bulan dengan DP 0%.</li>
+                <li>Tenor baru 1, 3, 6, 9, atau 12 bulan dengan DP 0%.</li>
                 <li>
                   Biaya awal {tarifBulanan.persenBiayaLayananBulanan}% dan bunga
                   flat dari pokok penuh: {persenBungaPerBulan(1, tarifBulanan)}%,{" "}
-                  {persenBungaPerBulan(3, tarifBulanan)}%, atau{" "}
-                  {persenBungaPerBulan(6, tarifBulanan)}% per bulan sesuai tenor.
+                  {persenBungaPerBulan(3, tarifBulanan)}%,{" "}
+                  {persenBungaPerBulan(6, tarifBulanan)}%,{" "}
+                  {persenBungaPerBulan(9, tarifBulanan)}%, atau{" "}
+                  {persenBungaPerBulan(12, tarifBulanan)}% per bulan sesuai tenor.
                 </li>
                 <li>
                   Biaya admin cicilan{" "}
                   {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari nominal
-                  cicilan berlaku pada setiap pembayaran bulanan (tenor 1, 3, dan
-                  6 bulan).
+                  cicilan berlaku pada setiap pembayaran bulanan.
                 </li>
                 <li>
                   Pokok pembiayaan maksimal{" "}

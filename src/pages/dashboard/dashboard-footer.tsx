@@ -2,6 +2,7 @@
 import { useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
+import { tarifBulananAman } from "@/lib/bulanan";
 import { HAK_CIPTA_PINDAI, NAMA_ENTITAS_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { tarifBiayaAman } from "@/lib/loan";
 import { rincianPotonganDiMuka } from "@/lib/tarifBiayaTeks";
@@ -11,6 +12,8 @@ export function DashboardFooter() {
   // yang dipakai formulir, bukan persentase lama yang tertinggal di footer.
   const ketentuan = useQuery(api.system.getKetentuanBiaya, {});
   const tarif = tarifBiayaAman(ketentuan?.tarifBiaya);
+  // Bunga per tenor ikut tarif admin: footer tidak boleh menyebut angka lama.
+  const tarifBulanan = tarifBulananAman(ketentuan?.tarifBulanan);
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-6 text-xs leading-5 text-muted-foreground sm:px-6">
@@ -29,8 +32,11 @@ export function DashboardFooter() {
             biaya platform dihapus).
           </li>
           <li>
-            Bunga flat dari pokok penuh: 30% (tenor 1 bulan), 20% (tenor 3
-            bulan), 12% (tenor 6 bulan ke atas) per bulan.
+            Bunga flat dari pokok penuh: {tarifBulanan.persenBungaBulanan1}%
+            (tenor 1 bulan), {tarifBulanan.persenBungaBulanan3}% (tenor 3 bulan),{" "}
+            {tarifBulanan.persenBungaBulanan6}% (tenor 6 bulan),{" "}
+            {tarifBulanan.persenBungaBulanan9}% (tenor 9 bulan), dan{" "}
+            {tarifBulanan.persenBungaBulanan12}% (tenor 12 bulan) per bulan.
           </li>
           <li>Angka dan status mengikuti catatan PINDAI.</li>
         </ul>

@@ -113,6 +113,10 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
       row.persenBungaBulanan3 ?? DEFAULT_CONFIG.persenBungaBulanan3,
     persenBungaBulanan6:
       row.persenBungaBulanan6 ?? DEFAULT_CONFIG.persenBungaBulanan6,
+    persenBungaBulanan9:
+      row.persenBungaBulanan9 ?? DEFAULT_CONFIG.persenBungaBulanan9,
+    persenBungaBulanan12:
+      row.persenBungaBulanan12 ?? DEFAULT_CONFIG.persenBungaBulanan12,
     persenBiayaLayananBulanan:
       row.persenBiayaLayananBulanan ?? DEFAULT_CONFIG.persenBiayaLayananBulanan,
     persenBiayaAdminCicilanBulanan:
@@ -500,6 +504,8 @@ async function bersihkanConfigMasuk(
     ["Bunga bulanan tenor 1 bulan", input.persenBungaBulanan1],
     ["Bunga bulanan tenor 3 bulan", input.persenBungaBulanan3],
     ["Bunga bulanan tenor 6 bulan", input.persenBungaBulanan6],
+    ["Bunga bulanan tenor 9 bulan", input.persenBungaBulanan9],
+    ["Bunga bulanan tenor 12 bulan", input.persenBungaBulanan12],
     ["Biaya layanan bulanan", input.persenBiayaLayananBulanan],
     ["Biaya admin cicilan", input.persenBiayaAdminCicilanBulanan],
   ] as const) {
@@ -697,6 +703,8 @@ export const saveConfig = mutation({
     persenBungaBulanan1: v.optional(v.number()),
     persenBungaBulanan3: v.optional(v.number()),
     persenBungaBulanan6: v.optional(v.number()),
+    persenBungaBulanan9: v.optional(v.number()),
+    persenBungaBulanan12: v.optional(v.number()),
     persenBiayaLayananBulanan: v.optional(v.number()),
     persenBiayaAdminCicilanBulanan: v.optional(v.number()),
     /**
@@ -760,6 +768,8 @@ export const saveConfig = mutation({
       persenBungaBulanan1: args.persenBungaBulanan1 ?? prev.persenBungaBulanan1,
       persenBungaBulanan3: args.persenBungaBulanan3 ?? prev.persenBungaBulanan3,
       persenBungaBulanan6: args.persenBungaBulanan6 ?? prev.persenBungaBulanan6,
+      persenBungaBulanan9: args.persenBungaBulanan9 ?? prev.persenBungaBulanan9,
+      persenBungaBulanan12: args.persenBungaBulanan12 ?? prev.persenBungaBulanan12,
       persenBiayaLayananBulanan:
         args.persenBiayaLayananBulanan ?? prev.persenBiayaLayananBulanan,
       persenBiayaAdminCicilanBulanan:
@@ -798,6 +808,8 @@ export const saveConfig = mutation({
       persenBungaBulanan1: bersih.persenBungaBulanan1,
       persenBungaBulanan3: bersih.persenBungaBulanan3,
       persenBungaBulanan6: bersih.persenBungaBulanan6,
+      persenBungaBulanan9: bersih.persenBungaBulanan9,
+      persenBungaBulanan12: bersih.persenBungaBulanan12,
       persenBiayaLayananBulanan: bersih.persenBiayaLayananBulanan,
       persenBiayaAdminCicilanBulanan: bersih.persenBiayaAdminCicilanBulanan,
     };

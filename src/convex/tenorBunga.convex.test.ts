@@ -332,8 +332,8 @@ describe("jaminan tambahan tenor panjang", () => {
     });
     expect(hasil.nomorReferensi.length).toBeGreaterThan(0);
 
-    // Tenor 9 dan 12 bulan kini resmi: tarifnya 12%/bulan (marjin total 108%
-    // dan 144%), dengan jaminan tambahan yang sama.
+    // Tenor 9 dan 12 bulan kini resmi: tarif bawaannya 10%/bulan dan 8%/bulan
+    // (marjin total 90% dan 96%), dengan jaminan tambahan yang sama.
     for (const tenorPanjang of [9, 12] as const) {
       const panjang = await sesi.mutation(api.loans.createLoanApplication, {
         ...dasar,

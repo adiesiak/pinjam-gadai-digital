@@ -51,7 +51,7 @@ const ISI_BRANKAS: ReadonlyArray<{
       ["Nomor referensi", "PDI-••••-••"],
       ["Nominal", "Rp 500 rb – Rp 10 jt"],
       ["Potongan di muka", "2% (semua tenor)"],
-      ["Bunga flat per bulan", "tarif akun · bawaan 30/20/12%"],
+      ["Bunga flat per bulan", "tarif akun · bawaan 30/20/12/10/8%"],
       ["Biaya admin cicilan", "2% per bayar (setiap pembayaran)"],
       ["Pencatatan pelunasan", "Sekali saat jatuh tempo"],
     ],

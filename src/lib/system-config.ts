@@ -122,13 +122,16 @@ export type SystemConfig = {
   /** Biaya asuransi yang dipotong di muka (% dari pokok); 0 = tidak dipotong. */
   persenAsuransi: number;
   /**
-   * Tarif skema BULANAN (pinjaman tunai tenor 1/3/6 bulan dan kredit barang).
-   * Dibaca mesin harga saat pengajuan baru dibuat, lalu DIBEKUKAN pada pinjaman
-   * itu — perubahan di sini tidak pernah mengubah kontrak yang sudah terbit.
+   * Tarif skema BULANAN (pinjaman tunai tenor 1/3/6/9/12 bulan dan kredit
+   * barang). Dibaca mesin harga saat pengajuan baru dibuat, lalu DIBEKUKAN pada
+   * pinjaman itu — perubahan di sini tidak pernah mengubah kontrak yang sudah
+   * terbit.
    */
   persenBungaBulanan1: number;
   persenBungaBulanan3: number;
   persenBungaBulanan6: number;
+  persenBungaBulanan9: number;
+  persenBungaBulanan12: number;
   persenBiayaLayananBulanan: number;
   persenBiayaAdminCicilanBulanan: number;
   /** Nominal biaya pencairan ekspres per tier pokok (Rupiah). */
@@ -205,6 +208,8 @@ export function tarifBulananDariConfig(cfg: SystemConfig): TarifBulanan {
     persenBungaBulanan1: cfg.persenBungaBulanan1,
     persenBungaBulanan3: cfg.persenBungaBulanan3,
     persenBungaBulanan6: cfg.persenBungaBulanan6,
+    persenBungaBulanan9: cfg.persenBungaBulanan9,
+    persenBungaBulanan12: cfg.persenBungaBulanan12,
     persenBiayaLayananBulanan: cfg.persenBiayaLayananBulanan,
     persenBiayaAdminCicilanBulanan: cfg.persenBiayaAdminCicilanBulanan,
   };
@@ -244,6 +249,8 @@ export const DEFAULT_CONFIG: SystemConfig = {
   persenBungaBulanan1: TARIF_BULANAN_DEFAULT.persenBungaBulanan1,
   persenBungaBulanan3: TARIF_BULANAN_DEFAULT.persenBungaBulanan3,
   persenBungaBulanan6: TARIF_BULANAN_DEFAULT.persenBungaBulanan6,
+  persenBungaBulanan9: TARIF_BULANAN_DEFAULT.persenBungaBulanan9,
+  persenBungaBulanan12: TARIF_BULANAN_DEFAULT.persenBungaBulanan12,
   persenBiayaLayananBulanan: TARIF_BULANAN_DEFAULT.persenBiayaLayananBulanan,
   persenBiayaAdminCicilanBulanan:
     TARIF_BULANAN_DEFAULT.persenBiayaAdminCicilanBulanan,

@@ -50,7 +50,8 @@ export type PinjamanUntukJadwal = {
   didanaiPada?: number;
   persenBunga?: number;
   /** Snapshot tarif bulanan pinjaman; kosong = tarif bawaan. */
-  tarifBulanan?: TarifBulanan | null;
+  /** Snapshot tarif; boleh sebagian — snapshot lama belum punya tenor 9/12. */
+  tarifBulanan?: Partial<TarifBulanan> | null;
 };
 
 /**

@@ -11,6 +11,7 @@ import {
   metodeBungaBulanan,
   persenBungaPerBulan,
   TENOR_BULANAN_OPTIONS,
+  tarifBulananAman,
 } from "./bulanan";
 import { percentOf } from "./money";
 
@@ -53,7 +54,30 @@ eq(persenBungaPerBulan(2), 30, "bunga tenor 2 bln default 30% per bulan");
 eq(persenBungaPerBulan(3), 20, "bunga tenor 3 bln = 20% per bulan (marjin 60%)");
 eq(persenBungaPerBulan(5), 20, "bunga tenor 5 bln = 20% per bulan");
 eq(persenBungaPerBulan(6), 12, "bunga tenor 6 bln = 12% per bulan (marjin 72%)");
-eq(persenBungaPerBulan(12), 12, "bunga tenor 12 bln = 12% per bulan");
+eq(persenBungaPerBulan(9), 10, "bunga tenor 9 bln = 10% per bulan (marjin 90%)");
+eq(persenBungaPerBulan(12), 8, "bunga tenor 12 bln = 8% per bulan (marjin 96%)");
+// Snapshot pinjaman lama hanya punya tarif tenor 6 bulan: tenor 9/12 mengikuti
+// angka itu, bukan tarif bawaan baru — kontrak terbit tidak boleh berubah.
+eq(
+  persenBungaPerBulan(9, { persenBungaBulanan6: 12 }),
+  12,
+  "snapshot lama: tenor 9 bln ikut tarif tenor 6",
+);
+eq(
+  persenBungaPerBulan(12, { persenBungaBulanan6: 15 }),
+  15,
+  "snapshot lama: tenor 12 bln ikut tarif tenor 6",
+);
+eq(
+  persenBungaPerBulan(12, { persenBungaBulanan6: 15, persenBungaBulanan12: 7 }),
+  7,
+  "tarif tenor 12 sendiri menang atas tarif tenor 6",
+);
+eq(
+  tarifBulananAman(null).persenBungaBulanan9,
+  BULANAN_PRICING.bungaTenor9PersenPerBulan,
+  "tarif kosong memakai bunga tenor 9 bawaan",
+);
 throws(() => persenBungaPerBulan(0), "tenor 0 ditolak");
 throws(() => persenBungaPerBulan(-3), "tenor negatif ditolak");
 throws(() => persenBungaPerBulan(1.5), "tenor pecahan ditolak");
