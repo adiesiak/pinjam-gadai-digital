@@ -37,6 +37,10 @@ import {
   type KunciTabel,
 } from "@/components/penyediaDana/kolom-pendana";
 import type { RekapPendana } from "@/convex/penyediaDana";
+import {
+  PERSEN_PORSI_PENDANA,
+  PERSEN_PORSI_PLATFORM,
+} from "@/lib/kebijakanPinjaman";
 import { formatRupiahAman } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
 import {
@@ -88,6 +92,11 @@ const SARING: readonly { kunci: SaringBaris; label: string }[] = [
 
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
+}
+
+/** Persen porsi dibaca dengan koma desimal, tanpa nol yang tidak perlu. */
+function persenPorsi(nilai: number): string {
+  return nilai.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
 /** Arah urutan dibaca sebagai kalimat; nama dibaca sebagai huruf, bukan besar. */
@@ -297,6 +306,107 @@ function IsiRincian({
           </div>
         </dl>
       </div>
+
+      {/*
+       * Kredit barang punya model uang sendiri: tenor 3–6 bulan, marjin
+       * kontrak menjadi hak pendana seluruhnya, dan platform memperoleh biaya
+       * admin. Karena itu bloknya berdiri terpisah di bawah kolom 30 hari —
+       * mencampurnya ke kolom tunai akan membuat dua model bagi hasil terbaca
+       * seolah satu.
+       */}
+      {r.kredit !== undefined && r.kredit.jumlahAlokasi > 0 && (
+        <div className={`${FOLIO.jalur} p-3 lg:col-span-2`}>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="text-xs font-semibold text-navy">
+              Kredit barang · {r.kredit.jumlahAlokasi} alokasi
+            </p>
+            <p className="text-xs tabular-nums text-muted-foreground">
+              {r.kredit.cicilanDibayar} dari {r.kredit.cicilanTotal} cicilan
+              tercatat
+            </p>
+          </div>
+
+          <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "Pokok dialokasikan", nilai: rupiah(r.kredit.pokok) },
+              { label: "Marjin kontrak", nilai: rupiah(r.kredit.marginKontrak) },
+              {
+                label: "Hak pendana (100% marjin)",
+                nilai: rupiah(r.kredit.imbalPendana),
+              },
+              {
+                label: "Biaya platform",
+                nilai: rupiah(r.kredit.biayaPlatform),
+              },
+            ].map((angka) => (
+              <div
+                key={angka.label}
+                className="flex items-baseline justify-between gap-3 border-b border-slate-200 pb-1 last:border-b-0"
+              >
+                <dt className="text-slate-600">{angka.label}</dt>
+                <dd className="shrink-0 tabular-nums font-medium text-slate-900">
+                  {angka.nilai}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <ul className="mt-2 divide-y divide-slate-200">
+            {r.kredit.baris.map((k) => (
+              <li
+                key={k.kreditId}
+                className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-1.5 text-xs"
+              >
+                <span className="min-w-0">
+                  <span
+                    className={`block truncate text-slate-600 ${FOLIO.kode}`}
+                  >
+                    {k.nomorReferensi} · {k.namaBarang}
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {k.tenorBulan} bulan · {k.cicilanDibayar}/{k.tenorBulan}{" "}
+                    cicilan
+                  </span>
+                </span>
+                <span className="shrink-0 text-right tabular-nums">
+                  <span className="block font-medium text-navy">
+                    pokok {rupiah(k.pokok)}
+                  </span>
+                  <span className="block text-emerald-800">
+                    hak pendana {rupiah(k.imbalPendana)}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+            <p className="rounded-md border border-slate-200 bg-white px-2.5 py-2 leading-5">
+              <span className="font-semibold text-navy">
+                Pinjaman tunai (30 hari)
+              </span>
+              <span className="mt-0.5 block text-slate-600">
+                Marjin dibagi 47 : 13 — pendana {persenPorsi(PERSEN_PORSI_PENDANA)}
+                % · platform {persenPorsi(PERSEN_PORSI_PLATFORM)}%.
+              </span>
+            </p>
+            <p className="rounded-md border border-slate-200 bg-white px-2.5 py-2 leading-5">
+              <span className="font-semibold text-navy">
+                Kredit barang (3–6 bulan)
+              </span>
+              <span className="mt-0.5 block text-slate-600">
+                Marjin kontrak 100% menjadi hak pendana; platform memperoleh
+                biaya admin 2% di muka + 2% tiap cicilan.
+              </span>
+            </p>
+          </div>
+
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Angka kredit tidak dijumlahkan ke kolom 30 hari di atas: pokoknya
+            kembali mengikuti cicilan 3–6 bulan, bukan satu siklus pendana.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -720,6 +830,9 @@ export function TabelPendana({
                               <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                                 {r.jumlahPinjaman} pinjaman · {r.jumlahAktif}{" "}
                                 berjalan · {r.jumlahLunas} lunas
+                                {r.kredit !== undefined &&
+                                  r.kredit.jumlahAlokasi > 0 &&
+                                  ` · ${r.kredit.jumlahAlokasi} kredit`}
                               </span>
                               {sedangAktif && (
                                 <span className="shrink-0 text-xs font-medium text-emerald-800">

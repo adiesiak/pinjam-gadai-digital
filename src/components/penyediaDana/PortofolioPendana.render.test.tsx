@@ -107,6 +107,45 @@ ada(
 );
 bersih(html, "markup panel portofolio");
 
+// ===== Blok kredit barang: posisi terpisah dari pinjaman tunai =====
+{
+  const KREDIT: NonNullable<RekapPendana["kredit"]> = {
+    jumlahAlokasi: 2,
+    pokok: 9_000_000,
+    marginKontrak: 6_120_000,
+    imbalPendana: 6_120_000,
+    biayaPlatform: 482_400,
+    cicilanDibayar: 4,
+    cicilanTotal: 9,
+    baris: [],
+  };
+  const htmlKredit = renderToStaticMarkup(
+    <PortofolioPendana
+      r={{ ...ROBERT, kredit: KREDIT }}
+      namaTampil={(nama) => nama}
+      persenLayanan={5}
+    />,
+  );
+  ada(
+    htmlKredit,
+    "Kredit barang · 2 alokasi",
+    "portofolio pendana menyebut alokasi kreditnya",
+  );
+  ada(
+    htmlKredit,
+    "Hak pendana (100% marjin)",
+    "hak pendana pada kredit dibaca terpisah",
+  );
+  ada(htmlKredit, "Rp 9.000.000", "pokok kredit dijumlahkan");
+  ada(htmlKredit, "Rp 6.120.000", "marjin kontrak kredit dijumlahkan");
+  ada(
+    htmlKredit,
+    "tidak dijumlahkan ke kolom pinjaman tunai 30 hari",
+    "batas pencampuran dua model dinyatakan",
+  );
+  bersih(htmlKredit, "markup panel dengan blok kredit");
+}
+
 // ===== Tanpa pinjaman lunas: diterangkan apa adanya =====
 {
   const SITI: RekapPendana = {

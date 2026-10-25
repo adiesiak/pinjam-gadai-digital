@@ -192,13 +192,13 @@ export function KreditReviewDialog({
                   nilai={row.biayaLayanan != null ? formatRupiah(row.biayaLayanan) : "—"}
                 />
                 <KotakRingkas
-                  label="Imbal hasil platform"
+                  label="Marjin kontrak"
                   nilai={
                     row.imbalHasilPlatform != null
                       ? formatRupiah(row.imbalHasilPlatform)
                       : "—"
                   }
-                  keterangan={`${row.marginPersenPerBulan}% / bulan`}
+                  keterangan={`${row.marginPersenPerBulan}% / bulan · hak pendana`}
                 />
               </div>
             </div>

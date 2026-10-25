@@ -79,6 +79,7 @@ import {
 import { namaHurufBesar } from "../lib/nama";
 import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
 import { pelunasanPinjaman } from "../lib/loan";
+import { quoteKreditBarang } from "../lib/kredit";
 import { ROLES } from "./schema";
 import { bulatkanTitikWilayah } from "../lib/geo";
 import { normalisasiNomorWa } from "../lib/otpWa";
@@ -271,6 +272,49 @@ export type RekapPendana = {
   transferBelumDicatat: number;
   /** Nilai keuntungan pada pinjaman lunas yang belum dicatat transfernya. */
   keuntunganBelumDicatat: number;
+  /**
+   * Blok kredit barang milik pendana ini — terpisah dari kolom pinjaman tunai
+   * karena tenor dan pencairannya berbeda (3–6 bulan, bukan siklus 30 hari).
+   * Kosong bila pendana belum punya alokasi kredit.
+   */
+  kredit?: KreditPendana;
+};
+
+/** Satu alokasi kredit barang yang membentuk blok kredit pada satu pendana. */
+export type RincianKreditPendana = {
+  kreditId: Id<"kreditBarang">;
+  nomorReferensi: string;
+  namaBarang: string;
+  tenorBulan: number;
+  status: string;
+  cicilanDibayar: number;
+  /** Pokok yang ditanggung pendana pada alokasi ini. */
+  pokok: number;
+  /** Marjin kontrak yang proporsional dengan porsi alokasinya. */
+  marginKontrak: number;
+  /** Hak pendana yang sudah tercatat saat alokasi dibuat. */
+  imbalPendana: number;
+  /** Biaya admin platform yang proporsional dengan porsi alokasinya. */
+  biayaPlatform: number;
+};
+
+/**
+ * Ringkasan pendanaan KREDIT BARANG satu pendana.
+ *
+ * Marjin kredit saat ini dicatat SELURUHNYA sebagai hak pendana; platform
+ * memperoleh biaya admin 2% di muka dan 2% dari setiap cicilan. Angka ini
+ * sengaja dipisah dari rekap pinjaman tunai (yang marjinnya dibagi 47 : 13)
+ * supaya dua model bagi hasil tidak tercampur dalam satu kolom.
+ */
+export type KreditPendana = {
+  jumlahAlokasi: number;
+  pokok: number;
+  marginKontrak: number;
+  imbalPendana: number;
+  biayaPlatform: number;
+  cicilanDibayar: number;
+  cicilanTotal: number;
+  baris: RincianKreditPendana[];
 };
 
 export type BarisGadai = {
@@ -794,6 +838,8 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
     }
 
     const kredit: BarisKredit[] = [];
+    /** Blok kredit per nama pendana — dipasang ke baris rekap setelah dihitung. */
+    const kreditPerPendana = new Map<string, KreditPendana>();
     for (const item of kreditMentah.slice(0, BATAS_BARIS)) {
       // Progres cicilan dibaca dari baris pembayaran, bukan disimpan di
       // pengajuan: satu sumber angka untuk tabel, detail, dan portofolio.
@@ -801,6 +847,73 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         .query("kreditPayments")
         .withIndex("by_kredit", (q) => q.eq("kreditId", item._id))
         .collect();
+
+      // Rincian uang kredit dibaca dari mesin quote yang sama dengan kontrak.
+      // Data warisan di luar rentang skema tidak merobohkan halaman: barisnya
+      // tetap tampil, blok uangnya dilewati.
+      let quoteKredit: ReturnType<typeof quoteKreditBarang> | null = null;
+      try {
+        quoteKredit = quoteKreditBarang({
+          hargaBarang: item.hargaBarang,
+          dpPersen: item.dpPersen,
+          tenorBulan: item.tenorBulan,
+          marginPersenPerBulan: item.marginPersenPerBulan,
+          tarif: item.tarifBulanan ?? null,
+        });
+      } catch {
+        quoteKredit = null;
+      }
+
+      if (quoteKredit !== null) {
+        const alokasi = await ctx.db
+          .query("kreditFundings")
+          .withIndex("by_kredit", (q) => q.eq("kreditId", item._id))
+          .collect();
+        const biayaPlatformKontrak =
+          quoteKredit.biayaAdmin + quoteKredit.biayaAdminCicilanTotal;
+        for (const f of alokasi) {
+          if (f.status === "dibatalkan") continue;
+          const nama = await namaPenyedia(f.danaId);
+          if (nama === null) continue;
+          const porsi = (angka: number) =>
+            quoteKredit!.pokokDibiayai > 0
+              ? Math.floor(
+                  (angka * f.jumlahAlokasi) / quoteKredit!.pokokDibiayai,
+                )
+              : 0;
+          const blok = kreditPerPendana.get(nama) ?? {
+            jumlahAlokasi: 0,
+            pokok: 0,
+            marginKontrak: 0,
+            imbalPendana: 0,
+            biayaPlatform: 0,
+            cicilanDibayar: 0,
+            cicilanTotal: 0,
+            baris: [],
+          };
+          blok.jumlahAlokasi += 1;
+          blok.pokok += f.jumlahAlokasi;
+          blok.marginKontrak += porsi(quoteKredit.marginTotal);
+          blok.imbalPendana += f.imbalHasil;
+          blok.biayaPlatform += porsi(biayaPlatformKontrak);
+          blok.cicilanDibayar += cicilan.length;
+          blok.cicilanTotal += item.tenorBulan;
+          blok.baris.push({
+            kreditId: item._id,
+            nomorReferensi: item.nomorReferensi,
+            namaBarang: item.namaBarang,
+            tenorBulan: item.tenorBulan,
+            status: item.status,
+            cicilanDibayar: cicilan.length,
+            pokok: f.jumlahAlokasi,
+            marginKontrak: porsi(quoteKredit.marginTotal),
+            imbalPendana: f.imbalHasil,
+            biayaPlatform: porsi(biayaPlatformKontrak),
+          });
+          kreditPerPendana.set(nama, blok);
+        }
+      }
+
       kredit.push({
         _id: item._id,
         nomorReferensi: item.nomorReferensi,
@@ -880,6 +993,13 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
     const rekapPendana = [...rekapMap.values()].sort(
       (a, b) => b.totalDisalurkan - a.totalDisalurkan,
     );
+    // Blok kredit hanya ditempelkan ke pendana yang sudah punya baris rekap
+    // pinjaman tunai. Pendana yang hanya menempatkan dana di kredit barang
+    // tetap terlihat di tab Kredit, bukan dipaksa masuk tabel 30 hari ini.
+    for (const r of rekapPendana) {
+      const blok = kreditPerPendana.get(r.nama);
+      if (blok !== undefined) r.kredit = blok;
+    }
 
     // Ringkasan dihitung dari baris yang benar-benar dikirim (Zero Fake Data).
     const ringkasan = {

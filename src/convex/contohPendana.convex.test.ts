@@ -84,6 +84,41 @@ describe("contoh data pendana", () => {
       keuntunganBelumDicatat: 235_000,
     });
 
+    // Kredit contoh masuk ke blok kredit pada baris rekap yang sama, dengan
+    // angka dari mesin quote — bukan hitungan kedua di halaman.
+    expect(rekap?.kredit).toMatchObject({
+      jumlahAlokasi: 2,
+      pokok: 9_000_000,
+      marginKontrak: 6_120_000,
+      imbalPendana: 6_120_000,
+      biayaPlatform: 482_400,
+      cicilanDibayar: 4,
+      cicilanTotal: 9,
+    });
+    expect(
+      rekap?.kredit?.baris
+        .map((b) => ({
+          nomorReferensi: b.nomorReferensi,
+          pokok: b.pokok,
+          marginKontrak: b.marginKontrak,
+          imbalPendana: b.imbalPendana,
+        }))
+        .sort((a, b) => a.nomorReferensi.localeCompare(b.nomorReferensi)),
+    ).toEqual([
+      {
+        nomorReferensi: "KRD-CONTOH-0001",
+        pokok: 3_000_000,
+        marginKontrak: 1_800_000,
+        imbalPendana: 1_800_000,
+      },
+      {
+        nomorReferensi: "KRD-CONTOH-0002",
+        pokok: 6_000_000,
+        marginKontrak: 4_320_000,
+        imbalPendana: 4_320_000,
+      },
+    ]);
+
     const contoh = ruang.pinjaman.filter((p) => p.nomorReferensi.startsWith("PGD-CONTOH-"));
     expect(contoh).toHaveLength(2);
     expect(contoh.map((p) => p.status).sort()).toEqual(["didanai", "lunas"]);

@@ -111,6 +111,48 @@ export function PortofolioPendana({
         </div>
       </dl>
 
+      {r.kredit !== undefined && r.kredit.jumlahAlokasi > 0 && (
+        <div className="border-t border-slate-200 px-4 py-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-semibold text-navy">
+              Kredit barang · {r.kredit.jumlahAlokasi} alokasi
+            </p>
+            <p className="text-xs tabular-nums text-muted-foreground">
+              {r.kredit.cicilanDibayar} dari {r.kredit.cicilanTotal} cicilan
+            </p>
+          </div>
+          <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+            {[
+              { label: "Pokok dialokasikan", nilai: rupiah(r.kredit.pokok) },
+              {
+                label: "Hak pendana (100% marjin)",
+                nilai: rupiah(r.kredit.imbalPendana),
+              },
+              { label: "Marjin kontrak", nilai: rupiah(r.kredit.marginKontrak) },
+              {
+                label: "Biaya platform",
+                nilai: rupiah(r.kredit.biayaPlatform),
+              },
+            ].map((angka) => (
+              <div
+                key={angka.label}
+                className="flex items-baseline justify-between gap-3 border-b border-slate-200 pb-1 last:border-b-0"
+              >
+                <dt className="text-slate-600">{angka.label}</dt>
+                <dd className="shrink-0 tabular-nums font-medium text-slate-900">
+                  {angka.nilai}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Marjin kredit seluruhnya menjadi hak pendana; platform memperoleh
+            biaya admin 2% di muka + 2% tiap cicilan. Angka ini tidak
+            dijumlahkan ke kolom pinjaman tunai 30 hari di atas.
+          </p>
+        </div>
+      )}
+
       <p className="border-t border-slate-200 px-4 py-3 text-xs leading-5 text-muted-foreground">
         Semua angka di ruang ini dihitung dari pinjaman yang alokasinya atas nama Anda; angka
         pendana lain tidak ditampilkan. {labelKolom("admin")} adalah porsi platform{" "}

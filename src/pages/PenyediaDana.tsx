@@ -767,8 +767,20 @@ function DetailKredit({
         nilai={quote === null ? "—" : rupiah(quote.cicilanPerBulan)}
       />
       <BarisDetail
-        label="Total Imbal Hasil (estimasi)"
+        label="Marjin kontrak (estimasi)"
         nilai={quote === null ? "—" : rupiah(quote.marginTotal)}
+      />
+      <BarisDetail
+        label="Hak pendana (100% marjin)"
+        nilai={quote === null ? "—" : rupiah(quote.imbalHasil)}
+      />
+      <BarisDetail
+        label="Biaya admin platform"
+        nilai={
+          quote === null
+            ? "—"
+            : rupiah(quote.biayaAdmin + quote.biayaAdminCicilanTotal)
+        }
       />
       <BarisDetail
         label="Total dibayar konsumen"

@@ -471,6 +471,97 @@ bersih(ponsel, "markup kartu pendana");
   bersih(htmlRincian, "markup tabel dengan rincian terbuka");
 }
 
+// ===== Rincian kredit barang: model uang dan perbandingan porsinya =====
+{
+  const KREDIT: NonNullable<RekapPendana["kredit"]> = {
+    jumlahAlokasi: 2,
+    pokok: 9_000_000,
+    marginKontrak: 6_120_000,
+    imbalPendana: 6_120_000,
+    biayaPlatform: 482_400,
+    cicilanDibayar: 4,
+    cicilanTotal: 9,
+    baris: [
+      {
+        kreditId: "kredit-3" as never,
+        nomorReferensi: "KRD-CONTOH-0001",
+        namaBarang: "Samsung Galaxy A55",
+        tenorBulan: 3,
+        status: "didanai",
+        cicilanDibayar: 2,
+        pokok: 3_000_000,
+        marginKontrak: 1_800_000,
+        imbalPendana: 1_800_000,
+        biayaPlatform: 156_000,
+      },
+      {
+        kreditId: "kredit-6" as never,
+        nomorReferensi: "KRD-CONTOH-0002",
+        namaBarang: "Lenovo IdeaPad Slim 3",
+        tenorBulan: 6,
+        status: "didanai",
+        cicilanDibayar: 2,
+        pokok: 6_000_000,
+        marginKontrak: 4_320_000,
+        imbalPendana: 4_320_000,
+        biayaPlatform: 326_400,
+      },
+    ],
+  };
+
+  const htmlKredit = renderToStaticMarkup(
+    <TabelPendana
+      rekap={[{ ...ROBERT, kredit: KREDIT }]}
+      bukaAwal={["ROBERT"]}
+      rincianPerkiraan={() => []}
+    />,
+  );
+  const tabelKredit = htmlKredit.slice(
+    htmlKredit.indexOf("<table"),
+    htmlKredit.indexOf("</table>"),
+  );
+
+  ada(
+    tabelKredit,
+    "2 kredit",
+    "baris pendana menyebut jumlah alokasi kreditnya",
+  );
+  ada(
+    tabelKredit,
+    "Kredit barang · 2 alokasi",
+    "rincian membuka blok kredit barang",
+  );
+  ada(
+    tabelKredit,
+    "Hak pendana (100% marjin)",
+    "hak pendana pada kredit dibaca terpisah dari marjin",
+  );
+  ada(tabelKredit, "Rp 9.000.000", "pokok alokasi kredit dijumlahkan");
+  ada(tabelKredit, "Rp 6.120.000", "marjin kontrak kredit dijumlahkan");
+  ada(tabelKredit, "Rp 482.400", "biaya platform kredit dijumlahkan");
+  ada(
+    tabelKredit,
+    "Kredit barang (3–6 bulan)",
+    "perbandingan produk kredit dicetak",
+  );
+  ada(
+    tabelKredit,
+    "biaya admin 2% di muka + 2% tiap cicilan",
+    "dasar pendapatan platform pada kredit dijelaskan",
+  );
+  ada(
+    tabelKredit,
+    "KRD-CONTOH-0001 · Samsung Galaxy A55",
+    "alokasi kredit pertama tercetak dengan barangnya",
+  );
+  ada(
+    tabelKredit,
+    "Angka kredit tidak dijumlahkan ke kolom 30 hari",
+    "rincian menyatakan kredit tidak masuk kolom 30 hari",
+  );
+  bersih(htmlKredit, "markup tabel dengan blok kredit");
+}
+
 // ===== Penyaringan + penyamaran nama =====
 {
   const htmlSamar = renderToStaticMarkup(
