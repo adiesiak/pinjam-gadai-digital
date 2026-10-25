@@ -51,6 +51,11 @@ import {
   msKeTanggalInput,
   tanggalKeMsWIB,
 } from "@/lib/promoPinjaman";
+import {
+  isiTemplatePromoBunga,
+  TEMPLATE_PROMO_BUNGA,
+  type TemplatePromoBunga,
+} from "@/lib/templatePromoBunga";
 import { cn } from "@/lib/utils";
 
 type BarisPromo = FunctionReturnType<typeof api.promoBunga.daftar>[number];
@@ -128,9 +133,31 @@ export function PromoBungaPanel() {
   const [dihapus, setDihapus] = useState<{ id: Id<"promoBunga">; nama: string } | null>(
     null,
   );
+  // Satu acuan waktu untuk seluruh kartu template: tanpa ini tanggal kartu
+  // bisa berbeda satu sama lain bila render terjadi tepat lewat tengah malam.
+  const [waktuTemplate] = useState(() => Date.now());
 
   const bukaBaru = () => {
     setDraf(drafBaru());
+    setPesan(null);
+    setTerbuka(true);
+  };
+
+  /**
+   * Isi formulir dari template, lalu buka laci supaya angka dan tanggalnya
+   * terlihat sebelum disimpan. Template berlaku sebagai draf, bukan promo
+   * yang langsung menyala.
+   */
+  const pakaiTemplate = (template: TemplatePromoBunga) => {
+    const isi = isiTemplatePromoBunga(template, waktuTemplate);
+    setDraf({
+      nama: isi.nama,
+      persenBunga: String(isi.persenBunga),
+      tenor: isi.tenor,
+      mulai: msKeTanggalInput(isi.mulai),
+      selesai: msKeTanggalInput(isi.selesai),
+      aktif: true,
+    });
     setPesan(null);
     setTerbuka(true);
   };
@@ -244,11 +271,57 @@ export function PromoBungaPanel() {
       <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
         <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
         <span>
-          Bunga adalah hak penyedia dana. Promo ini menurunkan imbal hasil pendana pada
-          pinjaman yang memakainya, bukan biaya platform. Pastikan selisihnya memang
-          disengaja sebelum dinyalakan.
+          Selisih bunga promo ditanggung platform dari margin pengelola. Imbal hasil
+          penyedia dana tetap 30% per siklus 30 hari, tidak ikut turun saat promo dipakai.
+          Pastikan selisihnya masih menutup biaya sebelum dinyalakan.
         </span>
       </p>
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+          Template siap pakai
+        </p>
+        <ul className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {TEMPLATE_PROMO_BUNGA.map((template) => {
+            const isi = isiTemplatePromoBunga(template, waktuTemplate);
+            return (
+              <li
+                key={template.id}
+                className="flex flex-col justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3 transition-colors hover:border-emerald-700/30 hover:bg-white"
+              >
+                <div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{template.label}</p>
+                    <span className="text-sm font-semibold tabular-nums text-emerald-800">
+                      {isi.persenBunga}%
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-600">
+                    {template.keterangan}
+                  </p>
+                  <p className="mt-1.5 text-[11px] text-slate-500">
+                    tenor {isi.tenor.join(" / ")} hari ·{" "}
+                    {formatPeriodePromo(isi.mulai, isi.selesai)}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => pakaiTemplate(template)}
+                >
+                  Pakai template
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-1 text-[11px] leading-4 text-slate-500">
+          Template mengisi nama, bunga, tenor, dan tanggal. Periksa angkanya lalu simpan;
+          semua kolom masih bisa disunting.
+        </p>
+      </div>
 
       {daftar === undefined ? (
         <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
