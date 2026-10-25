@@ -168,6 +168,10 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
     "biaya platform tercetak terpisah dari keuntungan",
   );
   ok(
+    teks.some((t) => t === "Diterima bersih (pokok + keuntungan): Rp 6.200.000"),
+    "penerimaan bersih pelunasan menjumlahkan pokok dan keuntungan",
+  );
+  ok(
     teks.some((t) => t.includes("PND/2026/09/0001")),
     "nomor referensi dicetak apa adanya",
   );
@@ -220,6 +224,23 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
   ok(
     teks.some((t) => t.includes("PND/2026/09/0002") && t.includes("Rp 1.200.000")),
     "baris pinjaman berjalan memuat angka perkiraannya",
+  );
+  ok(
+    teks.some((t) => t.includes("BIAYA") && t.includes("DITERIMA")),
+    "tabel pinjaman mencantumkan biaya platform dan penerimaan bersih",
+  );
+  ok(
+    teks.some(
+      (t) =>
+        t.startsWith("PND/2026/09/0002 |") &&
+        t.includes("Rp 300.000") &&
+        t.includes("Rp 6.200.000"),
+    ),
+    "baris pinjaman memuat biaya dan penerimaan bersih per pinjaman",
+  );
+  ok(
+    teks.some((t) => t.includes("DITERIMA adalah pokok ditambah keuntungan bersih")),
+    "laporan menjelaskan arti angka penerimaan bersih",
   );
   ok(
     teks.some((t) => t.startsWith("PND/2026/09/0001 |")),

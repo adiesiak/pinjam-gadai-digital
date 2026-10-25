@@ -24,6 +24,7 @@
  * dilakukan di sini, bukan di pemanggil, supaya jalur unduhan, lampiran
  * WhatsApp, dan pesan teks tidak pernah memakai aturan yang berbeda.
  */
+import { imbalPendana } from "./imbalPendana";
 import { formatRupiahAman } from "./money";
 import { tanggalRingkas } from "./jatuhTempo";
 import { samarkanNama } from "./nama";
@@ -203,6 +204,7 @@ type TeksLaporan = {
   totalKewajiban: string;
   biayaPlatform: string;
   keuntunganCallout: string;
+  diterimaBersih: string;
   transferSudah: string;
   transferBelum: string;
   catatan: string;
@@ -225,10 +227,11 @@ type TeksLaporan = {
   pinjamanBerjalan: string;
   pinjamanLunas: string;
   kosong: string;
-  kepalaBerjalan: readonly [string, string, string, string, string];
-  kepalaLunas: readonly [string, string, string, string, string];
+  kepalaBerjalan: readonly [string, string, string, string, string, string, string];
+  kepalaLunas: readonly [string, string, string, string, string, string, string];
   sisaLain: (n: number) => string;
   poinProyeksi: string;
+  poinBiaya: string;
   poinTransferLunas: (n: number) => string;
   poinTransferSemua: string;
   poinNamaSamar: string;
@@ -261,6 +264,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     totalKewajiban: "Total kewajiban peminjam",
     biayaPlatform: "Biaya platform (layanan)",
     keuntunganCallout: "Keuntungan yang dibukukan",
+    diterimaBersih: "Diterima bersih (pokok + keuntungan)",
     transferSudah: "Catatan transfer keuntungan sudah dibuat admin.",
     transferBelum:
       "Catatan transfer keuntungan belum dibuat admin. Keuntungan di atas sudah dibukukan, tetapi pencairannya masih menunggu catatan transfer.",
@@ -288,12 +292,30 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     pinjamanBerjalan: "Pinjaman Berjalan",
     pinjamanLunas: "Pinjaman Lunas",
     kosong: "Belum ada pinjaman pada bagian ini.",
-    kepalaBerjalan: ["REFERENSI", "PEMINJAM", "POKOK", "PERKIRAAN", "JATUH TEMPO"],
-    kepalaLunas: ["REFERENSI", "PEMINJAM", "POKOK", "DIBUKUKAN", "TANGGAL LUNAS"],
+    kepalaBerjalan: [
+      "REFERENSI",
+      "PEMINJAM",
+      "POKOK",
+      "PERKIRAAN",
+      "BIAYA",
+      "DITERIMA",
+      "JATUH TEMPO",
+    ],
+    kepalaLunas: [
+      "REFERENSI",
+      "PEMINJAM",
+      "POKOK",
+      "DIBUKUKAN",
+      "BIAYA",
+      "DITERIMA",
+      "TANGGAL LUNAS",
+    ],
     sisaLain: (n) =>
       `Dan ${n} pinjaman lain pada bagian ini. Daftar lengkapnya ada di ruang penyedia dana.`,
     poinProyeksi:
       "Tanggal jatuh tempo adalah proyeksi return dari tenor pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila peminjam menunggak.",
+    poinBiaya:
+      "Biaya platform per pinjaman dihitung dari total kembali (pokok + Imbal Hasil). DITERIMA adalah pokok ditambah keuntungan bersih, bukan tambahan di atasnya.",
     poinTransferLunas: (n) =>
       `${n} pinjaman lunas sudah dibukukan, tetapi catatan transfer keuntungannya belum dibuat admin.`,
     poinTransferSemua:
@@ -327,6 +349,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     totalKewajiban: "Total borrower obligation",
     biayaPlatform: "Platform fee (service)",
     keuntunganCallout: "Booked profit",
+    diterimaBersih: "Net received (principal + profit)",
     transferSudah: "The admin has recorded the profit transfer.",
     transferBelum:
       "The admin has not recorded the profit transfer yet. The profit above is booked, but payout is waiting for the transfer record.",
@@ -354,11 +377,29 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     pinjamanBerjalan: "Active Loans",
     pinjamanLunas: "Settled Loans",
     kosong: "No loans in this section yet.",
-    kepalaBerjalan: ["REFERENCE", "BORROWER", "PRINCIPAL", "ESTIMATE", "DUE DATE"],
-    kepalaLunas: ["REFERENCE", "BORROWER", "PRINCIPAL", "BOOKED", "SETTLED ON"],
+    kepalaBerjalan: [
+      "REFERENCE",
+      "BORROWER",
+      "PRINCIPAL",
+      "ESTIMATE",
+      "FEE",
+      "RECEIVED",
+      "DUE DATE",
+    ],
+    kepalaLunas: [
+      "REFERENCE",
+      "BORROWER",
+      "PRINCIPAL",
+      "BOOKED",
+      "FEE",
+      "RECEIVED",
+      "SETTLED ON",
+    ],
     sisaLain: (n) => `Plus ${n} more loans in this section. The full list is in the investor room.`,
     poinProyeksi:
       "Due dates are projected returns from the loan tenor, not a payment promise. Payment can be later when a borrower falls behind.",
+    poinBiaya:
+      "The platform fee per loan is charged on the total return (principal + profit share). RECEIVED is principal plus net profit, not an extra amount on top.",
     poinTransferLunas: (n) =>
       `${n} settled loans are booked, but the admin has not recorded their profit transfers yet.`,
     poinTransferSemua: "Every booked profit has a transfer record from the admin.",
@@ -432,14 +473,18 @@ export function laporanPelunasan(
       bobot: [8, 2],
       rataKanan: [1],
       baris: [
-        {
-          sel: [t.keuntunganDibukukan, rupiah(data.keuntunganPendana)],
-          tebal: true,
-          nada: "bersih",
-        },
+        { sel: [t.keuntunganDibukukan, rupiah(data.keuntunganPendana)] },
         { sel: [t.pokokTersalur, rupiah(data.pokokPinjaman)] },
         { sel: [t.totalKewajiban, rupiah(data.totalLunas)] },
         { sel: [t.biayaPlatform, rupiah(data.potonganAdmin)] },
+        {
+          sel: [
+            t.diterimaBersih,
+            rupiah(data.pokokPinjaman + data.keuntunganPendana),
+          ],
+          tebal: true,
+          nada: "bersih",
+        },
       ],
     },
     {
@@ -473,15 +518,24 @@ function barisDaftarPinjaman(
 ): { baris: BarisTabelResmi[]; sisa: number } {
   const tampil = kumpulan.slice(0, BATAS_PINJAMAN_LAPORAN);
   return {
-    baris: tampil.map((p) => ({
-      sel: [
-        p.nomorReferensi,
-        samarkanNama(p.namaPeminjam),
-        rupiah(p.pokokPinjaman),
-        rupiah(p.keuntunganPendana),
-        tanggalBahasa(jenis === "berjalan" ? p.tanggalReturn : p.tanggal, bhs),
-      ],
-    })),
+    baris: tampil.map((p) => {
+      // `keuntunganPendana` SUDAH bersih setelah biaya platform. Imbal bruto
+      // memakai skema tetap 30%, jadi biaya per pinjaman = bruto - bersih.
+      const imbalBruto = imbalPendana(p.pokokPinjaman);
+      const biaya = Math.max(0, imbalBruto - p.keuntunganPendana);
+      const diterima = p.pokokPinjaman + p.keuntunganPendana;
+      return {
+        sel: [
+          p.nomorReferensi,
+          samarkanNama(p.namaPeminjam),
+          rupiah(p.pokokPinjaman),
+          rupiah(p.keuntunganPendana),
+          rupiah(biaya),
+          rupiah(diterima),
+          tanggalBahasa(jenis === "berjalan" ? p.tanggalReturn : p.tanggal, bhs),
+        ],
+      };
+    }),
     sisa: kumpulan.length - tampil.length,
   };
 }
@@ -574,8 +628,8 @@ export function laporanPortofolio(
     blok.push({
       jenis: "tabel",
       kepala: [...t.kepalaBerjalan],
-      bobot: [2.1, 1.7, 1.4, 1.3, 1.5],
-      rataKanan: [2, 3],
+      bobot: [2.1, 1.7, 1.3, 1.2, 1.05, 1.3, 1.45],
+      rataKanan: [2, 3, 4, 5],
       baris: berjalan.baris,
     });
     if (berjalan.sisa > 0) {
@@ -597,8 +651,8 @@ export function laporanPortofolio(
     blok.push({
       jenis: "tabel",
       kepala: [...t.kepalaLunas],
-      bobot: [2.1, 1.7, 1.3, 1.3, 1.6],
-      rataKanan: [2, 3],
+      bobot: [2.1, 1.7, 1.3, 1.2, 1.05, 1.3, 1.45],
+      rataKanan: [2, 3, 4, 5],
       baris: lunas.baris,
     });
     if (lunas.sisa > 0) {
@@ -616,6 +670,7 @@ export function laporanPortofolio(
       jenis: "poin",
       teks: [
         t.poinProyeksi,
+        t.poinBiaya,
         data.transferBelumDicatat > 0
           ? t.poinTransferLunas(data.transferBelumDicatat)
           : t.poinTransferSemua,

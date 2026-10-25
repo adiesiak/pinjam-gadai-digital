@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
-import { Calculator } from "lucide-react";
-import { useState } from "react";
+import { Calculator, ChevronDown } from "lucide-react";
+import { Fragment, useState } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { PortofolioSyariah } from "@/components/penyediaDana/PortofolioSyariah";
@@ -172,7 +172,67 @@ export type BarisPortofolioPendanaan = {
   status: string;
   /** Jatuh tempo pinjaman sebagai proyeksi tanggal return; null bila tidak ada. */
   tanggalReturn: number | null;
+  /** Keadaan pelunasan dari server; null bila tenor tidak terbaca. */
+  statusPelunasan: "lancar" | "berjalan" | "menunggak" | null;
+  /** Hari lewat jatuh tempo; 0 selama belum terlambat. */
+  hariTerlambat: number;
+  /** Sisa hari ke jatuh tempo; negatif berarti sudah lewat. */
+  sisaHari: number | null;
 };
+
+/** Saringan yang ditawarkan di atas tabel portofolio. */
+type SaringPortofolio = "semua" | "berjalan" | "selesai" | "menunggak";
+
+const DAFTAR_SARING: readonly { kunci: SaringPortofolio; label: string }[] = [
+  { kunci: "semua", label: "Semua" },
+  { kunci: "berjalan", label: "Berjalan" },
+  { kunci: "selesai", label: "Selesai" },
+  { kunci: "menunggak", label: "Menunggak" },
+];
+
+/** Pinjaman yang sudah tidak berjalan tidak perlu badge jatuh tempo. */
+function sudahSelesai(row: BarisPortofolioPendanaan): boolean {
+  return row.status === "Selesai" || row.status === "Cair";
+}
+
+function cocokSaring(row: BarisPortofolioPendanaan, saring: SaringPortofolio): boolean {
+  if (saring === "semua") return true;
+  if (saring === "selesai") return sudahSelesai(row);
+  if (saring === "menunggak") return !sudahSelesai(row) && row.hariTerlambat > 0;
+  return !sudahSelesai(row);
+}
+
+/** Satu angka desimal dengan koma, tanpa bergantung data lokal mesin. */
+function persenSatuDesimal(nilai: number): string {
+  if (!Number.isFinite(nilai)) return "0,0";
+  return (Math.round(nilai * 10) / 10).toFixed(1).replace(".", ",");
+}
+
+/** Yield efektif = keuntungan bersih dibagi pokok, bukan yield bruto di layar. */
+function yieldEfektif(pokok: number, keuntungan: number): string {
+  if (pokok <= 0) return "0,0%";
+  return `${persenSatuDesimal((keuntungan / pokok) * 100)}%`;
+}
+
+/** Badge hanya untuk yang mendesak: terlambat, atau jatuh tempo dalam 7 hari. */
+function badgeJatuhTempo(
+  row: BarisPortofolioPendanaan,
+): { teks: string; kelas: string } | null {
+  if (sudahSelesai(row)) return null;
+  if (row.hariTerlambat > 0) {
+    return {
+      teks: `Terlambat ${row.hariTerlambat} hari`,
+      kelas: "border-red-200 bg-red-50 text-red-700",
+    };
+  }
+  if (row.sisaHari === null) return null;
+  const kelas = "border-amber-200 bg-amber-50 text-amber-800";
+  if (row.sisaHari === 0) return { teks: "Jatuh tempo hari ini", kelas };
+  if (row.sisaHari > 0 && row.sisaHari <= 7) {
+    return { teks: `Jatuh tempo ${row.sisaHari} hari lagi`, kelas };
+  }
+  return null;
+}
 
 /**
  * Tabel portofolio pendanaan dengan kolom tetap: tenor 30 hari, yield 30%
@@ -184,19 +244,40 @@ export type BarisPortofolioPendanaan = {
 export function TabelPortofolioPendanaan({
   rows,
   persenPotonganAdmin,
+  saringAwal = "semua",
+  batasAwal = 10,
+  bukaAwal = [],
 }: {
   rows: readonly BarisPortofolioPendanaan[];
   /** Tarif biaya platform dari Pengaturan Sistem, dalam persen. */
   persenPotonganAdmin: number;
+  /** Saringan awal tabel; dipakai uji render. */
+  saringAwal?: SaringPortofolio;
+  /** Jumlah baris per halaman; dipakai uji render. */
+  batasAwal?: number;
+  /** Baris yang rinciannya sudah terbuka; dipakai uji render. */
+  bukaAwal?: readonly string[];
 }) {
+  const [saring, setSaring] = useState<SaringPortofolio>(saringAwal);
+  const [batas, setBatas] = useState(batasAwal);
+  const [halaman, setHalaman] = useState(0);
+  const [buka, setBuka] = useState<readonly string[]>(bukaAwal);
+
   /** Biaya platform dihitung dari total kembali (pokok + imbal), bukan imbal saja. */
   const hitung = (row: BarisPortofolioPendanaan) => {
     const total = row.pokok + row.imbalHasil;
     const potongan = potonganDariKembali(total, persenPotonganAdmin);
-    return { total, potongan, diterima: total - potongan };
+    const diterima = total - potongan;
+    return { total, potongan, diterima, keuntungan: diterima - row.pokok };
   };
 
-  const jumlah = rows.reduce(
+  const tersaring = rows.filter((row) => cocokSaring(row, saring));
+  const totalHalaman = Math.max(1, Math.ceil(tersaring.length / batas));
+  const halamanAktif = Math.min(halaman, totalHalaman - 1);
+  const mulai = halamanAktif * batas;
+  const tampil = tersaring.slice(mulai, mulai + batas);
+
+  const jumlah = tersaring.reduce(
     (t, row) => {
       const h = hitung(row);
       return {
@@ -204,14 +285,67 @@ export function TabelPortofolioPendanaan({
         imbal: t.imbal + row.imbalHasil,
         potongan: t.potongan + h.potongan,
         diterima: t.diterima + h.diterima,
+        keuntungan: t.keuntungan + h.keuntungan,
       };
     },
-    { pokok: 0, imbal: 0, potongan: 0, diterima: 0 },
+    { pokok: 0, imbal: 0, potongan: 0, diterima: 0, keuntungan: 0 },
   );
 
+  const cacah = {
+    semua: rows.length,
+    berjalan: rows.filter((row) => cocokSaring(row, "berjalan")).length,
+    selesai: rows.filter((row) => cocokSaring(row, "selesai")).length,
+    menunggak: rows.filter((row) => cocokSaring(row, "menunggak")).length,
+  };
+
+  const toggleBuka = (id: string) => {
+    setBuka((lama) =>
+      lama.includes(id) ? lama.filter((x) => x !== id) : [...lama, id],
+    );
+  };
+
   return (
-    <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-      <table className="w-full min-w-[56rem] border-collapse text-left text-xs">
+    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
+        <div role="group" aria-label="Saring portofolio" className="flex flex-wrap gap-1.5">
+          {DAFTAR_SARING.map((pilihan) => (
+            <button
+              key={pilihan.kunci}
+              type="button"
+              aria-pressed={saring === pilihan.kunci}
+              onClick={() => {
+                setSaring(pilihan.kunci);
+                setHalaman(0);
+              }}
+              className={`min-h-8 rounded-md border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                saring === pilihan.kunci
+                  ? "border-emerald-700/50 bg-emerald-50 text-emerald-900"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              {pilihan.label}{" "}
+              <span className="tabular-nums opacity-60">{cacah[pilihan.kunci]}</span>
+            </button>
+          ))}
+        </div>
+        <label className="flex items-center gap-1.5 text-[11px] text-slate-600">
+          Baris per halaman
+          <select
+            value={batas}
+            onChange={(event) => {
+              setBatas(Number(event.target.value));
+              setHalaman(0);
+            }}
+            className="h-8 rounded-md border border-slate-300 bg-white px-1.5 text-xs tabular-nums text-navy"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[64rem] border-collapse text-left text-xs">
         <caption className="sr-only">
           Portofolio pendanaan Anda dengan tenor {LABEL_TENOR_PENDANA}, yield{" "}
           {LABEL_YIELD_PENDANA}, dan biaya platform {persenPotonganAdmin}% dari
@@ -228,82 +362,187 @@ export function TabelPortofolioPendanaan({
               Biaya platform ({persenPotonganAdmin}%)
             </th>
             <th scope="col" className="px-3 py-2 font-semibold">Diterima bersih</th>
+            <th scope="col" className="px-3 py-2 font-semibold">Keuntungan bersih</th>
             <th scope="col" className="px-3 py-2 font-semibold">Proyeksi return</th>
             <th scope="col" className="px-3 py-2 font-semibold">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {rows.length === 0 ? (
+          {tampil.length === 0 ? (
             <tr>
-              <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
-                Belum ada pendanaan. Portofolio muncul setelah alokasi dana dicatat.
+              <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
+                {rows.length === 0
+                  ? "Belum ada pendanaan. Portofolio muncul setelah alokasi dana dicatat."
+                  : "Tidak ada alokasi yang cocok dengan saringan ini."}
+                {rows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSaring("semua");
+                      setHalaman(0);
+                    }}
+                    className="ml-2 font-semibold text-emerald-800 underline decoration-emerald-700/40 underline-offset-2 hover:decoration-emerald-700"
+                  >
+                    Tampilkan semua
+                  </button>
+                )}
               </td>
             </tr>
           ) : (
-            rows.map((row) => {
+            tampil.map((row) => {
               const h = hitung(row);
+              const badge = badgeJatuhTempo(row);
+              const terbuka = buka.includes(row.id);
               return (
-                <tr key={row.id} className="align-top">
-                  <th scope="row" className="px-3 py-2.5 text-left font-medium text-navy">
-                    {row.nomorReferensi}
-                  </th>
-                  <td className="px-3 py-2.5 tabular-nums text-slate-900">
-                    {rupiah(row.pokok)}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
-                    {LABEL_TENOR_PENDANA}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
-                    {LABEL_YIELD_PENDANA}
-                  </td>
-                  <td className="px-3 py-2.5 tabular-nums font-medium text-emerald-800">
-                    {rupiah(row.imbalHasil)}
-                  </td>
-                  <td
-                    className="px-3 py-2.5 whitespace-nowrap tabular-nums text-red-700"
-                    title={`${persenPotonganAdmin}% dari total kembali ${rupiah(h.total)}`}
-                  >
-                    −{rupiah(h.potongan)}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums font-semibold text-navy">
-                    {rupiah(h.diterima)}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
-                    {row.status === "Selesai"
-                      ? "Selesai"
-                      : row.tanggalReturn === null
-                        ? "Belum ada"
-                        : tanggal(row.tanggalReturn)}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span
-                      className={
-                        row.status === "Selesai" || row.status === "Cair"
-                          ? "inline-flex rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700"
-                          : row.status === "Berjalan"
-                            ? "inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
-                            : "inline-flex rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
-                      }
+                <Fragment key={row.id}>
+                  <tr className={terbuka ? "bg-slate-50/60 align-top" : "align-top"}>
+                    <th scope="row" className="px-3 py-2.5 text-left font-medium text-navy">
+                      <div className="flex items-start gap-1.5">
+                        <button
+                          type="button"
+                          aria-expanded={terbuka}
+                          aria-controls={`rincian-portofolio-${row.id}`}
+                          onClick={() => toggleBuka(row.id)}
+                          className="mt-0.5 rounded p-0.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <ChevronDown
+                            className={`size-3.5 shrink-0 transition-transform ${terbuka ? "rotate-180" : ""}`}
+                            aria-hidden
+                          />
+                          <span className="sr-only">Rincian {row.nomorReferensi}</span>
+                        </button>
+                        <span>{row.nomorReferensi}</span>
+                      </div>
+                    </th>
+                    <td className="px-3 py-2.5 tabular-nums text-slate-900">
+                      {rupiah(row.pokok)}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
+                      {LABEL_TENOR_PENDANA}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
+                      <span className="block">{LABEL_YIELD_PENDANA}</span>
+                      <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                        efektif {yieldEfektif(row.pokok, h.keuntungan)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 tabular-nums font-medium text-emerald-800">
+                      {rupiah(row.imbalHasil)}
+                    </td>
+                    <td
+                      className="px-3 py-2.5 whitespace-nowrap tabular-nums text-red-700"
+                      title={`${persenPotonganAdmin}% dari total kembali ${rupiah(h.total)}`}
                     >
-                      {row.status}
-                    </span>
-                  </td>
-                </tr>
+                      −{rupiah(h.potongan)}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap tabular-nums font-semibold text-navy">
+                      {rupiah(h.diterima)}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap tabular-nums font-semibold text-emerald-800">
+                      {rupiah(h.keuntungan)}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
+                      {row.status === "Selesai"
+                        ? "Selesai"
+                        : row.tanggalReturn === null
+                          ? "Belum ada"
+                          : tanggal(row.tanggalReturn)}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-col items-start gap-1">
+                        <span
+                          className={
+                            row.status === "Selesai" || row.status === "Cair"
+                              ? "inline-flex rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700"
+                              : row.status === "Berjalan"
+                                ? "inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
+                                : "inline-flex rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                          }
+                        >
+                          {row.status}
+                        </span>
+                        {badge !== null && (
+                          <span
+                            className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${badge.kelas}`}
+                          >
+                            {badge.teks}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {terbuka && (
+                    <tr id={`rincian-portofolio-${row.id}`} className="bg-slate-50/70">
+                      <td colSpan={10} className="px-3 pb-3 pt-1">
+                        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                          {[
+                            { label: "Pokok", nilai: rupiah(row.pokok), kelas: "text-navy" },
+                            {
+                              label: "Imbal bruto",
+                              nilai: rupiah(row.imbalHasil),
+                              kelas: "text-emerald-800",
+                            },
+                            {
+                              label: `Biaya platform ${persenPotonganAdmin}%`,
+                              nilai: `−${rupiah(h.potongan)}`,
+                              kelas: "text-red-700",
+                            },
+                            {
+                              label: "Diterima bersih",
+                              nilai: rupiah(h.diterima),
+                              kelas: "text-navy",
+                            },
+                            {
+                              label: "Keuntungan bersih",
+                              nilai: rupiah(h.keuntungan),
+                              kelas: "text-emerald-800",
+                            },
+                          ].map((item) => (
+                            <div key={item.label}>
+                              <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                                {item.label}
+                              </dt>
+                              <dd className={`mt-0.5 text-xs font-semibold tabular-nums ${item.kelas}`}>
+                                {item.nilai}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <p className="mt-2 text-[11px] leading-5 text-slate-600">
+                          Pokok {rupiah(row.pokok)} + imbal {rupiah(row.imbalHasil)} ={" "}
+                          {rupiah(h.total)}. Biaya platform dipotong dari total itu, bukan dari
+                          imbal saja.{" "}
+                          {sudahSelesai(row)
+                            ? "Sudah dibukukan."
+                            : "Masih perkiraan sampai pinjaman lunas."}
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })
           )}
         </tbody>
-        {rows.length > 0 && (
+        {tersaring.length > 0 && (
           <tfoot className="border-t-2 border-slate-300 bg-slate-50">
             <tr className="align-top">
               <th scope="row" className="px-3 py-2.5 text-left font-semibold text-navy">
                 Total
+                <span className="mt-0.5 block text-[10px] font-normal tracking-normal text-slate-500">
+                  {tersaring.length} alokasi
+                </span>
               </th>
               <td className="px-3 py-2.5 tabular-nums text-slate-900">
                 {rupiah(jumlah.pokok)}
               </td>
               <td />
-              <td />
+              <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
+                <span className="block">efektif</span>
+                <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                  {yieldEfektif(jumlah.pokok, jumlah.keuntungan)}
+                </span>
+              </td>
               <td className="px-3 py-2.5 tabular-nums font-medium text-emerald-800">
                 {rupiah(jumlah.imbal)}
               </td>
@@ -313,12 +552,48 @@ export function TabelPortofolioPendanaan({
               <td className="px-3 py-2.5 whitespace-nowrap tabular-nums font-semibold text-navy">
                 {rupiah(jumlah.diterima)}
               </td>
+              <td className="px-3 py-2.5 whitespace-nowrap tabular-nums font-semibold text-emerald-800">
+                {rupiah(jumlah.keuntungan)}
+              </td>
               <td />
               <td />
             </tr>
           </tfoot>
         )}
       </table>
+      </div>
+
+      {tersaring.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 text-xs text-slate-600">
+          <p className="tabular-nums">
+            {mulai + 1}–{Math.min(mulai + batas, tersaring.length)} dari{" "}
+            {tersaring.length} alokasi
+          </p>
+          {totalHalaman > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={halamanAktif === 0}
+                onClick={() => setHalaman(Math.max(0, halamanAktif - 1))}
+                className="min-h-8 rounded-md border border-slate-300 bg-white px-2.5 font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Sebelumnya
+              </button>
+              <span className="tabular-nums">
+                Halaman {halamanAktif + 1} / {totalHalaman}
+              </span>
+              <button
+                type="button"
+                disabled={halamanAktif >= totalHalaman - 1}
+                onClick={() => setHalaman(halamanAktif + 1)}
+                className="min-h-8 rounded-md border border-slate-300 bg-white px-2.5 font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Berikutnya
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -408,15 +683,19 @@ export function PortofolioPendanaanSection({
             imbalHasil: row.imbalHasil,
             status: row.statusPendanaan,
             tanggalReturn: row.pelunasan?.jatuhTempoPada ?? null,
+            statusPelunasan: row.statusPelunasan,
+            hariTerlambat: row.pelunasan?.hariTerlambat ?? 0,
+            sisaHari: row.pelunasan?.sisaHari ?? null,
           }))}
         />
       )}
       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
         Biaya platform {persenPotonganAdmin}% dihitung dari total kembali (pokok
-        + Imbal Hasil), bukan dari imbal saja. Diterima bersih adalah uang yang
-        masuk dompet Anda setelah biaya itu. Tanggal return adalah jatuh tempo
-        pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila
-        peminjam menunggak.
+        + Imbal Hasil), bukan dari imbal saja. Diterima bersih adalah pokok
+        ditambah keuntungan bersih; yield efektif dihitung dari keuntungan
+        bersih dibagi pokok. Tanggal return adalah jatuh tempo pinjaman, bukan
+        janji pembayaran, dan pembayaran dapat lebih lambat bila peminjam
+        menunggak.
       </p>
     </section>
   );
