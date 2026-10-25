@@ -11,6 +11,7 @@ import {
   type TarifEkspres,
 } from "./ekonomiPlatform";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
+import { selisihHariWIB } from "./waktu";
 
 export const PINDAI_PRICING = {
   adminFeePercent: 2,
@@ -498,7 +499,10 @@ export function calculateRepayment(
   const jatuhTempoPada = didanaiPada + tenor * DAY_MS;
   const sisaMs = jatuhTempoPada - now;
   const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
-  const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
+  // Hari terlambat dihitung per TANGGAL KALENDER WIB: begitu lewat pukul 00.00
+  // WIB, harinya bertambah satu, walaupun jam pencairan baru lewat nanti malam.
+  // Aturan yang sama dipakai cabang bulanan, perpanjangan, dan angsuran.
+  const hariTerlambat = Math.max(0, selisihHariWIB(jatuhTempoPada, now));
 
   // Denda: tarif × pokok × hari, di-cap 100% dari pokok. Hari di-cap dulu agar
   // hasil tidak melewati kebijakan, berapa pun tarif yang dipasang admin.
@@ -592,7 +596,10 @@ export function pelunasanPinjaman(
     const pokok = loan.remainingPrincipal;
     const sisaMs = loan.nextDueDate - now;
     const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
-    const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
+    const hariTerlambat = Math.max(
+      0,
+      selisihHariWIB(loan.nextDueDate, now),
+    );
     const hariDenda = Math.min(hariTerlambat, maxHariDenda(dendaPerHari));
     const dendaTerlambat =
       hariDenda === 0
@@ -617,7 +624,7 @@ export function pelunasanPinjaman(
     const jatuhTempoPada = loan.didanaiPada + loan.tenorBulan * BULAN_MS;
     const sisaMs = jatuhTempoPada - now;
     const sisaHari = Math.max(0, Math.ceil(sisaMs / DAY_MS));
-    const hariTerlambat = Math.max(0, Math.floor(-sisaMs / DAY_MS));
+    const hariTerlambat = Math.max(0, selisihHariWIB(jatuhTempoPada, now));
     const dendaTerlambat =
       hariTerlambat === 0
         ? 0

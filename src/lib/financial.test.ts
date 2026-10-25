@@ -10,7 +10,13 @@ import {
   parseRupiah,
   percentOf,
 } from "./money";
-import { calculateRepayment, quoteLoan, quotePinjaman, requote } from "./loan";
+import {
+  calculateRepayment,
+  pelunasanPinjaman,
+  quoteLoan,
+  quotePinjaman,
+  requote,
+} from "./loan";
 
 let passed = 0;
 let failed = 0;
@@ -208,6 +214,40 @@ eq(
 // Argumen tidak valid ditolak.
 throws(() => calculateRepayment(1_000_000, 0, didanai, didanai), "tenor 0 ditolak");
 throws(() => calculateRepayment(1_000_000, 30, 0, didanai), "didanaiPada tidak valid ditolak");
+
+// ---- Hari terlambat memakai TANGGAL KALENDER WIB ----
+// Kasus nyata: cair 17 Sep 2026 pukul 20.35 WIB, tenor 30 hari → jatuh tempo
+// 17 Okt 2026 pukul 20.35 WIB. Sebelum aturan kalender, pesan pagi tanggal 25
+// Okt masih membaca 7 hari; seharusnya sudah 8 hari sejak tanggal 18 Okt.
+const syahril = {
+  pokokPinjaman: 500_000,
+  status: "didanai",
+  tenorHari: 30,
+  didanaiPada: Date.UTC(2026, 8, 17, 13, 35),
+};
+const menit = 60_000;
+eq(
+  pelunasanPinjaman(syahril, Date.UTC(2026, 9, 17, 16, 59), 1)?.hariTerlambat,
+  0,
+  "pukul 23.59 WIB di hari jatuh tempo belum dihitung terlambat",
+);
+eq(
+  pelunasanPinjaman(syahril, Date.UTC(2026, 9, 17, 17, 1), 1)?.hariTerlambat,
+  1,
+  "lewat tengah malam WIB jadi 1 hari, bukan menunggu 24 jam",
+);
+const syahrilHariIni = pelunasanPinjaman(
+  syahril,
+  Date.UTC(2026, 9, 25, 1, 0),
+  1,
+);
+eq(syahrilHariIni?.hariTerlambat, 8, "25 Okt 08.00 WIB = 8 hari terlambat");
+eq(syahrilHariIni?.dendaTerlambat, 40_000, "denda 8 hari × 1% × 500.000");
+eq(
+  syahrilHariIni?.totalKewajibanDenganPenalti,
+  690_000,
+  "total 650.000 + denda 40.000",
+);
 
 // formatting never breaks on integers
 eq(formatRupiah(13_000_000), "Rp 13.000.000", "format id-ID");

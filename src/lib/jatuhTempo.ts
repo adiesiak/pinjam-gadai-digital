@@ -17,6 +17,7 @@
  * hanya dipakai sebagai jaring pengaman bila data warisan tidak bisa dihitung.
  */
 import { BULAN_MS, DEFAULT_TENOR_HARI, pelunasanPinjaman } from "./loan";
+import { selisihHariWIB } from "./waktu";
 
 const DAY_MS = 86_400_000;
 
@@ -114,12 +115,18 @@ export function batasPelunasan(baris: BarisJatuhTempo): number | null {
   return didanai + ms;
 }
 
-/** Jam menganggur: sisa hari & hari terlambat dihitung dari batas pelunasan. */
+/**
+ * Sisa hari & hari terlambat dari batas pelunasan.
+ *
+ * Hari terlambat memakai tanggal kalender WIB, sama dengan denda di
+ * `lib/loan`; sisa hari tetap dibulatkan ke atas karena ia menghitung sisa
+ * waktu, bukan umur keterlambatan.
+ */
 function sisaHariDari(jatuhTempoPada: number, sekarang: number) {
   const sisaMs = jatuhTempoPada - sekarang;
   return {
     sisaHari: Math.max(0, Math.ceil(sisaMs / DAY_MS)),
-    hariTerlambat: Math.max(0, Math.floor(-sisaMs / DAY_MS)),
+    hariTerlambat: Math.max(0, selisihHariWIB(jatuhTempoPada, sekarang)),
   };
 }
 

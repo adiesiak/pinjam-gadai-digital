@@ -88,6 +88,18 @@ eq(hariTerlambatAngsuran(MULAI, MULAI - DAY), 0, "sebelum jatuh tempo belum tela
 eq(hariTerlambatAngsuran(MULAI, MULAI + 2 * DAY), 2, "dua hari telat");
 eq(sisaHariAngsuran(MULAI, MULAI - DAY), 1, "sisa satu hari");
 eq(sisaHariAngsuran(MULAI, MULAI + DAY), -1, "sudah lewat satu hari");
+// Batas hari mengikuti kalender WIB, bukan 24 jam dari jam jatuh tempo.
+const jatuhTempoMalam = Date.UTC(2026, 9, 17, 13, 35); // 17 Okt 20.35 WIB
+eq(
+  hariTerlambatAngsuran(jatuhTempoMalam, Date.UTC(2026, 9, 17, 16, 59)),
+  0,
+  "23.59 WIB di hari jatuh tempo belum telat",
+);
+eq(
+  hariTerlambatAngsuran(jatuhTempoMalam, Date.UTC(2026, 9, 17, 17, 1)),
+  1,
+  "00.01 WIB keesokan harinya sudah satu hari telat",
+);
 
 const pokokAngsuran = 1_000_000;
 eq(dendaAngsuran(pokokAngsuran, MULAI, MULAI - DAY), 0, "belum telat: tanpa denda");

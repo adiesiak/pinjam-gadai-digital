@@ -176,12 +176,12 @@ export const TEMPLATE_BAWAAN_WA: Record<JenisTemplateWa, string> = {
     "tercatat {jumlah}. Mohon lakukan pembayaran melalui {metode_bayar}. Terima kasih.",
   terlambat_1:
     "Halo {nama}, pinjaman {ref} tercatat melewati jatuh tempo {jatuh_tempo}. Total kewajiban saat " +
-    "ini {jumlah}. Mohon segera lakukan pembayaran melalui {metode_bayar}, atau balas pesan ini " +
-    "agar kami bantu prosesnya. Terima kasih.",
+    "ini {jumlah}{denda}. Mohon segera lakukan pembayaran melalui {metode_bayar}, atau balas pesan " +
+    "ini agar kami bantu prosesnya. Terima kasih.",
   terlambat_2:
     "Halo {nama}, pinjaman {ref} masih tercatat belum diselesaikan sejak {jatuh_tempo}. Total " +
-    "kewajiban saat ini {jumlah}. Mohon segera lakukan pembayaran melalui {metode_bayar}, atau " +
-    "hubungi kami di {kontak} untuk membicarakan penyelesaiannya. Terima kasih.",
+    "kewajiban saat ini {jumlah}{denda}. Mohon segera lakukan pembayaran melalui {metode_bayar}, " +
+    "atau hubungi kami di {kontak} untuk membicarakan penyelesaiannya. Terima kasih.",
   konfirmasi_pembayaran:
     "Halo {nama}, pembayaran sebesar {jumlah} untuk pinjaman {ref} sudah kami catat di aplikasi " +
     "PINDAI. Bila masih ada sisa kewajiban, kami kabari kembali. Terima kasih.",

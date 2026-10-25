@@ -18,6 +18,7 @@ import {
 } from "./loan";
 import { biayaRollover } from "./ekonomiPlatform";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
+import { selisihHariWIB } from "./waktu";
 
 const DAY_MS = 86_400_000;
 
@@ -109,7 +110,7 @@ export function dendaPeriodeBerjalan(
   waktu: number,
   tarifPerHari: number = LATE_FEE_POLICY.percentPerDay,
 ): { hariTerlambat: number; denda: Rupiah } {
-  const hariTerlambat = Math.max(0, Math.floor((waktu - jatuhTempoPada) / DAY_MS));
+  const hariTerlambat = Math.max(0, selisihHariWIB(jatuhTempoPada, waktu));
   if (hariTerlambat === 0) return { hariTerlambat: 0, denda: 0 };
   const hariDenda = Math.min(hariTerlambat, maxHariDenda(tarifPerHari));
   return {

@@ -16,6 +16,7 @@
 import { hitungSimulasiBulanan, type TarifBulanan } from "./bulanan";
 import { LATE_FEE_POLICY, quotePinjaman } from "./loan";
 import { percentOf, type Rupiah } from "./money";
+import { selisihHariWIB } from "./waktu";
 
 const DAY_MS = 86_400_000;
 const BULAN_MS = 30 * DAY_MS;
@@ -93,12 +94,17 @@ export function jadwalAngsuranPinjaman(
   ];
 }
 
-/** Hari keterlambatan satu angsuran; 0 bila belum lewat jatuh tempo. */
+/**
+ * Hari keterlambatan satu angsuran; 0 bila belum lewat jatuh tempo.
+ *
+ * Dihitung per tanggal kalender WIB, sama dengan denda pinjaman di `lib/loan`:
+ * lewat pukul 00.00 WIB berarti satu hari, bukan menunggu 24 jam penuh.
+ */
 export function hariTerlambatAngsuran(
   jatuhTempoPada: number,
   sekarang: number,
 ): number {
-  return Math.max(0, Math.floor((sekarang - jatuhTempoPada) / DAY_MS));
+  return Math.max(0, selisihHariWIB(jatuhTempoPada, sekarang));
 }
 
 /** Sisa hari menuju jatuh tempo; negatif berarti sudah lewat. */
