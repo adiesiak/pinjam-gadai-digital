@@ -366,6 +366,53 @@ describe("pengingat WhatsApp otomatis", () => {
     }
   });
 
+  it("pinjaman yang diperpanjang ditagih dari periode berjalan, termasuk denda", async () => {
+    // 1 November 2026, 10.00 WIB — di dalam jendela kirim.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.UTC(2026, 10, 1, 3, 0, 0));
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "syahril", {
+      email: "syahril@pindai.test",
+      role: "peminjam",
+    });
+    const now = Date.now();
+    const DAY = 86_400_000;
+    await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "SYAHRIL FIRMANSYAH",
+        namaBank: "BNI",
+        nomorRekening: "1234567890",
+        status: "didanai",
+        nomorReferensi: "PGD-UJI-PERPANJANG",
+        tenorHari: 28,
+        nomorWhatsApp: NOMOR_PEMINJAM,
+        didanaiPada: now - 40 * DAY,
+        // Periode berjalan: sisa pokok 600.000, bunga 85.000, jatuh tempo
+        // 8 hari lalu. Tagihan = 685.000 + denda 96.000 = 781.000.
+        remainingPrincipal: 600_000,
+        currentTierRate: 20,
+        nextDueDate: now - 8 * DAY,
+        nextInterestAmount: 85_000,
+      }),
+    );
+    await seedGateway(t, { aktif: true });
+    const gateway = pasangGateway();
+    try {
+      const hasil = await t.action(internal.whatsapp.jalankanPengingatJatuhTempo, {});
+      expect(hasil.alasan).toBe("jalan");
+      expect(gateway.keluar).toHaveLength(1);
+      // Tanpa state perpanjangan, pesan jatuh ke tenor awal dan kehilangan denda.
+      expect(gateway.keluar[0].message).toContain("Rp 781.000");
+      expect(gateway.keluar[0].message).toContain("denda Rp 96.000");
+    } finally {
+      gateway.pulihkan();
+      vi.useRealTimers();
+    }
+  });
+
   it("endpoint Fonnte memakai target/message walau panel menyimpan nama lain", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await buatPengguna(t, "rani", { email: "rani7@pindai.test", role: "peminjam" });

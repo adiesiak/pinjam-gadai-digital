@@ -196,8 +196,8 @@ export const TEMPLATE_BAWAAN_WA: Record<JenisTemplateWa, string> = {
     "bagikan kode ini kepada siapa pun, termasuk yang mengaku petugas PINDAI.",
   info_tagihan:
     "Halo {nama}, berikut ringkasan status pinjaman aktif Anda di PINDAI {ref}. Total kewajiban " +
-    "tercatat {jumlah}. Rincian tagihan dan kwitansi digital dapat diperiksa melalui tautan resmi " +
-    "berikut: {tautan}. Terima kasih.",
+    "tercatat {jumlah}{denda}. Rincian tagihan dan kwitansi digital dapat diperiksa melalui tautan " +
+    "resmi berikut: {tautan}. Terima kasih.",
   lokasi:
     "Halo {nama}, PINDAI mendeteksi lokasi perangkat Anda dikirim oleh aplikasi pihak ketiga " +
     "(lokasi palsu/dibekukan), sehingga transaksi PINDAI bisa ditolak. Mohon hapus atau matikan " +

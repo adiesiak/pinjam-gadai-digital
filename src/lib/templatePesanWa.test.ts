@@ -79,6 +79,15 @@ for (const jenis of JENIS_TEMPLATE_WA) {
   }
 }
 
+// Pesan tagihan WAJIB menyebut komponen denda bila ada. Total gabungan tanpa
+// keterangan "termasuk denda" mudah dibaca sebagai angka yang salah.
+for (const jenis of ["terlambat_1", "terlambat_2", "info_tagihan"] as const) {
+  cek(
+    placeholderDipakai(TEMPLATE_BAWAAN_WA[jenis]).includes("denda"),
+    `bawaan ${jenis} menyebut komponen denda`,
+  );
+}
+
 // ===== 2. Jenis yang diminta produk ada semua =====
 for (const jenis of [
   "pengingat_h3",

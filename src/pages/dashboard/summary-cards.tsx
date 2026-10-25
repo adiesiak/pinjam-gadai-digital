@@ -34,7 +34,14 @@ function ringkasBaris(l: LoanScheduleRow, sekarang: number) {
       didanaiPada: l.didanaiPada ?? undefined,
       tenorHari: l.tenorHari ?? undefined,
       tenorBulan: l.tenorBulan ?? undefined,
-      persenBunga: undefined,
+      // State perpanjangan WAJIB ikut. Tanpa ini, pinjaman yang sudah
+      // diperpanjang dihitung dari tenor awal: kartu bisa menulis "sisa X hari"
+      // padahal periode berjalannya sudah lewat, dan status terlambatnya tidak
+      // cocok dengan ledger admin.
+      remainingPrincipal: l.remainingPrincipal ?? undefined,
+      currentTierRate: l.currentTierRate ?? undefined,
+      nextDueDate: l.nextDueDate ?? undefined,
+      nextInterestAmount: l.nextInterestAmount ?? undefined,
     },
     sekarang,
   );
@@ -144,6 +151,12 @@ function TagihanKartu({ schedule }: { schedule: LoanScheduleRow[] }) {
       aktif.reduce((acc, l) => acc + (l.pelunasan?.totalKewajibanDenganPenalti ?? l.totalKewajiban), 0),
     [aktif],
   );
+  // Denda berjalan disebut terpisah: angka besar tanpa penjelasan mudah
+  // disangka salah hitung oleh peminjam. Nilainya tetap dari server.
+  const dendaAktif = useMemo(
+    () => aktif.reduce((acc, l) => acc + (l.pelunasan?.dendaTerlambat ?? 0), 0),
+    [aktif],
+  );
 
   // Satu perhitungan untuk baris terdekat: tanggal, kalimat hitung hari, dan
   // nadanya berasal dari sumber yang sama (`lib/jatuhTempo.ts`).
@@ -168,6 +181,11 @@ function TagihanKartu({ schedule }: { schedule: LoanScheduleRow[] }) {
           <p className="mt-1 break-words text-xl font-semibold tabular-nums sm:text-2xl">
             <CountUp value={tagihanAktif} format={formatRupiah} />
           </p>
+          {dendaAktif > 0 && (
+            <p className="mt-1 text-[11px] leading-5 tabular-nums text-amber-700">
+              Termasuk denda keterlambatan {formatRupiah(dendaAktif)}
+            </p>
+          )}
         </div>
         {terdekat !== null && <JatuhTempoBadge status={statusTagihanDari(terdekat.jt.nada)} />}
       </div>

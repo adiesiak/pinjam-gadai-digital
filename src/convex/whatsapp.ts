@@ -19,6 +19,7 @@ import {
   quotePinjaman,
   simulasiBulananPinjaman,
 } from "../lib/loan";
+import type { TarifBulanan } from "../lib/bulanan";
 import { formatRupiah } from "../lib/money";
 import { namaHurufBesar } from "../lib/nama";
 import { formatTanggalWIB } from "../lib/waktu";
@@ -143,6 +144,15 @@ type PinjamanPesan = {
   didanaiPada?: number;
   status: string;
   persenBunga?: number;
+  /**
+   * State perpanjangan/roll-over. Wajib ikut: tanpa bidang ini pesan menghitung
+   * tagihan dari tenor awal, bukan periode yang sedang berjalan, sehingga total
+   * di WhatsApp bisa berbeda dari ledger dan dashboard.
+   */
+  tarifBulanan?: TarifBulanan | null;
+  remainingPrincipal?: number;
+  nextDueDate?: number;
+  nextInterestAmount?: number;
 };
 
 /**
@@ -172,6 +182,10 @@ function nilaiPesanPinjaman(
       tenorBulan: loan.tenorBulan,
       didanaiPada: loan.didanaiPada,
       persenBunga: loan.persenBunga,
+      tarifBulanan: loan.tarifBulanan ?? null,
+      remainingPrincipal: loan.remainingPrincipal,
+      nextDueDate: loan.nextDueDate,
+      nextInterestAmount: loan.nextInterestAmount,
     },
     opts.sekarang,
     opts.dendaPerHari,
@@ -408,6 +422,10 @@ export const _loanForMessage = internalQuery({
       didanaiPada: loan.didanaiPada,
       persenBunga: loan.persenBunga,
       status: loan.status,
+      tarifBulanan: loan.tarifBulanan ?? null,
+      remainingPrincipal: loan.remainingPrincipal,
+      nextDueDate: loan.nextDueDate,
+      nextInterestAmount: loan.nextInterestAmount,
     };
   },
 });
@@ -443,6 +461,10 @@ export const _dataStatusPinjaman = internalQuery({
       tenorBulan: loan.tenorBulan ?? undefined,
       didanaiPada: loan.didanaiPada ?? undefined,
       persenBunga: loan.persenBunga ?? undefined,
+      tarifBulanan: loan.tarifBulanan ?? null,
+      remainingPrincipal: loan.remainingPrincipal,
+      nextDueDate: loan.nextDueDate,
+      nextInterestAmount: loan.nextInterestAmount,
     };
   },
 });
@@ -477,18 +499,11 @@ export const previewMessage = query({
     const s = await getSettings(ctx);
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    // Dokumen penuh diteruskan supaya state perpanjangan ikut terhitung; objek
+    // pilihan sebelumnya membuangnya dan membuat pratinjau berbeda dari ledger.
     const { isi } = pesanDariLoan(
       templateInfoTagihan(s),
-      {
-        namaLengkap: loan.namaLengkap,
-        nomorReferensi: loan.nomorReferensi,
-        pokokPinjaman: loan.pokokPinjaman,
-        tenorHari: loan.tenorHari ?? undefined,
-        tenorBulan: loan.tenorBulan ?? undefined,
-        didanaiPada: loan.didanaiPada ?? undefined,
-        persenBunga: loan.persenBunga ?? undefined,
-        status: loan.status,
-      },
+      loan,
       Date.now(),
       await metodeBayarQuery(ctx),
       await tarifDendaBerlaku(ctx),
@@ -699,16 +714,7 @@ export const sendReminder = action({
       isiPesan?.trim() ||
       pesanDariLoan(
         templateInfoTagihan(settings),
-        {
-          namaLengkap: loan.namaLengkap,
-          nomorReferensi: loan.nomorReferensi,
-          pokokPinjaman: loan.pokokPinjaman,
-          tenorHari: loan.tenorHari ?? undefined,
-          tenorBulan: loan.tenorBulan ?? undefined,
-          didanaiPada: loan.didanaiPada ?? undefined,
-          persenBunga: loan.persenBunga ?? undefined,
-          status: loan.status,
-        },
+        loan,
         Date.now(),
         await metodeBayarAction(ctx),
         await ctx.runQuery(internal.system._tarifDenda, {}),
@@ -854,6 +860,10 @@ export const previewStatusPinjaman = query({
           tenorBulan: loan.tenorBulan ?? undefined,
           didanaiPada: loan.didanaiPada ?? undefined,
           persenBunga: loan.persenBunga ?? undefined,
+          tarifBulanan: loan.tarifBulanan ?? null,
+          remainingPrincipal: loan.remainingPrincipal,
+          nextDueDate: loan.nextDueDate,
+          nextInterestAmount: loan.nextInterestAmount,
           totalKewajiban,
         },
         alasan.trim() === "" ? "—" : alasan.trim(),
@@ -1176,6 +1186,10 @@ export const _pinjamanPengingat = internalQuery({
       didanaiPada: loan.didanaiPada ?? undefined,
       persenBunga: loan.persenBunga ?? undefined,
       status: loan.status,
+      tarifBulanan: loan.tarifBulanan ?? null,
+      remainingPrincipal: loan.remainingPrincipal,
+      nextDueDate: loan.nextDueDate,
+      nextInterestAmount: loan.nextInterestAmount,
     }));
   },
 });
