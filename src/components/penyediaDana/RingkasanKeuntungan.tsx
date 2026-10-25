@@ -134,13 +134,14 @@ export function RingkasanKeuntungan({
       </div>
 
       <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-        Imbal Hasil pendana dihitung <strong>tetap 30%</strong> dari pokok untuk siklus
-        <strong> 30 hari</strong>; perpanjangan atau cicil pokok nasabah tidak mengubah angkanya.
-        Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas. Biaya
-        platform (layanan) {formatRupiah(ringkasan.totalKeuntunganAdmin)} (dibukukan{" "}
+        Marjin pinjaman dibagi <strong>47 : 13</strong>, sehingga porsi pendana{" "}
+        <strong>78,33%</strong> dari marjin (marjin acuan 30% untuk siklus{" "}
+        <strong>30 hari</strong>); perpanjangan atau cicil pokok nasabah tidak mengubah angkanya.
+        Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas. Porsi
+        platform {formatRupiah(ringkasan.totalKeuntunganAdmin)} (dibukukan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}
-        {formatRupiah(ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari total pengembalian
-        (pokok + Imbal Hasil), bukan dari pokok saja, jadi pokok tetap kembali utuh. Cara hitungnya ada di bagian
+        {formatRupiah(ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari marjin pinjaman,
+        bukan dari pokok, jadi pokok tetap kembali utuh. Cara hitungnya ada di bagian
         “Aturan perhitungan” pada halaman ini.
       </p>
 

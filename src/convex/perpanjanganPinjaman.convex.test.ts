@@ -291,11 +291,13 @@ describe("pembayaran tingkat pinjaman", () => {
       return { funding, entries };
     });
 
-    // Snapshot siklus pendana tetap 30 hari / 30%, tidak ikut bunga 35%.
+    // Imbal bruto yang dibayar tetap snapshot alokasi Rp300.000 (bukan bunga
+    // 35% yang ditagih ke peminjam); porsi platform 21,67% dipotong → bersih
+    // Rp235.000. Tarif acuan mengikuti marjin pinjaman yang didanai.
     expect(hasil.funding?.imbalHasil).toBe(300_000);
-    expect(hasil.funding?.lenderProfit).toBe(300_000);
+    expect(hasil.funding?.lenderProfit).toBe(235_000);
     expect(hasil.funding?.periodDuration).toBe(30);
-    expect(hasil.funding?.expectedReturnRate).toBe(30);
+    expect(hasil.funding?.expectedReturnRate).toBe(35);
 
     // Selisih 5% bunga nasabah masuk akun margin platform, bukan platform:FEE.
     const spread = hasil.entries.filter((e) => e.akun === "PLATFORM_SPREAD_MARGIN");

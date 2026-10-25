@@ -4,6 +4,7 @@ import { BilahDana } from "@/components/penyediaDana/bagian-folio";
 import { FOLIO } from "@/components/penyediaDana/folio";
 import { KOLOM_ANGKA, labelKolom } from "@/components/penyediaDana/kolom-pendana";
 import type { RekapPendana } from "@/convex/penyediaDana";
+import { PERSEN_PORSI_PLATFORM } from "@/lib/kebijakanPinjaman";
 import { formatRupiahAman } from "@/lib/money";
 import { nilaiAngka, type KunciAngka } from "@/lib/tabelPendana";
 
@@ -38,14 +39,13 @@ function Baris({ kunci, r }: { kunci: KunciAngka; r: RekapPendana }) {
 export function PortofolioPendana({
   r,
   namaTampil,
-  persenLayanan,
 }: {
   /** Baris rekap milik akun ini. Server hanya mengirim baris ini untuk peran `dana`. */
   r: RekapPendana;
   /** Penyamaran nama pemilik alokasi, sama seperti tabel lain di ruang ini. */
   namaTampil: (nama: string) => string;
-  /** Tarif biaya layanan platform yang berlaku, dari Pengaturan Sistem. */
-  persenLayanan: number;
+  /** Tarif biaya lama; porsi platform kini tetap 13/60 dari marjin. */
+  persenLayanan?: number;
 }) {
   return (
     <div className={FOLIO.kertas}>
@@ -113,10 +113,10 @@ export function PortofolioPendana({
 
       <p className="border-t border-slate-200 px-4 py-3 text-xs leading-5 text-muted-foreground">
         Semua angka di ruang ini dihitung dari pinjaman yang alokasinya atas nama Anda; angka
-        pendana lain tidak ditampilkan. {labelKolom("admin")} adalah potongan{" "}
-        {persenLayanan}% dari total pengembalian (pokok + Imbal Hasil), dipotong dari
-        Imbal Hasil,
-        dan cara hitungnya diuraikan di bagian aturan perhitungan.
+        pendana lain tidak ditampilkan. {labelKolom("admin")} adalah porsi platform{" "}
+        {PERSEN_PORSI_PLATFORM.toLocaleString("id-ID", { maximumFractionDigits: 2 })}% dari
+        marjin pinjaman, bukan potongan atas pokok, dan cara hitungnya diuraikan di
+        bagian aturan perhitungan.
       </p>
     </div>
   );

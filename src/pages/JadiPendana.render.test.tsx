@@ -56,7 +56,7 @@ ada(
 );
 ada(html, "Imbal Hasil 30%", "Imbal Hasil ditulis sebagai kebijakan");
 ada(html, "siklus 30 hari", "siklus pendana disebut");
-ada(html, "biaya platform 5%", "biaya platform disebut");
+ada(html, "porsi platform 21,67%", "porsi platform disebut");
 
 // ===== Kartu contoh: angka dari modul yang sama dengan server =====
 ada(html, "Rp 10.000.000", "nominal contoh tampil");
@@ -105,14 +105,12 @@ ada(html, "Apakah uang saya dijamin kembali?", "FAQ jaminan");
 ada(html, "Bisakah dana ditarik kapan saja?", "FAQ penarikan dana");
 tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
 
-// ===== Tarif berubah: seluruh halaman ikut berubah =====
+// ===== Porsi tetap: pengaturan biaya lama tidak mengubah pembagian =====
 {
   const lain = gambar(3);
-  ada(lain, "Rp 390.000", "biaya 3% dari total kembali dihitung ulang");
-  ada(lain, "Rp 12.610.000", "diterima bersih 3% dihitung ulang");
-  tidakAda(lain, "Rp 650.000", "biaya tarif lama tidak tertinggal");
-  tidakAda(lain, "Rp 12.350.000", "diterima tarif lama tidak tertinggal");
-  ada(lain, "biaya platform 3%", "label biaya mengikuti pengaturan");
+  ada(lain, "Rp 650.000", "porsi platform tetap dihitung dari marjin");
+  ada(lain, "Rp 12.350.000", "diterima bersih tidak berubah");
+  ada(lain, "porsi platform 21,67%", "label porsi tidak mengikuti tarif lama");
 }
 
 // ===== Semua tautan internal menuju rute yang nyata =====
@@ -207,7 +205,7 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
           ...KONTEN_PENDANA_DEFAULT,
           heroJudul: "Judul halaman dari admin",
           heroDeskripsi:
-            "Biaya platform {biaya} dan Imbal Hasil {imbal} per {siklus} hari.",
+            "Porsi platform {biaya} dan Imbal Hasil {imbal} per {siklus} hari.",
           faq: KONTEN_PENDANA_DEFAULT.faq.map((item, i) =>
             i === 0 ? { tanya: "Pertanyaan dari admin?", jawab: "Jawaban dari admin." } : item,
           ),
@@ -222,7 +220,11 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
     "judul bawaan tidak tertinggal saat CMS diisi",
   );
   // Token diisi dari kebijakan yang berlaku, bukan dari teks admin.
-  ada(lain, "Biaya platform 5% dan Imbal Hasil 30% per 30 hari.", "token CMS diisi angka kebijakan");
+  ada(
+    lain,
+    "Porsi platform 21,67% dan Imbal Hasil 30% per 30 hari.",
+    "token CMS diisi angka kebijakan",
+  );
   ada(lain, "Pertanyaan dari admin?", "FAQ dari CMS dipakai");
   ada(lain, "Rp 650.000", "angka di luar teks CMS tetap dihitung");
 }

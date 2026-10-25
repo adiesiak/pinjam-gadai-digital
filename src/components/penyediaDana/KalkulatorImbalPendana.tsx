@@ -5,7 +5,7 @@ import { Fragment, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PortofolioSyariah } from "@/components/penyediaDana/PortofolioSyariah";
 import { api } from "@/convex/_generated/api";
-import { potonganDariKembali } from "@/lib/bagiHasil";
+import { bagiMargin, PERSEN_PORSI_PLATFORM } from "@/lib/kebijakanPinjaman";
 import {
   LABEL_TENOR_PENDANA,
   LABEL_YIELD_PENDANA,
@@ -138,7 +138,7 @@ export function KalkulatorImbalPendana({
           </div>
           <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
             <dt className="text-[11px] font-medium text-slate-600">
-              Biaya platform ({persenPotonganAdmin}%)
+              Porsi platform ({PERSEN_PORSI_PLATFORM.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%)
             </dt>
             <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-800">
               {rupiah(hasil.potonganAdmin)}
@@ -263,12 +263,13 @@ export function TabelPortofolioPendanaan({
   const [halaman, setHalaman] = useState(0);
   const [buka, setBuka] = useState<readonly string[]>(bukaAwal);
 
-  /** Biaya platform dihitung dari total kembali (pokok + imbal), bukan imbal saja. */
+  /** Porsi platform 13/60 dari marjin baris ini; pokok kembali utuh. */
   const hitung = (row: BarisPortofolioPendanaan) => {
     const total = row.pokok + row.imbalHasil;
-    const potongan = potonganDariKembali(total, persenPotonganAdmin);
-    const diterima = total - potongan;
-    return { total, potongan, diterima, keuntungan: diterima - row.pokok };
+    const bagian = bagiMargin(row.imbalHasil);
+    const potongan = bagian.platform;
+    const diterima = row.pokok + bagian.pendana;
+    return { total, potongan, diterima, keuntungan: bagian.pendana };
   };
 
   const tersaring = rows.filter((row) => cocokSaring(row, saring));
@@ -348,8 +349,9 @@ export function TabelPortofolioPendanaan({
         <table className="w-full min-w-[64rem] border-collapse text-left text-xs">
         <caption className="sr-only">
           Portofolio pendanaan Anda dengan tenor {LABEL_TENOR_PENDANA}, yield{" "}
-          {LABEL_YIELD_PENDANA}, dan biaya platform {persenPotonganAdmin}% dari
-          total kembali.
+          {LABEL_YIELD_PENDANA}, dan porsi platform{" "}
+          {PERSEN_PORSI_PLATFORM.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%
+          dari marjin pinjaman.
         </caption>
         <thead className="bg-slate-50">
           <tr className="text-[11px] uppercase tracking-[0.08em] text-slate-600">
@@ -359,7 +361,7 @@ export function TabelPortofolioPendanaan({
             <th scope="col" className="px-3 py-2 font-semibold">Yield pendana</th>
             <th scope="col" className="px-3 py-2 font-semibold">Imbal bruto</th>
             <th scope="col" className="whitespace-nowrap px-3 py-2 font-semibold">
-              Biaya platform ({persenPotonganAdmin}%)
+              Porsi platform ({PERSEN_PORSI_PLATFORM.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%)
             </th>
             <th scope="col" className="px-3 py-2 font-semibold">Diterima bersih</th>
             <th scope="col" className="px-3 py-2 font-semibold">Keuntungan bersih</th>
@@ -431,7 +433,7 @@ export function TabelPortofolioPendanaan({
                     </td>
                     <td
                       className="px-3 py-2.5 whitespace-nowrap tabular-nums text-red-700"
-                      title={`${persenPotonganAdmin}% dari total kembali ${rupiah(h.total)}`}
+                      title={`porsi ${PERSEN_PORSI_PLATFORM.toLocaleString("id-ID", { maximumFractionDigits: 2 })}% dari marjin ${rupiah(row.imbalHasil)}`}
                     >
                       −{rupiah(h.potongan)}
                     </td>
@@ -690,10 +692,9 @@ export function PortofolioPendanaanSection({
         />
       )}
       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-        Biaya platform {persenPotonganAdmin}% dihitung dari total kembali (pokok
-        + Imbal Hasil), bukan dari imbal saja. Diterima bersih adalah pokok
-        ditambah keuntungan bersih; yield efektif dihitung dari keuntungan
-        bersih dibagi pokok. Tanggal return adalah jatuh tempo pinjaman, bukan
+        Porsi platform dihitung dari marjin pinjaman (47 : 13), bukan dari pokok,
+        jadi Diterima bersih adalah pokok ditambah keuntungan bersih; yield
+        efektif dihitung dari keuntungan bersih dibagi pokok. Tanggal return adalah jatuh tempo pinjaman, bukan
         janji pembayaran, dan pembayaran dapat lebih lambat bila peminjam
         menunggak.
       </p>

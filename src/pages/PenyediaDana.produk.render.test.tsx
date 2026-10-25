@@ -104,7 +104,11 @@ cek(
     ada(html, akad, `simulator menyediakan akad "${akad}"`);
   }
   cek(!html.includes("Qardh"), "simulator tidak lagi menyediakan Qardh");
-  ada(html, "Imbal hasil tetap 30% per 30 hari", "yield 30% tetap dinyatakan");
+  ada(
+    html,
+    "Porsi pendana 78.33% dari marjin pinjaman",
+    "porsi pendana dinyatakan",
+  );
   ada(html, "Rp 1.235.000", "angka konvensional dihitung dari lib");
   ada(html, "Estimasi, bukan jaminan.", "simulator tidak menjanjikan hasil");
 }

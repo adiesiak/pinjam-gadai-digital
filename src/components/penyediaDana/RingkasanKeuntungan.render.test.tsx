@@ -86,12 +86,12 @@ ada(html, "Angka <strong>perkiraan</strong>", "kata \"perkiraan\" sendiri ditand
 
 // Biaya platform (layanan) tetap dijelaskan dengan istilah yang sama dengan
 // kartunya, dan dipecah sama seperti keuntungan: dibukukan vs perkiraan.
-ada(html, "Biaya platform (layanan) Rp 910.000", "total biaya platform (layanan)");
+ada(html, "Porsi platform Rp 910.000", "total porsi platform");
 ada(html, "dibukukan Rp 195.000", "biaya platform yang sudah dibukukan");
 ada(html, "perkiraan Rp 715.000", "biaya platform yang masih perkiraan");
 ada(
   html,
-  "bukan dari pokok saja, jadi pokok tetap kembali utuh",
+  "bukan dari pokok, jadi pokok tetap kembali utuh",
   "dasar biaya platform dijelaskan",
 );
 

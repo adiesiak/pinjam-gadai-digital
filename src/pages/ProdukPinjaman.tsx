@@ -1167,9 +1167,9 @@ function KerangkaHalaman({
                       <span>
                         Contoh: pokok {rupiah(1_000_000)} tenor 28 hari, bunga
                         30%, menghasilkan uang kembali {rupiah(1_300_000)}.
-                        Potongan platform 5% dari total kembali menjadi{" "}
-                        {rupiah(CONTOH_BAGI_HASIL.potonganAdmin)}, sehingga
-                        pendana menerima {rupiah(CONTOH_BAGI_HASIL.pendanaTerima)}.
+                        Marjin dibagi 78,33% untuk pendana: porsi platform{" "}
+                        {rupiah(CONTOH_BAGI_HASIL.potonganAdmin)}, sehingga pendana
+                        menerima {rupiah(CONTOH_BAGI_HASIL.pendanaTerima)}.
                       </span>
                     </p>
                   </div>

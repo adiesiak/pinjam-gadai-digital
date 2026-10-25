@@ -47,7 +47,7 @@ ada(harian, "Aliran uang pinjaman ini", "judul kartu");
 ada(harian, "Rp 1.000.000", "pokok nyata yang sedang dibuka");
 ada(harian, "harian 30 hari", "skema pinjaman disebut");
 ada(harian, "dipotong admin 2% + biaya ekspres di muka", "potongan admin + ekspres disebut");
-ada(harian, "5% dari total kembali", "dasar potongan 5% disebut");
+ada(harian, "21,67% dari marjin", "porsi platform disebut");
 for (const teks of LABEL) ada(harian, teks, `label "${teks}"`);
 ada(harian, "Sisi peminjam", "grup sisi peminjam tampil");
 ada(harian, "Pelunasan", "grup pelunasan & pendana tampil");
@@ -56,7 +56,7 @@ ada(harian, "text-2xl font-bold", "nominal utama memakai tipografi besar");
 ada(harian, "Pokok + Imbal Hasil 30%", "dasar total pelunasan harian");
 ada(harian, "Rp 970.000", "diterima peminjam");
 ada(harian, "Rp 1.300.000", "uang yang kembali");
-ada(harian, "− Rp 65.000", "potongan 5% dari total kembali");
+ada(harian, "− Rp 65.000", "porsi platform atas marjin");
 ada(harian, "Rp 1.235.000", "diterima pendana");
 ada(harian, "Rp 235.000", "Imbal Hasil bersih pendana");
 ada(

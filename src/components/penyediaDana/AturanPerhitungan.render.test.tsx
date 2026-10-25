@@ -43,8 +43,8 @@ const html = renderToStaticMarkup(
 ada(html, "Aturan perhitungan", "judul panel");
 ada(
   html,
-  "tenor 30 hari · yield 30% p.p. · biaya platform (layanan) 5%",
-  "skema tetap dan biaya disebut di kepala panel",
+  "siklus 30 hari · porsi pendana 78,33% · porsi platform 21,67%",
+  "porsi margin disebut di kepala panel",
 );
 tidakAda(html, "potongan admin", "istilah lama tidak tertinggal");
 tidakAda(html, "keuntungan admin", "istilah keuntungan admin tidak dipakai");
@@ -56,8 +56,8 @@ ok(
 
 // ===== Tiap aturan terisi =====
 for (const judul of [
-  "Imbal Hasil pendana (tetap 30%)",
-  "Biaya platform (layanan)",
+  "Porsi pendana 78,33% dari marjin",
+  "Porsi platform (21,67%)",
   "Dibukukan (lunas) vs Perkiraan (belum lunas)",
   "Dana tersalurkan dan masih berjalan",
   "Tenor pendana 30 hari",
@@ -90,8 +90,8 @@ for (const teks of [
 }
 
 // 2. Biaya platform.
-ada(html, "5%</strong> dari", "persentase biaya platform disebut");
-ada(html, "total pengembalian", "dasar biaya platform: total pengembalian");
+ada(html, "21,67%</strong> dari", "porsi platform disebut");
+ada(html, "marjin pinjaman", "dasar porsi platform: marjin pinjaman");
 ada(html, "pokok kembali utuh", "konsekuensi biaya pada pokok dijelaskan");
 ada(html, "bukan jaminan", "biaya platform tidak diklaim sebagai jaminan");
 ada(html, "tidak dijamin oleh LPS", "status penjaminan dinyatakan apa adanya");
@@ -144,7 +144,7 @@ tidakAda(html, "pasti untung", "tidak ada klaim keuntungan pasti");
   ada(tertutup, "Aturan perhitungan", "judul terlihat saat tertutup");
   ada(
     tertutup,
-    "tenor 30 hari · yield 30% p.p. · biaya platform (layanan) 5%",
+    "siklus 30 hari · porsi pendana 78,33% · porsi platform 21,67%",
     "ringkasan skema terbaca tanpa membuka panel",
   );
   ada(tertutup, 'aria-expanded="false"', "tombol menyatakan keadaan tertutup");
@@ -152,16 +152,16 @@ tidakAda(html, "pasti untung", "tidak ada klaim keuntungan pasti");
   ok(!tertutup.includes("bukan jaminan"), "isi aturan tidak mendorong halaman ke bawah");
 }
 
-// ===== Biaya platform mengikuti Pengaturan Sistem =====
+// ===== Porsi margin tidak lagi mengikuti pengaturan biaya lama =====
 {
   const lain = renderToStaticMarkup(
     <AturanPerhitungan persenPotonganAdmin={7} bukaAwal={SEMUA} />,
   );
-  ada(lain, "7%</strong> dari", "biaya platform ikut berubah");
+  ada(lain, "21,67%</strong> dari", "porsi platform tetap 21,67%");
   ada(
     lain,
-    "tenor 30 hari · yield 30% p.p. · biaya platform (layanan) 7%",
-    "yield tetap 30% saat biaya berubah",
+    "siklus 30 hari · porsi pendana 78,33% · porsi platform 21,67%",
+    "porsi tetap sama saat pengaturan biaya lama berubah",
   );
   bersih(lain, "markup panel dengan biaya lain");
 }

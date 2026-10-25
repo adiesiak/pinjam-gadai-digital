@@ -41,11 +41,15 @@ function tidakAda(html: string, teks: string, label: string): void {
     'aria-pressed="true"',
     "satu akad ditandai aktif sejak awal",
   );
-  ada(html, "Imbal hasil tetap 30% per 30 hari", "skema tetap dinyatakan");
+  ada(
+    html,
+    "Porsi pendana 78.33% dari marjin pinjaman",
+    "porsi pendana dinyatakan",
+  );
 
-  // Nominal awal Rp1.000.000, biaya platform 5% dari total kembali.
-  ada(html, "Rp 300.000", "imbal hasil 30% dihitung");
-  ada(html, "Rp 65.000", "biaya platform dihitung dari total kembali");
+  // Nominal awal Rp1.000.000, marjin 30% dibagi 47 : 13.
+  ada(html, "Rp 300.000", "marjin 30% dihitung");
+  ada(html, "Rp 65.000", "porsi platform 21,67% dihitung");
   ada(html, "Rp 1.235.000", "diterima bersih per siklus");
   ada(html, "Rp 235.000", "keuntungan bersih per siklus");
   ada(html, "Estimasi, bukan jaminan.", "sifat estimasi dinyatakan");
@@ -56,8 +60,8 @@ function tidakAda(html: string, teks: string, label: string): void {
   );
   ada(
     html,
-    "terpisah dari tenor pinjaman nasabah",
-    "keterpisahan dari tenor nasabah dijelaskan",
+    "dibayar per siklus 30 hari",
+    "siklus pembayaran dijelaskan",
   );
 
   // Rincian nasabah tidak boleh bocor ke ruang pendana.

@@ -20,11 +20,12 @@ import { beriTiketPelunasan } from "./doorprize";
 import { selesaikanReferralPelunasan } from "./referral";
 import { beriVoucherApresiasi } from "./voucher";
 import { akunDompetDana, appendJournal, catatMarginSpread } from "./ledger";
-import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
+
 import { formatRupiah } from "../lib/money";
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
 import { audit, getConfig, tarifDendaBerlaku } from "./system";
 import { pembayaranSiklus } from "./siklusPendana";
+import { siklusPendanaan } from "../lib/imbalPendana";
 
 /** Sesi peminjam non-tamu — sama dengan gerbang `loans`. */
 async function requirePengguna(ctx: QueryCtx) {
@@ -264,12 +265,13 @@ async function distribusikanKePendana(
     );
   }
 
-  // Hak pendana TETAP 30% dari alokasinya, bukan porsi bunga bulanan nasabah.
+  // Hak pendana dibayar dari SNAPSHOT alokasinya (porsi 47 : 13 atas marjin
+  // bagian, dibekukan saat alokasi), bukan dihitung ulang dari bunga angsuran.
   // Kelebihan atau kekurangan bunga menjadi margin platform dan dicatat ke
   // akun spread tersendiri setelah pembayaran pendana.
   const imbalBagian = aktif.map((f) => ({
     funding: f,
-    imbal: imbalPendana(f.jumlahAlokasi),
+    imbal: f.imbalHasil,
   }));
   const totalImbalPendana = imbalBagian.reduce((acc, x) => acc + x.imbal, 0);
   const marginSpread = totalImbal - totalImbalPendana;
@@ -341,9 +343,12 @@ async function distribusikanKePendana(
         { akun: `pinjaman:${loan._id}`, arah: "kredit", jumlah: bruto },
       ],
     });
+    const siklus = siklusPendanaan(f.jumlahAlokasi, loan);
     await ctx.db.patch(f._id, {
       imbalHasil: imbal,
-      ...siklusPendanaan(f.jumlahAlokasi),
+      periodDuration: siklus.periodDuration,
+      expectedReturnRate: siklus.expectedReturnRate,
+      lenderProfit: imbal - potonganAdmin,
       potonganAdmin,
       imbalHasilNet: imbalBersih,
       diselesaikanPada: selesaiPada,

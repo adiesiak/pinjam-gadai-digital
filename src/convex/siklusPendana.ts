@@ -74,15 +74,27 @@ export async function kewajibanSiklusAktif(
  */
 export async function buatSiklusUntukAlokasi(
   ctx: MutationCtx,
-  args: { pendanaId: Id<"users">; pokok: number; sekarang: number },
+  args: {
+    pendanaId: Id<"users">;
+    pokok: number;
+    sekarang: number;
+    /**
+     * Hak siklus dari marjin pinjaman (47 : 13). Kosong = skema acuan 30%,
+     * dipakai jalur lama yang belum punya pinjaman di tangan.
+     */
+    imbal?: number;
+    potongan?: number;
+  },
 ): Promise<Id<"siklusPendana">> {
   const hitung = hitungSiklusPendana(args.pokok);
+  const imbal = args.imbal ?? hitung.imbal;
+  const potongan = args.potongan ?? hitung.potongan;
   return await ctx.db.insert("siklusPendana", {
     pendanaId: args.pendanaId,
     pokok: hitung.pokok,
-    imbal: hitung.imbal,
-    potongan: hitung.potongan,
-    totalCair: hitung.totalCair,
+    imbal,
+    potongan,
+    totalCair: hitung.pokok + imbal - potongan,
     mulaiPada: args.sekarang,
     jatuhTempoPada: jatuhTempoSiklus(args.sekarang),
     status: "berjalan",

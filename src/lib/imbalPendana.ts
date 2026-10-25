@@ -22,7 +22,8 @@
  * rupiah yang diciptakan.
  */
 import type { Rupiah } from "./money";
-import { potonganDariKembali } from "./bagiHasil";
+import { bagiHasilPinjamanDari, type PinjamanBagiHasil } from "./bagiHasil";
+import { bagiMargin, bagiMarginBagian } from "./kebijakanPinjaman";
 
 /** Tenor acuan pendana untuk semua portofolio. */
 export const TENOR_PENDANA_HARI = 30;
@@ -54,54 +55,147 @@ export function totalPengembalianPendana(pokok: number): Rupiah {
 }
 
 /**
+ * Hak pendana atas satu alokasi, dihitung dari marjin pinjaman yang didanai.
+ *
+ * Kebijakan 47 : 13 dari 60 (78,333…% untuk pendana, 21,666…% untuk platform)
+ * diterapkan pada marjin pinjaman penuh, lalu dibagi menurut porsi pokok
+ * alokasi. Promo bunga tidak menurunkan angka ini karena marjinnya diambil dari
+ * tarif normal pinjaman.
+ *
+ * `imbal` adalah hak BRUTO bagian pendana (porsi pendana + porsi platform);
+ * `potonganAdmin` adalah bagian platform yang dipotong dari pembayaran, dan
+ * `keuntungan` adalah sisanya. Dengan marjin 30%, Rp1.000.000 menghasilkan
+ * imbal Rp300.000, potongan Rp65.000, dan keuntungan Rp235.000 — angka yang
+ * sama dengan skema biaya 5% dari total kembali.
+ */
+export type HakPendana = {
+  /** Marjin pinjaman penuh (tarif normal, sebelum promo). */
+  marginTotal: Rupiah;
+  /** Hak bruto bagian ini: pokok alokasi + imbal. */
+  imbal: Rupiah;
+  /** Bagian platform atas marjin bagian ini. */
+  potonganAdmin: Rupiah;
+  /** Imbal bersih yang diterima pendana. */
+  keuntungan: Rupiah;
+  /** Yield bruto terhadap pokok alokasi, dalam persen. */
+  rate: number;
+};
+
+export function hakPendana(
+  pokok: number,
+  pinjaman: PinjamanBagiHasil,
+): HakPendana {
+  validasiPokok(pokok);
+  if (
+    !Number.isSafeInteger(pinjaman.pokokPinjaman) ||
+    pinjaman.pokokPinjaman <= 0 ||
+    pokok > pinjaman.pokokPinjaman
+  ) {
+    throw new Error(
+      `Porsi alokasi tidak valid: ${pokok} dari ${pinjaman.pokokPinjaman}`,
+    );
+  }
+  const marginTotal = bagiHasilPinjamanDari(pinjaman, 0).bungaPendana;
+  const bagian = bagiMarginBagian(marginTotal, pokok, pinjaman.pokokPinjaman);
+  const imbal = bagian.pendana + bagian.platform;
+  return {
+    marginTotal,
+    imbal,
+    potonganAdmin: bagian.platform,
+    keuntungan: bagian.pendana,
+    rate: pokok > 0 ? (imbal / pokok) * 100 : 0,
+  };
+}
+
+/**
  * Siklus hak pendana yang disimpan bersama setiap alokasi.
  *
- * Tiga angka ini sengaja dinamai seperti kontrak data: `periodDuration` dalam
- * hari, `expectedReturnRate` dalam persen, dan `lenderProfit` dalam rupiah.
- * Nilainya tidak pernah dibaca dari tenor atau bunga pinjaman nasabah.
+ * `expectedReturnRate` memakai tarif normal pinjaman (30% untuk satu bulan),
+ * sedangkan `lenderProfit` adalah bagian pendana yang sudah dibagi 47 : 13.
  */
 export type SiklusPendanaan = {
   periodDuration: number;
   expectedReturnRate: number;
   lenderProfit: Rupiah;
+  /** Imbal bruto yang dibayar bersama pokok (porsi pendana + platform). */
+  imbalHasil: Rupiah;
+  /** Bagian platform yang dipotong dari pembayaran itu. */
+  potonganAdmin: Rupiah;
 };
 
-/** Siklus fixed untuk satu nominal pendanaan. */
-export function siklusPendanaan(pokok: number): SiklusPendanaan {
+/**
+ * Siklus 30 hari untuk satu alokasi.
+ *
+ * Tanpa `pinjaman` (mis. simulasi 30 hari), yang dipakai adalah marjin acuan
+ * 30% dari pokok penempatan. Dengan `pinjaman`, marjin diambil dari tenor dan
+ * tarif pinjaman yang benar-benar didanai.
+ */
+export function siklusPendanaan(
+  pokok: number,
+  pinjaman?: PinjamanBagiHasil,
+): SiklusPendanaan {
+  // Data warisan dengan pokok tidak masuk akal tidak boleh merobohkan satu
+  // halaman portofolio: jatuh ke skema acuan 30% alih-alih melempar.
+  if (
+    pinjaman === undefined ||
+    !Number.isSafeInteger(pinjaman.pokokPinjaman) ||
+    pinjaman.pokokPinjaman <= 0 ||
+    pokok > pinjaman.pokokPinjaman
+  ) {
+    const imbal = imbalPendana(pokok);
+    return {
+      periodDuration: TENOR_PENDANA_HARI,
+      expectedReturnRate: PERSEN_IMBAL_PENDANA,
+      lenderProfit: imbal,
+      imbalHasil: imbal,
+      potonganAdmin: 0,
+    };
+  }
+  const hak = hakPendana(pokok, pinjaman);
   return {
     periodDuration: TENOR_PENDANA_HARI,
-    expectedReturnRate: PERSEN_IMBAL_PENDANA,
-    lenderProfit: imbalPendana(pokok),
+    expectedReturnRate:
+      pinjaman.pokokPinjaman > 0
+        ? (hak.marginTotal / pinjaman.pokokPinjaman) * 100
+        : 0,
+    lenderProfit: hak.keuntungan,
+    imbalHasil: hak.imbal,
+    potonganAdmin: hak.potonganAdmin,
   };
 }
 
 export type BagiHasilPendana = {
-  /** Imbal hasil bruto tetap (pokok × 30%). */
+  /** Imbal hasil bruto (pokok × 30% pada skema acuan). */
   imbal: Rupiah;
   /** Pokok + imbal hasil, sebelum biaya platform. */
   total: Rupiah;
-  /** Biaya platform dari TOTAL KEMBALI (kebijakan Pengaturan Sistem). */
+  /** Porsi platform atas marjin (bukan lagi 5% dari total kembali). */
   potonganAdmin: Rupiah;
   /** Uang yang benar-benar masuk dompet pendana. */
   diterima: Rupiah;
-  /** Imbal hasil bersih setelah biaya platform. */
+  /** Imbal hasil bersih setelah porsi platform. */
   keuntungan: Rupiah;
 };
 
 /**
- * Bagi hasil pendana dengan hak bruto TETAP.
+ * Bagi hasil satu penempatan 30 hari pada marjin acuan 30%.
  *
- * `potonganAdmin` memakai tarif kebijakan Pengaturan Sistem dan dasarnya
- * TOTAL KEMBALI (pokok + Imbal Hasil). Dengan tarif 5%, Rp1.000.000 selalu
- * kembali Rp1.300.000, dipotong Rp65.000, dan pendana menerima Rp1.235.000.
+ * `persenPotonganAdmin` tidak lagi menentukan angkanya: porsi platform tetap
+ * 13/60 dari marjin (21,666…%), yang pada marjin 30% sama dengan biaya 5% dari
+ * total kembali. Parameter dipertahankan agar pemanggil lama dan pengaturan
+ * yang sudah tersimpan tidak perlu diubah.
  */
 export function bagiHasilPendana(
   pokok: number,
-  persenPotonganAdmin: number,
+  _persenPotonganAdmin: number,
+  pinjaman?: PinjamanBagiHasil,
 ): BagiHasilPendana {
-  const imbal = imbalPendana(pokok);
+  const hak =
+    pinjaman === undefined ? null : hakPendana(pokok, pinjaman);
+  const imbal = hak === null ? imbalPendana(pokok) : hak.imbal;
   const total = pokok + imbal;
-  const potonganAdmin = potonganDariKembali(total, persenPotonganAdmin);
+  const potonganAdmin =
+    hak === null ? bagiMargin(imbal).platform : hak.potonganAdmin;
   const diterima = total - potonganAdmin;
   return {
     imbal,

@@ -182,8 +182,8 @@ eq(
 eq(baris[2]?.label, "Diterima peminjam", "baris dana bersih");
 eq(
   baris[4]?.label,
-  "Potongan 5% dari total kembali",
-  "baris potongan 5% menyebut dasarnya (total kembali)",
+  "Porsi platform 5% dari marjin",
+  "baris potongan menyebut dasarnya (marjin)",
 );
 eq(baris[5]?.nilai, 1_235_000, "baris diterima penyedia dana = Rp1.235.000");
 eq(labelPotonganRincian(baris[4]?.nilai ?? 0), "− Rp 65.000", "potongan ditulis dengan tanda −");
@@ -291,8 +291,8 @@ for (const [pokok, tenorBulan, persenBulan] of [
   eq(r.totalKembali, sim.totalPengembalian, `${tag}: kembali = Σ cicilan simulasi`);
   eq(
     r.potonganPenyedia,
-    Math.floor((dasar * 5) / 100),
-    `${tag}: potongan 5% dari total kembali (floor)`,
+    sim.bungaTotal - Math.floor((sim.bungaTotal * 47) / 60),
+    `${tag}: porsi platform 13/60 dari marjin (sisa pembulatan ke platform)`,
   );
   eq(
     r.potonganPenyedia + r.diterimaPenyedia,

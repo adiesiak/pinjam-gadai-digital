@@ -19,6 +19,11 @@ import {
   TENOR_PENDANA_HARI,
   bagiHasilPendana,
 } from "@/lib/imbalPendana";
+import {
+  PERSEN_PORSI_PENDANA,
+  PERSEN_PORSI_PLATFORM,
+  syaratUnderwriting,
+} from "@/lib/kebijakanPinjaman";
 import { bagiHasilMurabahah, hargaJualMurabahah } from "@/lib/syariah/murabahah";
 import { MARGIN_MURABAHAH_BAWAAN } from "@/lib/syariah/pengajuan";
 import { bagiHasilRahn } from "@/lib/syariah/rahn";
@@ -88,11 +93,16 @@ export function SimulatorPendanaan({
       if (nominal > 0) {
         const perSiklus = bagiHasilPendana(nominal, persenPotonganAdmin);
         keuntungan = perSiklus.keuntungan * siklus;
+        const syarat = syaratUnderwriting({ tenorBulan: 1, pokok: nominal });
         rincian = (
           <>
-            <Baris label="Imbal hasil bruto per siklus" nilai={rupiah(perSiklus.imbal)} />
+            <Baris label="Marjin bruto per siklus 30 hari" nilai={rupiah(perSiklus.imbal)} />
             <Baris
-              label={`Biaya platform (${persenPotonganAdmin}%) per siklus`}
+              label={`Porsi pendana (${PERSEN_PORSI_PENDANA.toFixed(2)}%)`}
+              nilai={rupiah(perSiklus.keuntungan)}
+            />
+            <Baris
+              label={`Porsi platform (${PERSEN_PORSI_PLATFORM.toFixed(2)}%)`}
               nilai={rupiah(perSiklus.potonganAdmin)}
             />
             <Baris
@@ -103,6 +113,9 @@ export function SimulatorPendanaan({
               label={`Keuntungan ${siklus} siklus`}
               nilai={rupiah(perSiklus.keuntungan * siklus)}
             />
+            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+              Jaminan fisik yang mengamankan dana: {syarat.ringkas.join(" · ")}.
+            </p>
           </>
         );
       }
@@ -349,7 +362,7 @@ export function SimulatorPendanaan({
 
           <p className="mt-2 text-[11px] leading-4 text-slate-500">
             {akad === "konvensional"
-              ? `Imbal hasil tetap ${PERSEN_IMBAL_PENDANA}% per ${TENOR_PENDANA_HARI} hari, terpisah dari tenor pinjaman nasabah.`
+              ? `Porsi pendana ${PERSEN_PORSI_PENDANA.toFixed(2)}% dari marjin pinjaman, dibayar per siklus ${TENOR_PENDANA_HARI} hari.` 
               : akad === "murabahah"
                 ? "Margin disepakati di akad; porsi pendana mengikuti nisbah yang berlaku."
                 : akad === "rahn"

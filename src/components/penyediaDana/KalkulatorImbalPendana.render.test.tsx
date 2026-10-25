@@ -106,7 +106,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
     "Tenor",
     "Yield pendana",
     "Imbal bruto",
-    "Biaya platform (5%)",
+    "Porsi platform (21,67%)",
     "Diterima bersih",
     "Keuntungan bersih",
     "Proyeksi return",
@@ -162,7 +162,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
   ada(html, "Belum ada", "baris tanpa jatuh tempo tidak menampilkan tanggal palsu");
 }
 
-// ===== Tarif biaya mengikuti pengaturan, bukan angka di layar =====
+// ===== Porsi platform tetap 13/60, tidak mengikuti tarif biaya lama =====
 {
   const html = renderToStaticMarkup(
     <TabelPortofolioPendanaan
@@ -176,10 +176,10 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
       ]}
     />,
   );
-  ada(html, "Biaya platform (7%)", "tarif biaya mengikuti pengaturan");
-  ada(html, "Rp 91.000", "biaya 7% dari total kembali");
-  ada(html, "Rp 1.209.000", "penerimaan bersih pada tarif 7%");
-  ada(html, "Rp 209.000", "keuntungan bersih pada tarif 7%");
+  ada(html, "Porsi platform (21,67%)", "porsi platform tetap");
+  ada(html, "Rp 65.000", "porsi platform dihitung dari marjin");
+  ada(html, "Rp 1.235.000", "penerimaan bersih tidak berubah");
+  ada(html, "Rp 235.000", "keuntungan bersih tidak berubah");
 }
 
 // ===== Keterlambatan dan saringan menunggak =====

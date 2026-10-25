@@ -70,7 +70,11 @@ eq(
   bagi.total,
   "tidak ada rupiah hilang dalam pembagian",
 );
-eq(bagiHasilPendana(1_000_000, 0).diterima, 1_300_000, "tanpa biaya, diterima 130%");
+eq(
+  bagiHasilPendana(1_000_000, 0).diterima,
+  1_235_000,
+  "porsi platform 21,67% tetap dipotong walau tarif lama diisi 0",
+);
 
 // ===== Status portofolio =====
 eq(statusPendanaan("dialokasikan", "disetujui"), "Aktif", "belum cair = Aktif");

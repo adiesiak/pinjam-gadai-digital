@@ -22,7 +22,6 @@ import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import {
   PERSEN_IMBAL_PENDANA,
   TENOR_PENDANA_HARI,
-  imbalPendana,
   siklusPendanaan,
   statusPendanaan as labelStatusPendanaan,
 } from "../lib/imbalPendana";
@@ -472,10 +471,10 @@ export const marketplace = query({
         sisaKebutuhan: loan.pokokPinjaman - terkumpul,
         danaBersih: ringkas.danaDiterimaPeminjam,
         bunga: ringkas.imbalHasilTotal,
-        // Proyeksi pendana memakai skema tetap, bukan tenor/bunga nasabah.
+        // Proyeksi pendana mengikuti marjin pinjaman ini, lalu dibagi 47 : 13.
         tenorPendanaHari: TENOR_PENDANA_HARI,
         persenImbalPendana: PERSEN_IMBAL_PENDANA,
-        imbalPendana: imbalPendana(loan.pokokPinjaman),
+        imbalPendana: siklusPendanaan(loan.pokokPinjaman, loan).imbalHasil,
         _creationTime: loan._creationTime,
       });
     }
@@ -550,10 +549,10 @@ async function selesaikanPendanaanPenuh(
     ],
   });
 
-  // Hak Imbal Hasil tiap penyedia dana memakai skema TETAP per alokasi (pokok
-  // alokasi × 30%), bukan porsi bunga nasabah. Dengan begitu perpanjangan atau
-  // cicil pokok di sisi peminjam tidak mengubah catatan hak pendana. Baca
-  // ulang alokasi dari DB — snapshot lama tidak memuat baris yang baru
+  // Hak tiap penyedia dana = porsi 47 : 13 dari marjin bagian alokasinya.
+  // Snapshot disamakan dengan pinjaman yang baru ditutup supaya perpanjangan
+  // atau cicil pokok di sisi peminjam tidak mengubah catatan hak pendana.
+  // Baca ulang alokasi dari DB — snapshot lama tidak memuat baris yang baru
   // di-insert mutation ini.
   const fundingsTerbaru = await ctx.db
     .query("fundings")
@@ -561,17 +560,15 @@ async function selesaikanPendanaanPenuh(
     .collect();
   const aktif = fundingsTerbaru.filter((x) => x.status === "dialokasikan");
   for (const f of aktif) {
-    const siklus = siklusPendanaan(f.jumlahAlokasi);
+    const siklus = siklusPendanaan(f.jumlahAlokasi, loan);
     if (
-      f.imbalHasil !== siklus.lenderProfit ||
+      f.imbalHasil !== siklus.imbalHasil ||
+      f.potonganAdmin !== siklus.potonganAdmin ||
       f.periodDuration !== siklus.periodDuration ||
       f.expectedReturnRate !== siklus.expectedReturnRate ||
       f.lenderProfit !== siklus.lenderProfit
     ) {
-      await ctx.db.patch(f._id, {
-        imbalHasil: siklus.lenderProfit,
-        ...siklus,
-      });
+      await ctx.db.patch(f._id, { ...siklus });
     }
   }
 
@@ -646,28 +643,28 @@ export const allocateFunding = mutation({
       );
     }
 
-    // 4. Tulis posisi alokasi. Imbal Hasil pendana TETAP: 30% dari nominal
-    //    alokasi untuk siklus 30 hari, tidak diturunkan dari tenor/bunga nasabah.
-    //    Snapshot ini yang menjadi hak pendana sampai pelunasan.
-    const siklusHak = siklusPendanaan(args.jumlah);
+    // 4. Tulis posisi alokasi. Hak pendana = porsi 47 : 13 dari marjin bagian
+    //    alokasinya; promo bunga tidak menurunkan angka ini karena marjinnya
+    //    diambil dari tarif normal pinjaman. Snapshot inilah yang dibayar.
+    const siklusHak = siklusPendanaan(args.jumlah, loan);
     const sekarang = Date.now();
     const siklusId = await buatSiklusUntukAlokasi(ctx, {
       pendanaId: userId,
       pokok: args.jumlah,
       sekarang,
+      imbal: siklusHak.imbalHasil,
+      potongan: siklusHak.potonganAdmin,
     });
-    const siklusBaru = await ctx.db.get(siklusId);
     const fndRef = referenceNumber("FND");
     await ctx.db.insert("fundings", {
       loanId: args.loanId,
       danaId: userId,
       jumlahAlokasi: args.jumlah,
-      imbalHasil: siklusHak.lenderProfit,
       ...siklusHak,
       siklusId,
       peranSiklus: "utama",
-      /** Snapshot biaya 5% dari POKOK, dibayar sekali per siklus. */
-      potonganAdmin: siklusBaru?.potongan ?? 0,
+      /** Porsi platform atas marjin, dipotong sekali per siklus. */
+      potonganAdmin: siklusHak.potonganAdmin,
       status: "dialokasikan",
       nomorReferensi: fndRef,
     });
@@ -791,13 +788,12 @@ export const putarModalSiklus = mutation({
       );
     }
 
-    const siklusHak = siklusPendanaan(args.jumlah);
+    const siklusHak = siklusPendanaan(args.jumlah, loan);
     const fndRef = referenceNumber("FND");
     await ctx.db.insert("fundings", {
       loanId: args.loanId,
       danaId: siklus.pendanaId,
       jumlahAlokasi: args.jumlah,
-      imbalHasil: siklusHak.lenderProfit,
       ...siklusHak,
       siklusId: args.siklusId,
       peranSiklus: "putar",
@@ -1048,8 +1044,7 @@ export const myPortfolio = query({
         jumlahAlokasi: meta.jumlahAlokasi,
         // Hak pendana selalu dihitung dari pokok alokasi, bukan dari tenor atau
         // bunga pinjaman yang bisa berubah karena perpanjangan/cicil pokok.
-        imbalHasil: imbalPendana(meta.jumlahAlokasi),
-        ...siklusPendanaan(meta.jumlahAlokasi),
+        ...siklusPendanaan(meta.jumlahAlokasi, loan),
         tenorPendanaHari: TENOR_PENDANA_HARI,
         persenImbalPendana: PERSEN_IMBAL_PENDANA,
         statusPendanaan: labelStatusPendanaan(meta.statusAlokasi, loan.status),
@@ -1114,8 +1109,8 @@ export const myPortfolio = query({
         nomorReferensi: loan.nomorReferensi,
         jumlahAlokasi: loan.pokokPinjaman,
         // Model 1 pinjaman = 1 pendana tidak menyimpan baris alokasi; haknya
-        // tetap memakai skema tetap dari pokok pinjaman.
-        imbalHasil: imbalPendana(loan.pokokPinjaman),
+        // dihitung dari marjin pinjaman yang sama.
+        imbalHasil: siklusPendanaan(loan.pokokPinjaman, loan).imbalHasil,
         statusAlokasi: "dialokasikan",
       });
       if (isi === null) continue;
@@ -1163,8 +1158,7 @@ export const myFundingContracts = query({
         kodePeminjam: peminjam.kodePeminjam,
         tujuan: loan.tujuan,
         jumlahAlokasi: meta.jumlahAlokasi,
-        imbalHasil: imbalPendana(meta.jumlahAlokasi),
-        ...siklusPendanaan(meta.jumlahAlokasi),
+        ...siklusPendanaan(meta.jumlahAlokasi, loan),
         tenorPendanaHari: TENOR_PENDANA_HARI,
         persenImbalPendana: PERSEN_IMBAL_PENDANA,
         statusPendanaan: labelStatusPendanaan(meta.statusAlokasi, loan.status),
@@ -1216,7 +1210,7 @@ export const myFundingContracts = query({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
         jumlahAlokasi: loan.pokokPinjaman,
-        imbalHasil: imbalPendana(loan.pokokPinjaman),
+        imbalHasil: siklusPendanaan(loan.pokokPinjaman, loan).imbalHasil,
         statusAlokasi: "dialokasikan",
         createdAt: loan.didanaiPada ?? loan.diajukanPada ?? loan._creationTime,
       });

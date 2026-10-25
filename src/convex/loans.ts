@@ -49,7 +49,8 @@ import {
 } from "../lib/bulanan";
 import { tarifBulananDariConfig } from "../lib/system-config";
 import { potonganDariKembali } from "../lib/bagiHasil";
-import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
+import { siklusPendanaan } from "../lib/imbalPendana";
+
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { bungaSetelahPromo } from "../lib/promoBunga";
 import { promoBungaUntukPengajuan } from "./promoBunga";
@@ -2399,11 +2400,12 @@ export const repayLoan = mutation({
     // 2. Bayar tiap penyedia dana: pokok bagian + imbal hasil bagian (dari akun
     //    pinjaman). Urut dari alokasi terbesar — dust pembulatan diterimanya.
     aktif.sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
-    // Hak pendana TETAP: 30% dari pokok alokasi. Perpanjangan atau cicil pokok
-    // di sisi peminjam tidak boleh mengubah angka ini.
+    // Hak pendana dibayar dari SNAPSHOT alokasinya (porsi 47 : 13 atas marjin
+    // bagian). Perpanjangan atau cicil pokok di sisi peminjam tidak boleh
+    // mengubah angka ini.
     const imbalBagian = aktif.map((f) => ({
       funding: f,
-      imbal: imbalPendana(f.jumlahAlokasi),
+      imbal: f.imbalHasil,
     }));
     const totalHakPendana = imbalBagian.reduce(
       (acc, x) => acc + x.funding.jumlahAlokasi + x.imbal,
@@ -2496,9 +2498,12 @@ export const repayLoan = mutation({
       totalPotonganAdmin += potonganAdmin;
       totalKelebihan += kelebihan;
       // Cap bukti audit: berapa bruto, berapa dipotong, berapa dibayarkan.
+      const siklus = siklusPendanaan(f.jumlahAlokasi, loan);
       await ctx.db.patch(f._id, {
         imbalHasil: imbal,
-        ...siklusPendanaan(f.jumlahAlokasi),
+        periodDuration: siklus.periodDuration,
+        expectedReturnRate: siklus.expectedReturnRate,
+        lenderProfit: imbal - potonganAdmin,
         potonganAdmin,
         imbalHasilNet: imbalBersih,
         diselesaikanPada: now,

@@ -46,7 +46,9 @@ import {
   tarifBiayaAman,
   type TarifBiaya,
 } from "./loan";
+import { PERSEN_PORSI_PLATFORM } from "./kebijakanPinjaman";
 import { formatRupiah, percentOf, type Rupiah } from "./money";
+import { hakPendana } from "./imbalPendana";
 
 /**
  * Contoh yang ditampilkan kartu: pinjaman terbesar yang boleh diajukan.
@@ -208,8 +210,13 @@ export function kalimatContohAliran(r: RincianAliranDana): string {
   return (
     `Contoh satu pinjaman ${formatRupiah(r.pokok)}: dipotong admin ` +
     `${r.persenPotonganDiMuka}% + biaya ekspres di muka, kembali ${r.persenImbalHasil + 100}% ` +
-    `dari pokok, lalu dipotong ${r.persenPotonganPenyedia}% dari total kembali.`
+    `dari pokok, lalu dipotong porsi platform ${formatPersenRincian(r.persenPotonganPenyedia)}% dari marjin.`
   );
+}
+
+/** Persen dengan koma desimal Indonesia (21,67%), tanpa nol berlebih. */
+function formatPersenRincian(persen: number): string {
+  return persen.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
 /** Label rupiah yang selalu menyebut arah uangnya ("−" untuk potongan). */
@@ -254,7 +261,7 @@ export function barisRincianAliran(
     { label: "Diterima peminjam", nilai: r.diterimaPeminjam, arah: "bersih" },
     { label: labelKembali, nilai: r.totalKembali, arah: "total" },
     {
-      label: `Potongan ${r.persenPotonganPenyedia}% dari total kembali`,
+      label: `Porsi platform ${formatPersenRincian(r.persenPotonganPenyedia)}% dari marjin`,
       nilai: r.potonganPenyedia,
       arah: "potongan",
     },
@@ -326,6 +333,9 @@ export function rincianPinjamanNyata(
     biayaAsuransi +
     (pakaiEkspres ? biayaEkspres(pokok, tarif.ekspres) : 0);
   const bagi = bagiHasilPinjamanDari(pinjaman, persenPotonganPenyedia);
+  // Marjin dibagi 47 : 13 — angka yang sama dengan snapshot alokasi pendana.
+  const hak = hakPendana(pokok, pinjaman);
+  const porsiPlatform = Number(PERSEN_PORSI_PLATFORM.toFixed(2));
   return {
     pokok,
     persenPotonganDiMuka: tarif.adminPersen,
@@ -335,11 +345,11 @@ export function rincianPinjamanNyata(
     persenImbalHasil: pinjaman.persenBunga ?? PINDAI_PRICING.bungaPercent,
     imbalHasil: bagi.bunga,
     totalKembali: bagi.totalLunas,
-    persenPotonganPenyedia,
-    potonganPenyedia: bagi.potonganAdmin,
-    diterimaPenyedia: bagi.pendanaTerima,
-    imbalBersihPenyedia: bagi.keuntunganPendana,
-    pendapatanPlatform: potonganDiMuka + bagi.potonganAdmin,
+    persenPotonganPenyedia: porsiPlatform,
+    potonganPenyedia: hak.potonganAdmin,
+    diterimaPenyedia: pokok + hak.keuntungan,
+    imbalBersihPenyedia: hak.keuntungan,
+    pendapatanPlatform: potonganDiMuka + hak.potonganAdmin,
     subsidiPromo: bagi.subsidiPromo,
     // Tarif yang benar-benar ditagih ke Peminjam saat promo berjalan.
     persenPromo: bagi.subsidiPromo > 0 ? (pinjaman.persenBunga ?? null) : null,

@@ -71,18 +71,21 @@ export function AturanPerhitungan({
   const aturan: readonly Aturan[] = [
     {
       nomor: 1,
-      judul: "Imbal Hasil pendana (tetap 30%)",
+      judul: "Porsi pendana 78,33% dari marjin",
       isi: (
         <>
           <p>
-            Setiap pendanaan memakai tenor acuan <strong>{TENOR_PENDANA_HARI} hari</strong> dan
-            Imbal Hasil <strong>{PERSEN_IMBAL_PENDANA}% flat</strong> dari nominal yang Anda danai.
-            Tenor dan bunga pinjaman nasabah (harian atau bulanan) tidak dipakai di sini.
+            Setiap pinjaman yang Anda danai punya marjin (Imbal Hasil yang dibayar peminjam).
+            Marjin itu dibagi <strong>47 : 13 dari 60</strong>: <strong>78,33%</strong> untuk
+            pendana dan <strong>21,67%</strong> untuk platform. Pada marjin acuan 30% flat untuk
+            siklus {TENOR_PENDANA_HARI} hari, porsi pendana setara 23,5% dari pokok.
           </p>
           <p className="mt-2">
-            Contoh: pendanaan {formatRupiah(contohPokok)} menghasilkan Imbal Hasil{" "}
-            <strong>{formatRupiah(contohImbal)}</strong>. Total pengembalian sebelum biaya platform{" "}
-            {formatRupiah(contohTotal)}.
+            Contoh: pendanaan {formatRupiah(contohPokok)} dengan marjin 30% menghasilkan marjin{" "}
+            <strong>{formatRupiah(contohImbal)}</strong>, porsi Anda{" "}
+            <strong>{formatRupiah(Math.floor((contohImbal * 47) / 60))}</strong>, dan total uang
+            kembali {formatRupiah(contohPokok + Math.floor((contohImbal * 47) / 60))}.
+            Hak bruto sebelum pembagian {formatRupiah(contohTotal)}.
           </p>
           <p className="mt-2">
             Angkanya <strong>tidak berubah</strong> saat nasabah memperpanjang tenor, mengubah
@@ -99,16 +102,17 @@ export function AturanPerhitungan({
     },
     {
       nomor: 2,
-      judul: "Biaya platform (layanan)",
+      judul: "Porsi platform (21,67%)",
       isi: (
         <>
           <p>
-            Biaya platform (layanan) adalah <strong>{persenPotonganAdmin}%</strong> dari{" "}
-            <strong>total pengembalian</strong> (pokok + Imbal Hasil), dipotong dari Imbal Hasil.
-            Konsekuensinya: biayanya tumbuh sebanding dengan hasil, pokok kembali utuh,
-            dan keuntungan bersih pendana adalah Imbal Hasil 30% dikurangi biaya itu.
+            Porsi platform adalah <strong>21,67%</strong> dari <strong>marjin pinjaman</strong>,
+            bukan potongan atas pokok. Pada marjin 30%, porsi platform setara 6,5% dari pokok,
+            sehingga pokok kembali utuh dan keuntungan bersih Anda adalah 78,33% dari marjin.
+            Angka ini mengikuti porsi 47 : 13 dan tidak lagi dibaca dari pengaturan biaya lama
+            ({persenPotonganAdmin}%).
           </p>
-          <p className="mt-2">Biaya platform itulah yang dipakai untuk:</p>
+          <p className="mt-2">Porsi platform itulah yang dipakai untuk:</p>
           <ul className="mt-1.5 space-y-1.5">
             <li className="flex gap-2">
               <span aria-hidden className="mt-2 size-1 shrink-0 rounded-full bg-primary" />
@@ -235,7 +239,7 @@ export function AturanPerhitungan({
       id="aturan-perhitungan"
       nomor={5}
       judul="Aturan perhitungan"
-      ringkas={`tenor ${TENOR_PENDANA_HARI} hari · yield ${PERSEN_IMBAL_PENDANA}% p.p. · biaya platform (layanan) ${persenPotonganAdmin}%`}
+      ringkas={`siklus ${TENOR_PENDANA_HARI} hari · porsi pendana 78,33% · porsi platform 21,67%`}
       bukaAwal={bukaAwal.length > 0}
       className="mt-3"
     >

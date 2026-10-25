@@ -87,7 +87,7 @@ ada(html, "Perkiraan (belum lunas)", "angka perkiraan dipisah");
 ada(html, "Rp 1.410.000", "keuntungan perkiraan tercetak");
 ada(html, "Biaya platform (layanan)", "biaya 5% dinamai biaya platform (layanan)");
 ada(html, "Rp 455.000", "biaya platform tercetak");
-ada(html, "potongan 5% dari total pengembalian", "tarif dan dasarnya dijelaskan");
+ada(html, "porsi platform 21,67% dari", "porsi dan dasarnya dijelaskan");
 
 // Istilah lama tidak boleh tersisa di permukaan yang dibaca pendana.
 takAda(html, "potongan admin", "tanpa istilah lama \"potongan admin\"");

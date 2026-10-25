@@ -21,7 +21,7 @@ import {
   catatMarginSpread,
 } from "./ledger";
 import { potonganDariKembali } from "../lib/bagiHasil";
-import { imbalPendana, siklusPendanaan } from "../lib/imbalPendana";
+
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
 import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
 import { catatDanaKembali } from "./matchingQueue";
@@ -29,6 +29,7 @@ import { quotePinjaman } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
 import { audit, getConfig } from "./system";
 import { pembayaranSiklus } from "./siklusPendana";
+import { siklusPendanaan } from "../lib/imbalPendana";
 import { selesaikanReferralPelunasan } from "./referral";
 import { beriVoucherApresiasi } from "./voucher";
 
@@ -398,7 +399,7 @@ async function catatPelunasanTotal(
   aktif.sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
   const bagian = aktif.map((f) => ({
     funding: f,
-    imbal: imbalPendana(f.jumlahAlokasi),
+    imbal: f.imbalHasil,
   }));
   const totalHakPendana = bagian.reduce(
     (acc, x) => acc + x.funding.jumlahAlokasi + x.imbal,
@@ -463,9 +464,12 @@ async function catatPelunasanTotal(
         { akun: `pinjaman:${loan._id}`, arah: "kredit", jumlah: bruto },
       ],
     });
+    const siklus = siklusPendanaan(funding.jumlahAlokasi, loan);
     await ctx.db.patch(funding._id, {
       imbalHasil: imbal,
-      ...siklusPendanaan(funding.jumlahAlokasi),
+      periodDuration: siklus.periodDuration,
+      expectedReturnRate: siklus.expectedReturnRate,
+      lenderProfit: imbal - potonganAdmin,
       potonganAdmin,
       imbalHasilNet: imbalBersih,
       diselesaikanPada: receipt.tanggalTransfer,

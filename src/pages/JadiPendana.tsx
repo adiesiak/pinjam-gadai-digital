@@ -15,6 +15,7 @@ import { VaultLogo } from "@/components/VaultLogo";
 import { api } from "@/convex/_generated/api";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { urlChatCs } from "@/lib/kontak";
+import { PERSEN_PORSI_PLATFORM } from "@/lib/kebijakanPinjaman";
 import {
   PERSEN_IMBAL_PENDANA,
   TENOR_PENDANA_HARI,
@@ -48,8 +49,8 @@ import { DEFAULT_CONFIG } from "@/lib/system-config";
  * membukanya untuk sesi yang sudah masuk lewat kode akses bersama (atau akun
  * pendana/admin), dan tautannya ada di `/penyedia-dana`. Karena
  * itu angka di sini tidak ditulis di JSX: semuanya dihitung oleh
- * `lib/imbalPendana` dan biaya platform dibaca dari Pengaturan Sistem, jalur
- * yang sama dengan pencatatan hak pendana di server.
+ * `lib/imbalPendana` dengan porsi 47 : 13, jalur yang sama dengan pencatatan
+ * hak pendana di server.
  *
  * Halaman ini sengaja tidak menampilkan testimoni, jumlah pendana, atau tingkat
  * keberhasilan pembayaran: tidak ada angka nyata yang bisa dipertanggung-
@@ -325,7 +326,7 @@ function KalkulatorPendanaan({
             />
             <BarisAngka label="Uang yang kembali" nilai={rupiah(bagi.total)} />
             <BarisAngka
-              label={`Biaya platform (${formatPersen(persenPotonganAdmin)})`}
+              label={`Porsi platform (${formatPersen(Number(PERSEN_PORSI_PLATFORM.toFixed(2)))})`}
               nilai={rupiah(bagi.potonganAdmin)}
             />
             <BarisAngka
@@ -341,10 +342,9 @@ function KalkulatorPendanaan({
             />
           </dl>
           <p className="mt-3 text-[11px] leading-5 text-slate-600">
-            Keuntungan bersih adalah uang yang diterima dikurangi pokok. Biaya
-            platform dihitung dari total pengembalian (pokok + Imbal Hasil), jadi
-            pokok Anda kembali utuh dan sebagian Imbal Hasil dipakai untuk biaya
-            layanan.
+            Keuntungan bersih adalah uang yang diterima dikurangi pokok. Marjin
+            pinjaman dibagi 47 : 13, jadi pokok Anda kembali utuh dan bagian
+            platform diambil dari marjin, bukan dari pokok.
           </p>
         </div>
       </div>
@@ -480,7 +480,9 @@ export function JadiPendanaView({
   konten?: KontenPendana;
   proposalTersimpan?: ProposalTersimpan;
 }) {
-  const persen = formatPersen(persenPotonganAdmin);
+  // Porsi platform tetap 13/60 dari marjin — pengaturan biaya lama tidak lagi
+  // mengubah pembagian, jadi label memakai porsi kebijakan yang berlaku.
+  const persen = formatPersen(Number(PERSEN_PORSI_PLATFORM.toFixed(2)));
   const contoh = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, persenPotonganAdmin);
   const token: NilaiTokenPendana = {
     imbal: `${PERSEN_IMBAL_PENDANA}%`,
@@ -556,7 +558,7 @@ export function JadiPendanaView({
                   nilai={rupiah(contoh.total)}
                 />
                 <BarisAngka
-                  label={`Biaya platform (${persen})`}
+                  label={`Porsi platform (${persen})`}
                   nilai={rupiah(contoh.potonganAdmin)}
                 />
                 <BarisAngka
@@ -665,11 +667,11 @@ export function JadiPendanaView({
                   isi: "Jumlah yang seharusnya masuk sebelum biaya layanan.",
                 },
                 {
-                  rumus: `Biaya platform = (pokok + Imbal Hasil) × ${persen} = ${rupiah(contoh.potonganAdmin)}`,
-                  isi: "Dihitung dari total pengembalian, lalu dipotong dari Imbal Hasil.",
+                  rumus: `Porsi platform = marjin × ${persen} = ${rupiah(contoh.potonganAdmin)}`,
+                  isi: "Marjin pinjaman dibagi 47 : 13, yaitu 78,33% untuk pendana dan 21,67% untuk platform.",
                 },
                 {
-                  rumus: `Diterima = uang kembali - biaya = ${rupiah(contoh.diterima)}`,
+                  rumus: `Diterima = uang kembali - porsi platform = ${rupiah(contoh.diterima)}`,
                   isi: `Keuntungan bersih Anda ${rupiah(contoh.keuntungan)} setelah pokok dikembalikan.`,
                 },
               ].map((langkah, i) => (
@@ -866,7 +868,7 @@ export function JadiPendanaView({
 }
 
 /**
- * Rute ruang pendana memakai biaya platform dari Pengaturan Parameter Bisnis yang
+ * Rute ruang pendana memakai porsi platform 13/60 dari marjin; Pengaturan Parameter Bisnis yang
  * sama dengan pencatatan hak pendana. Bila query belum termuat, angka bawaan
  * yang dirender supaya halaman dan unduhan tetap bisa dipakai.
  *

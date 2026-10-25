@@ -48,7 +48,9 @@ async function siapkanBukti(
       loanId,
       danaId,
       jumlahAlokasi: 1_000_000,
-      imbalHasil: 200_000,
+      // Snapshot hak pendana saat alokasi: 30% dari pokok. Bunga angsuran di
+      // bawah ini sengaja hanya 20%, sehingga platform menanggung selisihnya.
+      imbalHasil: 300_000,
       status: "dialokasikan",
       nomorReferensi: "ALOK-ANGSURAN-UJI",
     });
