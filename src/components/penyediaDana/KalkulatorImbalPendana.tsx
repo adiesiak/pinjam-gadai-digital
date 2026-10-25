@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PortofolioSyariah } from "@/components/penyediaDana/PortofolioSyariah";
 import { api } from "@/convex/_generated/api";
+import { potonganDariKembali } from "@/lib/bagiHasil";
 import {
   LABEL_TENOR_PENDANA,
   LABEL_YIELD_PENDANA,
@@ -175,19 +176,46 @@ export type BarisPortofolioPendanaan = {
 
 /**
  * Tabel portofolio pendanaan dengan kolom tetap: tenor 30 hari, yield 30%
- * p.p., dan status pendanaan. Nominal serta imbal hasil datang dari server.
+ * p.p., dan status pendanaan. Nominal serta imbal hasil bruto datang dari
+ * server; biaya platform dan penerimaan bersih dihitung dengan aturan yang
+ * sama seperti pencairan (`lib/bagiHasil`), supaya angka tabel tidak berbeda
+ * dari uang yang benar-benar masuk dompet pendana.
  */
 export function TabelPortofolioPendanaan({
   rows,
+  persenPotonganAdmin,
 }: {
   rows: readonly BarisPortofolioPendanaan[];
+  /** Tarif biaya platform dari Pengaturan Sistem, dalam persen. */
+  persenPotonganAdmin: number;
 }) {
+  /** Biaya platform dihitung dari total kembali (pokok + imbal), bukan imbal saja. */
+  const hitung = (row: BarisPortofolioPendanaan) => {
+    const total = row.pokok + row.imbalHasil;
+    const potongan = potonganDariKembali(total, persenPotonganAdmin);
+    return { total, potongan, diterima: total - potongan };
+  };
+
+  const jumlah = rows.reduce(
+    (t, row) => {
+      const h = hitung(row);
+      return {
+        pokok: t.pokok + row.pokok,
+        imbal: t.imbal + row.imbalHasil,
+        potongan: t.potongan + h.potongan,
+        diterima: t.diterima + h.diterima,
+      };
+    },
+    { pokok: 0, imbal: 0, potongan: 0, diterima: 0 },
+  );
+
   return (
     <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-      <table className="w-full min-w-[42rem] border-collapse text-left text-xs">
+      <table className="w-full min-w-[56rem] border-collapse text-left text-xs">
         <caption className="sr-only">
-          Portofolio pendanaan Anda dengan tenor {LABEL_TENOR_PENDANA} dan yield{" "}
-          {LABEL_YIELD_PENDANA}
+          Portofolio pendanaan Anda dengan tenor {LABEL_TENOR_PENDANA}, yield{" "}
+          {LABEL_YIELD_PENDANA}, dan biaya platform {persenPotonganAdmin}% dari
+          total kembali.
         </caption>
         <thead className="bg-slate-50">
           <tr className="text-[11px] uppercase tracking-[0.08em] text-slate-600">
@@ -195,7 +223,11 @@ export function TabelPortofolioPendanaan({
             <th scope="col" className="px-3 py-2 font-semibold">Nominal</th>
             <th scope="col" className="px-3 py-2 font-semibold">Tenor</th>
             <th scope="col" className="px-3 py-2 font-semibold">Yield pendana</th>
-            <th scope="col" className="px-3 py-2 font-semibold">Estimasi imbal</th>
+            <th scope="col" className="px-3 py-2 font-semibold">Imbal bruto</th>
+            <th scope="col" className="whitespace-nowrap px-3 py-2 font-semibold">
+              Biaya platform ({persenPotonganAdmin}%)
+            </th>
+            <th scope="col" className="px-3 py-2 font-semibold">Diterima bersih</th>
             <th scope="col" className="px-3 py-2 font-semibold">Proyeksi return</th>
             <th scope="col" className="px-3 py-2 font-semibold">Status</th>
           </tr>
@@ -203,52 +235,89 @@ export function TabelPortofolioPendanaan({
         <tbody className="divide-y divide-slate-100">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
+              <td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">
                 Belum ada pendanaan. Portofolio muncul setelah alokasi dana dicatat.
               </td>
             </tr>
           ) : (
-            rows.map((row) => (
-              <tr key={row.id} className="align-top">
-                <th scope="row" className="px-3 py-2.5 text-left font-medium text-navy">
-                  {row.nomorReferensi}
-                </th>
-                <td className="px-3 py-2.5 tabular-nums text-slate-900">
-                  {rupiah(row.pokok)}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
-                  {LABEL_TENOR_PENDANA}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
-                  {LABEL_YIELD_PENDANA}
-                </td>
-                <td className="px-3 py-2.5 tabular-nums font-medium text-emerald-800">
-                  {rupiah(row.imbalHasil)}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
-                  {row.status === "Selesai"
-                    ? "Selesai"
-                    : row.tanggalReturn === null
-                      ? "Belum ada"
-                      : tanggal(row.tanggalReturn)}
-                </td>
-                <td className="px-3 py-2.5">
-                  <span
-                    className={
-                      row.status === "Selesai" || row.status === "Cair"
-                        ? "inline-flex rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700"
-                        : row.status === "Berjalan"
-                          ? "inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
-                          : "inline-flex rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
-                    }
+            rows.map((row) => {
+              const h = hitung(row);
+              return (
+                <tr key={row.id} className="align-top">
+                  <th scope="row" className="px-3 py-2.5 text-left font-medium text-navy">
+                    {row.nomorReferensi}
+                  </th>
+                  <td className="px-3 py-2.5 tabular-nums text-slate-900">
+                    {rupiah(row.pokok)}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
+                    {LABEL_TENOR_PENDANA}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap text-slate-700">
+                    {LABEL_YIELD_PENDANA}
+                  </td>
+                  <td className="px-3 py-2.5 tabular-nums font-medium text-emerald-800">
+                    {rupiah(row.imbalHasil)}
+                  </td>
+                  <td
+                    className="px-3 py-2.5 whitespace-nowrap tabular-nums text-red-700"
+                    title={`${persenPotonganAdmin}% dari total kembali ${rupiah(h.total)}`}
                   >
-                    {row.status}
-                  </span>
-                </td>
-              </tr>
-            ))
+                    −{rupiah(h.potongan)}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums font-semibold text-navy">
+                    {rupiah(h.diterima)}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-700">
+                    {row.status === "Selesai"
+                      ? "Selesai"
+                      : row.tanggalReturn === null
+                        ? "Belum ada"
+                        : tanggal(row.tanggalReturn)}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span
+                      className={
+                        row.status === "Selesai" || row.status === "Cair"
+                          ? "inline-flex rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700"
+                          : row.status === "Berjalan"
+                            ? "inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
+                            : "inline-flex rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                      }
+                    >
+                      {row.status}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
+        {rows.length > 0 && (
+          <tfoot className="border-t-2 border-slate-300 bg-slate-50">
+            <tr className="align-top">
+              <th scope="row" className="px-3 py-2.5 text-left font-semibold text-navy">
+                Total
+              </th>
+              <td className="px-3 py-2.5 tabular-nums text-slate-900">
+                {rupiah(jumlah.pokok)}
+              </td>
+              <td />
+              <td />
+              <td className="px-3 py-2.5 tabular-nums font-medium text-emerald-800">
+                {rupiah(jumlah.imbal)}
+              </td>
+              <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-red-700">
+                −{rupiah(jumlah.potongan)}
+              </td>
+              <td className="px-3 py-2.5 whitespace-nowrap tabular-nums font-semibold text-navy">
+                {rupiah(jumlah.diterima)}
+              </td>
+              <td />
+              <td />
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );
@@ -260,7 +329,12 @@ export function TabelPortofolioPendanaan({
  * Hanya dirender untuk peran pendana; server sendiri sudah membatasi query ke
  * alokasi atas nama pembaca.
  */
-export function PortofolioPendanaanSection() {
+export function PortofolioPendanaanSection({
+  persenPotonganAdmin,
+}: {
+  /** Tarif biaya platform dari Pengaturan Sistem, dalam persen. */
+  persenPotonganAdmin: number;
+}) {
   const data = useQuery(api.alokasiDana.myPortfolio);
   const [produk, setProduk] = useState<"konvensional" | "syariah">(
     "konvensional",
@@ -326,6 +400,7 @@ export function PortofolioPendanaanSection() {
         <PortofolioSyariah />
       ) : (
         <TabelPortofolioPendanaan
+          persenPotonganAdmin={persenPotonganAdmin}
           rows={data.map((row) => ({
             id: String(row._id),
             nomorReferensi: row.loanRef || row.nomorReferensi,
@@ -337,8 +412,11 @@ export function PortofolioPendanaanSection() {
         />
       )}
       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-        Tanggal return adalah jatuh tempo pinjaman, bukan janji pembayaran.
-        Pembayaran dapat lebih lambat bila peminjam menunggak.
+        Biaya platform {persenPotonganAdmin}% dihitung dari total kembali (pokok
+        + Imbal Hasil), bukan dari imbal saja. Diterima bersih adalah uang yang
+        masuk dompet Anda setelah biaya itu. Tanggal return adalah jatuh tempo
+        pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila
+        peminjam menunggak.
       </p>
     </section>
   );

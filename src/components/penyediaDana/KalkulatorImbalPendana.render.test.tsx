@@ -3,8 +3,10 @@
  * Run: bun src/components/penyediaDana/KalkulatorImbalPendana.render.test.tsx
  *
  * Yang dijaga: kalkulator memakai rumus tetap (pokok × 30%), tabel menampilkan
- * tenor "30 Hari" dan yield "30% p.p." untuk semua baris, status pendanaan
- * terbaca sebagai teks, dan rincian tenor nasabah tidak bocor ke UI pendana.
+ * tenor "30 Hari" dan yield "30% p.p." untuk semua baris, biaya platform
+ * dihitung dari total kembali (bukan dari imbal saja), penerimaan bersih serta
+ * baris totalnya bisa dicocokkan sendiri, status pendanaan terbaca sebagai
+ * teks, dan rincian tenor nasabah tidak bocor ke UI pendana.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -59,6 +61,7 @@ function bersih(html: string, label: string): void {
 {
   const html = renderToStaticMarkup(
     <TabelPortofolioPendanaan
+      persenPotonganAdmin={5}
       rows={[
         {
           id: "a",
@@ -84,7 +87,9 @@ function bersih(html: string, label: string): void {
     "Nominal",
     "Tenor",
     "Yield pendana",
-    "Estimasi imbal",
+    "Imbal bruto",
+    "Biaya platform (5%)",
+    "Diterima bersih",
     "Proyeksi return",
     "Status",
   ]) {
@@ -93,7 +98,14 @@ function bersih(html: string, label: string): void {
   ok((html.match(/30 Hari/g) ?? []).length >= 2, "setiap baris memakai tenor 30 Hari");
   ok((html.match(/30% p\.p\./g) ?? []).length >= 2, "setiap baris memakai yield 30% p.p.");
   ada(html, "PND-1", "nomor referensi tampil");
-  ada(html, "Rp 300.000", "estimasi return tampil");
+  ada(html, "Rp 300.000", "imbal bruto tampil");
+  ada(html, "Rp 65.000", "biaya platform 5% dari total kembali dihitung per baris");
+  ada(html, "Rp 1.235.000", "diterima bersih per baris");
+  ada(html, "Rp 32.500", "baris kedua memakai tarif yang sama");
+  ada(html, "Rp 617.500", "penerimaan bersih baris kedua");
+  ada(html, "Total", "baris total ada");
+  ada(html, "Rp 97.500", "total biaya platform dijumlahkan dari baris");
+  ada(html, "Rp 1.852.500", "total diterima bersih dijumlahkan dari baris");
   ada(html, "Berjalan", "status berjalan tampil");
   ada(html, "Selesai", "status selesai tampil");
   ada(html, "31 Okt 2026", "proyeksi tanggal return memakai jatuh tempo");
@@ -106,6 +118,7 @@ function bersih(html: string, label: string): void {
 {
   const html = renderToStaticMarkup(
     <TabelPortofolioPendanaan
+      persenPotonganAdmin={5}
       rows={[
         {
           id: "c",
@@ -121,9 +134,33 @@ function bersih(html: string, label: string): void {
   ada(html, "Belum ada", "baris tanpa jatuh tempo tidak menampilkan tanggal palsu");
 }
 
+// ===== Tarif biaya mengikuti pengaturan, bukan angka di layar =====
+{
+  const html = renderToStaticMarkup(
+    <TabelPortofolioPendanaan
+      persenPotonganAdmin={7}
+      rows={[
+        {
+          id: "d",
+          nomorReferensi: "PND-4",
+          pokok: 1_000_000,
+          imbalHasil: 300_000,
+          status: "Berjalan",
+          tanggalReturn: null,
+        },
+      ]}
+    />,
+  );
+  ada(html, "Biaya platform (7%)", "tarif biaya mengikuti pengaturan");
+  ada(html, "Rp 91.000", "biaya 7% dari total kembali");
+  ada(html, "Rp 1.209.000", "penerimaan bersih pada tarif 7%");
+}
+
 // ===== Keadaan kosong =====
 {
-  const html = renderToStaticMarkup(<TabelPortofolioPendanaan rows={[]} />);
+  const html = renderToStaticMarkup(
+    <TabelPortofolioPendanaan persenPotonganAdmin={5} rows={[]} />,
+  );
   ada(html, "Belum ada pendanaan", "keadaan kosong menjelaskan sebabnya");
   ada(html, "setelah alokasi dana dicatat", "keadaan kosong memberi langkah berikutnya");
   bersih(html, "tabel kosong");

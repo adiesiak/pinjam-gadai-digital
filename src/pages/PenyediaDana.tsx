@@ -2677,7 +2677,9 @@ function IsiRuang() {
                     />
                   </div>
                 </details>
-                <PortofolioPendanaanSection />
+                <PortofolioPendanaanSection
+                  persenPotonganAdmin={data.ringkasan.persenPotonganAdmin}
+                />
               </>
             )}
 
