@@ -331,5 +331,20 @@ describe("jaminan tambahan tenor panjang", () => {
       nomorTandaTerimaAtm: "ATM/2026/0142",
     });
     expect(hasil.nomorReferensi.length).toBeGreaterThan(0);
+
+    // Tenor 9 dan 12 bulan kini resmi: tarifnya 12%/bulan (marjin total 108%
+    // dan 144%), dengan jaminan tambahan yang sama.
+    for (const tenorPanjang of [9, 12] as const) {
+      const panjang = await sesi.mutation(api.loans.createLoanApplication, {
+        ...dasar,
+        tenorBulan: tenorPanjang,
+        pokokPinjaman: 3_000_000,
+        dokKartuKeluargaId: kk,
+        dokBuktiDomisiliId: domisili,
+        atmDititipkan: true,
+        nomorTandaTerimaAtm: "ATM/2026/0142",
+      });
+      expect(panjang.nomorReferensi.length).toBeGreaterThan(0);
+    }
   });
 });

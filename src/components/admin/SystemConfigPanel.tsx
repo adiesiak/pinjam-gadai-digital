@@ -547,7 +547,7 @@ export function SystemConfigPanel() {
                   Tarif pinjaman bulanan & kredit barang
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                  Dipakai untuk pengajuan BARU tenor 1/3/6 bulan. Pinjaman dan
+                  Dipakai untuk pengajuan BARU tenor 1/3/6/9/12 bulan. Pinjaman dan
                   kredit yang sudah terbit memakai tarif yang dibekukan saat
                   pengajuan, jadi tidak ikut berubah.
                 </p>

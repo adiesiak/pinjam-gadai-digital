@@ -24,7 +24,6 @@ import { isRupiah, percentOf, type Rupiah } from "./money";
 import {
   hitungSimulasiBulanan,
   tarifBulananAman,
-  TENOR_BULANAN_OPTIONS,
   type CicilanBulananRow,
   type TarifBulanan,
 } from "./bulanan";
@@ -193,14 +192,19 @@ function bulatDuaDesimal(v: number): number {
 }
 
 /**
- * True bila tenor memakai skema bulanan (1/3/6 bulan): DP 0%, biaya 2%
- * (admin 2%, platform dihapus) dari pokok untuk seluruh tenor resmi — dipotong
- * di muka, setiap pembayaran menambah biaya admin cicilan 2% — dan bunga flat per
- * tenor; input DP/margin manual diabaikan engine.
- * Dipakai UI agar slider yang tidak berpengaruh disembunyikan.
+ * True bila tenor memakai skema bulanan kredit barang (1/3/6 bulan): DP 0%,
+ * biaya 2% (admin 2%, platform dihapus) dari pokok — dipotong di muka, setiap
+ * pembayaran menambah biaya admin cicilan 2% — dan bunga flat per tenor; input
+ * DP/margin manual diabaikan engine. Dipakai UI agar slider yang tidak
+ * berpengaruh disembunyikan.
+ *
+ * Sengaja memakai `KREDIT_TENOR_PENGAJUAN_OPTIONS`, bukan
+ * `TENOR_BULANAN_OPTIONS`: daftar tenor resmi pinjaman tunai bisa bertambah
+ * (9 dan 12 bulan), sedangkan kontrak kredit barang 12/24 bulan adalah warisan
+ * yang harus tetap dihitung skema DP + margin.
  */
 export function skemaBulananKredit(tenorBulan: number): boolean {
-  return (TENOR_BULANAN_OPTIONS as readonly number[]).includes(tenorBulan);
+  return (KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(tenorBulan);
 }
 
 /**
@@ -228,7 +232,9 @@ export function quoteKreditBarang(input: KreditBarangInput): KreditBarangQuote {
   }
   // Tenor 1/3/6 bulan (skema bulanan) tidak memakai DP & margin flat —
   // validasi keduanya dilewati; skema DP + margin (warisan 12/24) tetap ketat.
-  const skemaBulanan = (TENOR_BULANAN_OPTIONS as readonly number[]).includes(tenorBulan);
+  const skemaBulanan = (KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(
+    tenorBulan,
+  );
   if (
     !skemaBulanan &&
     (!Number.isFinite(dpPersen) ||

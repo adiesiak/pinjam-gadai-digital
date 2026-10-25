@@ -12,18 +12,20 @@
  *     porsinya.
  *
  *  2. Marjin tenor bulanan adalah marjin TOTAL sepanjang tenor, bukan per
- *     bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%. Nilainya dibaca dari tarif
- *     bawaan `lib/bulanan` supaya tidak ada angka kedua yang bisa berbeda.
- *     Tenor 3 dan 6 bulan hanya untuk pokok mulai Rp3.000.000.
+ *     bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%, 9 bulan 108%, 12 bulan
+ *     144% (12% per bulan sejak tenor 6). Nilainya dibaca dari tarif bawaan
+ *     `lib/bulanan` supaya tidak ada angka kedua yang bisa berbeda.
+ *     Tenor 3 bulan ke atas hanya untuk pokok mulai Rp3.000.000.
  *
  * Syarat dokumen mengikuti risiko: tenor 1 bulan cukup KTP, selfie, dan KK;
- * tenor 3/6 bulan atau pokok ≥ Rp3.000.000 menambah bukti domisili, bukti
+ * tenor 3 bulan ke atas atau pokok ≥ Rp3.000.000 menambah bukti domisili, bukti
  * penghasilan, dan penitipan kartu ATM. PIN tidak pernah diminta atau disimpan:
  * yang dicatat hanya nomor tanda terima penitipan.
  */
 /**
  * Marjin per bulan menurut kebijakan tenor. Marjin TOTAL satu tenor adalah
- * angka ini dikali jumlah bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%.
+ * angka ini dikali jumlah bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%,
+ * 9 bulan 108%, 12 bulan 144% — 12% per bulan sejak tenor 6.
  *
  * Angka ini adalah kebijakan produk. Tarif bawaan mesin bulanan
  * (`BULANAN_PRICING`) menyamakan nilainya, sehingga perhitungan, kontrak, dan
@@ -33,6 +35,8 @@ export const MARJIN_PER_BULAN: Readonly<Record<number, number>> = {
   1: 30,
   3: 20,
   6: 12,
+  9: 12,
+  12: 12,
 };
 
 /** Porsi marjin: pendana 47/60, platform 13/60. */
@@ -117,6 +121,8 @@ export function marjinTotalTenor(tenorBulan: number): number {
 export const MINIMUM_POKOK_TENOR: Readonly<Record<number, number>> = {
   3: 3_000_000,
   6: 3_000_000,
+  9: 3_000_000,
+  12: 3_000_000,
 };
 
 /** Pokok minimum untuk tenor bulanan; 0 bila tenor tidak dibatasi. */
@@ -158,7 +164,7 @@ export type SyaratUnderwriting = {
 /**
  * Syarat dokumen satu pengajuan.
  *
- * Tenor 1 bulan: KTP, selfie KTP, dan KK. Tenor 3/6 bulan ATAU pokok
+ * Tenor 1 bulan: KTP, selfie KTP, dan KK. Tenor 3 bulan ke atas ATAU pokok
  * Rp3.000.000 ke atas menambah bukti domisili, bukti penghasilan, dan
  * penitipan ATM.
  */

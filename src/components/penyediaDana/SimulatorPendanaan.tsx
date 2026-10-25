@@ -36,7 +36,7 @@ const AKAD: readonly { id: Akad; label: string }[] = [
   { id: "rahn", label: "Rahn" },
 ];
 
-const SIKLUS = [1, 3, 6] as const;
+const SIKLUS = [1, 3, 6, 9, 12] as const;
 const TENOR_RAHN = [30, 60, 90] as const;
 const NOMINAL_AWAL = 1_000_000;
 

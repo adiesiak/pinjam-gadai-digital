@@ -68,7 +68,7 @@ export function PilihanProduk({
         </p>
         {ringkas ? (
           <p className="mt-2 text-xs leading-5 text-slate-500">
-            Harian 7/14/21/28 hari atau cicilan 1/3/6 bulan.
+            Harian 7/14/21/28 hari atau cicilan 1/3/6/9/12 bulan.
           </p>
         ) : (
           <ul className="mt-3 space-y-1.5">

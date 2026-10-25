@@ -9,10 +9,11 @@ import {
   quotePinjaman,
   simulasiBulananPinjaman,
 } from "../lib/loan";
-import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
+import { hitungSimulasiBulanan } from "../lib/bulanan";
 import {
   hakImbalHasilPerAlokasi,
   KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
+  KREDIT_TENOR_PENGAJUAN_OPTIONS,
   quoteKreditBarang,
 } from "../lib/kredit";
 import { formatRupiah, type Rupiah } from "../lib/money";
@@ -1333,7 +1334,7 @@ export const marketplaceKredit = query({
         .filter((f) => f.status === "dialokasikan")
         .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
       const simulasiBulanan = (
-        TENOR_BULANAN_OPTIONS as readonly number[]
+        KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]
       ).includes(k.tenorBulan)
         ? hitungSimulasiBulanan(quote.pokokDibiayai, k.tenorBulan, {
             tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
@@ -1383,7 +1384,7 @@ export const marketplaceKredit = query({
         catatanJadwal:
           simulasiBulanan === null
             ? "Biaya layanan dibayar di muka dan tidak termasuk dalam jumlah cicilan bulanan."
-            : "Biaya admin 2% dari pokok (biaya platform dihapus) dipotong di muka untuk seluruh tenor 1/3/6 bulan; setiap pembayaran bulanan dikenai tambahan biaya admin 2% dari nominal cicilan.",
+            : "Biaya admin 2% dari pokok (biaya platform dihapus) dipotong di muka untuk seluruh tenor 1/3/6/9/12 bulan; setiap pembayaran bulanan dikenai tambahan biaya admin 2% dari nominal cicilan.",
         terkumpul,
         sisaKebutuhan: quote.pokokDibiayai - terkumpul,
       });
@@ -1616,7 +1617,7 @@ export const myKreditFundings = query({
       }
       const simulasiBulanan =
         quote !== null &&
-        (TENOR_BULANAN_OPTIONS as readonly number[]).includes(kredit.tenorBulan)
+        (KREDIT_TENOR_PENGAJUAN_OPTIONS as readonly number[]).includes(kredit.tenorBulan)
           ? hitungSimulasiBulanan(quote.pokokDibiayai, kredit.tenorBulan, {
               tenorBiayaAdminPlatform: KREDIT_TENOR_BIAYA_ADMIN_PLATFORM,
               tarif: kredit.tarifBulanan ?? null,

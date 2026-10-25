@@ -45,7 +45,7 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Pinjaman bulanan",
     rak: "Laci 02",
     Icon: Landmark,
-    judul: "Skema bulanan (tenor 1 / 3 / 6 bulan)",
+    judul: "Skema bulanan (tenor 1 / 3 / 6 / 9 / 12 bulan)",
     isi: "Cicilan rata dari pokok penuh: angsuran berisi pokok dan bunga; biaya tenor dipotong di muka.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
@@ -68,7 +68,7 @@ const ISI_BRANKAS: ReadonlyArray<{
       ["Nilai pembiayaan", "Hingga Rp 10 jt"],
       ["Uang muka", "0%"],
       ["Potongan di muka", "2% (biaya admin; platform 0%)"],
-      ["Tenor", "1 / 3 / 6 bulan"],
+      ["Tenor", "1 / 3 / 6 / 9 / 12 bulan"],
       ["Cicilan", "Rata dari pokok penuh"],
     ],
   },

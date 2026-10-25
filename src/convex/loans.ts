@@ -548,11 +548,11 @@ export const createLoanApplication = mutation({
     cairEkspres: v.optional(v.boolean()),
     /**
      * Tenor bulanan (DP 0%, potongan di muka 2% — biaya admin 2% untuk tenor
-     * 3/6, biaya layanan 2% untuk tenor 1, biaya platform dihapus; bunga flat
-     * dari pokok penuh mengikuti tarif akun, bawaan 30%/20%/12% per bulan untuk
-     * tenor 1/3/6 bulan; biaya admin
-     * cicilan 2% pada setiap pembayaran) — pinjaman DI LUAR plafon 1 jt / 28
-     * hari. Bila diisi, `tenorHari` diabaikan.
+     * 3/6/9/12, biaya layanan 2% untuk tenor 1, biaya platform dihapus; bunga
+     * flat dari pokok penuh mengikuti tarif akun, bawaan 30%/20%/12% per bulan
+     * untuk tenor 1/3/6 ke atas; biaya admin cicilan 2% pada setiap pembayaran)
+     * — pinjaman DI LUAR plafon 1 jt / 28 hari. Bila diisi, `tenorHari`
+     * diabaikan.
      */
     tenorBulan: v.optional(v.number()),
     // ===== KYC wajib =====

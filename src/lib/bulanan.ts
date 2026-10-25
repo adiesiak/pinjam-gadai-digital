@@ -14,15 +14,14 @@
  *    selalu 2% (dana diterima 98%), berapa pun tenor yang dipilih.
  *  - Bunga/margin (hak penyedia dana) — FLAT dari pokok penuh, sama besar setiap
  *    bulan (tidak menurun dari sisa pokok):
- *      tenor 1 bulan  → 30% / bulan (marjin 30%)
- *      tenor 3 bulan  → 20% / bulan (marjin total 60%)
- *      tenor ≥ 6 bln  → 12% / bulan (marjin total 72%)
+ *      tenor 1 bulan   → 30% / bulan (marjin total 30%)
+ *      tenor 3 bulan   → 20% / bulan (marjin total 60%)
+ *      tenor ≥ 6 bulan → 12% / bulan (6 bln 72%, 9 bln 108%, 12 bln 144%)
  *  - Cicilan = angsuran pokok + bunga bulan itu. Karena bunga flat, cicilan
  *    bulanan rata (bulan terakhir hanya menyerap pembulatan pokok).
- *  - SETIAP tenor bulanan resmi (1, 3, dan 6 bulan) dikenai biaya admin
- *    layanan 2% DARI NOMINAL CICILAN yang dibayar bersama cicilan setiap
- *    bulan (bukan dipotong di muka). Tenor warisan 12/24 tidak dikenai agar
- *    angka kontrak lama tidak berubah.
+ *  - SETIAP tenor bulanan resmi (1, 3, 6, 9, dan 12 bulan) dikenai biaya
+ *    admin layanan 2% DARI NOMINAL CICILAN yang dibayar bersama cicilan
+ *    setiap bulan (bukan dipotong di muka).
  *  - Dana diterima Peminjam = pokok − potongan di muka.
  *
  * Guardrail Rule 3: semua uang integer rupiah — pembagian pokok memakai
@@ -32,7 +31,7 @@
 import { isRupiah, percentOf, type Rupiah } from "./money";
 
 /** Pilihan tenor bulanan resmi skema ini (bulan). */
-export const TENOR_BULANAN_OPTIONS = [1, 3, 6] as const;
+export const TENOR_BULANAN_OPTIONS = [1, 3, 6, 9, 12] as const;
 
 /**
  * Tenor default yang memakai biaya admin 2% (platform 0%) dari pokok
@@ -41,7 +40,7 @@ export const TENOR_BULANAN_OPTIONS = [1, 3, 6] as const;
  * Skema kredit barang menyeragamkan seluruh tenor resminya lewat opsi
  * `tenorBiayaAdminPlatform` pada hitungSimulasiBulanan.
  */
-export const TENOR_BIAYA_ADMIN_PLATFORM_DEFAULT = [3, 6] as const;
+export const TENOR_BIAYA_ADMIN_PLATFORM_DEFAULT = [3, 6, 9, 12] as const;
 
 /**
  * Tarif skema bulanan yang bisa diatur admin.
@@ -119,7 +118,7 @@ export const BULANAN_PRICING = {
   biayaTenor3_6Persen: 2,
   /**
    * Biaya admin layanan yang dibayar bersama SETIAP cicilan (% dari nominal
-   * cicilan pokok + bunga). Berlaku pada semua tenor resmi (1, 3, 6 bulan).
+   * cicilan pokok + bunga). Berlaku pada semua tenor resmi (1, 3, 6, 9, 12).
    */
   biayaAdminCicilanPersen: 2,
   /** Biaya admin (% pokok) pada tenor yang memakai admin + platform di muka. */
@@ -142,7 +141,11 @@ export const BULANAN_PRICING = {
    * marjin total 72%, sesuai kebijakan tenor di `lib/kebijakanPinjaman`.
    */
   bungaMin6PersenPerBulan: 12,
-  /** Batas profit total terhadap pokok untuk tenor resmi (tertinggi 6 bln = 72%). */
+  /**
+   * Batas profit total terhadap pokok untuk tenor resmi — tertinggi 12 bulan:
+   * bunga 144% + potongan di muka 2% + biaya admin cicilan. Batas ini penjaga
+   * salah konfigurasi admin, bukan angka yang dijanjikan ke nasabah.
+   */
   maxProfitTotalPersen: 230,
 } as const;
 
@@ -200,9 +203,9 @@ export function metodeBungaBulanan(tenorBulan: number): "menurun" | "flat" {
 /**
  * Apakah tenor dikenai biaya admin cicilan 2% dari nominal cicilan.
  *
- * Berlaku untuk SETIAP pembayaran bulanan pada tenor resmi (1, 3, dan 6
- * bulan). Tenor warisan 12/24 sengaja tetap tanpa biaya ini supaya angka
- * kontrak lama tidak berubah.
+ * Berlaku untuk SETIAP pembayaran bulanan pada tenor resmi (1, 3, 6, 9, dan
+ * 12 bulan). Kontrak kredit barang warisan 12/24 bulan dihitung jalur
+ * terpisah di `lib/kredit`, jadi tidak terpengaruh fungsi ini.
  */
 export function tenorDenganBiayaAdminCicilan(tenorBulan: number): boolean {
   if (!Number.isSafeInteger(tenorBulan) || tenorBulan <= 0) {

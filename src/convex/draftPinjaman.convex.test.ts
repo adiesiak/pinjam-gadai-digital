@@ -146,7 +146,8 @@ describe("draf pengajuan pinjaman", () => {
       sesi.mutation(api.draftPinjaman.simpanDraft, {
         ...DRAF,
         skema: "bulanan",
-        tenorBulan: 12,
+        // 24 bulan bukan tenor resmi (1/3/6/9/12).
+        tenorBulan: 24,
       }),
     ).rejects.toThrow(/tenor/i);
   });

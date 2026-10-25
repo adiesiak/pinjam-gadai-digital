@@ -82,18 +82,18 @@ check(
   "monthly schedule is disclosed as illustrative, not a payment record",
 );
 // Kalkulator bulanan harus memakai tarif tenor yang sama dengan mesin pengajuan
-// (bawaan 33%/bulan untuk tenor 3), bukan angka 30% yang dulu dipakai bersama
+// (bawaan 20%/bulan untuk tenor 3), bukan angka 30% yang dulu dipakai bersama
 // bunga harian.
 check(
-  biaya.includes("Bunga flat 33% per bulan"),
+  biaya.includes("Bunga flat 20% per bulan"),
   "monthly calculator uses the engine rate for 3-month tenor",
 );
 check(
-  biaya.includes("Rp 2.029.801"),
+  biaya.includes("Rp 1.632.001"),
   "monthly calculator total matches the borrower dashboard for 1jt/3bln",
 );
 check(
-  biaya.includes("Bunga selama tenor") && biaya.includes("Rp 990.000"),
+  biaya.includes("Bunga selama tenor") && biaya.includes("Rp 600.000"),
   "monthly calculator shows total interest for the whole tenor",
 );
 check(

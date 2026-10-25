@@ -25,12 +25,12 @@ export function DashboardFooter() {
             bunga flat 26–40% sesuai nominal dan tenor.
           </li>
           <li>
-            Bulanan (1–6 bulan): DP 0%, potongan di muka 2% (biaya admin; biaya
-            platform dihapus).
+            Bulanan (1/3/6/9/12 bulan): DP 0%, potongan di muka 2% (biaya admin;
+            biaya platform dihapus).
           </li>
           <li>
-            Bunga flat dari pokok penuh: 30% (tenor 1 bulan), 33% (tenor 3
-            bulan), 35% (tenor 6 bulan) per bulan.
+            Bunga flat dari pokok penuh: 30% (tenor 1 bulan), 20% (tenor 3
+            bulan), 12% (tenor 6 bulan ke atas) per bulan.
           </li>
           <li>Angka dan status mengikuti catatan PINDAI.</li>
         </ul>
