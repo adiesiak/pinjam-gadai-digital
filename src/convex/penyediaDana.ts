@@ -313,6 +313,8 @@ export type BarisKredit = {
   didanaiPada: number | null;
   /** Nama penyedia dana yang mencatat alokasi — null bila belum didanai. */
   pendana: string | null;
+  /** Jumlah cicilan bulanan yang sudah tercatat (0..tenorBulan). */
+  cicilanDibayar: number;
   /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
   lokasi: LokasiTitik | null;
 };
@@ -793,6 +795,12 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
 
     const kredit: BarisKredit[] = [];
     for (const item of kreditMentah.slice(0, BATAS_BARIS)) {
+      // Progres cicilan dibaca dari baris pembayaran, bukan disimpan di
+      // pengajuan: satu sumber angka untuk tabel, detail, dan portofolio.
+      const cicilan = await ctx.db
+        .query("kreditPayments")
+        .withIndex("by_kredit", (q) => q.eq("kreditId", item._id))
+        .collect();
       kredit.push({
         _id: item._id,
         nomorReferensi: item.nomorReferensi,
@@ -810,6 +818,7 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         didanaiPada: item.didanaiPada ?? null,
         pendana:
           item.didanaiPada === undefined ? null : await pendanaKredit(item._id),
+        cicilanDibayar: cicilan.length,
         lokasi: await lokasiUntuk(item.userId),
       });
     }

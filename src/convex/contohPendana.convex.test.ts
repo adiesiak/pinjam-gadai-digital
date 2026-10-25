@@ -5,7 +5,9 @@
  * - Dua pinjaman contoh (berjalan + lunas) benar-benar muncul di rekap ruang
  *   /penyedia-dana sebagai portofolio "PENDANA UJI COBA", dengan pembagian
  *   marjin 47 : 13 yang sama dengan mesin harga.
- * - Seed idempoten: dijalankan dua kali tidak menggandakan akun/pinjaman.
+ * - Dua kredit contoh (3 dan 6 bulan) tampil dengan progres cicilan 2 dari 3/6
+ *   dan Imbal Hasil dari alokasi penuh, bukan angka yang diketik terpisah.
+ * - Seed idempoten: dijalankan dua kali tidak menggandakan akun/pinjaman/kredit.
  * - Seed TIDAK menyentuh dompet, ledger, maupun siklus 30 hari — contoh data
  *   tidak boleh menciptakan kewajiban pencairan.
  * - Penghapusan hanya menyentuh baris contoh dan aman dijalankan dua kali.
@@ -26,7 +28,14 @@ const HAPUS = { konfirmasi: "HAPUS_CONTOH_PENDANA" } as const;
 /** Hitung baris satu tabel dari konteks uji tanpa membuka data ke klien. */
 async function jumlahBaris(
   t: KonteksUji,
-  tabel: "loans" | "users" | "siklusPendana" | "ledger_entries",
+  tabel:
+    | "loans"
+    | "users"
+    | "siklusPendana"
+    | "ledger_entries"
+    | "kreditBarang"
+    | "kreditPayments"
+    | "kreditFundings",
 ): Promise<number> {
   return t.run(async (ctx) => (await ctx.db.query(tabel).collect()).length);
 }
@@ -94,6 +103,43 @@ describe("contoh data pendana", () => {
       keuntunganAdmin: 65_000,
     });
 
+    // Kredit contoh: tenor 3 dan 6 bulan, masing-masing sudah dicicil 2 kali.
+    expect(hasil.kredit).toEqual([
+      {
+        nomorReferensi: "KRD-CONTOH-0001",
+        tenorBulan: 3,
+        hargaBarang: 3_000_000,
+        cicilanDibayar: 2,
+      },
+      {
+        nomorReferensi: "KRD-CONTOH-0002",
+        tenorBulan: 6,
+        hargaBarang: 6_000_000,
+        cicilanDibayar: 2,
+      },
+    ]);
+    const kredit = ruang.kredit.filter((k) =>
+      k.nomorReferensi.startsWith("KRD-CONTOH-"),
+    );
+    expect(kredit).toHaveLength(2);
+    expect(kredit.find((k) => k.nomorReferensi === "KRD-CONTOH-0001")).toMatchObject({
+      status: "didanai",
+      tenorBulan: 3,
+      cicilanDibayar: 2,
+      pendana: "PENDANA UJI COBA",
+    });
+    expect(kredit.find((k) => k.nomorReferensi === "KRD-CONTOH-0002")).toMatchObject({
+      status: "didanai",
+      tenorBulan: 6,
+      cicilanDibayar: 2,
+      pendana: "PENDANA UJI COBA",
+    });
+
+    // Dua cicilan per kredit, satu alokasi penuh per kredit.
+    expect(await jumlahBaris(t, "kreditBarang")).toBe(2);
+    expect(await jumlahBaris(t, "kreditPayments")).toBe(4);
+    expect(await jumlahBaris(t, "kreditFundings")).toBe(2);
+
     // Contoh data bukan transaksi: tidak ada dompet, jurnal, atau siklus.
     expect(await jumlahBaris(t, "ledger_entries")).toBe(0);
     expect(await jumlahBaris(t, "siklusPendana")).toBe(0);
@@ -107,7 +153,11 @@ describe("contoh data pendana", () => {
     expect(kedua.pendanaId).toBe(pertama.pendanaId);
     expect(kedua.peminjamId).toBe(pertama.peminjamId);
     expect(kedua.pinjaman).toEqual(pertama.pinjaman);
+    expect(kedua.kredit).toEqual(pertama.kredit);
     expect(await jumlahBaris(t, "loans")).toBe(2);
+    expect(await jumlahBaris(t, "kreditBarang")).toBe(2);
+    expect(await jumlahBaris(t, "kreditPayments")).toBe(4);
+    expect(await jumlahBaris(t, "kreditFundings")).toBe(2);
     expect(await jumlahBaris(t, "users")).toBe(2);
 
     // Akun pendana lain tidak boleh ikut hilang.
@@ -122,10 +172,14 @@ describe("contoh data pendana", () => {
     expect(hapus).toEqual({
       ok: true,
       pinjamanDihapus: 2,
+      kreditDihapus: 2,
       peminjamDihapus: true,
       pendanaDihapus: true,
     });
     expect(await jumlahBaris(t2, "loans")).toBe(0);
+    expect(await jumlahBaris(t2, "kreditBarang")).toBe(0);
+    expect(await jumlahBaris(t2, "kreditPayments")).toBe(0);
+    expect(await jumlahBaris(t2, "kreditFundings")).toBe(0);
     expect(await t2.run(async (ctx) => ctx.db.get(lainId))).not.toBeNull();
     expect(await t2.run(async (ctx) => ctx.db.get(contoh.pendanaId))).toBeNull();
 

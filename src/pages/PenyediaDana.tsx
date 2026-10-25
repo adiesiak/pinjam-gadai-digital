@@ -776,6 +776,14 @@ function DetailKredit({
       />
       <BarisDetail label="Tenor" nilai={`${row.tenorBulan} bulan`} />
       <BarisDetail
+        label="Cicilan dibayar"
+        nilai={
+          row.didanaiPada === null
+            ? "belum berjalan"
+            : `${row.cicilanDibayar} dari ${row.tenorBulan} bulan`
+        }
+      />
+      <BarisDetail
         label="Jatuh tempo"
         nilai={
           jatuhTempo === null ? "belum didanai" : tanggalRingkas(jatuhTempo)
@@ -3186,6 +3194,9 @@ function IsiRuang() {
                           </InfoKartu>
                           <InfoKartu label="Tenor">
                             {row.tenorBulan} bulan
+                            {row.didanaiPada === null
+                              ? null
+                              : ` · ${row.cicilanDibayar}/${row.tenorBulan} cicilan`}
                           </InfoKartu>
                           <InfoKartu label="Tanggal">
                             {tanggalRingkas(row.diajukanPada)}
@@ -3242,6 +3253,11 @@ function IsiRuang() {
                             </TableCell>
                             <TableCell className="align-top">
                               <BadgeKredit status={row.status} />
+                              {row.didanaiPada === null ? null : (
+                                <p className="mt-1 text-xs tabular-nums text-slate-600">
+                                  {row.cicilanDibayar}/{row.tenorBulan} cicilan
+                                </p>
+                              )}
                             </TableCell>
                             <SelPendana
                               pendana={
