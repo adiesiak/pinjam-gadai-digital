@@ -89,3 +89,52 @@ export function adaFilter(filter: FilterPengajuan): boolean {
 export function ringkasJumlah(tampil: number, total: number): string {
   return `Menampilkan ${tampil} dari ${total} pengajuan`;
 }
+
+/** Kolom minimum untuk membagi pinjaman ke tab antrean. */
+export type BarisAntrean = {
+  status: string;
+  /** Tanggal dana disalurkan; `null`/tidak ada = belum disalurkan. */
+  didanaiPada?: number | null;
+};
+
+export type AntreanPinjaman<T> = {
+  ditolak: T[];
+  baru: T[];
+  didanai: T[];
+  lunas: T[];
+};
+
+/**
+ * Empat keranjang tab daftar pinjaman di ruang pendana.
+ *
+ * Aturan ini dulu ditulis inline di halaman, dan justru bagian yang paling
+ * mudah salah saat data lama masuk: sebagian baris berstatus `didanai` tetapi
+ * `didanaiPada`-nya kosong, dan sebagian baris warisan sudah punya
+ * `didanaiPada` meski statusnya belum `didanai`. Karena itu `status` yang
+ * otoritatif didahulukan, `didanaiPada` hanya pelengkap:
+ *  - `lunas` dan `ditolak` selalu ke tabnya sendiri, apa pun tanggalnya;
+ *  - `didanai` (atau tanggal disalurkan sudah ada) masuk "Disalurkan";
+ *  - sisanya antrean "Belum didanai".
+ *
+ * Urutan baris di dalam tiap keranjang dipertahankan seperti masukan.
+ */
+export function bagiAntreanPinjaman<T extends BarisAntrean>(
+  baris: T[],
+): AntreanPinjaman<T> {
+  const ditolak: T[] = [];
+  const baru: T[] = [];
+  const didanai: T[] = [];
+  const lunas: T[] = [];
+  for (const b of baris) {
+    if (b.status === "lunas") {
+      lunas.push(b);
+    } else if (b.status === "ditolak") {
+      ditolak.push(b);
+    } else if (b.status === "didanai" || b.didanaiPada != null) {
+      didanai.push(b);
+    } else {
+      baru.push(b);
+    }
+  }
+  return { ditolak, baru, didanai, lunas };
+}

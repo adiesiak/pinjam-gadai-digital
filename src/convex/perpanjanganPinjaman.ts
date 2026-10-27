@@ -20,7 +20,7 @@ import {
   appendJournal,
   catatMarginSpread,
 } from "./ledger";
-import { potonganDariKembali } from "../lib/bagiHasil";
+import { bagiMargin } from "../lib/kebijakanPinjaman";
 
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
 import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
@@ -428,8 +428,8 @@ async function catatPelunasanTotal(
       akunPayout = jalurSiklus.akun;
       kelebihan = jalurSiklus.kelebihan;
     } else {
-      // Baris lama tanpa siklus: potongan dari total kembali, sisa ke pendana.
-      potonganAdmin = potonganDariKembali(bruto, cfg.persenAdmin);
+      // Baris lama tanpa siklus: porsi platform 13/60 dari marjin, sisa ke pendana.
+      potonganAdmin = bagiMargin(imbal).platform;
       imbalBersih = bruto - potonganAdmin;
       akunPayout = akunDompetDana(funding.danaId);
     }
@@ -438,7 +438,7 @@ async function catatPelunasanTotal(
       skema: "pinjaman",
       keterangan:
         potonganAdmin > 0
-          ? `Pelunasan ${loan.nomorReferensi}: pembayaran ke ${funding.nomorReferensi}, bruto ${formatRupiah(bruto)}, potongan admin ${cfg.persenAdmin}% ${formatRupiah(potonganAdmin)}, dibayarkan ${formatRupiah(imbalBersih)}`
+          ? `Pelunasan ${loan.nomorReferensi}: pembayaran ke ${funding.nomorReferensi}, bruto ${formatRupiah(bruto)}, porsi platform 13/60 marjin ${formatRupiah(potonganAdmin)}, dibayarkan ${formatRupiah(imbalBersih)}`
           : `Pelunasan ${loan.nomorReferensi}: pembayaran ke ${funding.nomorReferensi}`,
       aktor: "platform",
       lines: [

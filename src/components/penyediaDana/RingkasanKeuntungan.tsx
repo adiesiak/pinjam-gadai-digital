@@ -12,7 +12,7 @@ export type AngkaRingkasanKeuntungan = {
   totalKeuntunganPendanaBelumLunas: number;
   /** Jumlah keduanya. */
   totalKeuntunganPendana: number;
-  /** Biaya platform (layanan) dari total pengembalian (berjalan + lunas). */
+  /** Porsi platform 13/60 marjin (berjalan + lunas). */
   totalKeuntunganAdmin: number;
   totalKeuntunganAdminLunas: number;
   totalKeuntunganAdminBelumLunas: number;

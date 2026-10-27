@@ -599,14 +599,11 @@ export function PublicInfoPageView({
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <a className="skip-link" href="#konten">
-        Lewati ke konten utama
-      </a>
       <Header />
       <main
         id="konten"
         tabIndex={-1}
-        className="mx-auto min-h-[70vh] w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14"
+        className="mx-auto min-h-[70vh] w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-14"
       >
         <Link
           to="/"

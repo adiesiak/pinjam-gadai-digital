@@ -46,7 +46,7 @@ export const PITA: readonly { kunci: Pita; label: string; kolom: readonly KunciT
  *
  * Warnanya dipakai bertingkat, bukan seragam: angka induk (dana tersalurkan)
  * memakai tinta navy dan tebal, angka yang sudah jadi uang hijau, angka yang
- * masih hitungan amber, dan biaya platform tetap netral — pembaca bisa memilah
+ * masih hitungan amber, dan porsi platform tetap netral — pembaca bisa memilah
  * mana yang mengikat dan mana yang baru perkiraan tanpa membaca labelnya satu
  * per satu.
  */

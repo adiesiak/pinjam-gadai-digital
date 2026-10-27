@@ -68,7 +68,7 @@ export const KELAS_LATAR =
 
 /** Kartu utama: glassmorphism di atas latar ambient. */
 export const KELAS_KARTU =
-  "bg-white/85 backdrop-blur-xl border border-white/90 shadow-xl rounded-3xl p-8 max-w-md w-full";
+  "bg-white/85 backdrop-blur-xl border border-white/90 shadow-xl rounded-3xl p-6 max-w-md sm:p-8 w-full";
 
 /**
  * Kartu jalur SUPER ADMIN: sedikit lebih tegas (opasitas & bayangan lebih
@@ -76,7 +76,7 @@ export const KELAS_KARTU =
  * harus terbaca sebagai satu bidang utuh, bukan tembus pandang.
  */
 export const KELAS_KARTU_ADMIN =
-  "bg-white/90 backdrop-blur-xl border border-white/90 shadow-2xl rounded-3xl p-8 max-w-md w-full";
+  "bg-white/90 backdrop-blur-xl border border-white/90 shadow-2xl rounded-3xl p-6 max-w-md sm:p-8 w-full";
 
 /** Medan administratif: cincin fokus emerald-600 (lebih tegas dari jalur nasabah). */
 export const KELAS_INPUT_ADMIN =

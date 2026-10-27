@@ -125,7 +125,6 @@ export function SyariahPanel() {
   const data = useQuery(api.syariahPengajuan.daftarAdmin);
   const kandidat = useQuery(api.penyediaDana.kandidatPendana);
   const ketentuan = useQuery(api.system.getKetentuanBiaya);
-  const nisbahPendana = ketentuan?.persenNisbahPendanaSyariah;
   const putuskan = useMutation(api.syariahPengajuan.putuskan);
   const tandaiPenyerahan = useMutation(api.syariahPengajuan.tandaiPenyerahan);
   const catatAkad = useMutation(api.syariahAkad.catatAkadSyariah);
@@ -241,7 +240,6 @@ export function SyariahPanel() {
             ? { nilaiTaksiran: Number(taksiran) }
             : {}),
         },
-        { persenNisbahPendana: nisbahPendana },
       );
     } catch (err) {
       pesanRencana =

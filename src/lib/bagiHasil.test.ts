@@ -1,13 +1,11 @@
 /** Run: bun src/lib/bagiHasil.test.ts */
 import {
   BUNGA_PINJAMAN_DEFAULT_PERSEN,
-  POTONGAN_ADMIN_DEFAULT_PERSEN,
   bagiHasilPinjaman,
-  bagiImbalHasil,
   bagiHasilPinjamanDari,
-  potonganDariKembali,
 } from "./bagiHasil";
 import { hitungSimulasiBulanan } from "./bulanan";
+import { bagiMargin } from "./kebijakanPinjaman";
 import { quotePinjaman } from "./loan";
 import { percentOf } from "./money";
 
@@ -30,178 +28,73 @@ function throws(fn: () => unknown, label: string) {
   }
 }
 
-// Kebijakan bawaan 5%: bagiImbalHasil memotong bruto apa pun yang diberikan
-// pemanggil. Sejak kebijakan baru, bruto itu adalah UANG YANG KEMBALI
-// (pokok + Imbal Hasil), bukan hanya Imbal Hasil — lihat bagiHasilPinjaman.
-eq(POTONGAN_ADMIN_DEFAULT_PERSEN, 5, "kebijakan bawaan 5%");
-const besar = bagiImbalHasil(5_000_000, POTONGAN_ADMIN_DEFAULT_PERSEN);
-eq(besar.potonganAdmin, 250_000, "5% dari Rp 5.000.000");
-eq(besar.imbalBersih, 4_750_000, "bersih = bruto − potongan");
-
-// Ibu jari: pembulatan potongan ke BAWAH, sisa selalu milik penyedia dana.
-const ganjil = bagiImbalHasil(33_333, 5);
-eq(ganjil.potonganAdmin, 1_666, "floor 5% dari Rp 33.333 (bukan 1.667)");
-eq(ganjil.imbalBersih, 31_667, "sisa rupiah tidak masuk ke kas admin");
-
-// Jumlah kecil: potongan nol, tidak ada rupiah yang hilang.
-const kecil = bagiImbalHasil(19, 5);
-eq(kecil.potonganAdmin, 0, "Rp 19 → potongan Rp 0 (floor)");
-eq(kecil.imbalBersih, 19, "penyedia dana tetap menerima penuh");
-
-// Potongan 0% (kebijakan dinonaktifkan) dan 100% (batas ekstrem).
-eq(bagiImbalHasil(1_000_000, 0).potonganAdmin, 0, "0% tidak memotong");
-eq(bagiImbalHasil(1_000_000, 0).imbalBersih, 1_000_000, "0% utuh untuk penyedia");
-eq(bagiImbalHasil(1_000_000, 100).potonganAdmin, 1_000_000, "100% seluruhnya potongan");
-eq(bagiImbalHasil(1_000_000, 100).imbalBersih, 0, "100% menyisakan nol");
-
-// Persentase pecahan (mis. 2,5%) tetap bilangan bulat & tepat.
-const setengah = bagiImbalHasil(1_000_000, 2.5);
-eq(setengah.potonganAdmin, 25_000, "2,5% dari Rp 1.000.000");
-eq(setengah.imbalBersih, 975_000, "bersih 2,5%");
-
-// Invariant yang harus selalu benar: bruto = potongan + bersih.
-for (const bruto of [0, 1, 999, 100_000, 1_234_567, 999_999_999]) {
-  for (const persen of [0, 2.5, 3, 5, 12.75, 100]) {
-    const h = bagiImbalHasil(bruto, persen);
-    eq(
-      h.potonganAdmin + h.imbalBersih,
-      bruto,
-      `tidak ada rupiah hilang (bruto ${bruto}, ${persen}%)`,
-    );
-  }
-}
-
-throws(() => bagiImbalHasil(-1, 5), "Imbal Hasil negatif ditolak");
-throws(() => bagiImbalHasil(1.5, 5), "Imbal Hasil pecahan ditolak");
-throws(() => bagiImbalHasil(1_000_000, -1), "persentase negatif ditolak");
-throws(() => bagiImbalHasil(1_000_000, 101), "persentase >100 ditolak");
-
-// ===== Bagi hasil pinjaman (model 1 pinjaman = 1 pendana) =====
-// Contoh acuan kebijakan yang berlaku: pokok Rp1.000.000, bunga 30% → uang yang
-// kembali Rp1.300.000. Potongan platform 5% diambil dari TOTAL KEMBALI
-// (Rp65.000), bukan dari pokok (Rp50.000) maupun Imbal Hasil saja (Rp15.000).
-// Penyedia dana menerima Rp1.235.000 — untung bersih Rp235.000.
-// Angka-angka ini wajib sama dengan yang dibukukan ledger saat pelunasan
-// (convex/loans.ts memakai potonganDariKembali atas alokasi) — kalau salah
-// satu sisi berubah sendiri, pengguna melihat janji yang tidak pernah dibayar.
+// ===== Aturan pembagian 47 : 13 =====
 eq(BUNGA_PINJAMAN_DEFAULT_PERSEN, 30, "bunga pinjaman bawaan 30%");
-const acuan = bagiHasilPinjaman(1_000_000, 30, 5);
+eq(bagiMargin(300_000).pendana, 235_000, "47/60 dari Rp300.000 = Rp235.000");
+eq(bagiMargin(300_000).platform, 65_000, "13/60 dari Rp300.000 = Rp65.000");
+eq(bagiMargin(1).platform, 0, "pecahan kecil tidak dipungut dari pendana");
+eq(bagiMargin(1).pendana, 1, "sisa pembulatan menjadi milik pendana");
+eq(bagiMargin(19).platform, 4, "13/60 × 19 = 4,11 → dipungut 4");
+eq(bagiMargin(19).pendana, 15, "sisa 19 − 4 kembali ke pendana");
+eq(bagiMargin(6666).platform, 1444, "porsi platform dibulatkan ke bawah");
+eq(bagiMargin(6666).pendana, 5222, "pendana menerima sisa pembulatan");
+
+// ===== Contoh acuan harian =====
+// Pokok Rp1.000.000, bunga 30%: marjin Rp300.000 dibagi 47 : 13.
+const acuan = bagiHasilPinjaman(1_000_000, 30);
 eq(acuan.bunga, 300_000, "bunga = 30% dari pokok");
 eq(acuan.totalLunas, 1_300_000, "total lunas = pokok + bunga");
-eq(acuan.potonganAdmin, 65_000, "potongan admin = 5% dari TOTAL KEMBALI (Rp1.300.000)");
+eq(acuan.potonganAdmin, 65_000, "porsi platform 21,67% dari marjin = Rp65.000");
+eq(acuan.pendanaTerima, 1_235_000, "penyedia menerima pokok + porsi pendana");
+eq(acuan.keuntunganPendana, 235_000, "keuntungan bersih penyedia = 78,33% marjin");
+eq(acuan.keuntunganAdmin, 65_000, "keuntungan platform = porsi platform");
 eq(
-  acuan.potonganAdmin === Math.round(acuan.bunga * 0.05),
-  false,
-  "dasar potongan bukan Imbal Hasil (kalau Imbal Hasil, angkanya Rp15.000)",
+  acuan.potonganAdmin + acuan.pendanaTerima,
+  acuan.totalLunas,
+  "porsi platform + diterima penyedia = total kewajiban",
 );
-eq(acuan.pendanaTerima, 1_235_000, "yang diterima penyedia dana = uang kembali − potongan");
-eq(acuan.keuntunganPendana, 235_000, "keuntungan bersih penyedia dana");
-eq(acuan.keuntunganAdmin, 65_000, "keuntungan admin = potongan");
-
-// Pendana menerima pokok kembali utuh + keuntungan; admin tidak menyentuh pokok.
 eq(
   acuan.pendanaTerima - acuan.keuntunganPendana,
   1_000_000,
-  "pokok kembali utuh ke penyedia dana",
+  "pokok kembali utuh ke penyedia",
 );
-
-// Pokok tak rata: bunga memakai pembulatan HALF-UP yang sama dengan quoteLoan,
-// sedangkan potongan admin tetap KE BAWAH agar sisa rupiah milik penyedia dana.
-const ganjilPinjam = bagiHasilPinjaman(500_150, 30, 5);
-eq(ganjilPinjam.bunga, 150_045, "30% dari Rp500.150 sama dengan yang ditagih Peminjam");
-eq(ganjilPinjam.totalLunas, 650_195, "total lunas akurat");
-eq(ganjilPinjam.potonganAdmin, 32_509, "floor 5% dari total kembali Rp650.195 (bukan 32.510)");
 eq(
-  ganjilPinjam.potonganAdmin + ganjilPinjam.pendanaTerima,
-  ganjilPinjam.totalLunas,
-  "tidak ada rupiah hilang antara admin dan penyedia",
+  acuan.potonganAdmin === Math.round(acuan.totalLunas * 0.05),
+  true,
+  "pada marjin 30% hasilnya kebetulan sama dengan 5% total kembali",
 );
 
-// Kebijakan dinonaktifkan & batas ekstrem.
-eq(bagiHasilPinjaman(1_000_000, 30, 0).keuntunganAdmin, 0, "0% admin tidak memotong");
+// Pokok tak rata tetap memakai pembulatan HALF-UP untuk bunga (sama dengan
+// tagihan Peminjam) dan pembulatan KE BAWAH untuk porsi platform.
+const ganjil = bagiHasilPinjaman(500_150, 30);
+eq(ganjil.bunga, 150_045, "bunga 30% dari Rp500.150 = tagihan Peminjam");
+eq(ganjil.totalLunas, 650_195, "total lunas akurat");
+eq(ganjil.potonganAdmin, Math.floor((150_045 * 13) / 60), "porsi platform = floor(13/60 marjin)");
 eq(
-  bagiHasilPinjaman(1_000_000, 30, 0).keuntunganPendana,
-  300_000,
-  "0% admin menyisakan bunga penuh untuk penyedia",
+  ganjil.potonganAdmin + ganjil.pendanaTerima,
+  ganjil.totalLunas,
+  "tidak ada rupiah hilang antara platform dan penyedia",
 );
 
-// Invariant: potongan + pendanaTerima = totalLunas; keuntunganPendana = bunga − potongan.
-for (const pokok of [0, 1, 500_150, 1_000_000, 2_000_000, 999_999_999]) {
-  for (const persenBunga of [0, 7.5, 10, 30]) {
-    for (const persenAdmin of [0, 2.5, 5]) {
-      const h = bagiHasilPinjaman(pokok, persenBunga, persenAdmin);
-      eq(
-        h.potonganAdmin + h.pendanaTerima,
-        h.totalLunas,
-        `potongan + diterima = total (pokok ${pokok}, bunga ${persenBunga}%, admin ${persenAdmin}%)`,
-      );
-      eq(
-        h.keuntunganPendana,
-        h.bunga - h.potonganAdmin,
-        `keuntungan pendana = bunga − potongan (pokok ${pokok})`,
-      );
-    }
+// ===== Invarian harian lintas pokok & tarif =====
+for (const pokok of [0, 1, 999, 100_000, 333_333, 500_150, 1_000_000, 1_999_999, 7_777_777]) {
+  for (const persenBunga of [0, 7.5, 10, 15, 30]) {
+    const h = bagiHasilPinjaman(pokok, persenBunga);
+    const marjin = percentOf(pokok, persenBunga);
+    const tag = `pokok ${pokok}, bunga ${persenBunga}%`;
+    eq(h.bunga, marjin, `${tag}: bunga = yang ditagih ke Peminjam`);
+    eq(h.potonganAdmin, Math.floor((marjin * 13) / 60), `${tag}: porsi platform 13/60 marjin`);
+    eq(h.keuntunganPendana, marjin - h.potonganAdmin, `${tag}: keuntungan pendana = sisa marjin`);
+    eq(h.potonganAdmin + h.pendanaTerima, h.totalLunas, `${tag}: tidak ada rupiah hilang`);
+    eq(h.keuntunganAdmin, h.potonganAdmin, `${tag}: keuntungan admin = porsi platform`);
+    eq(Number.isInteger(h.pendanaTerima), true, `${tag}: nilai rupiah bulat`);
   }
 }
 
-// Imbangan lintas-modul: angka yang dilihat admin/penyedia dana harus sama
-// dengan angka yang benar-benar dibukukan ledger saat pelunasan. Ledger memakai
-// quotePinjaman (kewajiban Peminjam) + potonganDariKembali atas alokasi; panel
-// memakai bagiHasilPinjaman. Invarian inilah yang dulu tidak ada, sehingga
-// dashboard dan ledger bisa menunjuk angka berbeda tanpa ada tes yang gagal.
-for (const pokok of [1, 999, 100_000, 333_333, 500_150, 1_000_000, 1_999_999, 7_777_777]) {
-  for (const persenBunga of [0, 7.5, 10, 30]) {
-    for (const persenAdmin of [0, 2.5, 5]) {
-      const panel = bagiHasilPinjaman(pokok, persenBunga, persenAdmin);
-      const tagihan = quotePinjaman({ pokokPinjaman: pokok, persenBunga });
-      const potonganLedger = potonganDariKembali(
-        tagihan.totalKewajibanPelunasan,
-        persenAdmin,
-      );
-      const ledger = {
-        potonganAdmin: potonganLedger,
-        imbalBersih: tagihan.totalKewajibanPelunasan - potonganLedger,
-      };
-      eq(
-        panel.bunga,
-        tagihan.bunga,
-        `bunga panel = bunga yang ditagih ke Peminjam (pokok ${pokok}, ${persenBunga}%)`,
-      );
-      eq(
-        panel.totalLunas,
-        tagihan.totalKewajibanPelunasan,
-        `total kewajiban panel = kewajiban Peminjam (pokok ${pokok})`,
-      );
-      eq(
-        panel.potonganAdmin,
-        ledger.potonganAdmin,
-        `potongan admin panel = yang dibukukan ledger (pokok ${pokok}, admin ${persenAdmin}%)`,
-      );
-      eq(
-        panel.pendanaTerima,
-        ledger.imbalBersih,
-        `diterima penyedia dana panel = yang dibayarkan ledger (pokok ${pokok})`,
-      );
-      eq(
-        panel.keuntunganPendana,
-        panel.pendanaTerima - pokok,
-        `keuntungan penyedia dana = diterima − pokok (pokok ${pokok})`,
-      );
-      eq(
-        panel.potonganAdmin + panel.pendanaTerima,
-        tagihan.totalKewajibanPelunasan,
-        `potongan + diterima penyedia = kewajiban Peminjam (pokok ${pokok})`,
-      );
-    }
-  }
-}
-
-// Skema BULANAN: Imbal Hasil penyedia dana = bunga SELAMA TENOR dari simulasi
-// bulanan, bukan satu bulan bunga. Memakai satu bulan membuat nominal yang
-// dicatat admin untuk penyedia dana (dan angka keuntungan di panel) berbeda
-// dari yang dibukukan ledger saat pelunasan.
+// ===== Skema bulanan: marjin SELAMA TENOR, biaya admin cicilan terpisah =====
 for (const [pokok, tenorBulan, persenBulan] of [
-  [1_000_000, 1, 10],
+  [1_000_000, 1, 30],
+  [1_000_000, 3, 20],
   [2_000_000, 3, 10],
   [3_333_333, 3, 7.5],
   [5_000_000, 6, 8],
@@ -209,120 +102,127 @@ for (const [pokok, tenorBulan, persenBulan] of [
   const sim = hitungSimulasiBulanan(pokok, tenorBulan, {
     persenBungaPerBulan: persenBulan,
   });
-  const panel = bagiHasilPinjamanDari(
-    { pokokPinjaman: pokok, tenorBulan, persenBunga: persenBulan },
-    5,
-  );
-  // Dasar pembayaran pendana = pokok + Imbal Hasil tenor; biaya admin cicilan
-  // sudah milik platform (dibukukan sebagai platform_fee), jadi tidak ikut.
-  const dasar = sim.totalPengembalian - sim.biayaAdminCicilanTotal;
-  const potongan = potonganDariKembali(dasar, 5);
-  const ledger = {
-    potonganAdmin: potongan,
-    imbalBersih: dasar - potongan,
-  };
-  eq(dasar, pokok + sim.bungaTotal, `dasar potongan bulanan = pokok + Imbal Hasil tenor (pokok ${pokok})`);
-  eq(
-    panel.bunga,
-    sim.bungaTotal,
-    `bunga bulanan = total Imbal Hasil tenor (pokok ${pokok}, ${tenorBulan} bln)`,
-  );
-  eq(
-    panel.totalLunas,
-    sim.totalPengembalian,
-    `kewajiban bulanan = totalPengembalian simulasi (pokok ${pokok})`,
-  );
+  const panel = bagiHasilPinjamanDari({
+    pokokPinjaman: pokok,
+    tenorBulan,
+    persenBunga: persenBulan,
+  });
+  const tag = `bulanan ${pokok}/${tenorBulan}bln`;
+  eq(panel.bunga, sim.bungaTotal, `${tag}: Imbal Hasil = bunga total tenor`);
+  eq(panel.totalLunas, sim.totalPengembalian, `${tag}: kewajiban = total simulasi`);
   eq(
     panel.potonganAdmin,
-    ledger.potonganAdmin,
-    `potongan admin bulanan = yang dibukukan ledger (pokok ${pokok})`,
-  );
-  eq(
-    panel.pendanaTerima,
-    ledger.imbalBersih,
-    `diterima penyedia bulanan = yang dibayarkan ledger (pokok ${pokok})`,
-  );
-  eq(
-    panel.keuntunganPendana,
-    ledger.imbalBersih - pokok,
-    `keuntungan penyedia bulanan = yang dibayarkan ledger − pokok (pokok ${pokok})`,
-  );
-  eq(
-    panel.potonganAdmin + panel.pendanaTerima,
-    dasar,
-    `potongan + diterima penyedia = uang yang kembali bagian dasar (pokok ${pokok})`,
+    Math.floor((sim.bungaTotal * 13) / 60),
+    `${tag}: porsi platform 13/60 marjin`,
   );
   eq(
     panel.pendanaTerima,
     pokok + sim.bungaTotal - panel.potonganAdmin,
-    `diterima penyedia bulanan = pokok + Imbal Hasil tenor − potongan (pokok ${pokok})`,
+    `${tag}: penyedia menerima pokok + porsi pendana`,
   );
   eq(
-    panel.pendanaTerima > pokok,
-    true,
-    `pokok bulanan kembali utuh dan penyedia masih untung (pokok ${pokok})`,
+    panel.keuntunganPendana,
+    sim.bungaTotal - panel.potonganAdmin,
+    `${tag}: keuntungan penyedia = 47/60 marjin`,
   );
-  // Tanpa tenorBulan, skema harian tetap 30% flat dari pokok.
   eq(
-    bagiHasilPinjamanDari({ pokokPinjaman: pokok, persenBunga: 30 }, 5).bunga,
-    percentOf(pokok, 30),
-    `tanpa tenorBulan tetap skema harian (pokok ${pokok})`,
+    panel.potonganAdmin + panel.pendanaTerima + sim.biayaAdminCicilanTotal,
+    sim.totalPengembalian,
+    `${tag}: biaya admin cicilan adalah pos terpisah, tidak ikut dibagi`,
   );
 }
 
-// ===== Perpanjangan: Imbal Hasil = akumulasi bunga, bukan satu periode =====
-const diperpanjang = bagiHasilPinjamanDari(
-  {
-    pokokPinjaman: 1_000_000,
-    tenorBulan: null,
-    persenBunga: 30,
-    bungaTerbayar: 650_000,
-    nextInterestAmount: 320_000,
-  },
-  5,
-);
-eq(diperpanjang.bunga, 970_000, "bunga penyedia menjumlahkan periode yang sudah dan akan dibayar");
-eq(diperpanjang.totalLunas, 1_970_000, "total kembali = pokok awal + seluruh bunga");
-eq(diperpanjang.potonganAdmin, 98_500, "potongan 5% dari total kembali Rp1.970.000");
-eq(diperpanjang.keuntunganPendana, 871_500, "keuntungan = bersih − pokok awal");
+// Tenor 3 bulan dengan marjin 60%: porsi platform 13% pokok (Rp130.000),
+// bukan lagi 5% dari total kembali (Rp80.000).
+const tigaBulan = bagiHasilPinjamanDari({
+  pokokPinjaman: 1_000_000,
+  tenorBulan: 3,
+  persenBunga: 20,
+});
+eq(tigaBulan.bunga, 600_000, "3 bulan @20%/bulan: marjin Rp600.000");
+eq(tigaBulan.potonganAdmin, 130_000, "porsi platform 13/60 × Rp600.000 = Rp130.000");
+eq(tigaBulan.keuntunganPendana, 470_000, "porsi pendana 47/60 × Rp600.000 = Rp470.000");
 
-// ===== Promo bunga: hak pendana tetap, selisihnya ditanggung platform =====
-// Peminjam membayar bunga promo 15%, tetapi penyedia dana tetap menerima hak
-// dari tarif normal 30% — promo bukan pengurang imbal hasil pendana.
-const promo = bagiHasilPinjaman(1_000_000, 15, 5, 30);
+// ===== Perpanjangan: Imbal Hasil = akumulasi bunga =====
+const diperpanjang = bagiHasilPinjamanDari({
+  pokokPinjaman: 1_000_000,
+  tenorBulan: null,
+  persenBunga: 30,
+  bungaTerbayar: 650_000,
+  nextInterestAmount: 320_000,
+});
+eq(diperpanjang.bunga, 970_000, "bunga akumulasi periode yang sudah dan akan dibayar");
+eq(diperpanjang.totalLunas, 1_970_000, "total kembali = pokok awal + seluruh bunga");
+eq(diperpanjang.potonganAdmin, 210_166, "porsi platform 13/60 × Rp970.000");
+eq(diperpanjang.keuntunganPendana, 759_834, "porsi pendana 47/60 × Rp970.000");
+
+// Penutupan manual menulis `nextInterestAmount: 0` pada pinjaman biasa.
+// Nol itu bukan riwayat perpanjangan; marjin normal harus tetap dipakai.
+const ditutupManual = bagiHasilPinjamanDari({
+  pokokPinjaman: 1_000_000,
+  tenorBulan: null,
+  persenBunga: 30,
+  nextInterestAmount: 0,
+});
+eq(ditutupManual.bunga, 300_000, "penutupan manual tidak menghapus marjin");
+eq(ditutupManual.keuntunganPendana, 235_000, "pendana tetap menerima 47/60 marjin");
+
+// ===== Promo bunga: hak pendana tetap, selisih ditanggung platform =====
+const promo = bagiHasilPinjaman(1_000_000, 15, 30);
 eq(promo.bunga, 150_000, "promo: tagihan Peminjam memakai tarif promo");
 eq(promo.totalLunas, 1_150_000, "promo: total kewajiban Peminjam");
 eq(promo.bungaPendana, 300_000, "promo: hak pendana memakai tarif normal");
 eq(promo.pendanaTerima, 1_235_000, "promo: diterima pendana tidak turun");
 eq(promo.keuntunganPendana, 235_000, "promo: keuntungan pendana tidak turun");
-eq(promo.potonganAdmin, 65_000, "promo: potongan platform tetap 5% dari total kembali");
+eq(promo.potonganAdmin, 65_000, "promo: porsi platform dari marjin normal");
 eq(promo.subsidiPromo, 150_000, "promo: selisih bunga ditanggung platform");
-
-const promoDari = bagiHasilPinjamanDari(
-  { pokokPinjaman: 1_000_000, persenBunga: 15, promoBungaPersenNormal: 30 },
-  5,
+eq(
+  promo.potonganAdmin + promo.pendanaTerima - promo.subsidiPromo,
+  promo.totalLunas,
+  "promo: porsi platform + pendana − subsidi = tagihan Peminjam",
 );
+
+const promoDari = bagiHasilPinjamanDari({
+  pokokPinjaman: 1_000_000,
+  persenBunga: 15,
+  promoBungaPersenNormal: 30,
+});
 eq(promoDari.keuntunganPendana, 235_000, "bagiHasilPinjamanDari: promo tidak memotong pendana");
 eq(promoDari.subsidiPromo, 150_000, "bagiHasilPinjamanDari: subsidi promo terlihat");
 
 // Tanpa tarif normal (atau tarif normal lebih rendah) promo diabaikan sebagai
 // subsidi, sehingga data lama tidak menciptakan beban platform.
-eq(bagiHasilPinjaman(1_000_000, 15, 5).subsidiPromo, 0, "tanpa tarif normal: tanpa subsidi");
+eq(bagiHasilPinjaman(1_000_000, 15).subsidiPromo, 0, "tanpa tarif normal: tanpa subsidi");
 eq(
-  bagiHasilPinjaman(1_000_000, 15, 5, 10).subsidiPromo,
+  bagiHasilPinjaman(1_000_000, 15, 10).subsidiPromo,
   0,
   "tarif normal di bawah promo diabaikan",
 );
 eq(
-  bagiHasilPinjaman(1_000_000, 15, 5, 30).keuntunganPendana,
-  bagiHasilPinjaman(1_000_000, 30, 5).keuntunganPendana,
+  bagiHasilPinjaman(1_000_000, 15, 30).keuntunganPendana,
+  bagiHasilPinjaman(1_000_000, 30).keuntunganPendana,
   "promo dan normal memberi pendana angka yang sama",
 );
 
-throws(() => bagiHasilPinjaman(-1, 30, 5), "pokok negatif ditolak");
-throws(() => bagiHasilPinjaman(1.5, 30, 5), "pokok pecahan ditolak");
-throws(() => bagiHasilPinjaman(1_000_000, -1, 5), "bunga negatif ditolak");
-throws(() => bagiHasilPinjaman(1_000_000, 30, 101), "potongan admin >100 ditolak");
+// ===== Jalur harian tanpa tenor memakai fungsi harian yang sama =====
+const harianDari = bagiHasilPinjamanDari({
+  pokokPinjaman: 500_000,
+  persenBunga: 30,
+});
+const harianLangsung = bagiHasilPinjaman(500_000, 30);
+eq(harianDari.potonganAdmin, harianLangsung.potonganAdmin, "dua pintu harian sepakat");
+eq(harianDari.pendanaTerima, harianLangsung.pendanaTerima, "diterima penyedia sama");
+eq(
+  bagiHasilPinjamanDari({ pokokPinjaman: 500_000 }).bunga,
+  quotePinjaman({ pokokPinjaman: 500_000, persenBunga: 30 }).bunga,
+  "tanpa snapshot bunga memakai tarif akad",
+);
+
+// ===== Masukan tidak sah =====
+throws(() => bagiHasilPinjaman(-1, 30), "pokok negatif ditolak");
+throws(() => bagiHasilPinjaman(1.5, 30), "pokok pecahan ditolak");
+throws(() => bagiHasilPinjaman(1_000_000, -1), "bunga negatif ditolak");
+throws(() => bagiHasilPinjaman(1_000_000, 101), "bunga >100 ditolak");
 
 console.log(`bagiHasil.test.ts: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

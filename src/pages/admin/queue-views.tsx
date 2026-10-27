@@ -16,11 +16,12 @@ import {
   TombolAksiAntrean,
 } from "@/components/admin/TabelAntrean";
 import {
+  labelUmurTunggu,
   pakaiCairEkspres,
-  urutkanAntreanEkspres,
+  umurTungguJam,
+  urutkanAntreanMenunggu,
 } from "@/lib/admin-queue";
 import { loanPurposeLabel, loanStatusMeta } from "@/lib/loan";
-import { formatRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
 import { pawnStatusMeta } from "@/lib/pawn";
 import { ringkasJumlah } from "@/lib/saringanPengajuan";
@@ -41,9 +42,15 @@ import { SUB_TAB_GADAI, SUB_TAB_PINJAMAN } from "@/lib/subTabAntrean";
 export function LoanQueueSection({
   loans,
   onOpen,
+  sekarang,
 }: {
   loans: LoanRow[];
   onOpen: (l: LoanRow) => void;
+  /**
+   * Waktu acuan dari server (`adminOverview.dihitungPada`). Dipakai untuk umur
+   * tunggu supaya angkanya tidak bergantung pada jam perangkat admin.
+   */
+  sekarang?: number;
 }) {
   const [tabAktif, setTabAktif] = useState(SUB_TAB_PINJAMAN[0].id);
   const [search, setSearch] = useState("");
@@ -55,8 +62,8 @@ export function LoanQueueSection({
     // Pengajuan cair ekspres selalu di paling atas: peminjam memilih dan
     // membayar jalur pencairan itu, jadi keputusannya tidak boleh menunggu di
     // belakang antrean biasa.
-    if (!needle) return urutkanAntreanEkspres(diTab);
-    return urutkanAntreanEkspres(
+    if (!needle) return urutkanAntreanMenunggu(diTab);
+    return urutkanAntreanMenunggu(
       diTab.filter((loan) =>
         [
           loan.namaLengkap,
@@ -129,6 +136,14 @@ export function LoanQueueSection({
               nominal: l.pokokPinjaman,
               keperluan: loanPurposeLabel(l.tujuan),
               waktu: l._creationTime,
+              umurJam:
+                sekarang === undefined
+                  ? null
+                  : umurTungguJam(l._creationTime, sekarang),
+              labelUmur:
+                sekarang === undefined
+                  ? null
+                  : labelUmurTunggu(umurTungguJam(l._creationTime, sekarang)),
               statusTeks: loanStatusMeta(l.status).label,
               lencana: pakaiCairEkspres(l) ? (
                 <span

@@ -345,9 +345,7 @@ export const ajukan = mutation({
         ? {}
         : { nilaiTaksiran: args.nilaiTaksiran }),
     };
-    const rencana: RencanaAkadSyariah = rencanaPengajuanSyariah(permintaan, {
-      persenNisbahPendana: cfg.persenNisbahPendanaSyariah,
-    });
+    const rencana: RencanaAkadSyariah = rencanaPengajuanSyariah(permintaan);
 
     const ringkas = await plafonDenganEksposurSyariah(ctx, userId);
     if (rencana.pokok > ringkas.tersedia) {
@@ -650,7 +648,6 @@ export const putuskan = mutation({
             }
           : {}),
       },
-      { persenNisbahPendana: cfg.persenNisbahPendanaSyariah },
     );
 
     const ringkas = await plafonDenganEksposurSyariah(ctx, row.userId);

@@ -5,7 +5,9 @@ import { requireAdminSession } from "./adminAuthz";
 import {
   DEFAULT_CONFIG,
   NISBAH_PENDANA_BATAS,
+  RETENSI_AUDIT_BATAS,
   RETENSI_LOKASI_BATAS,
+  RETENSI_LOG_WA_BATAS,
   THEME_PRESETS,
   gayaAman,
   tarifBulananDariConfig,
@@ -144,6 +146,8 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     notifWhatsappAktif: kanalAktif(row.notifWhatsappAktif),
     notifEmailAktif: kanalAktif(row.notifEmailAktif),
     retensiLokasiHari: row.retensiLokasiHari ?? DEFAULT_CONFIG.retensiLokasiHari,
+    retensiLogWaHari: row.retensiLogWaHari ?? DEFAULT_CONFIG.retensiLogWaHari,
+    retensiAuditHari: row.retensiAuditHari ?? DEFAULT_CONFIG.retensiAuditHari,
     plafonPinjaman: row.plafonPinjaman ?? DEFAULT_CONFIG.plafonPinjaman,
     rekeningUsahaNama: row.rekeningUsahaNama ?? DEFAULT_CONFIG.rekeningUsahaNama,
     rekeningUsahaBank: row.rekeningUsahaBank ?? DEFAULT_CONFIG.rekeningUsahaBank,
@@ -422,6 +426,8 @@ type ConfigBersih = Omit<SystemConfig, "versi">;
 type ConfigMasuk = Omit<
   SystemConfig,
   | "versi"
+  | "retensiLogWaHari"
+  | "retensiAuditHari"
   | "rekeningUsahaNama"
   | "rekeningUsahaBank"
   | "rekeningUsahaNomor"
@@ -432,6 +438,9 @@ type ConfigMasuk = Omit<
   | "qrisMerchantNama"
   | "qrisImageId"
 > & {
+  /** Absen pada snapshot lama; nilai bawaan yang dipakai, bukan penolakan. */
+  retensiLogWaHari?: number;
+  retensiAuditHari?: number;
   rekeningUsahaNama?: string;
   rekeningUsahaBank?: string;
   rekeningUsahaNomor?: string;
@@ -548,6 +557,28 @@ async function bersihkanConfigMasuk(
       `Retensi jejak lokasi harus ${RETENSI_LOKASI_BATAS.min}–${RETENSI_LOKASI_BATAS.maks} hari.`,
     );
   }
+  // Dua ambang retensi baru: snapshot lama belum memuatnya, jadi nilai yang
+  // absen memakai bawaan supaya rollback versi lama tetap bisa dipulihkan.
+  const retensiLogWa = input.retensiLogWaHari ?? DEFAULT_CONFIG.retensiLogWaHari;
+  const retensiAudit = input.retensiAuditHari ?? DEFAULT_CONFIG.retensiAuditHari;
+  if (
+    !Number.isSafeInteger(retensiLogWa) ||
+    retensiLogWa < RETENSI_LOG_WA_BATAS.min ||
+    retensiLogWa > RETENSI_LOG_WA_BATAS.maks
+  ) {
+    throw new Error(
+      `Retensi log pesan WhatsApp harus ${RETENSI_LOG_WA_BATAS.min}–${RETENSI_LOG_WA_BATAS.maks} hari.`,
+    );
+  }
+  if (
+    !Number.isSafeInteger(retensiAudit) ||
+    retensiAudit < RETENSI_AUDIT_BATAS.min ||
+    retensiAudit > RETENSI_AUDIT_BATAS.maks
+  ) {
+    throw new Error(
+      `Retensi jejak audit harus ${RETENSI_AUDIT_BATAS.min}–${RETENSI_AUDIT_BATAS.maks} hari.`,
+    );
+  }
   const nomorUsaha = (input.rekeningUsahaNomor ?? "").trim();
   const digitsOnly = Array.from(nomorUsaha).every(
     (character) => character >= "0" && character <= "9",
@@ -572,6 +603,8 @@ async function bersihkanConfigMasuk(
     biayaEkspresTier2: Math.round(input.biayaEkspresTier2),
     biayaEkspresTier3: Math.round(input.biayaEkspresTier3),
     qrisImageId: input.qrisImageId ?? null,
+    retensiLogWaHari: retensiLogWa,
+    retensiAuditHari: retensiAudit,
     plafonPinjaman: clampPlafon(input.plafonPinjaman),
     persenMarginSyariah: marginSyariah,
     persenNisbahPendanaSyariah: nisbahPendana,
@@ -724,6 +757,9 @@ export const saveConfig = mutation({
     notifWhatsappAktif: v.boolean(),
     notifEmailAktif: v.boolean(),
     retensiLokasiHari: v.number(),
+    /** Opsional: pemanggil lama tidak mengirimnya — nilai berlaku dipertahankan. */
+    retensiLogWaHari: v.optional(v.number()),
+    retensiAuditHari: v.optional(v.number()),
     plafonPinjaman: v.number(),
     rekeningUsahaNama: v.optional(v.string()),
     rekeningUsahaBank: v.optional(v.string()),
@@ -787,6 +823,8 @@ export const saveConfig = mutation({
       notifWhatsappAktif: args.notifWhatsappAktif,
       notifEmailAktif: args.notifEmailAktif,
       retensiLokasiHari: args.retensiLokasiHari,
+      retensiLogWaHari: args.retensiLogWaHari ?? prev.retensiLogWaHari,
+      retensiAuditHari: args.retensiAuditHari ?? prev.retensiAuditHari,
       plafonPinjaman: args.plafonPinjaman,
       rekeningUsahaNama: args.rekeningUsahaNama,
       rekeningUsahaBank: args.rekeningUsahaBank,
@@ -1209,6 +1247,29 @@ export const snapshotData = query({
   },
 });
 
+/**
+ * Catatan backup TERAKHIR dari audit trail, atau `null` bila belum pernah ada.
+ *
+ * Dibaca lewat indeks `by_aksi` dari yang terbaru: panel dan pemeriksa sistem
+ * hanya perlu satu baris, bukan riwayat audit penuh. Tanpa indeks, mencari satu
+ * catatan backup berarti memindai seluruh tabel audit.
+ */
+export async function catatanBackupTerakhir(
+  ctx: QueryCtx,
+): Promise<{ waktu: number; jenis: string | null; oleh: string } | null> {
+  const baris = await ctx.db
+    .query("auditLog")
+    .withIndex("by_aksi", (q) => q.eq("aksi", "backup"))
+    .order("desc")
+    .first();
+  if (baris === null) return null;
+  return {
+    waktu: baris.waktu,
+    jenis: baris.detail ?? null,
+    oleh: baris.aktorLabel,
+  };
+}
+
 /** Catat unduhan backup ke audit trail — dipanggil klien setelah unduh. */
 export const catatBackup = mutation({
   args: { jenis: v.string() },
@@ -1216,5 +1277,18 @@ export const catatBackup = mutation({
     const { userId, user } = await requireAdmin(ctx);
     await audit(ctx, userId, user.email ?? user.name ?? "admin", "backup", jenis);
     return { ok: true };
+  },
+});
+
+/**
+ * Backup terakhir untuk tab Ekspor: kapan, jenis apa, oleh siapa.
+ * Panel memakainya sebagai penanda kesegaran arsip — bukan menghitung ulang
+ * seluruh database hanya untuk mengisi satu baris keterangan.
+ */
+export const backupTerakhir = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return catatanBackupTerakhir(ctx);
   },
 });

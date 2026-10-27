@@ -25,6 +25,7 @@ import {
   TOKEN_PENDANA,
   type KontenPendana,
 } from "@/lib/kontenPendana";
+import { PROPOSAL_DIPERBARUI_PADA } from "@/lib/proposalPendana";
 import { unggahDokumen } from "@/lib/unggahDokumen";
 
 /**
@@ -200,6 +201,13 @@ export function KontenPendanaPanel() {
                       : ` · dipasang ${new Date(berkas.berkasPada).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}`
                   }.`}
             </p>
+            {berkas?.berkasId !== undefined &&
+              (berkas.berkasPada ?? 0) < PROPOSAL_DIPERBARUI_PADA && (
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-amber-800">
+                  Berkas ini dipasang sebelum pembaruan proposal, jadi halaman
+                  memakai dokumen terbaru sampai berkas diganti atau dihapus.
+                </p>
+              )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label

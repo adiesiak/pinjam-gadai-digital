@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 
 import {
@@ -73,30 +74,59 @@ const DAFTAR_STATUS = STATUS_PINJAMAN.map(
 /** Satu kelompok modul admin beserta isinya. */
 type Kelompok = { judul: string; modul: readonly string[] };
 
-const RINGKASAN = [
-  { angka: "16", label: "halaman publik" },
-  { angka: "6", label: "tab peminjam" },
-  { angka: "26", label: "modul admin" },
-  { angka: "3", label: "produk pembiayaan" },
-] as const;
+/** Gerbang satu rute: terbuka tanpa akun, butuh sesi, atau khusus admin. */
+type GerbangRute = "publik" | "akun" | "admin";
 
-const HALAMAN_PUBLIK: readonly { rute: string; isi: string }[] = [
-  { rute: "/", isi: "Beranda: hero, layanan, dan pintu masuk pengajuan." },
-  { rute: "/biaya", isi: "Rincian bunga, potongan, dan biaya." },
-  { rute: "/cara-kerja", isi: "Alur layanan dari pengajuan sampai pelunasan." },
-  { rute: "/layanan/pinjaman-tunai", isi: "Penjelasan pinjaman tunai harian." },
-  { rute: "/layanan/gadai", isi: "Penjelasan gadai barang jaminan." },
-  { rute: "/layanan/kredit-barang", isi: "Penjelasan kredit barang bulanan." },
-  { rute: "/keamanan", isi: "Cara data dan verifikasi identitas dijaga." },
-  { rute: "/faq", isi: "Pertanyaan yang paling sering masuk." },
-  { rute: "/aplikasi", isi: "Unduh APK, versi, dan langkah pemasangan." },
-  { rute: "/auth", isi: "Masuk dan daftar lewat OTP WhatsApp atau Google." },
-  { rute: "/akses-bersama", isi: "Pintu lihat-saja dengan kode akses bersama." },
-  { rute: "/syarat-ketentuan", isi: "Syarat dan ketentuan layanan." },
-  { rute: "/verifikasi-kontrak/:kode", isi: "Periksa keaslian kontrak lewat hash." },
-  { rute: "/cek-status/:token", isi: "Kwitansi digital dari tautan WhatsApp." },
-  { rute: "/penyedia-dana", isi: "Ruang penyedia dana, perlu akun." },
-  { rute: "/promo", isi: "Poster dan aset Android, khusus admin." },
+const RUTE_HALAMAN: readonly {
+  rute: string;
+  isi: string;
+  gerbang: GerbangRute;
+}[] = [
+  { rute: "/", isi: "Beranda: hero, layanan, dan pintu masuk pengajuan.", gerbang: "publik" },
+  { rute: "/biaya", isi: "Rincian bunga, potongan, dan biaya.", gerbang: "publik" },
+  {
+    rute: "/pinjaman/konvensional",
+    isi: "Produk pinjaman tunai: tarif, tenor, dan kalkulator.",
+    gerbang: "publik",
+  },
+  {
+    rute: "/pinjaman/syariah",
+    isi: "Produk akad syariah: tiga akad beserta simulasinya.",
+    gerbang: "publik",
+  },
+  { rute: "/cara-kerja", isi: "Alur layanan dari pengajuan sampai pelunasan.", gerbang: "publik" },
+  { rute: "/layanan/pinjaman-tunai", isi: "Penjelasan pinjaman tunai harian.", gerbang: "publik" },
+  { rute: "/layanan/gadai", isi: "Penjelasan gadai barang jaminan.", gerbang: "publik" },
+  { rute: "/layanan/kredit-barang", isi: "Penjelasan kredit barang bulanan.", gerbang: "publik" },
+  { rute: "/keamanan", isi: "Cara data dan verifikasi identitas dijaga.", gerbang: "publik" },
+  { rute: "/faq", isi: "Pertanyaan yang paling sering masuk.", gerbang: "publik" },
+  { rute: "/aplikasi", isi: "Unduh APK, versi, dan langkah pemasangan.", gerbang: "publik" },
+  {
+    rute: "/auth",
+    isi: "Masuk dan daftar lewat OTP WhatsApp, NIK, atau akun Google.",
+    gerbang: "publik",
+  },
+  { rute: "/akses-bersama", isi: "Pintu lihat-saja dengan kode akses bersama.", gerbang: "publik" },
+  { rute: "/syarat-ketentuan", isi: "Syarat dan ketentuan layanan.", gerbang: "publik" },
+  {
+    rute: "/privasi",
+    isi: "Kebijakan privasi: data yang disimpan, penerima, retensi, dan hak subjek data.",
+    gerbang: "publik",
+  },
+  { rute: "/verifikasi-kontrak/:kode", isi: "Periksa keaslian kontrak lewat hash.", gerbang: "publik" },
+  { rute: "/cek-status/:token", isi: "Kwitansi digital dari tautan WhatsApp.", gerbang: "publik" },
+  {
+    rute: "/jadi-pendana",
+    isi: "Proposal pendanaan; dibuka dari ruang pendana setelah sesi lihat-saja.",
+    gerbang: "akun",
+  },
+  { rute: "/dashboard", isi: "Ruang peminjam enam tab, hanya untuk akun yang masuk.", gerbang: "akun" },
+  {
+    rute: "/penyedia-dana",
+    isi: "Portofolio penyedia dana; perlu akun atau kode akses bersama.",
+    gerbang: "akun",
+  },
+  { rute: "/promo", isi: "Poster dan aset Android, khusus admin.", gerbang: "admin" },
 ];
 
 const TAB_PEMINJAM: readonly Baris[] = [
@@ -119,6 +149,7 @@ const MODUL_ADMIN: readonly Kelompok[] = [
       "Siap disalurkan",
       "Doorprize & Antrean",
       "Rekonsiliasi Angsuran",
+      "Kalender Kas",
       "Plafon Nasabah",
       "Nasabah & Pendana",
     ],
@@ -135,6 +166,7 @@ const MODUL_ADMIN: readonly Kelompok[] = [
       "Halaman Pendana",
       "Banner & Pengumuman",
       "Promo Pinjaman",
+      "Voucher Nasabah",
       "WhatsApp",
       "Aplikasi Android",
     ],
@@ -152,6 +184,24 @@ const MODUL_ADMIN: readonly Kelompok[] = [
     ],
   },
 ];
+
+/**
+ * Angka ringkasan dihitung dari daftar di atas, bukan ditulis tangan: menambah
+ * satu rute atau modul langsung mengubah angka, sehingga tidak ada lagi
+ * hitungan yang tertinggal saat rute baru ditambahkan.
+ */
+const RINGKASAN = [
+  {
+    angka: String(RUTE_HALAMAN.filter((r) => r.gerbang === "publik").length),
+    label: "rute publik",
+  },
+  {
+    angka: String(RUTE_HALAMAN.filter((r) => r.gerbang === "akun").length),
+    label: "rute wajib akun",
+  },
+  { angka: String(TAB_PEMINJAM.length), label: "tab peminjam" },
+  { angka: String(MODUL_ADMIN.reduce((n, k) => n + k.modul.length, 0)), label: "modul admin" },
+] as const;
 
 const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
   {
@@ -250,6 +300,11 @@ const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
     rujukan: "src/lib/statusPinjaman.ts",
   },
   {
+    judul: "Masuk dengan NIK KTP",
+    isi: "NIK hanya memilih akun, bukan kata sandi. Setelah 16 angka valid, kode 6 angka dikirim ke WhatsApp yang terdaftar pada profil pemilik NIK, lalu sesi dibuka. NIK tanpa kode tidak membuka apa pun, dan akun tanpa NIK tetap bisa masuk lewat email atau nomor WhatsApp.",
+    rujukan: "src/convex/klaimPeminjam.ts, src/lib/nikLogin.ts",
+  },
+  {
     judul: "Gerbang pengajuan",
     isi: "KYC harus terverifikasi, lokasi perangkat dicocokkan dengan titik pengajuan, formulir dijaga gerbang kirim anti-spam, dan kunci idempotensi menahan pengajuan ganda saat jaringan mengulang kiriman.",
     rujukan: "src/convex/gerbangKirim.ts, idempotensi.ts",
@@ -260,8 +315,13 @@ const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
     rujukan: "src/lib/verifikasiPembayaran.ts",
   },
   {
+    judul: "Pembagian marjin pendana",
+    isi: "Setiap alokasi menyimpan hak pendana sekali: marjin pinjaman dibagi menurut porsi pokok, lalu dibelah 47 : 13 dari 60 (78,33% pendana, 21,67% platform). Siklus 30 hari dibayar penuh pada hari ke-30; kekurangan ditutup jaminan platform. Satu pinjaman hanya boleh didanai satu penyedia dana, dan Pengaturan Potongan Admin hanya berlaku untuk baris lama tanpa snapshot.",
+    rujukan: "src/lib/kebijakanPinjaman.ts, imbalPendana.ts, convex/siklusPendana.ts",
+  },
+  {
     judul: "Dana penyedia",
-    isi: "Setiap pinjaman yang cair dialokasikan ke rekening penyedia dana dan dicatat per pinjaman. Imbal hasil dihitung dari porsi dana, sedangkan transfer pendana direkonsiliasi terpisah.",
+    isi: "Setiap pinjaman yang cair dialokasikan ke satu rekening penyedia dana dan dicatat per pinjaman. Hak imbal dihitung dari snapshot alokasi, sedangkan transfer pendana direkonsiliasi terpisah.",
     rujukan: "src/convex/alokasiDana.ts, laporanTransferPendana.ts",
   },
   {
@@ -272,7 +332,7 @@ const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
 ];
 
 const ALUR_PEMINJAM: readonly string[] = [
-  "Daftar atau masuk dengan OTP WhatsApp maupun akun Google.",
+  "Daftar atau masuk dengan OTP WhatsApp, jalur NIK KTP, atau akun Google. Kode NIK tetap dikirim ke WhatsApp yang terdaftar, jadi NIK saja tidak membuka akun.",
   "Lengkapi data diri, rekening pencairan, dan dokumen KYC: KTP, selfie-KTP, serta bukti penghasilan.",
   "Tunggu verifikasi KYC. Bila diminta perbaikan, unggah ulang dari tab Status KYC.",
   "Ajukan pinjaman: pilih skema harian, bulanan, gadai, atau kredit barang, lalu isi nominal dan tenor.",
@@ -289,10 +349,12 @@ const ALUR_ADMIN: readonly string[] = [
   "Tinjau pengajuan pinjaman, gadai, atau kredit barang beserta dokumen dan riwayat nasabah, lalu putuskan.",
   "Verifikasi KYC. Keputusan dan alasannya masuk audit trail.",
   "Catat pencairan dan alokasi dana ke rekening penyedia dana.",
-  "Cocokkan bukti transfer di Rekonsiliasi Angsuran, isi referensi mutasi, lalu tandai lunas.",          "Tangani jatuh tempo: kirim pengingat, catat perpanjangan, susun somasi, atau setujui restrukturisasi.",
+  "Cocokkan bukti transfer di Rekonsiliasi Angsuran, isi referensi mutasi, lalu tandai lunas.",
+  "Tangani jatuh tempo: kirim pengingat, catat perpanjangan, susun somasi, atau setujui restrukturisasi.",
   "Atur plafon, bunga khusus, dan catatan risiko per nasabah bila perilakunya berbeda dari default.",
   "Rekonsiliasi transfer penyedia dana dan pantau kesehatan portofolio di Catatan Internal.",
   "Kelola konten publik, template WhatsApp, versi aplikasi Android, serta backup dan kill switch.",
+  "Setelah rute, modul, atau tarif berubah, perbarui daftar di Peta Sistem; angka ringkasan mengikuti daftar, bukan ditulis terpisah.",
 ];
 
 /** Judul bagian dengan nomor urut kecil di atasnya. */
@@ -321,13 +383,45 @@ function Bagian({
   );
 }
 
-/** Baris rute: kode rute di kiri, kegunaannya di kanan. */
-function BarisRute({ rute, isi }: { rute: string; isi: string }) {
+/** Label gerbang akses, supaya rute wajib akun tidak terbaca sebagai rute publik. */
+const LABEL_GERBANG: Record<GerbangRute, { teks: string; kelas: string }> = {
+  publik: {
+    teks: "tanpa akun",
+    kelas: "border-emerald-700/25 bg-emerald-700/[0.06] text-emerald-800",
+  },
+  akun: {
+    teks: "wajib akun",
+    kelas: "border-amber-700/25 bg-amber-700/[0.06] text-amber-900",
+  },
+  admin: {
+    teks: "khusus admin",
+    kelas: "border-slate-400/50 bg-slate-100 text-slate-700",
+  },
+};
+
+/** Baris rute: kode rute dan gerbangnya di kiri, kegunaannya di kanan. */
+function BarisRute({
+  rute,
+  isi,
+  gerbang,
+}: {
+  rute: string;
+  isi: string;
+  gerbang: GerbangRute;
+}) {
+  const label = LABEL_GERBANG[gerbang];
   return (
-    <div className="flex flex-col gap-1 border-b border-slate-200 py-2.5 last:border-b-0 sm:flex-row sm:items-baseline sm:gap-4">
-      <code className="w-fit shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[12px] text-slate-800">
-        {rute}
-      </code>
+    <div className="flex flex-col gap-1.5 border-b border-slate-200 py-2.5 last:border-b-0 sm:flex-row sm:items-baseline sm:gap-4">
+      <div className="flex shrink-0 items-center gap-2">
+        <code className="w-fit shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[12px] text-slate-800">
+          {rute}
+        </code>
+        <span
+          className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${label.kelas}`}
+        >
+          {label.teks}
+        </span>
+      </div>
       <p className="text-sm leading-6 text-slate-600">{isi}</p>
     </div>
   );
@@ -335,7 +429,7 @@ function BarisRute({ rute, isi }: { rute: string; isi: string }) {
 
 export function PagePengembangan() {
   return (
-    <div className="mx-auto max-w-5xl space-y-10 pb-24">
+    <div className="mx-auto max-w-5xl space-y-6 pb-24 sm:space-y-10">
       <header className="space-y-5 border-b border-slate-200 pb-6">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-emerald-700/25 bg-emerald-700/[0.06] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-800">
@@ -374,12 +468,17 @@ export function PagePengembangan() {
 
       <Bagian
         nomor="01"
-        judul="Halaman publik"
-        keterangan="Bisa dibuka tanpa akun. Dua di antaranya memakai token: verifikasi kontrak dan kwitansi dari tautan WhatsApp."
+        judul="Rute halaman & gerbang akses"
+        keterangan={`${RUTE_HALAMAN.filter((r) => r.gerbang === "publik").length} rute terbuka tanpa akun, ${RUTE_HALAMAN.filter((r) => r.gerbang === "akun").length} rute menuntut sesi, dan satu rute hanya untuk admin. Dua rute publik memakai token: verifikasi kontrak dan kwitansi dari tautan WhatsApp.`}
       >
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-1">
-          {HALAMAN_PUBLIK.map((halaman) => (
-            <BarisRute key={halaman.rute} rute={halaman.rute} isi={halaman.isi} />
+          {RUTE_HALAMAN.map((halaman) => (
+            <BarisRute
+              key={halaman.rute}
+              rute={halaman.rute}
+              isi={halaman.isi}
+              gerbang={halaman.gerbang}
+            />
           ))}
         </div>
       </Bagian>
@@ -387,7 +486,7 @@ export function PagePengembangan() {
       <Bagian
         nomor="02"
         judul="Ruang peminjam"
-        keterangan="Enam tab di dasbor peminjam setelah masuk dengan akun terverifikasi."
+        keterangan={`${TAB_PEMINJAM.length} tab di dasbor peminjam setelah masuk lewat OTP WhatsApp, NIK KTP, atau akun Google.`}
       >
         <p className="text-sm leading-6 text-slate-600">
           Seluruh tab hidup di satu rute, {" "}
@@ -414,7 +513,7 @@ export function PagePengembangan() {
       <Bagian
         nomor="03"
         judul="Modul panel admin"
-        keterangan="Dua puluh enam modul, dikelompokkan seperti sidebar. Beberapa di antaranya membawa lencana angka untuk pekerjaan yang benar-benar menunggu."
+        keterangan={`${MODUL_ADMIN.reduce((n, k) => n + k.modul.length, 0)} modul, dikelompokkan seperti sidebar. Beberapa di antaranya membawa lencana angka untuk pekerjaan yang benar-benar menunggu.`}
       >
         <div className="space-y-3">
           {MODUL_ADMIN.map((kelompok) => (
@@ -497,6 +596,26 @@ export function PagePengembangan() {
           </ol>
         </Bagian>
       </div>
+
+      <Bagian
+        nomor="07"
+        judul="Cara halaman ini diperbarui"
+        keterangan="Halaman ini ikut berubah bersama kode, jadi tidak perlu ada rilis terpisah untuk dokumentasi."
+      >
+        <ul className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+          {[
+            "Rute baru: tambahkan satu baris di RUTE_HALAMAN beserta gerbangnya. Angka ringkasan menghitung sendiri, tidak disunting.",
+            "Tab admin baru: tambahkan di src/pages/admin/admin-tabs.tsx, lalu salin label yang sama ke MODUL_ADMIN supaya sidebar dan halaman ini tidak berbeda.",
+            "Aturan uang: ubah konstanta di src/lib/. Halaman membaca angka yang sama, jadi tarif lama tidak tertinggal di teks.",
+            "Kalimat alur dan perilaku: sunting ALUR_PEMINJAM atau ALUR_ADMIN. Tes render menolak angka dan label yang tidak lagi cocok.",
+          ].map((baris) => (
+            <li key={baris} className="flex gap-2.5 text-sm leading-6 text-slate-600">
+              <ChevronRight className="mt-1 size-4 shrink-0 text-emerald-700" aria-hidden />
+              {baris}
+            </li>
+          ))}
+        </ul>
+      </Bagian>
 
       <section className="space-y-2 border-t border-slate-200 pt-5 text-sm leading-6 text-slate-600">
         <p>

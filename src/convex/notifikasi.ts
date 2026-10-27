@@ -28,6 +28,8 @@ import { pinjamanLunasMilikPendana } from "./penyediaDana";
  * | `kycRiwayat`           | info / sukses / peringatan | `notifikasiBaca`        |
  * | `loans` (status berubah) | info / sukses / peringatan | `notifikasiBaca`      |
  * | `pembaruanAplikasi`    | info                    | `notifikasiBaca`          |
+ * | `voucher` (H-3)        | peringatan              | `notifikasiBaca`          |
+ * | `doorprizeUndian`      | sukses                  | `notifikasiBaca`          |
  *
  * Konsekuensinya penting dan disengaja:
  *
@@ -73,6 +75,12 @@ const BATAS_RIWAYAT_KYC = 5;
 const BATAS_PENGADUAN = 8;
 /** Batas pesan petugas yang diperiksa per pengaduan. */
 const BATAS_PESAN_PENGADUAN = 4;
+/** Batas voucher yang diperiksa umur berlakunya. */
+const BATAS_VOUCHER = 12;
+/** Voucher diingatkan mulai H-3 sebelum masa berlakunya habis. */
+const VOUCHER_INGAT_HARI = 3;
+/** Batas undian terakhir yang diperiksa untuk kabar kemenangan. */
+const BATAS_UNDIAN = 12;
 
 /** Notifikasi beserta rujukan internalnya — dipakai untuk menandai dibaca. */
 type ItemInternal = NotifikasiItem & {
@@ -86,7 +94,9 @@ type ItemInternal = NotifikasiItem & {
     | "kyc"
     | "pinjaman"
     | "pendana"
-    | "pembaruan";
+    | "pembaruan"
+    | "voucher"
+    | "undian";
   /** Id baris sumber, bila sumbernya berbaris (pengingat/lokasi/bukti). */
   ref: string | null;
 };
@@ -576,6 +586,77 @@ async function susunNotifikasi(
       } Buka bagian pemasangan untuk mengunduh dan memasang.`,
       waktu: versiTerbaru.diumumkanPada,
       tautan: "/#pasang-aplikasi",
+      dibaca: false,
+    });
+  }
+
+  // ===== Sumber: voucher yang hampir kedaluwarsa (H-3) =====
+  // Dihitung dari masa berlaku voucher itu sendiri, bukan dari baris pengingat:
+  // tidak ada scheduler baru, dan memperpanjang voucher otomatis memindahkan
+  // pengingatnya. Voucher yang sudah habis kuotanya tidak diingatkan — tidak ada
+  // yang bisa diselamatkan dari kedaluwarsa.
+  const voucherSaya = await ctx.db
+    .query("voucher")
+    .withIndex("by_pemilik", (q) => q.eq("pemilikId", userId))
+    .collect();
+  const batasIngat = sekarang + VOUCHER_INGAT_HARI * 86_400_000;
+  const voucherHampir = voucherSaya
+    .filter(
+      (row) =>
+        row.status === "aktif" &&
+        row.terpakai < row.batasPemakaian &&
+        row.berlakuSampai >= sekarang &&
+        row.berlakuSampai <= batasIngat,
+    )
+    .sort((a, b) => a.berlakuSampai - b.berlakuSampai)
+    .slice(0, BATAS_VOUCHER);
+  for (const row of voucherHampir) {
+    const sisaHari = Math.max(
+      1,
+      Math.ceil((row.berlakuSampai - sekarang) / 86_400_000),
+    );
+    item.push({
+      kunci: `voucher:${row._id}:h3`,
+      sumber: "voucher",
+      ref: row._id,
+      jenis: "peringatan",
+      judul: "Voucher hampir kedaluwarsa",
+      ringkasan: `${row.judul} (${row.kode}) berlaku sampai ${formatTanggalWIB(
+        row.berlakuSampai,
+      )} — ${sisaHari} hari lagi. Pakai pada pengajuan berikutnya sebelum hangus.`,
+      // Waktu notifikasi adalah saat pengingat mulai berlaku, bukan sekarang:
+      // tanpa ini item berpindah ke puncak daftar setiap kali halaman dibuka.
+      waktu: Math.min(sekarang, row.berlakuSampai - VOUCHER_INGAT_HARI * 86_400_000),
+      tautan: "/dashboard?tab=form",
+      dibaca: false,
+    });
+  }
+
+  // ===== Sumber: undian yang dimenangkan akun ini =====
+  // Undian lama tetap muncul (bukan hanya kuartal berjalan): pemenang yang baru
+  // membuka aplikasi setelah sebulan tetap harus tahu, dan status penyerahan
+  // hadiahnya adalah bagian dari kabar itu. Tidak ada pemenang karangan —
+  // sumbernya baris `doorprizeUndian` yang benar-benar ditulis saat pengundian.
+  const undianTerakhir = await ctx.db
+    .query("doorprizeUndian")
+    .withIndex("by_diundiPada")
+    .order("desc")
+    .take(BATAS_UNDIAN);
+  for (const row of undianTerakhir) {
+    if (row.pemilikId !== userId) continue;
+    const diserahkanPada = row.hadiahDiserahkanPada;
+    item.push({
+      kunci: `undian:${row._id}`,
+      sumber: "undian",
+      ref: row._id,
+      jenis: "sukses",
+      judul: `Anda menang undian ${row.periode}`,
+      ringkasan:
+        diserahkanPada === undefined
+          ? `Hadiah ${row.hadiah} tercatat atas nama Anda. Petugas menghubungi nomor terdaftar untuk penyerahannya; tidak ada biaya apa pun untuk menerima hadiah.`
+          : `Hadiah ${row.hadiah} sudah dicatat diserahkan pada ${formatTanggalWIB(diserahkanPada)}.`,
+      waktu: row.diundiPada,
+      tautan: "/dashboard?tab=ringkasan",
       dibaca: false,
     });
   }

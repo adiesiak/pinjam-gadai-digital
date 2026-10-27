@@ -43,7 +43,7 @@ export function ErrorPage({
   const labelUtama = primaryLabel ?? (aksiUtamaDefault ? "Muat ulang halaman" : "Lanjutkan");
 
   return (
-    <div className="animate-masuk w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+    <div className="animate-masuk w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
       <span className="clay-icon-blue inline-flex size-11 items-center justify-center">
         <ShieldAlert className="size-5" />
       </span>

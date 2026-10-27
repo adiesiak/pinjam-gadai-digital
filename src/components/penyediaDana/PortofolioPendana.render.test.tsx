@@ -85,7 +85,7 @@ ada(html, "Dibukukan (lunas)", "angka yang sudah dibukukan dipisah");
 ada(html, "Rp 235.000", "keuntungan yang sudah dibukukan tercetak");
 ada(html, "Perkiraan (belum lunas)", "angka perkiraan dipisah");
 ada(html, "Rp 1.410.000", "keuntungan perkiraan tercetak");
-ada(html, "Biaya platform (layanan)", "biaya 5% dinamai biaya platform (layanan)");
+ada(html, "Porsi platform", "porsi 13/60 dinamai porsi platform");
 ada(html, "Rp 455.000", "biaya platform tercetak");
 ada(html, "porsi platform 21,67% dari", "porsi dan dasarnya dijelaskan");
 
@@ -144,6 +144,50 @@ bersih(html, "markup panel portofolio");
     "batas pencampuran dua model dinyatakan",
   );
   bersih(htmlKredit, "markup panel dengan blok kredit");
+}
+
+// ===== Blok gadai: posisi dan pembagian sewa =====
+{
+  const GADAI: NonNullable<RekapPendana["gadai"]> = {
+    jumlah: 2,
+    pokok: 3_500_000,
+    sisaPokok: 2_500_000,
+    sewaBerikut: 250_000,
+    porsiPendanaBerikut: 195_834,
+    porsiPlatformBerikut: 54_166,
+    porsiPendanaTercatat: 274_167,
+    porsiPlatformTercatat: 75_833,
+    porsiPendanaTransfer: 120_000,
+    porsiPendanaBelumTransfer: 154_167,
+    jumlahTransferBelumDicatat: 1,
+  };
+  const htmlGadai = renderToStaticMarkup(
+    <PortofolioPendana
+      r={{ ...ROBERT, gadai: GADAI }}
+      namaTampil={(nama) => nama}
+      persenLayanan={5}
+    />,
+  );
+  ada(htmlGadai, "Gadai · 2 posisi", "portofolio menyebut posisi gadainya");
+  ada(htmlGadai, "Rp 3.500.000", "pokok gadai ditampilkan");
+  ada(htmlGadai, "Rp 2.500.000", "sisa pokok gadai ditampilkan");
+  ada(htmlGadai, "Rp 195.834", "hak pendana atas sewa berikutnya dihitung");
+  ada(htmlGadai, "Rp 54.166", "porsi platform atas sewa berikutnya dihitung");
+  ada(htmlGadai, "Rp 274.167", "hak pendana yang sudah tercatat ditampilkan");
+  ada(htmlGadai, "Hak pendana tercatat", "istilah hak tercatat dipakai");
+  ada(htmlGadai, "Sudah ditandai transfer", "transfer yang sudah dicatat dibedakan");
+  ada(htmlGadai, "Rp 120.000", "nilai transfer tercatat ditampilkan");
+  ada(
+    htmlGadai,
+    "Belum ditandai transfer (1)",
+    "sisa hak yang belum ditransfer dihitung",
+  );
+  ada(
+    htmlGadai,
+    "bukan bukti mutasi bank",
+    "tanda transfer tidak diklaim sebagai bukti mutasi",
+  );
+  bersih(htmlGadai, "markup panel dengan blok gadai");
 }
 
 // ===== Tanpa pinjaman lunas: diterangkan apa adanya =====

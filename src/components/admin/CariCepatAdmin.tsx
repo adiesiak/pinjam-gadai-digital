@@ -7,7 +7,9 @@
  * yang memuat satu nasabah.
  *
  * Pencarian nasabah ditunda 250 ms dan baru berjalan setelah dua huruf, supaya
- * mengetik tidak mengirim satu query per karakter ke seluruh tabel pengguna.
+ * mengetik tidak mengirim satu query per karakter. Server membatasi bacaannya
+ * sendiri; bila jendela pencarian teks penuh, palet memberi tahu admin agar ia
+ * mencari dengan identitas tepat alih-alih menyimpulkan nasabahnya tidak ada.
  */
 import { useQuery } from "convex/react";
 import { Search, UserRound } from "lucide-react";
@@ -23,6 +25,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { api } from "@/convex/_generated/api";
+import { pesanHasilTerpotong } from "@/lib/pencarianNasabah";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { NilaiModulAdmin } from "@/lib/admin-queue";
 
@@ -143,6 +146,12 @@ export function CariCepatAdmin({
                 </CommandItem>
               ))}
             </CommandGroup>
+          )}
+
+          {nasabah?.dibatasi === true && (
+            <p className="px-3 py-2 text-[11px] leading-5 text-amber-700">
+              {pesanHasilTerpotong(nasabah.jenis)}
+            </p>
           )}
 
           {daftarNasabah.length > 0 && modul.length > 0 && <CommandSeparator />}

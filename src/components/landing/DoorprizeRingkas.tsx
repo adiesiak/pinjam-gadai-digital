@@ -55,7 +55,7 @@ export function DoorprizeRingkas({
       aria-labelledby="doorprize-ringkas-judul"
       className="border-t border-border"
     >
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 sm:py-18 lg:grid-cols-[1.25fr_0.75fr] lg:items-start">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:px-6 sm:py-18 sm:gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-start">
         <div className="min-w-0">
           <JudulBagian
             id="doorprize-ringkas-judul"
@@ -100,6 +100,12 @@ export function DoorprizeRingkas({
             className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {sudahMasuk ? "Buka tiket di dashboard" : "Masuk untuk melihat tiket"}
+          </Link>
+          <Link
+            to="/pemenang"
+            className="mt-2 block text-xs font-medium text-slate-600 underline underline-offset-4 hover:text-slate-900 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Lihat pemenang kuartal sebelumnya
           </Link>
         </div>
       </div>

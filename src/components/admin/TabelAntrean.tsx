@@ -27,6 +27,10 @@ export type BarisAntrean = {
   nominal: number | null;
   keperluan: string;
   waktu: number;
+  /** Umur tunggu dalam jam; null bila waktu acuan server tidak tersedia. */
+  umurJam?: number | null;
+  /** Label umur tunggu siap tampil, mis. "Menunggu 6 jam". */
+  labelUmur?: string | null;
   /** Teks status untuk pengurutan; lencananya tetap `status`. */
   statusTeks: string;
   /** Lencana tambahan di samping status (mis. Cair ekspres). */
@@ -287,6 +291,18 @@ export function TabelAntrean({
                   <p className="truncate text-xs font-medium text-slate-700">{b.keperluan}</p>
                   <p className="mt-0.5 text-[11px] tabular-nums text-slate-500">
                     {formatDate(b.waktu)}
+                    {b.labelUmur ? (
+                      <span
+                        className={
+                          (b.umurJam ?? 0) >= 48
+                            ? "font-medium text-amber-700"
+                            : undefined
+                        }
+                      >
+                        {" · "}
+                        {b.labelUmur}
+                      </span>
+                    ) : null}
                   </p>
                 </TableCell>
                 <TableCell className="hidden px-3 py-3 align-middle sm:table-cell">

@@ -83,7 +83,7 @@ export function IsiBrankas() {
   return (
     <section
       id="catatan"
-      className="relative scroll-mt-24 overflow-hidden border-t border-slate-200 bg-[#0f3d3a] py-16 sm:py-20"
+      className="relative scroll-mt-24 overflow-hidden border-t border-slate-200 bg-[#0f3d3a] py-12 sm:py-20"
     >
       <div
         aria-hidden="true"

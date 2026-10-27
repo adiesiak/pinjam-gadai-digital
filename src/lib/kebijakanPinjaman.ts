@@ -7,9 +7,9 @@
  *  1. Marjin yang dibayar peminjam dibagi antara pendana dan platform dengan
  *     porsi 47 : 13 dari 60 (78,333…% : 21,666…%). Rasio disimpan sebagai
  *     pembilang/penyebut, bukan persen desimal, supaya Rp300.000 terbagi tepat
- *     Rp235.000 / Rp65.000. Pembagian memakai bilangan bulat; sisa pembulatan
- *     selalu jatuh ke platform agar pendana tidak pernah menerima lebih dari
- *     porsinya.
+ *     Rp235.000 / Rp65.000. Pembagian memakai bilangan bulat; porsi platform
+ *     dibulatkan ke bawah sehingga sisa pecahan rupiah selalu menjadi milik
+ *     pendana.
  *
  *  2. Marjin tenor bulanan adalah marjin TOTAL sepanjang tenor, bukan per
  *     bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%, 9 bulan 90%, 12 bulan 96%
@@ -55,9 +55,9 @@ export const PERSEN_PORSI_PLATFORM =
   (PORSI_MARGIN.platformPembilang / PORSI_MARGIN.penyebut) * 100;
 
 export type BagiMargin = {
-  /** Bagian pendana; dibulatkan ke bawah. */
+  /** Sisa marjin untuk pendana; tidak ada rupiah yang hilang. */
   pendana: number;
-  /** Sisa marjin untuk platform; tidak ada rupiah yang hilang. */
+  /** Bagian platform; dibulatkan ke bawah. */
   platform: number;
 };
 
@@ -65,18 +65,18 @@ export type BagiMargin = {
  * Bagi satu marjin (bunga/margin pinjaman) menjadi hak pendana dan platform.
  *
  * `Math.floor` dipakai lewat BigInt untuk nominal besar, sehingga hasilnya
- * bilangan bulat dan tidak ada rupiah yang diciptakan. Platform menerima sisa
- * pembulatan, bukan pendana.
+ * bilangan bulat dan tidak ada rupiah yang diciptakan. Porsi platform
+ * dibulatkan ke bawah; sisa pembulatan menjadi milik pendana.
  */
 export function bagiMargin(margin: number): BagiMargin {
   if (!Number.isSafeInteger(margin) || margin < 0) {
     throw new Error(`Marjin harus rupiah bulat non-negatif: ${margin}`);
   }
-  const pendana = Number(
-    (BigInt(margin) * BigInt(PORSI_MARGIN.pendanaPembilang)) /
+  const platform = Number(
+    (BigInt(margin) * BigInt(PORSI_MARGIN.platformPembilang)) /
       BigInt(PORSI_MARGIN.penyebut),
   );
-  return { pendana, platform: margin - pendana };
+  return { pendana: margin - platform, platform };
 }
 
 /**
@@ -84,7 +84,8 @@ export function bagiMargin(margin: number): BagiMargin {
  *
  * Dipakai saat satu pinjaman didanai beberapa pendana: marjin dibagi menurut
  * porsi pokok alokasi lebih dulu, lalu tiap bagian dibagi 47 : 13. Pembulatan
- * ke bawah pada pembagian porsi menjaga total bagian tidak melebihi marjin.
+ * ke bawah pada pembagian porsi menjaga total bagian tidak melebihi marjin;
+ * sisa rupiah dari pembagian marjin menjadi milik pendana.
  */
 export function bagiMarginBagian(
   marginTotal: number,

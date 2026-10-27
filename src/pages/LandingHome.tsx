@@ -214,9 +214,6 @@ export default function LandingHome() {
     // Ruang bawah ekstra di ponsel: bilah aksi lengket tidak boleh menutupi
     // baris terakhir footer.
     <div className="min-h-screen w-full overflow-x-hidden bg-background pb-24 text-foreground sm:pb-0">
-      <a className="skip-link" href="#konten">
-        Lewati ke konten utama
-      </a>
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
@@ -507,7 +504,7 @@ export default function LandingHome() {
             />
           </div>
 
-          <div className="relative mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14">
+          <div className="relative mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-foreground">
                 Sebelum mengajukan

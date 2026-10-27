@@ -48,13 +48,20 @@ import {
   TENOR_BULANAN_OPTIONS,
 } from "../lib/bulanan";
 import { tarifBulananDariConfig } from "../lib/system-config";
-import { periksaMinimumPokok, syaratUnderwriting } from "../lib/kebijakanPinjaman";
-import { potonganDariKembali } from "../lib/bagiHasil";
+import {
+  PERSEN_PORSI_PLATFORM,
+  bagiMargin,
+  periksaMinimumPokok,
+  syaratUnderwriting,
+} from "../lib/kebijakanPinjaman";
 import { siklusPendanaan } from "../lib/imbalPendana";
 
-import { formatRupiah, type Rupiah } from "../lib/money";
-import { bungaSetelahPromo } from "../lib/promoBunga";
-import { promoBungaUntukPengajuan } from "./promoBunga";
+import { formatRupiah, percentOf, type Rupiah } from "../lib/money";
+import { bungaSetelahPromo, terapkanVoucherBunga } from "../lib/promoBunga";
+import {
+  pastikanPaguPromo,
+  promoBungaUntukPengajuan,
+} from "./promoBunga";
 import { COLLATERAL_CATEGORIES } from "../lib/pawn";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import {
@@ -770,21 +777,41 @@ export const createLoanApplication = mutation({
     const persenBungaNormal = persenBungaSimpanan;
     if (promoDipakai !== null) {
       persenBungaSimpanan = bungaSetelahPromo(persenBungaNormal, promoDipakai);
+
+      // Pagu subsidi kampanye diperiksa SEBELUM pengajuan ditulis. Kalau pagu
+      // sudah habis, pengajuan ditolak dengan pesan yang bisa ditindaklanjuti —
+      // bukan diam-diam memakai tarif normal, karena nasabah melihat angka promo
+      // di formulir dan berhak tahu angkanya berubah.
+      await pastikanPaguPromo(ctx, {
+        promo: promoDipakai,
+        subsidiBaru:
+          percentOf(quote.pokok, persenBungaNormal) -
+          percentOf(quote.pokok, persenBungaSimpanan),
+      });
     }
 
     // ===== Voucher potongan bunga & tambah tenor (khusus harian) =====
-    // Potongan bunga memakai poin persen, bukan rupiah. Ia diterapkan SETELAH
-    // promo dan tidak boleh membuat bunga negatif. Tarif sebelum potongan
-    // disimpan sebagai `promoBungaPersenNormal` supaya hak penyedia dana tetap
-    // dihitung dari tarif penuh — promo dan voucher adalah subsidi platform,
-    // bukan pengurang Imbal Hasil pendana.
+    // Potongan bunga memakai poin persen, bukan rupiah, dan diterapkan SETELAH
+    // promo lewat satu aturan murni di lib/promoBunga.ts: kampanye bisa menolak
+    // tumpukan, dan hasil tumpukan tidak boleh turun di bawah lantai bunga.
+    // Penolakan dikembalikan sebagai pesan siap tampil, bukan dipotong diam-diam
+    // (voucher yang nilainya termakan tidak boleh tampak "terpakai penuh").
+    // Tarif sebelum potongan disimpan sebagai `promoBungaPersenNormal` supaya
+    // hak penyedia dana tetap dihitung dari tarif penuh — promo dan voucher
+    // adalah subsidi platform, bukan pengurang Imbal Hasil pendana.
     const voucherDipakai = voucherTerpilih?.voucher ?? null;
     const potonganBungaVoucher =
       voucherDipakai?.jenis === "diskon_bunga" ? voucherDipakai.nilai : 0;
     const tambahanTenorVoucher =
       voucherDipakai?.jenis === "tambah_tenor" ? voucherDipakai.nilai : 0;
     if (potonganBungaVoucher > 0) {
-      persenBungaSimpanan = Math.max(0, persenBungaSimpanan - potonganBungaVoucher);
+      const tumpuk = terapkanVoucherBunga({
+        persenSetelahPromo: persenBungaSimpanan,
+        poinVoucher: potonganBungaVoucher,
+        promo: promoDipakai,
+      });
+      if (!tumpuk.ok) throw new Error(tumpuk.pesan);
+      persenBungaSimpanan = tumpuk.persen;
     }
 
     // Nama peminjam selalu disimpan UPPERCASE agar konsisten di dashboard.
@@ -1012,6 +1039,17 @@ export const createLoanApplication = mutation({
           }
         : {}),
     });
+    if (promoDipakai !== null) {
+      // Auto-stop dijadwalkan SETELAH transaksi ini berhasil. Mematikan promo di
+      // dalam mutation ini tidak mungkin: bila pengajuan gagal, Convex membatalkan
+      // seluruh tulisan termasuk patch kampanye. Dengan penjadwalan, kampanye yang
+      // pagunya habis berhenti sekali dan pinjaman ini tetap tersimpan.
+      await ctx.scheduler.runAfter(
+        0,
+        internal.promoBunga.hentikanPromoJikaPaguHabis,
+        { promoBungaId: promoDipakai._id },
+      );
+    }
     if (voucherTerpilih !== null) {
       await tandaiVoucherTerpakai(ctx, {
         voucher: voucherTerpilih.voucher!,
@@ -2375,17 +2413,16 @@ export const hapusGadai = mutation({
  * Jurnal (semua dalam satu mutation transaksional, append-only):
  *   1. D platform:CASH total kewajiban | K pinjaman:<id>
  *   2. Per penyedia dana (satu jurnal seimbang):
- *      D akun dompet dana:i (uang kembali bagiannya − potongan admin)
- *      D platform:FEE (potongan admin = persen × pokok alokasi)
+ *      D akun dompet dana:i (pokok + porsi pendana atas marjin)
+ *      D platform:FEE (porsi platform = 13/60 marjin alokasi)
  *      K pinjaman:<id> (alokasi + Imbal Hasil bagiannya)
  * Dust pembulatan proporsi imbal hasil diberikan ke penyedia dana dengan alokasi
  * terbesar, sehingga akun pinjaman tepat nol dan total keluar tepat.
  *
- * Dasar potongan: **total kembali alokasi (pokok + Imbal Hasil)** — lihat
- * tabel kebijakan di kepala lib/bagiHasil.ts. Persentasenya dibaca dari Pengaturan Sistem (`persenAdmin`)
- * dan dihitung oleh lib/bagiHasil.ts dengan pembulatan ke bawah: sisa rupiah
- * selalu milik penyedia dana, tidak
- * pernah masuk ke kas admin. Alokasi yang sudah dibayar dicap `potonganAdmin`,
+ * Dasar pembagian: **marjin pinjaman**, bukan total kembali. Porsi platform
+ * selalu 13/60 (21,67%) dan porsi pendana 47/60 (78,33%), dibulatkan ke bawah
+ * untuk platform sehingga sisa rupiah menjadi milik penyedia dana. Biaya admin
+ * dan biaya layanan adalah pos terpisah dan tidak masuk pembagian. Alokasi yang sudah dibayar dicap `potonganAdmin`,
  * `imbalHasilNet`, dan `diselesaikanPada` sebagai bukti audit angka yang
  * benar-benar dibayarkan (bukan hitungan ulang saat pelaporan).
  */
@@ -2499,9 +2536,9 @@ export const repayLoan = mutation({
       // Dipotong per alokasi, bukan sekali atas total pinjaman, supaya urutan
       // pendaftaran penyedia dana tidak mengubah hak siapa pun.
       const brutoBagian = f.jumlahAlokasi + imbal;
-      // Alokasi bersiklus memakai snapshot biaya siklus (5% pokok) dan tujuan
-      // pembayaran yang ditentukan status siklus. Baris lama tetap memakai
-      // kebijakan biaya global di atas.
+      // Alokasi bersiklus memakai snapshot porsi platform 13/60 marjin dan
+      // tujuan pembayaran yang ditentukan status siklus. Baris lama memakai
+      // aturan 47 : 13 yang sama dengan snapshot hari ini.
       let potonganAdmin: number;
       let imbalBersih: number;
       let akunPayout: string;
@@ -2524,9 +2561,9 @@ export const repayLoan = mutation({
         akunPayout = jalurSiklus.akun;
         kelebihan = jalurSiklus.kelebihan;
       } else {
-        // Baris lama tanpa siklus tetap memakai kebijakan biaya terkini:
-        // potongan dihitung dari total kembali (pokok + Imbal Hasil).
-        potonganAdmin = potonganDariKembali(brutoBagian, cfg.persenAdmin);
+        // Baris lama tanpa siklus tetap memakai aturan 47 : 13: porsi
+        // platform adalah 13/60 dari marjin alokasi ini.
+        potonganAdmin = bagiMargin(imbal).platform;
         imbalBersih = brutoBagian - potonganAdmin;
         akunPayout = akunDompetDana(f.danaId);
       }
@@ -2536,7 +2573,7 @@ export const repayLoan = mutation({
         skema: "pinjaman",
         keterangan:
           potonganAdmin > 0
-            ? `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi}) — uang yang kembali bagian penyedia ${brutoBagian}, potongan admin ${cfg.persenAdmin}% sebesar ${potonganAdmin}, dibayarkan ${imbalBersih}`
+            ? `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi}) — uang yang kembali bagian penyedia ${brutoBagian}, porsi platform 13/60 marjin sebesar ${potonganAdmin}, dibayarkan ${imbalBersih}`
             : `Pelunasan: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
         aktor: "platform",
         lines: [
@@ -2728,7 +2765,7 @@ export const repayLoan = mutation({
       hariTerlambat: pelunasan.hariTerlambat,
       /** Potongan admin atas Imbal Hasil seluruh penyedia dana pada pinjaman ini. */
       potonganAdmin: totalPotonganAdmin,
-      persenPotonganAdmin: cfg.persenAdmin,
+      persenPotonganAdmin: PERSEN_PORSI_PLATFORM,
     };
   },
 });

@@ -69,8 +69,10 @@ async function unggahKyc(t: Tx) {
     slip: await ctx.storage.store(new Blob(["slip gaji"])),
   }));
 }/**
- * Pengajuan kredit barang; DP 0% pada tenor 1/3/6 berarti harga = pokok
- * dibiayai. Tenor lama tetap dapat dibaca engine, tetapi tidak boleh diterbitkan.
+ * Pengajuan kredit barang. Pengajuan BARU wajib DP 10–50%, jadi tes yang ingin
+ * menguji batas pokok dibiayai memakai DP minimum (10%) dan harga yang dibuat
+ * supaya pokok = harga − DP. Tenor lama tetap dapat dibaca engine, tetapi tidak
+ * boleh diterbitkan.
  */
 
 async function ajukanKredit(
@@ -188,14 +190,16 @@ describe("plafon pinjaman per nasabah", () => {
       /Batas pinjaman Anda saat ini Rp 500\.000/,
     );
     // Kredit barang tidak mewarisi plafon tunai: pokok Rp10 juta lolos.
-    await expect(ajukanKredit(peminjam, 10_000_000, 0)).resolves.toBeDefined();
-    await expect(ajukanKredit(peminjam, 10_000_001, 0)).rejects.toThrow(
+    // DP 10% dari 11.111.111 = 1.111.111, jadi pokok = 10.000.000 tepat; satu
+    // rupiah lebih di harga mendorong pokok ke 10.000.001 dan ditolak.
+    await expect(ajukanKredit(peminjam, 11_111_111, 10)).resolves.toBeDefined();
+    await expect(ajukanKredit(peminjam, 11_111_112, 10)).rejects.toThrow(
       /Pokok dibiayai kredit barang maksimal Rp 10\.000\.000/,
     );
-    await expect(ajukanKredit(peminjam, 2_000_000, 0, 7)).rejects.toThrow(
+    await expect(ajukanKredit(peminjam, 2_000_000, 10, 7)).rejects.toThrow(
       /Tenor kredit barang baru harus 1 \/ 3 \/ 6 bulan/,
     );
-    await expect(ajukanKredit(peminjam, 2_000_000, 0, 12)).rejects.toThrow(
+    await expect(ajukanKredit(peminjam, 2_000_000, 10, 12)).rejects.toThrow(
       /Tenor kredit barang baru harus 1 \/ 3 \/ 6 bulan/,
     );
   });
@@ -351,8 +355,9 @@ describe("plafon pinjaman per nasabah", () => {
     expect(await peminjam.query(api.lokasi.plafonSaya, {})).toBe(8_200_000);
 
     // Kredit barang tetap tunduk pada batas tetapnya, bukan override tunai.
-    await expect(ajukanKredit(peminjam, 10_000_000, 0)).resolves.toBeDefined();
-    await expect(ajukanKredit(peminjam, 10_000_001, 0)).rejects.toThrow(
+    // DP 10% dipakai supaya pokok dibiayai = harga − DP (lihat tes di atas).
+    await expect(ajukanKredit(peminjam, 11_111_111, 10)).resolves.toBeDefined();
+    await expect(ajukanKredit(peminjam, 11_111_112, 10)).rejects.toThrow(
       /Pokok dibiayai kredit barang maksimal Rp 10\.000\.000/,
     );
 

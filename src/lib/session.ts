@@ -3,11 +3,35 @@
  *
  * sessionId: acak per perangkat, dipakai untuk Single Active Session (sesi
  * lama digugurkan saat login di perangkat lain) dan heartbeat TOTP gate.
- * IP publik dideteksi via api.ipify.org (gratis) — hanya untuk log anomali,
- * bukan otorisasi (server tetap memverifikasi identitas via token).
+ *
+ * IP publik ditanyakan ke endpoint `/api/klien/ip` milik deployment sendiri,
+ * bukan ke layanan luar: header proxy (`x-forwarded-for`) hanya terbaca server,
+ * jadi angka yang dicatat adalah yang dilihat server. Sebelumnya peramban
+ * memanggil api.ipify.org, yang diblokir CSP (`connect-src`) sehingga kolom IP
+ * selalu "tidak diketahui" sambil mengirim alamat pemakai ke pihak ketiga.
+ * IP ini hanya untuk log anomali, bukan otorisasi.
  */
+import { dasarSitusConvex } from "./native";
 
 const SESSION_KEY = "pindai.sessionId";
+
+/** Selang pemakaian ulang IP yang sudah diambil (ms). */
+const UMUR_IP_MS = 5 * 60 * 1000;
+
+let ipTersimpan: { nilai: string; pada: number } | null = null;
+
+function envVite(): Record<string, string | undefined> | undefined {
+  return (import.meta as { env?: Record<string, string | undefined> }).env;
+}
+
+/**
+ * URL endpoint IP klien untuk pasangan env tertentu; null bila env tidak diisi.
+ * Aturan penurunan domainnya sama dengan jalur HTTP lain (`dasarSitusConvex`).
+ */
+export function urlIpKlien(urlConvex?: string, urlSitus?: string): string | null {
+  const asal = dasarSitusConvex(urlConvex, urlSitus);
+  return asal === null ? null : `${asal}/api/klien/ip`;
+}
 
 export function getSessionId(): string {
   if (typeof window === "undefined") return "server";
@@ -21,14 +45,31 @@ export function getSessionId(): string {
   return id;
 }
 
+/**
+ * IP pemakai menurut server, atau "tidak diketahui" bila endpointnya belum
+ * bisa dihubungi. Satu hasil dipakai ulang 5 menit: satu rangkaian masuk
+ * (kirim kode, verifikasi, buka sesi) cukup sekali panggil.
+ */
 export async function getClientIp(): Promise<string> {
+  const sekarang = Date.now();
+  if (ipTersimpan !== null && sekarang - ipTersimpan.pada < UMUR_IP_MS) {
+    return ipTersimpan.nilai;
+  }
+
+  const env = envVite();
+  const url = urlIpKlien(env?.VITE_CONVEX_URL, env?.VITE_CONVEX_SITE_URL);
+  if (url === null) return "tidak diketahui";
+
   try {
-    const res = await fetch("https://api.ipify.org?format=json", {
-      signal: AbortSignal.timeout(4000),
-    });
-    const data: { ip?: string } = await res.json();
-    return data.ip ?? "tidak diketahui";
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return "tidak diketahui";
+    const data: { ip?: unknown } = await res.json();
+    const ip = typeof data.ip === "string" ? data.ip.trim() : "";
+    if (ip === "") return "tidak diketahui";
+    ipTersimpan = { nilai: ip, pada: sekarang };
+    return ip;
   } catch {
+    // Jaringan putus atau endpoint belum siap: jangan simpan, coba lagi nanti.
     return "tidak diketahui";
   }
 }

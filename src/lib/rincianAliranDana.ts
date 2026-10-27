@@ -14,10 +14,11 @@
  * | Potongan di muka 2% (biaya admin) | 2% × pokok | Rp20.000 |
  * | Diterima peminjam | pokok − potongan di muka | Rp980.000 |
  * | Kembali (pokok + Imbal Hasil 30%) | 130% × pokok | Rp1.300.000 |
- * | Potongan pendana 5% | 5% × total yang kembali | Rp65.000 |
- * | Diterima pendana | total kembali − potongan | Rp1.235.000 |
+ * | Marjin | total kembali − pokok | Rp300.000 |
+ * | Porsi platform (13/60 marjin) | 21,67% × marjin | Rp65.000 |
+ * | Diterima pendana | pokok + porsi pendana | Rp1.235.000 |
  * | Imbal Hasil bersih pendana | diterima − pokok | Rp235.000 |
- * | Pendapatan platform | potongan di muka + potongan pendana | Rp95.000 |
+ * | Pendapatan platform | potongan di muka + porsi platform | Rp95.000 |
  *
  * SATU PINTU UANG (penting): kedua paruh rincian ini diambil dari mesin uang
  * yang sama dengan yang menagih dan membukukan, bukan dihitung ulang di UI:
@@ -32,11 +33,7 @@
  * dibayar.
  */
 
-import {
-  bagiHasilPinjaman,
-  bagiHasilPinjamanDari,
-  POTONGAN_ADMIN_DEFAULT_PERSEN,
-} from "./bagiHasil";
+import { bagiHasilPinjaman, bagiHasilPinjamanDari } from "./bagiHasil";
 import { biayaEkspres } from "./ekonomiPlatform";
 import {
   LOAN_LIMITS,
@@ -96,9 +93,9 @@ export type RincianAliranDana = {
   imbalHasil: Rupiah;
   /** Total yang kembali dari peminjam = pokok + Imbal Hasil (130%). */
   totalKembali: Rupiah;
-  /** Persen potongan platform atas TOTAL KEMBALI (5%). */
+  /** Porsi platform atas marjin pinjaman (21,67%). */
   persenPotonganPenyedia: number;
-  /** Potongan platform = persen × total kembali (pembulatan ke bawah). */
+  /** Porsi platform = 13/60 × marjin pinjaman (pembulatan ke bawah). */
   potonganPenyedia: Rupiah;
   /** Uang yang diterima pendana = total kembali − potongan. */
   diterimaPenyedia: Rupiah;
@@ -152,9 +149,9 @@ function pastikanMesinSepakat(
 /**
  * Rincian aliran uang satu pinjaman.
  *
- * `persenPotonganPenyedia` sengaja punya nilai bawaan dari `bagiHasil.ts`
- * (`POTONGAN_ADMIN_DEFAULT_PERSEN`) supaya tarifnya hanya hidup di satu tempat —
- * kartu, ruang pendana, dan ledger memakai tarif yang sama.
+ * Porsi platform selalu 13/60 dari marjin (21,67%), dibaca dari
+ * `kebijakanPinjaman` supaya kartu, ruang pendana, dan ledger memakai aturan
+ * yang sama. Biaya admin di muka adalah pos terpisah dan tidak ikut dibagi.
  *
  * Melempar bila pokok bukan rupiah bulat positif atau di luar batas bisnis
  * (`LOAN_LIMITS`) — kartu admin tidak boleh menggambar contoh pinjaman yang
@@ -162,7 +159,6 @@ function pastikanMesinSepakat(
  */
 export function rincianAliranDana(
   pokok: Rupiah = POKOK_CONTOH_RINCIAN,
-  persenPotonganPenyedia: number = POTONGAN_ADMIN_DEFAULT_PERSEN,
 ): RincianAliranDana {
   // Batas bisnis diperiksa lebih dulu: kartu admin tidak boleh menggambar
   // contoh pinjaman yang tidak mungkin diajukan nasabah.
@@ -171,11 +167,7 @@ export function rincianAliranDana(
   // Paruh pertama dari mesin harga yang sama dengan akad & tagihan…
   const q = quoteLoan(pokok);
   // …paruh kedua dari mesin bagi hasil yang sama dengan ledger saat pelunasan.
-  const bagi = bagiHasilPinjaman(
-    pokok,
-    PINDAI_PRICING.bungaPercent,
-    persenPotonganPenyedia,
-  );
+  const bagi = bagiHasilPinjaman(pokok, PINDAI_PRICING.bungaPercent);
   pastikanMesinSepakat(q, bagi);
 
   return {
@@ -187,7 +179,7 @@ export function rincianAliranDana(
     persenImbalHasil: PINDAI_PRICING.bungaPercent,
     imbalHasil: bagi.bunga,
     totalKembali: bagi.totalLunas,
-    persenPotonganPenyedia,
+    persenPotonganPenyedia: Number(PERSEN_PORSI_PLATFORM.toFixed(2)),
     potonganPenyedia: bagi.potonganAdmin,
     diterimaPenyedia: bagi.pendanaTerima,
     imbalBersihPenyedia: bagi.keuntunganPendana,
@@ -294,7 +286,6 @@ export function rincianPinjamanNyata(
     /** Nama kampanye promo yang dibekukan saat pengajuan. */
     promoBungaNama?: string | null;
   },
-  persenPotonganPenyedia: number = POTONGAN_ADMIN_DEFAULT_PERSEN,
 ): RincianAliranDana {
   const pokok = pinjaman.pokokPinjaman;
   const harian = pinjaman.tenorBulan === null || pinjaman.tenorBulan === undefined;
@@ -314,7 +305,7 @@ export function rincianPinjamanNyata(
       persenImbalHasil: pinjaman.persenBunga ?? PINDAI_PRICING.bungaPercent,
       imbalHasil: nol,
       totalKembali: pokok,
-      persenPotonganPenyedia,
+      persenPotonganPenyedia: Number(PERSEN_PORSI_PLATFORM.toFixed(2)),
       potonganPenyedia: nol,
       diterimaPenyedia: pokok,
       imbalBersihPenyedia: nol,
@@ -332,7 +323,7 @@ export function rincianPinjamanNyata(
     percentOf(pokok, tarif.adminPersen) +
     biayaAsuransi +
     (pakaiEkspres ? biayaEkspres(pokok, tarif.ekspres) : 0);
-  const bagi = bagiHasilPinjamanDari(pinjaman, persenPotonganPenyedia);
+  const bagi = bagiHasilPinjamanDari(pinjaman);
   // Marjin dibagi 47 : 13 — angka yang sama dengan snapshot alokasi pendana.
   const hak = hakPendana(pokok, pinjaman);
   const porsiPlatform = Number(PERSEN_PORSI_PLATFORM.toFixed(2));

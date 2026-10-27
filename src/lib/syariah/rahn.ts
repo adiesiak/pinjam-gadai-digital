@@ -6,22 +6,21 @@
  *  - Ujrah pemeliharaan (sewa tempat) = 2% dari NILAI TAKSIRAN per 30 hari.
  *    Tenor dihitung dalam blok 30 hari (30, 60, 90), sama seperti tenor
  *    pendanaan, sehingga tidak ada pecahan hari yang harus ditafsirkan.
- *  - Ujrah dibagi dengan nisbah 92:8; 92% untuk pendana yang menyediakan dana
- *    jaminan, 8% untuk platform, dan sisa pembulatan ke pendana. Porsi itu bisa
- *    diubah admin; parameter `persenPlatform` yang menentukan.
+ *  - Ujrah dibagi 47 : 13 dari 60; 78,33% untuk pendana yang menyediakan dana
+ *    jaminan, 21,67% untuk platform, dan sisa pembulatan ke pendana. Porsi ini
+ *    tetap dan sama dengan produk konvensional.
  *
  * Identitas yang selalu berlaku:
  *   `pendanaTerima + platformTerima = totalKewajiban`
  *   `pendanaTerima = pokokGadai + nisbahPendana`
  * Semua nilai rupiah bulat.
  */
-import type { Rupiah } from "../money";
 import {
-  bagiNisbah,
-  floorPersen,
-  NISBAH_PLATFORM_PERSEN,
-  pastikanRupiah,
-} from "./nisbah";
+  PERSEN_PORSI_PENDANA,
+  PERSEN_PORSI_PLATFORM,
+} from "../kebijakanPinjaman";
+import type { Rupiah } from "../money";
+import { bagiNisbah, floorPersen, pastikanRupiah } from "./nisbah";
 
 /** Ujrah pemeliharaan per 30 hari, dalam persen dari nilai taksiran. */
 export const UJRAH_RAHN_PERSEN_PER_30_HARI = 2;
@@ -64,12 +63,10 @@ export function bagiHasilRahn({
   nilaiTaksiran,
   pokokGadai,
   tenorHari = SIKLUS_UJRAH_RAHN_HARI,
-  persenPlatform = NISBAH_PLATFORM_PERSEN,
 }: {
   nilaiTaksiran: Rupiah;
   pokokGadai: Rupiah;
   tenorHari?: number;
-  persenPlatform?: number;
 }): BagiHasilRahn {
   pastikanRupiah(nilaiTaksiran, "Nilai taksiran");
   pastikanRupiah(pokokGadai, "Pokok gadai");
@@ -99,10 +96,7 @@ export function bagiHasilRahn({
     UJRAH_RAHN_PERSEN_PER_30_HARI,
   );
   const ujrahTotal = ujrahPerSiklus * jumlahSiklus;
-  const { nisbahPendana, nisbahPlatform } = bagiNisbah(
-    ujrahTotal,
-    persenPlatform,
-  );
+  const { nisbahPendana, nisbahPlatform } = bagiNisbah(ujrahTotal);
 
   return {
     nilaiTaksiran,
@@ -116,8 +110,8 @@ export function bagiHasilRahn({
     pendanaTerima: pokokGadai + nisbahPendana,
     platformTerima: nisbahPlatform,
     totalKewajiban: pokokGadai + ujrahTotal,
-    persenPendana: 100 - persenPlatform,
-    persenPlatform,
+    persenPendana: PERSEN_PORSI_PENDANA,
+    persenPlatform: PERSEN_PORSI_PLATFORM,
     persenUjrahPer30Hari: UJRAH_RAHN_PERSEN_PER_30_HARI,
   };
 }

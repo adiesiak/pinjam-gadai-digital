@@ -82,6 +82,12 @@ Card Details:
 - Card Hover State: Smooth 3D tilt effect (`hover:scale-[1.02] transition-all duration-500`) with dynamic light reflection over the glass surface.
 - Security Feedback: Password strength meters and 32-character token auto-trimmers must render in real-time with sharp emerald status indicators.
 
+### C1. Register ponsel (rapat, sasaran tetap besar)
+
+Layar sampai 640px memakai satu tingkat ukuran yang lebih rapat: jarak vertikal tiap bagian 40px (bukan 56–64px), celah grid 24px (bukan 32–40px), padding kartu 16px (bukan 24px), dan padding kartu masuk 24px (bukan 32px). Nilai desktop tidak berubah karena setiap angka ponsel dipasangkan dengan `sm:`/`lg:`.
+
+Alasan: pada 360–430px lebar, jarak yang dirancang untuk kanvas 1440px membuat pengunjung menggulir melewati ruang kosong, bukan isi. Yang dipadatkan hanya ruang, bukan sasarannya: tap target tetap ≥44px (`min-h-11`/`min-h-12`) dan ukuran huruf ponsel tidak diturunkan di bawah tingkat yang sudah ada.
+
 ### D. Radius & Elevation
 
 Radius menyatakan ukuran benda, bukan selera: makin besar permukaannya, makin besar sudutnya. Satu baris kontrol tidak boleh mencampur dua tingkat radius.

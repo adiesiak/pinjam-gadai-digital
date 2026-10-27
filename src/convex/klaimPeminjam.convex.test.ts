@@ -30,6 +30,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { buatPengguna, type KonteksUji } from "./test.helpers";
+import { PESAN_NIK_KIRIM, PESAN_NIK_UMUM } from "../lib/nikLogin";
 import { modules } from "./test.setup";
 
 const NOMOR = "6281234567890";
@@ -798,5 +799,109 @@ describe("ringkasanKlaimSaya", () => {
     expect(ringkas.nomorTersimpanTampil).toBe("62812•••••890");
     expect(ringkas.tawaranKlaim).not.toBeNull();
     expect(ringkas.tawaranKlaim?.berkas.pinjaman).toBeGreaterThan(0);
+  });
+});
+
+describe("masuk dengan NIK", () => {
+  const NIK = "3201234567890001";
+
+  it("mengirim kode ke WhatsApp pada profil, dan menjawab sama untuk NIK yang tidak terdaftar", async () => {
+    const t = convexTest(schema, modules);
+    const fonnte = pasangFonnte();
+    try {
+      await seedPeminjamLama(t);
+
+      const terdaftar = await t.action(api.klaimPeminjam.mintaKodeDenganNik, {
+        nik: NIK,
+      });
+      expect(terdaftar.pesan).toBe(PESAN_NIK_KIRIM);
+      expect(fonnte.keluar).toHaveLength(1);
+      expect(fonnte.keluar[0]?.target).toBe(NOMOR);
+
+      // NIK yang tidak ada: kalimat SAMA, dan tidak ada pesan yang dikirim.
+      const asing = await t.action(api.klaimPeminjam.mintaKodeDenganNik, {
+        nik: "3201234567899999",
+      });
+      expect(asing.pesan).toBe(terdaftar.pesan);
+      expect(fonnte.keluar).toHaveLength(1);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
+  it("kode yang benar membuka akun pemilik NIK tanpa membuat akun atau memindahkan berkas", async () => {
+    const t = convexTest(schema, modules);
+    const fonnte = pasangFonnte();
+    try {
+      const userId = await seedPeminjamLama(t);
+      const jumlahAwal = await t.run((ctx) => ctx.db.query("users").collect());
+
+      await t.action(api.klaimPeminjam.mintaKodeDenganNik, { nik: NIK });
+      const masuk = await t.mutation(
+        internal.klaimPeminjam._klaimUntukMasukDenganNik,
+        { nik: NIK, kode: kodeTerkirim(fonnte.keluar) },
+      );
+
+      expect(masuk.ok).toBe(true);
+      if (masuk.ok) expect(masuk.userId).toBe(userId);
+
+      const users = await t.run((ctx) => ctx.db.query("users").collect());
+      expect(users).toHaveLength(jumlahAwal.length);
+      // Pintu NIK hanya membuka sesi; ia bukan jalur klaim data lama.
+      const klaim = await t.run((ctx) => ctx.db.query("klaimPeminjam").collect());
+      expect(klaim).toHaveLength(0);
+    } finally {
+      fonnte.pulihkan();
+    }
+  });
+
+  it("kode salah dan NIK ganda ditolak dengan pesan seragam", async () => {
+    const t = convexTest(schema, modules);
+    const fonnte = pasangFonnte();
+    try {
+      await seedPeminjamLama(t);
+      await t.action(api.klaimPeminjam.mintaKodeDenganNik, { nik: NIK });
+      const asli = kodeTerkirim(fonnte.keluar);
+      const salahKode = asli === "000000" ? "111111" : "000000";
+
+      const salah = await t.mutation(
+        internal.klaimPeminjam._klaimUntukMasukDenganNik,
+        { nik: NIK, kode: salahKode },
+      );
+      expect(salah.ok).toBe(false);
+      if (!salah.ok) expect(salah.pesan).toBe(PESAN_NIK_UMUM);
+
+      // NIK ganda: dua profil menunjuk NIK yang sama. Tidak ada kode dikirim,
+      // dan masuk ditolak dengan kalimat yang sama seperti NIK tak dikenal.
+      const { userId: lain } = await buatPengguna(t, "PEMINJAM KEDUA", {
+        role: "peminjam",
+      });
+      await t.run((ctx) =>
+        ctx.db.insert("nasabahProfil", {
+          userId: lain,
+          namaLengkap: "PEMINJAM KEDUA",
+          nik: NIK,
+          nomorWhatsApp: "628999000111",
+          diperbaruiPada: Date.now(),
+          diperbaruiOlehLabel: "uji",
+        }),
+      );
+
+      const sebelum = fonnte.keluar.length;
+      const ganda = await t.action(api.klaimPeminjam.mintaKodeDenganNik, {
+        nik: NIK,
+      });
+      expect(ganda.pesan).toBe(PESAN_NIK_KIRIM);
+      expect(fonnte.keluar).toHaveLength(sebelum);
+
+      const tolak = await t.mutation(
+        internal.klaimPeminjam._klaimUntukMasukDenganNik,
+        { nik: NIK, kode: asli },
+      );
+      expect(tolak.ok).toBe(false);
+      if (!tolak.ok) expect(tolak.pesan).toBe(PESAN_NIK_UMUM);
+    } finally {
+      fonnte.pulihkan();
+    }
   });
 });

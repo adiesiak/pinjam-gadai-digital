@@ -63,6 +63,7 @@ import {
   internalQuery,
   mutation,
   query,
+  type ActionCtx,
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
@@ -91,6 +92,11 @@ import {
   type BerkasLama,
 } from "../lib/klaimLama";
 import { formatRupiahAman } from "../lib/money";
+import {
+  normalisasiNikLogin,
+  PESAN_NIK_KIRIM,
+  PESAN_NIK_UMUM,
+} from "../lib/nikLogin";
 import {
   buatSaltOtp,
   cocokKodeOtp,
@@ -377,6 +383,105 @@ type HasilMintaKode = {
 };
 
 /**
+ * Profil pemilik NIK, HANYA bila NIK itu menunjuk tepat satu profil.
+ *
+ * NIK ganda (hasil impor atau salah input admin) sengaja menghasilkan `null`:
+ * menebak salah satu baris berarti membuka akun orang lain. NIK yang tidak
+ * terdaftar juga `null`, dan kedua keadaan itu tidak dibedakan ke pemakai.
+ */
+async function profilDenganNik(
+  ctx: QueryCtx,
+  nik: string,
+): Promise<Doc<"nasabahProfil"> | null> {
+  const bersih = normalisasiNikLogin(nik);
+  if (bersih === "") return null;
+  const baris = await ctx.db
+    .query("nasabahProfil")
+    .withIndex("by_nik", (q) => q.eq("nik", bersih))
+    .take(2);
+  return baris.length === 1 ? baris[0] : null;
+}
+
+/**
+ * Terbitkan kode, simpan hash-nya lewat pembatas laju, kirim, lalu catat.
+ *
+ * Dua pintu masuk memakai fungsi ini: nomor WhatsApp dan NIK. Urutan
+ * pembatasannya (cooldown, kuota per nomor, kuota per IP, mematikan kode lama)
+ * hidup di `_simpanPermintaanKlaim`; di sini urutan itu hanya ada satu versi,
+ * supaya tidak ada jalur masuk yang lebih longgar dari jalur lain.
+ */
+async function terbitkanKodeMasuk(
+  ctx: ActionCtx,
+  args: {
+    nomor: string;
+    berkasLama: number;
+    ip?: string;
+    userAgent?: string;
+    jenisLog: string;
+    pesanTerkirim: (nomorTampil: string, berkasLama: number) => string;
+  },
+): Promise<{
+  ok: boolean;
+  terkirim: boolean;
+  pesan: string;
+  sisaDetik: number;
+  nomorTampil: string;
+  /** true bila pembatas laju menolak sebelum kode dibuat. */
+  ditolak: boolean;
+}> {
+  const kode = kodeOtpEnamDigit();
+  const salt = buatSaltOtp();
+  const kodeHash = await hashKodeOtp(salt, kode);
+  const nomorTampil = topengNomor(args.nomor);
+
+  const izin = await ctx.runMutation(internal.klaimPeminjam._simpanPermintaanKlaim, {
+    nomor: args.nomor,
+    kodeHash,
+    salt,
+    maksPercobaan: OTP_MAKS_PERCOBAAN,
+    berkasLama: args.berkasLama,
+    ip: args.ip?.trim().slice(0, 64),
+    userAgent: args.userAgent?.trim().slice(0, 200),
+  });
+  if (!izin.ok) {
+    return {
+      ok: false,
+      terkirim: false,
+      pesan: izin.pesan,
+      sisaDetik: izin.sisaDetik,
+      nomorTampil,
+      ditolak: true,
+    };
+  }
+
+  const hasil = await kirimPesanOtp(ctx, args.nomor, pesanOtpKlaim(kode));
+  await ctx.runMutation(internal.klaimPeminjam._catatPengirimanKlaim, {
+    challengeId: izin.challengeId,
+    terkirim: hasil.terkirim,
+    respon: hasil.pesan,
+  });
+  // Jejak WhatsApp: isi pesan (yang memuat kode) TIDAK disimpan.
+  await ctx.runMutation(internal.whatsapp._appendLog, {
+    nomorTujuan: args.nomor,
+    jenis: args.jenisLog,
+    isiPesan: "Kode OTP masuk dikirim (isi disembunyikan).",
+    status: hasil.terkirim ? "terkirim" : "gagal",
+    respon: hasil.pesan,
+  });
+
+  return {
+    ok: hasil.terkirim,
+    terkirim: hasil.terkirim,
+    pesan: hasil.terkirim
+      ? args.pesanTerkirim(nomorTampil, args.berkasLama)
+      : hasil.pesan,
+    sisaDetik: 0,
+    nomorTampil,
+    ditolak: false,
+  };
+}
+
+/**
  * Minta kode masuk WhatsApp — TANPA sesi, untuk nomor lama maupun baru.
  *
  * Pemilik nomor membuktikan dirinya lewat kode, bukan lewat sesi. Jawaban
@@ -441,56 +546,78 @@ export const mintaKodeKlaim = action({
     // ditebak dari respons.
     const berkasLama = utama === null ? 0 : totalBerkas(utama.berkas);
 
-    const kode = kodeOtpEnamDigit();
-    const salt = buatSaltOtp();
-    const kodeHash = await hashKodeOtp(salt, kode);
-    const izin = await ctx.runMutation(internal.klaimPeminjam._simpanPermintaanKlaim, {
+    const { ditolak, ...hasil } = await terbitkanKodeMasuk(ctx, {
       nomor: bersih,
-      kodeHash,
-      salt,
-      maksPercobaan: OTP_MAKS_PERCOBAAN,
       berkasLama,
-      ip: ip?.trim().slice(0, 64),
-      userAgent: userAgent?.trim().slice(0, 200),
+      ip,
+      userAgent,
+      jenisLog: "otp_klaim_peminjam",
+      pesanTerkirim: (nomorTampil, jumlah) =>
+        jumlah > 0
+          ? `Kode dikirim ke ${nomorTampil}. Data lama Anda siap dipulihkan.`
+          : `Kode dikirim ke ${nomorTampil}. Masukkan kodenya untuk masuk atau membuat akun.`,
     });
-    if (!izin.ok) {
-      return {
-        ok: false,
-        terkirim: false,
-        pesan: izin.pesan,
-        sisaDetik: izin.sisaDetik,
-        nomorTampil: topengNomor(bersih),
-        berkasLama: 0,
-      };
+    return { ...hasil, berkasLama: ditolak ? 0 : berkasLama };
+  },
+});
+
+/** Profil milik satu NIK, untuk action yang tidak boleh menyentuh database. */
+export const _profilDenganNik = internalQuery({
+  args: { nik: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({ userId: v.id("users"), nomorWhatsApp: v.string() }),
+  ),
+  handler: async (ctx, { nik }) => {
+    const profil = await profilDenganNik(ctx, nik);
+    return profil === null
+      ? null
+      : { userId: profil.userId, nomorWhatsApp: profil.nomorWhatsApp };
+  },
+});
+
+/**
+ * PINTU NIK: minta kode masuk tanpa mengetik nomor WhatsApp.
+ *
+ * NIK dipakai sebagai nama pengguna saja. Kode tetap dikirim ke nomor yang
+ * tercatat pada profil, jadi menebak NIK tidak memberi akses apa pun.
+ *
+ * Balasannya SELALU kalimat yang sama, baik NIK terdaftar, NIK ganda, maupun
+ * NIK tidak ada. Untuk NIK yang tidak menghasilkan profil, tidak ada pesan yang
+ * dikirim, tetapi kerja hash tetap dijalankan supaya waktu balasan tidak
+ * menjadi petunjuk keberadaan NIK. Pembatas laju per nomor dan per IP tetap
+ * berlaku di `_simpanPermintaanKlaim`.
+ */
+export const mintaKodeDenganNik = action({
+  args: {
+    nik: v.string(),
+    ip: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  },
+  returns: v.object({ pesan: v.string() }),
+  handler: async (ctx, { nik, ip, userAgent }): Promise<{ pesan: string }> => {
+    const profil = await ctx.runQuery(internal.klaimPeminjam._profilDenganNik, {
+      nik,
+    });
+    const nomor =
+      profil === null ? null : normalisasiNomorWa(profil.nomorWhatsApp);
+    if (profil === null || nomor === null) {
+      // Kerja yang sama dengan jalur terdaftar, tanpa mengirim apa pun.
+      await hashKodeOtp(buatSaltOtp(), kodeOtpEnamDigit());
+      return { pesan: PESAN_NIK_KIRIM };
     }
-
-    const hasil = await kirimPesanOtp(ctx, bersih, pesanOtpKlaim(kode));
-    await ctx.runMutation(internal.klaimPeminjam._catatPengirimanKlaim, {
-      challengeId: izin.challengeId,
-      terkirim: hasil.terkirim,
-      respon: hasil.pesan,
+    await terbitkanKodeMasuk(ctx, {
+      nomor,
+      berkasLama: 0,
+      ip,
+      userAgent,
+      jenisLog: "otp_masuk_nik",
+      pesanTerkirim: () => PESAN_NIK_KIRIM,
     });
-    // Jejak penagihan WhatsApp: isi pesan (yang memuat kode) TIDAK disimpan.
-    await ctx.runMutation(internal.whatsapp._appendLog, {
-      nomorTujuan: bersih,
-      jenis: "otp_klaim_peminjam",
-      isiPesan: "Kode OTP klaim peminjam lama dikirim (isi disembunyikan).",
-      status: hasil.terkirim ? "terkirim" : "gagal",
-      respon: hasil.pesan,
-    });
-
-    return {
-      ok: hasil.terkirim,
-      terkirim: hasil.terkirim,
-      pesan: hasil.terkirim
-        ? berkasLama > 0
-          ? `Kode dikirim ke ${topengNomor(bersih)}. Data lama Anda siap dipulihkan.`
-          : `Kode dikirim ke ${topengNomor(bersih)}. Masukkan kodenya untuk masuk atau membuat akun.`
-        : hasil.pesan,
-      sisaDetik: 0,
-      nomorTampil: topengNomor(bersih),
-      berkasLama,
-    };
+    // Kegagalan gateway juga tidak dibedakan di sini: kalimat yang berbeda
+    // hanya untuk NIK terdaftar akan mengubah endpoint ini menjadi alat
+    // pengecekan keanggotaan. Jejak kegagalannya ada di `waLogs`.
+    return { pesan: PESAN_NIK_KIRIM };
   },
 });
 
@@ -683,6 +810,19 @@ async function selesaikanKlaim(
      * punya data lama. Jalur sesi aktif tidak: ia hanya menautkan berkas impor.
      */
     izinkanAkunBaru?: boolean;
+    /**
+     * Akun yang WAJIB menjadi tujuan (pintu NIK). Nomor hanya boleh memberi
+     * sesi akun ini; bila nomor itu menunjuk akun lain, masuk ditolak dan tidak
+     * ada berkas yang dipindahkan. Tanpa batas ini, NIK yang salah ketik bisa
+     * membuka akun orang lain lewat nomor yang tercatat di profilnya.
+     */
+    wajibUserId?: Id<"users">;
+    /**
+     * Hanya mengautentikasi: kode tetap diverifikasi, tetapi tidak ada berkas
+     * yang ditautkan/dipindahkan dan tidak ada riwayat klaim yang ditulis.
+     * Dipakai pintu NIK, yang tugasnya membuka sesi, bukan memulihkan data.
+     */
+    hanyaMasuk?: boolean;
   },
 ): Promise<HasilKlaim> {
   const kosong: BerkasLama = { ...BERKAS_LAMA_KOSONG };
@@ -708,7 +848,13 @@ async function selesaikanKlaim(
 
   const kepemilikan = await kepemilikanNomor(ctx, bersih);
   const utama = pemilikUtama(kepemilikan);
-  if (utama === null && args.izinkanAkunBaru !== true) {
+  // Pintu NIK sudah menentukan akunnya dari profil, jadi nomor yang belum
+  // punya berkas keuangan tetap boleh masuk (nasabah baru yang belum meminjam).
+  if (
+    utama === null &&
+    args.izinkanAkunBaru !== true &&
+    args.wajibUserId === undefined
+  ) {
     return gagal(
       "Nomor ini belum terdaftar sebagai nasabah lama PINDAI. Daftar akun baru lewat email, atau hubungi admin.",
     );
@@ -717,7 +863,16 @@ async function selesaikanKlaim(
   // Akun yang berhak: sesi aktif bila ada, lalu pemilik data lama. `null` hanya
   // mungkin pada login provider nomor baru, yang akunnya ditentukan setelah
   // kode terbukti benar.
-  const tujuan: Id<"users"> | null = args.userId ?? utama?.userId ?? null;
+  let tujuan: Id<"users"> | null = args.userId ?? utama?.userId ?? null;
+  if (args.wajibUserId !== undefined) {
+    // NIK yang memilih akun, bukan nomor. Bila nomor ini justru menunjuk akun
+    // lain, berhenti: memindahkan kepemilikan di sini akan menyerahkan berkas
+    // orang lain kepada penebak NIK.
+    if (tujuan !== null && tujuan !== args.wajibUserId) {
+      return gagal(PESAN_NIK_UMUM);
+    }
+    tujuan = args.wajibUserId;
+  }
   // Lapis kedua: sesi aktif pun tidak boleh memakai jalur ini untuk masuk ke
   // akun tim, walau nomornya menempel di sana karena data impor lama.
   const akunTujuan = tujuan === null ? null : await ctx.db.get(tujuan);
@@ -792,6 +947,29 @@ async function selesaikanKlaim(
     dipakaiPada: sekarang,
     ...(tujuan === null ? {} : { dipakaiOlehUserId: tujuan }),
   });
+
+  // Pintu NIK berhenti di sini: kode sudah terbukti, akun sudah pasti. Tidak
+  // ada penautan berkas, karena masuk bukan memulihkan data lama.
+  if (args.hanyaMasuk === true) {
+    if (tujuan === null) return gagal(PESAN_NIK_UMUM);
+    await catatLogin(ctx, {
+      userId: tujuan,
+      status: "berhasil",
+      metode: args.metode,
+      ip: (args.ip ?? "").slice(0, 64),
+      userAgent: (args.userAgent ?? "").slice(0, 200),
+      keterangan: "Masuk dengan NIK dan kode OTP ke WhatsApp terdaftar",
+    });
+    return {
+      ok: true,
+      pesan: "NIK dan kode cocok.",
+      userId: tujuan,
+      akunLama: null,
+      berkas: kosong,
+      dipindahkan: kosong,
+      metode: args.metode,
+    };
+  }
 
   // Akun pendana tidak punya berkas pinjaman; nomor yang terverifikasi cukup
   // memberi sesi akun itu langsung. Jalur klaim peminjam di bawah tidak relevan
@@ -1097,6 +1275,53 @@ export const _klaimUntukMasuk = internalMutation({
       pesan: hasil.pesan,
       berkas: hasil.berkas,
     };
+  },
+});
+
+/**
+ * PINTU NIK untuk provider Convex Auth (`auth/nikOtp.ts`).
+ *
+ * Alurnya: NIK → profil → nomor WhatsApp pada profil itu → verifikasi kode oleh
+ * mesin yang SAMA dengan pintu nomor (`selesaikanKlaim`), lalu sesi hanya untuk
+ * `userId` milik profil tersebut. Tidak ada akun baru, tidak ada pemindahan
+ * berkas, dan kegagalan apa pun dijawab dengan pesan seragam supaya NIK tidak
+ * bisa dipakai untuk memeriksa siapa yang terdaftar.
+ */
+export const _klaimUntukMasukDenganNik = internalMutation({
+  args: {
+    nik: v.string(),
+    kode: v.string(),
+    ip: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({ ok: v.literal(true), userId: v.id("users"), pesan: v.string() }),
+    v.object({ ok: v.literal(false), pesan: v.string() }),
+  ),
+  handler: async (ctx, args) => {
+    const profil = await profilDenganNik(ctx, args.nik);
+    const nomor =
+      profil === null ? null : normalisasiNomorWa(profil.nomorWhatsApp);
+    if (profil === null || nomor === null) {
+      return { ok: false as const, pesan: PESAN_NIK_UMUM };
+    }
+
+    const hasil = await selesaikanKlaim(ctx, {
+      nomor,
+      kode: args.kode,
+      userId: null,
+      metode: "otp_nik",
+      wajibUserId: profil.userId,
+      hanyaMasuk: true,
+      ...(args.ip === undefined ? {} : { ip: args.ip }),
+      ...(args.userAgent === undefined ? {} : { userAgent: args.userAgent }),
+    });
+    if (!hasil.ok || hasil.userId === null) {
+      // Detail kegagalan (kode salah, kedaluwarsa, batas percobaan) sengaja
+      // tidak diteruskan: semuanya hanya boleh terlihat sama dari luar.
+      return { ok: false as const, pesan: PESAN_NIK_UMUM };
+    }
+    return { ok: true as const, userId: hasil.userId, pesan: "NIK dan kode cocok." };
   },
 });
 

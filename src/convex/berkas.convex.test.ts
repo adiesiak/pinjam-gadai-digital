@@ -28,6 +28,12 @@ describe("tautan berkas sensitif", () => {
     expect(exp).toBeGreaterThanOrEqual(Date.now() + MASA_TAUTAN_BERKAS_MS - 5_000);
     expect(await periksaTautanBerkas({ id: idTautan, exp, sig })).toBe(true);
 
+    // Umur tautan dikunci di sepuluh menit: tautan ini kredensial bearer untuk
+    // KTP, jadi memperpanjangnya harus gagal di tes, bukan lolos diam-diam.
+    expect(MASA_TAUTAN_BERKAS_MS).toBe(10 * 60 * 1000);
+    // Tanda tangan HMAC-SHA256 dalam hex — 32 byte, 64 karakter.
+    expect(sig).toMatch(/^[0-9a-f]{64}$/);
+
     // Lewat satu milidetik dari waktu kedaluwarsa: tautan mati.
     expect(
       await periksaTautanBerkas({ id: idTautan, exp, sig, sekarang: exp + 1 }),
@@ -62,5 +68,34 @@ describe("tautan berkas sensitif", () => {
       `/berkas?id=${id}&exp=${Date.now() + 60_000}&sig=${"0".repeat(64)}`,
     );
     expect(sigPalsu.status).toBe(403);
+  });
+
+  it("tanpa rahasia asli tidak menandatangani, dan endpoint menjawab 503", async () => {
+    const t = convexTest(schema, modules);
+    const id = await t.run((ctx) => ctx.storage.store(new Blob(["ktp"])));
+    const cadangan = {
+      BERKAS_LINK_SECRET: process.env.BERKAS_LINK_SECRET,
+      JWT_PRIVATE_KEY: process.env.JWT_PRIVATE_KEY,
+    };
+    delete process.env.BERKAS_LINK_SECRET;
+    delete process.env.JWT_PRIVATE_KEY;
+    try {
+      // Tidak ada cadangan yang tertulis di kode: gagal, bukan menandatangani.
+      await expect(tautanBerkas(id)).rejects.toThrow(/BERKAS_LINK_SECRET/);
+
+      const jawaban = await t.fetch(
+        `/berkas?id=${id}&exp=${Date.now() + 60_000}&sig=${"a".repeat(64)}`,
+      );
+      expect(jawaban.status).toBe(503);
+      expect(await jawaban.text()).toContain("rahasia penanda tangan");
+    } finally {
+      // `process.env.X = undefined` menyimpan teks "undefined", jadi yang tidak
+      // pernah ada harus dihapus, bukan dikembalikan sebagai nilai.
+      for (const nama of ["BERKAS_LINK_SECRET", "JWT_PRIVATE_KEY"] as const) {
+        const nilai = cadangan[nama];
+        if (nilai === undefined) delete process.env[nama];
+        else process.env[nama] = nilai;
+      }
+    }
   });
 });

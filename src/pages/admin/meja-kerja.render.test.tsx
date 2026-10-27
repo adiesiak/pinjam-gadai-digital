@@ -165,7 +165,7 @@ ada(html, "Aliran uang satu pinjaman", "judul kartu");
 ada(html, "Contoh satu pinjaman Rp 1.000.000", "kalimat contoh menyebut pokok Rp1.000.000");
 ada(html, "dipotong admin 2% + biaya ekspres di muka", "kalimat contoh menyebut potongan admin + ekspres");
 ada(html, "kembali 130% dari pokok", "kalimat contoh menyebut kembali 130%");
-ada(html, "porsi platform 5% dari marjin", "kalimat contoh menyebut porsi platform");
+ada(html, "porsi platform 21,67% dari marjin", "kalimat contoh menyebut porsi platform");
 
 // Delapan baris rincian, dengan label kebijakannya.
 const label = [
@@ -173,7 +173,7 @@ const label = [
   "Potongan di muka (admin 2% + ekspres)",
   "Diterima peminjam",
   "Kembali (pokok + Imbal Hasil 30%)",
-  "Porsi platform 5% dari marjin",
+  "Porsi platform 21,67% dari marjin",
   "Diterima pendana",
   "Imbal Hasil bersih pendana",
   "Pendapatan platform",

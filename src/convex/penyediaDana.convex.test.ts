@@ -24,6 +24,7 @@ import {
   imbalPendana,
   totalPengembalianPendana,
 } from "../lib/imbalPendana";
+import { PERSEN_PORSI_PLATFORM } from "../lib/kebijakanPinjaman";
 import { akunDompetDana } from "./ledger";
 import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import { BATAS_BARIS } from "./penyediaDana";
@@ -318,9 +319,9 @@ describe("ruang penyedia dana (lihat saja)", () => {
     });
     await seedPengajuan(t, userId, { userId: danaId, nama: "Penyedia Uji" });
 
-    // Ruang ini portofolio pribadi: akun pendana menerima pinjaman dan kredit
-    // yang alokasinya atas namanya. Pengajuan gadai tidak pernah masuk — tidak
-    // ada tabel alokasi untuk pawns (lihat komentar seedPengajuan).
+    // Ruang ini portofolio pribadi: akun pendana menerima pinjaman, kredit,
+    // dan gadai yang pemiliknya ia sendiri. Gadai seed ini tidak punya pendana,
+    // jadi tetap tidak muncul di portofolio siapa pun.
     const pribadi = await dana.query(api.penyediaDana.daftarPengajuan, {});
     expect(pribadi.pinjaman.map((b) => b.nomorReferensi)).toEqual(["PGD-UJI-1"]);
     expect(pribadi.gadai).toEqual([]);
@@ -385,6 +386,17 @@ describe("ruang penyedia dana (lihat saja)", () => {
         expect(baris).not.toHaveProperty(kunci);
       }
     }
+
+    // Nomor peminjam untuk tombol "Kirim rekening" dibaca lewat query admin
+    // TERPISAH — daftar di atas tetap tanpa nomor, jadi akun pendana/pemantau
+    // tidak bisa memperolehnya dari payload halaman ini.
+    const loanId = hasil.pinjaman[0]?._id;
+    expect(loanId).toBeDefined();
+    const kontak = await admin.query(api.admin.kontakPeminjam, { loanId: loanId! });
+    expect(kontak?.nomorWhatsApp).toBe(RAHASIA.nomorWhatsApp);
+    await expect(
+      dana.query(api.admin.kontakPeminjam, { loanId: loanId! }),
+    ).rejects.toThrow();
 
     // Ringkasan dihitung dari baris yang dikirim.
     expect(hasil.ringkasan).toMatchObject({
@@ -680,7 +692,74 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(hasil.batas).toBe(BATAS_BARIS);
     expect(hasil.pinjaman).toHaveLength(BATAS_BARIS);
     expect(hasil.terpotong.pinjaman).toBe(true);
-    expect(hasil.ringkasan.jumlahPinjaman).toBe(BATAS_BARIS);
+    // Daftar tetap 200 baris, tetapi RINGKASAN menghitung seluruh cakupan:
+    // dana yang sudah tersalurkan tidak boleh menghilang dari angka hanya
+    // karena pengajuan baru mendorong baris lama keluar dari jendela.
+    expect(hasil.ringkasan.jumlahPinjaman).toBe(BATAS_BARIS + 5);
+    expect(hasil.ringkasan.pinjamanTerpotong).toBe(false);
+  });
+
+  it("menghitung kesehatan portofolio dari pinjaman di luar jendela daftar", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani", {
+      email: "rani@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: dana, userId: danaId } = await siapkanPengguna(t, "Penyedia Uji", {
+      email: "dana@pindai.test",
+      role: "dana",
+    });
+
+    const hari = 24 * 60 * 60 * 1000;
+    const sekarang = Date.now();
+    await t.run(async (ctx) => {
+      // Lima pinjaman TERLAMBAT dibuat lebih dulu, lalu 200 pinjaman baru
+      // yang sehat. Jendela daftar hanya memuat 200 baris terbaru, jadi lima
+      // baris tua ini tidak pernah sampai ke layar sebagai baris tabel.
+      for (let i = 0; i < 5; i += 1) {
+        await ctx.db.insert("loans", {
+          userId,
+          pokokPinjaman: 1_000_000,
+          tujuan: `Telat ${i}`,
+          namaLengkap: NAMA_PEMOHON,
+          nomorRekening: RAHASIA.nomorRekening,
+          status: "didanai",
+          nomorReferensi: `PGD-TELAT-${i}`,
+          tenorHari: 30,
+          didanaiPada: sekarang - 60 * hari,
+          pendanaId: danaId,
+          pendanaNama: "Penyedia Uji",
+        });
+      }
+      for (let i = 0; i < BATAS_BARIS; i += 1) {
+        await ctx.db.insert("loans", {
+          userId,
+          pokokPinjaman: 1_000_000,
+          tujuan: `Sehat ${i}`,
+          namaLengkap: NAMA_PEMOHON,
+          nomorRekening: RAHASIA.nomorRekening,
+          status: "didanai",
+          nomorReferensi: `PGD-SEHAT-${i}`,
+          tenorHari: 30,
+          didanaiPada: sekarang,
+          pendanaId: danaId,
+          pendanaNama: "Penyedia Uji",
+        });
+      }
+    });
+
+    const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
+    expect(hasil.pinjaman).toHaveLength(BATAS_BARIS);
+    expect(hasil.pinjaman.some((b) => b.nomorReferensi === "PGD-TELAT-0")).toBe(
+      false,
+    );
+    expect(hasil.ringkasan.jumlahPinjaman).toBe(BATAS_BARIS + 5);
+    expect(hasil.kesehatan.terlambat).toEqual({
+      jumlah: 5,
+      nominal: 5_000_000,
+    });
+    expect(hasil.kesehatan.persenTerlambat).toBeCloseTo((5 / 205) * 100, 6);
+    expect(hasil.kesehatan.jatuhTempoSegera.jumlah).toBe(0);
   });
 
   it("menampilkan nama penyedia dana pada baris yang sudah didanai", async () => {
@@ -1626,7 +1705,7 @@ describe("kelola penyedia dana (panel admin)", () => {
       jumlahAkses: 1,
       jumlahPeranLegacy: 0,
       jumlahPemantau: 0,
-      persenPotonganAdmin: 5,
+      persenPotonganAdmin: PERSEN_PORSI_PLATFORM,
       persenBunga: 30,
       totalDisalurkan: 1_500_000,
       saldoBerjalan: 1_000_000,
@@ -1648,7 +1727,7 @@ describe("kelola penyedia dana (panel admin)", () => {
     expect(rincian?.pinjaman).toHaveLength(2);
     expect(rincian?.pinjaman.some((p) => p.referensi === "PGD-UJI-1")).toBe(true);
     expect(rincian?.ringkasKeuntungan).toMatchObject({
-      persenPotonganAdmin: 5,
+      persenPotonganAdmin: PERSEN_PORSI_PLATFORM,
       persenBunga: 30,
       pokok: 1_500_000,
       saldoBerjalan: 1_000_000,
@@ -1809,7 +1888,7 @@ describe("kelola penyedia dana (panel admin)", () => {
     // kembali utuh.
     expect(baris?.keuntunganPendana).toBe(705_000);
     expect(daftar.ringkasan).toMatchObject({
-      persenPotonganAdmin: 5,
+      persenPotonganAdmin: PERSEN_PORSI_PLATFORM,
       persenBunga: 30,
       totalBunga: 900_000,
       keuntunganAdmin: 195_000,
@@ -1820,7 +1899,7 @@ describe("kelola penyedia dana (panel admin)", () => {
       userId: penyediaId,
     });
     expect(rincian?.ringkasKeuntungan).toMatchObject({
-      persenPotonganAdmin: 5,
+      persenPotonganAdmin: PERSEN_PORSI_PLATFORM,
       persenBunga: 30,
       pokok: 3_000_000,
       saldoBerjalan: 2_000_000,

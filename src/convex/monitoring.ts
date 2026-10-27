@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { ledgerTotals } from "./ledger";
-import { audit } from "./system";
+import { audit, catatanBackupTerakhir } from "./system";
 
 /**
  * Pemantauan sistem yang benar-benar terukur.
@@ -91,6 +91,34 @@ export async function susunPeringatan(
         (waGagal[0]?.respon ?? "tidak tercatat").slice(0, 160)
       }`,
     });
+  }
+
+  /**
+   * Backup yang terlantar. Kode tidak bisa menjadwalkan backup platform, jadi
+   * yang diperiksa adalah CATATAN backup terakhir: arsip yang tidak pernah
+   * dibuat tidak terlihat sampai ada kejadian yang membutuhkan pemulihan.
+   * Instalasi baru tanpa satu entri ledger pun tidak diberi alarm.
+   */
+  if (ledger.entryCount > 0) {
+    const BATAS_BACKUP_HARI = 7;
+    const backup = await catatanBackupTerakhir(ctx);
+    const umurHari =
+      backup === null ? null : (sekarang - backup.waktu) / SEHARI_MS;
+    if (umurHari === null) {
+      peringatan.push({
+        kunci: "backup",
+        tingkat: "peringatan",
+        judul: "Backup data belum tercatat",
+        pesan: `Belum ada backup data yang tercatat. Unduh snapshot dari tab Ekspor atau jadwalkan backup di platform, lalu catat hasilnya. Panduan: docs/operasional-backup.md.`,
+      });
+    } else if (umurHari > BATAS_BACKUP_HARI) {
+      peringatan.push({
+        kunci: "backup",
+        tingkat: "peringatan",
+        judul: "Backup data belum tercatat",
+        pesan: `Backup terakhir tercatat ${Math.round(umurHari)} hari lalu (batas ${BATAS_BACKUP_HARI} hari). Periksa jadwal backup dan lakukan uji pemulihan berkala — panduan: docs/operasional-backup.md.`,
+      });
+    }
   }
 
   const petaDenyut = new Map(denyut.map((d) => [d.nama, d.terakhirPada]));

@@ -56,7 +56,7 @@ export function FaqBeranda({
       aria-labelledby="faq-beranda-judul"
       className="border-t border-border bg-background"
     >
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 sm:py-18 lg:grid-cols-[0.7fr_1.3fr] lg:gap-14">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:px-6 sm:py-18 sm:gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:gap-14">
         <div>
           <JudulBagian
             id="faq-beranda-judul"

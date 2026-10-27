@@ -143,7 +143,7 @@ export function KartuSiklusPendana() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] text-slate-600">Biaya platform</dt>
+                    <dt className="text-[11px] text-slate-600">Porsi platform</dt>
                     <dd className="text-xs font-semibold tabular-nums text-slate-900">
                       − {formatRupiah(row.potongan)}
                     </dd>

@@ -33,12 +33,14 @@ import {
   awalKuartal,
   bulanKuartal,
   judulDoorprizeKuartal,
+  bacaKodeKuartal,
   kodeKuartal,
   kuartalDariWaktu,
   kunciPeriodeKuartal,
   labelPeriodeKuartal,
   labelRentangKuartal,
   labelTanggalUndianKuartal,
+  namaPemenangPublik,
   nilaiHadiahValid,
   pembukaanUndianKuartal,
   tiketPendana,
@@ -270,12 +272,16 @@ async function pemenangKuartal(ctx: QueryCtx, kuartal: Kuartal) {
     .first();
   if (undian === null) return null;
   return {
+    id: String(undian._id),
     nama: labelPemilik(await ctx.db.get(undian.pemilikId)),
     peran: undian.peran,
     hadiah: undian.hadiah,
     diundiPada: undian.diundiPada,
     jumlahPeserta: undian.jumlahPeserta,
     jumlahTiket: undian.jumlahTiket,
+    /** Kosong = hadiah belum tercatat diserahkan. */
+    hadiahDiserahkanPada: undian.hadiahDiserahkanPada ?? null,
+    catatanPenyerahan: undian.catatanPenyerahan ?? null,
   };
 }
 
@@ -454,6 +460,97 @@ export const simpanHadiahKuartal = mutation({
       nilaiPerkiraan: args.nilai,
       diatur: true,
     };
+  },
+});
+
+/**
+ * Catat bahwa hadiah satu undian sudah diserahkan ke pemenang.
+ *
+ * Hanya Super Admin, dan hanya SEKALI: tanggal penyerahan adalah bukti, bukan
+ * pengaturan yang boleh diubah-ubah. Catatan (kurir, resi, lokasi) boleh
+ * diisi saat pencatatan; memperbaikinya nanti akan mengaburkan kapan hadiah
+ * benar-benar sampai, jadi perbaikannya lewat catatan audit, bukan timpa.
+ *
+ * Pajak hadiah undian bukan kewajiban platform untuk dipotong di sini, tetapi
+ * panel menampilkan pengingatnya: hadiah di atas Rp1 juta (batas nilai modul
+ * ini jauh di bawahnya) tetap perlu dicatat penerimanya untuk pelaporan.
+ */
+export const catatPenyerahanHadiah = mutation({
+  args: {
+    undianId: v.id("doorprizeUndian"),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requireAdminRole(ctx);
+    const undian = await ctx.db.get(args.undianId);
+    if (undian === null) throw new Error("Undian tidak ditemukan.");
+    if (undian.hadiahDiserahkanPada !== undefined) {
+      throw new Error(
+        `Hadiah ${undian.periode} sudah tercatat diserahkan. Perbaikan data lewat catatan audit, bukan menimpa tanggalnya.`,
+      );
+    }
+
+    const catatan = (args.catatan ?? "").trim();
+    if (catatan.length > 200) {
+      throw new Error("Catatan penyerahan maksimal 200 karakter.");
+    }
+
+    const sekarang = Date.now();
+    await ctx.db.patch(undian._id, {
+      hadiahDiserahkanPada: sekarang,
+      ...(catatan === "" ? {} : { catatanPenyerahan: catatan }),
+    });
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "doorprize_hadiah_diserahkan",
+      undian.periode,
+      `Hadiah ${undian.hadiah} untuk ${labelPemilik(await ctx.db.get(undian.pemilikId))} dicatat diserahkan${catatan === "" ? "" : ` — ${catatan}`}.`,
+    );
+
+    return { diserahkanPada: sekarang };
+  },
+});
+
+/**
+ * Papan pemenang publik — bukti sosial yang tidak membocorkan identitas.
+ *
+ * Tanpa sesi: siapa pun boleh melihat bahwa undian benar-benar dijalankan.
+ * Nama disamarkan (`namaPemenangPublik`), dan yang dikirim hanya periode,
+ * hadiah, peran, serta status penyerahan — bukan id akun, email, atau nomor.
+ * Hanya undian yang sudah tercatat yang tampil; tidak ada pemenang karangan.
+ */
+export const pemenangPublik = query({
+  args: { batas: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const batas = Math.min(20, Math.max(1, Math.round(args.batas ?? 8)));
+    const rows = await ctx.db
+      .query("doorprizeUndian")
+      .withIndex("by_diundiPada")
+      .order("desc")
+      .take(batas);
+
+    return await Promise.all(
+      rows.map(async (row) => {
+        const kuartal = bacaKodeKuartal(row.periode);
+        const pemilik = await ctx.db.get(row.pemilikId);
+        return {
+          periode: row.periode,
+          labelPeriode: labelPeriodeKuartal(kuartal),
+          // Nama asli dibaca lalu disamarkan DI SINI; nama lengkap tidak pernah
+          // meninggalkan server, bahkan untuk papan publik.
+          nama: namaPemenangPublik(labelPemilik(pemilik)),
+          peran: row.peran,
+          hadiah: row.hadiah,
+          diundiPada: row.diundiPada,
+          jumlahPeserta: row.jumlahPeserta,
+          jumlahTiket: row.jumlahTiket,
+          hadiahDiserahkan: row.hadiahDiserahkanPada !== undefined,
+          diserahkanPada: row.hadiahDiserahkanPada ?? null,
+        };
+      }),
+    );
   },
 });
 

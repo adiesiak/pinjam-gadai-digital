@@ -1670,7 +1670,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
         <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           {dipilih === null ? (
             /* Empty state: belum ada nasabah dipilih */
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center sm:p-8">
               <div className="relative flex size-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
                 <FileText className="size-6 text-slate-500" aria-hidden />
                 <span className="absolute -bottom-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full bg-emerald-800 text-white">

@@ -55,12 +55,9 @@ import {
   KREDIT_TENOR_PENGAJUAN_OPTIONS,
 } from "@/lib/kredit";
 import { MAX_FILE_BYTES, GAMBAR_DITERIMA } from "@/lib/kyc";
-import { LOKASI_KEBIJAKAN } from "@/lib/lokasi";
+import { LOKASI_KEBIJAKAN, LOKASI_RETENSI } from "@/lib/lokasi";
 import { DEFAULT_CONFIG } from "@/lib/system-config";
-import {
-  bagiHasilPinjaman,
-  POTONGAN_ADMIN_DEFAULT_PERSEN,
-} from "@/lib/bagiHasil";
+import { bagiHasilPinjaman } from "@/lib/bagiHasil";
 
 /**
  * Halaman Syarat & Ketentuan (publik).
@@ -72,14 +69,10 @@ import {
  * yang berlaku di kode, bukan dikarang bebas.
  */
 
-const TERAKHIR_DIPERBARUI = "19 Oktober 2026";
+const TERAKHIR_DIPERBARUI = "27 Oktober 2026";
 /** Tarif harian Rp1 juta/28 hari dari matriks produk. */
 const BUNGA_CONTOH_HARIAN = persenBungaHarian(1_000_000, 28) ?? PINDAI_PRICING.bungaPercent;
-const CONTOH_BAGI_HASIL = bagiHasilPinjaman(
-  1_000_000,
-  BUNGA_CONTOH_HARIAN,
-  POTONGAN_ADMIN_DEFAULT_PERSEN,
-);
+const CONTOH_BAGI_HASIL = bagiHasilPinjaman(1_000_000, BUNGA_CONTOH_HARIAN);
 
 type Pasal = {
   id: string;
@@ -334,6 +327,26 @@ const PASAL: Pasal[] = [
             boleh dibagikan.
           </Ayat>
         </ul>
+        <Ayat>
+          Pembersihan data berjalan otomatis: titik lokasi disimpan{" "}
+          {LOKASI_RETENSI.jejakHari} hari (titik yang terikat pinjaman belum lunas
+          ditahan sampai {LOKASI_RETENSI.buktiPinjamanHari} hari), isi pesan
+          WhatsApp {DEFAULT_CONFIG.retensiLogWaHari} hari, dan jejak audit{" "}
+          {DEFAULT_CONFIG.retensiAuditHari} hari. Angka ini hanya bisa diubah tim
+          PINDAI di dalam rentang yang sudah ditetapkan.
+        </Ayat>
+        <Ayat>
+          Anda dapat mengunduh salinan data pribadi Anda dan menghapus akun
+          sendiri dari dashboard (bagian Data &amp; privasi), serta membaca
+          rincian jenis data, penerima, dan hak Anda di{" "}
+          <Link
+            to="/privasi"
+            className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+          >
+            Kebijakan Privasi
+          </Link>
+          .
+        </Ayat>
         <Catatan judul="Pseudonim peminjam">
           Di beberapa tampilan, peminjam ditandai dengan kode pseudonim acak
           (mis. <span className="font-mono">PMN-…</span>) sebagai penanda stabil
@@ -429,6 +442,11 @@ const PASAL: Pasal[] = [
             {GADAI_PRICING.periodeHari} hari dihitung dari sisa pokok.
           </Ayat>
           <Ayat>
+            Sewa modal dibagi antara penyedia dana yang menanggung pokok dan
+            platform dengan porsi 47 : 13 dari 60. Biaya layanan dan biaya
+            admin adalah pos terpisah di luar pembagian itu.
+          </Ayat>
+          <Ayat>
             Pemeriksaan, penitipan, dan pengembalian barang ditangani di luar
             aplikasi. Status ledger tidak membuktikan barang disimpan atau
             dikembalikan.
@@ -481,16 +499,14 @@ const PASAL: Pasal[] = [
             <strong>1 pinjaman untuk 1 pendana</strong>.
           </Ayat>
           <Ayat>
-            Imbal hasil pendana berasal dari bunga pinjaman. Persentase potongan
-            admin mengikuti Pengaturan Sistem; nilai bawaan saat ini{" "}
-            {POTONGAN_ADMIN_DEFAULT_PERSEN}%. Untuk pinjaman harian, dasar
-            potongan adalah pokok dan bunga yang kembali. Pada pinjaman bulanan,
-            biaya admin cicilan, bila berlaku, tidak masuk ke dasar potongan.
-            Contoh harian: pokok {formatRupiah(1_000_000)} tenor 28 hari dengan
-            bunga {BUNGA_CONTOH_HARIAN}% menghasilkan kewajiban{" "}
-            {formatRupiah(CONTOH_BAGI_HASIL.totalLunas)}. Dengan potongan
-            bawaan, pendana menerima{" "}
-            {formatRupiah(CONTOH_BAGI_HASIL.pendanaTerima)} dan potongan admin
+            Imbal hasil pendana berasal dari bunga pinjaman. Marjin dibagi{" "}
+            <strong>47 : 13</strong>: 78,33% untuk pendana dan 21,67% untuk
+            platform. Biaya admin, biaya layanan, dan biaya admin cicilan
+            adalah pos terpisah milik platform dan tidak ikut dibagi. Contoh
+            harian: pokok {formatRupiah(1_000_000)} tenor 28 hari dengan bunga{" "}
+            {BUNGA_CONTOH_HARIAN}% menghasilkan kewajiban{" "}
+            {formatRupiah(CONTOH_BAGI_HASIL.totalLunas)}. Pendana menerima{" "}
+            {formatRupiah(CONTOH_BAGI_HASIL.pendanaTerima)} dan porsi platform
             sebesar {formatRupiah(CONTOH_BAGI_HASIL.potonganAdmin)}. Sisa rupiah
             pembulatan menjadi hak pendana.
           </Ayat>

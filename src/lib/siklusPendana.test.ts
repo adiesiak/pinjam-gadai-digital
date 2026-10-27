@@ -2,13 +2,12 @@
  * Uji siklus pendana 30 hari.
  * Run: bun src/lib/siklusPendana.test.ts
  *
- * Angka ditulis tangan dari kebijakan: imbal 30% dari pokok, biaya platform 5%
- * dari TOTAL KEMBALI (pokok + imbal), satu pembayaran per siklus.
+ * Angka ditulis tangan dari kebijakan: imbal 30% dari pokok, marjin dibagi
+ * 47 : 13 (porsi platform 13/60), satu pembayaran per siklus.
  */
 import {
   HARI_MS,
   PERSEN_IMBAL_SIKLUS,
-  PERSEN_POTONGAN_SIKLUS,
   SIKLUS_PENDANA_HARI,
   hitungSiklusPendana,
   jatuhTempoSiklus,
@@ -42,13 +41,12 @@ function throws(fn: () => unknown, label: string) {
 
 eq(SIKLUS_PENDANA_HARI, 30, "siklus 30 hari");
 eq(PERSEN_IMBAL_SIKLUS, 30, "imbal 30% per siklus");
-eq(PERSEN_POTONGAN_SIKLUS, 5, "biaya 5% dari total kembali");
 
 const acuan = hitungSiklusPendana(1_000_000);
 eq(acuan.pokok, 1_000_000, "pokok");
 eq(acuan.imbal, 300_000, "imbal 30% dari pokok");
-eq(acuan.potongan, 65_000, "biaya 5% dari TOTAL KEMBALI Rp1.300.000");
-eq(acuan.totalCair, 1_235_000, "total cair = pokok + imbal − biaya");
+eq(acuan.potongan, 65_000, "porsi platform 13/60 marjin Rp300.000");
+eq(acuan.totalCair, 1_235_000, "total cair = pokok + porsi pendana");
 eq(acuan.jatuhTempoHari, 30, "jatuh tempo 30 hari");
 eq(
   acuan.potongan + acuan.totalCair,
@@ -59,7 +57,7 @@ eq(
 // Pokok tidak bulat: kedua pembulatan ke bawah, tidak ada rupiah diciptakan.
 const ganjil = hitungSiklusPendana(500_150);
 eq(ganjil.imbal, 150_045, "imbal 30% dari 500.150");
-eq(ganjil.potongan, 32_509, "5% dari total kembali 650.195 dibulatkan ke bawah");
+eq(ganjil.potongan, 32_509, "13/60 marjin 150.045 dibulatkan ke bawah");
 eq(ganjil.totalCair, 617_686, "total cair 500.150 + 150.045 − 32.509");
 
 for (const pokok of [100_000, 333_333, 1_000_000, 7_777_777, 50_000_000]) {

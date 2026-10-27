@@ -32,12 +32,23 @@ import {
 } from "@/lib/kontenPendana";
 import {
   NOMINAL_CONTOH_PROPOSAL,
+  POKOK_CONTOH_BULANAN,
+  POKOK_CONTOH_KONVENSIONAL,
+  PROPOSAL_DIPERBARUI_PADA,
+  TENOR_BULANAN_PROPOSAL,
   formatPersen,
+  keuntunganBulananProposal,
+  pembagianKonvensionalProposal,
+  simulasiKonvensionalProposal,
   namaBerkasProposalPendana,
   nomorLayananProposal,
+  POKOK_CONTOH_SYARIAH,
+  pembagianSyariahProposal,
   proposalPendanaanPindai,
+  simulasiBulananProposal,
+  simulasiSyariahProposal,
+  tarifBulananProposal,
 } from "@/lib/proposalPendana";
-import { DEFAULT_CONFIG } from "@/lib/system-config";
 
 /**
  * Halaman proposal pendanaan di dalam ruang pendana.
@@ -106,7 +117,23 @@ async function simpanProposalTersimpan(
  * memasang berkas proposal, tombol mengunduh berkas itu; bila belum, berkas
  * disusun dari kebijakan yang berlaku saat tombol ditekan.
  */
-type ProposalTersimpan = { url: string; namaBerkas: string } | null;
+type ProposalTersimpan = {
+  url: string;
+  namaBerkas: string;
+  /** Waktu berkas dipasang admin; kosong untuk data lama tanpa cap waktu. */
+  pada?: number | null;
+} | null;
+
+/**
+ * Berkas yang dipasang admin hanya dipakai bila dipasang pada atau setelah
+ * pembaruan isi proposal. Berkas lama tidak memuat tabel terbaru, jadi tombol
+ * unduh kembali menyusun dokumen dari kebijakan yang berlaku.
+ */
+function berkasMasihBerlaku(berkas: ProposalTersimpan): boolean {
+  if (berkas === null) return false;
+  if (berkas.pada === undefined || berkas.pada === null) return true;
+  return berkas.pada >= PROPOSAL_DIPERBARUI_PADA;
+}
 
 function TombolUnduhProposal({
   persenPotonganAdmin,
@@ -126,7 +153,7 @@ function TombolUnduhProposal({
     setSibuk(true);
     setGalat(null);
     try {
-      if (proposalTersimpan !== null) {
+      if (proposalTersimpan !== null && berkasMasihBerlaku(proposalTersimpan)) {
         await simpanProposalTersimpan(
           proposalTersimpan.url,
           proposalTersimpan.namaBerkas,
@@ -212,11 +239,9 @@ function BarisAngka({
  * pisah: pembaca melihat pembagian yang berlaku, bukan layar kosong.
  */
 function KalkulatorPendanaan({
-  persenPotonganAdmin,
   konten,
   t,
 }: {
-  persenPotonganAdmin: number;
   konten: KontenPendana;
   /** Isi token kebijakan (`{biaya}`, `{imbal}`, ...) pada teks CMS. */
   t: (teks: string) => string;
@@ -229,7 +254,7 @@ function KalkulatorPendanaan({
   const angka = digit === "" ? 0 : Number(digit);
   const nominal = Number.isSafeInteger(angka) && angka >= 0 ? angka : 0;
   const terlaluBesar = digit.length > 15 || !Number.isSafeInteger(angka);
-  const bagi = bagiHasilPendana(nominal, persenPotonganAdmin);
+  const bagi = bagiHasilPendana(nominal);
 
   const pilihan = [5_000_000, 10_000_000, 25_000_000, 50_000_000] as const;
 
@@ -237,7 +262,7 @@ function KalkulatorPendanaan({
     <section
       id="kalkulator"
       aria-labelledby="judul-kalkulator"
-      className="mx-auto max-w-6xl scroll-mt-24 px-4 py-14 sm:px-6"
+      className="mx-auto max-w-6xl scroll-mt-24 px-4 py-10 sm:px-6 sm:py-14"
     >
       <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
         <div>
@@ -483,7 +508,7 @@ export function JadiPendanaView({
   // Porsi platform tetap 13/60 dari marjin — pengaturan biaya lama tidak lagi
   // mengubah pembagian, jadi label memakai porsi kebijakan yang berlaku.
   const persen = formatPersen(Number(PERSEN_PORSI_PLATFORM.toFixed(2)));
-  const contoh = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL, persenPotonganAdmin);
+  const contoh = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL);
   const token: NilaiTokenPendana = {
     imbal: `${PERSEN_IMBAL_PENDANA}%`,
     biaya: persen,
@@ -495,9 +520,6 @@ export function JadiPendanaView({
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
-      <a className="skip-link" href="#konten">
-        Lewati ke konten utama
-      </a>
       <Header />
 
       <main id="konten" tabIndex={-1}>
@@ -575,7 +597,8 @@ export function JadiPendanaView({
               </dl>
               <p className="mt-3 text-[11px] leading-5 text-slate-600">
                 Angka contoh, bukan janji. Hasil dibukukan setelah pinjaman
-                lunas dan transfer dicatat admin.
+                lunas, atau setiap pembayaran gadai diterima, lalu transfer
+                dicatat admin.
               </p>
             </aside>
           </div>
@@ -585,7 +608,7 @@ export function JadiPendanaView({
           aria-labelledby="judul-prinsip"
           className="border-y border-border bg-card"
         >
-          <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:gap-8 sm:px-6 sm:py-12 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
               <h2
                 id="judul-prinsip"
@@ -623,11 +646,7 @@ export function JadiPendanaView({
           </div>
         </section>
 
-        <KalkulatorPendanaan
-          persenPotonganAdmin={persenPotonganAdmin}
-          konten={konten}
-          t={t}
-        />
+        <KalkulatorPendanaan konten={konten} t={t} />
 
         {/* Perhitungan yang sama, dibuka langkah demi langkah. Fungsinya
             membuktikan bahwa tiap baris di kalkulator berasal dari dua angka
@@ -636,7 +655,7 @@ export function JadiPendanaView({
           aria-labelledby="judul-perhitungan"
           className="border-y border-border bg-slate-50"
         >
-          <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:gap-8 sm:px-6 sm:py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
             <div>
               <h2
                 id="judul-perhitungan"
@@ -694,10 +713,558 @@ export function JadiPendanaView({
           </div>
         </section>
 
+        {/* Satu aturan bagi hasil, lima produk. Ditulis sebagai fakta
+            kebijakan: tidak ada angka hasil yang dijanjikan di sini, karena
+            marjin tiap produk berbeda menurut tenor dan pokoknya. */}
+        <section
+          aria-labelledby="judul-produk"
+          className="border-y border-border bg-card"
+        >
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
+            <div className="max-w-3xl">
+              <h2
+                id="judul-produk"
+                className="font-display text-3xl leading-tight tracking-tight text-navy sm:text-4xl"
+              >
+                Satu pembagian untuk semua produk
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                Marjin tiap produk dibagi 47 : 13: {persen} untuk platform dan
+                sisanya untuk pendana. Yang berbeda hanya cara marjin dihitung
+                dari pokok dan tenor; biaya layanan dan biaya admin berada di
+                luar pembagian ini.
+              </p>
+            </div>
+            <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                {
+                  nama: "Pinjaman harian",
+                  isi: "Tenor pendek dengan cicilan per hari.",
+                },
+                {
+                  nama: "Pinjaman bulanan",
+                  isi: "Tenor 1–12 bulan, angsuran bulanan.",
+                },
+                {
+                  nama: "Pembiayaan syariah",
+                  isi: "Akad murabahah dengan margin tetap.",
+                },
+                {
+                  nama: "Gadai",
+                  isi: "Agunan fisik, sewa modal per periode.",
+                },
+                {
+                  nama: "Kredit barang",
+                  isi: "Barang merchant mitra, cicilan bulanan.",
+                },
+              ].map((produk) => (
+                <li
+                  key={produk.nama}
+                  className="rounded-xl border border-border bg-slate-50 px-4 py-3"
+                >
+                  <p className="text-sm font-semibold text-navy">
+                    {produk.nama}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    {produk.isi}
+                  </p>
+                </li>
+              ))}
+            </ul>
+
+            {/* Tiga produk konvensional yang marjinnya tidak dibahas di tabel
+                tenor bulanan: harian, gadai, dan kredit barang. Angkanya
+                berasal dari mesin produk masing-masing lalu dibagi 47 : 13. */}
+            <div className="mt-8 max-w-3xl">
+              <h3 className="font-display text-xl tracking-tight text-navy">
+                Pembagian produk konvensional
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Pokok contoh {rupiah(POKOK_CONTOH_KONVENSIONAL)}. Harian memakai
+                skema acuan 30% flat; gadai memakai batas atas sewa modal 10%
+                per 30 hari; kredit barang memakai tenor 3 bulan dengan DP 20%.
+                Kolom diterima adalah pokok ditambah hak pendana. Pinjaman
+                bulanan tidak diulang di sini karena tarifnya berbeda per tenor
+                dan dibahas pada tabel berikutnya.
+              </p>
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-white">
+              <table className="w-full min-w-[680px] border-collapse text-sm">
+                <caption className="px-4 pt-3 text-left text-xs text-slate-600">
+                  Pembagian marjin per produk konvensional, pokok{" "}
+                  {rupiah(POKOK_CONTOH_KONVENSIONAL)}
+                </caption>
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-[0.08em] text-slate-600">
+                    <th scope="col" className="px-4 py-2.5 font-semibold">
+                      Produk
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 font-semibold">
+                      Dasar marjin
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Marjin
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Pendana 47/60
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Platform 13/60
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Diterima pendana
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pembagianKonvensionalProposal().map((baris) => (
+                    <tr
+                      key={baris.produk}
+                      className="border-b border-border/70 last:border-b-0"
+                    >
+                      <th
+                        scope="row"
+                        className="px-4 py-2.5 text-left font-medium text-slate-900"
+                      >
+                        {baris.produk}
+                      </th>
+                      <td className="px-4 py-2.5 text-xs leading-5 text-slate-600">
+                        {baris.dasar}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.margin)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-emerald-800">
+                        {rupiah(baris.pendana)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.platform)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.diterima)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 max-w-3xl text-xs leading-5 text-slate-600">
+              Kredit barang memakai pokok yang dibiayai setelah DP, bukan harga
+              barang. Biaya admin 2% pada kredit dan biaya layanan pada produk
+              lain berada di luar pembagian ini.
+            </p>
+
+            <div className="mt-8 max-w-3xl">
+              <h3 className="font-display text-xl tracking-tight text-navy">
+                Simulasi konvensional Rp 1 juta sampai Rp 10 juta
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Isi sel adalah hak pendana (47/60 marjin), tanpa pokok. Kolom
+                harian memakai satu siklus acuan 30 hari; tiket harian yang
+                disalurkan Rp 500.000 sampai Rp 1.000.000. Kolom kredit adalah
+                pokok yang dibiayai setelah DP 20%.
+              </p>
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-white">
+              <table className="w-full min-w-[560px] border-collapse text-sm">
+                <caption className="px-4 pt-3 text-left text-xs text-slate-600">
+                  Hak pendana produk konvensional per nominal
+                </caption>
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-[0.08em] text-slate-600">
+                    <th scope="col" className="px-4 py-2.5 font-semibold">
+                      Pokok
+                    </th>
+                    {["Harian", "Gadai 10%", "Kredit 3 bln"].map((label) => (
+                      <th
+                        key={label}
+                        scope="col"
+                        className="px-4 py-2.5 text-right font-semibold"
+                      >
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {simulasiKonvensionalProposal().map((baris) => (
+                    <tr
+                      key={baris.pokok}
+                      className="border-b border-border/70 last:border-b-0"
+                    >
+                      <th
+                        scope="row"
+                        className="px-4 py-2.5 text-left font-medium tabular-nums text-slate-700"
+                      >
+                        {rupiah(baris.pokok)}
+                      </th>
+                      {[baris.harian, baris.gadai, baris.kredit].map(
+                        (nilai, i) => (
+                          <td
+                            key={i}
+                            className="px-4 py-2.5 text-right tabular-nums text-slate-700"
+                          >
+                            {rupiah(nilai)}
+                          </td>
+                        ),
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Tenor bulanan dihitung mesin yang sama dengan kontrak; tabelnya
+                sengaja menampilkan setara per bulan supaya tenor panjang tidak
+                terbaca sebagai hasil yang lebih besar per bulan. */}
+            <div className="mt-8 max-w-3xl">
+              <h3 className="font-display text-xl tracking-tight text-navy">
+                Keuntungan pinjaman bulanan 1/3/6/9/12
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Contoh pokok {rupiah(POKOK_CONTOH_BULANAN)}. Marjin tiap tenor
+                dibagi 47 : 13; biaya layanan dan biaya admin berada di luar
+                pembagian ini.
+              </p>
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-white">
+              <table className="w-full min-w-[560px] border-collapse text-sm">
+                <caption className="px-4 pt-3 text-left text-xs text-slate-600">
+                  Hak pendana per tenor, pokok {rupiah(POKOK_CONTOH_BULANAN)}
+                </caption>
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-[0.08em] text-slate-600">
+                    <th scope="col" className="px-4 py-2.5 font-semibold">
+                      Tenor
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Bunga / bulan
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Marjin total tenor
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Hak pendana
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Porsi platform
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Setara per bulan
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keuntunganBulananProposal().map((baris) => (
+                    <tr
+                      key={baris.tenor}
+                      className="border-b border-border/70 last:border-b-0"
+                    >
+                      <th
+                        scope="row"
+                        className="px-4 py-2.5 text-left font-medium text-slate-700"
+                      >
+                        {baris.tenor} bulan
+                      </th>
+                      <td className="px-4 py-2.5 text-right font-medium tabular-nums text-slate-900">
+                        {formatPersen(
+                          tarifBulananProposal().find(
+                            (t) => t.tenor === baris.tenor,
+                          )?.perBulan ?? 0,
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.margin)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-emerald-800">
+                        {rupiah(baris.pendana)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.platform)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.perBulan)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 max-w-3xl text-xs leading-5 text-slate-600">
+              Dana tenor bulanan terikat sampai tenor selesai: hak pendana
+              dibayarkan setelah pinjaman lunas, bukan setiap bulan. Kolom
+              setara per bulan hanya pembanding, dan tenor lebih panjang tidak
+              menaikkan hasil per bulan karena marjin per bulannya menurun.
+            </p>
+
+            <div className="mt-8 max-w-3xl">
+              <h3 className="font-display text-xl tracking-tight text-navy">
+                Simulasi pinjaman bulanan Rp 1 juta sampai Rp 10 juta
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Isi sel adalah hak bersih pendana untuk tenor itu; pokok kembali
+                utuh dan tidak termasuk di dalamnya. Bunga yang dipakai:{" "}
+                {tarifBulananProposal()
+                  .map(
+                    (t) =>
+                      `${t.tenor} bln ${formatPersen(t.perBulan)}/bln (${formatPersen(t.total)} total)`,
+                  )
+                  .join(", ")}
+                .
+              </p>
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-white">
+              <table className="w-full min-w-[560px] border-collapse text-sm">
+                <caption className="px-4 pt-3 text-left text-xs text-slate-600">
+                  Hak pendana per tenor, pokok Rp 1 juta sampai Rp 10 juta
+                </caption>
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-[0.08em] text-slate-600">
+                    <th scope="col" className="px-4 py-2.5 font-semibold">
+                      Pokok
+                    </th>
+                    {TENOR_BULANAN_PROPOSAL.map((tenor) => (
+                      <th
+                        key={tenor}
+                        scope="col"
+                        className="px-4 py-2.5 text-right font-semibold"
+                      >
+                        {tenor} bln
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {simulasiBulananProposal().map((baris) => (
+                    <tr
+                      key={baris.pokok}
+                      className="border-b border-border/70 last:border-b-0"
+                    >
+                      <th
+                        scope="row"
+                        className="px-4 py-2.5 text-left font-medium tabular-nums text-slate-700"
+                      >
+                        {rupiah(baris.pokok)}
+                      </th>
+                      {TENOR_BULANAN_PROPOSAL.map((tenor) => {
+                        const nilai = baris.pendana[tenor];
+                        return (
+                          <td
+                            key={tenor}
+                            className={`px-4 py-2.5 text-right tabular-nums ${
+                              nilai === null
+                                ? "text-slate-500"
+                                : "text-slate-700"
+                            }`}
+                          >
+                            {nilai === null ? "-" : rupiah(nilai)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 max-w-3xl text-xs leading-5 text-slate-600">
+              Tanda hubung berarti tenor itu belum tersedia untuk pokok
+              tersebut: tenor 3 bulan ke atas mensyaratkan pokok minimal Rp
+              3.000.000.
+            </p>
+
+            {/* Akad syariah punya dasar margin/ujrah sendiri, tetapi porsi
+                bagi hasilnya sama 47 : 13. Dua tabel ini memakai mesin akad
+                yang sama dengan server, bukan salinan rumus. */}
+            <div className="mt-8 max-w-3xl">
+              <h3 className="font-display text-xl tracking-tight text-navy">
+                Pembagian produk syariah
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Murabahah, rahn, dan qardh memakai aturan bagi hasil yang sama:
+                margin atau ujrah dibagi 47 : 13. Tabel memakai pokok{" "}
+                {rupiah(POKOK_CONTOH_SYARIAH)}; kolom diterima adalah pokok
+                ditambah hak pendana.
+              </p>
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-white">
+              <table className="w-full min-w-[640px] border-collapse text-sm">
+                <caption className="px-4 pt-3 text-left text-xs text-slate-600">
+                  Pembagian margin/ujrah per akad, pokok{" "}
+                  {rupiah(POKOK_CONTOH_SYARIAH)}
+                </caption>
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-[0.08em] text-slate-600">
+                    <th scope="col" className="px-4 py-2.5 font-semibold">
+                      Akad
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 font-semibold">
+                      Dasar margin/ujrah
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Margin/ujrah
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Pendana 47/60
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Platform 13/60
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Diterima pendana
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pembagianSyariahProposal().map((baris) => (
+                    <tr
+                      key={baris.akad}
+                      className="border-b border-border/70 last:border-b-0"
+                    >
+                      <th
+                        scope="row"
+                        className="px-4 py-2.5 text-left font-medium text-slate-900"
+                      >
+                        {baris.akad}
+                      </th>
+                      <td className="px-4 py-2.5 text-xs leading-5 text-slate-600">
+                        {baris.dasar}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.margin)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-emerald-800">
+                        {rupiah(baris.pendana)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.platform)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">
+                        {rupiah(baris.diterima)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 max-w-3xl text-xs leading-5 text-slate-600">
+              Murabahah memakai batas atas margin 20%; rahn memakai satu siklus
+              ujrah 30 hari dengan taksiran sama dengan pokok; qardh tidak
+              mengambil margin, sehingga pokok kembali 100% tanpa bagian yang
+              dibagi.
+            </p>
+
+            <div className="mt-8 max-w-3xl">
+              <h3 className="font-display text-xl tracking-tight text-navy">
+                Simulasi syariah Rp 1 juta sampai Rp 10 juta
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Isi sel adalah hak pendana (47/60 margin atau ujrah), tanpa
+                pokok. Murabahah ditampilkan pada margin 15% dan 20%.
+              </p>
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-white">
+              <table className="w-full min-w-[560px] border-collapse text-sm">
+                <caption className="px-4 pt-3 text-left text-xs text-slate-600">
+                  Hak pendana akad syariah per nominal
+                </caption>
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-[0.08em] text-slate-600">
+                    <th scope="col" className="px-4 py-2.5 font-semibold">
+                      Pokok
+                    </th>
+                    {["Murabahah 15%", "Murabahah 20%", "Rahn 2%", "Qardh"].map(
+                      (label) => (
+                        <th
+                          key={label}
+                          scope="col"
+                          className="px-4 py-2.5 text-right font-semibold"
+                        >
+                          {label}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {simulasiSyariahProposal().map((baris) => (
+                    <tr
+                      key={baris.pokok}
+                      className="border-b border-border/70 last:border-b-0"
+                    >
+                      <th
+                        scope="row"
+                        className="px-4 py-2.5 text-left font-medium tabular-nums text-slate-700"
+                      >
+                        {rupiah(baris.pokok)}
+                      </th>
+                      {[
+                        baris.murabahah15,
+                        baris.murabahah20,
+                        baris.rahn,
+                        baris.qardh,
+                      ].map((nilai, i) => (
+                        <td
+                          key={i}
+                          className="px-4 py-2.5 text-right tabular-nums text-slate-700"
+                        >
+                          {rupiah(nilai)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 max-w-3xl text-xs leading-5 text-slate-600">
+              Qardh menunjukkan Rp 0 karena tidak ada margin yang dibagi. Biaya
+              layanan dan biaya admin berada di luar pembagian ini.
+            </p>
+          </div>
+        </section>
+
         <section
           id="proposal"
           aria-labelledby="judul-proposal"
-          className="mx-auto max-w-6xl scroll-mt-24 px-4 py-14 sm:px-6"
+          className="mx-auto max-w-6xl scroll-mt-24 px-4 py-10 sm:px-6 sm:py-14"
         >
           <div className="grid gap-8 rounded-2xl border border-border bg-card p-5 sm:p-7 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
@@ -720,10 +1287,18 @@ export function JadiPendanaView({
               </div>
 
               <p className="mt-3 text-[11px] leading-5 text-slate-600">
-                {proposalTersimpan === null
-                  ? t(konten.proposalCatatan)
-                  : t(konten.proposalCatatanBerkas)}
+                {berkasMasihBerlaku(proposalTersimpan)
+                  ? t(konten.proposalCatatanBerkas)
+                  : t(konten.proposalCatatan)}
               </p>
+              {proposalTersimpan !== null &&
+                !berkasMasihBerlaku(proposalTersimpan) && (
+                  <p className="mt-2 rounded-lg border border-amber-300/70 bg-amber-50/70 px-3 py-2 text-[11px] leading-5 text-amber-900">
+                    Berkas yang dipasang admin lebih lama dari pembaruan
+                    proposal, jadi tombol unduh menyusun dokumen terbaru dari
+                    kebijakan yang berlaku.
+                  </p>
+                )}
             </div>
 
             <div className="rounded-xl border border-border bg-slate-50 px-4 py-4">
@@ -743,7 +1318,7 @@ export function JadiPendanaView({
           aria-labelledby="judul-risiko"
           className="border-y border-border bg-slate-50"
         >
-          <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+          <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
             <div className="max-w-3xl">
               <h2
                 id="judul-risiko"
@@ -788,7 +1363,7 @@ export function JadiPendanaView({
 
         <section
           aria-labelledby="judul-tanya"
-          className="mx-auto max-w-6xl px-4 py-14 sm:px-6"
+          className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14"
         >
           <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
             <div>
@@ -829,7 +1404,7 @@ export function JadiPendanaView({
           aria-labelledby="judul-mulai"
           className="border-t border-border bg-card"
         >
-          <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-12 sm:px-6 md:flex-row md:items-center md:justify-between">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:gap-6 sm:px-6 sm:py-12 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl">
               <h2
                 id="judul-mulai"
@@ -868,26 +1443,25 @@ export function JadiPendanaView({
 }
 
 /**
- * Rute ruang pendana memakai porsi platform 13/60 dari marjin; Pengaturan Parameter Bisnis yang
- * sama dengan pencatatan hak pendana. Bila query belum termuat, angka bawaan
- * yang dirender supaya halaman dan unduhan tetap bisa dipakai.
+ * Rute ruang pendana memakai porsi platform tetap 13/60 dari marjin, sama
+ * dengan pencatatan hak pendana. Angka itu bukan biaya layanan yang bisa
+ * diubah dari Pengaturan Sistem.
  *
  * Teks halaman dibaca dari CMS (`announcements.getPublic`); konten kosong jatuh
  * ke `KONTEN_PENDANA_DEFAULT` di sisi klien. Berkas proposal admin dibaca dari
  * query terpisah yang hanya menjawab untuk sesi masuk.
  */
 export default function JadiPendana() {
-  const ketentuan = useQuery(api.system.getKetentuanBiaya);
   const publik = useQuery(api.announcements.getPublic);
   const berkas = useQuery(api.announcements.proposalPendanaAktif);
   return (
     <JadiPendanaView
-      persenPotonganAdmin={ketentuan?.persenAdmin ?? DEFAULT_CONFIG.persenAdmin}
+      persenPotonganAdmin={PERSEN_PORSI_PLATFORM}
       konten={publik?.pendana ?? KONTEN_PENDANA_DEFAULT}
       proposalTersimpan={
         berkas === undefined || berkas === null
           ? null
-          : { url: berkas.url, namaBerkas: berkas.namaBerkas }
+          : { url: berkas.url, namaBerkas: berkas.namaBerkas, pada: berkas.pada }
       }
     />
   );

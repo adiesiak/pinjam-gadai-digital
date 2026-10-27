@@ -4,7 +4,10 @@ import { BilahDana } from "@/components/penyediaDana/bagian-folio";
 import { FOLIO } from "@/components/penyediaDana/folio";
 import { KOLOM_ANGKA, labelKolom } from "@/components/penyediaDana/kolom-pendana";
 import type { RekapPendana } from "@/convex/penyediaDana";
-import { PERSEN_PORSI_PLATFORM } from "@/lib/kebijakanPinjaman";
+import {
+  PERSEN_PORSI_PENDANA,
+  PERSEN_PORSI_PLATFORM,
+} from "@/lib/kebijakanPinjaman";
 import { formatRupiahAman } from "@/lib/money";
 import { nilaiAngka, type KunciAngka } from "@/lib/tabelPendana";
 
@@ -130,7 +133,7 @@ export function PortofolioPendana({
               },
               { label: "Marjin kontrak", nilai: rupiah(r.kredit.marginKontrak) },
               {
-                label: "Biaya platform",
+                label: "Porsi platform",
                 nilai: rupiah(r.kredit.biayaPlatform),
               },
             ].map((angka) => (
@@ -153,9 +156,74 @@ export function PortofolioPendana({
         </div>
       )}
 
+      {r.gadai !== undefined && r.gadai.jumlah > 0 && (
+        <div className="border-t border-slate-200 px-4 py-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-semibold text-navy">
+              Gadai · {r.gadai.jumlah} posisi
+            </p>
+            <p className="text-xs tabular-nums text-muted-foreground">
+              sisa pokok {rupiah(r.gadai.sisaPokok)}
+            </p>
+          </div>
+          <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+            {[
+              { label: "Pokok ditanggung", nilai: rupiah(r.gadai.pokok) },
+              { label: "Sisa pokok berjalan", nilai: rupiah(r.gadai.sisaPokok) },
+              {
+                label: "Sewa modal periode berikutnya",
+                nilai: rupiah(r.gadai.sewaBerikut),
+              },
+              {
+                label: `Hak pendana (${PERSEN_PORSI_PENDANA.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%)`,
+                nilai: rupiah(r.gadai.porsiPendanaBerikut),
+              },
+              {
+                label: `Porsi platform (${PERSEN_PORSI_PLATFORM.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%)`,
+                nilai: rupiah(r.gadai.porsiPlatformBerikut),
+              },
+              {
+                label: "Hak pendana tercatat",
+                nilai: rupiah(r.gadai.porsiPendanaTercatat),
+              },
+              {
+                label: "Porsi platform tercatat",
+                nilai: rupiah(r.gadai.porsiPlatformTercatat),
+              },
+              {
+                label: "Sudah ditandai transfer",
+                nilai: rupiah(r.gadai.porsiPendanaTransfer),
+              },
+              {
+                label: `Belum ditandai transfer (${r.gadai.jumlahTransferBelumDicatat})`,
+                nilai: rupiah(r.gadai.porsiPendanaBelumTransfer),
+              },
+            ].map((angka) => (
+              <div
+                key={angka.label}
+                className="flex items-baseline justify-between gap-3 border-b border-slate-200 pb-1 last:border-b-0"
+              >
+                <dt className="text-slate-600">{angka.label}</dt>
+                <dd className="shrink-0 tabular-nums font-medium text-slate-900">
+                  {angka.nilai}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Sewa modal gadai dibagi 47 : 13 dari 60, sama seperti marjin pinjaman
+            tunai. Angka "berikutnya" dihitung dari sisa pokok; pembayaran yang
+            sudah dicatat memakai pembagian saat pembayaran itu masuk. Tanda
+            transfer adalah catatan admin, bukan bukti mutasi bank. Transfer ke
+            rekening pendana tetap dilakukan di luar aplikasi. Biaya layanan dan
+            biaya admin berada di luar pembagian ini.
+          </p>
+        </div>
+      )}
+
       <p className="border-t border-slate-200 px-4 py-3 text-xs leading-5 text-muted-foreground">
-        Semua angka di ruang ini dihitung dari pinjaman yang alokasinya atas nama Anda; angka
-        pendana lain tidak ditampilkan. {labelKolom("admin")} adalah porsi platform{" "}
+        Semua angka di ruang ini dihitung dari pinjaman dan gadai yang tercatat atas nama Anda;
+        angka pendana lain tidak ditampilkan. {labelKolom("admin")} adalah porsi platform{" "}
         {PERSEN_PORSI_PLATFORM.toLocaleString("id-ID", { maximumFractionDigits: 2 })}% dari
         marjin pinjaman, bukan potongan atas pokok, dan cara hitungnya diuraikan di
         bagian aturan perhitungan.

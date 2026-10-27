@@ -15,6 +15,21 @@ import type { Id } from "../convex/_generated/dataModel";
 export const RETENSI_LOKASI_BATAS = { min: 7, maks: 730 } as const;
 
 /**
+ * Rentang retensi isi pesan WhatsApp (hari).
+ *
+ * Log pesan adalah bukti pengiriman bila nasabah membantah pernah diberi tahu,
+ * jadi batas bawahnya sebulan; batas atas lima tahun menjaga baris lama yang
+ * isinya sudah tidak dibutuhkan tidak menumpuk selamanya.
+ */
+export const RETENSI_LOG_WA_BATAS = { min: 30, maks: 1825 } as const;
+
+/**
+ * Rentang retensi jejak audit (hari). Batas bawah tiga bulan supaya pemeriksaan
+ * internal masih menemukan riwayatnya; batas atas sepuluh tahun.
+ */
+export const RETENSI_AUDIT_BATAS = { min: 90, maks: 3650 } as const;
+
+/**
  * Rentang nisbah pendana yang boleh disimpan admin (persen). Sisanya menjadi
  * ujrah pengelola. Batas bawah menjaga platform tetap punya porsi; batas atas
  * menyisakan setidaknya satu persen untuk pengelola.
@@ -96,12 +111,17 @@ export type SystemConfig = {
   produkPinjamanAktif: boolean;
   produkKreditAktif: boolean;
   produkGadaiAktif: boolean;
+  /** Field lama potongan admin; hanya dipakai jalur pelunasan baris warisan. */
   persenAdmin: number;
+  /**
+   * Field lama biaya platform. Tidak dibaca perhitungan baru: porsi platform
+   * selalu 13/60 marjin. Dipertahankan agar snapshot konfigurasi lama terbaca.
+   */
   persenPlatform: number;
   persenBunga: number;
   /**
    * Biaya admin pinjaman yang dipotong di muka (% dari pokok). Terpisah dari
-   * `persenAdmin` (potongan dari total pengembalian penyedia dana).
+   * `persenAdmin` (field lama, bukan lagi biaya yang berlaku).
    * Nilai ini dipakai mesin harga untuk SEMUA pengajuan baru dan ikut
    * ditampilkan di landing page.
    */
@@ -115,8 +135,12 @@ export type SystemConfig = {
    */
   persenMarginSyariah: number;
   /**
-   * Porsi pendana atas margin/ujrah akad syariah, dalam persen; sisanya menjadi
-   * ujrah pengelola. Dibaca saat pengajuan baru dibuat dan saat akad dicatat.
+   * Field lama konfigurasi nisbah syariah.
+   *
+   * Sejak kebijakan 47 : 13 disamakan untuk semua produk, angka ini TIDAK
+   * dibaca lagi oleh perhitungan: porsi pendana selalu 78,33% dan platform
+   * 21,67% dari margin/ujrah. Dipertahankan di tipe dan basis data supaya
+   * snapshot konfigurasi lama tetap bisa dibaca dan di-rollback.
    */
   persenNisbahPendanaSyariah: number;
   /** Biaya asuransi yang dipotong di muka (% dari pokok); 0 = tidak dipotong. */
@@ -181,6 +205,18 @@ export type SystemConfig = {
    */
   retensiLokasiHari: number;
   /**
+   * Retensi isi pesan WhatsApp (hari) — job cron harian menghapus baris
+   * `waLogs` yang lebih tua dari ini. Isi pesan memuat nomor tujuan dan teks
+   * pesan yang benar-benar dikirim ke nasabah.
+   */
+  retensiLogWaHari: number;
+  /**
+   * Retensi jejak audit (hari) — job cron harian menghapus baris `auditLog`
+   * yang lebih tua dari ini. Riwayat konfigurasi (`configRiwayat`) tidak ikut
+   * dihapus: itu yang menjelaskan tarif mana yang berlaku pada satu tanggal.
+   */
+  retensiAuditHari: number;
+  /**
    * Plafon awal pinjaman tunai semua Peminjam (rupiah bulat) — nasabah baru
    * dibatasi Rp500.000, lalu satu pelunasan tepat waktu membuka Rp1.000.000.
    * Kredit barang punya batas terpisah.
@@ -226,11 +262,12 @@ export const DEFAULT_CONFIG: SystemConfig = {
   produkKreditAktif: true,
   produkGadaiAktif: true,
   /**
-   * Potongan admin dari POKOK penempatan penyedia dana. Contoh pokok
-   * Rp1.000.000 @30%: uang yang kembali Rp1.300.000 → potongan 5% = Rp50.000,
-   * penyedia dana menerima Rp1.250.000.
-   * Dibaca saat pelunasan pinjaman — lihat lib/bagiHasil.ts dan repayLoan di
-   * convex/loans.ts. Pembulatan selalu ke bawah: sisa rupiah milik penyedia dana.
+   * Tarif potongan admin untuk baris LAMA yang belum punya snapshot siklus.
+   *
+   * Alokasi baru tidak memakai angka ini: porsi platform tetap 13/60 dari
+   * marjin pinjaman dan disimpan saat alokasi. Nilai ini hanya dibaca jalur
+   * pelunasan baris warisan (lib/bagiHasil.ts, repayLoan) dan dihitung dari
+   * total kembali, bukan dari pokok. Pembulatan ke bawah: sisa milik pendana.
    */
   persenAdmin: 5,
   persenPlatform: 3,
@@ -268,6 +305,8 @@ export const DEFAULT_CONFIG: SystemConfig = {
   notifWhatsappAktif: true,
   notifEmailAktif: true,
   retensiLokasiHari: LOKASI_RETENSI.jejakHari,
+  retensiLogWaHari: 180,
+  retensiAuditHari: 730,
   plafonPinjaman: PLAFON_DEFAULT,
   rekeningUsahaNama: "Chatur Surya Carel Ramadhan",
   rekeningUsahaBank: "BNI",

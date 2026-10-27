@@ -19,10 +19,16 @@ import {
   periksaIsiPromoBunga,
   type PromoBungaRingkas,
 } from "../lib/promoBunga";
-import { percentOf } from "../lib/money";
+import { formatRupiah, percentOf } from "../lib/money";
 import { kelompokkanMingguan } from "../lib/trenPromo";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
 import { audit } from "./system";
 
@@ -36,6 +42,16 @@ const BATAS_PROMO = 50;
  */
 const BATAS_PINJAMAN_PROMO = 500;
 
+/**
+ * Batas pinjaman yang dibaca saat memeriksa pagu subsidi pada setiap pengajuan.
+ *
+ * Lebih besar dari batas laporan karena angka ini menjaga uang, tetapi tetap
+ * berbatas: satu pengajuan tidak boleh membaca seluruh riwayat kampanye. Bila
+ * batas ini tercapai, pemeriksaan memakai jumlah yang terbaca dan menandainya
+ * di audit — pagu tetap berlaku, hanya angkanya menjadi batas bawah.
+ */
+const BATAS_HITUNG_SUBSIDI = 2_000;
+
 function ringkas(row: Doc<"promoBunga">): PromoBungaRingkas {
   return {
     _id: String(row._id),
@@ -45,6 +61,8 @@ function ringkas(row: Doc<"promoBunga">): PromoBungaRingkas {
     mulai: row.mulai,
     selesai: row.selesai,
     aktif: row.aktif,
+    bolehVoucher: row.bolehVoucher,
+    paguSubsidi: row.paguSubsidi,
   };
 }
 
@@ -74,6 +92,9 @@ export const berjalan = query({
         mulai: row.mulai,
         selesai: row.selesai,
         aktif: true,
+        // Formulir memakai ini untuk menyembunyikan voucher potongan bunga
+        // pada kampanye yang menolak tumpukan.
+        bolehVoucher: row.bolehVoucher !== false,
       }));
   },
 });
@@ -100,6 +121,9 @@ export const daftar = query({
       aktif: row.aktif,
       status: statusPromoBunga(row, sekarang),
       berjalan: row.aktif && row.mulai <= sekarang && sekarang <= row.selesai,
+      bolehVoucher: row.bolehVoucher !== false,
+      paguSubsidi: row.paguSubsidi ?? null,
+      paguPeringatan: row.paguPeringatan ?? null,
       diperbaruiPada: row.diperbaruiPada,
       diperbaruiOleh: row.diperbaruiOleh,
     }));
@@ -115,6 +139,10 @@ export const simpan = mutation({
     mulai: v.number(),
     selesai: v.number(),
     aktif: v.boolean(),
+    /** Kosong = boleh digabung voucher potongan bunga (perilaku lama). */
+    bolehVoucher: v.optional(v.boolean()),
+    /** Kosong/0 = tanpa pagu subsidi. */
+    paguSubsidi: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireAdminSession(ctx);
@@ -126,6 +154,8 @@ export const simpan = mutation({
       mulai: args.mulai,
       selesai: args.selesai,
       aktif: args.aktif,
+      bolehVoucher: args.bolehVoucher !== false,
+      paguSubsidi: args.paguSubsidi === 0 ? undefined : args.paguSubsidi,
     };
 
     const kesalahan = periksaIsiPromoBunga(isi);
@@ -159,6 +189,8 @@ export const simpan = mutation({
       id,
       `${isi.nama} · ${isi.persenBunga}% · tenor ${isi.tenor.join("/")} · ${
         isi.aktif ? "aktif" : "nonaktif"
+      }${isi.paguSubsidi !== undefined ? ` · pagu ${formatRupiah(isi.paguSubsidi)}` : ""}${
+        isi.bolehVoucher === false ? " · tanpa voucher bunga" : ""
       }`,
     );
 
@@ -243,6 +275,122 @@ export async function promoBungaUntukPengajuan(
 }
 
 /**
+ * Subsidi promo yang sudah terpakai oleh satu kampanye, dalam rupiah.
+ *
+ * Sumbernya `loans.promoBungaId` — catatan yang sama dengan laporan efektivitas,
+ * sehingga pagu dan laporan tidak bisa berbeda pendapat. Selisih dihitung dari
+ * tarif normal yang dibekukan pada pinjaman, bukan dari tarif hari ini: kontrak
+ * lama tetap dinilai dengan angka yang berlaku saat ia terbit.
+ */
+export async function subsidiTerpakaiPromo(
+  ctx: QueryCtx,
+  promo: Doc<"promoBunga">,
+): Promise<{ subsidi: number; dibatasi: boolean }> {
+  const loans = await ctx.db
+    .query("loans")
+    .withIndex("by_promoBunga", (q) => q.eq("promoBungaId", promo._id))
+    .take(BATAS_HITUNG_SUBSIDI);
+  let subsidi = 0;
+  for (const loan of loans) {
+    const normal = loan.promoBungaPersenNormal;
+    if (normal === undefined || normal <= 0) continue;
+    const persen = loan.promoBungaPersen ?? promo.persenBunga;
+    if (persen >= normal) continue;
+    subsidi += percentOf(loan.pokokPinjaman, normal) - percentOf(loan.pokokPinjaman, persen);
+  }
+  return { subsidi, dibatasi: loans.length >= BATAS_HITUNG_SUBSIDI };
+}
+
+/**
+ * Tolak pengajuan yang akan melewati pagu subsidi kampanye.
+ *
+ * Sengaja HANYA memeriksa dan melempar — tidak mematikan kampanye di sini.
+ * Mutation Convex bersifat transaksional: patch yang diikuti `throw` akan ikut
+ * dibatalkan, sehingga auto-stop yang ditulis di dalam fungsi ini tidak pernah
+ * benar-benar tersimpan. Penghentian kampanye dikerjakan
+ * `hentikanPromoJikaPaguHabis` setelah transaksi pengajuan berhasil.
+ *
+ * Yang ditolak adalah pengajuan yang MEMBUAT total melewati pagu (subsidi
+ * pinjaman ini ikut dihitung), bukan baru setelah pagu terlampaui — jadi pagu
+ * benar-benar menjadi batas, bukan catatan setelah kejadian.
+ */
+export async function pastikanPaguPromo(
+  ctx: QueryCtx,
+  args: { promo: Doc<"promoBunga">; subsidiBaru: number },
+): Promise<void> {
+  const pagu = args.promo.paguSubsidi ?? 0;
+  if (pagu <= 0) return;
+
+  const { subsidi } = await subsidiTerpakaiPromo(ctx, args.promo);
+  const total = subsidi + Math.max(0, args.subsidiBaru);
+  if (total > pagu) {
+    throw new Error(
+      `Pagu subsidi promo ${args.promo.nama} sudah tercapai (${formatRupiah(subsidi)} dari ${formatRupiah(pagu)}). Ajukan ulang tanpa promo, atau minta admin menaikkan pagunya.`,
+    );
+  }
+}
+
+/**
+ * Hentikan kampanye yang pagunya sudah habis, setelah pengajuan terakhirnya
+ * tersimpan. Dijadwalkan `loans.createLoanApplication` hanya bila promo dipakai.
+ *
+ * Idempoten: dipanggil berulang hanya menulis audit satu kali, karena syaratnya
+ * `promo.aktif` dan penanda `paguPeringatan` yang tersimpan di baris kampanye.
+ * Pinjaman yang sudah terbit tidak pernah diubah — hanya kampanye yang berhenti
+ * menerima pengajuan baru.
+ */
+export const hentikanPromoJikaPaguHabis = internalMutation({
+  args: { promoBungaId: v.id("promoBunga") },
+  handler: async (ctx, args): Promise<{ dihentikan: boolean; subsidi: number }> => {
+    const promo = await ctx.db.get(args.promoBungaId);
+    if (promo === null) return { dihentikan: false, subsidi: 0 };
+    const pagu = promo.paguSubsidi ?? 0;
+    if (pagu <= 0) return { dihentikan: false, subsidi: 0 };
+
+    const { subsidi, dibatasi } = await subsidiTerpakaiPromo(ctx, promo);
+    const oleh = "sistem-promo";
+    const sekarang = Date.now();
+
+    if (subsidi >= pagu) {
+      if (promo.aktif) {
+        await ctx.db.patch(promo._id, {
+          aktif: false,
+          paguPeringatan: "100",
+          diperbaruiPada: sekarang,
+          diperbaruiOleh: oleh,
+        });
+        await audit(
+          ctx,
+          undefined,
+          oleh,
+          "promo_bunga_dihentikan_pagu",
+          promo.nama,
+          `Pagu subsidi ${formatRupiah(pagu)} tercapai (terpakai ${formatRupiah(subsidi)}). Promo dimatikan otomatis; pinjaman yang sudah terbit tidak berubah.${dibatasi ? " Angka pemakaian dihitung dari 2.000 pinjaman terakhir kampanye ini." : ""}`,
+        );
+      }
+      return { dihentikan: true, subsidi };
+    }
+
+    if (subsidi >= pagu * 0.8 && promo.paguPeringatan !== "80") {
+      await ctx.db.patch(promo._id, {
+        paguPeringatan: "80",
+        diperbaruiPada: sekarang,
+        diperbaruiOleh: oleh,
+      });
+      await audit(
+        ctx,
+        undefined,
+        oleh,
+        "promo_bunga_pagu_80",
+        promo.nama,
+        `Pagu subsidi terpakai ${Math.round((subsidi / pagu) * 100)}% (${formatRupiah(subsidi)} dari ${formatRupiah(pagu)}). Kampanye tetap berjalan; siapkan pagu tambahan atau hentikan lebih awal.`,
+      );
+    }
+    return { dihentikan: false, subsidi };
+  },
+});
+
+/**
  * Laporan efektivitas tiap kampanye bunga promo.
  *
  * Yang dihitung: berapa pinjaman memakai promo itu, total pokoknya, dan
@@ -272,6 +420,7 @@ export const efektivitas = query({
     let totalPinjaman = 0;
     let totalPokok = 0;
     let totalSubsidi = 0;
+    let totalSubsidiVoucher = 0;
     let dibatasi = false;
     const baris = [];
     // Satu pinjaman hanya punya satu promo, jadi kontribusi mingguan bisa
@@ -296,9 +445,18 @@ export const efektivitas = query({
 
       let pokok = 0;
       let subsidi = 0;
+      let subsidiVoucher = 0;
       let perkiraan = false;
       for (const loan of loans) {
         pokok += loan.pokokPinjaman;
+        // Subsidi voucher dihitung terpisah dari subsidi promo: keduanya
+        // mengurangi pendapatan platform, tetapi hanya promo yang menjadi
+        // tanggung jawab kampanye. Menjumlahkannya di satu kolom menyembunyikan
+        // biaya tumpukan yang justru ingin dilihat admin.
+        const poinVoucher = loan.voucherDiskonBunga ?? 0;
+        if (poinVoucher > 0) {
+          subsidiVoucher += percentOf(loan.pokokPinjaman, poinVoucher);
+        }
         let subsidiPinjaman = 0;
         const normal = loan.promoBungaPersenNormal;
         if (normal !== undefined && normal > 0) {
@@ -320,6 +478,7 @@ export const efektivitas = query({
       totalPinjaman += loans.length;
       totalPokok += pokok;
       totalSubsidi += subsidi;
+      totalSubsidiVoucher += subsidiVoucher;
       baris.push({
         id: promo._id,
         nama: promo.nama,
@@ -331,6 +490,8 @@ export const efektivitas = query({
         pinjaman: loans.length,
         pokok,
         subsidi,
+        subsidiVoucher,
+        paguSubsidi: promo.paguSubsidi ?? null,
         perkiraan,
       });
     }
@@ -346,6 +507,8 @@ export const efektivitas = query({
         pinjaman: totalPinjaman,
         pokok: totalPokok,
         subsidi: totalSubsidi,
+        subsidiVoucher: totalSubsidiVoucher,
+        subsidiGabungan: totalSubsidi + totalSubsidiVoucher,
       },
       dibatasi,
     };

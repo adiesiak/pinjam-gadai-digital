@@ -26,6 +26,7 @@ const validInternalPaths = new Set([
   "/faq",
   "/aplikasi",
   "/syarat-ketentuan",
+  "/privasi",
 ]);
 
 function renderPage(path: string, page: React.ReactNode): string {
@@ -140,8 +141,12 @@ check(
 
 const syarat = renderPage("/syarat-ketentuan", <SyaratKetentuanView />);
 check(
-  syarat.includes("Diperbarui 19 Oktober 2026"),
+  syarat.includes("Diperbarui 27 Oktober 2026"),
   "terms show the current update date",
+);
+check(
+  syarat.includes('href="/privasi"'),
+  "terms link to the privacy policy",
 );
 check(
   syarat.includes("1 pinjaman untuk 1 pendana"),

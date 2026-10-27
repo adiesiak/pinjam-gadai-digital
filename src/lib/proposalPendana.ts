@@ -6,7 +6,7 @@
  * memakai angka yang sama. Semua nominal di sini dihitung oleh
  * `lib/imbalPendana` dan `lib/bagiHasil`, modul yang juga dipakai server saat
  * mencatat hak pendana. Tidak ada persentase yang disalin ke teks: siklus,
- * Imbal Hasil, dan biaya platform dibaca dari konstanta atau dari Pengaturan
+ * Imbal Hasil, dan porsi platform dibaca dari konstanta atau dari Pengaturan
  * Sistem yang berlaku saat tombol unduh ditekan.
  *
  * Bentuk dokumennya meniru lembar penawaran: satu sampul dengan tiga angka
@@ -20,6 +20,19 @@ import {
   TENOR_PENDANA_HARI,
   bagiHasilPendana,
 } from "./imbalPendana";
+import { hitungSimulasiBulanan } from "./bulanan";
+import {
+  GADAI_PRICING,
+  bagiSewaModalGadai,
+  quoteGadai,
+} from "./gadai";
+import { KREDIT_ASUMSI_AWAL, quoteKreditBarang } from "./kredit";
+import { rencanaAkadSyariah } from "./syariah/akad";
+import {
+  PERSEN_PORSI_PLATFORM,
+  bagiMargin,
+  minimumPokokTenor,
+} from "./kebijakanPinjaman";
 import { formatRupiahAman } from "./money";
 import { CS_WHATSAPP } from "./kontak";
 import type { BarisPdf, DokumenPdf } from "./pdfSederhana";
@@ -27,6 +40,16 @@ import type { BarisPdf, DokumenPdf } from "./pdfSederhana";
 /** Kop dan kaki dokumen, sama dengan laporan lain yang keluar dari PINDAI. */
 const NAMA_LAYANAN = "PINJAM GADAI DIGITAL (PINDAI)";
 const KAKI_DOKUMEN = "PINDAI - proposal pendanaan dan kemitraan strategis";
+
+/**
+ * Awal hari pembaruan isi proposal (tabel produk konvensional dan syariah).
+ *
+ * Berkas PDF yang dipasang admin sebelum tanggal ini tidak memuat tabel
+ * terbaru. Halaman memakai dokumen yang disusun ulang sampai admin mengganti
+ * berkasnya, supaya unduhan tidak diam-diam kembali ke versi lama. Naikkan
+ * tanggal ini setiap isi proposal berubah.
+ */
+export const PROPOSAL_DIPERBARUI_PADA = Date.UTC(2026, 9, 26);
 
 /** Nominal yang diuraikan baris demi baris sebagai contoh utama. */
 export const NOMINAL_CONTOH_PROPOSAL = 10_000_000;
@@ -41,8 +64,390 @@ export const NOMINAL_SIMULASI_PROPOSAL = [
   35_000_000, 40_000_000, 45_000_000, 50_000_000,
 ] as const;
 
+/** Tenor pinjaman bulanan yang dijelaskan di proposal. */
+export const TENOR_BULANAN_PROPOSAL = [1, 3, 6, 9, 12] as const;
+
+/** Pokok contoh untuk tabel keuntungan pinjaman bulanan (rupiah). */
+export const POKOK_CONTOH_BULANAN = 10_000_000;
+
+/** Satu baris tabel keuntungan pinjaman bulanan untuk pendana. */
+export type BarisKeuntunganBulanan = {
+  tenor: number;
+  /** Marjin pinjaman sepanjang tenor (dasar pembagian 47 : 13). */
+  margin: number;
+  /** Hak bersih pendana (47/60 marjin). */
+  pendana: number;
+  /** Porsi platform (13/60 marjin); biaya layanan & admin di luar ini. */
+  platform: number;
+  /** Hak pendana dibagi jumlah bulan, untuk membandingkan tenor. */
+  perBulan: number;
+};
+
+/**
+ * Keuntungan pendana untuk pinjaman bulanan 1/3/6/9/12 bulan.
+ *
+ * Angkanya dihitung mesin yang sama dengan server mencatat hak pendana
+ * (`bagiHasilPendana` dengan `tenorBulan`), bukan tabel persen terpisah yang
+ * bisa basi. Marjin tiap tenor berasal dari `lib/bulanan`; pembagian 47 : 13
+ * diterapkan pada marjin penuh tenor itu.
+ */
+export function keuntunganBulananProposal(
+  pokok: number = POKOK_CONTOH_BULANAN,
+): BarisKeuntunganBulanan[] {
+  return TENOR_BULANAN_PROPOSAL.map((tenor) => {
+    const bagi = bagiHasilPendana(pokok, {
+      pokokPinjaman: pokok,
+      tenorBulan: tenor,
+    });
+    return {
+      tenor,
+      margin: bagi.imbal,
+      pendana: bagi.keuntungan,
+      platform: bagi.potonganAdmin,
+      perBulan: Math.round(bagi.keuntungan / tenor),
+    };
+  });
+}
+
+/** Nominal simulasi pinjaman bulanan: Rp 1 juta sampai Rp 10 juta. */
+export const NOMINAL_BULANAN_PROPOSAL = [
+  1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000, 6_000_000, 7_000_000,
+  8_000_000, 9_000_000, 10_000_000,
+] as const;
+
+/** Satu baris simulasi bulanan: hak pendana untuk tiap tenor pada satu pokok. */
+export type BarisSimulasiBulanan = {
+  pokok: number;
+  /** Hak pendana per tenor; `null` bila tenor belum tersedia untuk pokok itu. */
+  pendana: Record<number, number | null>;
+};
+
+/**
+ * Simulasi hak pendana pinjaman bulanan Rp 1 juta sampai Rp 10 juta.
+ *
+ * Sel dihitung mesin yang sama dengan kontrak (`bagiHasilPendana` dengan
+ * `tenorBulan`). Tenor 3 bulan ke atas mensyaratkan pokok minimal
+ * Rp 3.000.000, jadi sel untuk pokok di bawah itu dikosongkan (`null`) dan
+ * dicetak sebagai tanda hubung, bukan angka yang tidak bisa dicapai nasabah.
+ */
+export function simulasiBulananProposal(): BarisSimulasiBulanan[] {
+  return NOMINAL_BULANAN_PROPOSAL.map((pokok) => {
+    const pendana: Record<number, number | null> = {};
+    for (const tenor of TENOR_BULANAN_PROPOSAL) {
+      pendana[tenor] =
+        pokok < minimumPokokTenor(tenor)
+          ? null
+          : bagiHasilPendana(pokok, { pokokPinjaman: pokok, tenorBulan: tenor })
+              .keuntungan;
+    }
+    return { pokok, pendana };
+  });
+}
+
+/** Pokok contoh tabel produk konvensional; sama dengan tabel syariah. */
+export const POKOK_CONTOH_KONVENSIONAL = 10_000_000;
+
+/** Nominal simulasi produk konvensional: Rp 1 juta sampai Rp 10 juta. */
+export const NOMINAL_KONVENSIONAL_PROPOSAL = [
+  1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000, 6_000_000, 7_000_000,
+  8_000_000, 9_000_000, 10_000_000,
+] as const;
+
+/** Uang muka contoh kredit barang, dalam persen dari harga barang. */
+export const DP_CONTOH_KREDIT_PERSEN = KREDIT_ASUMSI_AWAL.dpPersen;
+
+/** Tenor contoh kredit barang, dalam bulan. */
+export const TENOR_CONTOH_KREDIT_BULAN = 3;
+
+/** Satu produk konvensional dan pembagian marjinnya. */
+export type BarisProdukKonvensional = {
+  produk: string;
+  /** Dasar marjin yang dipakai produk itu. */
+  dasar: string;
+  /** Marjin total yang dibayar peminjam. */
+  margin: number;
+  /** Porsi pendana (47/60 marjin). */
+  pendana: number;
+  /** Porsi platform (13/60 marjin). */
+  platform: number;
+  /** Pokok + porsi pendana. */
+  diterima: number;
+};
+
+/**
+ * Harga barang yang menyisakan pokok dibiayai sebesar `pokok` setelah DP.
+ * Dipakai agar tabel kredit bisa memakai pokok yang sama dengan produk lain.
+ */
+function hargaBarangDariPokok(pokok: number, dpPersen: number): number {
+  if (!Number.isSafeInteger(pokok) || pokok <= 0) {
+    throw new Error(`Pokok kredit harus rupiah bulat positif: ${pokok}`);
+  }
+  if (!Number.isFinite(dpPersen) || dpPersen <= 0 || dpPersen >= 100) {
+    throw new Error(`DP kredit harus di antara 0-100 persen: ${dpPersen}`);
+  }
+  return Math.round((pokok * 100) / (100 - dpPersen));
+}
+
+/**
+ * Pembagian marjin satu kredit barang yang seluruh pokoknya didanai pendana.
+ * DP dihitung dari harga barang, sedangkan dasar pembagian hanya pokok yang
+ * benar-benar dibiayai; biaya admin 2% tetap pos terpisah milik platform.
+ */
+function kreditKonvensional(pokok: number): {
+  margin: number;
+  pendana: number;
+  platform: number;
+  marginPerBulan: number;
+} {
+  const quote = quoteKreditBarang({
+    hargaBarang: hargaBarangDariPokok(pokok, DP_CONTOH_KREDIT_PERSEN),
+    dpPersen: DP_CONTOH_KREDIT_PERSEN,
+    tenorBulan: TENOR_CONTOH_KREDIT_BULAN,
+    marginPersenPerBulan: KREDIT_ASUMSI_AWAL.marginPersenPerBulan,
+    porsiDanaPersen: 100,
+  });
+  // Nominal contoh dipilih supaya DP bulat dan pokok yang didanai tetap persis
+  // sebesar baris tabel; selisih sekecil apa pun berarti harga barangnya salah.
+  if (quote.pokokDibiayai !== pokok) {
+    throw new Error(
+      `Pokok kredit tidak sesuai: ${quote.pokokDibiayai} vs ${pokok}`,
+    );
+  }
+  const bagi = bagiMargin(quote.marginTotal);
+  return {
+    margin: quote.marginTotal,
+    pendana: bagi.pendana,
+    platform: bagi.platform,
+    marginPerBulan:
+      Math.round((quote.marginPerBulan / quote.pokokDibiayai) * 10000) / 100,
+  };
+}
+
+/**
+ * Pembagian tiga produk konvensional pada pokok contoh Rp 10.000.000.
+ *
+ * Harian memakai skema acuan 30% flat; gadai memakai batas atas sewa modal
+ * 10% per 30 hari; kredit barang memakai tenor 3 bulan dengan DP 20%. Angka
+ * marjin dibaca dari mesin produk masing-masing (bukan persen yang ditulis di
+ * sini), lalu dibagi 47 : 13 dengan fungsi kebijakan yang sama dengan server.
+ */
+export function pembagianKonvensionalProposal(): BarisProdukKonvensional[] {
+  const harian = bagiHasilPendana(POKOK_CONTOH_KONVENSIONAL);
+  const gadaiQuote = quoteGadai(
+    POKOK_CONTOH_KONVENSIONAL,
+    GADAI_PRICING.sewaModalMaxPercent,
+  );
+  const gadai = bagiSewaModalGadai(gadaiQuote.sewaModalPeriode);
+  const kredit = kreditKonvensional(POKOK_CONTOH_KONVENSIONAL);
+  return [
+    {
+      produk: "Pinjaman harian",
+      dasar: `Bunga ${formatPersen(PERSEN_IMBAL_PENDANA)} / siklus`,
+      margin: harian.imbal,
+      pendana: harian.keuntungan,
+      platform: harian.potonganAdmin,
+      diterima: harian.diterima,
+    },
+    {
+      produk: "Gadai",
+      dasar: `Sewa ${formatPersen(GADAI_PRICING.sewaModalMaxPercent)} / 30 hari`,
+      margin: gadaiQuote.sewaModalPeriode,
+      pendana: gadai.pendana,
+      platform: gadai.platform,
+      diterima: POKOK_CONTOH_KONVENSIONAL + gadai.pendana,
+    },
+    {
+      produk: "Kredit barang",
+      dasar: `Bunga ${formatPersen(kredit.marginPerBulan)}/bln, ${TENOR_CONTOH_KREDIT_BULAN} bln`,
+      margin: kredit.margin,
+      pendana: kredit.pendana,
+      platform: kredit.platform,
+      diterima: POKOK_CONTOH_KONVENSIONAL + kredit.pendana,
+    },
+  ];
+}
+
+/** Satu baris simulasi konvensional: hak pendana tiap produk pada satu pokok. */
+export type BarisSimulasiKonvensional = {
+  pokok: number;
+  harian: number;
+  gadai: number;
+  kredit: number;
+};
+
+/**
+ * Simulasi hak pendana produk konvensional Rp 1 juta sampai Rp 10 juta.
+ *
+ * Kolom harian memakai satu siklus acuan 30 hari, gadai memakai sewa 10% satu
+ * periode, dan kredit memakai tenor 3 bulan dengan DP 20% dari harga barang.
+ * Sel kredit adalah hak pendana atas pokok yang dibiayai, bukan atas harga
+ * barang; DP dibayar konsumen langsung ke merchant.
+ */
+export function simulasiKonvensionalProposal(): BarisSimulasiKonvensional[] {
+  return NOMINAL_KONVENSIONAL_PROPOSAL.map((pokok) => {
+    const gadai = bagiSewaModalGadai(
+      quoteGadai(pokok, GADAI_PRICING.sewaModalMaxPercent).sewaModalPeriode,
+    );
+    return {
+      pokok,
+      harian: bagiHasilPendana(pokok).keuntungan,
+      gadai: gadai.pendana,
+      kredit: kreditKonvensional(pokok).pendana,
+    };
+  });
+}
+
+/** Bunga pinjaman bulanan per tenor, dalam persen. */
+export type TarifTenorBulanan = {
+  tenor: number;
+  /** Bunga per bulan yang dipakai mesin kontrak (mis. 20 untuk tenor 3 bulan). */
+  perBulan: number;
+  /** Marjin total sepanjang tenor (mis. 60 untuk tenor 3 bulan). */
+  total: number;
+};
+
+/**
+ * Bunga tiap tenor bulanan, dibaca dari mesin simulasi yang sama dengan
+ * kontrak. `perBulan` berasal dari `hitungSimulasiBulanan` (tarif yang benar
+ * benar dipakai menghitung cicilan), sedangkan `total` dihitung dari marjin
+ * penuh tenor pada pokok contoh supaya tidak ada persen yang ditulis dua kali.
+ */
+export function tarifBulananProposal(): TarifTenorBulanan[] {
+  return TENOR_BULANAN_PROPOSAL.map((tenor) => {
+    const simulasi = hitungSimulasiBulanan(POKOK_CONTOH_BULANAN, tenor);
+    const margin = bagiHasilPendana(POKOK_CONTOH_BULANAN, {
+      pokokPinjaman: POKOK_CONTOH_BULANAN,
+      tenorBulan: tenor,
+    }).imbal;
+    return {
+      tenor,
+      perBulan: simulasi.persenBungaPerBulan,
+      total: Math.round((margin / POKOK_CONTOH_BULANAN) * 10000) / 100,
+    };
+  });
+}
+
+/** Pokok contoh untuk tabel pembagian akad syariah. */
+export const POKOK_CONTOH_SYARIAH = 10_000_000;
+
+/** Nominal simulasi akad syariah: Rp 1 juta sampai Rp 10 juta. */
+export const NOMINAL_SYARIAH_PROPOSAL = [
+  1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000, 6_000_000, 7_000_000,
+  8_000_000, 9_000_000, 10_000_000,
+] as const;
+
+/** Satu akad syariah dan pembagian margin/ujrahnya. */
+export type BarisAkadSyariah = {
+  akad: string;
+  /** Dasar margin/ujrah yang dipakai akad itu. */
+  dasar: string;
+  /** Margin atau ujrah total. */
+  margin: number;
+  /** Porsi pendana (47/60). */
+  pendana: number;
+  /** Porsi platform (13/60). */
+  platform: number;
+  /** Pokok + porsi pendana. */
+  diterima: number;
+};
+
+/**
+ * Pembagian tiga akad syariah pada pokok contoh Rp 10.000.000.
+ *
+ * Angkanya dihitung `rencanaAkadSyariah`, fungsi yang juga dipakai server saat
+ * mencatat akad, jadi tabel ini tidak bisa berbeda dari kontrak. Murabahah
+ * memakai batas atas margin (20%) supaya pembaca melihat hasil maksimum;
+ * Rahn memakai satu siklus 30 hari; Qardh memang tanpa margin.
+ */
+export function pembagianSyariahProposal(): BarisAkadSyariah[] {
+  const murabahah = rencanaAkadSyariah({
+    jenis: "murabahah",
+    pokok: POKOK_CONTOH_SYARIAH,
+    marginPersen: 20,
+    tenorHari: 30,
+  });
+  const rahn = rencanaAkadSyariah({
+    jenis: "rahn",
+    pokok: POKOK_CONTOH_SYARIAH,
+    nilaiTaksiran: POKOK_CONTOH_SYARIAH,
+    tenorHari: 30,
+  });
+  const qardh = rencanaAkadSyariah({
+    jenis: "qardh",
+    pokok: POKOK_CONTOH_SYARIAH,
+    tenorHari: 30,
+  });
+  return [
+    {
+      akad: "Murabahah",
+      dasar: "Margin 15-20%",
+      margin: murabahah.marginTotal,
+      pendana: murabahah.nisbahPendana,
+      platform: murabahah.nisbahPlatform,
+      diterima: murabahah.pendanaTerima,
+    },
+    {
+      akad: "Rahn",
+      dasar: "Ujrah 2% / 30 hari",
+      margin: rahn.marginTotal,
+      pendana: rahn.nisbahPendana,
+      platform: rahn.nisbahPlatform,
+      diterima: rahn.pendanaTerima,
+    },
+    {
+      akad: "Qardh",
+      dasar: "Tanpa margin",
+      margin: 0,
+      pendana: 0,
+      platform: 0,
+      diterima: qardh.pendanaTerima,
+    },
+  ];
+}
+
+/** Satu baris simulasi syariah: hak pendana untuk tiap akad pada satu pokok. */
+export type BarisSimulasiSyariah = {
+  pokok: number;
+  murabahah15: number;
+  murabahah20: number;
+  rahn: number;
+  qardh: number;
+};
+
+/**
+ * Simulasi hak pendana akad syariah Rp 1 juta sampai Rp 10 juta.
+ *
+ * Murabahah ditampilkan pada batas bawah dan batas atas margin (15% dan 20%),
+ * Rahn memakai satu siklus ujrah 30 hari, dan Qardh tidak memberi margin.
+ * Semua sel adalah porsi pendana 47/60 dari margin/ujrah, tanpa pokok.
+ */
+export function simulasiSyariahProposal(): BarisSimulasiSyariah[] {
+  return NOMINAL_SYARIAH_PROPOSAL.map((pokok) => ({
+    pokok,
+    murabahah15: rencanaAkadSyariah({
+      jenis: "murabahah",
+      pokok,
+      marginPersen: 15,
+      tenorHari: 30,
+    }).nisbahPendana,
+    murabahah20: rencanaAkadSyariah({
+      jenis: "murabahah",
+      pokok,
+      marginPersen: 20,
+      tenorHari: 30,
+    }).nisbahPendana,
+    rahn: rencanaAkadSyariah({
+      jenis: "rahn",
+      pokok,
+      nilaiTaksiran: pokok,
+      tenorHari: 30,
+    }).nisbahPendana,
+    qardh: 0,
+  }));
+}
+
 export type DataProposalPendana = {
-  /** Biaya platform (layanan) dari total pengembalian, persen. */
+  /** Field lama proposal; porsi platform selalu 13/60 marjin dan tidak dibaca dari sini. */
   persenPotonganAdmin: number;
   /** Waktu dokumen disusun (epoch ms); dipakai di sampul dan nama berkas. */
   dibuatPada: number;
@@ -99,32 +504,79 @@ export function nomorLayananProposal(): string {
  * Susun dokumen proposal.
  *
  * Sampul, lalu halaman isi lima bagian: ringkasan dan target 2027, potensi
- * pasar, skema dan simulasi, biaya platform dan risiko, lalu alur kemitraan
+ * pasar, skema dan simulasi, porsi platform dan risiko, lalu alur kemitraan
  * dan kontak. Pemisah halaman ditetapkan eksplisit di dua tempat supaya tabel
  * simulasi dan langkah kemitraan tidak terpotong di tengah.
  */
 export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
-  const persen = formatPersen(data.persenPotonganAdmin);
-  const contoh = bagiHasilPendana(
-    NOMINAL_CONTOH_PROPOSAL,
-    data.persenPotonganAdmin,
-  );
-  // Porsi platform diambil dari marjin pinjaman (47 : 13). Angkanya diturunkan
-  // dari mesin, bukan ditulis sebagai konstanta, supaya tetap sama dengan
-  // pencairan sebenarnya.
-  const persenBiayaPokok =
-    Math.round((contoh.potonganAdmin / NOMINAL_CONTOH_PROPOSAL) * 10000) / 100;
+  // Porsi platform adalah kebijakan tetap 13/60 dari marjin, bukan angka
+  // `persenPotonganAdmin` yang tersimpan di proposal lama. Field itu dibiarkan
+  // di data agar dokumen lama tetap terbaca, tetapi tidak lagi menentukan
+  // angka apa pun.
+  const persen = formatPersen(PERSEN_PORSI_PLATFORM);
+  const contoh = bagiHasilPendana(NOMINAL_CONTOH_PROPOSAL);
   const persenDiterima =
     Math.round((contoh.diterima / NOMINAL_CONTOH_PROPOSAL) * 10000) / 100;
   const persenKeuntungan =
     Math.round((contoh.keuntungan / NOMINAL_CONTOH_PROPOSAL) * 10000) / 100;
-  const kolamBiaya = bagiHasilPendana(
-    225_000_000,
-    data.persenPotonganAdmin,
-  ).potonganAdmin;
+  const kolamBiaya = bagiHasilPendana(225_000_000).potonganAdmin;
+
+  const bulanan = keuntunganBulananProposal();
+  const tarif = new Map(tarifBulananProposal().map((t) => [t.tenor, t]));
+  const simulasiBulanan = bulanan.map((b) => {
+    const t = tarif.get(b.tenor);
+    return [
+      `${b.tenor} bulan`,
+      t === undefined ? "-" : formatPersen(t.perBulan),
+      rupiah(b.margin),
+      rupiah(b.pendana),
+      rupiah(b.platform),
+      rupiah(b.perBulan),
+    ];
+  });
+
+  const simulasiBulananNominal = simulasiBulananProposal().map((r) => [
+    rupiah(r.pokok),
+    ...TENOR_BULANAN_PROPOSAL.map((tenor) =>
+      r.pendana[tenor] === null || r.pendana[tenor] === undefined
+        ? "-"
+        : rupiah(r.pendana[tenor] as number),
+    ),
+  ]);
+
+  const konvensional = pembagianKonvensionalProposal().map((b) => [
+    b.produk,
+    b.dasar,
+    rupiah(b.margin),
+    rupiah(b.pendana),
+    rupiah(b.platform),
+    rupiah(b.diterima),
+  ]);
+  const simulasiKonvensional = simulasiKonvensionalProposal().map((b) => [
+    rupiah(b.pokok),
+    rupiah(b.harian),
+    rupiah(b.gadai),
+    rupiah(b.kredit),
+  ]);
+
+  const syariah = pembagianSyariahProposal().map((b) => [
+    b.akad,
+    b.dasar,
+    rupiah(b.margin),
+    rupiah(b.pendana),
+    rupiah(b.platform),
+    rupiah(b.diterima),
+  ]);
+  const simulasiSyariah = simulasiSyariahProposal().map((b) => [
+    rupiah(b.pokok),
+    rupiah(b.murabahah15),
+    rupiah(b.murabahah20),
+    rupiah(b.rahn),
+    rupiah(b.qardh),
+  ]);
 
   const simulasi = NOMINAL_SIMULASI_PROPOSAL.map((pokok) => {
-    const bagi = bagiHasilPendana(pokok, data.persenPotonganAdmin);
+    const bagi = bagiHasilPendana(pokok);
     return [
       rupiah(pokok),
       rupiah(bagi.imbal),
@@ -139,7 +591,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
     { teks: "Ringkasan eksekutif", gaya: "seksi" },
     { garis: true },
     {
-      teks: "PINDAI adalah platform pendanaan digital yang mempertemukan pendana dengan nasabah gadai mikro di koridor industri megapolitan. Setiap pinjaman dijamin satu agunan fisik yang spesifik dan tercatat, dengan pemetaan satu pinjaman untuk satu pendana. Dana tidak masuk ke kumpulan portofolio tanpa nama: pendana tahu pinjaman mana yang dibiayai dan agunan apa yang menyertainya.",
+      teks: "PINDAI adalah platform pendanaan digital yang mempertemukan pendana dengan nasabah di koridor industri megapolitan. Produknya mencakup pinjaman harian, pinjaman bulanan, pembiayaan syariah, gadai, dan kredit barang. Setiap alokasi menempel pada satu pinjaman dan satu pendana, dan marjin semua produk dibagi dengan aturan yang sama, 47 : 13. Pada gadai, pinjaman dijamin satu agunan fisik yang spesifik dan tercatat; pada produk lain, jaminannya mengikuti skema masing-masing. Dana tidak masuk ke kumpulan portofolio tanpa nama: pendana tahu pinjaman mana yang dibiayai.",
       gaya: "biasa",
     },
     {
@@ -212,6 +664,63 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
       teks: `Satu siklus acuan ${TENOR_PENDANA_HARI} hari. Semua angka dihitung dari pokok pendanaan, bukan dari bunga pinjaman peminjam. Perpanjangan tenor atau perubahan skema di sisi peminjam tidak mengubah hak pendana atas siklus yang sudah tercatat.`,
       gaya: "biasa",
     },
+    { teks: "Berlaku untuk semua produk", gaya: "tebal" },
+    {
+      teks: "Aturan 47 : 13 dipakai untuk marjin pinjaman harian, pinjaman bulanan, pembiayaan syariah, gadai, dan kredit barang. Yang berbeda di tiap produk adalah cara marjin dihitung dari pokok dan tenor; bagian pendana tetap 78,33% dari marjin. Biaya layanan dan biaya admin platform berada di luar pembagian ini dan tidak memotong hak pendana.",
+      gaya: "biasa",
+    },
+
+    { jarak: 8 },
+    { teks: "Pembagian produk konvensional", gaya: "seksi" },
+    { garis: true },
+    {
+      teks: `Tabel pertama memakai pokok ${rupiah(POKOK_CONTOH_KONVENSIONAL)} agar sebanding dengan tabel syariah. Pinjaman harian memakai skema acuan 30% flat; gadai memakai batas atas sewa modal 10% per 30 hari; kredit barang memakai tenor ${TENOR_CONTOH_KREDIT_BULAN} bulan dengan DP ${formatPersen(DP_CONTOH_KREDIT_PERSEN)} dari harga barang. Pinjaman bulanan dibahas pada tabel tenor tersendiri di bawah karena tarifnya berbeda per tenor.`,
+      gaya: "biasa",
+    },
+    {
+      tabel: {
+        kepala: [
+          "Produk",
+          "Dasar marjin",
+          "Marjin",
+          "Pendana 47/60",
+          "Platform 13/60",
+          "Diterima pendana",
+        ],
+        baris: konvensional,
+        bobot: [1.1, 1.5, 1, 1, 1, 1.15],
+      },
+    },
+    {
+      teks: `Diterima pendana adalah pokok ditambah hak pendana, karena pokok kembali utuh. Kredit barang memakai pokok ${rupiah(POKOK_CONTOH_KONVENSIONAL)} yang dibiayai setelah DP, bukan harga barang; biaya admin 2% tetap pos terpisah milik platform.`,
+      gaya: "kecil",
+    },
+    { jarak: 8 },
+    {
+      teks: "Simulasi konvensional Rp 1 juta sampai Rp 10 juta (hak pendana)",
+      gaya: "tebal",
+    },
+    {
+      teks: `Sel berisi porsi pendana 47/60 dari marjin, tanpa pokok. Kolom harian memakai satu siklus acuan; tiket harian yang disalurkan Rp 500.000 sampai Rp 1.000.000, sedangkan tabel memakai nominal yang sama agar bisa dibandingkan. Kolom kredit adalah pokok yang dibiayai setelah DP ${formatPersen(DP_CONTOH_KREDIT_PERSEN)}.`,
+      gaya: "kecil",
+    },
+    {
+      tabel: {
+        kepala: [
+          "Pokok konvensional",
+          "Harian",
+          "Gadai 10%",
+          "Kredit 3 bln",
+        ],
+        baris: simulasiKonvensional,
+      },
+    },
+
+    { teks: "Pencatatan hak dan buktinya", gaya: "tebal" },
+    {
+      teks: "Hak pendana dicatat per pinjaman yang lunas; untuk gadai, dicatat setiap pembayaran gadai diterima. Catatan transfer dapat diunduh sebagai CSV dari ruang pendana, dan catatan yang salah dibatalkan dengan alasan sehingga jejaknya tetap tersimpan. Catatan itu adalah pembukuan PINDAI, bukan bukti mutasi bank: perpindahan uang tetap terjadi di rekening masing-masing.",
+      gaya: "biasa",
+    },
     {
       label: "Imbal Hasil",
       nilai: `${PERSEN_IMBAL_PENDANA}% x Pokok`,
@@ -231,6 +740,112 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
     {
       label: "Keuntungan bersih",
       nilai: `${formatPersen(persenKeuntungan)} dari pokok`,
+    },
+
+    { jarak: 10 },
+    { teks: "Keuntungan pinjaman bulanan 1/3/6/9/12", gaya: "seksi" },
+    { garis: true },
+    {
+      teks: `Tabel ini memakai pokok ${rupiah(POKOK_CONTOH_BULANAN)}. Marjin tiap tenor berasal dari mesin yang sama dengan kontrak: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%, 9 bulan 90%, dan 12 bulan 96%. Marjin penuh itu dibagi 47 : 13, jadi kolom pendana adalah hak bersih atas marjin, sedangkan biaya layanan dan biaya admin tetap pos terpisah milik platform.`,
+      gaya: "biasa",
+    },
+    {
+      tabel: {
+        kepala: [
+          "Tenor",
+          "Bunga / bulan",
+          "Marjin total tenor",
+          "Hak pendana",
+          "Porsi platform",
+          "Setara per bulan",
+        ],
+        baris: simulasiBulanan,
+      },
+    },
+    {
+      teks: "Dana pada tenor bulanan terikat sampai tenor selesai: hak pendana baru dibayarkan setelah pinjaman lunas, bukan setiap bulan. Kolom setara per bulan hanya alat pembanding tenor, dan angka rupiahnya dibulatkan ke rupiah terdekat. Tenor lebih panjang tidak menaikkan hasil per bulan karena marjin per bulannya menurun (12%, 10%, dan 8% untuk tenor 6, 9, dan 12 bulan).",
+      gaya: "kecil",
+    },
+
+    // Tabel sepuluh baris dimulai di halaman sendiri supaya barisnya tidak
+    // terpotong di tengah dan kepala kolomnya tidak tertinggal di halaman lain.
+    { halamanBaru: true },
+    {
+      teks: "Simulasi pinjaman bulanan Rp 1 juta sampai Rp 10 juta",
+      gaya: "tebal",
+    },
+    {
+      teks: `Setiap sel adalah hak bersih pendana (47/60 marjin) untuk tenor itu; pokok kembali utuh dan tidak termasuk di dalamnya. Bunga yang dipakai: ${tarifBulananProposal()
+        .map(
+          (t) =>
+            `${t.tenor} bulan ${formatPersen(t.perBulan)} per bulan (${formatPersen(t.total)} total)`,
+        )
+        .join(
+          ", ",
+        )}. Tanda hubung berarti tenor tersebut belum tersedia untuk pokok itu: tenor 3 bulan ke atas mensyaratkan pokok minimal Rp 3.000.000.`,
+      gaya: "kecil",
+    },
+    {
+      tabel: {
+        kepala: ["Pokok bulanan", "1 bln", "3 bln", "6 bln", "9 bln", "12 bln"],
+        baris: simulasiBulananNominal,
+      },
+    },
+    {
+      teks: "Angka ini dihitung dari marjin tenor yang berlaku, bukan dari hasil satu bulan dikali jumlah bulan. Karena marjin per bulan menurun pada tenor panjang, hak pendana per bulan juga menurun walaupun totalnya naik.",
+      gaya: "kecil",
+    },
+
+    // Dua tabel syariah dimulai di halaman sendiri supaya akad dan
+    // simulasinya terbaca berurutan tanpa terpotong.
+    { halamanBaru: true },
+    { teks: "Pembagian produk syariah", gaya: "seksi" },
+    { garis: true },
+    {
+      teks: `Akad syariah memakai aturan bagi hasil yang sama: margin murabahah atau ujrah rahn dibagi 47 : 13, pendana menerima 78,33% dan platform 21,67% sebagai ujrah pengelola. Tabel pertama memakai pokok ${rupiah(POKOK_CONTOH_SYARIAH)}; kolom diterima adalah pokok ditambah hak pendana, karena pokok kembali utuh.`,
+      gaya: "biasa",
+    },
+    {
+      tabel: {
+        kepala: [
+          "Akad",
+          "Dasar margin/ujrah",
+          "Margin/ujrah",
+          "Pendana 47/60",
+          "Platform 13/60",
+          "Diterima pendana",
+        ],
+        baris: syariah,
+      },
+    },
+    {
+      teks: "Murabahah: margin disepakati 15-20% dari harga pokok untuk seluruh tenor. Rahn: ujrah pemeliharaan 2% dari nilai taksiran per 30 hari, dibayar per siklus. Qardh: pinjaman kebajikan tanpa margin, pokok kembali 100% dan tidak ada bagian yang dibagi.",
+      gaya: "kecil",
+    },
+    { jarak: 8 },
+    {
+      teks: "Simulasi syariah Rp 1 juta sampai Rp 10 juta (hak pendana)",
+      gaya: "tebal",
+    },
+    {
+      teks: "Sel berisi porsi pendana 47/60 dari margin atau ujrah, tanpa pokok. Murabahah ditampilkan pada margin 15% dan 20%; Rahn satu siklus 30 hari dengan taksiran sama dengan pokok.",
+      gaya: "kecil",
+    },
+    {
+      tabel: {
+        kepala: [
+          "Pokok syariah",
+          "Murabahah 15%",
+          "Murabahah 20%",
+          "Rahn 2%",
+          "Qardh",
+        ],
+        baris: simulasiSyariah,
+      },
+    },
+    {
+      teks: "Biaya layanan dan biaya admin platform berada di luar pembagian ini dan tidak memotong hak pendana. Semua nominal rupiah bulat; sisa pembulatan selalu menjadi milik pendana.",
+      gaya: "kecil",
     },
 
     { jarak: 10 },
@@ -275,7 +890,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
           "Pokok",
           "Imbal 30%",
           "Uang Kembali",
-          `Biaya ${persen}`,
+          `Porsi ${persen}`,
           "Diterima",
           "Keuntungan",
         ],
@@ -284,7 +899,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
     },
     { jarak: 6 },
     {
-      teks: "Semua nominal rupiah bulat. Biaya platform dibulatkan ke bawah, sehingga sisa rupiah menjadi hak pendana dan tidak ada rupiah yang hilang atau diciptakan.",
+      teks: "Semua nominal rupiah bulat. Porsi platform dihitung 13/60 dari marjin dan dibulatkan ke bawah, sehingga sisa rupiah menjadi hak pendana dan tidak ada rupiah yang hilang atau diciptakan.",
       gaya: "kecil",
     },
 
@@ -407,7 +1022,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
     },
     { teks: "5. Pengembalian", gaya: "tebal" },
     {
-      teks: "Setelah pinjaman lunas, pokok dan keuntungan bersih ditransfer ke rekening pendana, lalu dicatat admin.",
+      teks: "Setelah pinjaman lunas (pada gadai, setelah pembayaran diterima), pokok dan keuntungan bersih ditransfer ke rekening pendana, lalu dicatat admin. Rekapnya bisa Anda unduh dari ruang pendana.",
       gaya: "biasa",
     },
 
@@ -469,8 +1084,8 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
       isi: [
         "Ringkasan eksekutif dan target 2027",
         "Potensi pasar: TAM, SAM, dan SOM",
-        "Skema pendanaan dan simulasi Rp 5 juta sampai Rp 50 juta",
-        "Biaya platform, langkah preventif, dan risiko",
+        "Skema pendanaan, pembagian produk konvensional, simulasi Rp 5 juta sampai Rp 50 juta, keuntungan pinjaman bulanan 1/3/6/9/12, dan pembagian akad syariah",
+        "Porsi platform, langkah preventif, dan risiko",
         "Alur kemitraan dan kontak layanan",
       ],
       penutup:

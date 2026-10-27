@@ -280,3 +280,19 @@ export function nilaiHadiahValid(nilai: number): boolean {
     nilai < BATAS_NILAI_HADIAH_DOORPRIZE
   );
 }
+
+/**
+ * Nama pemenang untuk papan publik.
+ *
+ * Cukup untuk dikenali pemiliknya ("Ra***"), tidak cukup untuk dihubungi orang
+ * lain. Dua huruf pertama dipertahankan karena tanpa petunjuk apa pun, papan
+ * pemenang tidak membuktikan apa-apa; sisanya disamarkan sepanjang nama asli
+ * supaya panjang nama pun tidak bocor.
+ */
+export function namaPemenangPublik(nama: string): string {
+  const bersih = nama.trim();
+  if (bersih === "") return "Pemenang PINDAI";
+  const pertama = bersih.split(/\s+/)[0] ?? bersih;
+  const terlihat = pertama.slice(0, 2);
+  return `${terlihat}${"*".repeat(Math.max(3, bersih.length - terlihat.length))}`;
+}

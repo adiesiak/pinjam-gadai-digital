@@ -18,6 +18,14 @@ export function tanggalRingkas(ms: number): string {
   });
 }
 
+/** Nama sumber titik lokasi, ditampilkan apa adanya di bawah koordinat. */
+export const LABEL_SUMBER: Record<string, string> = {
+  web: "Perangkat (browser)",
+  aplikasi: "Perangkat (aplikasi)",
+  jejak: "Jejak terakhir",
+  pengajuan: "Saat pengajuan dikirim",
+};
+
 /** Jalankan perhitungan kuotasi tanpa pernah merobohkan halaman (data warisan). */
 export function coba<T>(fn: () => T): T | null {
   try {

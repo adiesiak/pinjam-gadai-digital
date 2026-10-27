@@ -93,8 +93,8 @@ describe("pengajuan syariah — pengiriman", () => {
     expect(row?.marginTotal).toBe(60_000);
     expect(row?.hargaJual).toBe(360_000);
     expect(row?.totalKewajiban).toBe(360_000);
-    expect(row?.nisbahPendana).toBe(55_200);
-    expect(row?.nisbahPlatform).toBe(4_800);
+    expect(row?.nisbahPendana).toBe(47_000);
+    expect(row?.nisbahPlatform).toBe(13_000);
     expect(row?.namaPeminjam).toBe("RANI PEMINJAM");
     expect(row?.userId).toBe(userId);
   });
@@ -533,8 +533,8 @@ describe("pengajuan syariah — keputusan admin", () => {
     expect(row?.marginPersen).toBe(20);
     expect(row?.marginTotal).toBe(60_000);
     expect(row?.totalKewajiban).toBe(360_000);
-    expect(row?.nisbahPendana).toBe(55_200);
-    expect(row?.nisbahPlatform).toBe(4_800);
+    expect(row?.nisbahPendana).toBe(47_000);
+    expect(row?.nisbahPlatform).toBe(13_000);
     expect(row?.diputuskanPada).toBeTypeOf("number");
 
     const isi = await t.run(async (ctx) => ({

@@ -40,7 +40,10 @@ export default function Admin() {
   const adminVerified = gate?.isAdmin === true && gate.verified;
   const overview = useQuery(api.admin.adminOverview, adminVerified ? {} : "skip");
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
-  const stats = useQuery(api.admin.adminStats, adminVerified ? {} : "skip");
+  // Kartu angka ikut `adminOverview`, yang menghitungnya dari bacaan tabel yang
+  // sama dengan antrean. Sebelumnya halaman ini berlangganan `adminStats`
+  // sendiri, sehingga satu layar memindai riwayat pinjaman dua kali.
+  const stats = adminVerified ? overview?.stats : undefined;
   const ledger = useQuery(api.admin.ledgerSummary, adminVerified ? {} : "skip");
   const sysCfg = useQuery(api.system.getStatusPublic, adminVerified ? {} : "skip");
   // Cacah antrean verifikasi identitas untuk lencana menu. Hanya dihitung saat

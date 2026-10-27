@@ -5,6 +5,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
 import { KONTEN_PENDANA_DEFAULT } from "@/lib/kontenPendana";
+import { formatRupiahAman } from "@/lib/money";
+import {
+  PROPOSAL_DIPERBARUI_PADA,
+  formatPersen,
+  keuntunganBulananProposal,
+  pembagianKonvensionalProposal,
+  pembagianSyariahProposal,
+  simulasiBulananProposal,
+  simulasiKonvensionalProposal,
+  simulasiSyariahProposal,
+  tarifBulananProposal,
+} from "@/lib/proposalPendana";
 
 import { JadiPendanaView } from "./JadiPendana";
 
@@ -74,6 +86,93 @@ ada(html, "Unduh proposal (PDF)", "tombol unduh di hero");
 ada(html, "Unduh proposal lengkap (PDF)", "tombol unduh di bagian proposal");
 ada(html, "Proposal pendanaan", "judul bagian proposal");
 ada(html, "TAM, SAM, dan SOM", "isi proposal menyebut analisis pasar");
+ada(html, "Satu pembagian untuk semua produk", "cakupan produk dinyatakan");
+ada(
+  html,
+  "Pembagian produk konvensional",
+  "bagian konvensional tampil",
+);
+for (const baris of pembagianKonvensionalProposal()) {
+  ada(html, baris.produk, `produk konvensional ${baris.produk} tampil`);
+  ada(
+    html,
+    formatRupiahAman(baris.pendana),
+    `hak pendana ${baris.produk} tampil`,
+  );
+}
+ada(html, "Rp 783.334", "hak pendana gadai tampil");
+ada(html, "Rp 4.700.000", "hak pendana kredit barang tampil");
+ada(
+  html,
+  "Simulasi konvensional Rp 1 juta sampai Rp 10 juta",
+  "simulasi konvensional tampil",
+);
+for (const baris of simulasiKonvensionalProposal()) {
+  ada(
+    html,
+    formatRupiahAman(baris.pokok),
+    `pokok konvensional ${baris.pokok} tampil`,
+  );
+}
+ada(
+  html,
+  "Keuntungan pinjaman bulanan 1/3/6/9/12",
+  "tabel tenor bulanan di halaman",
+);
+for (const b of keuntunganBulananProposal()) {
+  ada(html, `${b.tenor} bulan`, `tenor ${b.tenor} bulan tampil`);
+  ada(html, formatRupiahAman(b.pendana), `hak pendana tenor ${b.tenor} tampil`);
+}
+ada(
+  html,
+  "Simulasi pinjaman bulanan Rp 1 juta sampai Rp 10 juta",
+  "simulasi bulanan 1 juta sampai 10 juta ada",
+);
+for (const baris of simulasiBulananProposal()) {
+  ada(html, formatRupiahAman(baris.pokok), `pokok ${baris.pokok} tampil`);
+}
+ada(html, "Bunga / bulan", "kolom bunga per bulan tampil");
+for (const t of tarifBulananProposal()) {
+  ada(
+    html,
+    `${formatPersen(t.perBulan)}`,
+    `bunga ${t.perBulan}% tenor ${t.tenor} tampil`,
+  );
+}
+ada(html, "Pembagian produk syariah", "bagian syariah tampil");
+for (const baris of pembagianSyariahProposal()) {
+  ada(html, baris.akad, `akad ${baris.akad} tampil`);
+  ada(
+    html,
+    formatRupiahAman(baris.pendana),
+    `hak pendana ${baris.akad} tampil`,
+  );
+}
+ada(html, "Rp 1.566.667", "hak pendana murabahah tampil");
+ada(html, "Rp 156.667", "hak pendana rahn tampil");
+ada(
+  html,
+  "Simulasi syariah Rp 1 juta sampai Rp 10 juta",
+  "simulasi syariah tampil",
+);
+for (const baris of simulasiSyariahProposal()) {
+  ada(
+    html,
+    formatRupiahAman(baris.pokok),
+    `pokok syariah ${baris.pokok} tampil`,
+  );
+}
+ada(html, "Rp 235.000", "hak pendana 1 juta tenor 1 bulan tampil");
+ada(html, "Rp 7.520.000", "hak pendana 10 juta tenor 12 bulan tampil");
+for (const produk of [
+  "Pinjaman harian",
+  "Pinjaman bulanan",
+  "Pembiayaan syariah",
+  "Gadai",
+  "Kredit barang",
+]) {
+  ada(html, produk, `produk ${produk} tercantum`);
+}
 ada(
   html,
   "Rp 5 juta sampai Rp 50 juta",
@@ -207,7 +306,12 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
           heroDeskripsi:
             "Porsi platform {biaya} dan Imbal Hasil {imbal} per {siklus} hari.",
           faq: KONTEN_PENDANA_DEFAULT.faq.map((item, i) =>
-            i === 0 ? { tanya: "Pertanyaan dari admin?", jawab: "Jawaban dari admin." } : item,
+            i === 0
+              ? {
+                  tanya: "Pertanyaan dari admin?",
+                  jawab: "Jawaban dari admin.",
+                }
+              : item,
           ),
         }}
       />
@@ -254,6 +358,37 @@ tidakAda(html, "Apakah data saya aman?", "tanpa FAQ template");
   );
   ada(lain, "Unduh proposal lengkap (PDF)", "tombol unduh tetap tersedia");
   tidakAda(lain, 'disabled=""', "tombol unduh berkas tidak terkunci");
+}
+
+// ===== Berkas admin yang lebih lama dari pembaruan tidak menutupi PDF baru =====
+{
+  const lain = renderToStaticMarkup(
+    <MemoryRouter initialEntries={["/jadi-pendana"]}>
+      <JadiPendanaView
+        persenPotonganAdmin={5}
+        proposalTersimpan={{
+          url: "https://example.convex.cloud/proposal.pdf",
+          namaBerkas: "proposal-lama.pdf",
+          pada: PROPOSAL_DIPERBARUI_PADA - 1,
+        }}
+      />
+    </MemoryRouter>,
+  );
+  ada(
+    lain,
+    "Berkas yang dipasang admin lebih lama dari pembaruan proposal",
+    "berkas lama diberi peringatan",
+  );
+  ada(
+    lain,
+    "Dokumen dibuat ulang setiap kali diunduh",
+    "halaman kembali menyusun dokumen terbaru",
+  );
+  tidakAda(
+    lain,
+    "Berkas ini diterbitkan tim PINDAI dan tidak dihitung ulang saat diunduh.",
+    "catatan berkas lama tidak dipakai",
+  );
 }
 
 // ===== Tidak ada sisa render yang rusak =====

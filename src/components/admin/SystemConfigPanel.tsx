@@ -20,8 +20,9 @@ import {
 } from "@/lib/syariah/murabahah";
 import {
   DEFAULT_CONFIG,
-  NISBAH_PENDANA_BATAS,
+  RETENSI_AUDIT_BATAS,
   RETENSI_LOKASI_BATAS,
+  RETENSI_LOG_WA_BATAS,
   tanpaVersiConfig,
   type SystemConfig,
 } from "@/lib/system-config";
@@ -32,6 +33,14 @@ import { RiwayatConfigPanel } from "./RiwayatConfigPanel";
 import type { ReactNode } from "react";
 
 type ConfigForm = Omit<SystemConfig, "versi">;
+
+/** Batasi masukan hari ke rentang retensi yang sah; kosong → batas bawah. */
+function batasiRetensi(
+  nilai: string | number,
+  batas: { min: number; maks: number },
+): number {
+  return Math.min(batas.maks, Math.max(batas.min, Math.round(Number(nilai) || batas.min)));
+}
 
 /**
  * Kolom tarif bulanan. Perubahannya membentuk kontrak baru, jadi panel ini
@@ -389,21 +398,15 @@ export function SystemConfigPanel() {
                   step={0.5}
                   suffix="%"
                   onChange={(v) => upd("persenAdmin", Number(v) || 0)}
-                  hint="Potongan dari pokok pendanaan (bukan dari Imbal Hasil)."
+                  hint="Hanya untuk alokasi lama tanpa snapshot siklus. Alokasi baru memakai porsi tetap 13/60 marjin."
                   withHint
                 />
-                <SuffixInput
-                  id="cfg-persen-platform"
-                  label="Biaya Platform (%)"
-                  value={form.persenPlatform}
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  suffix="%"
-                  onChange={(v) => upd("persenPlatform", Number(v) || 0)}
-                  hint="Biaya platform dari total pengembalian pendana (pokok + Imbal Hasil)."
-                  withHint
-                />
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-muted-foreground">
+                  Porsi platform <strong>tetap 21,67% dari marjin</strong>{" "}
+                  (13/60). Angka ini tidak dapat diubah dari panel karena harus
+                  sama untuk pinjaman harian, bulanan, kredit barang, dan akad
+                  syariah. Biaya layanan dan biaya admin adalah pos terpisah.
+                </div>
                 <SuffixInput
                   id="cfg-persen-bunga"
                   label="Bunga Flat (%)"
@@ -445,23 +448,11 @@ export function SystemConfigPanel() {
                   hint="Sekali dari harga pokok, semua produk, seluruh tenor. Dipakai pengajuan baru."
                   withHint
                 />
-                <SuffixInput
-                  id="cfg-nisbah-pendana-syariah"
-                  label="Nisbah Pendana Syariah (%)"
-                  value={form.persenNisbahPendanaSyariah}
-                  min={NISBAH_PENDANA_BATAS.min}
-                  max={NISBAH_PENDANA_BATAS.maks}
-                  step={1}
-                  suffix="%"
-                  onChange={(v) =>
-                    upd(
-                      "persenNisbahPendanaSyariah",
-                      Number(v) || NISBAH_PENDANA_BATAS.min,
-                    )
-                  }
-                  hint={`Sisanya ${100 - form.persenNisbahPendanaSyariah}% menjadi ujrah pengelola dari margin atau ujrah akad.`}
-                  withHint
-                />
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-muted-foreground sm:col-span-2">
+                  Nisbah pendana syariah <strong>tetap 47 : 13</strong> (78,33%
+                  pendana, 21,67% pengelola). Angka ini tidak dapat diubah dari
+                  panel karena harus sama dengan produk pinjaman konvensional.
+                </div>
                 <SuffixInput
                   id="cfg-asuransi"
                   label="Biaya Asuransi (%)"
@@ -927,15 +918,15 @@ export function SystemConfigPanel() {
               <dl className="mt-3 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Potongan Admin
+                    Potongan Admin (lama)
                   </dt>
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.persenAdmin}%</dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    Biaya Platform
+                    Porsi Platform (tetap)
                   </dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">{form.persenPlatform}%</dd>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-navy">21,67%</dd>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -1050,16 +1041,30 @@ export function SystemConfigPanel() {
                 min={RETENSI_LOKASI_BATAS.min}
                 max={RETENSI_LOKASI_BATAS.maks}
                 suffix="Hari"
-                onChange={(v) =>
-                  upd(
-                    "retensiLokasiHari",
-                    Math.min(
-                      RETENSI_LOKASI_BATAS.maks,
-                      Math.max(RETENSI_LOKASI_BATAS.min, Math.round(Number(v) || RETENSI_LOKASI_BATAS.min)),
-                    ),
-                  )
-                }
+                onChange={(v) => upd("retensiLokasiHari", batasiRetensi(v, RETENSI_LOKASI_BATAS))}
                 hint="Job harian (00:30 WIB) menghapus titik lokasi lebih tua dari batas ini."
+                withHint
+              />
+              <SuffixInput
+                id="cfg-retensi-wa"
+                label="Retensi Isi Pesan WhatsApp (Hari)"
+                value={form.retensiLogWaHari}
+                min={RETENSI_LOG_WA_BATAS.min}
+                max={RETENSI_LOG_WA_BATAS.maks}
+                suffix="Hari"
+                onChange={(v) => upd("retensiLogWaHari", batasiRetensi(v, RETENSI_LOG_WA_BATAS))}
+                hint="Job harian (00:40 WIB) menghapus isi pesan lebih tua dari batas ini; riwayat pengiriman terbaru tetap ada."
+                withHint
+              />
+              <SuffixInput
+                id="cfg-retensi-audit"
+                label="Retensi Jejak Audit (Hari)"
+                value={form.retensiAuditHari}
+                min={RETENSI_AUDIT_BATAS.min}
+                max={RETENSI_AUDIT_BATAS.maks}
+                suffix="Hari"
+                onChange={(v) => upd("retensiAuditHari", batasiRetensi(v, RETENSI_AUDIT_BATAS))}
+                hint="Job harian (00:50 WIB) menghapus jejak audit lebih tua dari batas ini. Riwayat konfigurasi tidak ikut dihapus."
                 withHint
               />
             </div>

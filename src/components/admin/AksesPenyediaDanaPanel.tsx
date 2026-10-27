@@ -25,6 +25,7 @@ import { api } from "@/convex/_generated/api";
 
 import { PanelSiklusPendana } from "./PanelSiklusPendana";
 import { PemulihanJejakPratinjauPanel } from "./PemulihanJejakPratinjauPanel";
+import { PencatatanTransferGadai } from "./PencatatanTransferGadai";
 import { PencatatanTransferPendana } from "./PencatatanTransferPendana";
 import { PenyediaDanaTable } from "./PenyediaDanaTable";
 import { PratinjauAktifPanel } from "./PratinjauAktifPanel";
@@ -49,7 +50,7 @@ import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
  */
 
 /** Kelas kartu bersama panel ini. */
-const KARTU = "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm";
+const KARTU = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6";
 
 /** Tombol aksi utama dengan aksen Deep Emerald. */
 const TOMBOL_EMERALD = "gap-2 rounded-xl bg-[#064E3B] text-white hover:bg-[#04361f]";
@@ -481,7 +482,10 @@ export function AksesPenyediaDanaPanel() {
         <TabAkunAkses />
       </TabsContent>
       <TabsContent value="transfer" className="mt-0">
-        <PencatatanTransferPendana />
+        <div className="space-y-5">
+          <PencatatanTransferPendana />
+          <PencatatanTransferGadai />
+        </div>
       </TabsContent>
       <TabsContent value="rekon" className="mt-0">
         <RekonsiliasiPendana />

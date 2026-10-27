@@ -76,3 +76,89 @@ describe("antrean admin — status perjanjian", () => {
     });
   });
 });
+
+describe("antrean admin — agregat ikut satu bacaan", () => {
+  /**
+   * Sejak layar "Hari ini" memakai satu `adminOverview`, kartu angka dan grafik
+   * dihitung di dalamnya dari tabel yang sudah dibaca. Kontraknya: hasilnya
+   * HARUS sama persis dengan query khusus `adminStats`/`adminAnalitik` yang
+   * masih dipakai halaman lain (mis. QC). Kalau suatu saat keduanya berbeda,
+   * satu layar akan menampilkan angka yang tidak cocok dengan layar lain —
+   * dan tes ini gagal sebelum itu sampai ke admin.
+   */
+  it("stats dan analitik di overview sama dengan query khususnya", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await siapkanPengguna(t, "rani-agregat", {
+      email: "rani-agregat@pindai.test",
+      role: "peminjam",
+    });
+    const admin = await siapkanPengguna(t, "admin-agregat", {
+      email: "admin-agregat@pindai.test",
+      role: "admin",
+    });
+
+    const sekarang = Date.now();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 2_000_000,
+        pokokDiajukan: 2_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "RANI AGREGAT",
+        nomorRekening: "1234567890",
+        status: "didanai",
+        nomorReferensi: "PGD-AGR-1",
+        tenorHari: 30,
+        didanaiPada: sekarang - 5 * 24 * 60 * 60 * 1000,
+      });
+      await ctx.db.insert("loans", {
+        userId,
+        pokokPinjaman: 750_000,
+        tujuan: "Biaya sekolah",
+        namaLengkap: "RANI AGREGAT",
+        nomorRekening: "1234567890",
+        status: "sedang_direview",
+        nomorReferensi: "PGD-AGR-2",
+        tenorHari: 30,
+        diajukanPada: sekarang - 2 * 24 * 60 * 60 * 1000,
+      });
+      await ctx.db.insert("pawns", {
+        userId,
+        deskripsiBarang: "Kalung emas 5 gram",
+        kategori: "Emas",
+        alamatPenilaian: "Jl. Contoh No. 3",
+        namaLengkap: "RANI AGREGAT",
+        nomorRekening: "1234567890",
+        status: "aktif",
+        nomorReferensi: "PGD-AGR-3",
+        pokokGadai: 1_500_000,
+        sisaPokok: 1_200_000,
+      });
+      await ctx.db.insert("nasabahProfil", {
+        userId,
+        namaLengkap: "RANI AGREGAT",
+        nik: "3201234567890011",
+        nomorWhatsApp: "628123456792",
+        penghasilanBulanan: 1_000_000,
+        diperbaruiPada: sekarang,
+        diperbaruiOlehLabel: "RANI AGREGAT",
+      });
+    });
+
+    const overview = await admin.sesi.query(api.admin.adminOverview, {});
+    const stats = await admin.sesi.query(api.admin.adminStats, {});
+    const analitik = await admin.sesi.query(api.admin.adminAnalitik, {});
+
+    expect(overview.stats).toEqual(stats);
+    // `dihitungPada` sengaja dinolkan saat membandingkan: dua pemanggilan
+    // berurutan punya jam yang berbeda beberapa milidetik, dan yang diuji adalah
+    // ISI agregatnya, bukan cap waktunya.
+    expect({ ...overview.analitik, dihitungPada: 0 }).toEqual({
+      ...analitik,
+      dihitungPada: 0,
+    });
+    // Sanity: angkanya benar-benar terisi, bukan dua-duanya kosong.
+    expect(overview.stats?.totalPinjaman).toBe(2);
+    expect(overview.analitik?.komposisi.ditinjau).toBe(1);
+  });
+});

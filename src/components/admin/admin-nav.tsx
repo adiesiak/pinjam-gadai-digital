@@ -19,6 +19,7 @@ import {
   type BobotGrup,
   type NilaiModulAdmin,
 } from "@/lib/admin-queue";
+import { muatModulAdmin } from "@/lib/admin-panel-malas";
 import { cn } from "@/lib/utils";
 
 /**
@@ -169,7 +170,7 @@ export function AdminNav({
           mendatar. Chip aktif selalu digulirkan ke dalam pandangan, dan pintu
           "Cari…" duduk tetap di kanan agar pencarian tidak pernah jauh. */}
       <div className="animate-masuk sticky top-14 z-30 -mx-3 border-y border-slate-200 bg-white/95 backdrop-blur sm:-mx-6 sm:top-16 lg:hidden">
-        <div className="flex items-center gap-2 px-3 py-2 sm:px-6">
+        <div className="flex items-center gap-2 px-3 py-1.5 sm:px-6 sm:py-2">
           <div
             role="group"
             aria-label="Pilih modul"
@@ -185,6 +186,8 @@ export function AdminNav({
                   aria-pressed={aktif}
                   title={item.hint}
                   onClick={() => onPilih(item.value)}
+                  onPointerEnter={() => muatModulAdmin(item.value)}
+                  onFocus={() => muatModulAdmin(item.value)}
                   className={cn(
                     // Lebar dibatasi supaya satu chip tidak menelan seluruh
                     // baris; label panjang dipotong dan teks penuhnya tetap

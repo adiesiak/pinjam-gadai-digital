@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DataPrivasiSaya } from "@/components/DataPrivasiSaya";
 import { PerangkatSesiSaya } from "@/components/PerangkatSesiSaya";
 import { FormDataDiri } from "@/components/DataDiriForm";
 import { Badge } from "@/components/ui/badge";
@@ -148,6 +149,7 @@ export function DataDiriSection() {
       </div>
     </section>
     <PerangkatSesiSaya />
+    <DataPrivasiSaya />
     </div>
   );
 }

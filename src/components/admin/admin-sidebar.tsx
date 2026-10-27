@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { VaultLogo } from "@/components/VaultLogo";
 import type { BobotGrup, NilaiModulAdmin } from "@/lib/admin-queue";
+import { muatModulAdmin } from "@/lib/admin-panel-malas";
 import { cn } from "@/lib/utils";
 
 /**
@@ -243,6 +244,10 @@ function ItemIkon({
             type="button"
             id={`tab-ikon-${value}`}
             onClick={() => onPilih(value)}
+            // Sorotan atau fokus mulai mengunduh potongan panelnya, jadi klik
+            // berikutnya tidak perlu menunggu unduhan.
+            onPointerEnter={() => muatModulAdmin(value)}
+            onFocus={() => muatModulAdmin(value)}
             aria-current={aktif ? "page" : undefined}
             aria-controls={`panel-${value}`}
             aria-label={label}
@@ -339,6 +344,8 @@ function DaftarMenu({
                   type="button"
                   id={`${awalanId}-${value}`}
                   onClick={() => onPilih(value)}
+                  onPointerEnter={() => muatModulAdmin(value)}
+                  onFocus={() => muatModulAdmin(value)}
                   onKeyDown={(e) => pindahFokus(e, grup.items, value, awalanId)}
                   title={hint}
                   aria-current={iniAktif ? "page" : undefined}

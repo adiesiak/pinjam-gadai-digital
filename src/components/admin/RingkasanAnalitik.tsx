@@ -6,7 +6,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
-import type { AdminOverviewData } from "@/components/admin/admin-shared";
+import type {
+  AdminAnalitikData,
+  AdminOverviewData,
+} from "@/components/admin/admin-shared";
 import type { AdminStatsData } from "@/pages/admin/admin-shell";
 import {
   atributPoints,
@@ -462,12 +465,24 @@ export function RingkasanAnalitik({
   stats,
   overview,
   onBukaModul,
+  analitik: analitikProp,
 }: {
   stats: AdminStatsData | undefined;
   overview: AdminOverviewData;
   onBukaModul: (modul: string) => void;
+  /**
+   * Hasil `adminAnalitik` yang sudah ikut `adminOverview`. Bila dioper, langganan
+   * sendiri dilewati (`"skip"`) supaya tabel pinjaman tidak dipindai dua kali
+   * untuk satu layar. Tanpa prop ini komponen tetap memuat sendiri, jadi ia bisa
+   * dipakai terpisah (mis. di harness render).
+   */
+  analitik?: AdminAnalitikData;
 }) {
-  const analitik = useQuery(api.admin.adminAnalitik);
+  const dariServer = useQuery(
+    api.admin.adminAnalitik,
+    analitikProp === undefined ? {} : "skip",
+  );
+  const analitik = analitikProp ?? dariServer;
   // Jam klien dipakai untuk membulatkan hari; server sudah menyaring rentangnya,
   // jadi selisih beberapa detik tidak mengubah titik mana pun.
   const sekarang = Date.now();

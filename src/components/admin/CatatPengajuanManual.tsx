@@ -19,6 +19,7 @@ import { api } from "@/convex/_generated/api";
 import { namaHurufBesar } from "@/lib/nama";
 import { cn } from "@/lib/utils";
 import { JENIS_MANUAL, type NasabahManual } from "@/lib/pengajuanManual";
+import { pesanHasilTerpotong } from "@/lib/pencarianNasabah";
 import type { JenisPengajuan } from "@/lib/jenisPengajuan";
 
 import { FormGadaiManual } from "./pengajuan-manual/FormGadaiManual";
@@ -47,10 +48,13 @@ import { FormPinjamanManual } from "./pengajuan-manual/FormPinjamanManual";
  *
  * Pencariannya TERTUNDA (debounce): yang diketik tetap tampil apa adanya, tapi
  * kueri ke server baru dijalankan setelah admin berhenti mengetik. Sebelumnya
- * SETIAP huruf menembakkan satu kueri yang memuat seluruh pengguna, profil,
- * pinjaman, dan kredit barang. Daftar hasil lama sengaja tidak dikosongkan saat
- * menunggu — menghapus hasil yang masih berguna setiap kali mengetik hanya
- * membuat layar berkedip — dan keadaan "mencari" diberitahukan lewat
+ * SETIAP huruf menembakkan satu kueri penuh-tabel. Server kini membatasi
+ * bacaannya (indeks untuk identitas tepat, jendela baris terbaru untuk teks
+ * bebas), jadi saat jendela itu penuh panel memberi tahu admin — bukan
+ * menampilkan daftar terpotong seolah itu seluruh nasabah. Daftar hasil lama
+ * sengaja tidak dikosongkan saat menunggu — menghapus hasil yang masih berguna
+ * setiap kali mengetik hanya membuat layar berkedip — dan keadaan "mencari"
+ * diberitahukan lewat
  * `role="status"`, bukan dibiarkan tak terlihat.
  */
 function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void }) {
@@ -66,7 +70,7 @@ function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void
           aria-label="Cari nasabah tujuan pencatatan"
           value={kueri}
           onChange={(event) => setKueri(event.target.value)}
-          placeholder="Cari nama, email, kode peminjam, atau NIK…"
+          placeholder="Cari nama, email, kode peminjam, NIK, atau nomor WhatsApp…"
           className="pl-9"
           autoComplete="off"
           autoFocus
@@ -79,6 +83,11 @@ function PencariNasabah({ onPilih }: { onPilih: (nasabah: NasabahManual) => void
           className="flex items-center gap-2 text-xs text-muted-foreground"
         >
           <Loader2 className="size-3.5 animate-spin" aria-hidden /> Mencari nasabah…
+        </p>
+      )}
+      {hasil?.dibatasi === true && (
+        <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+          {pesanHasilTerpotong(hasil.jenis)}
         </p>
       )}
       {hasil === undefined ? (

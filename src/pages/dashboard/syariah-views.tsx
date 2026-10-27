@@ -511,7 +511,6 @@ export function FormPengajuanSyariah({
   // dengan yang disimpan server, bukan salinan persentase di komponen.
   const marginSyariah =
     ketentuan?.persenMarginSyariah ?? MARGIN_MURABAHAH_BAWAAN;
-  const nisbahPendana = ketentuan?.persenNisbahPendanaSyariah;
 
   let rencana: RencanaAkadSyariah | null = null;
   let pesanRencana: string | null = null;
@@ -524,7 +523,6 @@ export function FormPengajuanSyariah({
         ...(jenis === "murabahah" ? { marginPersen: marginSyariah } : {}),
         ...(jenis === "rahn" ? { nilaiTaksiran: taksiran } : {}),
       },
-      { persenNisbahPendana: nisbahPendana },
     );
   } catch (err) {
     pesanRencana =

@@ -243,20 +243,40 @@ export function hitungCairEkspresMenunggu(
 }
 
 /**
- * Urutkan antrean: pengajuan cair ekspres di paling atas, lalu yang paling baru.
+ * Urutkan antrean: cair ekspres di atas, lalu yang paling lama menunggu.
+ *
+ * Sebelumnya kelompok non-ekspres diurutkan terbaru-dulu, sehingga setiap
+ * pengajuan baru mendorong yang lama makin dalam dan pengajuan tertua bisa
+ * tidak pernah diputuskan. Sekarang kedua kelompok menaik menurut waktu masuk:
+ * ekspres tetap didahulukan karena peminjam membayar jalur itu, tetapi di dalam
+ * tiap kelompok yang paling lama menunggu yang tampil lebih dulu.
  *
  * Salinan baru dikembalikan (tidak mengubah masukan) supaya urutan data dari
- * server tetap utuh untuk pemakai lain. Pengajuan non-ekspres mempertahankan
- * urutan terbaru-dulu yang sudah dipakai panel.
+ * server tetap utuh untuk pemakai lain.
  */
-export function urutkanAntreanEkspres<
+export function urutkanAntreanMenunggu<
   T extends BarisEkspres & { readonly _creationTime: number },
 >(baris: readonly T[]): T[] {
   return [...baris].sort(
     (a, b) =>
       Number(pakaiCairEkspres(b)) - Number(pakaiCairEkspres(a)) ||
-      b._creationTime - a._creationTime,
+      a._creationTime - b._creationTime,
   );
+}
+
+/** Umur tunggu dalam jam penuh; 0 bila baru masuk atau waktu acuan lebih awal. */
+export function umurTungguJam(waktuDibuat: number, sekarang: number): number {
+  return Math.max(0, Math.floor((sekarang - waktuDibuat) / 3_600_000));
+}
+
+/**
+ * Label umur tunggu yang dibaca admin. Hari baru dipakai setelah 48 jam supaya
+ * angka "menunggu 30 jam" tidak berubah menjadi pembulatan yang menyesatkan.
+ */
+export function labelUmurTunggu(jam: number): string {
+  if (jam < 1) return "Baru masuk";
+  if (jam < 48) return `Menunggu ${jam} jam`;
+  return `Menunggu ${Math.floor(jam / 24)} hari`;
 }
 
 /**

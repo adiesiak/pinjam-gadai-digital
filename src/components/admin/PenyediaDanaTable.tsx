@@ -80,7 +80,7 @@ export type BarisAkunTampil = {
 };
 
 /** Kelas kartu bersama panel ini. */
-const KARTU = "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm";
+const KARTU = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6";
 
 /** Inisial 1–2 huruf untuk avatar akun. */
 function inisial(nama: string): string {

@@ -52,7 +52,7 @@ export type HasilPemulihanJejak = {
 };
 
 /** Kelas kartu yang sama dengan kartu Pratinjau Aktif di sebelahnya. */
-const KARTU = "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm";
+const KARTU = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6";
 
 /** Batas baris yang ditampilkan sebelum diringkas jadi "+N akun lain". */
 const BATAS_BARIS = 8;

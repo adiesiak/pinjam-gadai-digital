@@ -51,7 +51,7 @@ const NOMINAL_AWAL = 1_000_000;
  * Kalkulator pendanaan dengan skema TETAP.
  *
  * Hanya tiga angka yang perlu dibaca pendana: nominal yang dititipkan, imbal
- * hasil 30% untuk siklus 30 hari, dan biaya platform yang dipotong dari uang
+ * hasil 30% untuk siklus 30 hari, dan porsi platform atas marjin yang dipotong dari uang
  * yang kembali. Tenor nasabah (7/14/28 hari) sengaja tidak muncul: ia tidak
  * mengubah hak pendana.
  *
@@ -59,17 +59,14 @@ const NOMINAL_AWAL = 1_000_000;
  * jadi angka di kalkulator tidak bisa berbeda dari catatan portofolio.
  */
 export function KalkulatorImbalPendana({
-  persenPotonganAdmin,
   nominalAwal = NOMINAL_AWAL,
 }: {
-  /** Biaya platform dari Pengaturan Sistem, dalam persen. */
-  persenPotonganAdmin: number;
   /** Nominal awal yang ditampilkan; dipakai uji render. */
   nominalAwal?: number;
 }) {
   const [nominal, setNominal] = useState(nominalAwal);
 
-  const hasil = bagiHasilPendana(nominal, persenPotonganAdmin);
+  const hasil = bagiHasilPendana(nominal);
 
   return (
     <section
@@ -237,20 +234,17 @@ function badgeJatuhTempo(
 /**
  * Tabel portofolio pendanaan dengan kolom tetap: tenor 30 hari, yield 30%
  * p.p., dan status pendanaan. Nominal serta imbal hasil bruto datang dari
- * server; biaya platform dan penerimaan bersih dihitung dengan aturan yang
+ * server; porsi platform dan penerimaan bersih dihitung dengan aturan yang
  * sama seperti pencairan (`lib/bagiHasil`), supaya angka tabel tidak berbeda
  * dari uang yang benar-benar masuk dompet pendana.
  */
 export function TabelPortofolioPendanaan({
   rows,
-  persenPotonganAdmin,
   saringAwal = "semua",
   batasAwal = 10,
   bukaAwal = [],
 }: {
   rows: readonly BarisPortofolioPendanaan[];
-  /** Tarif biaya platform dari Pengaturan Sistem, dalam persen. */
-  persenPotonganAdmin: number;
   /** Saringan awal tabel; dipakai uji render. */
   saringAwal?: SaringPortofolio;
   /** Jumlah baris per halaman; dipakai uji render. */
@@ -485,7 +479,7 @@ export function TabelPortofolioPendanaan({
                               kelas: "text-emerald-800",
                             },
                             {
-                              label: `Biaya platform ${persenPotonganAdmin}%`,
+                              label: "Porsi platform (13/60 marjin)",
                               nilai: `−${rupiah(h.potongan)}`,
                               kelas: "text-red-700",
                             },
@@ -512,8 +506,8 @@ export function TabelPortofolioPendanaan({
                         </dl>
                         <p className="mt-2 text-[11px] leading-5 text-slate-600">
                           Pokok {rupiah(row.pokok)} + imbal {rupiah(row.imbalHasil)} ={" "}
-                          {rupiah(h.total)}. Biaya platform dipotong dari total itu, bukan dari
-                          imbal saja.{" "}
+                          {rupiah(h.total)}. Porsi platform 13/60 dihitung dari marjin, bukan
+                          biaya layanan terpisah.{" "}
                           {sudahSelesai(row)
                             ? "Sudah dibukukan."
                             : "Masih perkiraan sampai pinjaman lunas."}
@@ -606,12 +600,7 @@ export function TabelPortofolioPendanaan({
  * Hanya dirender untuk peran pendana; server sendiri sudah membatasi query ke
  * alokasi atas nama pembaca.
  */
-export function PortofolioPendanaanSection({
-  persenPotonganAdmin,
-}: {
-  /** Tarif biaya platform dari Pengaturan Sistem, dalam persen. */
-  persenPotonganAdmin: number;
-}) {
+export function PortofolioPendanaanSection() {
   const data = useQuery(api.alokasiDana.myPortfolio);
   const [produk, setProduk] = useState<"konvensional" | "syariah">(
     "konvensional",
@@ -677,7 +666,6 @@ export function PortofolioPendanaanSection({
         <PortofolioSyariah />
       ) : (
         <TabelPortofolioPendanaan
-          persenPotonganAdmin={persenPotonganAdmin}
           rows={data.map((row) => ({
             id: String(row._id),
             nomorReferensi: row.loanRef || row.nomorReferensi,

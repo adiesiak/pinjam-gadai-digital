@@ -21,6 +21,7 @@
  *    layanan 3% dan tanpa biaya admin cicilan.
  */
 import { isRupiah, percentOf, type Rupiah } from "./money";
+import { bagiMargin } from "./kebijakanPinjaman";
 import {
   hitungSimulasiBulanan,
   tarifBulananAman,
@@ -462,6 +463,10 @@ function validasiAlokasi(pokokDibiayai: Rupiah, alokasi: readonly Rupiah[]): voi
  * Semua alokasi dibulatkan ke bawah (selisih floor kumulatif), lalu selisih
  * pembulatan (dust) ditanggung alokasi terbesar — pola yang sama dengan
  * distribusi pelunasan pinjaman tunai.
+ *
+ * Fungsi ini membagi marjin PENUH, sedangkan `kreditFundings.imbalHasil` kini
+ * menyimpan hak pendana 47/60. Ia tidak dipakai jalur pembayaran saat ini dan
+ * tidak boleh dipakai membayar pendana tanpa memotong porsi platform lebih dulu.
  */
 export function bagiCicilanKeDana(
   pokok: Rupiah,
@@ -518,10 +523,16 @@ export function bagiCicilanKeDana(
 }
 
 /**
- * Hak Imbal Hasil tiap alokasi atas seluruh Imbal Hasil satu pengajuan,
- * memakai konvensi yang sama dengan bagiCicilanKeDana: semua alokasi
- * dibulatkan ke bawah, alokasi terbesar menyerap selisih — sehingga
- * Σ hak = marginTotal tepat dan hak tersimpan = hak yang diterima saat lunas.
+ * Hak Imbal Hasil PENYEDIA DANA tiap alokasi pada kredit barang.
+ *
+ * Aturannya sekarang sama dengan pinjaman tunai: marjin kredit dibagi menurut
+ * porsi pokok alokasi (alokasi terbesar menyerap pembulatan proporsi), lalu
+ * tiap bagian dibelah 47 : 13 dari 60. Fungsi ini mengembalikan bagian pendana
+ * saja (47/60), sehingga `imbalHasil` yang tersimpan di `kreditFundings`
+ * berarti uang pendana, bukan marjin penuh seperti sebelumnya.
+ *
+ * Akibatnya Σ hak pendana lebih kecil dari `marginTotal`; sisanya adalah
+ * porsi platform 13/60 yang tidak dibayarkan ke pendana.
  */
 export function hakImbalHasilPerAlokasi(
   marginTotal: Rupiah,
@@ -534,11 +545,11 @@ export function hakImbalHasilPerAlokasi(
   validasiAlokasi(pokokDibiayai, alokasi);
 
   const idxTerbesar = indeksAlokasiTerbesar(alokasi);
-  const hak = alokasi.map((a, i) =>
+  const bagian = alokasi.map((a, i) =>
     i === idxTerbesar ? 0 : Math.floor((marginTotal * a) / pokokDibiayai),
   );
-  hak[idxTerbesar] = marginTotal - hak.reduce((acc, x) => acc + x, 0);
-  return hak;
+  bagian[idxTerbesar] = marginTotal - bagian.reduce((acc, x) => acc + x, 0);
+  return bagian.map((m) => bagiMargin(m).pendana);
 }
 
 /** Contoh barang merchant mitra untuk kalkulator. */

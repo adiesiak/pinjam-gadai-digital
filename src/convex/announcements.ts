@@ -26,11 +26,11 @@ import {
   lengkapiKontenPendana,
 } from "../lib/kontenPendana";
 import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
+import { audit } from "./system";
 
-/** Gerbang admin untuk CMS. */
+/** Gerbang admin untuk CMS — sesi + identitas aktor untuk jejak audit. */
 async function requireAdmin(ctx: QueryCtx) {
-  const { userId } = await requireAdminSession(ctx);
-  return { userId };
+  return await requireAdminSession(ctx);
 }
 
 const SLOT = "global";
@@ -154,30 +154,6 @@ export const DEFAULTS = {
     isi: "Catat pengajuan dan pantau statusnya di dashboard akun Anda.",
     cta: "Mulai pengajuan",
   },
-  hero: {
-    badge: "Pinjaman & ledger internal",
-    judul: "Pinjam & Gadai Digital",
-    judul2: "Transparan",
-    sub: "Lihat perhitungan pinjaman, gadai, dan cicilan di ledger internal PINDAI. Persetujuan dan status dicatat di aplikasi; perpindahan dana ditangani di luar aplikasi.",
-    cta1: "Ajukan Pinjaman",
-    cta2: "Gadaikan Barang",
-  },
-  chips: {
-    chip1: { label: "Pinjaman tunai", nilai: "Tanpa agunan" },
-    chip2: { label: "Barang gadai", nilai: "Catatan aplikasi" },
-  },
-  layanan: {
-    judul: "Dua fitur, satu ledger internal",
-    sub: "Semua nominal, biaya, dan status di halaman ini adalah catatan internal PINDAI.",
-    pinjamanJudul: "Pinjaman Tunai Digital",
-    pinjamanIsi:
-      "Skema harian: potongan di muka 2% (biaya admin; platform 0%), bunga flat 26–40% sesuai nominal dan tenor, total kewajiban 126–140% dari pokok. Skema bulanan 1, 3, 6, 9, atau 12 bulan: DP 0%, potongan di muka 2% dari pokok (biaya admin pada tenor 3/6/9/12, biaya layanan pada tenor 1), bunga flat mengikuti tarif akun (bawaan 30%/20%/12%/10%/8% per bulan untuk tenor 1/3/6/9/12 bulan, marjin total 30%/60%/72%/90%/96%), dan biaya admin cicilan 2% dari nominal cicilan pada setiap pembayaran bulanan. Semua angka dihitung aplikasi dan dana tidak dikirim ke mana pun. Jadwal angsuran bersifat ilustrasi; ledger mencatat pelunasan penuh saat jatuh tempo.",
-    pinjamanCta: "Ajukan sekarang",
-    gadaiJudul: "Gadai Digital",
-    gadaiIsi:
-      "Catat data barang dan nilai taksiran untuk pengajuan gadai. Sewa modal 5–10% per 30 hari dihitung dari sisa pokok. Status tercatat di ledger internal; pemeriksaan fisik, penitipan barang, dan perpindahan dana ditangani di luar aplikasi.",
-    gadaiCta: "Gadaikan barang",
-  },
 } as const;
 
 /** Semua teks publik landing (bar + popup + float + hero/layanan) — tanpa auth. */
@@ -207,31 +183,6 @@ export const getPublic = query({
       floatCta: v(row?.floatCta, DEFAULTS.float.cta),
       floatAktif: v(row?.floatAktif, true),
       floatDelayDetik: v(row?.floatDelayDetik ?? undefined, 6),
-      // Header/hero
-      logoTeks: v(row?.logoTeks, "PINDAI"),
-      nav1: v(row?.nav1Label, "Pinjaman Tunai"),
-      nav2: v(row?.nav2Label, "Gadai Digital"),
-      nav3: v(row?.nav3Label, "Kalkulator"),
-      nav4: v(row?.nav4Label, "Keamanan"),
-      heroBadge: v(row?.heroBadge, DEFAULTS.hero.badge),
-      heroJudul: v(row?.heroJudul, DEFAULTS.hero.judul),
-      heroJudul2: v(row?.heroJudul2, DEFAULTS.hero.judul2),
-      heroSub: v(row?.heroSub, DEFAULTS.hero.sub),
-      heroCta1: v(row?.heroCta1, DEFAULTS.hero.cta1),
-      heroCta2: v(row?.heroCta2, DEFAULTS.hero.cta2),
-      chip1Label: v(row?.chip1Label, DEFAULTS.chips.chip1.label),
-      chip1Nilai: v(row?.chip1Nilai, DEFAULTS.chips.chip1.nilai),
-      chip2Label: v(row?.chip2Label, DEFAULTS.chips.chip2.label),
-      chip2Nilai: v(row?.chip2Nilai, DEFAULTS.chips.chip2.nilai),
-      // Layanan
-      layananJudul: v(row?.layananJudul, DEFAULTS.layanan.judul),
-      layananSub: v(row?.layananSub, DEFAULTS.layanan.sub),
-      pinjamanJudul: v(row?.pinjamanJudul, DEFAULTS.layanan.pinjamanJudul),
-      pinjamanIsi: v(row?.pinjamanIsi, DEFAULTS.layanan.pinjamanIsi),
-      pinjamanCta: v(row?.pinjamanCta, DEFAULTS.layanan.pinjamanCta),
-      gadaiJudul: v(row?.gadaiJudul, DEFAULTS.layanan.gadaiJudul),
-      gadaiIsi: v(row?.gadaiIsi, DEFAULTS.layanan.gadaiIsi),
-      gadaiCta: v(row?.gadaiCta, DEFAULTS.layanan.gadaiCta),
       /**
        * Teks beranda `/` yang benar-benar dirender. Selalu berbentuk utuh:
        * field kosong atau data lama yang belum punya kolom ini diisi bawaan,
@@ -303,33 +254,10 @@ export const save = mutation({
     floatCta: v.optional(v.string()),
     floatAktif: v.optional(v.boolean()),
     floatDelayDetik: v.optional(v.number()),
-    logoTeks: v.optional(v.string()),
-    nav1: v.optional(v.string()),
-    nav2: v.optional(v.string()),
-    nav3: v.optional(v.string()),
-    nav4: v.optional(v.string()),
-    heroBadge: v.optional(v.string()),
-    heroJudul: v.optional(v.string()),
-    heroJudul2: v.optional(v.string()),
-    heroSub: v.optional(v.string()),
-    heroCta1: v.optional(v.string()),
-    heroCta2: v.optional(v.string()),
-    chip1Label: v.optional(v.string()),
-    chip1Nilai: v.optional(v.string()),
-    chip2Label: v.optional(v.string()),
-    chip2Nilai: v.optional(v.string()),
-    layananJudul: v.optional(v.string()),
-    layananSub: v.optional(v.string()),
-    pinjamanJudul: v.optional(v.string()),
-    pinjamanIsi: v.optional(v.string()),
-    pinjamanCta: v.optional(v.string()),
-    gadaiJudul: v.optional(v.string()),
-    gadaiIsi: v.optional(v.string()),
-    gadaiCta: v.optional(v.string()),
     landing: v.optional(VALIDASI_LANDING),
   },
   handler: async (ctx, args) => {
-    const { userId } = await requireAdmin(ctx);
+    const { userId, user } = await requireAdmin(ctx);
 
     const bersih = (s: string | undefined, max: number) => {
       const t = s?.trim();
@@ -339,7 +267,6 @@ export const save = mutation({
     const patch: Partial<Doc<"pengumuman">> = {};
     const angka: Array<[string, unknown]> = [
       ["teks", bersih(args.teks, 240)],
-      ["tautan", bersih(args.tautan, 120)],
       ["aktif", args.barAktif],
       ["popupJudul", bersih(args.popupJudul, 80)],
       ["popupIsi", bersih(args.popupIsi, 500)],
@@ -355,29 +282,6 @@ export const save = mutation({
           ? Math.min(60, Math.max(0, Math.round(args.floatDelayDetik)))
           : undefined,
       ],
-      ["logoTeks", bersih(args.logoTeks, 40)],
-      ["nav1Label", bersih(args.nav1, 40)],
-      ["nav2Label", bersih(args.nav2, 40)],
-      ["nav3Label", bersih(args.nav3, 40)],
-      ["nav4Label", bersih(args.nav4, 40)],
-      ["heroBadge", bersih(args.heroBadge, 160)],
-      ["heroJudul", bersih(args.heroJudul, 120)],
-      ["heroJudul2", bersih(args.heroJudul2, 60)],
-      ["heroSub", bersih(args.heroSub, 400)],
-      ["heroCta1", bersih(args.heroCta1, 40)],
-      ["heroCta2", bersih(args.heroCta2, 40)],
-      ["chip1Label", bersih(args.chip1Label, 40)],
-      ["chip1Nilai", bersih(args.chip1Nilai, 40)],
-      ["chip2Label", bersih(args.chip2Label, 40)],
-      ["chip2Nilai", bersih(args.chip2Nilai, 40)],
-      ["layananJudul", bersih(args.layananJudul, 120)],
-      ["layananSub", bersih(args.layananSub, 300)],
-      ["pinjamanJudul", bersih(args.pinjamanJudul, 80)],
-      ["pinjamanIsi", bersih(args.pinjamanIsi, 400)],
-      ["pinjamanCta", bersih(args.pinjamanCta, 40)],
-      ["gadaiJudul", bersih(args.gadaiJudul, 80)],
-      ["gadaiIsi", bersih(args.gadaiIsi, 400)],
-      ["gadaiCta", bersih(args.gadaiCta, 40)],
     ];
     for (const [key, val] of angka) {
       if (val !== undefined) patch[key as keyof Doc<"pengumuman">] = val as never;
@@ -452,9 +356,21 @@ export const save = mutation({
         ),
       };
     }
-    // Tautan boleh dikosongkan untuk menghapusnya (string kosong = hapus).
-    if (args.tautan !== undefined && args.tautan.trim() === "") {
-      patch.tautan = "";
+    // Tautan bar hanya boleh path internal. Bar merender `<Link to>`, jadi
+    // `javascript:` atau alamat penuh bukan cuma salah arah — ia tombol yang
+    // menjanjikan hal lain dari yang terjadi. String kosong tetap sah dan
+    // berarti "hapus tautan". Divalidasi di server, bukan hanya di formulir.
+    if (args.tautan !== undefined) {
+      const tautan = args.tautan.trim();
+      if (tautan === "") {
+        patch.tautan = "";
+      } else if (!/^\/(?!\/)[^\s\\]*$/.test(tautan)) {
+        throw new Error(
+          "Tautan bar harus path internal yang diawali satu garis miring, mis. /promo. Alamat lengkap dan skrip tidak diterima.",
+        );
+      } else {
+        patch.tautan = tautan.slice(0, 120);
+      }
     }
     if (Object.keys(patch).length === 0) {
       throw new Error("Tidak ada perubahan untuk disimpan.");
@@ -474,7 +390,19 @@ export const save = mutation({
     } else {
       await ctx.db.patch(existing._id, patch);
     }
-    void userId;
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "simpan_konten_cms",
+      `pengumuman:${SLOT}`,
+      // Nama field saja: pembaca audit perlu tahu APA yang berubah, sedangkan
+      // isi teksnya sudah bisa dibaca di halaman publik.
+      `Field berubah: ${Object.keys(patch)
+        .filter((kunci) => kunci !== "diperbaruiPada")
+        .sort()
+        .join(", ")}.`,
+    );
     return { ok: true };
   },
 });
@@ -489,7 +417,7 @@ export const save = mutation({
 export const simpanKontenPendana = mutation({
   args: { pendana: VALIDASI_PENDANA },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const { userId, user } = await requireAdmin(ctx);
     const p = args.pendana;
     const bersih = (s: string | undefined, max: number) => {
       const t = s?.trim();
@@ -589,6 +517,14 @@ export const simpanKontenPendana = mutation({
     } else {
       await ctx.db.patch(existing._id, patch);
     }
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "simpan_konten_pendana",
+      `pengumuman:${SLOT}`,
+      "Teks halaman /jadi-pendana diperbarui; berkas proposal tidak disentuh.",
+    );
     return { ok: true };
   },
 });
@@ -737,29 +673,6 @@ const FIELD_TEKS_LAMA: ReadonlyArray<{ field: string; label: string }> = [
   { field: "floatJudul", label: "Judul widget mengambang" },
   { field: "floatIsi", label: "Isi widget mengambang" },
   { field: "floatCta", label: "Tombol widget mengambang" },
-  { field: "logoTeks", label: "Teks logo" },
-  { field: "nav1Label", label: "Menu nav 1" },
-  { field: "nav2Label", label: "Menu nav 2" },
-  { field: "nav3Label", label: "Menu nav 3" },
-  { field: "nav4Label", label: "Menu nav 4" },
-  { field: "heroBadge", label: "Badge hero" },
-  { field: "heroJudul", label: "Judul hero" },
-  { field: "heroJudul2", label: "Judul hero aksen" },
-  { field: "heroSub", label: "Sub-judul hero" },
-  { field: "heroCta1", label: "Tombol CTA 1" },
-  { field: "heroCta2", label: "Tombol CTA 2" },
-  { field: "chip1Label", label: "Chip 1 label" },
-  { field: "chip1Nilai", label: "Chip 1 nilai" },
-  { field: "chip2Label", label: "Chip 2 label" },
-  { field: "chip2Nilai", label: "Chip 2 nilai" },
-  { field: "layananJudul", label: "Judul bagian layanan" },
-  { field: "layananSub", label: "Sub-judul layanan" },
-  { field: "pinjamanJudul", label: "Judul kartu pinjaman" },
-  { field: "pinjamanIsi", label: "Isi kartu pinjaman" },
-  { field: "pinjamanCta", label: "Tombol kartu pinjaman" },
-  { field: "gadaiJudul", label: "Judul kartu gadai" },
-  { field: "gadaiIsi", label: "Isi kartu gadai" },
-  { field: "gadaiCta", label: "Tombol kartu gadai" },
 ];
 
 /**
@@ -825,13 +738,21 @@ export const bersihkanTeksLama = mutation({
 export const resetToDefaults = mutation({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    const { userId, user } = await requireAdmin(ctx);
     const existing = await ctx.db
       .query("pengumuman")
       .withIndex("by_slot", (q) => q.eq("slot", SLOT))
       .first();
     if (existing !== null) {
       await ctx.db.delete(existing._id);
+      await audit(
+        ctx,
+        userId,
+        user.email ?? user.name ?? "admin",
+        "reset_konten_cms",
+        `pengumuman:${SLOT}`,
+        "Seluruh teks CMS dikembalikan ke bawaan; berkas proposal ikut terhapus.",
+      );
     }
     return { ok: true };
   },

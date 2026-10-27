@@ -39,6 +39,7 @@ import { api } from "@/convex/_generated/api";
 import { getClientIp, getUserAgent } from "@/lib/session";
 import { ADMIN_ROUTE } from "@/lib/routes";
 import { kredensialMasuk } from "@/lib/masukKredensial";
+import { normalisasiNikLogin, PESAN_NIK_UMUM } from "@/lib/nikLogin";
 import {
   NILAI_GOOGLE_KEMBALI,
   PARAM_GOOGLE_KEMBALI,
@@ -120,7 +121,7 @@ function CaptchaChallenge({
     <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50/60 p-3">
       <p className="flex items-center gap-1.5 text-xs font-medium text-sky-900">
         <ShieldAlert className="size-3.5" />
-        Verifikasi anti-bot — {a} + {b} = ?
+        Verifikasi anti-bot: {a} + {b} = ?
       </p>
       <Input
         className="mt-2"
@@ -194,7 +195,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     | "signIn"
     | { email: string }
     | { nomor: string; nomorTampil: string; berkasLama: number }
+    | { nik: string }
   >("signIn");
+  /** Jalur NIK di layar pertama: satu formulir, dua pilihan identitas. */
+  const [modeNik, setModeNik] = useState(false);
+  const [nik, setNik] = useState("");
   /**
    * Tab kartu masuk. "Masuk Akun" adalah DEFAULT (email → kode verifikasi);
    * "Akses Cepat" mengumpulkan pintu yang jarang dipakai (tamu & kode akses
@@ -233,6 +238,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [kegagalan, setKegagalan] = useState(0);
+  const [infoKode, setInfoKode] = useState<string | null>(null);
+  const [detikUlang, setDetikUlang] = useState(0);
   const [captchaJawab, setCaptchaJawab] = useState("");
   const [captcha] = useState(() => ({
     a: Math.floor(Math.random() * 9) + 1,
@@ -241,6 +248,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const recordLogin = useMutation(api.security.recordLogin);
   const tandaiGagal = useMutation(api.security.recordFailedAttempt);
   const mintaKodeKlaim = useAction(api.klaimPeminjam.mintaKodeKlaim);
+  // NIK hanya memilih akun; kodenya tetap dikirim ke WhatsApp terdaftar.
+  const mintaKodeNIK = useAction(api.klaimPeminjam.mintaKodeDenganNik);
   /**
    * Kesiapan pintu Google di deployment ini (`undefined` = masih dimuat).
    * Tombolnya dinonaktifkan saat kredensialnya belum ada, supaya pengunjung
@@ -465,6 +474,43 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   };
 
+  /**
+   * Langkah pertama jalur NIK: NIK 16 angka, kode dikirim ke WhatsApp pada
+   * profil pemilik NIK. NIK tidak pernah dibandingkan dengan kata sandi apa
+   * pun, karena nasabah memang tidak punya kata sandi di aplikasi ini.
+   */
+  const handleNikSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    if (!captchaBenar) {
+      setError("Jawaban verifikasi anti-bot salah.");
+      return;
+    }
+    const bersih = normalisasiNikLogin(nik);
+    if (bersih === "") {
+      setError("NIK harus 16 angka sesuai KTP.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await mintaKodeNIK({
+        nik: bersih,
+        ip: await getClientIp(),
+        userAgent: getUserAgent(),
+      });
+      setOtp("");
+      setClientStep({ nik: bersih });
+    } catch (error) {
+      console.error("NIK OTP request error:", error);
+      setKegagalan((k) => k + 1);
+      await recordFailedAttempt(`nik:${bersih}`);
+      setError("Gagal mengirim kode. Coba lagi sebentar lagi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleOtpSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -478,6 +524,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(true);
     const ip = await getClientIp();
     try {
+      if ("nik" in clientStep) {
+        // Provider ini hanya membuka sesi akun pemilik NIK; tidak ada akun baru
+        // dan tidak ada pemindahan berkas (lihat `auth/nikOtp.ts`).
+        await signIn("nik-otp", {
+          nik: clientStep.nik,
+          otpCode: otp,
+          ip,
+          userAgent: getUserAgent(),
+        });
+        await recordSuccessfulLogin("nik_otp");
+        return;
+      }
       if ("nomor" in clientStep) {
         // Verifikasi dan penentuan akun terjadi di dalam provider
         // (`convex/auth/whatsappOtp.ts`): kode yang benar menghasilkan sesi akun
@@ -500,13 +558,77 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       console.error("OTP verification error:", error);
       setKegagalan((k) => k + 1);
       await recordFailedAttempt(
-        "nomor" in clientStep ? clientStep.nomor : clientStep.email.toLowerCase(),
+        "nik" in clientStep
+          ? `nik:${clientStep.nik}`
+          : "nomor" in clientStep
+            ? clientStep.nomor
+            : clientStep.email.toLowerCase(),
       );
-      // Pesan seragam untuk kedua jalur: kode salah dan kode kedaluwarsa tidak
+      // Pesan seragam untuk setiap jalur: kode salah dan kode kedaluwarsa tidak
       // bisa dibedakan dari luar, begitu pula sebab lain yang ditolak server.
-      setError("Kode verifikasi salah atau kedaluwarsa.");
+      setError(
+        "nik" in clientStep
+          ? PESAN_NIK_UMUM
+          : "Kode verifikasi salah atau kedaluwarsa.",
+      );
       setIsLoading(false);
       setOtp("");
+    }
+  };
+
+  /**
+   * Hitung mundur tombol "Kirim ulang kode": satu timer per detik, berhenti
+   * di nol. Jeda 60 detik menyalin cooldown server, jadi admin tidak perlu
+   * menunggu pesan galat untuk tahu kapan kode baru boleh diminta.
+   */
+  useEffect(() => {
+    if (detikUlang === 0) return;
+    const id = setTimeout(() => setDetikUlang((sisa) => sisa - 1), 1000);
+    return () => clearTimeout(id);
+  }, [detikUlang]);
+
+  /**
+   * Kirim ulang kode dari layar verifikasi, tanpa kembali ke langkah pertama.
+   *
+   * Sebelumnya satu-satunya cara mendapat kode baru adalah mundur dan mengisi
+   * ulang, padahal petunjuk di layar sudah menyuruh meminta kode baru. Sumber
+   * kode tetap sama dengan jalur asalnya (email, WhatsApp, atau NIK); tidak ada
+   * jalur server baru, hanya pemanggilan ulang yang sudah terbukti.
+   */
+  const kirimUlangKode = async () => {
+    if (typeof clientStep !== "object" || isLoading || detikUlang > 0) return;
+    setError(null);
+    setInfoKode(null);
+    setIsLoading(true);
+    const ip = await getClientIp();
+    try {
+      if ("nik" in clientStep) {
+        await mintaKodeNIK({ nik: clientStep.nik, ip, userAgent: getUserAgent() });
+      } else if ("nomor" in clientStep) {
+        const hasil = await mintaKodeKlaim({
+          nomor: clientStep.nomor,
+          ip,
+          userAgent: getUserAgent(),
+        });
+        if (!hasil.ok) {
+          // Server sudah menghitung sisa jeda; pakai angkanya, jangan menebak.
+          setError(hasil.pesan);
+          setDetikUlang(hasil.sisaDetik > 0 ? hasil.sisaDetik : 60);
+          return;
+        }
+      } else {
+        const data = new FormData();
+        data.set("email", clientStep.email);
+        await signIn("email-otp", data);
+      }
+      setOtp("");
+      setInfoKode("Kode baru sudah dikirim. Kode sebelumnya tidak berlaku lagi.");
+      setDetikUlang(60);
+    } catch (galat) {
+      console.error("Resend OTP error:", galat);
+      setError("Gagal mengirim ulang kode. Coba lagi sebentar lagi.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -687,9 +809,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     } catch (error) {
       console.error("Guest login error:", error);
       setKegagalan((k) => k + 1);
-      setError(
-        `Gagal masuk sebagai tamu: ${error instanceof Error ? error.message : "kesalahan tidak diketahui"}`,
-      );
+      // Pesan server tidak ditampilkan apa adanya: isinya bisa menyebut
+      // konfigurasi deployment, dan pengunjung tidak bisa berbuat apa pun
+      // dengan detail itu. Rinciannya tetap masuk konsol untuk penelusuran.
+      setError("Gagal masuk sebagai tamu. Coba lagi sebentar lagi.");
       setIsLoading(false);
     }
   };
@@ -785,10 +908,41 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           ikon={<ShieldCheck className="size-5" />}
                         />
                         <form
-                          onSubmit={handleMasukSubmit}
+                          onSubmit={modeNik ? handleNikSubmit : handleMasukSubmit}
                           className="space-y-3"
                         >
-                          <MedanEmailMasuk isLoading={isLoading} />
+                          {modeNik ? (
+                            <div className="space-y-2">
+                              <label
+                                htmlFor="nik-masuk"
+                                className="text-sm font-medium text-slate-800"
+                              >
+                                NIK sesuai KTP
+                              </label>
+                              <Input
+                                id="nik-masuk"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                maxLength={16}
+                                value={nik}
+                                onChange={(e) =>
+                                  setNik(
+                                    e.target.value.replace(/\D/g, "").slice(0, 16),
+                                  )
+                                }
+                                placeholder="16 angka"
+                                disabled={isLoading}
+                                className="h-12 rounded-xl tabular-nums"
+                              />
+                              <p className="text-xs leading-5 text-slate-500">
+                                Kode 6 angka dikirim ke WhatsApp yang terdaftar
+                                pada NIK ini. NIK bukan kata sandi, jadi tidak
+                                ada yang bisa dibuka hanya dengan mengetahuinya.
+                              </p>
+                            </div>
+                          ) : (
+                            <MedanEmailMasuk isLoading={isLoading} />
+                          )}
                           {error ? (
                             <PesanKesalahan pesan={error} />
                           ) : (
@@ -804,19 +958,66 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                             onChange={setCaptchaJawab}
                             disabled={isLoading}
                           />
-                          <TombolLanjutEmail isLoading={isLoading} />
-                          {/* Pintu GOOGLE: berlaku untuk PEMINJAM maupun
-                              PENYEDIA DANA, karena yang dibuktikan adalah email
-                              terverifikasi Google. Lihat `convex/auth/google.ts`. */}
-                          <TombolGoogle
-                            disabled={isLoading || googleSiap === false}
-                            onClick={handleGoogleSubmit}
-                          />
-                          {googleSiap === false && (
-                            <p className="text-xs leading-5 text-slate-500">
-                              Masuk dengan Google belum diaktifkan di deployment
-                              ini. Pakai email atau nomor WhatsApp dulu ya.
-                            </p>
+                          {modeNik ? (
+                            <Button
+                              type="submit"
+                              className="h-12 w-full rounded-xl bg-[#064E3B] font-medium text-white hover:bg-[#042F2E]"
+                              disabled={isLoading || nik.length !== 16}
+                            >
+                              {isLoading ? (
+                                <>
+                                  <Loader2 className="mr-2 size-4 animate-spin" />
+                                  Mengirim kode…
+                                </>
+                              ) : (
+                                "Kirim kode ke WhatsApp"
+                              )}
+                            </Button>
+                          ) : (
+                            <TombolLanjutEmail isLoading={isLoading} />
+                          )}
+                          {modeNik ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModeNik(false);
+                                setNik("");
+                                setError(null);
+                              }}
+                              disabled={isLoading}
+                              className="flex min-h-11 w-full items-center justify-center text-center text-xs font-medium text-slate-600 underline-offset-4 hover:text-emerald-800 hover:underline"
+                            >
+                              Kembali ke email atau nomor WhatsApp
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModeNik(true);
+                                setError(null);
+                              }}
+                              disabled={isLoading}
+                              className="flex min-h-11 w-full items-center justify-center text-center text-xs font-medium text-slate-600 underline-offset-4 hover:text-emerald-800 hover:underline"
+                            >
+                              Tidak bisa masuk atau nomor berubah? Gunakan NIK KTP
+                            </button>
+                          )}
+                          {!modeNik && (
+                            <>
+                              {/* Pintu GOOGLE: berlaku untuk PEMINJAM maupun
+                                  PENYEDIA DANA, karena yang dibuktikan adalah email
+                                  terverifikasi Google. Lihat `convex/auth/google.ts`. */}
+                              <TombolGoogle
+                                disabled={isLoading || googleSiap === false}
+                                onClick={handleGoogleSubmit}
+                              />
+                              {googleSiap === false && (
+                                <p className="text-xs leading-5 text-slate-500">
+                                  Masuk dengan Google belum aktif di sini. Gunakan
+                                  email atau nomor WhatsApp.
+                                </p>
+                              )}
+                            </>
                           )}
                         </form>
                       </TabsContent>
@@ -871,24 +1072,28 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   </>
                 ) : (
                   <>
-                    {/* Langkah kode melayani DUA jalur: email dan WhatsApp
-                        peminjam lama. Judul, ikon, dan petunjuknya mengikuti
-                        jalur yang dipakai, bukan dua formulir terpisah. */}
+                    {/* Langkah kode melayani TIGA jalur: email, nomor WhatsApp,
+                        dan NIK. Judul, ikon, dan petunjuknya mengikuti jalur
+                        yang dipakai, bukan tiga formulir terpisah. */}
                     <KepalaPane
                       judul={
-                        "nomor" in clientStep ? "Cek WhatsApp Anda" : "Cek email Anda"
+                        "nik" in clientStep || "nomor" in clientStep
+                          ? "Cek WhatsApp Anda"
+                          : "Cek email Anda"
                       }
                       keterangan={
-                        "nomor" in clientStep
-                          ? `Kode 6 angka dikirim ke WhatsApp ${clientStep.nomorTampil}${
-                              clientStep.berkasLama > 0
-                                ? ` · ${clientStep.berkasLama} berkas dari web lama menunggu dipulihkan`
-                                : ""
-                            }`
-                          : `Kami mengirim kode verifikasi ke ${clientStep.email}`
+                        "nik" in clientStep
+                          ? "Kode 6 angka dikirim ke WhatsApp yang terdaftar pada NIK itu. Kalau tidak ada pesan masuk, periksa lagi 16 angka NIK Anda, lalu tekan Kirim ulang kode setelah satu menit."
+                          : "nomor" in clientStep
+                            ? `Kode 6 angka dikirim ke WhatsApp ${clientStep.nomorTampil}${
+                                clientStep.berkasLama > 0
+                                  ? ` · ${clientStep.berkasLama} berkas dari web lama menunggu dipulihkan`
+                                  : ""
+                              }`
+                            : `Kami mengirim kode verifikasi ke ${clientStep.email}`
                       }
                       ikon={
-                        "nomor" in clientStep ? (
+                        "nik" in clientStep || "nomor" in clientStep ? (
                           <MessageCircle className="size-5" />
                         ) : (
                           <Mail className="size-5" />
@@ -940,10 +1145,24 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         disabled={isLoading}
                         className="w-full"
                       >
-                        {"nomor" in clientStep
-                          ? "Ganti nomor atau email"
-                          : "Gunakan email lain"}
+                        {"nik" in clientStep
+                          ? "Ganti NIK"
+                          : "nomor" in clientStep
+                            ? "Ganti nomor atau email"
+                            : "Gunakan email lain"}
                       </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={kirimUlangKode}
+                        disabled={isLoading || detikUlang > 0}
+                        className="w-full"
+                      >
+                        {detikUlang > 0
+                          ? `Kirim ulang kode dalam ${detikUlang} detik`
+                          : "Kirim ulang kode"}
+                      </Button>
+                      {infoKode !== null && <PesanInfo pesan={infoKode} />}
                     </form>
                   </>
                 )
@@ -1151,7 +1370,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                           onClick={() => bukaLangkahKode("activation")}
                           disabled={isLoading || adminEmail.trim() === ""}
                         >
-                          Saya sudah menerima token — buka kolom verifikasi
+                          Saya sudah menerima token, buka kolom verifikasi
                         </button>
                         <TombolKembaliAdmin
                           onClick={() => setAdminFlow("signIn")}
@@ -1358,6 +1577,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 className="font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-700"
               >
                 Syarat &amp; Ketentuan
+              </Link>{" "}
+              dan{" "}
+              <Link
+                to="/privasi"
+                className="font-medium text-emerald-800 underline underline-offset-2 hover:text-emerald-700"
+              >
+                Kebijakan Privasi
               </Link>
               .
             </p>

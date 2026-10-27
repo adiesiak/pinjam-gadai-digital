@@ -14,11 +14,7 @@ import { Calculator } from "lucide-react";
 import { useState } from "react";
 
 import { formatRupiahAman } from "@/lib/money";
-import {
-  PERSEN_IMBAL_PENDANA,
-  TENOR_PENDANA_HARI,
-  bagiHasilPendana,
-} from "@/lib/imbalPendana";
+import { TENOR_PENDANA_HARI, bagiHasilPendana } from "@/lib/imbalPendana";
 import {
   PERSEN_PORSI_PENDANA,
   PERSEN_PORSI_PLATFORM,
@@ -62,12 +58,7 @@ function Baris({ label, nilai }: { label: string; nilai: string }) {
   );
 }
 
-export function SimulatorPendanaan({
-  persenPotonganAdmin,
-}: {
-  /** Biaya platform dari Pengaturan Sistem, dalam persen. */
-  persenPotonganAdmin: number;
-}) {
+export function SimulatorPendanaan() {
   const [akad, setAkad] = useState<Akad>("konvensional");
   const [nominalTeks, setNominalTeks] = useState(
     NOMINAL_AWAL.toLocaleString("id-ID"),
@@ -91,7 +82,7 @@ export function SimulatorPendanaan({
   try {
     if (akad === "konvensional") {
       if (nominal > 0) {
-        const perSiklus = bagiHasilPendana(nominal, persenPotonganAdmin);
+        const perSiklus = bagiHasilPendana(nominal);
         keuntungan = perSiklus.keuntungan * siklus;
         const syarat = syaratUnderwriting({ tenorBulan: 1, pokok: nominal });
         rincian = (

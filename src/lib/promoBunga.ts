@@ -16,6 +16,7 @@
  * pemanggil supaya kelayakan bisa diuji.
  */
 import { TENOR_OPTIONS, type Tenor } from "./loan";
+import { formatRupiah } from "./money";
 import { formatPeriodePromo } from "./promoPinjaman";
 
 /** Satu promo seperti yang dibaca panel admin dan formulir. */
@@ -29,10 +30,29 @@ export type PromoBungaRingkas = {
   mulai: number;
   selesai: number;
   aktif: boolean;
+  /**
+   * Boleh digabung voucher potongan bunga. Kosong = boleh, supaya kampanye
+   * lama tidak berubah perilaku saat aturan ini ditambahkan.
+   */
+  bolehVoucher?: boolean;
+  /** Pagu subsidi kampanye dalam rupiah; kosong/0 = tanpa pagu. */
+  paguSubsidi?: number;
 };
+
+/**
+ * Lantai bunga saat promo dan voucher potongan bertumpuk.
+ *
+ * Promo menggantikan tarif normal, lalu voucher memotong lagi dalam poin
+ * persen. Tanpa lantai, dua subsidi bisa menumpuk sampai bunga mendekati nol —
+ * biaya yang tidak pernah terlihat di satu layar mana pun. Angka ini juga yang
+ * membuat kombinasi "promo 15% + voucher 10 poin" tepat menyentuh batas.
+ */
+export const LANTAI_BUNGA_PROMO_PERSEN = 5;
 
 export const BATAS_PROMO_BUNGA = {
   nama: 60,
+  /** Pagu subsidi terkecil yang masuk akal untuk satu kampanye (rupiah). */
+  paguMin: 10_000,
   /**
    * Bunga terendah yang mungkin dipotong promo adalah 26% (tier pokok ≥Rp1
    * juta, tenor 7 hari). Angka promo di atas 25% karena itu tidak akan pernah
@@ -156,6 +176,53 @@ export function ringkasPromoBunga(
 }
 
 /**
+ * Hasil penerapan voucher potongan bunga di atas bunga promo.
+ *
+ * Ditulis sebagai fungsi murni supaya formulir dan server memakai aturan yang
+ * sama persis, dan supaya penolakan bisa diuji tanpa basis data.
+ */
+export type HasilTumpukBunga =
+  | { ok: true; persen: number }
+  | { ok: false; pesan: string };
+
+/**
+ * Terapkan poin voucher pada bunga yang sudah dipotong promo.
+ *
+ * Tiga aturan, berurutan:
+ *  1. Kampanye yang menolak tumpukan menolak voucher potongan bunga — nasabah
+ *     diminta memilih salah satu, bukan diberi hasil yang tidak ia mengerti.
+ *  2. Hasil di bawah lantai `LANTAI_BUNGA_PROMO_PERSEN` ditolak, bukan
+ *     dipotong diam-diam: voucher yang nilainya termakan tidak boleh tampak
+ *     "terpakai penuh".
+ *  3. Tanpa promo, voucher tetap boleh dipakai sampai batas yang diatur admin
+ *     saat menerbitkannya (lantai ini hanya penjaga tumpukan).
+ */
+export function terapkanVoucherBunga(args: {
+  persenSetelahPromo: number;
+  poinVoucher: number;
+  promo: { nama: string; bolehVoucher?: boolean } | null;
+}): HasilTumpukBunga {
+  const poin = Math.max(0, args.poinVoucher);
+  if (poin === 0) return { ok: true, persen: args.persenSetelahPromo };
+
+  if (args.promo !== null && args.promo.bolehVoucher === false) {
+    return {
+      ok: false,
+      pesan: `Promo ${args.promo.nama} tidak dapat digabung dengan voucher potongan bunga. Pilih salah satu, lalu ajukan ulang.`,
+    };
+  }
+
+  const hasil = Math.round((args.persenSetelahPromo - poin) * 100) / 100;
+  if (args.promo !== null && hasil < LANTAI_BUNGA_PROMO_PERSEN) {
+    return {
+      ok: false,
+      pesan: `Voucher ${poin}% membuat bunga menjadi ${hasil}%, di bawah batas minimum ${LANTAI_BUNGA_PROMO_PERSEN}% saat promo berlaku. Pilih voucher lain atau ajukan tanpa voucher.`,
+    };
+  }
+  return { ok: true, persen: Math.max(0, hasil) };
+}
+
+/**
  * Daftar pesan kesalahan; kosong berarti isian siap disimpan.
  *
  * `persenMaks` 25% menjaga promo selalu lebih rendah dari bunga terendah
@@ -168,6 +235,8 @@ export function periksaIsiPromoBunga(isi: {
   tenor: readonly number[];
   mulai: number;
   selesai: number;
+  /** Kosong/0 = tanpa pagu. */
+  paguSubsidi?: number;
 }): string[] {
   const pesan: string[] = [];
   const nama = isi.nama.trim();
@@ -188,6 +257,17 @@ export function periksaIsiPromoBunga(isi: {
 
   if (!tenorPromoValid(isi.tenor)) {
     pesan.push(`Pilih minimal satu tenor dari ${TENOR_OPTIONS.join(" / ")} hari.`);
+  }
+
+  if (isi.paguSubsidi !== undefined && isi.paguSubsidi !== 0) {
+    if (
+      !Number.isSafeInteger(isi.paguSubsidi) ||
+      isi.paguSubsidi < BATAS_PROMO_BUNGA.paguMin
+    ) {
+      pesan.push(
+        `Pagu subsidi minimal ${formatRupiah(BATAS_PROMO_BUNGA.paguMin)} atau kosongkan bila tanpa pagu.`,
+      );
+    }
   }
 
   if (!Number.isFinite(isi.mulai) || !Number.isFinite(isi.selesai)) {

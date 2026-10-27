@@ -602,4 +602,59 @@ describe("pencatatan pengajuan manual oleh admin", () => {
     });
     expect(lewatDataDiri.hasil.map((n) => n.nama)).toEqual(["HASBI SUKMANDA"]);
   });
+
+  it("pemilih nasabah menemukan lewat NIK, nomor 08…, dan email tersimpan huruf besar", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const { userId: rani } = await siapkanPengguna(t, "rani", {
+      email: "Rani@Pindai.Test",
+      role: "peminjam",
+    });
+    await simpanDataDiri(t, rani, {
+      nik: "3201234567890003",
+      nomorWhatsApp: "628123456791",
+    });
+    await siapkanPengguna(t, "bayu", {
+      email: "bayu@pindai.test",
+      role: "peminjam",
+    });
+
+    // Nomor diketik seperti kebiasaan orang (08…), bukan bentuk tersimpan (62…).
+    const lewatNomor = await admin.query(api.adminPengajuan.cariNasabah, {
+      kueri: "08123456791",
+    });
+    expect(lewatNomor.jenis).toBe("whatsapp");
+    expect(lewatNomor.hasil.map((n) => n.userId)).toContain(rani);
+    // Ketikan sebagian tetap menemukan nasabahnya lewat nomor tersimpan.
+    const sebagian = await admin.query(api.adminPengajuan.cariNasabah, {
+      kueri: "081234",
+    });
+    expect(sebagian.jenis).toBe("teks");
+    expect(sebagian.hasil.map((n) => n.userId)).toContain(rani);
+
+    // NIK: hasilnya tepat satu orang.
+    const lewatNik = await admin.query(api.adminPengajuan.cariNasabah, {
+      kueri: "3201 2345 6789 0003",
+    });
+    expect(lewatNik.jenis).toBe("nik");
+    expect(lewatNik.hasil.map((n) => n.userId)).toEqual([rani]);
+    // Pencarian berhasil lewat indeks tidak ditandai terpotong.
+    expect(lewatNik.dibatasi).toBe(false);
+
+    // Email tersimpan berhuruf besar tetap ditemukan dari ketikan huruf kecil.
+    const lewatEmail = await admin.query(api.adminPengajuan.cariNasabah, {
+      kueri: "rani@pindai.test",
+    });
+    expect(lewatEmail.jenis).toBe("email");
+    expect(lewatEmail.hasil.map((n) => n.userId)).toEqual([rani]);
+
+    // Nomor yang tidak terdaftar tidak memunculkan nasabah lain.
+    const tidakAda = await admin.query(api.adminPengajuan.cariNasabah, {
+      kueri: "08999999999",
+    });
+    expect(tidakAda.hasil).toHaveLength(0);
+  });
 });

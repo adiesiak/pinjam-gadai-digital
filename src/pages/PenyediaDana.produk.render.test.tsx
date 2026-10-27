@@ -28,6 +28,12 @@ const ada = (html: string, teks: string, label: string) =>
   cek(html.includes(teks), `${label} (memuat "${teks}")`);
 
 const halaman = readFileSync("src/pages/PenyediaDana.tsx", "utf8");
+// Bagian ringkas (siklus & nisbah syariah) kini punya berkas sendiri supaya
+// query-nya bisa dibatasi galatnya; sumbernya tetap diperiksa di sini.
+const ringkas = readFileSync(
+  "src/pages/penyedia-dana/bagian-ringkas.tsx",
+  "utf8",
+);
 
 // ===== Sambungan tab di halaman =====
 cek(
@@ -59,15 +65,15 @@ cek(
 
 // ===== Proyeksi nisbah syariah di ringkasan atas =====
 cek(
-  halaman.includes("api.syariahAkad.proyeksiPendanaSaya"),
+  ringkas.includes("api.syariahAkad.proyeksiPendanaSaya"),
   "proyeksi nisbah syariah dibaca dari server",
 );
 cek(
-  halaman.includes('label="Nisbah syariah (perkiraan)"'),
+  ringkas.includes('label="Nisbah syariah (perkiraan)"'),
   "baris nisbah syariah tampil di ringkasan",
 );
 cek(
-  halaman.includes("!isPendana ? (\"skip\" as const)"),
+  /isPendana\s*&&\s*\(\s*<BatasBagian nama="nisbah syariah">/.test(halaman),
   "proyeksi syariah hanya diminta untuk akun pendana",
 );
 cek(

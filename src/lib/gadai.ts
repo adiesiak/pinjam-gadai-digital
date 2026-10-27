@@ -12,7 +12,14 @@
  *    terbaru (decreasing principal basis): cicil pokok → sewa bulan
  *    berikutnya otomatis turun.
  *  - Sisa pokok = Rp0 → status internal SIAP_DIAMBIL (bukan bukti penyimpanan/pengembalian barang).
+ *
+ * CATATAN PEMBAGIAN HASIL: pokok gadai dapat ditanggung satu penyedia dana
+ * (`pawns.pendanaId`). Sewa modal adalah marjin gadai dan dibagi 47 : 13 dari
+ * 60, sama seperti produk lain yang didanai pendana. Gadai tanpa pendana
+ * dimodalkan platform; seluruh sewanya menjadi pendapatan platform dan tidak
+ * ada porsi pendana yang dibayarkan.
  */
+import { bagiMargin } from "./kebijakanPinjaman";
 import { percentOf, type Rupiah } from "./money";
 
 export const GADAI_PRICING = {
@@ -75,6 +82,32 @@ export function quoteGadai(pokok: Rupiah, persenSewaModal: number): GadaiQuote {
     persenSewaModal,
     totalKewajibanAwal: pokok + sewaModalPeriode,
   };
+}
+
+/**
+ * Pembagian sewa modal gadai antara pendana dan platform.
+ *
+ * Aturan produk: sewa modal adalah marjin gadai dan dibagi 47 : 13 dari 60 —
+ * 78,33% untuk pendana yang menanggung pokok, 21,67% untuk platform. Porsi
+ * platform dibulatkan ke bawah; sisa rupiah menjadi milik pendana. Biaya
+ * layanan dan biaya admin adalah pos terpisah di luar pembagian ini.
+ *
+ * Fungsi ini murni dan dipakai bersama oleh pratinjau admin, pencatatan
+ * pembayaran, dan laporan. Gadai yang dimodalkan platform tidak punya porsi
+ * pendana; pemanggil yang memutuskan apakah pendana terpasang.
+ */
+export type BagiSewaModalGadai = {
+  /** Bagian pendana; menerima sisa pembulatan. */
+  pendana: Rupiah;
+  /** Bagian platform; dibulatkan ke bawah. */
+  platform: Rupiah;
+};
+
+export function bagiSewaModalGadai(sewaModal: Rupiah): BagiSewaModalGadai {
+  if (!Number.isSafeInteger(sewaModal) || sewaModal < 0) {
+    throw new Error(`Sewa modal gadai harus rupiah bulat non-negatif: ${sewaModal}`);
+  }
+  return bagiMargin(sewaModal);
 }
 
 /**

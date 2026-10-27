@@ -74,7 +74,7 @@ const TENOR_BULANAN = [1, 3, 6] as const;
 const TENOR_RAHN = [30, 60, 90] as const;
 
 /** Contoh kebijakan di halaman ini dihitung mesin yang sama dengan akad. */
-const CONTOH_BAGI_HASIL = bagiHasilPinjaman(1_000_000, 30, 5);
+const CONTOH_BAGI_HASIL = bagiHasilPinjaman(1_000_000, 30);
 
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
@@ -930,9 +930,6 @@ function KerangkaHalaman({
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
-      <a className="skip-link" href="#konten">
-        Lewati ke konten utama
-      </a>
 
       <header className="sticky top-0 z-40 border-b border-border bg-background">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
@@ -967,7 +964,7 @@ function KerangkaHalaman({
         <section
           className={`border-b border-border ${syariah ? "bg-[#fbf7ec]" : "bg-muted"}`}
         >
-          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-16">
             <p
               className={`text-xs font-semibold uppercase tracking-[0.16em] ${syariah ? "text-amber-800" : "text-primary"}`}
             >
@@ -981,7 +978,7 @@ function KerangkaHalaman({
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 sm:text-base">
               {syariah
                 ? "Pinjaman syariah PINDAI memakai dua akad: Murabahah untuk kredit barang dan Rahn untuk gadai. Margin dan ujrah dibagi antara pendana dan pengelola sesuai nisbah di akad."
-                : "Pinjaman tunai harian 7, 14, 21, atau 28 hari dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan biaya platform 5% dihitung dari pokok pinjaman."}
+                : "Pinjaman tunai harian 7, 14, 21, atau 28 hari dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan marjin pinjaman dibagi 47 : 13 — 78,33% untuk pendana, 21,67% untuk platform, terpisah dari biaya layanan."}
             </p>
 
             {syariah ? (
@@ -1087,7 +1084,7 @@ function KerangkaHalaman({
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+        <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-16">
           {/*
            * Syariah memakai kalkulator selebar konten, bukan kolom samping
            * 26rem: dua akad, dua kolom input, dan kartu hasil tidak muat di

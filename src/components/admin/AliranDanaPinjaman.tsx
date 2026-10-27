@@ -85,7 +85,6 @@ export function AliranDanaPinjaman({
   promoBungaPersenNormal = null,
   promoBungaNama = null,
   sudahLunas = false,
-  persenPotonganPenyedia,
 }: {
   pokokPinjaman: number;
   /** Centang cair ekspres peminjam; null = data lama (ekspres dipakai). */
@@ -102,20 +101,16 @@ export function AliranDanaPinjaman({
   promoBungaNama?: string | null;
   /** Pinjaman sudah dilunasi → angka ini yang dibukukan, bukan proyeksi. */
   sudahLunas?: boolean;
-  persenPotonganPenyedia?: number;
 }) {
-  const rincian = rincianPinjamanNyata(
-    {
-      pokokPinjaman,
-      tenorBulan,
-      persenBunga,
-      cairEkspres,
-      tarifBiaya,
-      promoBungaPersenNormal,
-      promoBungaNama,
-    },
-    persenPotonganPenyedia,
-  );
+  const rincian = rincianPinjamanNyata({
+    pokokPinjaman,
+    tenorBulan,
+    persenBunga,
+    cairEkspres,
+    tarifBiaya,
+    promoBungaPersenNormal,
+    promoBungaNama,
+  });
   const skema =
     tenorBulan === null
       ? `harian${tenorHari === null ? "" : ` ${tenorHari} hari`}`

@@ -1544,7 +1544,8 @@ describe("gerbang KYC pada pengajuan finansial", () => {
     kategori: "Elektronik",
     merchant: "Tokopedia",
     hargaBarang: 1_000_000,
-    dpPersen: 0,
+    // DP wajib 10–50% sejak pengajuan; 20% menjaga pokok dibiayai di bawah batas.
+    dpPersen: 20,
     tenorBulan: 6,
     marginPersenPerBulan: 3,
     namaLengkap: "Rani Peminjam",

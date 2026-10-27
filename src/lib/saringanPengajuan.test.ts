@@ -1,6 +1,7 @@
 /** Run: bun src/lib/saringanPengajuan.test.ts */
 import {
   adaFilter,
+  bagiAntreanPinjaman,
   cocokCari,
   daftarPendana,
   FILTER_PENGAJUAN_KOSONG,
@@ -174,6 +175,49 @@ eq(
   "Menampilkan 2 dari 13 pengajuan",
   "ringkasan jumlah tampil vs total",
 );
+
+// ===== bagiAntreanPinjaman =====
+const ANTREAN = [
+  { id: "ditolak", status: "ditolak", didanaiPada: null },
+  { id: "baru", status: "diajukan", didanaiPada: null },
+  { id: "disetujui", status: "disetujui", didanaiPada: null },
+  { id: "legacy-didanai", status: "didanai", didanaiPada: null },
+  { id: "legacy-tanggal", status: "disetujui", didanaiPada: 1_700_000_000_000 },
+  { id: "lunas", status: "lunas", didanaiPada: 1_700_000_000_000 },
+  { id: "ditolak-tanggal", status: "ditolak", didanaiPada: 1_700_000_000_000 },
+];
+const keranjang = bagiAntreanPinjaman(ANTREAN);
+const idKeranjang = (baris: Array<{ id: string }>) => baris.map((b) => b.id).join("|");
+
+eq(idKeranjang(keranjang.baru), "baru|disetujui", "antrean baru = belum didanai");
+eq(
+  idKeranjang(keranjang.didanai),
+  "legacy-didanai|legacy-tanggal",
+  "status didanai atau tanggal disalurkan masuk Disalurkan",
+);
+eq(idKeranjang(keranjang.lunas), "lunas", "lunas di tabnya sendiri");
+eq(
+  idKeranjang(keranjang.ditolak),
+  "ditolak|ditolak-tanggal",
+  "ditolak menang atas tanggal disalurkan",
+);
+const gabungan = [
+  ...keranjang.baru,
+  ...keranjang.didanai,
+  ...keranjang.lunas,
+  ...keranjang.ditolak,
+]
+  .map((b) => b.id)
+  .sort()
+  .join("|");
+eq(
+  gabungan,
+  ANTREAN.map((b) => b.id)
+    .sort()
+    .join("|"),
+  "tidak ada baris yang hilang atau tertinggal",
+);
+eq(bagiAntreanPinjaman([]).baru.length, 0, "daftar kosong = empat keranjang kosong");
 
 console.log(`saringanPengajuan.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

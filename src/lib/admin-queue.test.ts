@@ -13,7 +13,9 @@ import {
   hitungCairEkspresMenunggu,
   hitungMenunggu,
   pakaiCairEkspres,
-  urutkanAntreanEkspres,
+  urutkanAntreanMenunggu,
+  umurTungguJam,
+  labelUmurTunggu,
   jumlahPerhatianLokasi,
   jumlahPerluKeputusan,
   modulDariParameter,
@@ -494,24 +496,37 @@ eq(
   "hitung ekspres hanya status tinjauan",
 );
 
-// Urutan: ekspres dulu (walau paling lama), sisanya tetap terbaru-dulu.
+// Urutan: ekspres dulu, lalu yang paling lama menunggu di tiap kelompok.
+// Urutan terbaru-dulu yang lama membuat pengajuan tertua terdorong terus ke
+// bawah setiap ada pengajuan baru, jadi kasus ini dijaga eksplisit.
 const antrean = [
   { nama: "baru-biasa", _creationTime: 300, cairEkspres: false },
   { nama: "lama-ekspres", _creationTime: 100, cairEkspres: true },
   { nama: "tengah-ekspres", _creationTime: 200, cairEkspres: true },
   { nama: "tua-biasa", _creationTime: 50, cairEkspres: null },
 ];
-const urut = urutkanAntreanEkspres(antrean);
+const urut = urutkanAntreanMenunggu(antrean);
 eq(
   urut.map((baris) => baris.nama).join(","),
-  "tengah-ekspres,lama-ekspres,baru-biasa,tua-biasa",
-  "ekspres di atas, lalu terbaru-dulu",
+  "lama-ekspres,tengah-ekspres,tua-biasa,baru-biasa",
+  "ekspres di atas, lalu yang paling lama menunggu",
 );
 eq(
   antrean.map((baris) => baris.nama).join(","),
   "baru-biasa,lama-ekspres,tengah-ekspres,tua-biasa",
   "urutan masukan tidak diubah",
 );
+
+// ===== Umur tunggu: jam penuh, label, dan batas hari =====
+const JAM = 3_600_000;
+eq(umurTungguJam(0, 0), 0, "baru masuk dihitung 0 jam");
+eq(umurTungguJam(0, 3 * JAM + 59 * 60_000), 3, "jam dibulatkan ke bawah");
+eq(umurTungguJam(10 * JAM, 5 * JAM), 0, "waktu acuan lebih awal tidak menghasilkan negatif");
+eq(labelUmurTunggu(0), "Baru masuk", "di bawah satu jam disebut baru masuk");
+eq(labelUmurTunggu(1), "Menunggu 1 jam", "satu jam ditulis apa adanya");
+eq(labelUmurTunggu(47), "Menunggu 47 jam", "di bawah 48 jam tetap memakai jam");
+eq(labelUmurTunggu(48), "Menunggu 2 hari", "48 jam mulai memakai hari");
+eq(labelUmurTunggu(72), "Menunggu 3 hari", "hari dibulatkan ke bawah");
 
 console.log(`admin-queue.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

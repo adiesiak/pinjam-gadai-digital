@@ -39,6 +39,7 @@ import { pastikanAngsuran } from "./angsuranJadwal";
 import { beriTiketPendanaan } from "./doorprize";
 import { buatSiklusUntukAlokasi, kewajibanSiklusAktif } from "./siklusPendana";
 import { potonganPutaran, sisaHariSiklus } from "../lib/siklusPendana";
+import { bagiMargin } from "../lib/kebijakanPinjaman";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
 export const MIN_ALOKASI = 100_000;
@@ -580,7 +581,9 @@ async function selesaikanPendanaanPenuh(
 
 /**
  * Alokasikan dana ke pinjaman — ANTI-OVERFUNDING atomik:
- * 1. Baca ulang seluruh alokasi aktif pinjaman DI DALAM mutation ini.
+ * 1. Baca ulang seluruh alokasi aktif pinjaman DI DALAM mutation ini. Bila
+ *    sudah ada alokasi dari penyedia dana LAIN, permintaan ditolak: satu
+ *    pinjaman hanya dilayani satu pendana.
  * 2. Validasi sisa kebutuhan (melempar error → seluruh transaksi rollback).
  * 3. Kurangi saldo dompet dari ledger (saldo tidak boleh kurang).
  * 4. Bila pinjaman terpenuhi penuh: catat disbursement + fee ke ledger,
@@ -613,9 +616,18 @@ export const allocateFunding = mutation({
       .query("fundings")
       .withIndex("by_loan", (q) => q.eq("loanId", args.loanId))
       .collect();
-    const terkumpul = fundings
-      .filter((f) => f.status === "dialokasikan")
-      .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
+    const aktifPinjaman = fundings.filter((f) => f.status === "dialokasikan");
+    // Satu pinjaman dilayani SATU penyedia dana. Alokasi dari pendana lain
+    // ditolak sebelum uang bergerak, supaya laporan per pendana tidak perlu
+    // menebak pemilik dan hak tidak terbagi ke dua siklus berbeda.
+    const pendanaLain = aktifPinjaman.find((f) => f.danaId !== userId);
+    if (pendanaLain !== undefined) {
+      const pemilik = await ctx.db.get(pendanaLain.danaId);
+      throw new Error(
+        `Pinjaman ini sudah didanai oleh ${pemilik?.name?.trim() || "penyedia dana lain"}. Satu pinjaman hanya boleh didanai satu penyedia dana.`,
+      );
+    }
+    const terkumpul = aktifPinjaman.reduce((acc, f) => acc + f.jumlahAlokasi, 0);
     const sisa = loan.pokokPinjaman - terkumpul;
     if (sisa <= 0) {
       throw new Error("Pinjaman ini sudah terpenuhi penuh oleh penyedia dana lain.");
@@ -1443,6 +1455,18 @@ export const alokasiKreditBarang = mutation({
       .query("kreditFundings")
       .withIndex("by_kredit", (q) => q.eq("kreditId", args.kreditId))
       .collect();
+    // Aturan yang sama dengan pinjaman tunai: satu pengajuan kredit hanya
+    // didanai satu penyedia dana, sehingga hak marjin tidak terbagi ke dua
+    // pemilik dan pemilik pinjaman bisa ditentukan tanpa menebak.
+    const pendanaKreditLain = fundings
+      .filter((f) => f.status === "dialokasikan")
+      .find((f) => f.danaId !== userId);
+    if (pendanaKreditLain !== undefined) {
+      const pemilik = await ctx.db.get(pendanaKreditLain.danaId);
+      throw new Error(
+        `Pengajuan kredit ini sudah didanai oleh ${pemilik?.name?.trim() || "penyedia dana lain"}. Satu pengajuan hanya boleh didanai satu penyedia dana.`,
+      );
+    }
     const terkumpul = fundings
       .filter((f) => f.status === "dialokasikan")
       .reduce((acc, f) => acc + f.jumlahAlokasi, 0);
@@ -1472,10 +1496,11 @@ export const alokasiKreditBarang = mutation({
       );
     }
 
-    // Hak Imbal Hasil proporsional porsi pokok yang didanai.
-    const imbalHasil = Math.floor(
-      (quote.marginTotal * args.jumlah) / quote.pokokDibiayai,
-    );
+    // Hak Imbal Hasil = 47/60 dari porsi marjin yang didanai. Porsi platform
+    // 13/60 tidak pernah masuk ke dompet pendana.
+    const imbalHasil = bagiMargin(
+      Math.floor((quote.marginTotal * args.jumlah) / quote.pokokDibiayai),
+    ).pendana;
     const ref = referenceNumber("KFD");
     await ctx.db.insert("kreditFundings", {
       kreditId: args.kreditId,

@@ -132,7 +132,7 @@ async function buatSiklusLanjutan(
     status: "berjalan",
     // Pokok sudah berada di dompet pendana saat siklus dibuka, jadi langsung
     // dihitung masuk. Sisa yang masih ditagih hanya Imbal Hasil bersih
-    // (imbal − biaya), dan itu yang ditutup jaminan saat jatuh tempo berikutnya.
+    // (imbal − porsi platform), dan itu yang ditutup jaminan saat jatuh tempo berikutnya.
     totalMasuk: hitung.pokok,
     // Seluruh hak siklus lama ada di dompet dan siap ditempatkan lagi.
     modalSiapPutar: hitung.pokok,
@@ -148,8 +148,8 @@ async function buatSiklusLanjutan(
  *
  * Mengembalikan `null` untuk baris lama tanpa siklus, supaya pemanggil memakai
  * jalur settlement lama. Untuk baris siklus:
- *  - potongan memakai snapshot `potonganAdmin` (5% pokok), dan HANYA dipungut
- *    sekali per siklus;
+ *  - potongan memakai snapshot `potonganAdmin` (13/60 dari marjin alokasi), dan
+ *    HANYA dipungut sekali per siklus;
  *  - pembayaran dibatasi `totalCair` siklus. Kelebihan (mis. pelunasan
  *    perpanjangan setelah siklus lunas) masuk `platform:GUARANTEE`, bukan
  *    dompet pendana — pendana tidak pernah dibayar dua kali untuk 30 hari yang
@@ -209,8 +209,8 @@ export async function pembayaranSiklus(
   }
 
   const sisaHak = Math.max(0, siklus.totalCair - siklus.totalMasuk);
-  // Biaya hanya dipungut pada pembayaran pertama siklus. Pembayaran berikutnya
-  // (mis. perpanjangan) tidak boleh menagih biaya yang sama dua kali.
+  // Porsi platform hanya dipungut pada pembayaran pertama siklus. Pembayaran berikutnya
+  // (mis. perpanjangan) tidak boleh menagih porsi yang sama dua kali.
   const potonganAdmin =
     sisaHak > 0 && siklus.totalMasuk === 0 ? potonganSnapshot : 0;
   const netto = bruto - potonganAdmin;
@@ -386,7 +386,7 @@ export const pilihSiklus = mutation({
 /**
  * Jalankan pilihan "putar lagi" pada saat jatuh tempo.
  *
- * Seluruh hak siklus (pokok + Imbal Hasil − biaya) menjadi pokok siklus baru
+ * Seluruh hak siklus (pokok + Imbal Hasil − porsi platform) menjadi pokok siklus baru
  * selama 30 hari berikutnya, sehingga tidak ada rupiah yang menganggur di
  * dompet. Kekurangan settlement tetap ditutup jaminan platform lebih dulu —
  * sama seperti pencairan — supaya pokok siklus baru benar-benar terdanai.

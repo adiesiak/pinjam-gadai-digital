@@ -51,7 +51,7 @@ export const buktiKreditMenunggu = query({
     await requireAdminSession(ctx);
     const rows = await ctx.db
       .query("manualPaymentReceipts")
-      .filter((q) => q.eq(q.field("kreditId"), kreditId))
+      .withIndex("by_kredit", (q) => q.eq("kreditId", kreditId))
       .collect();
     return rows
       .filter((r) => r.status === "menunggu_pencocokan")

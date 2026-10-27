@@ -306,7 +306,8 @@ describe("penandaan pengajuan berjalan oleh admin", () => {
       kategori: "Elektronik",
       merchant: "Toko mitra",
       hargaBarang: 8_000_000,
-      dpPersen: 0,
+      // Pengajuan baru wajib DP 10–50%; 20% cukup dan tidak mengubah alur.
+      dpPersen: 20,
       tenorBulan: 6,
       marginPersenPerBulan: 3.5,
       namaLengkap: "Budi Peminjam",

@@ -149,7 +149,7 @@ export const KONTEN_PENDANA_DEFAULT: KontenPendana = {
   heroJudul:
     "Imbal Hasil {imbal} per siklus {siklus} hari, tertulis sejak awal.",
   heroDeskripsi:
-    "Setiap alokasi PINDAI menempel pada satu pinjaman dan satu pendana. Marjin pinjaman dibagi 47 : 13, jadi porsi platform {biaya} diambil dari marjin, bukan dari pokok, dan proposalnya bisa Anda unduh sekarang.",
+    "Setiap alokasi PINDAI menempel pada satu pinjaman dan satu pendana, baik pinjaman harian, bulanan, syariah, gadai, maupun kredit barang. Marjin tiap produk dibagi 47 : 13, jadi porsi platform {biaya} diambil dari marjin, bukan dari pokok, dan proposalnya bisa Anda unduh sekarang.",
   heroCatatan:
     "Proposal hanya terbuka dari ruang pendana. Catatan di bagian proposal menjelaskan apakah berkasnya disusun aplikasi atau dipasang admin.",
   prinsipJudul: "Yang membuat angkanya bisa diperiksa",
@@ -166,11 +166,11 @@ export const KONTEN_PENDANA_DEFAULT: KontenPendana = {
     },
     {
       judul: "Porsi platform diumumkan di depan",
-      isi: "Biaya {biaya} diambil dari total pengembalian (pokok + Imbal Hasil). Potongan ini membiayai operasional, penagihan, dan penanganan pinjaman bermasalah.",
+      isi: "Porsi platform {biaya} diambil dari marjin pinjaman, bukan dari pokok. Biaya layanan dan biaya admin adalah pos terpisah di luar pembagian ini, dan tidak pernah mengurangi Imbal Hasil Anda.",
     },
     {
       judul: "Hasil dibayar setelah lunas",
-      isi: "Selama pinjaman berjalan, angka di portofolio adalah perkiraan. Setelah lunas, hak Anda dibukukan; admin mentransfernya di luar aplikasi lalu mencatatnya.",
+      isi: "Selama pinjaman berjalan, angka di portofolio adalah perkiraan. Setelah lunas, atau setiap kali pembayaran gadai diterima, hak Anda dibukukan, admin mentransfernya di luar aplikasi, lalu mencatatnya. Catatan itu bisa Anda unduh dari ruang pendana.",
     },
   ],
   kalkulatorJudul: "Hitung nominal Anda",
@@ -183,12 +183,12 @@ export const KONTEN_PENDANA_DEFAULT: KontenPendana = {
     "Tidak ada rumus tersembunyi. Perhitungan dimulai dari pokok, memakai marjin {imbal}, lalu memotong porsi platform {biaya} dari marjin itu.",
   proposalJudul: "Proposal pendanaan & kemitraan strategis",
   proposalDeskripsi:
-    "Berkas PDF yang bisa Anda simpan, cetak, atau kirim ke orang yang ikut memutuskan. Isinya ringkasan eksekutif dan target 2027, analisis pasar TAM, SAM, dan SOM, skema dengan simulasi Rp 5 juta sampai Rp 50 juta, cakupan porsi platform, langkah preventif, risiko, serta alur kemitraan dan kontak.",
+    "Berkas PDF yang bisa Anda simpan, cetak, atau kirim ke orang yang ikut memutuskan. Isinya ringkasan eksekutif dan target 2027, analisis pasar TAM, SAM, dan SOM, skema dengan simulasi Rp 5 juta sampai Rp 50 juta, cakupan porsi platform untuk semua produk, langkah preventif, risiko, serta alur kemitraan dan kontak.",
   proposalIsi: [
     "Ringkasan eksekutif dan target 300 nasabah aktif 2027.",
     "Potensi pasar: TAM, SAM, dan SOM koridor industri.",
-    "Skema pendanaan, contoh pembagian {nominal}, dan simulasi Rp 5 juta sampai Rp 50 juta.",
-    "Cakupan porsi platform, langkah preventif, dan batas jaminan.",
+    "Skema pendanaan, contoh pembagian {nominal}, simulasi Rp 5 juta sampai Rp 50 juta, keuntungan tenor bulanan 1/3/6/9/12, dan simulasi pinjaman bulanan Rp 1 juta sampai Rp 10 juta.",
+    "Cakupan porsi platform untuk semua produk, langkah preventif, dan batas jaminan.",
     "Alur kemitraan dan kontak layanan.",
   ],
   proposalCatatan:
@@ -228,7 +228,7 @@ export const KONTEN_PENDANA_DEFAULT: KontenPendana = {
     {
       tanya: "Kapan Imbal Hasil dibayarkan?",
       jawab:
-        "Setelah pinjaman lunas. Saat itu hak Anda dibukukan, lalu admin mentransfernya di luar aplikasi dan mencatat transfer tersebut. Selama pinjaman berjalan, angka di portofolio baru perkiraan.",
+        "Setelah pinjaman lunas. Pada gadai, hak Anda dibukukan setiap kali pembayaran gadai diterima, bukan menunggu pokok habis. Saat itu hak dibukukan, admin mentransfernya di luar aplikasi, lalu mencatat transfernya. Selama pinjaman berjalan, angka di portofolio baru perkiraan.",
     },
     {
       tanya: "Bisakah dana ditarik kapan saja?",
@@ -248,7 +248,7 @@ export const KONTEN_PENDANA_DEFAULT: KontenPendana = {
     {
       tanya: "Apakah laporan bisa saya unduh sendiri?",
       jawab:
-        "Proposal di halaman ini bisa diunduh kapan saja selama akses ruang pendana Anda masih berlaku. Laporan portofolio dan laporan pelunasan tersedia di ruang pendana dan bisa diminta lewat WhatsApp.",
+        "Ya. Proposal di halaman ini, laporan portofolio (PDF), serta rekap transfer pinjaman dan gadai (CSV) bisa diunduh dari ruang pendana selama akses Anda berlaku. Catatan transfer adalah pembukuan PINDAI, bukan bukti mutasi bank.",
     },
   ],
   ajakanJudul: "Bicarakan nominal dan waktunya",
@@ -354,7 +354,11 @@ export function lengkapiKontenPendana(
       BATAS_PENDANA.proposalDeskripsi,
     ),
     proposalIsi: Array.from({ length: JUMLAH_ISI_PROPOSAL }, (_, i) =>
-      teks(nilai?.proposalIsi?.[i], b.proposalIsi[i], BATAS_PENDANA.proposalIsi),
+      teks(
+        nilai?.proposalIsi?.[i],
+        b.proposalIsi[i],
+        BATAS_PENDANA.proposalIsi,
+      ),
     ),
     proposalCatatan: teks(
       nilai?.proposalCatatan,

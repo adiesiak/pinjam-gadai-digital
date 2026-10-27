@@ -164,7 +164,7 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
     "keuntungan dibukukan tercetak sebagai rupiah",
   );
   ok(
-    teks.some((t) => t === "Biaya platform (layanan): Rp 300.000"),
+    teks.some((t) => t === "Porsi platform (13/60 marjin): Rp 300.000"),
     "biaya platform tercetak terpisah dari keuntungan",
   );
   ok(

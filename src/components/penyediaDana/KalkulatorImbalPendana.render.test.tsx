@@ -58,7 +58,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
 // ===== Kalkulator =====
 {
   const html = renderToStaticMarkup(
-    <KalkulatorImbalPendana persenPotonganAdmin={5} nominalAwal={1_000_000} />,
+    <KalkulatorImbalPendana nominalAwal={1_000_000} />,
   );
   ada(html, "Estimasi pendanaan", "judul kalkulator");
   ada(html, "Tenor pendana tetap 30 hari", "tenor tetap dinyatakan");
@@ -80,7 +80,6 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
 {
   const html = renderToStaticMarkup(
     <TabelPortofolioPendanaan
-      persenPotonganAdmin={5}
       rows={[
         baris({
           id: "a",
@@ -145,7 +144,6 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
 {
   const html = renderToStaticMarkup(
     <TabelPortofolioPendanaan
-      persenPotonganAdmin={5}
       rows={[
         baris({
           id: "c",
@@ -166,7 +164,6 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
 {
   const html = renderToStaticMarkup(
     <TabelPortofolioPendanaan
-      persenPotonganAdmin={7}
       rows={[
         baris({
           id: "d",
@@ -205,7 +202,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
     }),
   ];
   const semua = renderToStaticMarkup(
-    <TabelPortofolioPendanaan persenPotonganAdmin={5} rows={rows} />,
+    <TabelPortofolioPendanaan rows={rows} />,
   );
   ada(semua, "Terlambat 12 hari", "keterlambatan terbaca sebagai badge merah");
   ada(semua, "Jatuh tempo hari ini", "jatuh tempo hari ini terbaca");
@@ -215,7 +212,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
   ada(semua, "Menunggak", "saringan menunggak tersedia");
 
   const menunggak = renderToStaticMarkup(
-    <TabelPortofolioPendanaan persenPotonganAdmin={5} rows={rows} saringAwal="menunggak" />,
+    <TabelPortofolioPendanaan rows={rows} saringAwal="menunggak" />,
   );
   ada(menunggak, "PND-TELAT", "saringan menunggak menampilkan pinjaman terlambat");
   tidakAda(menunggak, "PND-HARI", "saringan menunggak menyembunyikan yang belum lewat");
@@ -228,7 +225,6 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
 {
   const html = renderToStaticMarkup(
     <TabelPortofolioPendanaan
-      persenPotonganAdmin={5}
       bukaAwal={["a"]}
       rows={[
         baris({
@@ -247,7 +243,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
     "Pokok Rp 1.000.000 + imbal Rp 300.000 = Rp 1.300.000",
     "rincian menjumlahkan pokok dan imbal",
   );
-  ada(html, "Biaya platform dipotong dari total itu", "rincian menjelaskan dasar biaya");
+  ada(html, "Porsi platform 13/60 dihitung dari marjin", "rincian menjelaskan dasar porsi platform");
   ada(html, "Sudah dibukukan.", "rincian pinjaman selesai menyatakan pembukuan");
 }
 
@@ -255,7 +251,6 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
 {
   const html = renderToStaticMarkup(
     <TabelPortofolioPendanaan
-      persenPotonganAdmin={5}
       bukaAwal={["a"]}
       rows={[baris({ id: "a", nomorReferensi: "PND-JALAN" })]}
     />,
@@ -273,7 +268,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
     }),
   );
   const html = renderToStaticMarkup(
-    <TabelPortofolioPendanaan persenPotonganAdmin={5} rows={rows} />,
+    <TabelPortofolioPendanaan rows={rows} />,
   );
   ada(html, "1–10 dari 12 alokasi", "halaman pertama memuat sepuluh baris");
   ada(html, "Halaman 1 / 2", "jumlah halaman dihitung");
@@ -284,7 +279,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
   ada(html, "Rp 12.000.000", "total nominal mencakup dua belas alokasi");
 
   const lebar = renderToStaticMarkup(
-    <TabelPortofolioPendanaan persenPotonganAdmin={5} rows={rows} batasAwal={25} />,
+    <TabelPortofolioPendanaan rows={rows} batasAwal={25} />,
   );
   ada(lebar, "PND-A12", "batas 25 menampilkan semua baris");
   ada(lebar, "1–12 dari 12 alokasi", "rentang baris menyesuaikan batas");
@@ -294,7 +289,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
 // ===== Keadaan kosong =====
 {
   const html = renderToStaticMarkup(
-    <TabelPortofolioPendanaan persenPotonganAdmin={5} rows={[]} />,
+    <TabelPortofolioPendanaan rows={[]} />,
   );
   ada(html, "Belum ada pendanaan", "keadaan kosong menjelaskan sebabnya");
   ada(html, "setelah alokasi dana dicatat", "keadaan kosong memberi langkah berikutnya");

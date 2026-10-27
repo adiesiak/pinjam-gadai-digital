@@ -1952,6 +1952,20 @@
     transform: scale(0.8);
   }
 }
+/* Penanda titik lokasi yang masih mengirim heartbeat di peta admin. Hanya
+   penanda yang segar yang berdenyut; titik lama tampil redup dan putus-putus
+   (aturannya di Leaflet), jadi "masih hidup" terbaca tanpa membuka popup. */
+.penanda-lokasi-langsung {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pindai-dot-denyut 1.8s var(--motion-ease-in-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .penanda-lokasi-langsung {
+    animation: none;
+  }
+}
+
 .badge-dot--tunggu {
   background-color: rgb(245 158 11 / 1);
 }

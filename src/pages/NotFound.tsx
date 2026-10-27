@@ -25,7 +25,7 @@ export default function NotFound() {
         PINDAI
       </Link>
 
-      <div className="mt-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <div className="mt-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
         <span className="clay-icon-blue inline-flex size-11 items-center justify-center">
           <Compass className="size-5" />
         </span>

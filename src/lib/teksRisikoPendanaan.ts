@@ -16,11 +16,12 @@
 /**
  * Versi teks risiko yang berlaku sekarang. Naikkan bila isinya berubah.
  *
- * Versi 2: istilah biaya 5% yang diambil dari uang yang kembali berubah dari
- * "potongan admin" menjadi "biaya platform (layanan)". Bunyinya berubah, jadi
- * persetujuan versi lama tidak lagi mewakili teks yang dibaca sekarang.
+ * Versi 3: porsi platform dijelaskan sebagai bagian marjin 47 : 13 (21,67%),
+ * bukan "biaya platform (layanan)" yang dipotong dari uang kembali. Bunyinya
+ * berubah, jadi persetujuan versi lama tidak lagi mewakili teks yang dibaca
+ * sekarang.
  */
-export const RISK_TEXT_VERSION = 2;
+export const RISK_TEXT_VERSION = 3;
 
 /** Id jangkar panel risiko, dipakai tombol "Baca selengkapnya" di banner. */
 export const ANCHOR_RISIKO_PENDANAAN = "risiko-pendanaan";
@@ -68,8 +69,8 @@ export const POIN_RISIKO_PENDANAAN: readonly PoinRisiko[] = [
   },
   {
     nomor: 6,
-    judul: "Biaya platform (layanan) mengurangi hasil bersih",
-    isi: "Biaya platform (layanan) dipotong dari hak pendana, sehingga keuntungan bersih yang Anda terima lebih kecil daripada Imbal Hasil yang tercatat pada pinjaman.",
+    judul: "Porsi platform 21,67% dari marjin",
+    isi: "Marjin pinjaman dibagi 47 : 13. Platform menerima 21,67% dari marjin, sehingga keuntungan bersih Anda adalah 78,33% dari marjin. Porsi ini bukan biaya layanan atau biaya admin; keduanya pos terpisah di luar pembagian marjin.",
   },
   {
     nomor: 7,

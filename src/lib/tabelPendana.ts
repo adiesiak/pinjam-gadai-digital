@@ -80,7 +80,7 @@ export const KOLOM_PENDANA: readonly { kunci: KunciUrut; label: string }[] = [
   { kunci: "dibukukan", label: "Dibukukan (lunas)" },
   { kunci: "perkiraan", label: "Perkiraan (belum lunas)" },
   { kunci: "total", label: "Total keuntungan" },
-  { kunci: "admin", label: "Biaya platform (layanan)" },
+  { kunci: "admin", label: "Porsi platform (13/60 marjin)" },
 ];
 
 /**

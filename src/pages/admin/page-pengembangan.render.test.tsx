@@ -5,8 +5,11 @@
  * Yang dijaga:
  *  1. Halaman tetap dokumentasi internal: tidak ada query Convex, tidak ada
  *     tautan keluar ke halaman publik.
- *  2. Angka ringkasan cocok dengan isi halaman (26 modul admin, 16 rute publik).
- *  3. Aturan uang yang ditulis di halaman masih sama dengan konstanta kode,
+ *  2. Angka ringkasan dihitung dari daftar, bukan ditulis tangan: 28 modul
+ *     admin, 20 rute (16 tanpa akun, 3 wajib akun, 1 khusus admin).
+ *  3. Setiap rute membawa label gerbangnya, supaya rute wajib akun tidak
+ *     terbaca sebagai halaman publik.
+ *  4. Aturan uang yang ditulis di halaman masih sama dengan konstanta kode,
  *     supaya admin tidak membaca tarif lama.
  */
 import { renderToStaticMarkup } from "react-dom/server";
@@ -38,8 +41,8 @@ const html = renderToStaticMarkup(<PagePengembangan />);
 cek("1a judul halaman", html.includes("Peta sistem &amp; logika bisnis PINDAI"));
 cek("1b ditandai khusus admin", html.includes("Khusus admin"));
 cek(
-  "1c enam bagian bernomor",
-  ["01", "02", "03", "04", "05", "06"].every((n) => html.includes(`>${n}<`)),
+  "1c tujuh bagian bernomor",
+  ["01", "02", "03", "04", "05", "06", "07"].every((n) => html.includes(`>${n}<`)),
 );
 cek(
   "1d tanpa tautan kembali ke halaman publik",
@@ -52,16 +55,40 @@ cek("1g tanpa em dash", !html.includes("\u2014"));
 
 // ===== 2. Angka ringkasan =====
 const modulChips = cacah(html, "rounded-md border border-slate-200 bg-slate-50");
-cek("2a 26 modul admin terdaftar", modulChips === 26, `ditemukan ${modulChips}`);
-const rutePublik = cacah(html, "<code class=\"w-fit shrink-0 rounded bg-slate-100");
-cek("2b 16 rute publik terdaftar", rutePublik === 16, `ditemukan ${rutePublik}`);
-cek("2c ringkasan menyebut 26 modul", html.includes(">26<"));
-cek("2d ringkasan menyebut 16 halaman", html.includes(">16<"));
+cek("2a 28 modul admin terdaftar", modulChips === 28, `ditemukan ${modulChips}`);
+const ruteTerdaftar = cacah(html, "<code class=\"w-fit shrink-0 rounded bg-slate-100");
+cek("2b 21 rute terdaftar", ruteTerdaftar === 21, `ditemukan ${ruteTerdaftar}`);
+cek("2c ringkasan menyebut 28 modul", html.includes(">28<"));
+cek("2d ringkasan menyebut 17 rute publik", html.includes(">17<"));
+cek("2e ringkasan menyebut 3 rute wajib akun", html.includes(">3<"));
+cek("2f ringkasan menyebut 6 tab peminjam", html.includes(">6<"));
+cek(
+  "2g keterangan bagian menyebut pembagian gerbang",
+  html.includes("17 rute terbuka tanpa akun, 3 rute menuntut sesi"),
+);
 
 // ===== 3. Rute penting benar-benar tertulis =====
-for (const rute of ["/dashboard", "/auth", "/cek-status/:token", "/verifikasi-kontrak/:kode"]) {
+for (const rute of [
+  "/dashboard",
+  "/auth",
+  "/cek-status/:token",
+  "/verifikasi-kontrak/:kode",
+  "/pinjaman/konvensional",
+  "/pinjaman/syariah",
+  "/jadi-pendana",
+  "/penyedia-dana",
+]) {
   cek(`3 rute ${rute} tertulis`, html.includes(`>${rute}<`));
 }
+// Gerbang ditulis di setiap rute, bukan hanya di judul bagian.
+const labelTanpaAkun = cacah(html, ">tanpa akun<");
+const labelWajibAkun = cacah(html, ">wajib akun<");
+const labelKhususAdmin = cacah(html, ">khusus admin<");
+cek("3a 17 label tanpa akun", labelTanpaAkun === 17, `ditemukan ${labelTanpaAkun}`);
+cek("3b 3 label wajib akun", labelWajibAkun === 3, `ditemukan ${labelWajibAkun}`);
+cek("3c 1 label khusus admin", labelKhususAdmin === 1, `ditemukan ${labelKhususAdmin}`);
+cek("3d NIK dijelaskan sebagai pemilih akun", html.includes("NIK hanya memilih akun"));
+cek("3e bukan lagi seluruh rute disebut publik", !html.includes("Halaman publik"));
 
 // ===== 4. Angka di halaman sama dengan kode =====
 cek(

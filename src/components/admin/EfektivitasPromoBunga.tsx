@@ -200,23 +200,28 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
             </div>
           )}
 
-          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             <AngkaRingkas label="Pinjaman" nilai={String(data.total.pinjaman)} />
             <AngkaRingkas label="Pokok" nilai={formatRupiahAman(data.total.pokok)} />
             <AngkaRingkas
-              label="Subsidi bunga"
+              label="Subsidi promo"
               nilai={formatRupiahAman(data.total.subsidi)}
               aksen
             />
             <AngkaRingkas
-              label="Rata-rata / pinjaman"
-              nilai={
-                data.total.pinjaman > 0
-                  ? formatRupiahAman(Math.round(data.total.subsidi / data.total.pinjaman))
-                  : "—"
-              }
+              label="Subsidi voucher"
+              nilai={formatRupiahAman(data.total.subsidiVoucher)}
+            />
+            <AngkaRingkas
+              label="Total subsidi"
+              nilai={formatRupiahAman(data.total.subsidiGabungan)}
             />
           </dl>
+          <p className="mt-2 text-[11px] leading-4 text-slate-500">
+            Subsidi voucher dihitung terpisah karena ia tidak dibatasi pagu kampanye. Yang
+            perlu dijaga justru jumlah keduanya: promo dan voucher sama-sama mengurangi
+            pendapatan platform, walau hanya promo yang berhenti sendiri saat pagunya habis.
+          </p>
 
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
             <table className="w-full min-w-[34rem] text-xs">
@@ -226,6 +231,7 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
                   <th className="px-3 py-2 text-right font-semibold">Pinjaman</th>
                   <th className="px-3 py-2 text-right font-semibold">Pokok</th>
                   <th className="px-3 py-2 text-right font-semibold">Subsidi</th>
+                  <th className="px-3 py-2 text-right font-semibold">Voucher</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -259,6 +265,41 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
                     </td>
                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-emerald-900">
                       {formatRupiahAman(baris.subsidi)}
+                      {baris.paguSubsidi !== null && baris.paguSubsidi > 0 && (
+                        <div className="mt-1">
+                          <div
+                            className="ml-auto h-1 w-20 overflow-hidden rounded-full bg-slate-200"
+                            role="img"
+                            aria-label={`Pagu terpakai ${Math.min(
+                              100,
+                              Math.round((baris.subsidi / baris.paguSubsidi) * 100),
+                            )}%`}
+                          >
+                            <div
+                              className={
+                                baris.subsidi >= baris.paguSubsidi
+                                  ? "h-full rounded-full bg-destructive"
+                                  : "h-full rounded-full bg-emerald-700"
+                              }
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  Math.round((baris.subsidi / baris.paguSubsidi) * 100),
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                          <p className="mt-0.5 text-[10px] font-normal text-slate-500">
+                            {Math.round((baris.subsidi / baris.paguSubsidi) * 100)}% dari{" "}
+                            {formatRupiahAman(baris.paguSubsidi)}
+                          </p>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-600">
+                      {baris.subsidiVoucher === 0
+                        ? "—"
+                        : formatRupiahAman(baris.subsidiVoucher)}
                     </td>
                   </tr>
                 ))}

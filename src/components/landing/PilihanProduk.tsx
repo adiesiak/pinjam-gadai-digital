@@ -184,7 +184,7 @@ export function PilihanProdukSection() {
   return (
     <section
       aria-labelledby="pilihan-produk-title"
-      className="mx-auto max-w-6xl px-4 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-12"
+      className="mx-auto max-w-6xl px-4 pb-10 pt-8 sm:px-6 sm:pb-16 sm:pt-12"
     >
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <JudulBagian

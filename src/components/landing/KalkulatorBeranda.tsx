@@ -36,7 +36,7 @@ export function KalkulatorBeranda({
       aria-labelledby="kalkulator-judul"
       className="pindai-bawah-lipatan border-t border-border bg-muted"
     >
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 sm:py-18 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-12">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:px-6 sm:py-18 sm:gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-12">
         <div className="lg:sticky lg:top-24">
           <JudulBagian
             id="kalkulator-judul"

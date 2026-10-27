@@ -58,22 +58,22 @@ eq(imbalPendana(1_000_000), imbalPendana(1_000_000), "angka sama untuk pokok sam
 const berbedaTenor = [7, 14, 28, 30].map(() => imbalPendana(1_000_000));
 ok(berbedaTenor.every((n) => n === 300_000), "tenor nasabah tidak mengubah hak pendana");
 
-// ===== Biaya platform dipisah =====
-const bagi = bagiHasilPendana(1_000_000, 5);
+// ===== Porsi platform 13/60 dipisah =====
+const bagi = bagiHasilPendana(1_000_000);
 eq(bagi.imbal, 300_000, "imbal bruto tetap 30%");
 eq(bagi.total, 1_300_000, "total bruto 130%");
-eq(bagi.potonganAdmin, 65_000, "biaya platform 5% dari total kembali");
-eq(bagi.diterima, 1_235_000, "diterima setelah biaya platform");
-eq(bagi.keuntungan, 235_000, "keuntungan bersih setelah biaya platform");
+eq(bagi.potonganAdmin, 65_000, "porsi platform 13/60 marjin");
+eq(bagi.diterima, 1_235_000, "diterima setelah porsi platform");
+eq(bagi.keuntungan, 235_000, "keuntungan bersih setelah porsi platform");
 eq(
   bagi.potonganAdmin + bagi.diterima,
   bagi.total,
   "tidak ada rupiah hilang dalam pembagian",
 );
 eq(
-  bagiHasilPendana(1_000_000, 0).diterima,
+  bagiHasilPendana(1_000_000).diterima,
   1_235_000,
-  "porsi platform 21,67% tetap dipotong walau tarif lama diisi 0",
+  "porsi platform 13/60 marjin tetap dipotong tanpa pengaturan tarif",
 );
 
 // ===== Status portofolio =====

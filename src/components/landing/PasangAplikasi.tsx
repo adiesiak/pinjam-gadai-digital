@@ -71,8 +71,8 @@ export function PasangAplikasi() {
       aria-labelledby="pasang-aplikasi-judul"
       className="border-y border-border bg-muted"
     >
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
-        <div className="grid gap-8 rounded-kartu border border-border bg-card p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center lg:gap-12">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
+        <div className="grid gap-6 rounded-kartu border border-border bg-card p-4 sm:gap-8 sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center lg:gap-12">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-foreground">
               Aplikasi PINDAI

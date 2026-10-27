@@ -4,9 +4,9 @@
  * Aturan produk yang dijaga di sini:
  *  - Pokok ditempatkan untuk satu siklus 30 hari.
  *  - Imbal hasil bruto 30% dari pokok, tidak mengikuti tenor pinjaman nasabah.
- *  - Biaya platform 5% dari TOTAL KEMBALI (pokok + imbal), dipotong sekali
- *    per siklus.
- *  - Total yang wajib dibayar pada jatuh tempo = pokok + imbal − biaya.
+ *  - Marjin itu dibagi 47 : 13 dari 60: 78,33% pendana, 21,67% platform.
+ *    Porsi platform dipotong sekali per siklus, bukan biaya layanan terpisah.
+ *  - Total yang wajib dibayar pada jatuh tempo = pokok + porsi pendana.
  *
  * Angka ini murni: tidak membaca database, waktu, atau tenor pinjaman. Server
  * menyimpan hasilnya sebagai snapshot di `siklusPendana`, jadi perubahan tarif
@@ -20,18 +20,21 @@
  *
  * Contoh Rp1.000.000:
  *   imbal      = Rp300.000
- *   biaya      = Rp65.000
+ *   potongan   = Rp65.000 (13/60 marjin)
  *   total cair = Rp1.235.000 (keuntungan bersih Rp235.000)
+ *
+ * Pada skema acuan 30%, porsi platform 13/60 marjin kebetulan sama dengan 5%
+ * dari total kembali (Rp65.000). Angkanya dihitung dari pembagian marjin,
+ * bukan dari persentase biaya, supaya produk dengan marjin berbeda tetap
+ * memakai aturan 47 : 13 yang sama.
  */
+import { bagiMargin } from "./kebijakanPinjaman";
 
 /** Panjang satu siklus penempatan pendana. */
 export const SIKLUS_PENDANA_HARI = 30;
 
 /** Imbal hasil bruto per siklus, dalam persen dari pokok. */
 export const PERSEN_IMBAL_SIKLUS = 30;
-
-/** Biaya platform per siklus, dalam persen dari TOTAL KEMBALI (pokok + imbal). */
-export const PERSEN_POTONGAN_SIKLUS = 5;
 
 /** Satu hari dalam milidetik. */
 export const HARI_MS = 86_400_000;
@@ -57,11 +60,9 @@ function validasiPokok(pokok: number): void {
 export function hitungSiklusPendana(pokok: number): HitunganSiklus {
   validasiPokok(pokok);
   const imbal = Math.floor((pokok * PERSEN_IMBAL_SIKLUS) / 100);
-  // Dasar biaya adalah hak bruto siklus (pokok + imbal), sesuai kebijakan
-  // 5% dari total kembali: Rp1.000.000 → Rp65.000, bukan Rp50.000.
-  const potongan = Math.floor(
-    ((pokok + imbal) * PERSEN_POTONGAN_SIKLUS) / 100,
-  );
+  // Porsi platform selalu 13/60 marjin. Pembulatan ke bawah; sisa rupiah
+  // menjadi milik pendana, jadi tidak ada rupiah yang hilang atau diciptakan.
+  const potongan = bagiMargin(imbal).platform;
   return {
     pokok,
     imbal,
@@ -72,11 +73,11 @@ export function hitungSiklusPendana(pokok: number): HitunganSiklus {
 }
 
 /**
- * Biaya platform satu putaran modal, mengikuti tarif snapshot siklus.
+ * Porsi platform satu putaran modal, mengikuti snapshot siklus.
  *
  * Tarif siklus disimpan sebagai rupiah (`potongan` atas `pokokSiklus`), bukan
  * persen, supaya perubahan pengaturan tidak mengubah siklus yang berjalan.
- * Proporsi dipakai agar putaran sebagian tidak menagih biaya penuh.
+ * Proporsi dipakai agar putaran sebagian tidak menagih porsi penuh.
  */
 export function potonganPutaran(
   potonganSiklus: number,
@@ -126,7 +127,7 @@ export function labelPilihanSiklus(
 
 /**
  * Pokok siklus berikutnya saat pendana memilih "putar lagi".
- * Seluruh hak siklus — pokok + Imbal Hasil − biaya — ikut bekerja lagi, jadi
+ * Seluruh hak siklus — pokok + Imbal Hasil − porsi platform — ikut bekerja lagi, jadi
  * tidak ada rupiah yang menganggur di dompet selama siklus berikutnya.
  * Pembulatan ke bawah menjaga total kewajiban tidak melebihi uang yang ada.
  */

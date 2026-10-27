@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  startTransition,
+  useCallback,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Activity,
   Banknote,
@@ -41,30 +48,38 @@ import {
   simpanSidebarTerbuka,
   type GrupSidebar,
 } from "@/components/admin/admin-sidebar";
-import { AksesPenyediaDanaPanel } from "@/components/admin/AksesPenyediaDanaPanel";
-import { AnnouncementCms } from "@/components/admin/AnnouncementCms";
-import { AplikasiAndroidPanel } from "@/components/admin/AplikasiAndroidPanel";
-import { KontenPendanaPanel } from "@/components/admin/KontenPendanaPanel";
-import { LandingCmsPanel } from "@/components/admin/LandingCmsPanel";
-import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
-import { BackupPanel } from "@/components/admin/BackupPanel";
-import { LiveLocationMap } from "@/components/admin/LiveLocationMap";
-import { VerifikasiLokasiPanel } from "@/components/admin/VerifikasiLokasiPanel";
-import { KalenderKasPanel } from "@/components/admin/KalenderKasPanel";
-import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { KycPanel } from "@/components/admin/KycPanel";
-import { LoginSecurityPanel } from "@/components/admin/LoginSecurityPanel";
+import { PenyediaOverviewAdmin } from "@/components/admin/overview-admin";
 import { DpdTab, LelangTab, LoanAllocationQueueTab } from "@/components/admin/OperationsTabs";
-import { PanelBiKesehatan } from "@/components/admin/PanelBiKesehatan";
-import { SystemConfigPanel } from "@/components/admin/SystemConfigPanel";
-import { UndianPanel } from "@/components/admin/UndianPanel";
-import { PlafonPanel } from "@/components/admin/PlafonPanel";
-import { PromoPinjamanPanel } from "@/components/admin/PromoPinjamanPanel";
 import { SyariahPanel } from "@/components/admin/SyariahPanel";
-import { VoucherPanel } from "@/components/admin/VoucherPanel";
 import { RekonsiliasiAngsuran } from "@/components/admin/RekonsiliasiAngsuran";
-import { WhatsAppPanel } from "@/components/admin/WhatsAppPanel";
-import { WebsiteTemplatePanel } from "@/components/admin/WebsiteTemplatePanel";
+// Layar yang BUKAN jalur harian dimuat sesuai permintaan: masing-masing jadi
+// potongan sendiri, jadi Ringkasan tidak lagi mengunduh peta Leaflet, CMS, dan
+// panel sistem sekaligus. Daftarnya satu sumber dengan pramuat menu.
+import {
+  muatModulAdmin,
+  PanelAkses,
+  PanelAplikasi,
+  PanelAudit,
+  PanelBackup,
+  PanelBi,
+  PanelConfig,
+  PanelKalender,
+  PanelKillSwitch,
+  PanelLanding,
+  PanelLogin,
+  PanelPendana,
+  PanelPengembangan,
+  PanelPengumuman,
+  PanelPetaLokasi,
+  PanelPlafon,
+  PanelPromo,
+  PanelTemplate,
+  PanelUndian,
+  PanelVerifikasiLokasi,
+  PanelVoucher,
+  PanelWhatsApp,
+} from "@/lib/admin-panel-malas";
 import {
   type AdminOverviewData,
   type LoanRow,
@@ -458,7 +473,12 @@ export function AdminTabs({
    * gelapnya tidak perlu menghalangi isi yang baru terbuka.
    */
   const pilihMenu = (value: NilaiModulAdmin) => {
-    setActiveTab(value);
+    // Mulai unduh potongan panelnya sekarang juga; kalau petugas sudah menyorot
+    // tombolnya tadi, ini tidak melakukan apa-apa (modul sudah di jalan).
+    muatModulAdmin(value);
+    // `startTransition`: React menahan layar lama sebentar sampai potongan panel
+    // baru siap, jadi perpindahan tab tidak berkedip ke kerangka kosong.
+    startTransition(() => setActiveTab(value));
     setDrawerTerbuka(false);
     // Simpan modul aktif di URL supaya muat ulang atau tautan yang dibagikan
     // membuka modul yang sama. `pushState` membuat tombol Kembali peramban
@@ -486,8 +506,10 @@ export function AdminTabs({
   // kalau tidak URL dan isi panel menunjuk modul yang berbeda.
   useEffect(() => {
     const tanganiPopstate = () => {
-      setActiveTab(
-        modulDariParameter(new URLSearchParams(window.location.search).get("tab")),
+      startTransition(() =>
+        setActiveTab(
+          modulDariParameter(new URLSearchParams(window.location.search).get("tab")),
+        ),
       );
       const konten = document.getElementById("konten");
       konten?.focus({ preventScroll: true });
@@ -536,6 +558,9 @@ export function AdminTabs({
         <RingkasanAnalitik
           stats={stats}
           overview={overview}
+          // Grafik memakai agregat yang sudah ikut `overview`: satu bacaan
+          // tabel pinjaman untuk antrean, kartu angka, dan grafik.
+          analitik={overview.analitik}
           onBukaModul={(modul) => {
             // `modul` datang sebagai string dari `lib/analitikAdmin` (sengaja
             // bebas tipe UI). Di sini nilainya divalidasi ke daftar modul admin
@@ -557,37 +582,37 @@ export function AdminTabs({
     syariah: <SyariahPanel />,
     kyc: <KycPanel />,
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
-    undian: <UndianPanel />,
+    undian: <PanelUndian />,
     rekonsiliasi: <RekonsiliasiAngsuran />,
-    kalender: <KalenderKasPanel />,
+    kalender: <PanelKalender />,
     // Peta live + audit verifikasi dari tautan WhatsApp: dua sisi data lokasi
     // yang sama (titik dari `/cek-status` juga mengalir ke peta lewat jejak
     // lokasi), jadi sengaja satu modul — bukan tab tersendiri di sidebar.
     lokasi: (
       <div className="space-y-4">
-        <LiveLocationMap />
-        <VerifikasiLokasiPanel />
+        <PanelPetaLokasi />
+        <PanelVerifikasiLokasi />
       </div>
     ),
     dpd: <DpdTab />,
     lelang: <LelangTab />,
-    plafon: <PlafonPanel />,
-    akses: <AksesPenyediaDanaPanel />,
-    landing: <LandingCmsPanel />,
-    pendana: <KontenPendanaPanel />,
-    pengumuman: <AnnouncementCms />,
-    promo: <PromoPinjamanPanel />,
-    voucher: <VoucherPanel />,
-    whatsapp: <WhatsAppPanel />,
-    config: <SystemConfigPanel />,
-    template: <WebsiteTemplatePanel />,
-    aplikasi: <AplikasiAndroidPanel />,
-    loglogin: <LoginSecurityPanel onOpenSetup={onOpenSetup} />,
-    killswitch: <KillSwitchPanel />,
-    bi: <PanelBiKesehatan />,
-    audit: <AuditTrailPanel />,
-    backup: <BackupPanel />,
-    pengembangan: <PagePengembangan />,
+    plafon: <PanelPlafon />,
+    akses: <PanelAkses />,
+    landing: <PanelLanding />,
+    pendana: <PanelPendana />,
+    pengumuman: <PanelPengumuman />,
+    promo: <PanelPromo />,
+    voucher: <PanelVoucher />,
+    whatsapp: <PanelWhatsApp />,
+    config: <PanelConfig />,
+    template: <PanelTemplate />,
+    aplikasi: <PanelAplikasi />,
+    loglogin: <PanelLogin onOpenSetup={onOpenSetup} />,
+    killswitch: <PanelKillSwitch />,
+    bi: <PanelBi />,
+    audit: <PanelAudit />,
+    backup: <PanelBackup />,
+    pengembangan: <PanelPengembangan />,
   };
 
   return (
@@ -677,7 +702,24 @@ export function AdminTabs({
             }
             className="min-w-0 animate-masuk"
           >
-            {panel[activeTab]}
+            {/* Satu langganan `adminOverview` untuk semua modul di bawah: query
+                termahal panel ini tidak diulang setiap kali tab berganti. */}
+            <PenyediaOverviewAdmin overview={overview}>
+              <Suspense
+                fallback={
+                  // Kerangka ringan, bukan layar kosong: tinggi dan lebarnya
+                  // kira-kira sama dengan kartu panel, jadi tata letak tidak
+                  // melompat saat potongannya selesai diunduh.
+                  <div role="status" aria-live="polite" className="space-y-3">
+                    <span className="sr-only">Memuat modul {aktif?.label}…</span>
+                    <SkeletonKartu className="h-24 rounded-2xl p-4" />
+                    <SkeletonKartu className="h-40 rounded-2xl p-4" />
+                  </div>
+                }
+              >
+                {panel[activeTab]}
+              </Suspense>
+            </PenyediaOverviewAdmin>
           </div>
         </div>
       </main>

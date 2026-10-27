@@ -88,7 +88,9 @@ const PENGAJUAN = {
   kategori: "Elektronik",
   merchant: "Tokopedia",
   hargaBarang: 1_000_000,
-  dpPersen: 0,
+  // DP 20%: pengajuan baru wajib 10–50%, dan pokok dibiayai tetap jauh di
+  // bawah batas kredit barang sehingga yang diuji murni gerbang lokasi.
+  dpPersen: 20,
   tenorBulan: 6,
   marginPersenPerBulan: 3,
   namaLengkap: "Siti Peminjam",
@@ -560,6 +562,30 @@ describe("deteksi lokasi palsu", () => {
     const peta = await asAdmin.query(api.admin.petaPeminjam, {});
     const baris = peta.rows.find((r) => r.namaLengkap === "Peminjam Dicurigai");
     expect(baris?.tanda).toContain("koordinat_identik");
+
+    // Titik yang baru masuk masih dihitung langsung, dan ambangnya datang dari
+    // kebijakan server — bukan angka lepas yang ditulis di antarmuka.
+    expect(baris?.langsung).toBe(true);
+    expect(baris?.umurDetik).toBeLessThan(60);
+    expect(peta.batasUmurMenit).toBeGreaterThan(0);
+    expect(baris?.jalur.length).toBeGreaterThan(0);
+
+    // Titik yang berhenti dikirim (perangkat mati / GPS dimatikan) TIDAK boleh
+    // tetap mengaku langsung: itulah yang membedakan peta live dari peta
+    // "titik lokasi terakhir".
+    await t.mutation(async (ctx) => {
+      const jejak = await ctx.db
+        .query("lokasiJejak")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      for (const j of jejak) {
+        await ctx.db.patch(j._id, { waktu: now - 3 * 60 * 60 * 1000 });
+      }
+    });
+    const petaLama = await asAdmin.query(api.admin.petaPeminjam, {});
+    const barisLama = petaLama.rows.find((r) => r.namaLengkap === "Peminjam Dicurigai");
+    expect(barisLama?.langsung).toBe(false);
+    expect(barisLama?.umurDetik).toBeGreaterThan(3 * 60 * 60 - 60);
   });
 });
 

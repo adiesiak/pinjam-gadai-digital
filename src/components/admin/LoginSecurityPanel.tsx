@@ -106,7 +106,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
       </section>
 
       {/* 2FA admin */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold">Autentikasi dua faktor (TOTP)</h3>
@@ -128,7 +128,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
       </section>
 
       {/* Perangkat dipercaya ("ingat perangkat ini") */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -195,7 +195,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
       </section>
 
       {/* Sesi aktif */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <h3 className="text-sm font-semibold">Sesi aktif (satu sesi per akun)</h3>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Login di perangkat baru otomatis menggugurkan sesi lama. Admin dengan 2FA

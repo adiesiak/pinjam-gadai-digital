@@ -11,7 +11,6 @@ import { formatRupiah } from "../money";
 import {
   rencanaAkadSyariah,
   type JenisAkadSyariah,
-  type OpsiNisbahSyariah,
   type RencanaAkadSyariah,
 } from "./akad";
 import {
@@ -80,7 +79,6 @@ export type PermintaanPengajuanSyariah = {
  */
 export function rencanaPengajuanSyariah(
   permintaan: PermintaanPengajuanSyariah,
-  opsi: OpsiNisbahSyariah = {},
 ): RencanaAkadSyariah {
   if (!apakahTenorAkad(permintaan.tenorHari)) {
     throw new Error(
@@ -96,7 +94,6 @@ export function rencanaPengajuanSyariah(
         marginPersen: permintaan.marginPersen ?? MARGIN_MURABAHAH_BAWAAN,
         tenorHari: permintaan.tenorHari,
       },
-      opsi,
     );
   }
 
@@ -115,7 +112,6 @@ export function rencanaPengajuanSyariah(
         nilaiTaksiran: permintaan.nilaiTaksiran,
         tenorHari: permintaan.tenorHari,
       },
-      opsi,
     );
   }
 
@@ -125,7 +121,6 @@ export function rencanaPengajuanSyariah(
       pokok: permintaan.pokok,
       tenorHari: permintaan.tenorHari,
     },
-    opsi,
   );
 }
 

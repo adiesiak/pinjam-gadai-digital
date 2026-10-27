@@ -13,7 +13,6 @@ import {
   RequireAuth,
   RequirePendana,
 } from "@/components/RequireAuth";
-import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient, useQuery } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
@@ -107,6 +106,11 @@ const AksesBersama = lazy(
 const SyaratKetentuan = lazy(
   denganPercobaan(() => import("./pages/SyaratKetentuan.tsx")),
 );
+// Kebijakan privasi: halaman publik yang ditautkan dari beranda, halaman masuk,
+// dashboard, dan formulir pengajuan.
+const Privasi = lazy(denganPercobaan(() => import("./pages/Privasi.tsx")));
+// Papan pemenang undian: publik, ditautkan dari kartu doorprize di beranda.
+const Pemenang = lazy(denganPercobaan(() => import("./pages/Pemenang.tsx")));
 // Halaman publik dari tautan WhatsApp admin (lihat pages/CekStatus.tsx).
 const CekStatus = lazy(denganPercobaan(() => import("./pages/CekStatus.tsx")));
 const VerifikasiKontrak = lazy(
@@ -114,6 +118,18 @@ const VerifikasiKontrak = lazy(
 );
 const NotFound = lazy(denganPercobaan(() => import("./pages/NotFound.tsx")));
 const Qc = lazy(denganPercobaan(() => import("./pages/Qc.tsx")));
+/**
+ * Bilah alat pengembang dimuat SETELAH paint pertama.
+ *
+ * Berkas itu mengimpor framer-motion dan snapdom (±44 kB terkompresi). Selama
+ * diimpor statis, setiap kunjungan beranda — termasuk pengunjung yang hanya
+ * membaca halaman produk — ikut mengunduh animasi bilah alat sebelum konten
+ * tampil. Ia bukan bagian alur pengunjung, jadi cukup muncul belakangan; bila
+ * gagal dimuat, `ToolbarErrorBoundary` mematikannya tanpa menyentuh halaman.
+ */
+const VlyToolbar = lazy(() =>
+  import("../vly-toolbar-readonly.tsx").then((m) => ({ default: m.VlyToolbar })),
+);
 
 // Fallback pemuatan rute: layar bermerek PINDAI dengan logo brankas "pindai"
 // yang beranimasi dan interaktif (lihat components/LoadingScreen.tsx).
@@ -199,7 +215,7 @@ class RootErrorBoundary extends React.Component<
   render() {
     if (this.state.memuatUlang) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900">
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-10 text-slate-900 sm:py-16">
           <p className="text-sm text-muted-foreground">
             Menyiapkan ulang halaman…
           </p>
@@ -208,7 +224,7 @@ class RootErrorBoundary extends React.Component<
     }
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16 text-slate-900">
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-10 text-slate-900 sm:py-16">
           <ErrorPage />
         </div>
       );
@@ -358,7 +374,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
       <ToolbarErrorBoundary>
-        <VlyToolbar />
+        <Suspense fallback={null}>
+          <VlyToolbar />
+        </Suspense>
       </ToolbarErrorBoundary>
       <ConvexAuthProvider client={convex}>
         {/* APK di bawah versi wajib berhenti di layar perbarui — dipasang di
@@ -451,6 +469,10 @@ createRoot(document.getElementById("root")!).render(
                     membuka sesi tamu sebelum memverifikasi kode. */}
                 <Route path="/akses-bersama" element={<AksesBersama />} />
                 <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
+                <Route path="/privasi" element={<Privasi />} />
+                {/* Pemenang undian: bukti publik bahwa undian dijalankan, dengan
+                    nama yang sudah disamarkan di server. */}
+                <Route path="/pemenang" element={<Pemenang />} />
                 {/* Publik: pembaca dokumen cetak bisa memeriksa hash tanpa akun. */}
                 <Route
                   path="/verifikasi-kontrak/:kode"

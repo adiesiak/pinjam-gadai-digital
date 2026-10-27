@@ -207,7 +207,7 @@ export function RekonsiliasiPendana() {
   const adaMasalah = ringkasan.selisih + ringkasan.tanpaRekap + ringkasan.tanpaAkun > 0;
 
   return (
-    <section className="animate-masuk rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="animate-masuk rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">

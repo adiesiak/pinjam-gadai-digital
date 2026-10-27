@@ -28,7 +28,7 @@ function tidakAda(html: string, teks: string, label: string): void {
 
 {
   const html = renderToStaticMarkup(
-    <SimulatorPendanaan persenPotonganAdmin={5} />,
+    <SimulatorPendanaan />,
   );
 
   ada(html, "Simulasikan return", "judul simulator");

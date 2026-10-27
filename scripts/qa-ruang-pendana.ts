@@ -36,6 +36,11 @@ const cacah = (teks: string, pola: RegExp) => (teks.match(pola) ?? []).length;
 const BERKAS = [
   "src/pages/PenyediaDana.tsx",
   "src/pages/penyedia-dana/bagian-umum.tsx",
+  "src/pages/penyedia-dana/bagian-laporan.tsx",
+  "src/pages/penyedia-dana/bagian-persetujuan.tsx",
+  "src/pages/penyedia-dana/bagian-ringkas.tsx",
+  "src/pages/penyedia-dana/tab-lokasi.tsx",
+  "src/components/penyediaDana/BatasBagian.tsx",
   "src/pages/penyedia-dana/format.ts",
   "src/components/penyediaDana/KesehatanPortofolio.tsx",
   "src/components/penyediaDana/RingkasanKeuntungan.tsx",
@@ -329,7 +334,7 @@ const rincianTerbuka = renderToStaticMarkup(
 for (const teks of [
   "Pinjaman (referensi · peminjam)",
   "Angka lain di baris ini",
-  "Biaya platform (layanan) dibukukan",
+  "Porsi platform dibukukan",
   "Jumlah baris di atas sama dengan kolom “Perkiraan (belum lunas)”.",
 ]) {
   cek(rincianTerbuka.includes(teks), `rincian baris terbuka memuat "${teks}"`);
@@ -348,7 +353,7 @@ for (const pita of ["Dana pendana", "Hasil pendana", "Platform"]) {
 }
 cek(
   kepala.includes("Transfer keuntungan") &&
-    kepala.includes("Biaya platform (layanan)"),
+    kepala.includes("Porsi platform (13/60 marjin)"),
   "kolom sisi platform (transfer dan biaya layanan) selalu terbuka",
 );
 cek(
@@ -422,8 +427,8 @@ for (const pita of ["Dana pendana", "Hasil pendana", "Platform"]) {
 const bagianBerbiaya: readonly (readonly [string, string, string])[] = [
   ["aturan perhitungan", aturan, "Porsi platform"],
   ["ringkasan keuntungan", keuntungan, "Porsi platform"],
-  ["tabel pendana", tabelPendana, "Biaya platform (layanan)"],
-  ["rincian baris tabel", rincianTerbuka, "Biaya platform (layanan)"],
+  ["tabel pendana", tabelPendana, "Porsi platform (13/60 marjin)"],
+  ["rincian baris tabel", rincianTerbuka, "Porsi platform (13/60 marjin)"],
 ];
 for (const [nama, html, label] of bagianBerbiaya) {
   cek(
@@ -451,8 +456,22 @@ cek(
   "kepemilikan pinjaman memakai aturan tunggal pendanaKepemilikan",
 );
 cek(
-  penjaga.includes('cakupan === null ? await ctx.db.query("pawns")'),
-  "gadai hanya dibaca untuk pemantau: pawns tidak punya tabel alokasi pendana",
+  penjaga.includes('withIndex("by_pendana"') &&
+    penjaga.includes('q.eq("pendanaId", cakupan.userId)'),
+  "gadai dibatasi ke pendana pemilik pokok lewat indeks by_pendana",
+);
+cek(
+  baca("src/components/penyediaDana/PortofolioPendana.tsx").includes(
+    "r.gadai",
+  ),
+  "posisi gadai tampil di portofolio pendana, bukan hanya di tab antrean",
+);
+cek(
+  halaman.includes('"gadai"') &&
+    baca("src/components/penyediaDana/PortofolioPendana.tsx").includes(
+      "Gadai · ",
+    ),
+  "ruang pendana membuka tab gadai dan menyebut pembagian sewanya",
 );
 cek(
   halaman.includes("portofolio pribadi"),
@@ -484,18 +503,20 @@ cek(
   kontakSumber.includes("Laporan berisi angka pendanaan Anda"),
   "kartu menyatakan laporan memuat angka pendanaan pemiliknya",
 );
+// Kartu laporan kini tinggal di berkas sendiri (query dan aksinya ikut pindah),
+// jadi sumbernya dibaca dari sana; pemasangannya tetap diperiksa di halaman.
+const bagianLaporan = baca("src/pages/penyedia-dana/bagian-laporan.tsx");
 cek(
-  halaman.includes("<KontakLaporanWhatsapp"),
+  halaman.includes("<BagianLaporan") &&
+    bagianLaporan.includes("<KontakLaporanWhatsapp"),
   "kartu laporan terpasang di halaman ruang pendana",
 );
 cek(
-  halaman.includes("nomor={kontakLaporan.nomorWhatsApp}"),
-  "halaman membaca nomor dari akun, bukan dari isian yang diketik ulang",
+  bagianLaporan.includes("nomor={kontakLaporan.nomorWhatsApp}"),
+  "kartu membaca nomor dari akun, bukan dari isian yang diketik ulang",
 );
 cek(
-  /isPendana\s*&&\s*kontakLaporan\s*!==\s*undefined\s*&&\s*kontakLaporan\s*!==\s*null/.test(
-    halaman,
-  ),
+  /isPendana\s*&&\s*\(\s*<BatasBagian nama="laporan portofolio">/.test(halaman),
   "kartu laporan hanya untuk akun pemilik portofolio, bukan admin atau pemantau",
 );
 const pelaporan = baca("src/convex/laporanPendana.ts");
@@ -575,9 +596,11 @@ cek(
     /tabTampil\.includes\("gadai"\)/.test(halaman),
   "tiga tab yang kosong untuk pendana tidak dirender baginya",
 );
+const bagianRingkas = baca("src/pages/penyedia-dana/bagian-ringkas.tsx");
 cek(
-  halaman.includes("api.siklusPendana.siklusSaya") &&
-    halaman.includes("siklusBerikut"),
+  bagianRingkas.includes("api.siklusPendana.siklusSaya") &&
+    bagianRingkas.includes("siklusBerikut") &&
+    halaman.includes("<CatatanSiklus"),
   "tanggal cair siklus berikutnya dibaca di puncak halaman",
 );
 cek(
@@ -586,7 +609,7 @@ cek(
 );
 cek(
   halaman.includes("<AjukanPenempatan") &&
-    /isPendana\s*&&\s*<AjukanPenempatan/.test(halaman),
+    /isPendana\s*&&\s*\(\s*<BatasBagian nama="pengajuan penempatan">/.test(halaman),
   "pendana bisa mengajukan penempatan dari ruangnya sendiri",
 );
 cek(

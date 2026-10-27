@@ -50,6 +50,11 @@ import { KREDIT_ASUMSI_AWAL, KREDIT_BARANG_POKOK_MAKS, pokokKreditBarangDalamBat
 import { bacaDataDiri } from "../lib/dataDiri";
 import { formatRupiah } from "../lib/money";
 import { namaTampil } from "../lib/nama";
+import {
+  bacaKueriNasabah,
+  varianKueriAngka,
+  type KueriNasabah,
+} from "../lib/pencarianNasabah";
 import { persenBungaPerBulan } from "../lib/bulanan";
 import { tarifBulananDariConfig } from "../lib/system-config";
 import { persenBungaHarian } from "../lib/loan";
@@ -145,20 +150,133 @@ function ringkasNasabah(
 }
 
 /**
+ * Batas baris yang DIPINDAI untuk pencarian teks bebas.
+ *
+ * Panel ini tempat admin mencatat pengajuan baru, bukan arsip: yang dicari
+ * hampir selalu nasabah yang baru berurusan. Membaca seluruh tabel membuat satu
+ * ketikan admin menembus batas baca Convex begitu data produksi bertambah, dan
+ * meja kerja mendadak gagal dimuat. Kueri berbentuk identitas tepat (NIK, kode
+ * peminjam, email, nomor WhatsApp) tidak memakai jendela ini — jalurnya lewat
+ * indeks dan hasilnya selalu lengkap.
+ */
+const BATAS_PINDAI_NASABAH = 500;
+
+/** Baris yang ditampilkan pemilih nasabah setelah disaring. */
+const BATAS_HASIL_NASABAH = 20;
+
+/** Batas baris untuk satu pencarian identitas tepat. */
+const BATAS_IDENTITAS = 5;
+
+/**
+ * Pengguna yang cocok lewat INDEKS untuk kueri identitas tepat.
+ *
+ * Mengembalikan baris milik siapa pun yang cocok, tanpa syarat jendela: NIK,
+ * email, kode peminjam, dan nomor WhatsApp punya indeks sendiri, jadi nasabah
+ * lama tetap bisa ditemukan walau barisnya jauh di luar jendela pemindaian.
+ * Nomor asing (bukan 62…) dicari pada bentuk mentahnya karena bentuk simpannya
+ * tidak bisa ditebak dari ketikan admin.
+ */
+async function cariLewatIndeks(
+  ctx: QueryCtx,
+  kueri: KueriNasabah,
+): Promise<Doc<"users">[]> {
+  const hasil = new Map<string, Doc<"users">>();
+  const tambah = (user: Doc<"users"> | null | undefined): void => {
+    if (user !== null && user !== undefined) hasil.set(user._id as string, user);
+  };
+
+  if (kueri.jenis === "email") {
+    // Indeks email menyimpan nilai apa adanya, sedangkan admin biasa mengetik
+    // huruf kecil — dua bentuk dicoba, bukan menebak satu.
+    for (const alamat of new Set([kueri.nilai, kueri.emailKecil ?? ""])) {
+      if (alamat === "") continue;
+      tambah(
+        await ctx.db
+          .query("users")
+          .withIndex("email", (q) => q.eq("email", alamat))
+          .first(),
+      );
+    }
+  }
+
+  if (kueri.jenis === "kodePeminjam") {
+    tambah(
+      await ctx.db
+        .query("users")
+        .withIndex("by_kodePeminjam", (q) => q.eq("kodePeminjam", kueri.nilai))
+        .first(),
+    );
+  }
+
+  if (kueri.jenis === "nik") {
+    // NIK tersimpan di data diri nasabah dan di data KYC; keduanya bisa
+    // menunjuk orang yang sama, jadi kandidatnya digabung lalu dihilangkan
+    // duplikatnya oleh `Map` di atas.
+    for (const baris of await ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_nik", (q) => q.eq("nik", kueri.nilai))
+      .take(BATAS_IDENTITAS)) {
+      tambah(await ctx.db.get(baris.userId));
+    }
+    for (const baris of await ctx.db
+      .query("kycProfil")
+      .withIndex("by_nik", (q) => q.eq("nik", kueri.nilai))
+      .take(BATAS_IDENTITAS)) {
+      tambah(await ctx.db.get(baris.userId));
+    }
+  }
+
+  if (kueri.jenis === "whatsapp") {
+    const nomor = new Set<string>();
+    if (kueri.whatsapp !== undefined) nomor.add(kueri.whatsapp);
+    if (kueri.angka !== undefined && kueri.angka.length >= 9) nomor.add(kueri.angka);
+    for (const n of nomor) {
+      for (const user of await ctx.db
+        .query("users")
+        .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", n))
+        .take(BATAS_IDENTITAS)) {
+        tambah(user);
+      }
+      for (const profil of await ctx.db
+        .query("nasabahProfil")
+        .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", n))
+        .take(BATAS_IDENTITAS)) {
+        tambah(await ctx.db.get(profil.userId));
+      }
+    }
+  }
+
+  return [...hasil.values()];
+}
+
+/**
  * Nasabah yang dapat dipilih admin sebagai pemilik pengajuan manual.
  * `kueri` kosong mengembalikan daftar awal (diurutkan nama) supaya panel tidak
  * tampil kosong sebelum diketik. Akun admin dan akun tamu tidak ditawarkan.
+ *
+ * Bacaan dibatasi: identitas tepat lewat indeks, selebihnya jendela baris
+ * terbaru. `dibatasi` diteruskan ke panel supaya admin diberi tahu saat daftar
+ * mungkin belum lengkap, bukan dibiarkan mengira nasabahnya tidak ada.
  */
 export const cariNasabah = query({
   args: { kueri: v.string() },
   handler: async (ctx, { kueri }) => {
     await requireAdmin(ctx);
+    const dibaca = bacaKueriNasabah(kueri);
+    const tepat = await cariLewatIndeks(ctx, dibaca);
+
     const [users, profilRows, loans, kredits] = await Promise.all([
-      ctx.db.query("users").collect(),
-      ctx.db.query("nasabahProfil").collect(),
-      ctx.db.query("loans").collect(),
-      ctx.db.query("kreditBarang").collect(),
+      ctx.db.query("users").order("desc").take(BATAS_PINDAI_NASABAH),
+      ctx.db.query("nasabahProfil").order("desc").take(BATAS_PINDAI_NASABAH),
+      ctx.db.query("loans").order("desc").take(BATAS_PINDAI_NASABAH),
+      ctx.db.query("kreditBarang").order("desc").take(BATAS_PINDAI_NASABAH),
     ]);
+    const terpotong =
+      users.length === BATAS_PINDAI_NASABAH ||
+      profilRows.length === BATAS_PINDAI_NASABAH ||
+      loans.length === BATAS_PINDAI_NASABAH ||
+      kredits.length === BATAS_PINDAI_NASABAH;
+
     const profilPerUser = new Map(profilRows.map((p) => [p.userId as string, p]));
     // Nama dari catatan pinjaman/kredit terbaru — sumber yang SAMA dengan baris
     // di ruang penyedia dana, supaya nasabah yang sudah punya catatan ditawarkan
@@ -175,30 +293,72 @@ export const cariNasabah = query({
         waktu: k._creationTime,
       })),
     ]);
-    const needle = kueri.trim().toLowerCase();
-    const hasil: NasabahManual[] = [];
+
+    const layak = (user: Doc<"users">): boolean =>
+      user.role !== ROLES.ADMIN && user.isAnonymous !== true;
+    const needle = dibaca.nilai.trim().toLowerCase();
+    // Angka dicocokkan dalam beberapa bentuk (08…, 8…, 62…): yang tersimpan hanya
+    // satu bentuk, sedangkan admin mengetik sesuai kebiasaan.
+    const jarum = varianKueriAngka(dibaca.nilai);
+    const cocok = (user: Doc<"users">, profil: Doc<"nasabahProfil"> | null, namaCatatan: string | undefined): boolean => {
+      if (needle === "") return true;
+      const kandidat = [
+        user.name ?? "",
+        user.email ?? "",
+        user.kodePeminjam ?? "",
+        profil?.nik ?? "",
+        // Nomor tersimpan (`62…`) ikut dicocokkan supaya ketikan sebagian
+        // seperti "0812…" tetap menemukan nasabahnya.
+        profil?.nomorWhatsApp ?? "",
+        // Nama yang benar-benar tampil di baris ini pun harus bisa dicari —
+        // admin mencari dengan nama yang ia lihat di ruang penyedia dana.
+        namaCatatan ?? "",
+        profil?.namaLengkap ?? "",
+      ];
+      return kandidat.some((teks) =>
+        jarum.some((potongan) => teks.toLowerCase().includes(potongan)),
+      );
+    };
+
+    const kumpulan = new Map<string, NasabahManual>();
+
+    // 1) Hasil indeks lebih dulu: barisnya bisa di luar jendela, jadi profil dan
+    //    nama catatannya dibaca per pengguna lewat indeks `by_user`.
+    for (const user of tepat) {
+      if (!layak(user)) continue;
+      const profil =
+        profilPerUser.get(user._id) ??
+        (await ctx.db
+          .query("nasabahProfil")
+          .withIndex("by_user", (q) => q.eq("userId", user._id))
+          .first());
+      const namaCatatan =
+        namaPerCatatan.get(user._id) ?? (await namaCatatanNasabah(ctx, user._id));
+      // Hasil indeks sudah tepat, jadi TIDAK disaring lagi oleh teks ketikan:
+      // `08…` dan `62…` adalah nomor yang sama, dan email tersimpan bisa
+      // berhuruf besar. Penyaringan di sini justru membuang hasil yang benar.
+      kumpulan.set(user._id, ringkasNasabah(user, profil, namaCatatan));
+    }
+
+    // 2) Jendela baris terbaru untuk pencarian teks bebas.
     for (const user of users) {
-      if (user.role === ROLES.ADMIN) continue;
-      if (user.isAnonymous === true) continue;
+      if (!layak(user)) continue;
       const profil = profilPerUser.get(user._id) ?? null;
       const namaCatatan = namaPerCatatan.get(user._id);
-      if (needle !== "") {
-        const kandidat = [
-          user.name ?? "",
-          user.email ?? "",
-          user.kodePeminjam ?? "",
-          profil?.nik ?? "",
-          // Nama yang benar-benar tampil di baris ini pun harus bisa dicari —
-          // admin mencari dengan nama yang ia lihat di ruang penyedia dana.
-          namaCatatan ?? "",
-          profil?.namaLengkap ?? "",
-        ];
-        if (!kandidat.some((teks) => teks.toLowerCase().includes(needle))) continue;
-      }
-      hasil.push(ringkasNasabah(user, profil, namaCatatan));
+      if (!cocok(user, profil, namaCatatan)) continue;
+      kumpulan.set(user._id, ringkasNasabah(user, profil, namaCatatan));
     }
-    hasil.sort((a, b) => a.nama.localeCompare(b.nama));
-    return { hasil: hasil.slice(0, 20), total: hasil.length };
+
+    const hasil = [...kumpulan.values()].sort((a, b) => a.nama.localeCompare(b.nama));
+    return {
+      hasil: hasil.slice(0, BATAS_HASIL_NASABAH),
+      total: hasil.length,
+      // Hasil indeks tidak bergantung pada jendela, jadi pencarian yang berhasil
+      // lewat indeks dianggap lengkap. Selebihnya jawabannya bergantung pada
+      // jendela, dan panel harus tahu itu.
+      dibatasi: terpotong && tepat.length === 0,
+      jenis: dibaca.jenis,
+    };
   },
 });
 

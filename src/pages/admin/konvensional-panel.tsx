@@ -102,7 +102,11 @@ export function KonvensionalPanel({
       </div>
 
       {tab === "pinjaman" && (
-        <LoanQueueSection loans={overview.loans} onOpen={onOpenLoan} />
+        <LoanQueueSection
+          loans={overview.loans}
+          onOpen={onOpenLoan}
+          sekarang={overview.dihitungPada}
+        />
       )}
       {tab === "gadai" && (
         <PawnQueueSection pawns={overview.pawns} onOpen={onOpenPawn} />

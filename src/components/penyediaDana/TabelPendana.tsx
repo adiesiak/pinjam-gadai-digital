@@ -208,6 +208,75 @@ function LabelPita({ children }: { children: React.ReactNode }) {
  * sisa halaman keluar layar dan jumlahnya bisa dicocokkan dengan kolomnya tanpa
  * menghitung manual.
  */
+/** Blok gadai pada lipatan tabel: pokok dan pembagian sewanya. */
+function IsiGadai({
+  gadai,
+}: {
+  gadai: NonNullable<RekapPendana["gadai"]>;
+}) {
+  return (
+    <div className={`${FOLIO.jalur} p-3`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-xs font-semibold text-navy">
+          Gadai · {gadai.jumlah} posisi
+        </p>
+        <p className="text-xs tabular-nums text-muted-foreground">
+          sisa pokok {rupiah(gadai.sisaPokok)}
+        </p>
+      </div>
+      <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+        {[
+          { label: "Pokok ditanggung", nilai: rupiah(gadai.pokok) },
+          { label: "Sisa pokok berjalan", nilai: rupiah(gadai.sisaPokok) },
+          {
+            label: "Sewa modal periode berikutnya",
+            nilai: rupiah(gadai.sewaBerikut),
+          },
+          {
+            label: `Hak pendana (${persenPorsi(PERSEN_PORSI_PENDANA)}%)`,
+            nilai: rupiah(gadai.porsiPendanaBerikut),
+          },
+          {
+            label: `Porsi platform (${persenPorsi(PERSEN_PORSI_PLATFORM)}%)`,
+            nilai: rupiah(gadai.porsiPlatformBerikut),
+          },
+          {
+            label: "Hak pendana tercatat",
+            nilai: rupiah(gadai.porsiPendanaTercatat),
+          },
+          {
+            label: "Porsi platform tercatat",
+            nilai: rupiah(gadai.porsiPlatformTercatat),
+          },
+          {
+            label: "Sudah ditandai transfer",
+            nilai: rupiah(gadai.porsiPendanaTransfer),
+          },
+          {
+            label: `Belum ditandai transfer (${gadai.jumlahTransferBelumDicatat})`,
+            nilai: rupiah(gadai.porsiPendanaBelumTransfer),
+          },
+        ].map((angka) => (
+          <div
+            key={angka.label}
+            className="flex items-baseline justify-between gap-3 border-b border-slate-200 pb-1 last:border-b-0"
+          >
+            <dt className="text-slate-600">{angka.label}</dt>
+            <dd className="shrink-0 tabular-nums font-medium text-slate-900">
+              {angka.nilai}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+        Pokok gadai tidak dijumlahkan ke kolom pinjaman tunai. Sewa modalnya
+        dibagi 47 : 13 dari 60; tanda transfer adalah catatan admin, bukan bukti
+        mutasi bank.
+      </p>
+    </div>
+  );
+}
+
 function IsiRincian({
   r,
   rincian,
@@ -276,11 +345,11 @@ function IsiRincian({
               nilai: rupiah(r.keuntunganPendana),
             },
             {
-              label: "Biaya platform (layanan) dibukukan",
+              label: "Porsi platform dibukukan",
               nilai: rupiah(r.keuntunganAdminLunas),
             },
             {
-              label: "Biaya platform (layanan) perkiraan",
+              label: "Porsi platform perkiraan",
               nilai: rupiah(r.keuntunganAdminBelumLunas),
             },
             {
@@ -306,6 +375,12 @@ function IsiRincian({
           </div>
         </dl>
       </div>
+
+      {r.gadai !== undefined && r.gadai.jumlah > 0 && (
+        <div className="lg:col-span-2">
+          <IsiGadai gadai={r.gadai} />
+        </div>
+      )}
 
       {/*
        * Kredit barang punya model uang sendiri: tenor 3–6 bulan, marjin
@@ -335,7 +410,7 @@ function IsiRincian({
                 nilai: rupiah(r.kredit.imbalPendana),
               },
               {
-                label: "Biaya platform",
+                label: "Porsi platform",
                 nilai: rupiah(r.kredit.biayaPlatform),
               },
             ].map((angka) => (
@@ -703,7 +778,7 @@ export function TabelPendana({
              */}
             <table className="w-full min-w-[60rem] table-fixed caption-bottom border-separate border-spacing-0 text-sm [&_th]:whitespace-normal">
               <TableCaption className="sr-only">
-                Perbandingan dana tersalurkan, hasil, dan biaya platform per
+                Perbandingan dana tersalurkan, hasil, dan porsi platform per
                 pendana, dikelompokkan menurut pita kolomnya
               </TableCaption>
 
@@ -833,6 +908,9 @@ export function TabelPendana({
                                 {r.kredit !== undefined &&
                                   r.kredit.jumlahAlokasi > 0 &&
                                   ` · ${r.kredit.jumlahAlokasi} kredit`}
+                                {r.gadai !== undefined &&
+                                  r.gadai.jumlah > 0 &&
+                                  ` · ${r.gadai.jumlah} gadai`}
                               </span>
                               {sedangAktif && (
                                 <span className="shrink-0 text-xs font-medium text-emerald-800">
@@ -854,6 +932,12 @@ export function TabelPendana({
                                     tersalurkan={r.totalDisalurkan}
                                     berjalan={r.saldoBerjalan}
                                   />
+                                  {r.gadai !== undefined &&
+                                    r.gadai.jumlah > 0 && (
+                                      <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+                                        Gadai {rupiah(r.gadai.pokok)}
+                                      </p>
+                                    )}
                                 </>
                               ) : (
                                 <span className={k.kelas}>
@@ -1020,6 +1104,9 @@ export function TabelPendana({
               <p className="mt-1 text-xs tabular-nums text-muted-foreground">
                 {r.jumlahPinjaman} pinjaman · {r.jumlahAktif} berjalan ·{" "}
                 {r.jumlahLunas} lunas
+                {r.gadai !== undefined && r.gadai.jumlah > 0
+                  ? ` · ${r.gadai.jumlah} gadai`
+                  : ""}
               </p>
 
               <div className="mt-3 space-y-3 text-xs">
@@ -1032,6 +1119,12 @@ export function TabelPendana({
                     tersalurkan={r.totalDisalurkan}
                     berjalan={r.saldoBerjalan}
                   />
+                  {r.gadai !== undefined && r.gadai.jumlah > 0 && (
+                    <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+                      Gadai {rupiah(r.gadai.pokok)} · sisa{" "}
+                      {rupiah(r.gadai.sisaPokok)}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1151,7 +1244,8 @@ export function TabelPendana({
 
         <li className={FOLIO.catatan}>
           Satu baris dihitung dari pinjaman yang tercatat pada pendana itu.
-          Kolom{" "}
+          Pokok gadai ditampilkan terpisah dan tidak dijumlahkan ke kolom
+          pinjaman tunai. Kolom{" "}
           <strong className="font-semibold text-slate-800">
             Perkiraan (belum lunas)
           </strong>{" "}

@@ -35,9 +35,7 @@ function bersih(html: string, label: string): void {
 }
 
 const SEMUA = [1, 2, 3, 4, 5, 6, 7];
-const html = renderToStaticMarkup(
-  <AturanPerhitungan persenPotonganAdmin={5} bukaAwal={SEMUA} />,
-);
+const html = renderToStaticMarkup(<AturanPerhitungan bukaAwal={SEMUA} />);
 
 // ===== Judul + ringkasan skema tetap =====
 ada(html, "Aturan perhitungan", "judul panel");
@@ -138,9 +136,7 @@ tidakAda(html, "pasti untung", "tidak ada klaim keuntungan pasti");
 
 // ===== Tertutup secara bawaan =====
 {
-  const tertutup = renderToStaticMarkup(
-    <AturanPerhitungan persenPotonganAdmin={5} />,
-  );
+  const tertutup = renderToStaticMarkup(<AturanPerhitungan />);
   ada(tertutup, "Aturan perhitungan", "judul terlihat saat tertutup");
   ada(
     tertutup,
@@ -152,18 +148,17 @@ tidakAda(html, "pasti untung", "tidak ada klaim keuntungan pasti");
   ok(!tertutup.includes("bukan jaminan"), "isi aturan tidak mendorong halaman ke bawah");
 }
 
-// ===== Porsi margin tidak lagi mengikuti pengaturan biaya lama =====
+// ===== Porsi margin tetap, tanpa pengaturan biaya lama =====
 {
-  const lain = renderToStaticMarkup(
-    <AturanPerhitungan persenPotonganAdmin={7} bukaAwal={SEMUA} />,
-  );
+  const lain = renderToStaticMarkup(<AturanPerhitungan bukaAwal={SEMUA} />);
   ada(lain, "21,67%</strong> dari", "porsi platform tetap 21,67%");
   ada(
     lain,
     "siklus 30 hari · porsi pendana 78,33% · porsi platform 21,67%",
-    "porsi tetap sama saat pengaturan biaya lama berubah",
+    "porsi tetap sama di setiap render",
   );
-  bersih(lain, "markup panel dengan biaya lain");
+  tidakAda(lain, "pengaturan biaya lama", "tidak ada rujukan ke tarif lama");
+  bersih(lain, "markup panel aturan");
 }
 
 console.log(`AturanPerhitungan.render.test: ${passed} lulus, ${failed} gagal`);

@@ -27,8 +27,8 @@ type Aturan = { nomor: number; judul: string; isi: ReactNode };
  * dihitung.
  *
  * Kenapa bentuknya begini: dulu penjelasan istilah ("dibukukan", "perkiraan",
- * "biaya platform (layanan)") ditempel satu per satu sebagai ikon `?` di
- * kartu-kartu angka, dan callout "untuk apa biaya platform dipakai" berdiri sebagai
+ * "porsi platform") ditempel satu per satu sebagai ikon `?` di
+ * kartu-kartu angka, dan callout "untuk apa porsi platform dipakai" berdiri sebagai
  * kotak sendiri di tengah halaman. Akibatnya istilah yang sama dijelaskan dari
  * beberapa tempat dengan kalimat yang berbeda-beda, dan penjelasan kebijakan
  * mendesak angka ke bawah lipatan. Sekarang aturannya dikumpulkan sekali di
@@ -50,11 +50,8 @@ type Aturan = { nomor: number; judul: string; isi: ReactNode };
  * markup (`AturanPerhitungan.render.test.tsx`).
  */
 export function AturanPerhitungan({
-  persenPotonganAdmin,
   bukaAwal = [],
 }: {
-  /** Biaya platform (layanan) dari total pengembalian, dari Pengaturan Sistem. */
-  persenPotonganAdmin: number;
   /**
    * Nomor aturan yang dibuka sejak awal. Dipakai uji markup: isi accordion yang
    * tertutup tidak dirender saat render statis, jadi tanpa pintu ini isi
@@ -109,8 +106,8 @@ export function AturanPerhitungan({
             Porsi platform adalah <strong>21,67%</strong> dari <strong>marjin pinjaman</strong>,
             bukan potongan atas pokok. Pada marjin 30%, porsi platform setara 6,5% dari pokok,
             sehingga pokok kembali utuh dan keuntungan bersih Anda adalah 78,33% dari marjin.
-            Angka ini mengikuti porsi 47 : 13 dan tidak lagi dibaca dari pengaturan biaya lama
-            ({persenPotonganAdmin}%).
+            Angka ini mengikuti porsi tetap 47 : 13 dan tidak dibaca dari pengaturan biaya
+            mana pun. Biaya layanan dan biaya admin adalah pos terpisah di luar pembagian ini.
           </p>
           <p className="mt-2">Porsi platform itulah yang dipakai untuk:</p>
           <ul className="mt-1.5 space-y-1.5">
@@ -134,7 +131,7 @@ export function AturanPerhitungan({
             </li>
           </ul>
           <p className="mt-2">
-            Biaya platform (layanan) <strong>bukan jaminan</strong>. Dana pendanaan tidak dijamin oleh LPS
+            Porsi platform <strong>bukan jaminan</strong>. Dana pendanaan tidak dijamin oleh LPS
             maupun pihak lain, kecuali ada perjanjian tertulis yang menyatakannya, rinciannya ada
             di bagian “Risiko pendanaan”.
           </p>

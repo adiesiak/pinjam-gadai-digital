@@ -62,7 +62,9 @@ const enamBulan = bagiMargin(720_000);
 sama("marjin 72%: pendana", enamBulan.pendana, 564_000);
 sama("marjin 72%: platform", enamBulan.platform, 156_000);
 
-// Pembulatan: pendana tidak pernah menerima lebih dari 47/60.
+// Pembulatan: platform dibulatkan ke bawah, sisa rupiah menjadi milik pendana.
+// Karena itu batas yang benar adalah platform <= 13/60 dan pendana >= 47/60,
+// bukan sebaliknya — pendana sengaja menerima sisa pecahan.
 for (const margin of [0, 1, 7, 99, 100, 333_333, 1_000_001]) {
   const bagi = bagiMargin(margin);
   cek(
@@ -70,8 +72,12 @@ for (const margin of [0, 1, 7, 99, 100, 333_333, 1_000_001]) {
     bagi.pendana + bagi.platform === margin,
   );
   cek(
-    `pendana tidak melebihi porsi (${margin})`,
-    bagi.pendana <= (margin * 47) / 60,
+    `platform tidak melebihi porsi (${margin})`,
+    bagi.platform <= (margin * 13) / 60,
+  );
+  cek(
+    `pendana tidak kurang dari porsi (${margin})`,
+    bagi.pendana >= (margin * 47) / 60,
   );
   cek(`bagian bulat (${margin})`, Number.isSafeInteger(bagi.pendana));
 }

@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { Database, FileDown, Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -38,10 +39,23 @@ function csvCell(value: unknown): string {
   return `"${aman.replace(/"/g, '""')}"`;
 }
 
+/** Satu halaman arsip ledger — bentuknya ditentukan query server. */
+type HalamanLedger = FunctionReturnType<typeof api.admin.ledgerRows>;
+
 export function BackupPanel() {
-  const snapshot = useQuery(api.system.snapshotData);
-  const ledgerRows = useQuery(api.admin.ledgerRows);
+  /**
+   * Snapshot dan ledger diambil SAAT tombol ditekan (`klien.query`), bukan lewat
+   * `useQuery`.
+   *
+   * Query reaktif membaca seluruh tabel database setiap kali ada satu tulisan
+   * masuk — untuk setiap admin yang membuka tab ini, sebelum satu berkas pun
+   * diminta. Untuk arsip sebesar itu pemborosan yang bisa menembus batas baca
+   * Convex. Ekspornya sendiri tetap utuh: ledger dibaca halaman demi halaman,
+   * dan snapshot diambil sekali saat diunduh.
+   */
+  const klien = useConvex();
   const auditData = useQuery(api.system.getConfigAdmin);
+  const backupTerakhir = useQuery(api.system.backupTerakhir);
   const catat = useMutation(api.system.catatBackup);
   const backfillKode = useMutation(api.admin.backfillKodePeminjam);
   const backfillBerkasKyc = useMutation(api.kyc.backfillMetadataBerkas);
@@ -63,9 +77,9 @@ export function BackupPanel() {
   };
 
   const unduhJson = async () => {
-    if (!snapshot) return;
     setBusy("json");
     try {
+      const snapshot = await klien.query(api.system.snapshotData, {});
       unduhFile(`pindai-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(snapshot, null, 2), "application/json");
       await catat({ jenis: "snapshot-json" });
       toast.success("Snapshot JSON terunduh & tercatat di audit.");
@@ -75,29 +89,42 @@ export function BackupPanel() {
   };
 
   const unduhCsv = async () => {
-    if (!ledgerRows) return;
     setBusy("csv");
     try {
       const head = "waktu,grup,akun,arah,jumlah,jenis,keterangan,aktor";
-      const baris = ledgerRows
-        .map((r) =>
-          [
-            new Date(r.waktu).toISOString(),
-            r.groupId,
-            r.akun,
-            r.arah,
-            r.jumlah,
-            r.jenis,
-            r.keterangan,
-            r.aktor,
-          ]
-            .map(csvCell)
-            .join(","),
-        )
-        .join("\n");
-      unduhFile(`pindai-ledger-${new Date().toISOString().slice(0, 10)}.csv`, `${head}\n${baris}`, "text/csv");
+      const baris: string[] = [];
+      let kursor: string | null = null;
+      // Seluruh arsip tetap terunduh: halaman berikutnya diminta sampai server
+      // menyatakan selesai. Tidak ada baris yang diam-diam terpotong.
+      do {
+        const halaman: HalamanLedger = await klien.query(api.admin.ledgerRows, {
+          kursor: kursor ?? undefined,
+        });
+        for (const r of halaman.rows) {
+          baris.push(
+            [
+              new Date(r.waktu).toISOString(),
+              r.groupId,
+              r.akun,
+              r.arah,
+              r.jumlah,
+              r.jenis,
+              r.keterangan,
+              r.aktor,
+            ]
+              .map(csvCell)
+              .join(","),
+          );
+        }
+        kursor = halaman.kursor;
+      } while (kursor !== null);
+      unduhFile(
+        `pindai-ledger-${new Date().toISOString().slice(0, 10)}.csv`,
+        `${head}\n${baris.join("\n")}`,
+        "text/csv",
+      );
       await catat({ jenis: "ledger-csv" });
-      toast.success("Ekspor CSV ledger terunduh.");
+      toast.success(`Ekspor CSV ledger terunduh (${baris.length} baris).`);
     } finally {
       setBusy(null);
     }
@@ -182,11 +209,11 @@ export function BackupPanel() {
           <Database className="size-4 text-primary" /> Backup data sekali klik
         </p>
         <div className="space-y-2">
-          <Button variant="outline" className="w-full justify-start" disabled={busy !== null || !snapshot} onClick={unduhJson}>
+          <Button variant="outline" className="w-full justify-start" disabled={busy !== null} onClick={unduhJson}>
             {busy === "json" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-primary" />}
             Unduh snapshot database (.JSON)
           </Button>
-          <Button variant="outline" className="w-full justify-start" disabled={busy !== null || !ledgerRows} onClick={unduhCsv}>
+          <Button variant="outline" className="w-full justify-start" disabled={busy !== null} onClick={unduhCsv}>
             {busy === "csv" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-emerald-600" />}
             Ekspor ledger & mutasi (.CSV)
           </Button>
@@ -214,9 +241,17 @@ export function BackupPanel() {
           <p className="mt-1 text-xs leading-5 text-muted-foreground">Logout otomatis saat admin pasif diatur di tab Pengaturan Sistem (default 30 menit).</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-sm font-medium">Backup siap</p>
+          <p className="text-sm font-medium">Backup terakhir</p>
           <p className="mt-1 text-xs leading-5 text-emerald-700">
-            Snapshot siap: {snapshot ? `${snapshot.jumlah.loans} pinjaman, ${snapshot.jumlah.pawns} gadai, ${snapshot.jumlah.kreditBarang} kredit barang, ${snapshot.jumlah.users} pengguna, ${snapshot.jumlah.dokumen} dokumen · ${snapshot.jumlah.waLogs} log WA, ${snapshot.jumlah.lokasiJejak} jejak lokasi` : "—"} · database dapat dipulihkan dari file JSON.
+            {backupTerakhir === undefined
+              ? "Memuat catatan backup…"
+              : backupTerakhir === null
+                ? "Belum ada backup yang tercatat. Unduh snapshot JSON untuk arsip pertama."
+                : `${formatWaktuWIB(backupTerakhir.waktu)} WIB · ${backupTerakhir.jenis ?? "backup"} · oleh ${backupTerakhir.oleh}`}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Backup otomatis dijadwalkan di platform, bukan dari halaman ini. Unduhan di tab
+            Ekspor adalah arsip tambahan; setiap unduhan tercatat di audit trail.
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">

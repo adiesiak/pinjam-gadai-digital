@@ -1,4 +1,3 @@
-import { useQuery } from "convex/react";
 import { BellRing, FileText, Gavel, Wallet } from "lucide-react";
 import { useState } from "react";
 
@@ -18,7 +17,6 @@ import { TombolInfoTagihanWA } from "@/components/admin/TombolInfoTagihanWA";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatRupiah, parseRupiah } from "@/lib/money";
 import { MIN_HARI_SOMASI } from "@/lib/suratSomasi";
@@ -27,9 +25,12 @@ import { AMBANG_SEGERA_HARI, tanggalRingkas } from "@/lib/jatuhTempo";
 
 import { formatDate } from "./admin-format";
 import { EmptyQueue, PanelMemuat, QueueRow, type LoanRow } from "./admin-shared";
+// Satu langganan `adminOverview` dipegang `AdminTabs`; modul ini membacanya dari
+// konteks supaya berpindah tab tidak mengulang query termahal di panel.
+import { useOverviewAdmin } from "./overview-admin";
 
 export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => void }) {
-  const overview = useQuery(api.admin.adminOverview);
+  const overview = useOverviewAdmin();
   if (overview === undefined) {
     return <PanelMemuat />;
   }
@@ -71,7 +72,7 @@ export function LoanAllocationQueueTab({ onOpen }: { onOpen: (l: LoanRow) => voi
 }
 
 export function DpdTab() {
-  const overview = useQuery(api.admin.adminOverview);
+  const overview = useOverviewAdmin();
   if (overview === undefined) {
     return <PanelMemuat />;
   }
@@ -197,7 +198,7 @@ function TombolSomasi({
 }
 
 export function LelangTab() {
-  const overview = useQuery(api.admin.adminOverview);
+  const overview = useOverviewAdmin();
   const [nilaiLelang, setNilaiLelang] = useState<Record<string, string>>({});
   if (overview === undefined) {
     return <PanelMemuat />;

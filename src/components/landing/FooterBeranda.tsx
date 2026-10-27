@@ -39,6 +39,7 @@ const AKSES: readonly Tautan[] = [
   { href: "/aplikasi", label: "Aplikasi Android" },
   { href: "/akses-bersama", label: "Ruang pendana" },
   { href: "/syarat-ketentuan", label: "Syarat & ketentuan" },
+  { href: "/privasi", label: "Kebijakan privasi" },
 ];
 
 function KolomTautan({

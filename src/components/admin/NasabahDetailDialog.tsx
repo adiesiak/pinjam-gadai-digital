@@ -28,6 +28,7 @@ import { LABEL_STATUS_KYC, NADA_STATUS_KYC, type StatusKyc } from "@/lib/kycStat
 import { formatRupiah } from "@/lib/money";
 import { formatDate } from "./admin-format";
 import { TombolMasukSebagai } from "./MasukSebagaiDialog";
+import { KycAuditRingkas } from "./KycPanel";
 import { PanelRisikoNasabah } from "./PanelRisikoNasabah";
 import { PengaturanNotifikasiNasabah } from "./PengaturanNotifikasiNasabah";
 
@@ -446,6 +447,22 @@ function KycNasabah({ userId }: { userId: Id<"users"> }) {
           ))}
         </div>
       )}
+      {/* Riwayat audit MELEKAT di sini, bukan hanya di tab Audit Trail: tab itu
+          menampilkan aksi admin terbaru secara global, jadi aksi atas satu
+          nasabah tenggelam di antara puluhan aksi lain. Datanya sudah ikut
+          dikirim `detailKycAdmin` (indeks `auditLog.by_target`), jadi bagian ini
+          tidak menambah query baru. Diciutkan agar 20 baris tidak mendorong
+          tombol keputusan jauh ke bawah. */}
+      <details className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2">
+        <summary className="cursor-pointer text-xs font-semibold text-slate-700">
+          Riwayat audit nasabah ({kyc.audit.length})
+        </summary>
+        <p className="mb-2 mt-1.5 text-[11px] leading-4 text-muted-foreground">
+          Maksimal 20 aksi terakhir yang menyentuh data nasabah ini, termasuk dari
+          modul lain (KYC, data diri, risiko).
+        </p>
+        <KycAuditRingkas audit={kyc.audit} />
+      </details>
     </div>
   );
 }

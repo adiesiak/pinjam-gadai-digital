@@ -518,7 +518,14 @@ const schema = defineSchema(
       .index("by_nomorWhatsApp", ["nomorWhatsApp"])
       // Laporan efektivitas promo membaca pinjaman yang memakai satu promo;
       // tanpa indeks ini laporan harus memindai seluruh tabel pinjaman.
-      .index("by_promoBunga", ["promoBungaId"]),
+      .index("by_promoBunga", ["promoBungaId"])
+      // Antrean transfer keuntungan pendana membaca pinjaman yang PALING BARU
+      // dilunasi — urutan itu yang menentukan kewajiban mana yang harus
+      // diselesaikan lebih dulu. Tanpa indeks, panel harus memindai seluruh
+      // tabel pinjaman hanya untuk mengambil beberapa baris teratas, dan
+      // panelnya gagal dimuat begitu data produksi bertambah. Baris tanpa
+      // `lunasPada` (belum lunas) tidak masuk indeks ini.
+      .index("by_lunasPada", ["lunasPada"]),
 
     /**
      * DRAF pengajuan pinjaman tunai — pekerjaan yang belum dikirim.
@@ -774,7 +781,10 @@ const schema = defineSchema(
       /** Admin yang memicu pengiriman. */
       olehUserId: v.optional(v.id("users")),
       waktu: v.number(),
-    }).index("by_loan", ["loanId"]),
+    })
+      .index("by_loan", ["loanId"])
+      // Dipakai job retensi harian: hapus baris lebih tua dari ambang admin.
+      .index("by_waktu", ["waktu"]),
 
     /**
      * Pengiriman dokumen rincian pinjaman (email/WhatsApp) — append-only.
@@ -1313,6 +1323,16 @@ const schema = defineSchema(
        * Titik milik pinjaman belum selesai tetap ditahan minimal 400 hari.
        */
       retensiLokasiHari: v.optional(v.number()),
+      /**
+       * Retensi isi pesan WhatsApp (hari) untuk job cron `retensi-log-wa`.
+       * Kosong berarti bawaan 180 hari.
+       */
+      retensiLogWaHari: v.optional(v.number()),
+      /**
+       * Retensi jejak audit (hari) untuk job cron `retensi-audit`.
+       * Kosong berarti bawaan 730 hari.
+       */
+      retensiAuditHari: v.optional(v.number()),
       /** Plafon awal pinjaman tunai untuk semua Peminjam (rupiah bulat). */
       plafonPinjaman: v.optional(v.number()),
       /** Informasi pembayaran manual yang ditampilkan ke pengguna masuk. */
@@ -1545,9 +1565,20 @@ const schema = defineSchema(
       klaimDariUserId: v.optional(v.id("users")),
       /** Waktu kepemilikan baris ini berpindah karena klaim peminjam lama. */
       klaimPada: v.optional(v.number()),
+      // ===== Pendanaan gadai oleh penyedia dana (model 1 gadai = 1 pendana) =====
+      /**
+       * Akun penyedia dana yang menanggung pokok gadai ini. Kosong = modal
+       * platform (baris lama dan gadai yang memang tidak didanai pendana).
+       * Penetapan ini hanya mencatat kepemilikan; perpindahan uang tetap
+       * dilakukan di luar aplikasi seperti seluruh alur dana lain.
+       */
+      pendanaId: v.optional(v.id("users")),
+      /** Salinan nama saat ditetapkan; nama akun tetap menjadi sumber utama. */
+      pendanaNama: v.optional(v.string()),
     })
       .index("by_user", ["userId"])
-      .index("by_status", ["status"]),
+      .index("by_status", ["status"])
+      .index("by_pendana", ["pendanaId"]),
 
     /**
      * Catatan historis cicilan gadai — APPEND-ONLY. Baris lama dipertahankan
@@ -1567,9 +1598,59 @@ const schema = defineSchema(
       /** Peminjam yang membayar (denormalisasi untuk query cepat). */
       userId: v.id("users"),
       waktu: v.number(),
+      /**
+       * Pembagian sewa modal saat pembayaran dicatat: porsi pendana 47/60 dan
+       * platform 13/60. Disimpan sebagai snapshot supaya laporan lama tidak
+       * berubah bila kebijakan atau pemilik gadai berubah kemudian.
+       */
+      porsiPendana: v.optional(v.number()),
+      porsiPlatform: v.optional(v.number()),
+      /** Referensi mutasi/terima uang di luar aplikasi. */
+      referensi: v.optional(v.string()),
+      /** Admin yang mencatat pembayaran. */
+      dicatatOleh: v.optional(v.id("users")),
     })
       .index("by_pawn", ["pawnId"])
-      .index("by_user", ["userId"]),
+      .index("by_user", ["userId"])
+      // Jendela pembayaran terbaru untuk rekap transfer hak pendana: panel
+      // admin tidak perlu memindai seluruh riwayat untuk melihat kewajiban
+      // yang masih berjalan.
+      .index("by_waktu", ["waktu"]),
+
+    /**
+     * Catatan transfer hak pendana atas SATU pembayaran gadai.
+     *
+     * Baris bersifat append-only: pembatalan menandai baris lama `dibatalkan`
+     * dan pencatatan ulang membuat baris baru. `jumlah` adalah snapshot porsi
+     * pendana pada pembayaran itu, bukan angka yang diketik admin. Satu
+     * pembayaran hanya boleh punya satu transfer aktif.
+     */
+    gadaiTransfers: defineTable({
+      pawnId: v.id("pawns"),
+      paymentId: v.id("pawnPayments"),
+      pendanaId: v.optional(v.id("users")),
+      pendanaNama: v.string(),
+      nomorReferensiGadai: v.string(),
+      jumlah: v.number(),
+      metode: v.union(
+        v.literal("transfer_bank"),
+        v.literal("e_wallet"),
+        v.literal("tunai"),
+      ),
+      referensi: v.optional(v.string()),
+      catatan: v.optional(v.string()),
+      status: v.union(v.literal("dicatat"), v.literal("dibatalkan")),
+      dicatatOleh: v.id("users"),
+      dicatatOlehLabel: v.string(),
+      dicatatPada: v.number(),
+      dibatalkanPada: v.optional(v.number()),
+      dibatalkanOlehLabel: v.optional(v.string()),
+      alasanBatal: v.optional(v.string()),
+    })
+      .index("by_pawn", ["pawnId"])
+      .index("by_payment", ["paymentId"])
+      .index("by_pendana", ["pendanaId"])
+      .index("by_waktu", ["dicatatPada"]),
 
     /**
      * Pengajuan Kredit Barang (Skema C) — Peminjam membeli elektronik/barang
@@ -1714,10 +1795,14 @@ const schema = defineSchema(
       /** Wajib diisi admin saat menolak. */
       catatanAdmin: v.optional(v.string()),
       /** Bukti transaksi manual; submit tidak mengubah saldo ledger. */
-      metodePembayaran: v.optional(v.union(v.literal("qris"), v.literal("transfer"))),
+      metodePembayaran: v.optional(
+        v.union(v.literal("qris"), v.literal("transfer")),
+      ),
       tanggalTransfer: v.optional(v.number()),
       buktiPembayaranId: v.optional(v.id("_storage")),
-      statusPencocokan: v.optional(v.union(v.literal("dicocokkan"), v.literal("ditolak"))),
+      statusPencocokan: v.optional(
+        v.union(v.literal("dicocokkan"), v.literal("ditolak")),
+      ),
       referensiMutasi: v.optional(v.string()),
       jumlahMutasi: v.optional(v.number()),
       dicocokkanPada: v.optional(v.number()),
@@ -1774,7 +1859,11 @@ const schema = defineSchema(
      */
     manualPaymentReceipts: defineTable({
       userId: v.id("users"),
-      jenis: v.union(v.literal("pinjaman"), v.literal("kredit_barang"), v.literal("gadai")),
+      jenis: v.union(
+        v.literal("pinjaman"),
+        v.literal("kredit_barang"),
+        v.literal("gadai"),
+      ),
       loanId: v.optional(v.id("loans")),
       kreditId: v.optional(v.id("kreditBarang")),
       pawnId: v.optional(v.id("pawns")),
@@ -1822,7 +1911,11 @@ const schema = defineSchema(
       tanggalTransfer: v.number(),
       referensiTransfer: v.string(),
       buktiPembayaranId: v.id("_storage"),
-      status: v.union(v.literal("menunggu_pencocokan"), v.literal("dicocokkan"), v.literal("ditolak")),
+      status: v.union(
+        v.literal("menunggu_pencocokan"),
+        v.literal("dicocokkan"),
+        v.literal("ditolak"),
+      ),
       referensiMutasi: v.optional(v.string()),
       jumlahMutasi: v.optional(v.number()),
       dicocokkanPada: v.optional(v.number()),
@@ -1860,7 +1953,7 @@ const schema = defineSchema(
       pokok: v.number(),
       /** Rupiah bulat — imbal hasil bruto 30% dari pokok. */
       imbal: v.number(),
-      /** Rupiah bulat — biaya platform 5% dari pokok. */
+      /** Rupiah bulat — porsi platform 13/60 dari marjin siklus. */
       potongan: v.number(),
       /** Rupiah bulat — pokok + imbal - potongan. */
       totalCair: v.number(),
@@ -1949,9 +2042,7 @@ const schema = defineSchema(
        */
       siklusId: v.optional(v.id("siklusPendana")),
       /** ``utama`` membawa imbal 30%; ``putar`` hanya mengembalikan pokok. */
-      peranSiklus: v.optional(
-        v.union(v.literal("utama"), v.literal("putar")),
-      ),
+      peranSiklus: v.optional(v.union(v.literal("utama"), v.literal("putar"))),
       /**
        * Siklus fixed hak pendana — disimpan sebagai snapshot bersama alokasi.
        * Tidak pernah diturunkan dari tenor/bunga pinjaman nasabah, sehingga
@@ -2286,7 +2377,11 @@ const schema = defineSchema(
       waktu: v.number(),
     })
       .index("by_group", ["groupId"])
-      .index("by_akun", ["akun"]),
+      .index("by_akun", ["akun"])
+      // Arsip ledger (tab Ledger & ekspor CSV) dibaca halaman demi halaman dari
+      // jurnal terlama ke terbaru. Tanpa indeks waktu, halaman berikutnya tidak
+      // punya urutan tetap dan satu permintaan harus membaca seluruh tabel.
+      .index("by_waktu", ["waktu"]),
 
     /**
      * Pengingat jatuh tempo pelunasan — APPEND-ONLY, idempoten per
@@ -2390,7 +2485,15 @@ const schema = defineSchema(
       floatAktif: v.optional(v.boolean()),
       /** Delay kemunculan widget mengambang (detik). */
       floatDelayDetik: v.optional(v.number()),
-      // --- Teks halaman utama ---
+      // --- Kolom pensiun (tidak dibaca & tidak ditulis lagi) ---
+      // Field di bawah ini dulu diisi panel "Banner & Pengumuman" tetapi hanya
+      // dikonsumsi `pages/Landing.tsx`, halaman yang sudah tidak dirutekan.
+      // Panelnya kini tidak menawarkan field ini dan `getPublic` tidak lagi
+      // mengirimnya. Deklarasinya dipertahankan supaya baris produksi yang
+      // masih menyimpannya tetap lolos validasi schema saat deploy: Convex
+      // memeriksa seluruh dokumen lama setiap kali schema berubah, dan push
+      // akan gagal bila ada kolom tersimpan yang tidak lagi dideklarasikan.
+      // Hapus blok ini pada deploy berikutnya setelah barisnya dibersihkan.
       logoTeks: v.optional(v.string()),
       nav1Label: v.optional(v.string()),
       nav2Label: v.optional(v.string()),
@@ -2398,7 +2501,7 @@ const schema = defineSchema(
       nav4Label: v.optional(v.string()),
       heroBadge: v.optional(v.string()),
       heroJudul: v.optional(v.string()),
-      /** Bagian aksen berwarna pada judul hero. */
+      /** Bagian aksen berwarna pada judul hero (pensiun). */
       heroJudul2: v.optional(v.string()),
       heroSub: v.optional(v.string()),
       heroCta1: v.optional(v.string()),
@@ -3526,7 +3629,11 @@ const schema = defineSchema(
       sumber: v.string(),
       /** Kunci unik sumber tiket (mis. nomor referensi pinjaman/alokasi). */
       referensi: v.string(),
-      status: v.union(v.literal("aktif"), v.literal("menang"), v.literal("batal")),
+      status: v.union(
+        v.literal("aktif"),
+        v.literal("menang"),
+        v.literal("batal"),
+      ),
       dibuatPada: v.number(),
       /** Terisi saat tiket ini memenangkan undian. */
       menangPada: v.optional(v.number()),
@@ -3548,8 +3655,20 @@ const schema = defineSchema(
       diundiPada: v.number(),
       diundiOleh: v.string(),
       diundiOlehId: v.id("users"),
+      /**
+       * Waktu hadiah benar-benar diserahkan ke pemenang. Kosong = belum.
+       *
+       * Sebelum kolom ini ada, undian berhenti di "pemenang tercatat" tanpa
+       * bukti apa pun bahwa hadiahnya sampai. Untuk undian berhadiah, jarak
+       * antara "menang" dan "diterima" itulah yang dipertanyakan peserta.
+       */
+      hadiahDiserahkanPada: v.optional(v.number()),
+      /** Catatan penyerahan (kurir, nomor resi, lokasi serah terima). */
+      catatanPenyerahan: v.optional(v.string()),
     })
-      .index("by_periode", ["periode"]),
+      .index("by_periode", ["periode"])
+      // Papan pemenang publik membaca undian terbaru lintas kuartal.
+      .index("by_diundiPada", ["diundiPada"]),
 
     /**
      * Kampanye promo pinjaman yang tampil di empat permukaan: beranda publik,
@@ -3599,6 +3718,20 @@ const schema = defineSchema(
       mulai: v.number(),
       selesai: v.number(),
       aktif: v.boolean(),
+      /**
+       * Boleh digabung voucher potongan bunga. Kosong = boleh (perilaku kampanye
+       * lama). `false` dipakai saat promo sudah dalam, sehingga subsidi kedua
+       * tidak menumpuk di atasnya.
+       */
+      bolehVoucher: v.optional(v.boolean()),
+      /**
+       * Pagu subsidi kampanye dalam rupiah; kosong/0 = tanpa pagu. Diperiksa
+       * sebelum promo dipakai, dan kampanye dimatikan otomatis saat pagunya
+       * habis — bukan dibiarkan terus menyerap selisih tanpa terlihat.
+       */
+      paguSubsidi: v.optional(v.number()),
+      /** Penanda peringatan pagu yang sudah pernah ditulis ke audit ("80"/"100"). */
+      paguPeringatan: v.optional(v.string()),
       dibuatPada: v.number(),
       diperbaruiPada: v.number(),
       diperbaruiOleh: v.string(),
@@ -3637,8 +3770,16 @@ const schema = defineSchema(
       batasPemakaian: v.number(),
       terpakai: v.number(),
       pemilikId: v.id("users"),
-      sumber: v.union(v.literal("admin"), v.literal("apresiasi"), v.literal("referral")),
-      status: v.union(v.literal("aktif"), v.literal("terpakai"), v.literal("dicabut")),
+      sumber: v.union(
+        v.literal("admin"),
+        v.literal("apresiasi"),
+        v.literal("referral"),
+      ),
+      status: v.union(
+        v.literal("aktif"),
+        v.literal("terpakai"),
+        v.literal("dicabut"),
+      ),
       berlakuSampai: v.number(),
       dibuatPada: v.number(),
       dibuatOleh: v.optional(v.id("users")),
@@ -3653,6 +3794,35 @@ const schema = defineSchema(
       // indeks ini setiap muat panel memindai seluruh tabel.
       .index("by_dibuatPada", ["dibuatPada"])
       .index("by_status", ["status"]),
+
+    /**
+     * Jejak pengingat WhatsApp voucher H-3.
+     *
+     * Kenapa perlu tabel sendiri: cron berjalan tiap hari, sedangkan pengingat
+     * hanya boleh berangkat SEKALI per voucher. `kunci` adalah identitas logisnya
+     * (`voucher:<id>:h3`), bukan isi pesan — perubahan teks atau perpanjangan
+     * masa berlaku tidak menggandakan kiriman kecuali kuncinya ikut berubah.
+     *
+     * Yang dicatat hanya hasil percobaan yang benar-benar sampai ke gateway.
+     * Kegagalan infrastruktur (gateway mati/token kosong) sengaja TIDAK dicatat
+     * supaya voucher yang belum diingatkan tetap dicoba pada jadwal berikutnya;
+     * tabel ini bukan daftar "sudah pernah dicoba", melainkan "sudah dikabari".
+     */
+    pengingatVoucher: defineTable({
+      voucherId: v.id("voucher"),
+      userId: v.id("users"),
+      /** Identitas logis pengingat: `voucher:<id>:h3`. */
+      kunci: v.string(),
+      /** Nomor tujuan yang BENAR-BENAR dipakai saat percobaan itu. */
+      nomor: v.string(),
+      /** "terkirim" | "gagal". */
+      status: v.string(),
+      /** Keterangan gateway; tidak pernah berisi kredensial. */
+      respon: v.optional(v.string()),
+      waktu: v.number(),
+    })
+      .index("by_kunci", ["kunci"])
+      .index("by_voucher", ["voucherId"]),
 
     /**
      * Pengaturan peringatan kas admin.

@@ -181,7 +181,7 @@ for (const judul of [
   "Dibukukan (lunas)",
   "Perkiraan (belum lunas)",
   "Transfer keuntungan",
-  "Biaya platform (layanan)",
+  "Porsi platform (13/60 marjin)",
 ]) {
   ada(kepala, judul, `kepala kolom "${judul}"`);
 }
@@ -438,12 +438,12 @@ bersih(ponsel, "markup kartu pendana");
   }
   ada(
     tabelRincian,
-    "Biaya platform (layanan) dibukukan",
+    "Porsi platform dibukukan",
     "rincian memecah biaya platform yang dibukukan",
   );
   ada(
     tabelRincian,
-    "Biaya platform (layanan) perkiraan",
+    "Porsi platform perkiraan",
     "rincian memecah biaya platform yang perkiraan",
   );
   ada(tabelRincian, "Saring daftar", "rincian bisa menyaring daftar pinjaman");
@@ -560,6 +560,59 @@ bersih(ponsel, "markup kartu pendana");
     "rincian menyatakan kredit tidak masuk kolom 30 hari",
   );
   bersih(htmlKredit, "markup tabel dengan blok kredit");
+}
+
+// ===== Blok gadai: posisi terpisah dari kolom pinjaman tunai =====
+{
+  const GADAI: NonNullable<RekapPendana["gadai"]> = {
+    jumlah: 1,
+    pokok: 3_500_000,
+    sisaPokok: 2_500_000,
+    sewaBerikut: 250_000,
+    porsiPendanaBerikut: 195_834,
+    porsiPlatformBerikut: 54_166,
+    porsiPendanaTercatat: 274_167,
+    porsiPlatformTercatat: 75_833,
+    porsiPendanaTransfer: 120_000,
+    porsiPendanaBelumTransfer: 154_167,
+    jumlahTransferBelumDicatat: 1,
+  };
+  const htmlGadai = renderToStaticMarkup(
+    <TabelPendana
+      rekap={[{ ...ROBERT, gadai: GADAI }]}
+      bukaAwal={["ROBERT"]}
+      rincianPerkiraan={() => []}
+    />,
+  );
+  const tabelGadai = htmlGadai.slice(
+    htmlGadai.indexOf("<table"),
+    htmlGadai.indexOf("</table>"),
+  );
+  ada(tabelGadai, "1 gadai", "baris pendana menyebut posisi gadainya");
+  ada(tabelGadai, "Gadai Rp 3.500.000", "pokok gadai tampil di sel dana");
+  ada(tabelGadai, "Gadai · 1 posisi", "lipatan membuka blok gadai");
+  ada(
+    tabelGadai,
+    "Hak pendana (78,33%)",
+    "hak pendana atas sewa gadai memakai porsi 47/60",
+  );
+  ada(tabelGadai, "Rp 195.834", "hak pendana atas sewa berikutnya dihitung");
+  ada(
+    tabelGadai,
+    "Sudah ditandai transfer",
+    "transfer gadai yang sudah dicatat dibedakan",
+  );
+  ada(
+    tabelGadai,
+    "Belum ditandai transfer (1)",
+    "sisa hak gadai yang belum ditransfer dihitung",
+  );
+  ada(
+    tabelGadai,
+    "bukan bukti mutasi bank",
+    "tanda transfer tidak diklaim sebagai bukti mutasi",
+  );
+  bersih(htmlGadai, "markup tabel dengan blok gadai");
 }
 
 // ===== Penyaringan + penyamaran nama =====

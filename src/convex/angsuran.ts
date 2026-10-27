@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminRole, requireAdminSession } from "./adminAuthz";
 import { pastikanAngsuran } from "./angsuranJadwal";
-import { potonganDariKembali } from "../lib/bagiHasil";
+import { bagiMargin } from "../lib/kebijakanPinjaman";
 import {
   dendaAngsuran,
   hariTerlambatAngsuran,
@@ -303,8 +303,8 @@ async function distribusikanKePendana(
       akunPayout = jalurSiklus.akun;
       kelebihan = jalurSiklus.kelebihan;
     } else {
-      // Baris lama tanpa siklus: potongan dari total kembali, sisa ke pendana.
-      potonganAdmin = potonganDariKembali(bruto, cfg.persenAdmin);
+      // Baris lama tanpa siklus: porsi platform 13/60 dari marjin, sisa ke pendana.
+      potonganAdmin = bagiMargin(imbal).platform;
       imbalBersih = bruto - potonganAdmin;
       akunPayout = akunDompetDana(f.danaId);
     }
@@ -313,7 +313,7 @@ async function distribusikanKePendana(
       skema: "pinjaman",
       keterangan:
         potonganAdmin > 0
-          ? `Angsuran terakhir: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi}) — bruto ${bruto}, potongan admin ${cfg.persenAdmin}% sebesar ${potonganAdmin}, dibayarkan ${imbalBersih}`
+          ? `Angsuran terakhir: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi}) — bruto ${bruto}, porsi platform 13/60 marjin sebesar ${potonganAdmin}, dibayarkan ${imbalBersih}`
           : `Angsuran terakhir: pembayaran ke ${f.nomorReferensi} (${loan.nomorReferensi})`,
       aktor: "platform",
       lines: [

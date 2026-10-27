@@ -56,6 +56,7 @@ import {
   hakPendana,
   statusPendanaan as labelStatusPendanaan,
 } from "../lib/imbalPendana";
+import { PERSEN_PORSI_PLATFORM } from "../lib/kebijakanPinjaman";
 import {
   hitungKepercayaan,
   riwayatDariPinjaman,
@@ -80,8 +81,10 @@ import { namaHurufBesar } from "../lib/nama";
 import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
 import { pelunasanPinjaman } from "../lib/loan";
 import { quoteKreditBarang } from "../lib/kredit";
+import { GADAI_PRICING, bagiSewaModalGadai, sewaModalBerikutnya } from "../lib/gadai";
 import { ROLES } from "./schema";
 import { bulatkanTitikWilayah } from "../lib/geo";
+import { batasPelunasan } from "../lib/jatuhTempo";
 import { normalisasiNomorWa } from "../lib/otpWa";
 import { audit, getConfig } from "./system";
 import { tautanBerkas } from "./berkas";
@@ -89,6 +92,35 @@ import { cairkanSetelahPendana } from "./loans";
 
 /** Batas baris per kategori; daftar selalu diurutkan dari yang terbaru. */
 export const BATAS_BARIS = 200;
+
+/**
+ * Batas antrean transfer keuntungan: pinjaman yang sudah lunas, dan riwayat
+ * catatan transfernya. Jauh di atas `BATAS_BARIS` karena ini antrean kerja yang
+ * harus terlihat utuh — tetapi tetap berbatas, supaya satu kali buka panel tidak
+ * memindai seluruh riwayat.
+ */
+const BATAS_ANTREAN_TRANSFER = 500;
+
+/** Riwayat catatan transfer yang dibaca sekaligus (5x daftar yang ditampilkan). */
+const BATAS_CATATAN_TRANSFER = BATAS_BARIS * 5;
+
+/**
+ * Batas pembacaan untuk ANGKA portofolio (rekap pendana, ringkasan, kesehatan).
+ *
+ * Daftar di halaman tetap dibatasi `BATAS_BARIS` supaya payload ringan, tetapi
+ * angka uang tidak boleh ikut terpotong di batas tampilan: pendana yang punya
+ * pengajuan lebih dari 200 tidak boleh melihat portofolionya lebih kecil dari
+ * kenyataan. Pembacaan penuh ini diberi batas keras sendiri supaya satu tabel
+ * raksasa tidak pernah membuat query kehabisan batas baca Convex; bila batas
+ * itu pun tersentuh, `ringkasan.pinjamanTerpotong` menjadi true dan halaman
+ * mengatakannya apa adanya.
+ *
+ * Angkanya 1.000, bukan lebih: satu query Convex punya batas baca per eksekusi,
+ * dan portofolio yang "lengkap" tetapi gagal dimuat lebih buruk daripada angka
+ * yang jujur menyebut cakupannya. Di atas 1.000 baris, agregat sejati perlu
+ * dokumen ringkasan yang diperbarui mutasi, bukan pembacaan penuh di query.
+ */
+export const BATAS_AGREGAT = 1_000;
 
 /** Batas jumlah akun penyedia dana yang dikembalikan ke panel admin. */
 const BATAS_AKUN = 200;
@@ -217,7 +249,7 @@ export type BarisPinjaman = {
   pendana: string | null;
   /** Imbal Hasil pendana TETAP = pokok × 30% (bukan bunga nasabah). */
   bunga: number;
-  /** Pokok + Imbal Hasil tetap, sebelum biaya platform. */
+  /** Pokok + Imbal Hasil tetap, sebelum porsi platform. */
   totalLunas: number;
   /** Potongan admin atas pinjaman ini (persen admin × pokok). */
   potonganAdmin: number;
@@ -290,11 +322,48 @@ export type RekapPendana = {
   /** Nilai keuntungan pada pinjaman lunas yang belum dicatat transfernya. */
   keuntunganBelumDicatat: number;
   /**
+   * Blok gadai milik pendana ini. Terpisah dari pinjaman tunai karena
+   * kewajibannya sewa modal per 30 hari, bukan bunga pinjaman.
+   */
+  gadai?: GadaiPendana;
+  /**
    * Blok kredit barang milik pendana ini — terpisah dari kolom pinjaman tunai
    * karena tenor dan pencairannya berbeda (3–6 bulan, bukan siklus 30 hari).
    * Kosong bila pendana belum punya alokasi kredit.
    */
   kredit?: KreditPendana;
+};
+
+/**
+ * Ringkasan posisi GADAI satu pendana.
+ *
+ * Pokok gadai ditanggung satu pendana. Sewa modal 5–10% per 30 hari dibagi
+ * 47 : 13 dari 60: 78,33% menjadi hak pendana, 21,67% milik platform.
+ * `porsiPendanaTercatat` hanya menjumlahkan pembayaran yang sudah disimpan
+ * dengan snapshot pembagian, bukan proyeksi.
+ */
+export type GadaiPendana = {
+  jumlah: number;
+  /** Pokok gadai yang disetujui dan ditanggung pendana ini. */
+  pokok: number;
+  /** Sisa pokok berjalan seluruh gadai pendana ini. */
+  sisaPokok: number;
+  /** Sewa modal periode berikutnya dari sisa pokok (5–10% per 30 hari). */
+  sewaBerikut: number;
+  /** Hak pendana atas sewa periode berikutnya (47/60). */
+  porsiPendanaBerikut: number;
+  /** Porsi platform atas sewa periode berikutnya (13/60). */
+  porsiPlatformBerikut: number;
+  /** Porsi pendana dari pembayaran yang sudah dicatat. */
+  porsiPendanaTercatat: number;
+  /** Porsi platform dari pembayaran yang sudah dicatat. */
+  porsiPlatformTercatat: number;
+  /** Porsi pendana yang sudah ditandai ditransfer admin. */
+  porsiPendanaTransfer: number;
+  /** Porsi pendana yang belum ditandai ditransfer. */
+  porsiPendanaBelumTransfer: number;
+  /** Jumlah pembayaran yang porsi pendananya belum ditandai ditransfer. */
+  jumlahTransferBelumDicatat: number;
 };
 
 /** Satu alokasi kredit barang yang membentuk blok kredit pada satu pendana. */
@@ -351,6 +420,22 @@ export type BarisGadai = {
   persenSewaModal: number | null;
   /** Sisa pokok berjalan gadai (Skema B). */
   sisaPokok: number | null;
+  /** Penyedia dana penanggung pokok; null bila modal platform. */
+  pendanaNama: string | null;
+  /** Sewa modal periode berikutnya dari sisa pokok. */
+  sewaBerikut: number;
+  /** Hak pendana atas sewa periode berikutnya (47/60). */
+  porsiPendanaBerikut: number;
+  /** Porsi platform atas sewa periode berikutnya (13/60). */
+  porsiPlatformBerikut: number;
+  /** Porsi pendana dari pembayaran yang sudah dicatat. */
+  porsiPendanaTercatat: number;
+  /** Porsi platform dari pembayaran yang sudah dicatat. */
+  porsiPlatformTercatat: number;
+  /** Porsi pendana yang sudah ditandai ditransfer admin. */
+  porsiPendanaTransfer: number;
+  /** Porsi pendana yang belum ditandai ditransfer. */
+  porsiPendanaBelumTransfer: number;
   /** Titik lokasi terakhir yang diketahui — null bila belum pernah terkirim. */
   lokasi: LokasiTitik | null;
 };
@@ -395,7 +480,6 @@ function bagiPendanaAman(
     bungaTerbayar?: number | null;
     nextInterestAmount?: number | null;
   },
-  _persenAdmin: number,
 ) {
   try {
     const hak = hakPendana(pinjaman.pokokPinjaman, pinjaman);
@@ -526,15 +610,34 @@ function cakupanPendana(user: Doc<"users">, userId: Id<"users">): CakupanPendana
 async function bacaPinjaman(
   ctx: QueryCtx,
   cakupan: CakupanPendana,
-): Promise<{ rows: Doc<"loans">[]; riwayat: Doc<"loans">[]; terpotong: boolean }> {
-  const jendela = await ctx.db.query("loans").order("desc").take(BATAS_BARIS + 1);
+): Promise<{
+  rows: Doc<"loans">[];
+  /** Seluruh pinjaman dalam cakupan, dasar angka portofolio (bukan daftar). */
+  semua: Doc<"loans">[];
+  riwayat: Doc<"loans">[];
+  terpotong: boolean;
+  angkaTerpotong: boolean;
+}> {
   if (cakupan === null) {
-    return { rows: jendela, riwayat: jendela, terpotong: jendela.length > BATAS_BARIS };
+    const penuh = await ctx.db
+      .query("loans")
+      .order("desc")
+      .take(BATAS_AGREGAT + 1);
+    const angkaTerpotong = penuh.length > BATAS_AGREGAT;
+    const isi = angkaTerpotong ? penuh.slice(0, BATAS_AGREGAT) : penuh;
+    return {
+      rows: isi.slice(0, BATAS_BARIS),
+      semua: isi,
+      riwayat: isi.slice(0, BATAS_BARIS),
+      terpotong: isi.length > BATAS_BARIS,
+      angkaTerpotong,
+    };
   }
+  const jendela = await ctx.db.query("loans").order("desc").take(BATAS_BARIS + 1);
   const milik = await ctx.db
     .query("loans")
     .withIndex("by_pendana", (q) => q.eq("pendanaId", cakupan.userId))
-    .take(BATAS_BARIS + 1);
+    .take(BATAS_AGREGAT + 1);
   const warisanNama = jendela.filter(
     (loan) =>
       loan.pendanaId === undefined && pinjamanMilikPendana(loan, cakupan.userId, cakupan.kunci),
@@ -564,11 +667,16 @@ async function bacaPinjaman(
   const peta = new Map(
     [...warisanNama, ...warisanAlokasi, ...milik].map((loan) => [loan._id, loan]),
   );
-  const semua = [...peta.values()].sort((a, b) => b._creationTime - a._creationTime);
+  const terkumpul = [...peta.values()].sort((a, b) => b._creationTime - a._creationTime);
+  const angkaTerpotong =
+    milik.length > BATAS_AGREGAT || terkumpul.length > BATAS_AGREGAT;
+  const semua = terkumpul.slice(0, BATAS_AGREGAT);
   return {
     rows: semua.slice(0, BATAS_BARIS),
+    semua,
     riwayat: jendela,
-    terpotong: semua.length > BATAS_BARIS,
+    terpotong: terkumpul.length > BATAS_BARIS,
+    angkaTerpotong,
   };
 }
 
@@ -697,6 +805,24 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         .collect();
       return rangkaiPendana(alokasi.map((a) => idPendana(a)));
     }
+    /**
+     * Pemilik satu pinjaman untuk agregat, dengan aturan yang sama dengan
+     * kolom "Pendana" pada baris: id kanonik menang, lalu nama tampil, lalu
+     * alokasi model lama. Hasil di-cache per pinjaman supaya satu baris tidak
+     * dibaca dua kali saat rekap dan ringkasan disusun.
+     */
+    const pendanaAngkaCache = new Map<Id<"loans">, string | null>();
+    async function pendanaAngkaUntuk(loan: Doc<"loans">): Promise<string | null> {
+      const cached = pendanaAngkaCache.get(loan._id);
+      if (cached !== undefined) return cached;
+      const nama =
+        loan.pendanaId !== undefined
+          ? await namaPenyedia(loan.pendanaId)
+          : (loan.pendanaNama ??
+            (loan.didanaiPada === undefined ? null : await pendanaPinjaman(loan._id)));
+      pendanaAngkaCache.set(loan._id, nama);
+      return nama;
+    }
 
     // Titik lokasi terakhir per peminjam — satu pembacaan per orang, bukan
     // per baris pengajuan. Kegagalan pembacaan tidak pernah menghentikan
@@ -716,12 +842,49 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
     const pinjamanBaca = await bacaPinjaman(ctx, cakupan);
     const pinjamanMentah = pinjamanBaca.rows;
     /**
-     * Gadai tidak pernah didanai pendana (tidak ada tabel alokasi untuk pawns),
-     * jadi portofolio pendana tidak punya baris gadai. Menampilkannya berarti
-     * memperlihatkan pengajuan orang lain sebagai bagian dari portofolionya.
+     * Dasar SEMUA angka portofolio: seluruh pinjaman dalam cakupan pembaca,
+     * bukan jendela 200 baris yang dipakai daftar. Memakai `pinjamanMentah` di
+     * sini membuat "dana tersalurkan" dan rasio keterlambatan berhenti
+     * menghitung begitu pengajuan ke-201 masuk.
      */
-    const gadaiMentah =
-      cakupan === null ? await ctx.db.query("pawns").order("desc").take(BATAS_BARIS + 1) : [];
+    const pinjamanAngka = pinjamanBaca.semua;
+    /**
+     * Gadai kini punya pemilik tunggal (`pawns.pendanaId`), jadi akun pendana
+     * menerima gadai yang pokoknya ia tanggung. Admin dan pemantau tetap
+     * menerima seluruh baris. Pengajuan tanpa pendana tidak pernah masuk
+     * portofolio siapa pun.
+     */
+    const gadaiSemua =
+      cakupan === null
+        ? await ctx.db.query("pawns").collect()
+        : await ctx.db
+            .query("pawns")
+            .withIndex("by_pendana", (q) => q.eq("pendanaId", cakupan.userId))
+            .collect();
+    gadaiSemua.sort((a, b) => b._creationTime - a._creationTime);
+    const gadaiMentah = gadaiSemua.slice(0, BATAS_BARIS + 1);
+
+    // Pembayaran dibaca lewat indeks per gadai, bukan seluruh tabel: akun
+    // pendana tidak perlu memindai pembayaran gadai orang lain, dan jumlah
+    // baris yang dibaca mengikuti gadai dalam cakupannya saja.
+    const pembayaranPerGadai = new Map<Id<"pawns">, Doc<"pawnPayments">[]>();
+    const transferPerPembayaran = new Map<Id<"pawnPayments">, Doc<"gadaiTransfers">>();
+    for (const pawn of gadaiSemua) {
+      const daftar = await ctx.db
+        .query("pawnPayments")
+        .withIndex("by_pawn", (q) => q.eq("pawnId", pawn._id))
+        .collect();
+      pembayaranPerGadai.set(pawn._id, daftar);
+      const daftarTransfer = await ctx.db
+        .query("gadaiTransfers")
+        .withIndex("by_pawn", (q) => q.eq("pawnId", pawn._id))
+        .collect();
+      for (const transfer of daftarTransfer) {
+        if (transfer.status === "dicatat") {
+          transferPerPembayaran.set(transfer.paymentId, transfer);
+        }
+      }
+    }
     const kreditMentah =
       cakupan === null
         ? await ctx.db.query("kreditBarang").order("desc").take(BATAS_BARIS + 1)
@@ -778,7 +941,7 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
 
     const pinjaman: BarisPinjaman[] = [];
     for (const loan of pinjamanMentah.slice(0, BATAS_BARIS)) {
-      const bagi = bagiPendanaAman(loan, cfg.persenAdmin);
+      const bagi = bagiPendanaAman(loan);
       // Model 1 pinjaman = 1 pendana: penyedia dibaca langsung dari pinjaman.
       // Baris alokasi lama (`fundings`) tetap dibaca sebagai cadangan warisan.
       const pendana =
@@ -840,6 +1003,16 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
 
     const gadai: BarisGadai[] = [];
     for (const pawn of gadaiMentah.slice(0, BATAS_BARIS)) {
+      const sisa = pawn.sisaPokok ?? pawn.pokokGadai ?? null;
+      const persen = pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent;
+      const sewa = sisa !== null && sisa > 0 ? sewaModalBerikutnya(sisa, persen) : 0;
+      const bagi = bagiSewaModalGadai(sewa);
+      const adaPendana = pawn.pendanaId !== undefined;
+      const bayar = pembayaranPerGadai.get(pawn._id) ?? [];
+      // Hanya pembayaran yang sudah membawa snapshot pembagian yang dihitung
+      // sebagai hak pendana. Baris lama tanpa snapshot dibiarkan "belum dipisah"
+      // dan tidak dibebankan ke pemilik yang baru.
+      const bayarTerpisah = bayar.filter((p) => p.porsiPendana !== undefined);
       gadai.push({
         _id: pawn._id,
         nomorReferensi: pawn.nomorReferensi,
@@ -852,9 +1025,93 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         diajukanPada: pawn._creationTime,
         pokokGadai: pawn.pokokGadai ?? null,
         persenSewaModal: pawn.persenSewaModal ?? null,
-        sisaPokok: pawn.sisaPokok ?? null,
+        sisaPokok: sisa,
+        pendanaNama:
+          pawn.pendanaId !== undefined
+            ? ((await namaPenyedia(pawn.pendanaId)) ?? pawn.pendanaNama ?? null)
+            : (pawn.pendanaNama ?? null),
+        sewaBerikut: sewa,
+        porsiPendanaBerikut: adaPendana ? bagi.pendana : 0,
+        porsiPlatformBerikut: adaPendana ? bagi.platform : sewa,
+        porsiPendanaTercatat: bayarTerpisah.reduce(
+          (total, p) => total + (p.porsiPendana ?? 0),
+          0,
+        ),
+        porsiPlatformTercatat: bayarTerpisah.reduce(
+          (total, p) => total + (p.porsiPlatform ?? 0),
+          0,
+        ),
+        porsiPendanaTransfer: bayarTerpisah.reduce(
+          (total, p) => total + (transferPerPembayaran.get(p._id)?.jumlah ?? 0),
+          0,
+        ),
+        porsiPendanaBelumTransfer: bayarTerpisah.reduce(
+          (total, p) =>
+            total +
+            (transferPerPembayaran.has(p._id) ? 0 : (p.porsiPendana ?? 0)),
+          0,
+        ),
         lokasi: await lokasiUntuk(pawn.userId),
       });
+    }
+
+    /**
+     * Agregat gadai per pendana. Hanya gadai yang sudah punya pokok dan pendana
+     * yang dihitung; pengajuan mentah bukan posisi dana.
+     */
+    const gadaiPerPendana = new Map<string, GadaiPendana>();
+    for (const pawn of gadaiSemua) {
+      if (pawn.pendanaId === undefined || pawn.pokokGadai === undefined) continue;
+      if (pawn.status === "diajukan" || pawn.status === "sedang_dinilai" || pawn.status === "ditolak") {
+        continue;
+      }
+      const nama =
+        (await namaPenyedia(pawn.pendanaId)) ?? pawn.pendanaNama ?? null;
+      if (nama === null) continue;
+      const sisa = pawn.sisaPokok ?? pawn.pokokGadai;
+      const persen = pawn.persenSewaModal ?? GADAI_PRICING.sewaModalMinPercent;
+      const sewa = sisa > 0 ? sewaModalBerikutnya(sisa, persen) : 0;
+      const bagi = bagiSewaModalGadai(sewa);
+      const bayar = (pembayaranPerGadai.get(pawn._id) ?? []).filter(
+        (p) => p.porsiPendana !== undefined,
+      );
+      const blok = gadaiPerPendana.get(nama) ?? {
+        jumlah: 0,
+        pokok: 0,
+        sisaPokok: 0,
+        sewaBerikut: 0,
+        porsiPendanaBerikut: 0,
+        porsiPlatformBerikut: 0,
+        porsiPendanaTercatat: 0,
+        porsiPlatformTercatat: 0,
+        porsiPendanaTransfer: 0,
+        porsiPendanaBelumTransfer: 0,
+        jumlahTransferBelumDicatat: 0,
+      };
+      blok.jumlah += 1;
+      blok.pokok += pawn.pokokGadai;
+      blok.sisaPokok += sisa;
+      blok.sewaBerikut += sewa;
+      blok.porsiPendanaBerikut += bagi.pendana;
+      blok.porsiPlatformBerikut += bagi.platform;
+      blok.porsiPendanaTercatat += bayar.reduce(
+        (total, p) => total + (p.porsiPendana ?? 0),
+        0,
+      );
+      blok.porsiPlatformTercatat += bayar.reduce(
+        (total, p) => total + (p.porsiPlatform ?? 0),
+        0,
+      );
+      for (const pembayaran of bayar) {
+        const transfer = transferPerPembayaran.get(pembayaran._id);
+        if (transfer === undefined) {
+          blok.porsiPendanaBelumTransfer += pembayaran.porsiPendana ?? 0;
+          blok.jumlahTransferBelumDicatat += 1;
+        } else {
+          blok.porsiPendanaTransfer += transfer.jumlah;
+        }
+      }
+      gadaiPerPendana.set(nama, blok);
     }
 
     const kredit: BarisKredit[] = [];
@@ -958,14 +1215,23 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
     }
 
     // Rekap keuntungan per penyedia dana (model 1 pinjaman = 1 pendana).
-    // Hanya pinjaman berjalan (didanai) dan lunas yang dihitung uangnya.
+    //
+    // Sumbernya `pinjamanAngka` (seluruh cakupan), bukan `pinjaman` (jendela
+    // 200 baris): angka portofolio tidak boleh berhenti dihitung saat pengajuan
+    // baru masuk. Pemilik diselesaikan dengan aturan yang sama seperti kolom
+    // "Pendana" pada baris, dan keuntungan memakai fungsi yang sama
+    // (`bagiPendanaAman`), jadi rekap dan tabel tidak mungkin berbeda rumus.
+    const transferKosong = ringkasTransfer([]);
     const rekapMap = new Map<string, RekapPendana>();
-    for (const b of pinjaman) {
-      if (b.pendana === null) continue;
-      if (b.status !== "didanai" && b.status !== "lunas") continue;
+    for (const loan of pinjamanAngka) {
+      const pendana = await pendanaAngkaUntuk(loan);
+      if (pendana === null) continue;
+      if (loan.status !== "didanai" && loan.status !== "lunas") continue;
+      const bagi = bagiPendanaAman(loan);
+      const transfer = transferPerPinjaman.get(loan._id) ?? transferKosong;
       const r =
-        rekapMap.get(b.pendana) ?? {
-          nama: b.pendana,
+        rekapMap.get(pendana) ?? {
+          nama: pendana,
           jumlahPinjaman: 0,
           jumlahAktif: 0,
           jumlahLunas: 0,
@@ -983,33 +1249,33 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
           keuntunganBelumDicatat: 0,
         };
       r.jumlahPinjaman += 1;
-      if (b.status === "lunas") r.jumlahLunas += 1;
+      if (loan.status === "lunas") r.jumlahLunas += 1;
       else r.jumlahAktif += 1;
-      r.totalDisalurkan += b.pokokPinjaman;
-      if (b.status === "didanai") r.saldoBerjalan += b.pokokPinjaman;
-      r.totalBunga += b.bunga;
-      r.keuntunganPendana += b.keuntunganPendana;
-      r.keuntunganAdmin += b.keuntunganAdmin;
+      r.totalDisalurkan += loan.pokokPinjaman;
+      if (loan.status === "didanai") r.saldoBerjalan += loan.pokokPinjaman;
+      r.totalBunga += bagi.imbal;
+      r.keuntunganPendana += bagi.keuntunganPendana;
+      r.keuntunganAdmin += bagi.potonganAdmin;
       // Keuntungan pinjaman yang BELUM lunas dilaporkan terpisah dari yang sudah
       // lunas: yang lunas sudah dibukukan ledger, yang berjalan masih proyeksi.
-      if (b.status === "lunas") {
-        r.keuntunganPendanaLunas += b.keuntunganPendana;
-        r.keuntunganAdminLunas += b.keuntunganAdmin;
+      if (loan.status === "lunas") {
+        r.keuntunganPendanaLunas += bagi.keuntunganPendana;
+        r.keuntunganAdminLunas += bagi.potonganAdmin;
       } else {
-        r.keuntunganPendanaBelumLunas += b.keuntunganPendana;
-        r.keuntunganAdminBelumLunas += b.keuntunganAdmin;
+        r.keuntunganPendanaBelumLunas += bagi.keuntunganPendana;
+        r.keuntunganAdminBelumLunas += bagi.potonganAdmin;
       }
       // Kewajiban transfer hanya muncul pada pinjaman lunas (bunga sudah
       // terbayar penuh). Pinjaman berjalan belum jatuh tempo.
-      if (b.status === "lunas") {
-        if (b.transfer.status === "dicatat") {
+      if (loan.status === "lunas") {
+        if (transfer.status === "dicatat") {
           r.transferTercatat += 1;
         } else {
           r.transferBelumDicatat += 1;
-          r.keuntunganBelumDicatat += b.keuntunganPendana;
+          r.keuntunganBelumDicatat += bagi.keuntunganPendana;
         }
       }
-      rekapMap.set(b.pendana, r);
+      rekapMap.set(pendana, r);
     }
     const rekapPendana = [...rekapMap.values()].sort(
       (a, b) => b.totalDisalurkan - a.totalDisalurkan,
@@ -1045,24 +1311,93 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         kredit: blok,
       });
     }
+    // Blok gadai ditempelkan dengan aturan yang sama seperti kredit: pendana
+    // yang HANYA punya gadai tetap mendapat baris portofolio, supaya posisinya
+    // terlihat di puncak halaman dan tidak hanya di tab gadai.
+    for (const r of rekapPendana) {
+      const blok = gadaiPerPendana.get(r.nama);
+      if (blok !== undefined) r.gadai = blok;
+    }
+    for (const [nama, blok] of gadaiPerPendana) {
+      if (rekapPendana.some((r) => r.nama === nama)) continue;
+      rekapPendana.push({
+        nama,
+        jumlahPinjaman: 0,
+        jumlahAktif: 0,
+        jumlahLunas: 0,
+        totalDisalurkan: 0,
+        saldoBerjalan: 0,
+        totalBunga: 0,
+        keuntunganPendana: 0,
+        keuntunganPendanaLunas: 0,
+        keuntunganPendanaBelumLunas: 0,
+        keuntunganAdmin: 0,
+        keuntunganAdminLunas: 0,
+        keuntunganAdminBelumLunas: 0,
+        transferTercatat: 0,
+        transferBelumDicatat: 0,
+        keuntunganBelumDicatat: 0,
+        gadai: blok,
+      });
+    }
     rekapPendana.sort(
       (a, b) =>
         b.totalDisalurkan - a.totalDisalurkan ||
-        (b.kredit?.pokok ?? 0) - (a.kredit?.pokok ?? 0),
+        (b.kredit?.pokok ?? 0) - (a.kredit?.pokok ?? 0) ||
+        (b.gadai?.pokok ?? 0) - (a.gadai?.pokok ?? 0),
     );
 
-    // Ringkasan dihitung dari baris yang benar-benar dikirim (Zero Fake Data).
+    // Alokasi kredit barang dihitung dari SELURUH baris alokasi dalam cakupan,
+    // bukan dari jendela daftar. Pendana yang hanya membiayai kredit harus
+    // melihat posisinya di puncak halaman; sebelumnya ia melihat Rp0 di sana
+    // dan angka besar di blok portofolio bawah.
+    const alokasiKreditAngka =
+      cakupan === null
+        ? await ctx.db.query("kreditFundings").collect()
+        : await ctx.db
+            .query("kreditFundings")
+            .withIndex("by_dana", (q) => q.eq("danaId", cakupan.userId))
+            .collect();
+    const alokasiKreditAktif = alokasiKreditAngka.filter(
+      (f) => f.status !== "dibatalkan",
+    );
+    const kreditTersalurkan = alokasiKreditAktif.reduce(
+      (total, f) => total + f.jumlahAlokasi,
+      0,
+    );
+    const kreditImbal = alokasiKreditAktif.reduce(
+      (total, f) => total + f.imbalHasil,
+      0,
+    );
+
+    // Ringkasan angka memakai SELURUH cakupan (sampai BATAS_AGREGAT), bukan
+    // jendela daftar. Penanda `pinjamanTerpotong` membuat batas itu terlihat,
+    // bukan diam-diam memotong angka uang.
     const ringkasan = {
-      jumlahPinjaman: pinjaman.length,
+      jumlahPinjaman: pinjamanAngka.length,
       jumlahGadai: gadai.length,
       jumlahKredit: kredit.length,
       menungguReview:
-        pinjaman.filter((b) => MENUNGGU_PINJAMAN.has(b.status)).length +
+        pinjamanAngka.filter((b) => MENUNGGU_PINJAMAN.has(b.status)).length +
         gadai.filter((b) => MENUNGGU_GADAI.has(b.status)).length +
         kredit.filter((b) => MENUNGGU_KREDIT.has(b.status)).length,
-      nilaiPinjaman: pinjaman.reduce((total, b) => total + b.pokokPinjaman, 0),
+      nilaiPinjaman: pinjamanAngka.reduce(
+        (total, b) => total + b.pokokPinjaman,
+        0,
+      ),
       nilaiGadai: gadai.reduce((total, b) => total + (b.nilaiTaksiran ?? 0), 0),
       nilaiKredit: kredit.reduce((total, b) => total + b.hargaBarang, 0),
+      /** Pokok kredit barang dari seluruh alokasi dalam cakupan. */
+      kreditTersalurkan,
+      /** Imbal kredit yang diperkirakan dari alokasi yang sama. */
+      kreditImbal,
+      /** Jumlah baris alokasi kredit (bukan jumlah pengajuan kredit). */
+      jumlahAlokasiKredit: alokasiKreditAktif.length,
+      /**
+       * true bila pembacaan agregat pinjaman menyentuh `BATAS_AGREGAT`.
+       * Halaman wajib mengatakannya di dekat angka, bukan hanya di daftar.
+       */
+      pinjamanTerpotong: pinjamanBaca.angkaTerpotong,
       /** Total bunga pinjaman yang tercatat pada baris yang dikirim. */
       totalBungaPinjaman: pinjaman.reduce((total, b) => total + b.bunga, 0),
       /** Keuntungan admin dari pinjaman yang sudah berjalan/lunas. */
@@ -1105,17 +1440,84 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
       ),
       /** Kebijakan yang dipakai menghitung kolom bagi hasil di halaman ini. */
       persenBunga: cfg.persenBunga,
-      persenPotonganAdmin: cfg.persenAdmin,
+      persenPotonganAdmin: PERSEN_PORSI_PLATFORM,
+    };
+
+    /**
+     * Kesehatan portofolio dihitung di server dari SELURUH pinjaman berjalan,
+     * memakai `batasPelunasan` yang juga mengisi kolom "Jatuh tempo" di tabel.
+     * Sebelumnya angka ini dihitung di peramban dari jendela 200 baris, jadi
+     * rasio keterlambatan bisa turun hanya karena pengajuan baru masuk.
+     */
+    const tujuhHariMs = 7 * 24 * 60 * 60 * 1000;
+    const barisBerjalanAngka = pinjamanAngka.filter(
+      (l) => l.status === "didanai",
+    );
+    const pinjamanBerAlokasiLama =
+      cakupan === null
+        ? new Set(
+            (await ctx.db.query("fundings").collect()).map((f) => f.loanId),
+          )
+        : new Set<Id<"loans">>();
+    const terhubungKePendana = (l: Doc<"loans">) =>
+      l.pendanaId !== undefined ||
+      l.pendanaNama !== undefined ||
+      pinjamanBerAlokasiLama.has(l._id);
+    const segera = barisBerjalanAngka.filter((l) => {
+      const batas = batasPelunasan(l);
+      return (
+        batas !== null && batas >= sekarang && batas <= sekarang + tujuhHariMs
+      );
+    });
+    const terlambat = barisBerjalanAngka.filter((l) => {
+      const batas = batasPelunasan(l);
+      return batas !== null && batas < sekarang;
+    });
+    const belumTerhubung =
+      cakupan === null
+        ? barisBerjalanAngka.filter((l) => !terhubungKePendana(l))
+        : [];
+    const pokokBerjalanAngka = barisBerjalanAngka.reduce(
+      (total, l) => total + l.pokokPinjaman,
+      0,
+    );
+    const nominalTerlambat = terlambat.reduce(
+      (total, l) => total + l.pokokPinjaman,
+      0,
+    );
+    const kesehatan = {
+      jatuhTempoSegera: {
+        jumlah: segera.length,
+        nominal: segera.reduce((total, l) => total + l.pokokPinjaman, 0),
+      },
+      terlambat: {
+        jumlah: terlambat.length,
+        nominal: nominalTerlambat,
+      },
+      persenTerlambat:
+        pokokBerjalanAngka > 0
+          ? (nominalTerlambat / pokokBerjalanAngka) * 100
+          : 0,
+      belumTerhubung: {
+        jumlah: belumTerhubung.length,
+        nominal: belumTerhubung.reduce(
+          (total, l) => total + l.pokokPinjaman,
+          0,
+        ),
+      },
     };
 
     return {
       batas: BATAS_BARIS,
+      /** Batas pembacaan agregat, dikirim supaya teks di layar tidak menebak. */
+      batasAgregat: BATAS_AGREGAT,
       terpotong: {
         pinjaman: pinjamanBaca.terpotong,
         gadai: gadaiMentah.length > BATAS_BARIS,
         kredit: kreditMentah.length > BATAS_BARIS,
       },
       ringkasan,
+      kesehatan,
       rekapPendana,
       pinjaman,
       gadai,
@@ -1128,8 +1530,9 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
  * Baris dibatasi `BATAS_BARIS` per kategori dan diambil dari yang terbaru agar
  * payload tetap ringan; pemanggil menerima penanda `terpotong`.
  *
- * Untuk akun pendana, seluruh angka di query ini (rekap, ringkasan, dan
- * daftar) dihitung dari baris yang sudah dibatasi cakupan di atas.
+ * Angka portofolio (rekap, ringkasan, kesehatan) memakai seluruh cakupan
+ * pembaca sampai `BATAS_AGREGAT`, bukan jendela `BATAS_BARIS`; daftar tetap
+ * dipotong pada `BATAS_BARIS` dan membawa penandanya sendiri.
  */
 export const daftarPengajuan = query({
   args: {},
@@ -1644,7 +2047,7 @@ export const daftarInvestor = query({
       const peminjam = new Set<Id<"users">>();
       const waktuPinjaman: number[] = [];
       for (const l of pinjaman) {
-        const bagi = bagiPendanaAman(l, cfg.persenAdmin);
+        const bagi = bagiPendanaAman(l);
         totalDisalurkan += l.pokokPinjaman;
         totalBunga += bagi.imbal;
         keuntunganAdmin += bagi.potonganAdmin;
@@ -1705,7 +2108,7 @@ export const daftarInvestor = query({
         transfer: rekapTransferPendana(
           pinjaman.map<PinjamanTransfer>((l) => ({
             status: l.status,
-            keuntunganPendana: bagiPendanaAman(l, cfg.persenAdmin)
+            keuntunganPendana: bagiPendanaAman(l)
               .keuntunganPendana,
             adaPendana: true,
             transfer: transferPerPinjaman.get(l._id) ?? ringkasTransfer([]),
@@ -1754,8 +2157,8 @@ export const daftarInvestor = query({
         jumlahWarisanTanpaJejak: warisanTanpaJejak,
         jumlahPemantau: rows.filter((r) => r.akunBersama).length,
         pemantauAktif: rows.filter((r) => r.akunBersama && r.aksesAktif).length,
-        /** Kebijakan potongan admin yang berlaku (dari Pengaturan Sistem). */
-        persenPotonganAdmin: cfg.persenAdmin,
+        /** Porsi platform atas marjin (13/60), sama untuk semua produk. */
+        persenPotonganAdmin: PERSEN_PORSI_PLATFORM,
         totalDisalurkan: rows.reduce((total, r) => total + r.totalDisalurkan, 0),
         saldoBerjalan: rows.reduce((total, r) => total + r.saldoBerjalan, 0),
         totalBunga: rows.reduce((total, r) => total + r.totalBunga, 0),
@@ -1827,7 +2230,7 @@ export const rincianInvestor = query({
       .filter((l) => l.status === "didanai" || l.status === "lunas")
       .filter((l) => pinjamanMilikPendana(l, userId, namaKunci))
       .map((l) => {
-        const bagi = bagiPendanaAman(l, cfg.persenAdmin);
+        const bagi = bagiPendanaAman(l);
         return {
           loanId: l._id,
           referensi: l.nomorReferensi,
@@ -1860,7 +2263,7 @@ export const rincianInvestor = query({
     );
 
     const ringkasKeuntungan = {
-      persenPotonganAdmin: cfg.persenAdmin,
+      persenPotonganAdmin: PERSEN_PORSI_PLATFORM,
       persenBunga: cfg.persenBunga,
       pokok: pinjaman.reduce((total, a) => total + a.pokokPinjaman, 0),
       saldoBerjalan: pinjaman
@@ -1922,17 +2325,34 @@ export const daftarTransferPendana = query({
   args: {},
   handler: async (ctx) => {
     await requireAdminSession(ctx);
-    const cfg = await getConfig(ctx);
-    const transferPerPinjaman = await petaTransfer(ctx);
-
-    const pinjamanLunas = (await ctx.db.query("loans").collect()).filter(
-      (l) =>
-        l.status === "lunas" &&
-        (l.pendanaId !== undefined || l.pendanaNama !== undefined),
+    /**
+     * Jendela antrean: pinjaman yang PALING BARU dilunasi, bukan seluruh tabel.
+     *
+     * Kewajiban transfer lahir saat pinjaman lunas, jadi urutan `lunasPada`
+     * menurun adalah urutan kerja yang benar — dan indeks `by_lunasPada` membuat
+     * panel tidak perlu memindai seluruh riwayat pinjaman. `+1` hanya untuk tahu
+     * apakah masih ada kewajiban lama di luar jendela.
+     */
+    const jendela = await ctx.db
+      .query("loans")
+      .withIndex("by_lunasPada")
+      .order("desc")
+      .take(BATAS_ANTREAN_TRANSFER + 1);
+    const terpotong = jendela.length > BATAS_ANTREAN_TRANSFER;
+    const pinjamanLunas = jendela
+      .slice(0, BATAS_ANTREAN_TRANSFER)
+      .filter(
+        (l) =>
+          l.status === "lunas" &&
+          (l.pendanaId !== undefined || l.pendanaNama !== undefined),
+      );
+    const transferPerPinjaman = await petaTransfer(
+      ctx,
+      pinjamanLunas.map((l) => l._id),
     );
 
     const rows = pinjamanLunas.map((l) => {
-      const bagi = bagiPendanaAman(l, cfg.persenAdmin);
+      const bagi = bagiPendanaAman(l);
       const transfer = transferPerPinjaman.get(l._id) ?? ringkasTransfer([]);
       return {
         loanId: l._id,
@@ -1967,6 +2387,8 @@ export const daftarTransferPendana = query({
 
     return {
       rows,
+      /** `true` = masih ada kewajiban transfer yang lebih lama di luar jendela. */
+      terpotong,
       ringkasan: {
         /** Pinjaman lunas yang catatan transfernya belum dibuat admin. */
         jumlahBelumDicatat: belum.length,
@@ -1998,17 +2420,43 @@ export const laporanTransferPendana = query({
   args: {},
   handler: async (ctx) => {
     const { userId, user } = await requirePengamat(ctx);
-    const cfg = await getConfig(ctx);
     // Akun pendana hanya menerima catatan transfer atas namanya: portofolio
     // pribadinya, bukan buku besar seluruh pendana.
     const cakupan = cakupanPendana(user, userId);
 
-    const semuaCatatan = (await ctx.db.query("transferPendana").collect()).filter(
-      (b) =>
-        cakupan === null ||
-        b.pendanaId === cakupan.userId ||
-        (b.pendanaId === undefined && cakupan.kunci.has(b.pendanaNama)),
-    );
+    /**
+     * Riwayat dibaca dari jendela TERBARU, bukan seluruh tabel.
+     *
+     * Akun pendana memakai indeks `by_pendana` (hanya catatan atas namanya);
+     * catatan lama tanpa `pendanaId` dicocokkan lewat nama dari jendela terbaru.
+     * Admin membaca jendela waktu yang sama untuk semua pendana.
+     */
+    const jendelaCatatan =
+      cakupan === null
+        ? await ctx.db
+            .query("transferPendana")
+            .withIndex("by_waktu")
+            .order("desc")
+            .take(BATAS_CATATAN_TRANSFER + 1)
+        : [
+            ...(await ctx.db
+              .query("transferPendana")
+              .withIndex("by_pendana", (q) => q.eq("pendanaId", cakupan.userId))
+              .take(BATAS_CATATAN_TRANSFER + 1)),
+            ...(
+              await ctx.db
+                .query("transferPendana")
+                .withIndex("by_waktu")
+                .order("desc")
+                .take(BATAS_CATATAN_TRANSFER)
+            ).filter(
+              (b) => b.pendanaId === undefined && cakupan.kunci.has(b.pendanaNama),
+            ),
+          ];
+    const adaLebihCatatan = jendelaCatatan.length > BATAS_CATATAN_TRANSFER;
+    const semuaCatatan = adaLebihCatatan
+      ? jendelaCatatan.slice(0, BATAS_CATATAN_TRANSFER)
+      : jendelaCatatan;
     const rows = [...semuaCatatan]
       .sort((a, b) => b.dicatatPada - a.dicatatPada)
       .slice(0, BATAS_BARIS)
@@ -2032,19 +2480,32 @@ export const laporanTransferPendana = query({
     const dicatat = rows.filter((r) => r.status === "dicatat");
     const dibatalkan = rows.filter((r) => r.status === "dibatalkan");
 
-    // Antrean rekonsiliasi dibaca dari SELURUH catatan (lewat `petaTransfer`),
-    // bukan dari `rows` yang dibatasi: yang menentukan "belum dicatat" adalah
-    // catatan TERBARU per pinjaman, dan catatan lama bisa jatuh di luar batas.
-    // Untuk akun pendana, antreannya dibaca dari pinjaman miliknya saja.
-    const transferPerPinjaman = await petaTransfer(ctx);
-    const belum = (
-      cakupan === null ? await ctx.db.query("loans").collect() : (await bacaPinjaman(ctx, cakupan)).rows
-    )
+    // Antrean rekonsiliasi: pinjaman lunas berpendana yang catatan transfernya
+    // belum berlaku. Jendelanya dari `by_lunasPada` (paling baru dilunasi lebih
+    // dulu), dan status tiap pinjaman dibaca lewat `by_loan` — bukan seluruh
+    // tabel catatan. Untuk akun pendana, antreannya dibaca dari pinjamannya saja.
+    const jendelaAntrean =
+      cakupan === null
+        ? await ctx.db
+            .query("loans")
+            .withIndex("by_lunasPada")
+            .order("desc")
+            .take(BATAS_ANTREAN_TRANSFER + 1)
+        : (await bacaPinjaman(ctx, cakupan)).rows;
+    const adaLebihAntrean =
+      cakupan === null && jendelaAntrean.length > BATAS_ANTREAN_TRANSFER;
+    const kandidatAntrean = jendelaAntrean
+      .slice(0, BATAS_ANTREAN_TRANSFER)
       .filter(
         (l) =>
           l.status === "lunas" &&
           (l.pendanaId !== undefined || l.pendanaNama !== undefined),
-      )
+      );
+    const transferPerPinjaman = await petaTransfer(
+      ctx,
+      kandidatAntrean.map((l) => l._id),
+    );
+    const belum = kandidatAntrean
       .filter(
         (l) =>
           (transferPerPinjaman.get(l._id) ?? ringkasTransfer([])).status !== "dicatat",
@@ -2056,7 +2517,7 @@ export const laporanTransferPendana = query({
         pendanaNama: l.pendanaNama ?? "Penyedia dana",
         // Dihitung ulang di server dari kebijakan yang berlaku — angka klien
         // tidak pernah dipakai untuk nominal.
-        jumlah: bagiPendanaAman(l, cfg.persenAdmin).keuntunganPendana,
+        jumlah: bagiPendanaAman(l).keuntunganPendana,
         lunasPada: l.lunasPada ?? l.didanaiPada ?? l._creationTime,
       }))
       // Yang paling lama menunggu di atas: itu yang paling perlu ditindaklanjuti.
@@ -2064,7 +2525,8 @@ export const laporanTransferPendana = query({
 
     return {
       rows,
-      terpotong: semuaCatatan.length > rows.length,
+      terpotong:
+        adaLebihCatatan || adaLebihAntrean || semuaCatatan.length > rows.length,
       belum,
       /** Id akun pembaca — UI menandai baris yang memang miliknya. */
       idSaya: userId,
@@ -2076,6 +2538,128 @@ export const laporanTransferPendana = query({
         nilaiDibatalkan: dibatalkan.reduce((total, r) => total + r.jumlah, 0),
         jumlahBelumDicatat: belum.length,
         nilaiBelumDicatat: belum.reduce((total, r) => total + r.jumlah, 0),
+      },
+    };
+  },
+});
+
+/**
+ * Rekap catatan transfer hak pendana GADAI untuk ruang pendana.
+ *
+ * Sumbernya `gadaiTransfers` — catatan admin bahwa porsi pendana atas satu
+ * pembayaran gadai sudah ia transfer di luar sistem. Karena itu isinya
+ * pembukuan internal, bukan bukti mutasi bank/e-wallet.
+ *
+ * Cakupan sama dengan query ruang ini lainnya: akun `dana` hanya menerima
+ * catatan atas namanya (`pendanaId` pada baris), admin dan pemantau menerima
+ * seluruhnya. Antrean `belum` dibaca dari pembayaran gadai yang porsi pendananya
+ * lebih dari nol tetapi belum punya catatan transfer berlaku — itulah yang masih
+ * menunggu tindakan admin.
+ */
+export const laporanTransferGadaiPendana = query({
+  args: {},
+  handler: async (ctx) => {
+    const { userId, user } = await requirePengamat(ctx);
+    const cakupan = cakupanPendana(user, userId);
+
+    const semuaCatatan =
+      cakupan === null
+        ? await ctx.db.query("gadaiTransfers").collect()
+        : await ctx.db
+            .query("gadaiTransfers")
+            .withIndex("by_pendana", (q) => q.eq("pendanaId", cakupan.userId))
+            .collect();
+
+    const rows = [...semuaCatatan]
+      .sort((a, b) => b.dicatatPada - a.dicatatPada)
+      .slice(0, BATAS_BARIS)
+      .map((t) => ({
+        id: t._id,
+        nomorReferensi: t.nomorReferensiGadai,
+        pendanaId: t.pendanaId ?? null,
+        pendanaNama: t.pendanaNama,
+        jumlah: t.jumlah,
+        metode: t.metode as string,
+        referensi: t.referensi ?? null,
+        catatan: t.catatan ?? null,
+        status: t.status as string,
+        dicatatPada: t.dicatatPada,
+        dicatatOlehLabel: t.dicatatOlehLabel,
+        dibatalkanPada: t.dibatalkanPada ?? null,
+        dibatalkanOlehLabel: t.dibatalkanOlehLabel ?? null,
+        alasanBatal: t.alasanBatal ?? null,
+      }));
+
+    const dicatat = semuaCatatan.filter((t) => t.status === "dicatat");
+    const dibatalkan = semuaCatatan.filter((t) => t.status === "dibatalkan");
+
+    // Catatan TERBARU per pembayaran menentukan status kewajiban: baris yang
+    // dibatalkan tidak menutup antrean, sedangkan yang dicatat menutupnya.
+    const aktifPerPembayaran = new Set(
+      semuaCatatan
+        .filter((t) => t.status === "dicatat")
+        .map((t) => t.paymentId as string),
+    );
+
+    const pawns =
+      cakupan === null
+        ? await ctx.db.query("pawns").collect()
+        : await ctx.db
+            .query("pawns")
+            .withIndex("by_pendana", (q) => q.eq("pendanaId", cakupan.userId))
+            .collect();
+
+    const belum: {
+      pawnId: Id<"pawns">;
+      paymentId: Id<"pawnPayments">;
+      referensi: string;
+      pendanaNama: string;
+      jumlah: number;
+      waktu: number;
+    }[] = [];
+    for (const pawn of pawns) {
+      if (pawn.pendanaId === undefined) continue;
+      const payments = await ctx.db
+        .query("pawnPayments")
+        .withIndex("by_pawn", (q) => q.eq("pawnId", pawn._id))
+        .collect();
+      const pendanaNama =
+        (await ctx.db.get(pawn.pendanaId).then((akun) =>
+          akun === null ? null : namaTampilPendana(akun.name, akun.email),
+        )) ??
+        pawn.pendanaNama ??
+        "Penyedia dana";
+      for (const p of payments) {
+        if (p.porsiPendana === undefined || p.porsiPendana <= 0) continue;
+        if (aktifPerPembayaran.has(p._id as string)) continue;
+        belum.push({
+          pawnId: pawn._id,
+          paymentId: p._id,
+          referensi: pawn.nomorReferensi,
+          pendanaNama,
+          jumlah: p.porsiPendana,
+          waktu: p.waktu,
+        });
+      }
+    }
+    // Yang paling lama menunggu di atas: itu yang paling perlu ditindaklanjuti.
+    belum.sort((a, b) => a.waktu - b.waktu);
+
+    return {
+      rows,
+      terpotong: semuaCatatan.length > rows.length,
+      belum: belum.slice(0, BATAS_BARIS),
+      belumTerpotong: belum.length > BATAS_BARIS,
+      /** Id akun pembaca — UI menandai baris yang memang miliknya. */
+      idSaya: userId,
+      peran: user.role as string,
+      ringkasan: {
+        jumlahTercatat: dicatat.length,
+        nilaiTercatat: dicatat.reduce((total, t) => total + t.jumlah, 0),
+        jumlahDibatalkan: dibatalkan.length,
+        nilaiDibatalkan: dibatalkan.reduce((total, t) => total + t.jumlah, 0),
+        jumlahBelumDicatat: belum.length,
+        nilaiBelumDicatat: belum.reduce((total, b) => total + b.jumlah, 0),
       },
     };
   },
@@ -2754,13 +3338,15 @@ async function ringkasTransferPinjaman(
   ctx: QueryCtx,
   loanId: Id<"loans">,
 ): Promise<RingkasTransfer> {
-  const baris = await ctx.db.query("transferPendana").collect();
+  // Hanya catatan milik pinjaman ini, dibaca lewat indeks `by_loan`: tanpa
+  // indeks, satu pemeriksaan penjaga "sudah dicatat" membaca seluruh tabel
+  // catatan transfer dan memperlambat setiap pencatatan.
+  const baris = await ctx.db
+    .query("transferPendana")
+    .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+    .collect();
   return ringkasTransfer(
-    baris
-      // Hanya catatan milik pinjaman ini — tanpa filter, satu catatan pada
-      // pinjaman lain membuat penjaga "sudah dicatat" ikut menolak pinjaman ini.
-      .filter((b) => b.loanId === loanId)
-      .map((b) => ({
+    baris.map((b) => ({
         jumlah: b.jumlah,
         status: b.status as string,
         dicatatPada: b.dicatatPada,
@@ -2774,10 +3360,24 @@ async function ringkasTransferPinjaman(
 }
 
 /**
- * Ringkas catatan transfer SELURUH pinjaman dalam satu pembacaan tabel — bukan
- * satu pemindaian per akun.
+ * Ringkas catatan transfer per pinjaman.
+ *
+ * Dengan `loanIds` (panel laporan) catatan tiap pinjaman dibaca lewat indeks
+ * `by_loan`, sehingga jumlah pembacaannya mengikuti baris yang memang tampil.
+ * Tanpa `loanIds` (portofolio/rekap yang angkanya memang menyeluruh) tabelnya
+ * dibaca sekali untuk semua pinjaman — jalur itu bukan untuk panel laporan.
  */
-async function petaTransfer(ctx: QueryCtx): Promise<Map<string, RingkasTransfer>> {
+async function petaTransfer(
+  ctx: QueryCtx,
+  loanIds?: readonly Id<"loans">[],
+): Promise<Map<string, RingkasTransfer>> {
+  if (loanIds !== undefined) {
+    const peta = new Map<string, RingkasTransfer>();
+    for (const loanId of loanIds) {
+      peta.set(loanId as string, await ringkasTransferPinjaman(ctx, loanId));
+    }
+    return peta;
+  }
   const semua = await ctx.db.query("transferPendana").collect();
   const perPinjaman = new Map<string, TransferBaris[]>();
   for (const b of semua) {
@@ -2842,8 +3442,7 @@ export const catatTransferPendana = mutation({
     // Nominal TIDAK diambil dari klien: dihitung ulang di server dari pokok
     // pinjaman dengan kebijakan yang berlaku, supaya satu angka klien yang
     // salah tidak pernah masuk catatan.
-    const cfg = await getConfig(ctx);
-    const bagi = bagiPendanaAman(loan, cfg.persenAdmin);
+    const bagi = bagiPendanaAman(loan);
     if (bagi.keuntunganPendana <= 0) {
       throw new Error("Keuntungan penyedia dana untuk pinjaman ini nol.");
     }

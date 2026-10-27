@@ -210,6 +210,30 @@ function uaPemakai(request: Request): string {
   return (request.headers.get("user-agent") ?? "").slice(0, 200);
 }
 
+/**
+ * IP pemakai menurut server, untuk log anomali masuk (TOTP, klaim akun lama).
+ *
+ * Peramban tidak bisa membaca header proxy sendiri, jadi sebelum ini halaman
+ * menanyakan IP-nya ke layanan pihak ketiga — permintaan itu diblokir CSP dan
+ * mengirim alamat pemakai ke luar. Endpoint ini menjawab dari header yang sama
+ * dengan `/api/cek-status/*`, tanpa pihak ketiga. Publik dan tanpa kredensial:
+ * isinya hanya alamat pemanggil itu sendiri.
+ */
+http.route({
+  path: "/api/klien/ip",
+  method: "GET",
+  handler: httpAction(async (_ctx, request) => {
+    return new Response(JSON.stringify({ ip: ipPemakai(request) }), {
+      status: 200,
+      headers: {
+        ...CORS_BACA,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    });
+  }),
+});
+
 /** Urai body JSON objek dengan batas ukuran; null bila tidak sah. */
 function uraiObjek(mentah: string): Record<string, unknown> | null {
   if (mentah.length > MAX_BODY_CEK_STATUS) return null;
@@ -344,7 +368,21 @@ http.route({
     const exp = Number(url.searchParams.get("exp"));
     const sig = url.searchParams.get("sig") ?? "";
 
-    const sah = await periksaTautanBerkas({ id, exp, sig });
+    // Rahasia yang hilang bukan tautan palsu: bedakan jawabannya supaya admin
+    // membaca "konfigurasi belum lengkap", bukan "tautan kedaluwarsa".
+    let sah: boolean;
+    try {
+      sah = await periksaTautanBerkas({ id, exp, sig });
+    } catch (galat) {
+      console.error("Tautan berkas tidak bisa diverifikasi:", galat);
+      return new Response(
+        "Berkas belum bisa disajikan: rahasia penanda tangan tautan belum diset di environment deployment.",
+        {
+          status: 503,
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+        },
+      );
+    }
     if (!sah) {
       return new Response("Tautan berkas tidak valid atau sudah kedaluwarsa.", {
         status: 403,

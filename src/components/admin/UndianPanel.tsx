@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -82,6 +83,7 @@ export function UndianPanel() {
   const ringkasan = useQuery(api.doorprize.ringkasanAdmin, {});
   const antrean = useQuery(api.matchingQueue.ringkasanAntrean, {});
   const acak = useMutation(api.doorprize.acakPemenang);
+  const catatSerah = useMutation(api.doorprize.catatPenyerahanHadiah);
   const simpanHadiah = useMutation(api.doorprize.simpanHadiahKuartal);
   const tandai = useMutation(api.matchingQueue.tandaiTersalurkan);
 
@@ -94,6 +96,8 @@ export function UndianPanel() {
   const [nilaiHadiah, setNilaiHadiah] = useState("");
   const [menyimpanHadiah, setMenyimpanHadiah] = useState(false);
   const [galatHadiah, setGalatHadiah] = useState<string | null>(null);
+  const [catatanSerah, setCatatanSerah] = useState("");
+  const [menyimpanSerah, setMenyimpanSerah] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setSekarang(Date.now()), 60_000);
@@ -153,6 +157,26 @@ export function UndianPanel() {
       toast.success("Dana ditandai sudah tersalurkan.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal menandai dana.");
+    }
+  }
+
+  async function simpanPenyerahan() {
+    const pemenang = ringkasan?.pemenang;
+    if (!pemenang) return;
+    setMenyimpanSerah(true);
+    try {
+      await catatSerah({
+        undianId: pemenang.id as Id<"doorprizeUndian">,
+        ...(catatanSerah.trim() === "" ? {} : { catatan: catatanSerah.trim() }),
+      });
+      toast.success("Penyerahan hadiah dicatat.");
+      setCatatanSerah("");
+    } catch (galat) {
+      toast.error(
+        galat instanceof Error ? galat.message : "Penyerahan hadiah gagal dicatat.",
+      );
+    } finally {
+      setMenyimpanSerah(false);
     }
   }
 
@@ -362,12 +386,59 @@ export function UndianPanel() {
       </section>
 
       {ringkasan?.pemenang && (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs leading-5 text-emerald-900">
-          Pemenang {ringkasan.labelPeriode}: <strong>{ringkasan.pemenang.nama}</strong> (
-          {ringkasan.pemenang.peran}) — {ringkasan.pemenang.hadiah}, diundi{" "}
-          {tanggal(ringkasan.pemenang.diundiPada)} dari {ringkasan.pemenang.jumlahTiket}{" "}
-          tiket.
-        </p>
+        <section className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-900">
+          <p>
+            Pemenang {ringkasan.labelPeriode}: <strong>{ringkasan.pemenang.nama}</strong> (
+            {ringkasan.pemenang.peran}) — {ringkasan.pemenang.hadiah}, diundi{" "}
+            {tanggal(ringkasan.pemenang.diundiPada)} dari {ringkasan.pemenang.jumlahTiket}{" "}
+            tiket.
+          </p>
+
+          {ringkasan.pemenang.hadiahDiserahkanPada !== null ? (
+            <p className="mt-2 border-t border-emerald-200 pt-2 text-emerald-800">
+              Hadiah dicatat diserahkan{" "}
+              {tanggal(ringkasan.pemenang.hadiahDiserahkanPada)}
+              {ringkasan.pemenang.catatanPenyerahan === null
+                ? "."
+                : ` — ${ringkasan.pemenang.catatanPenyerahan}.`}
+            </p>
+          ) : (
+            <div className="mt-2 border-t border-emerald-200 pt-2">
+              <Label htmlFor="catatan-serah" className="text-[11px] text-emerald-900">
+                Catatan penyerahan (opsional)
+              </Label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <Input
+                  id="catatan-serah"
+                  className="h-8 min-w-48 flex-1 bg-white text-xs"
+                  maxLength={200}
+                  placeholder="Kurir, nomor resi, atau lokasi serah terima"
+                  value={catatanSerah}
+                  onChange={(e) => setCatatanSerah(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-1.5 bg-emerald-800 text-white hover:bg-emerald-900"
+                  disabled={menyimpanSerah}
+                  onClick={() => void simpanPenyerahan()}
+                >
+                  {menyimpanSerah ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <Gift className="size-3.5" aria-hidden />
+                  )}
+                  Catat diserahkan
+                </Button>
+              </div>
+              <p className="mt-1 text-[10px] leading-4 text-emerald-800">
+                Tanggal dicatat sekali dan tidak bisa ditimpa — bukti kapan hadiah benar-benar
+                sampai. Hadiah undian tetap objek pajak penerima; simpan bukti penyerahan untuk
+                pelaporan.
+              </p>
+            </div>
+          )}
+        </section>
       )}
 
       {/* ===== Antrean auto-matching ===== */}

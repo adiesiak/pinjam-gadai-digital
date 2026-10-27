@@ -40,9 +40,9 @@ function throws(fn: () => unknown, label: string) {
   }
 }
 
-// ===== 1. Nisbah 92:8 dan pembulatan ke bawah =====
-eq(NISBAH_PENDANA_PERSEN, 92, "porsi pendana 92%");
-eq(NISBAH_PLATFORM_PERSEN, 8, "porsi platform 8%");
+// ===== 1. Nisbah 47:13 dan pembulatan ke bawah =====
+eq(Number(NISBAH_PENDANA_PERSEN.toFixed(2)), 78.33, "porsi pendana 47/60 = 78,33%");
+eq(Number(NISBAH_PLATFORM_PERSEN.toFixed(2)), 21.67, "porsi platform 13/60 = 21,67%");
 eq(floorPersen(1_000_000, 15), 150_000, "15% dari Rp1.000.000");
 eq(floorPersen(333_333, 15), 49_999, "15% dibulatkan ke bawah, bukan 50.000");
 
@@ -60,8 +60,13 @@ for (const nilai of [1, 7, 99, 1_001, 33_333, 1_000_001, 12_345_679]) {
     nilai,
     `nisbah ${nilai}: pendana + platform = nilai`,
   );
+  eq(
+    bagi.nisbahPlatform,
+    Math.floor((nilai * 13) / 60),
+    `nisbah ${nilai}: platform = floor(13/60 nilai)`,
+  );
   ok(
-    bagi.nisbahPendana >= nilai - Math.ceil((nilai * 8) / 100),
+    bagi.nisbahPendana >= nilai - Math.ceil((nilai * 22) / 100),
     `nisbah ${nilai}: pendana menerima sisa pembulatan`,
   );
 }
@@ -73,10 +78,10 @@ for (const nilai of [1, 7, 99, 1_001, 33_333, 1_000_001, 12_345_679]) {
     hargaJual: 11_500_000,
   });
   eq(akad.marginTotal, 1_500_000, "margin total Rp1.500.000");
-  eq(akad.nisbahPlatform, 120_000, "platform 8% dari margin");
-  eq(akad.nisbahPendana, 1_380_000, "pendana 92% dari margin");
-  eq(akad.pendanaTerima, 11_380_000, "pendana menerima pokok + nisbah");
-  eq(akad.platformTerima, 120_000, "platform menerima nisbah saja");
+  eq(akad.nisbahPlatform, 325_000, "platform 13/60 dari margin");
+  eq(akad.nisbahPendana, 1_175_000, "pendana 47/60 dari margin");
+  eq(akad.pendanaTerima, 11_175_000, "pendana menerima pokok + nisbah");
+  eq(akad.platformTerima, 325_000, "platform menerima nisbah saja");
   eq(
     akad.pendanaTerima + akad.platformTerima,
     akad.hargaJual,
@@ -96,8 +101,8 @@ for (const nilai of [1, 7, 99, 1_001, 33_333, 1_000_001, 12_345_679]) {
     hargaJual: 11_000_001,
   });
   eq(akad.marginTotal, 1_000_001, "margin ganjil");
-  eq(akad.nisbahPlatform, 80_000, "8% margin ganjil dibulatkan ke bawah");
-  eq(akad.nisbahPendana, 920_001, "sisa pecahan ke pendana");
+  eq(akad.nisbahPlatform, 216_666, "13/60 margin ganjil dibulatkan ke bawah");
+  eq(akad.nisbahPendana, 783_335, "sisa pecahan ke pendana");
   eq(
     akad.pendanaTerima + akad.platformTerima,
     akad.hargaJual,
@@ -147,9 +152,9 @@ eq(SIKLUS_UJRAH_RAHN_HARI, 30, "siklus ujrah 30 hari");
   eq(akad.jumlahSiklus, 1, "30 hari = satu siklus");
   eq(akad.ujrahPerSiklus, 100_000, "ujrah 2% dari taksiran");
   eq(akad.ujrahTotal, 100_000, "ujrah satu siklus");
-  eq(akad.nisbahPlatform, 8_000, "platform 8% dari ujrah");
-  eq(akad.nisbahPendana, 92_000, "pendana 92% dari ujrah");
-  eq(akad.pendanaTerima, 4_092_000, "pokok gadai + nisbah pendana");
+  eq(akad.nisbahPlatform, 21_666, "platform 13/60 dari ujrah");
+  eq(akad.nisbahPendana, 78_334, "pendana 47/60 dari ujrah");
+  eq(akad.pendanaTerima, 4_078_334, "pokok gadai + nisbah pendana");
   eq(akad.totalKewajiban, 4_100_000, "pokok + seluruh ujrah");
   eq(
     akad.pendanaTerima + akad.platformTerima,
@@ -166,9 +171,9 @@ eq(SIKLUS_UJRAH_RAHN_HARI, 30, "siklus ujrah 30 hari");
   });
   eq(akad.jumlahSiklus, 3, "90 hari = tiga siklus");
   eq(akad.ujrahTotal, 300_000, "ujrah tiga siklus");
-  eq(akad.nisbahPlatform, 24_000, "platform 8% dari ujrah 90 hari");
-  eq(akad.nisbahPendana, 276_000, "pendana 92% dari ujrah 90 hari");
-  eq(akad.pendanaTerima, 4_276_000, "pokok + nisbah ujrah 90 hari");
+  eq(akad.nisbahPlatform, 65_000, "platform 13/60 dari ujrah 90 hari");
+  eq(akad.nisbahPendana, 235_000, "pendana 47/60 dari ujrah 90 hari");
+  eq(akad.pendanaTerima, 4_235_000, "pokok + nisbah ujrah 90 hari");
   eq(akad.totalKewajiban, 4_300_000, "kewajiban peminjam 90 hari");
   eq(
     akad.pendanaTerima + akad.platformTerima,
@@ -185,8 +190,8 @@ eq(SIKLUS_UJRAH_RAHN_HARI, 30, "siklus ujrah 30 hari");
     tenorHari: 30,
   });
   eq(akad.ujrahPerSiklus, 6_666, "ujrah 2% taksiran ganjil, floor");
-  eq(akad.nisbahPlatform, 533, "8% ujrah ganjil, floor");
-  eq(akad.nisbahPendana, 6_133, "sisa ujrah ke pendana");
+  eq(akad.nisbahPlatform, 1_444, "13/60 ujrah ganjil, floor");
+  eq(akad.nisbahPendana, 5_222, "sisa ujrah ke pendana");
   eq(
     akad.nisbahPendana + akad.nisbahPlatform,
     akad.ujrahTotal,

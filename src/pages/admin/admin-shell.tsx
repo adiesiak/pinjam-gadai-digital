@@ -67,7 +67,7 @@ export function BootstrapAdminView({
   const siap = secret.trim().length >= 24;
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6">
-      <div className="animate-masuk w-full max-w-md rounded-lg border border-border/60 p-8">
+      <div className="animate-masuk w-full max-w-md rounded-lg border border-border/60 p-6 sm:p-8">
         <ShieldCheck className="size-5 text-muted-foreground" />
         <h1 className="mt-4 text-xl font-semibold tracking-tight">Setup tim PINDAI</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">

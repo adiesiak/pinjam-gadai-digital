@@ -50,7 +50,7 @@ export function BiayaBerlaku({ tarif }: { tarif: TarifBiaya }) {
       aria-labelledby="biaya-title"
       className="border-t border-border bg-background"
     >
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 sm:py-18 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:px-6 sm:py-18 sm:gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
         <div>
           <JudulBagian
             id="biaya-title"

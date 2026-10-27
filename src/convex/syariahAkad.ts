@@ -331,7 +331,6 @@ export const catatAkadSyariah = mutation({
     const pokokAkad = data?.pokok ?? args.pokok;
     const tenorHari = data?.tenorHari ?? args.tenorHari;
     const tenor = tenorHari === undefined ? {} : { tenorHari };
-    const nisbah = { persenNisbahPendana: cfg.persenNisbahPendanaSyariah };
     const rencana: RencanaAkadSyariah =
       args.jenis === "murabahah"
         ? rencanaAkadSyariah({
@@ -340,19 +339,19 @@ export const catatAkadSyariah = mutation({
             marginPersen:
               data?.marginPersen ?? args.marginPersen ?? cfg.persenMarginSyariah,
             ...tenor,
-          }, nisbah)
+          })
         : args.jenis === "rahn"
           ? rencanaAkadSyariah({
               jenis: "rahn",
               pokok: pokokAkad,
               nilaiTaksiran: data?.nilaiTaksiran ?? args.nilaiTaksiran ?? 0,
               ...tenor,
-            }, nisbah)
+            })
           : rencanaAkadSyariah({
               jenis: "qardh",
               pokok: pokokAkad,
               ...tenor,
-            }, nisbah);
+            });
 
     // Plafon diperiksa ULANG di sini, bukan hanya saat pengajuan disetujui:
     // antara persetujuan dan pencatatan akad, nasabah bisa memakai plafonnya di

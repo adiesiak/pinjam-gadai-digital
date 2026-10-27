@@ -187,9 +187,6 @@ export function UnduhAplikasiView({
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#fbfcfa] text-slate-900">
-      <a className="skip-link" href="#konten">
-        Lewati ke konten utama
-      </a>
 
       <header className="border-b border-[#dce7df] bg-[#fbfcfa]">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
@@ -242,7 +239,7 @@ export function UnduhAplikasiView({
 
       <main id="konten" tabIndex={-1}>
         <section aria-labelledby="unduh-judul" className="border-b border-[#dce7df]">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:gap-10 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#065f46]">
                 Aplikasi Android
@@ -522,7 +519,7 @@ export function UnduhAplikasiView({
           aria-labelledby="langkah-pasang-judul"
           className="border-b border-[#dce7df] bg-[#f4f7f5]"
         >
-          <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:gap-8 sm:px-6 sm:py-16 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
               <JudulBagian
                 id="langkah-pasang-judul"
@@ -557,7 +554,7 @@ export function UnduhAplikasiView({
         </section>
 
         <section aria-labelledby="catatan-aplikasi-judul" className="border-b border-[#dce7df]">
-          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-16">
             <JudulBagian
               id="catatan-aplikasi-judul"
               label="Setelah terpasang"
@@ -585,7 +582,7 @@ export function UnduhAplikasiView({
         </section>
 
         <section aria-labelledby="tanya-unduh-judul">
-          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-16">
             <JudulBagian
               id="tanya-unduh-judul"
               label="Pertanyaan pemasangan"

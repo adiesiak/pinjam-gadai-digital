@@ -16,7 +16,7 @@
  *     dikirim ke WhatsApp.
  *
  * Istilahnya sengaja sama persis dengan ruang penyedia dana (Dana tersalurkan,
- * Keuntungan dibukukan, Keuntungan perkiraan, Biaya platform). Laporan ini
+ * Keuntungan dibukukan, Keuntungan perkiraan, Porsi platform). Laporan ini
  * salinan angka yang sudah dibaca pendana di layar, jadi memakai kata lain akan
  * memaksa pembaca mencocokkan dua istilah untuk satu angka yang sama.
  *
@@ -53,7 +53,7 @@ export type DataPelunasanPendana = {
   pokokPinjaman: number;
   /** Total kewajiban peminjam (pokok + bunga). */
   totalLunas: number;
-  /** Biaya platform (layanan) atas pinjaman ini. */
+  /** Porsi platform (13/60 marjin) atas pinjaman ini. */
   potonganAdmin: number;
   /** Keuntungan pendana yang dibukukan dari pinjaman ini. */
   keuntunganPendana: number;
@@ -88,7 +88,7 @@ export type DataPortofolioPendana = {
   keuntunganDibukukan: number;
   keuntunganPerkiraan: number;
   totalKeuntungan: number;
-  /** Biaya platform (layanan) atas pinjaman berjalan + lunas. */
+  /** Porsi platform (13/60 marjin) atas pinjaman berjalan + lunas. */
   potonganAdmin: number;
   jumlahBerjalan: number;
   jumlahLunas: number;
@@ -262,7 +262,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     keuntunganDibukukan: "Keuntungan pendana (dibukukan)",
     pokokTersalur: "Dana tersalurkan (pokok)",
     totalKewajiban: "Total kewajiban peminjam",
-    biayaPlatform: "Biaya platform (layanan)",
+    biayaPlatform: "Porsi platform (13/60 marjin)",
     keuntunganCallout: "Keuntungan yang dibukukan",
     diterimaBersih: "Diterima bersih (pokok + keuntungan)",
     transferSudah: "Catatan transfer keuntungan sudah dibuat admin.",
@@ -315,7 +315,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     poinProyeksi:
       "Tanggal jatuh tempo adalah proyeksi return dari tenor pinjaman, bukan janji pembayaran. Pembayaran dapat lebih lambat bila peminjam menunggak.",
     poinBiaya:
-      "Biaya platform per pinjaman dihitung dari total kembali (pokok + Imbal Hasil). DITERIMA adalah pokok ditambah keuntungan bersih, bukan tambahan di atasnya.",
+      "Porsi platform per pinjaman dihitung 13/60 dari marjin pinjaman (Imbal Hasil), bukan biaya layanan. DITERIMA adalah pokok ditambah keuntungan bersih, bukan tambahan di atasnya.",
     poinTransferLunas: (n) =>
       `${n} pinjaman lunas sudah dibukukan, tetapi catatan transfer keuntungannya belum dibuat admin.`,
     poinTransferSemua:
@@ -519,7 +519,7 @@ function barisDaftarPinjaman(
   const tampil = kumpulan.slice(0, BATAS_PINJAMAN_LAPORAN);
   return {
     baris: tampil.map((p) => {
-      // `keuntunganPendana` SUDAH bersih setelah biaya platform. Imbal bruto
+      // `keuntunganPendana` SUDAH bersih setelah porsi platform. Imbal bruto
       // memakai skema tetap 30%, jadi biaya per pinjaman = bruto - bersih.
       const imbalBruto = imbalPendana(p.pokokPinjaman);
       const biaya = Math.max(0, imbalBruto - p.keuntunganPendana);
@@ -607,7 +607,7 @@ export function laporanPortofolio(
           tebal: true,
           nada: "bersih",
         },
-        { sel: ["Biaya platform (layanan)", rupiah(data.potonganAdmin)] },
+        { sel: ["Porsi platform (13/60 marjin)", rupiah(data.potonganAdmin)] },
       ],
     },
     {
@@ -751,7 +751,7 @@ export function laporanRekapPendana(data: DataRekapPendana): DokumenResmiPdf {
           tebal: true,
           nada: "bersih",
         },
-        { sel: ["Biaya platform (layanan)", rupiah(total.keuntunganAdmin)] },
+        { sel: ["Porsi platform (13/60 marjin)", rupiah(total.keuntunganAdmin)] },
       ],
     },
     {
@@ -816,7 +816,7 @@ export function laporanRekapPendana(data: DataRekapPendana): DokumenResmiPdf {
         "Model 1 pinjaman = 1 pendana. Setiap angka dihitung dari pinjaman yang tercatat atas nama pendana itu.",
         "Keuntungan perkiraan berasal dari pinjaman yang masih berjalan dan baru menjadi uang saat pinjaman lunas.",
         "Nama peminjam tidak dicantumkan di rekap ini. Rincian pinjaman per pendana ada di dokumen laporan pendana masing-masing.",
-        "Biaya platform adalah bagian PINDAI, bukan bagian pendana; angkanya dicetak terpisah agar tidak tertukar dengan keuntungan pendana.",
+        "Porsi platform adalah bagian PINDAI, bukan bagian pendana; angkanya dicetak terpisah agar tidak tertukar dengan keuntungan pendana.",
       ],
     },
   );

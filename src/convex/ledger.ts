@@ -214,7 +214,7 @@ export async function danaWalletBalance(
 ): Promise<number> {
   const entries = await ctx.db
     .query("ledger_entries")
-    .filter((q) => q.eq(q.field("akun"), akunDompetDana(danaId)))
+    .withIndex("by_akun", (q) => q.eq("akun", akunDompetDana(danaId)))
     .collect();
   return entries.reduce(
     (acc, e) => acc + (e.arah === "debit" ? e.jumlah : -e.jumlah),

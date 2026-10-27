@@ -250,7 +250,7 @@ export function PromoPinjamanPanel() {
           Memuat promo…
         </div>
       ) : daftar.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center sm:p-8">
           <p className="text-sm font-medium text-slate-800">Belum ada promo.</p>
           <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">
             Promo yang aktif akan tampil di beranda publik, dashboard nasabah, halaman

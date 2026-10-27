@@ -43,6 +43,7 @@ import {
   BATAS_PROMO_BUNGA,
   KELAS_STATUS_PROMO_BUNGA,
   LABEL_STATUS_PROMO_BUNGA,
+  LANTAI_BUNGA_PROMO_PERSEN,
   periksaIsiPromoBunga,
   pratinjauPromoBunga,
   type StatusPromoBunga,
@@ -69,6 +70,10 @@ type Draf = {
   mulai: string;
   selesai: string;
   aktif: boolean;
+  /** Boleh ditumpuk voucher potongan bunga. */
+  bolehVoucher: boolean;
+  /** Pagu subsidi dalam rupiah sebagai teks; kosong = tanpa pagu. */
+  paguSubsidi: string;
 };
 
 function drafBaru(): Draf {
@@ -80,6 +85,8 @@ function drafBaru(): Draf {
     mulai: msKeTanggalInput(sekarang),
     selesai: msKeTanggalInput(sekarang + 14 * 86_400_000),
     aktif: true,
+    bolehVoucher: true,
+    paguSubsidi: "",
   };
 }
 
@@ -94,6 +101,8 @@ function drafDari(row: BarisPromo): Draf {
     mulai: msKeTanggalInput(row.mulai),
     selesai: msKeTanggalInput(row.selesai),
     aktif: row.aktif,
+    bolehVoucher: row.bolehVoucher,
+    paguSubsidi: row.paguSubsidi === null ? "" : String(row.paguSubsidi),
   };
 }
 
@@ -158,6 +167,10 @@ export function PromoBungaPanel() {
       mulai: msKeTanggalInput(isi.mulai),
       selesai: msKeTanggalInput(isi.selesai),
       aktif: true,
+      // Template hanya mengisi angka kampanye; pagar uang dibiarkan kosong
+      // supaya admin memilih sendiri, bukan mewarisi nilai dari template.
+      bolehVoucher: true,
+      paguSubsidi: "",
     });
     setPesan(null);
     setTerbuka(true);
@@ -186,6 +199,15 @@ export function PromoBungaPanel() {
       return;
     }
     const persenBunga = Number(draf.persenBunga);
+    const paguTeks = draf.paguSubsidi.trim();
+    const paguSubsidi =
+      paguTeks === ""
+        ? undefined
+        : Number(paguTeks.replace(/[^\d]/g, ""));
+    if (paguSubsidi !== undefined && !Number.isFinite(paguSubsidi)) {
+      setPesan("Pagu subsidi harus angka rupiah, atau kosongkan bila tanpa pagu.");
+      return;
+    }
     const isi = {
       nama: draf.nama,
       persenBunga,
@@ -193,6 +215,8 @@ export function PromoBungaPanel() {
       mulai,
       selesai,
       aktif: draf.aktif,
+      bolehVoucher: draf.bolehVoucher,
+      paguSubsidi,
     };
     const kesalahan = periksaIsiPromoBunga(isi);
     if (kesalahan.length > 0) {
@@ -367,6 +391,29 @@ export function PromoBungaPanel() {
                       {formatPeriodePromo(row.mulai, row.selesai)}
                     </span>
                   </p>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
+                    <span>
+                      {row.paguSubsidi === null
+                        ? "Tanpa pagu subsidi"
+                        : `Pagu subsidi ${formatRupiahAman(row.paguSubsidi)}`}
+                    </span>
+                    <span className="text-slate-300">·</span>
+                    <span>
+                      {row.bolehVoucher
+                        ? "boleh digabung voucher bunga"
+                        : "tanpa voucher bunga"}
+                    </span>
+                    {row.paguPeringatan === "80" && (
+                      <span className="rounded-full border border-amber-700/30 bg-amber-700/10 px-1.5 py-0.5 font-semibold text-amber-800">
+                        pagu 80% terpakai
+                      </span>
+                    )}
+                    {row.paguPeringatan === "100" && (
+                      <span className="rounded-full border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-semibold text-destructive">
+                        pagu habis — dimatikan otomatis
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <div className="mr-1 flex items-center gap-2">
@@ -530,6 +577,43 @@ export function PromoBungaPanel() {
                 checked={draf.aktif}
                 onCheckedChange={(aktif) =>
                   setDraf((sebelumnya) => ({ ...sebelumnya, aktif }))
+                }
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="promo-bunga-pagu">Pagu subsidi (rupiah)</Label>
+              <Input
+                id="promo-bunga-pagu"
+                inputMode="numeric"
+                className="mt-1 max-w-48 tabular-nums"
+                placeholder="Kosongkan bila tanpa pagu"
+                value={draf.paguSubsidi}
+                onChange={(e) =>
+                  setDraf((sebelumnya) => ({ ...sebelumnya, paguSubsidi: e.target.value }))
+                }
+              />
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                Batas total bunga yang disubsidi platform untuk kampanye ini. Saat
+                terpakai, promo dimatikan otomatis dan tercatat di jejak audit. Kosong
+                berarti tanpa batas — pemakaian tetap terlihat di laporan efektivitas.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5">
+              <div>
+                <Label htmlFor="promo-bunga-voucher">Boleh digabung voucher bunga</Label>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Dimatikan: nasabah memilih promo atau voucher potongan bunga, tidak
+                  keduanya. Bila dinyalakan, bunga hasil tumpukan tetap tidak boleh di
+                  bawah {LANTAI_BUNGA_PROMO_PERSEN}%.
+                </p>
+              </div>
+              <Switch
+                id="promo-bunga-voucher"
+                checked={draf.bolehVoucher}
+                onCheckedChange={(bolehVoucher) =>
+                  setDraf((sebelumnya) => ({ ...sebelumnya, bolehVoucher }))
                 }
               />
             </div>

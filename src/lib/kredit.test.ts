@@ -13,6 +13,7 @@ import {
   pokokKreditBarangDalamBatas,
   quoteKreditBarang,
 } from "./kredit";
+import { bagiMargin } from "./kebijakanPinjaman";
 
 let passed = 0;
 let failed = 0;
@@ -301,21 +302,36 @@ const tiga = bagiCicilanKeDana(666_666, 200_000, 8_000_000, [2_000_000, 3_000_00
 eq(tiga.reduce((a, x) => a + x.total, 0), 866_666, "tiga penyedia dana: total tetap sama");
 eq(tiga.every((x) => x.total > 0), true, "setiap penyedia dana menerima bagian");
 
-// ---- Hak Imbal Hasil per alokasi: hak tersimpan = hak yang diterima ----
+// ---- Hak Imbal Hasil per alokasi: porsi 47 : 13, bukan marjin penuh ----
 const alokasiSim = [4_500_000, 2_500_000, 1_000_000] as const;
+const bagianBruto = [
+  q.marginTotal -
+    Math.floor((q.marginTotal * 2_500_000) / 8_000_000) -
+    Math.floor((q.marginTotal * 1_000_000) / 8_000_000),
+  Math.floor((q.marginTotal * 2_500_000) / 8_000_000),
+  Math.floor((q.marginTotal * 1_000_000) / 8_000_000),
+] as const;
 const hakSim = hakImbalHasilPerAlokasi(q.marginTotal, q.pokokDibiayai, alokasiSim);
-eq(hakSim.reduce((a, x) => a + x, 0), q.marginTotal, "Σ hak = total Imbal Hasil");
+eq(
+  hakSim.reduce((a, x) => a + x, 0),
+  q.marginTotal - bagianBruto.reduce((a, m) => a + bagiMargin(m).platform, 0),
+  "Σ hak pendana = marjin dikurangi porsi platform 13/60",
+);
 eq(
   hakSim[1],
-  Math.floor((q.marginTotal * 2_500_000) / 8_000_000),
-  "hak non-terbesar = floor proporsional",
+  bagiMargin(bagianBruto[1]).pendana,
+  "hak pendana = 47/60 dari porsi marjin alokasi",
 );
 eq(
   hakSim[2],
-  Math.floor((q.marginTotal * 1_000_000) / 8_000_000),
-  "hak porsi kecil = floor proporsional",
+  bagiMargin(bagianBruto[2]).pendana,
+  "hak porsi kecil = 47/60 dari porsi marjinnya",
 );
-eq(hakSim[0], q.marginTotal - hakSim[1] - hakSim[2], "hak terbesar = sisa (dust)");
+eq(
+  hakSim[0],
+  bagiMargin(bagianBruto[0]).pendana,
+  "hak terbesar = 47/60 dari porsinya (menyerap sisa proporsi)",
+);
 
 // ---- Simulasi 12 bulan: tiap penyedia dana menerima TEPAT porsi & haknya ----
 const pokokPerDana = [0, 0, 0];
@@ -344,9 +360,17 @@ eq(marginKembali, q.marginTotal, "12 bulan membayar seluruh Imbal Hasil");
 eq(pokokPerDana[0], 4_500_000, "penyedia dana 4,5jt kembali TEPAT 4,5jt");
 eq(pokokPerDana[1], 2_500_000, "penyedia dana 2,5jt kembali TEPAT 2,5jt");
 eq(pokokPerDana[2], 1_000_000, "penyedia dana 1jt kembali TEPAT 1jt");
-eq(marginPerDana[0], hakSim[0], "Imbal Hasil penyedia dana terbesar tepat haknya");
-eq(marginPerDana[1], hakSim[1], "Imbal Hasil penyedia dana 2,5jt tepat haknya");
-eq(marginPerDana[2], hakSim[2], "Imbal Hasil penyedia dana 1jt tepat haknya");
+// `bagiCicilanKeDana` masih membagi marjin bruto per cicilan (bukan dipakai
+// jalur pembayaran saat ini). Yang dijaga di sini: hak tersimpan adalah 78,33%
+// dari bagian itu, sisanya porsi platform.
+eq(marginPerDana[0], bagianBruto[0], "marjin bruto alokasi terbesar terbagi tepat");
+eq(marginPerDana[1], bagianBruto[1], "marjin bruto alokasi 2,5jt terbagi tepat");
+eq(marginPerDana[2], bagianBruto[2], "marjin bruto alokasi 1jt terbagi tepat");
+eq(
+  hakSim[0] + bagiMargin(bagianBruto[0]).platform,
+  bagianBruto[0],
+  "hak pendana + porsi platform = marjin alokasi terbesar",
+);
 
 throws(
   () => bagiCicilanKeDana(100_000, 10_000, 8_000_000, []),

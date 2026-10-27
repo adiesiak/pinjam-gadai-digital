@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import { Id } from "@/convex/_generated/dataModel";
 import { SkeletonBarisDaftar } from "@/components/ui/loading";
+import type { AdminStatsData } from "@/pages/admin/admin-shell";
 import { cn } from "@/lib/utils";
 
 /**
@@ -118,10 +119,40 @@ export type KreditRow = {
 };
 
 /** Tiga antrean pengajuan dari `admin.adminOverview`, dipakai bersama tab dan panel "Hari Ini". */
+/**
+ * Agregat tren 30 hari dari `admin.adminAnalitik`. Ikut dikirim di
+ * `AdminOverviewData` sejak layar "Hari ini" memakai satu bacaan untuk antrean,
+ * kartu angka, dan grafik.
+ */
+export type AdminAnalitikData = {
+  peristiwa: Array<{
+    tipe: "pencairan" | "pelunasan";
+    waktu: number;
+    jumlah: number;
+  }>;
+  komposisi: { lancar: number; ditinjau: number; jatuhTempo: number };
+  pendapatanDiBawahAmbang: number;
+  dihitungPada: number;
+};
+
 export type AdminOverviewData = {
+  /**
+   * Waktu server saat antrean ini dibaca — acuan umur tunggu di panel.
+   * Opsional karena fixture uji lama belum memilikinya; tanpa nilai ini umur
+   * tunggu tidak ditampilkan, bukan dihitung dari jam perangkat.
+   */
+  dihitungPada?: number;
   loans: LoanRow[];
   pawns: PawnRow[];
   kredit: KreditRow[];
+  /**
+   * Kartu angka layar "Hari ini", dihitung server dari bacaan yang SAMA dengan
+   * antrean di atas. Opsional: fixture uji lama tetap sah, dan panel yang hanya
+   * butuh daftar tidak perlu menyediakannya.
+   */
+  stats?: AdminStatsData;
+  /** Grafik tren & komposisi, dari bacaan yang sama pula. */
+  analitik?: AdminAnalitikData;
 };
 
 /** Ringkasan ledger internal untuk lencana tab — mengikuti `admin.ledgerSummary`. */

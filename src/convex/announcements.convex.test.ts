@@ -28,7 +28,7 @@ describe("CMS situs publik — pengaturan admin", () => {
 
     // Pengunjung belum login tetap bisa membaca konten publik bawaan.
     const defaultPublik = await t.query(api.announcements.getPublic, {});
-    expect(defaultPublik.heroJudul).toBe(DEFAULTS.hero.judul);
+    expect(defaultPublik.popupJudul).toBe(DEFAULTS.popup.judul);
     expect(defaultPublik.barAktif).toBe(true);
     expect(await t.query(api.announcements.getCmsRow, {})).toBeNull();
 
@@ -39,8 +39,7 @@ describe("CMS situs publik — pengaturan admin", () => {
         barAktif: false,
         popupJudul: "Promo khusus",
         floatDelayDetik: 90,
-        heroJudul: "PINDAI untuk usaha",
-        heroCta1: "Ajukan sekarang",
+        floatJudul: "Widget usaha",
       }),
     ).resolves.toEqual({ ok: true });
 
@@ -52,8 +51,7 @@ describe("CMS situs publik — pengaturan admin", () => {
       aktif: false,
       popupJudul: "Promo khusus",
       floatDelayDetik: 60,
-      heroJudul: "PINDAI untuk usaha",
-      heroCta1: "Ajukan sekarang",
+      floatJudul: "Widget usaha",
     });
 
     const publik = await t.query(api.announcements.getPublic, {});
@@ -62,9 +60,8 @@ describe("CMS situs publik — pengaturan admin", () => {
       barAktif: false,
       popupJudul: "Promo khusus",
       floatDelayDetik: 60,
-      heroJudul: "PINDAI untuk usaha",
-      heroCta1: "Ajukan sekarang",
-      heroJudul2: DEFAULTS.hero.judul2,
+      floatJudul: "Widget usaha",
+      popupIsi: DEFAULTS.popup.isi,
     });
 
     await expect(admin.mutation(api.announcements.resetToDefaults, {})).resolves.toEqual({
@@ -72,10 +69,52 @@ describe("CMS situs publik — pengaturan admin", () => {
     });
     expect(await admin.query(api.announcements.getCmsRow, {})).toBeNull();
     expect(await t.query(api.announcements.getPublic, {})).toMatchObject({
-      heroJudul: DEFAULTS.hero.judul,
+      popupJudul: DEFAULTS.popup.judul,
       barTeks: DEFAULTS.bar.teks,
       barAktif: true,
     });
+  });
+
+  it("tautan bar hanya boleh path internal, dan setiap simpan tercatat di audit", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Tautan", {
+      email: "admin-tautan@pindai.test",
+      role: "admin",
+    });
+
+    // Skrip, alamat lengkap, dan path ganda ditolak sebelum menyentuh baris CMS:
+    // bar merender tautan ini sebagai navigasi internal, bukan tautan luar.
+    for (const tautan of [
+      "javascript:alert(1)",
+      "https://situs-luar.test/promo",
+      "//ganda.test",
+      "/spasi ada",
+      "promo",
+    ]) {
+      await expect(admin.mutation(api.announcements.save, { tautan })).rejects.toThrow(
+        /path internal/i,
+      );
+    }
+    expect(await admin.query(api.announcements.getCmsRow, {})).toBeNull();
+
+    // Path internal lolos dan dipangkas; string kosong tetap sah = hapus tautan.
+    await expect(
+      admin.mutation(api.announcements.save, { tautan: "  /promo?dari=bar  " }),
+    ).resolves.toEqual({ ok: true });
+    expect((await admin.query(api.announcements.getCmsRow, {}))?.tautan).toBe(
+      "/promo?dari=bar",
+    );
+
+    await admin.mutation(api.announcements.save, { tautan: "" });
+    expect((await t.query(api.announcements.getPublic, {})).barTautan).toBe("");
+
+    // Jejak audit: siapa, aksi apa, dan field apa yang berubah.
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    const simpan = audit.filter((baris) => baris.aksi === "simpan_konten_cms");
+    expect(simpan).toHaveLength(2);
+    expect(simpan[0].aktorLabel).toBe("admin-tautan@pindai.test");
+    expect(simpan[0].target).toBe("pengumuman:global");
+    expect(simpan[0].detail).toContain("tautan");
   });
 
   it("admin mengubah teks beranda, publik memakai teks CMS, field kosong kembali ke bawaan", async () => {
@@ -136,7 +175,7 @@ describe("CMS situs publik — pengaturan admin", () => {
     expect(publik.barTeks).toBe(DEFAULTS.bar.teks);
   });
 
-  it("migrasi membersihkan teks CMS lama era penyedia dana dan idempoten", async () => {
+  it("pembersih teks lama hanya menyentuh teks yang tampil, dan idempoten", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "Admin Migrasi", {
       email: "admin-migrasi@pindai.test",
@@ -157,30 +196,28 @@ describe("CMS situs publik — pengaturan admin", () => {
         teks: "Alokasi dana Pendana kini tersedia untuk pinjaman pilihan.",
         tautan: "/pendana",
         popupJudul: "Pendana baru bergabung",
-        heroSub: "Sisa bagi hasil untuk Pendana tercatat otomatis.",
-        pinjamanJudul: "Pinjaman tunai untuk semua",
+        floatCta: "Ajukan pinjaman",
       }),
     ).resolves.toEqual({ ok: true });
 
     const hasil = await admin.mutation(api.announcements.bersihkanTeksLama, {});
     expect(hasil.ok).toBe(true);
     expect(hasil.diganti).toEqual(
-      expect.arrayContaining(["Teks berjalan", "Tautan CTA bar", "Judul popup", "Sub-judul hero"]),
+      expect.arrayContaining(["Teks berjalan", "Tautan CTA bar", "Judul popup"]),
     );
-    expect(hasil.diganti).not.toContain("Judul kartu pinjaman");
+    expect(hasil.diganti).not.toContain("Tombol widget mengambang");
 
     // Field lama dikosongkan → publik memakai default baru; teks kustom tetap.
     const baris = await admin.query(api.announcements.getCmsRow, {});
     expect(baris?.teks).toBeUndefined();
     expect(baris?.tautan).toBeUndefined();
     expect(baris?.popupJudul).toBeUndefined();
-    expect(baris?.heroSub).toBeUndefined();
-    expect(baris?.pinjamanJudul).toBe("Pinjaman tunai untuk semua");
+    expect(baris?.floatCta).toBe("Ajukan pinjaman");
 
     const publik = await t.query(api.announcements.getPublic, {});
     expect(publik.barTeks).toBe(DEFAULTS.bar.teks);
     expect(publik.barTautan).toBe(DEFAULTS.bar.tautan);
-    expect(publik.heroSub).toBe(DEFAULTS.hero.sub);
+    expect(publik.popupJudul).toBe(DEFAULTS.popup.judul);
     // Default pengganti harus teks baru — bukan teks lama era penyedia dana.
     expect(DEFAULTS.bar.teks).not.toMatch(/pendana|alokasi/i);
 
@@ -199,11 +236,11 @@ describe("CMS situs publik — pengaturan admin", () => {
     });
 
     await expect(peminjam.query(api.announcements.getPublic, {})).resolves.toMatchObject({
-      heroJudul: DEFAULTS.hero.judul,
+      popupJudul: DEFAULTS.popup.judul,
     });
     await expect(peminjam.query(api.announcements.getCmsRow, {})).resolves.toBeNull();
     await expect(
-      peminjam.mutation(api.announcements.save, { heroJudul: "Teks tidak sah" }),
+      peminjam.mutation(api.announcements.save, { popupJudul: "Teks tidak sah" }),
     ).rejects.toThrow(/admin/i);
     await expect(
       peminjam.mutation(api.announcements.save, {

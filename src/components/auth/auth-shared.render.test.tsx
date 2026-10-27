@@ -123,7 +123,7 @@ function aturanAktif(css: string): string {
   );
   ada(
     kartu,
-    "bg-white/85 backdrop-blur-xl border border-white/90 shadow-xl rounded-3xl p-8 max-w-md w-full",
+    "bg-white/85 backdrop-blur-xl border border-white/90 shadow-xl rounded-3xl p-6 max-w-md sm:p-8 w-full",
     "kelas kartu glassmorphism persis seperti permintaan",
   );
   ada(kartu, "isi", "anak kartu dirender");
@@ -414,9 +414,15 @@ function aturanAktif(css: string): string {
   );
   ada(
     halaman,
-    "onSubmit={handleMasukSubmit}",
-    "satu formulir melayani email maupun nomor WhatsApp",
+    "onSubmit={modeNik ? handleNikSubmit : handleMasukSubmit}",
+    "satu formulir melayani email, nomor WhatsApp, dan NIK",
   );
+  // Jalur NIK: identitas dipilih lewat NIK, tetapi buktinya tetap kode OTP ke
+  // WhatsApp terdaftar. NIK tidak pernah menjadi kata sandi.
+  ada(halaman, 'id="nik-masuk"', "medan NIK tersedia di formulir masuk");
+  ada(halaman, "mintaKodeDenganNik", "kode untuk jalur NIK diminta lewat aksi khusus");
+  ada(halaman, 'signIn("nik-otp"', "jalur NIK memakai provider sendiri");
+  ada(halaman, "NIK bukan kata sandi", "halaman menyatakan NIK bukan kata sandi");
   ada(
     halaman,
     'kredensialMasuk(String(formData.get("email") ?? ""))',
@@ -466,7 +472,7 @@ function aturanAktif(css: string): string {
   );
   ada(
     halaman,
-    "Masuk dengan Google belum diaktifkan di deployment",
+    "Masuk dengan Google belum aktif di sini",
     "penjelasan jujur tampil alih-alih halaman galat",
   );
   ada(halaman, "<LencanaKeamanan />", "lencana keamanan di dasar kartu");
@@ -538,7 +544,7 @@ function aturanAktif(css: string): string {
   );
   ada(
     kartuAdmin,
-    "bg-white/90 backdrop-blur-xl border border-white/90 shadow-2xl rounded-3xl p-8 max-w-md w-full",
+    "bg-white/90 backdrop-blur-xl border border-white/90 shadow-2xl rounded-3xl p-6 max-w-md sm:p-8 w-full",
     "kelas kartu admin persis seperti permintaan",
   );
   ok(

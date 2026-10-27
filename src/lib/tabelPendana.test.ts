@@ -105,7 +105,7 @@ eq(
     "Dibukukan (lunas)",
     "Perkiraan (belum lunas)",
     "Total keuntungan",
-    "Biaya platform (layanan)",
+    "Porsi platform (13/60 marjin)",
   ]),
   "label kolom persis seperti kontrak halaman",
 );

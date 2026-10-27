@@ -1,5 +1,5 @@
 /** Run: bun src/lib/session.test.ts — utilitas sesi klien (pure). */
-import { deviceLabelFromUa, samarkanIp } from "./session";
+import { deviceLabelFromUa, samarkanIp, urlIpKlien } from "./session";
 
 let passed = 0;
 let failed = 0;
@@ -29,6 +29,22 @@ eq("Android dikenali", deviceLabelFromUa("Mozilla/5.0 (Linux; Android 14)"), "An
 eq("Windows dikenali", deviceLabelFromUa("Mozilla/5.0 (Windows NT 10.0)"), "Windows");
 eq("macOS dikenali", deviceLabelFromUa("Mozilla/5.0 (Macintosh; Intel Mac OS X)"), "macOS");
 eq("UA asing → perangkat tidak dikenal", deviceLabelFromUa("curl/8.0"), "Perangkat tidak dikenal");
+
+// --- Endpoint IP klien ----------------------------------------------------
+// Alamatnya diturunkan dari env yang sama dengan jalur HTTP lain: domain
+// cloud (klien) diterjemahkan ke domain situs tempat HTTP action hidup.
+eq(
+  "domain cloud diturunkan ke domain situs",
+  urlIpKlien("https://dapper-goshawk-437.convex.cloud", undefined),
+  "https://dapper-goshawk-437.convex.site/api/klien/ip",
+);
+eq(
+  "domain situs dipakai apa adanya (garis miring dibuang)",
+  urlIpKlien("https://abc.convex.cloud", "https://abc.convex.site/"),
+  "https://abc.convex.site/api/klien/ip",
+);
+eq("tanpa env tidak ada alamat", urlIpKlien(undefined, undefined), null);
+eq("env kosong tidak menghasilkan alamat", urlIpKlien("", ""), null);
 
 console.log(`session tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

@@ -187,11 +187,11 @@ export function PencatatanTransferPendana() {
     );
   }
 
-  const { rows, ringkasan } = data;
+  const { rows, ringkasan, terpotong } = data;
   const adaBelum = ringkasan.jumlahBelumDicatat > 0;
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
@@ -239,6 +239,13 @@ export function PencatatanTransferPendana() {
           <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
           {ringkasan.jumlahBelumDicatat} transfer keuntungan belum dicatat (
           {formatRupiah(ringkasan.nilaiBelumDicatat)})
+        </p>
+      )}
+
+      {terpotong && (
+        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+          Daftar memuat pinjaman yang paling baru lunas. Kewajiban yang lebih lama dari itu
+          tidak ditampilkan — periksa pinjaman lama satu per satu lewat pencarian pinjaman.
         </p>
       )}
 

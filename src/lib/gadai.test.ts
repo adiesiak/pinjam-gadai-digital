@@ -4,6 +4,7 @@
  */
 import {
   GADAI_PRICING,
+  bagiSewaModalGadai,
   limitPinjamanGadai,
   proyeksiJadwalGadai,
   quoteGadai,
@@ -111,6 +112,32 @@ if (totalSewa < sewaFlat) {
   failed += 1;
   console.error(`FAIL decreasing principal menghemat: ${totalSewa} vs ${sewaFlat}`);
 }
+
+// ---- pembagian sewa modal 47 : 13 ----
+const bagi500 = bagiSewaModalGadai(500_000);
+eq(bagi500.pendana, 391_667, "pendana 47/60 dari sewa 500rb = 391.667");
+eq(bagi500.platform, 108_333, "platform 13/60 dari sewa 500rb = 108.333");
+eq(bagi500.pendana + bagi500.platform, 500_000, "pembagian sewa tidak menghilangkan rupiah");
+
+const bagi1jt = bagiSewaModalGadai(1_000_000);
+eq(bagi1jt.pendana, 783_334, "pendana 47/60 dari sewa 1jt = 783.334");
+eq(bagi1jt.platform, 216_666, "platform 13/60 dari sewa 1jt = 216.666");
+
+const bagi20rb = bagiSewaModalGadai(20_000);
+eq(bagi20rb.pendana, 15_667, "pendana 47/60 dari sewa 20rb = 15.667");
+eq(bagi20rb.platform, 4_333, "platform 13/60 dari sewa 20rb = 4.333");
+
+for (const sewa of [0, 1, 7, 99, 100, 333_333, 1_000_001]) {
+  const bagi = bagiSewaModalGadai(sewa);
+  eq(bagi.pendana + bagi.platform, sewa, `pembagian sewa ${sewa} tetap utuh`);
+  eq(
+    Number.isSafeInteger(bagi.pendana) && Number.isSafeInteger(bagi.platform),
+    true,
+    `pembagian sewa ${sewa} berupa rupiah bulat`,
+  );
+}
+throws(() => bagiSewaModalGadai(-1), "sewa negatif ditolak");
+throws(() => bagiSewaModalGadai(1.5), "sewa pecahan ditolak");
 
 // ---- konstanta bisnis ----
 eq(GADAI_PRICING.upfrontDeductionPercent, 1, "potongan muka gadai 1%");

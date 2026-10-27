@@ -1,22 +1,26 @@
 /**
  * Nisbah bagi hasil produk SYARIAH.
  *
- * Aturan produk: margin/ujrah dibagi 92% untuk Shahibul Maal (pendana) dan 8%
- * untuk platform sebagai ujrah pengelola. Angka ini bisa diubah admin lewat
- * konfigurasi sistem, jadi fungsi di bawah menerima porsi platform sebagai
- * parameter; bawaan di sini adalah angka yang berlaku sebelum diubah. Bagian
- * platform dihitung dengan pembulatan KE BAWAH, sehingga sisa pecahan rupiah
- * selalu kembali ke pendana. Tidak ada rupiah yang hilang atau diciptakan.
+ * Aturan produk: margin/ujrah dibagi dengan rasio yang sama dengan produk
+ * konvensional, 47 : 13 dari 60. Pendana (Shahibul Maal) menerima 78,33% dan
+ * platform 21,67% sebagai ujrah pengelola. Angka ini TIDAK lagi dibaca dari
+ * konfigurasi: porsi platform dihitung dengan pembagian bilangan bulat 13/60,
+ * sehingga sisa pecahan rupiah selalu kembali ke pendana dan tidak ada rupiah
+ * yang hilang atau diciptakan.
+ *
+ * Biaya layanan atau biaya admin platform adalah pos terpisah dan tidak diambil
+ * dari angka ini.
  *
  * File ini murni: tanpa React, tanpa Convex, dan seluruh nilainya rupiah bulat.
  */
+import { bagiMargin } from "../kebijakanPinjaman";
 import type { Rupiah } from "../money";
 
 /** Porsi pendana (Shahibul Maal) atas margin/ujrah, dalam persen. */
-export const NISBAH_PENDANA_PERSEN = 92;
+export const NISBAH_PENDANA_PERSEN = (47 / 60) * 100;
 
 /** Porsi platform (ujrah pengelola) atas margin/ujrah, dalam persen. */
-export const NISBAH_PLATFORM_PERSEN = 8;
+export const NISBAH_PLATFORM_PERSEN = (13 / 60) * 100;
 
 export type BagiNisbah = {
   /** Bagian pendana; selalu menerima sisa pembulatan. */
@@ -45,17 +49,11 @@ export function floorPersen(nilai: Rupiah, persen: number): Rupiah {
 /**
  * Bagi satu nilai margin/ujrah menjadi hak pendana dan hak platform.
  *
- * `persenPlatform` diisi dari konfigurasi sistem bila ada; tanpa itu dipakai
- * angka bawaan. Identitas: `nisbahPendana + nisbahPlatform = nilai`.
+ * Pembagian memakai rasio 47 : 13 (bukan persen desimal) supaya angkanya sama
+ * dengan produk konvensional. Identitas: `nisbahPendana + nisbahPlatform = nilai`.
  */
-export function bagiNisbah(
-  nilai: Rupiah,
-  persenPlatform: number = NISBAH_PLATFORM_PERSEN,
-): BagiNisbah {
+export function bagiNisbah(nilai: Rupiah): BagiNisbah {
   pastikanRupiah(nilai, "Nilai bagi hasil");
-  const nisbahPlatform = floorPersen(nilai, persenPlatform);
-  return {
-    nisbahPlatform,
-    nisbahPendana: nilai - nisbahPlatform,
-  };
+  const { pendana, platform } = bagiMargin(nilai);
+  return { nisbahPendana: pendana, nisbahPlatform: platform };
 }

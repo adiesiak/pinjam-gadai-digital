@@ -200,10 +200,9 @@ export function jalankanQc(input: InputQc): HasilQc {
     persenAdmin: ruang.ringkasan.persenPotonganAdmin,
   };
 
-  // 1) Identitas per baris: potongan admin + bagian penyedia = Imbal Hasil,
-  //    dan dua bidang keuntungan memang saling menyalin. Identitas ini tetap
-  //    berlaku walau DASAR potongan bukan lagi Imbal Hasil melainkan uang yang
-  //    kembali (pokok + Imbal Hasil) — lihat kebijakan di lib/bagiHasil.ts.
+  // 1) Identitas per baris: porsi platform + bagian penyedia = Imbal Hasil,
+  //    dan dua bidang keuntungan memang saling menyalin. Dasarnya adalah
+  //    marjin pinjaman yang dibagi 47 : 13 — lihat lib/bagiHasil.ts.
   const masalahIdentitas: string[] = [];
   for (const b of baris) {
     const angka = [b.bunga, b.potonganAdmin, b.keuntunganPendana, b.keuntunganAdmin, b.totalLunas];
@@ -213,7 +212,7 @@ export function jalankanQc(input: InputQc): HasilQc {
     }
     if (b.potonganAdmin + b.keuntunganPendana !== b.bunga) {
       masalahIdentitas.push(
-        `${b.nomorReferensi}: potongan ${rp(b.potonganAdmin)} + penyedia ${rp(b.keuntunganPendana)} ≠ Imbal Hasil ${rp(b.bunga)}`,
+        `${b.nomorReferensi}: porsi platform ${rp(b.potonganAdmin)} + penyedia ${rp(b.keuntunganPendana)} ≠ Imbal Hasil ${rp(b.bunga)}`,
       );
     }
     if (b.keuntunganAdmin !== b.potonganAdmin) {
@@ -223,18 +222,18 @@ export function jalankanQc(input: InputQc): HasilQc {
   tambah(
     "baris-identitas",
     GRUP_QC[0],
-    "Pembagian Imbal Hasil tiap baris kembali utuh",
+    "Pembagian marjin tiap baris kembali utuh",
     baris.length === 0 ? "lewat" : masalahIdentitas.length === 0 ? "lulus" : "gagal",
     baris.length === 0
       ? "Belum ada baris pinjaman di ruang penyedia dana."
       : masalahIdentitas.length === 0
-        ? `${baris.length} baris pinjaman: potongan admin + keuntungan penyedia = Imbal Hasil, tanpa rupiah yang hilang atau diciptakan.`
+        ? `${baris.length} baris pinjaman: porsi platform + keuntungan penyedia = Imbal Hasil, tanpa rupiah yang hilang atau diciptakan.`
         : `${masalahIdentitas.length} pelanggaran: ${batasi(masalahIdentitas)}`,
     baris.length === 0
       ? []
       : [
           `Imbal Hasil ${rp(jumlah(baris, (b) => b.bunga))}`,
-          `potongan admin ${rp(jumlah(baris, (b) => b.potonganAdmin))}`,
+          `porsi platform ${rp(jumlah(baris, (b) => b.potonganAdmin))}`,
           `penyedia dana ${rp(jumlah(baris, (b) => b.keuntunganPendana))}`,
         ],
   );
@@ -247,7 +246,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   for (const b of baris) {
     let ulang: ReturnType<typeof bagiHasilPendana>;
     try {
-      ulang = bagiHasilPendana(b.pokokPinjaman, cfg.persenAdmin);
+      ulang = bagiHasilPendana(b.pokokPinjaman);
     } catch (err) {
       gagalHitung.push(
         `${b.nomorReferensi}: ${err instanceof Error ? err.message : "hitung ulang gagal"}`,
@@ -271,18 +270,18 @@ export function jalankanQc(input: InputQc): HasilQc {
   tambah(
     "baris-hitung-ulang",
     GRUP_QC[0],
-    "Angka baris identik dengan hitung ulang kebijakan berjalan",
+    "Angka baris identik dengan hitung ulang 47 : 13",
     statusHitung,
     statusHitung === "lewat"
       ? "Belum ada baris pinjaman untuk dihitung ulang."
       : statusHitung === "lulus"
-        ? `${baris.length} baris dihitung ulang lewat hak pendana tetap (${PERSEN_IMBAL_PENDANA}% × pokok, potongan admin ${cfg.persenAdmin}%) — semuanya identik.`
+        ? `${baris.length} baris dihitung ulang lewat marjin acuan ${PERSEN_IMBAL_PENDANA}% × pokok dengan pembagian 47 : 13, tanpa angka pengaturan yang bisa berbeda.`
         : statusHitung === "awas"
           ? `${gagalHitung.length} baris jatuh ke nilai nol karena masukan di luar rentang: ${batasi(gagalHitung)}`
           : `${salahHitung.length} baris tidak cocok dengan hitung ulang: ${batasi(salahHitung)}`,
     [
       `hak pendana ${PERSEN_IMBAL_PENDANA}%`,
-      `potongan admin ${cfg.persenAdmin}%`,
+      `porsi platform 13/60 marjin`,
       `${baris.length} baris`,
     ],
   );
@@ -405,7 +404,7 @@ export function jalankanQc(input: InputQc): HasilQc {
   tambah(
     "identitas-agregat",
     GRUP_QC[0],
-    "Keuntungan admin + penyedia = total Imbal Hasil",
+    "Porsi platform + penyedia = total Imbal Hasil",
     rekap.length === 0 ? "lewat" : agregatOk ? "lulus" : "gagal",
     rekap.length === 0
       ? "Belum ada pendana dengan posisi pinjaman."
@@ -429,8 +428,8 @@ export function jalankanQc(input: InputQc): HasilQc {
     "Panel admin dan ruang memakai kebijakan yang sama",
     kebijakan ? "lulus" : "gagal",
     kebijakan
-      ? `Bunga ${cfg.persenBunga}% dan potongan admin ${cfg.persenAdmin}% dibaca dari sumber Pengaturan Sistem yang sama.`
-      : `Panel memakai bunga ${input.panel.ringkasan.persenBunga}% / potongan ${input.panel.ringkasan.persenPotonganAdmin}%, ruang memakai ${cfg.persenBunga}% / ${cfg.persenAdmin}%.`,
+      ? `Bunga ${cfg.persenBunga}% dan porsi platform ${cfg.persenAdmin}% (13/60 marjin) sama di kedua permukaan.`
+      : `Panel memakai bunga ${input.panel.ringkasan.persenBunga}% / porsi ${input.panel.ringkasan.persenPotonganAdmin}%, ruang memakai ${cfg.persenBunga}% / ${cfg.persenAdmin}%.`,
     [
       `ruang: ${cfg.persenBunga}% / ${cfg.persenAdmin}%`,
       `panel: ${input.panel.ringkasan.persenBunga}% / ${input.panel.ringkasan.persenPotonganAdmin}%`,

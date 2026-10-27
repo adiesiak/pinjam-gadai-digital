@@ -9,3 +9,4 @@ src/convex/_generated
 .convex-deploy-key
 # Perantara build APK Android (lihat android/README.md).
 android/build
+/freebuff-sites-build/

@@ -35,7 +35,7 @@ export type BarisPratinjauAktif = {
 };
 
 /** Kelas kartu bersama panel ini. */
-const KARTU = "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm";
+const KARTU = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6";
 
 function waktuRingkas(ms: number): string {
   return new Date(ms).toLocaleString("id-ID", {

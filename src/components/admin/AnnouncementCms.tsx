@@ -1,6 +1,6 @@
 import type { FunctionArgs } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeftRight, Check, Loader2, MessageSquare, Tags, Type, Wifi } from "lucide-react";
+import { ArrowLeftRight, Check, Loader2, MessageSquare, Type, Wifi } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -27,29 +27,6 @@ const FALLBACK = {
   floatCta: "Mulai pengajuan",
   floatAktif: true,
   floatDelayDetik: 6,
-  logoTeks: "PINDAI",
-  nav1: "Pinjaman Tunai",
-  nav2: "Gadai Digital",
-  nav3: "Kalkulator",
-  nav4: "Keamanan",
-  heroBadge: "Pinjaman & catatan internal",
-  heroJudul: "Pinjam & Gadai Digital",
-  heroJudul2: "Transparan",
-  heroSub: "Jelajahi perhitungan pinjaman, gadai, dan cicilan dalam catatan internal.",
-  heroCta1: "Ajukan Pinjaman",
-  heroCta2: "Gadaikan Barang",
-  chip1Label: "Pinjaman tunai",
-  chip1Nilai: "Tanpa agunan",
-  chip2Label: "Barang gadai",
-  chip2Nilai: "Catatan aplikasi",
-  layananJudul: "Dua fitur, satu catatan internal",
-  layananSub: "Semua nominal, skema biaya, dan status yang terlihat adalah pencatatan internal PINDAI.",
-  pinjamanJudul: "Pinjaman Tunai Digital",
-  pinjamanIsi: "Perhitungan harian: potongan admin 2% + biaya ekspres Rp5.000–Rp10.000 di muka, bunga flat 26–40% sesuai nominal dan tenor, total kewajiban 126–140% dari pokok; skema bulanan 1–6 bulan memakai DP 0% dan potongan di muka 2%.",
-  pinjamanCta: "Ajukan sekarang",
-  gadaiJudul: "Gadai Digital",
-  gadaiIsi: "Catat informasi barang dan nilai taksiran untuk pengajuan gadai. Status dan pembayaran tercatat di catatan internal.",
-  gadaiCta: "Gadaikan barang",
 };
 
 function FieldGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -151,21 +128,17 @@ function SwitchRow({
   );
 }
 
-function DividerLabel({ children }: { children: ReactNode }) {
-  return (
-    <div className="border-t border-slate-100 pt-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        {children}
-      </p>
-    </div>
-  );
-}
-
 /**
  * Bentuk payload CMS diambil LANGSUNG dari validator `announcements.save`.
  * Dengan begitu field yang tidak dikenal server tidak bisa masuk ke state
  * formulir — kalau ada, ini gagal saat typecheck, bukan saat admin menekan
  * Simpan dengan pesan "Object contains extra field".
+ *
+ * Panel ini hanya memuat teks yang benar-benar dirender: bar berjalan, popup,
+ * dan widget mengambang. Teks hero, kartu layanan, dan panduan beranda diatur
+ * di panel **Konten Beranda** (`LandingCmsPanel`) — dulu sebagian teks itu juga
+ * bisa diketik di sini, tetapi yang dibaca halaman `/` adalah versi panel itu,
+ * jadi suntingan di sini tidak pernah tampil.
  */
 type PayloadCms = FunctionArgs<typeof api.announcements.save>;
 
@@ -178,8 +151,6 @@ export function AnnouncementCms() {
 
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Partial<PayloadCms> | null>(null);
-  // Tab aktif disimpan di state — sebelumnya `value` dipatok, sehingga mengklik
-  // tab lain tidak memindahkan panel (form tetap di Tab 1).
   const [tab, setTab] = useState("tab-1");
 
   const ds = <K extends keyof PayloadCms>(key: K, fb: string): string => {
@@ -212,7 +183,7 @@ export function AnnouncementCms() {
     try {
       await save({ ...draft });
       setDraft(null);
-      toast.success("Konten tersimpan — halaman utama langsung diperbarui.");
+      toast.success("Tersimpan — bar, popup, dan widget langsung memakai teks baru.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
     } finally {
@@ -264,29 +235,6 @@ export function AnnouncementCms() {
     floatCta: ds("floatCta", p.floatCta),
     floatAktif: db("floatAktif", p.floatAktif),
     floatDelayDetik: dn("floatDelayDetik", p.floatDelayDetik),
-    logoTeks: ds("logoTeks", p.logoTeks),
-    nav1: ds("nav1", p.nav1),
-    nav2: ds("nav2", p.nav2),
-    nav3: ds("nav3", p.nav3),
-    nav4: ds("nav4", p.nav4),
-    heroBadge: ds("heroBadge", p.heroBadge),
-    heroJudul: ds("heroJudul", p.heroJudul),
-    heroJudul2: ds("heroJudul2", p.heroJudul2),
-    heroSub: ds("heroSub", p.heroSub),
-    heroCta1: ds("heroCta1", p.heroCta1),
-    heroCta2: ds("heroCta2", p.heroCta2),
-    chip1Label: ds("chip1Label", p.chip1Label),
-    chip1Nilai: ds("chip1Nilai", p.chip1Nilai),
-    chip2Label: ds("chip2Label", p.chip2Label),
-    chip2Nilai: ds("chip2Nilai", p.chip2Nilai),
-    layananJudul: ds("layananJudul", p.layananJudul),
-    layananSub: ds("layananSub", p.layananSub),
-    pinjamanJudul: ds("pinjamanJudul", p.pinjamanJudul),
-    pinjamanIsi: ds("pinjamanIsi", p.pinjamanIsi),
-    pinjamanCta: ds("pinjamanCta", p.pinjamanCta),
-    gadaiJudul: ds("gadaiJudul", p.gadaiJudul),
-    gadaiIsi: ds("gadaiIsi", p.gadaiIsi),
-    gadaiCta: ds("gadaiCta", p.gadaiCta),
   };
 
   return (
@@ -294,42 +242,33 @@ export function AnnouncementCms() {
       {/* HEADER */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight text-navy">Banner &amp; Pengumuman Sistem</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-navy">
+            Banner &amp; Pengumuman Sistem
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Edit teks dan tampilan publik. Semua perubahan langsung tampil di halaman utama setelah disimpan.
+            Teks bar berjalan, popup, dan widget mengambang. Teks hero serta kartu
+            layanan beranda diatur di panel Konten Beranda.
           </p>
         </div>
       </div>
 
       {/* BODY: form kiri + preview kanan */}
-      <Tabs
-        value={tab}
-        onValueChange={setTab}
-        className="flex-1 space-y-5"
-      >
+      <Tabs value={tab} onValueChange={setTab} className="flex-1 space-y-5">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
           <TabsTrigger value="tab-1" className="gap-2 text-sm">
             <MessageSquare className="size-4" />
-            Tab 1 · Banner &amp; Pengumuman
+            Banner, Popup &amp; Widget
           </TabsTrigger>
           <TabsTrigger value="tab-2" className="gap-2 text-sm">
-            <Type className="size-4" />
-            Tab 2 · Hero &amp; Navigasi
-          </TabsTrigger>
-          <TabsTrigger value="tab-3" className="gap-2 text-sm">
-            <Tags className="size-4" />
-            Tab 3 · Kartu Layanan
-          </TabsTrigger>
-          <TabsTrigger value="tab-4" className="gap-2 text-sm">
             <Wifi className="size-4" />
-            Tab 4 · Android &amp; WA
+            Android &amp; WhatsApp
           </TabsTrigger>
         </TabsList>
 
-        <div className="grid gap-5 min-h-0 xl:grid-cols-2 xl:gap-6">
+        <div className="grid min-h-0 gap-5 xl:grid-cols-2 xl:gap-6">
           {/* KIRI — FORM INPUT */}
           <div className="flex min-h-0 flex-col gap-5">
-            <TabsContent value="tab-1" className="space-y-3 m-0">
+            <TabsContent value="tab-1" className="m-0 space-y-3">
               <FieldGroup title="Top Running Bar">
                 <FieldEdit
                   htmlFor="cms-bar-teks"
@@ -342,11 +281,17 @@ export function AnnouncementCms() {
                 />
                 <FieldEdit
                   htmlFor="cms-bar-tautan"
-                  label="Tautan CTA (opsional)"
+                  label="Tautan CTA (path internal)"
                   value={current.barTautan}
                   onChange={(v) => set("tautan", v)}
                   placeholder={FALLBACK.barTautan}
+                  mono
                 />
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Hanya path internal yang diawali satu garis miring, mis. <code>/promo</code>.
+                  Alamat lengkap ditolak server karena tautan ini dirender sebagai navigasi
+                  di dalam aplikasi.
+                </p>
                 <SwitchRow
                   htmlFor="cms-bar-aktif"
                   label="Tampilkan bar"
@@ -435,216 +380,13 @@ export function AnnouncementCms() {
               </FieldGroup>
             </TabsContent>
 
-            <TabsContent value="tab-2" className="space-y-3 m-0">
-              <FieldGroup title="Navigation &amp; Hero">
-                <FieldEdit
-                  htmlFor="cms-logo-teks"
-                  label="Teks logo"
-                  max={40}
-                  value={current.logoTeks}
-                  onChange={(v) => set("logoTeks", v)}
-                  mono
-                  placeholder={FALLBACK.logoTeks}
-                />
-                <DividerLabel>Menu navigasi</DividerLabel>
-                <FieldEdit
-                  htmlFor="cms-nav-1"
-                  label="Menu navigasi 1"
-                  max={40}
-                  value={current.nav1}
-                  onChange={(v) => set("nav1", v)}
-                  placeholder={FALLBACK.nav1}
-                />
-                <FieldEdit
-                  htmlFor="cms-nav-2"
-                  label="Menu navigasi 2"
-                  max={40}
-                  value={current.nav2}
-                  onChange={(v) => set("nav2", v)}
-                  placeholder={FALLBACK.nav2}
-                />
-                <FieldEdit
-                  htmlFor="cms-nav-3"
-                  label="Menu navigasi 3"
-                  max={40}
-                  value={current.nav3}
-                  onChange={(v) => set("nav3", v)}
-                  placeholder={FALLBACK.nav3}
-                />
-                <FieldEdit
-                  htmlFor="cms-nav-4"
-                  label="Menu navigasi 4"
-                  max={40}
-                  value={current.nav4}
-                  onChange={(v) => set("nav4", v)}
-                  placeholder={FALLBACK.nav4}
-                />
-                <DividerLabel>Hero</DividerLabel>
-                <FieldEdit
-                  htmlFor="cms-hero-badge"
-                  label="Badge atas hero"
-                  max={160}
-                  value={current.heroBadge}
-                  onChange={(v) => set("heroBadge", v)}
-                  placeholder={FALLBACK.heroBadge}
-                />
-                <FieldEdit
-                  htmlFor="cms-hero-judul"
-                  label="Judul hero (bagian 1)"
-                  max={120}
-                  value={current.heroJudul}
-                  onChange={(v) => set("heroJudul", v)}
-                  placeholder={FALLBACK.heroJudul}
-                />
-                <FieldEdit
-                  htmlFor="cms-hero-judul-2"
-                  label="Judul hero (aksen berwarna)"
-                  max={60}
-                  value={current.heroJudul2}
-                  onChange={(v) => set("heroJudul2", v)}
-                  placeholder={FALLBACK.heroJudul2}
-                />
-                <FieldEdit
-                  htmlFor="cms-hero-sub"
-                  label="Sub-headline hero"
-                  area
-                  max={400}
-                  value={current.heroSub}
-                  onChange={(v) => set("heroSub", v)}
-                  placeholder={FALLBACK.heroSub}
-                />
-                <FieldEdit
-                  htmlFor="cms-hero-cta-1"
-                  label="CTA Button 1"
-                  max={40}
-                  value={current.heroCta1}
-                  onChange={(v) => set("heroCta1", v)}
-                  placeholder={FALLBACK.heroCta1}
-                />
-                <FieldEdit
-                  htmlFor="cms-hero-cta-2"
-                  label="CTA Button 2"
-                  max={40}
-                  value={current.heroCta2}
-                  onChange={(v) => set("heroCta2", v)}
-                  placeholder={FALLBACK.heroCta2}
-                />
-                <DividerLabel>Header chips</DividerLabel>
-                <FieldEdit
-                  htmlFor="cms-chip-1-label"
-                  label="Chip 1 — label"
-                  max={40}
-                  value={current.chip1Label}
-                  onChange={(v) => set("chip1Label", v)}
-                  placeholder={FALLBACK.chip1Label}
-                />
-                <FieldEdit
-                  htmlFor="cms-chip-1-nilai"
-                  label="Chip 1 — nilai"
-                  max={40}
-                  value={current.chip1Nilai}
-                  onChange={(v) => set("chip1Nilai", v)}
-                  placeholder={FALLBACK.chip1Nilai}
-                />
-                <FieldEdit
-                  htmlFor="cms-chip-2-label"
-                  label="Chip 2 — label"
-                  max={40}
-                  value={current.chip2Label}
-                  onChange={(v) => set("chip2Label", v)}
-                  placeholder={FALLBACK.chip2Label}
-                />
-                <FieldEdit
-                  htmlFor="cms-chip-2-nilai"
-                  label="Chip 2 — nilai"
-                  max={40}
-                  value={current.chip2Nilai}
-                  onChange={(v) => set("chip2Nilai", v)}
-                  placeholder={FALLBACK.chip2Nilai}
-                />
-              </FieldGroup>
-            </TabsContent>
-
-            <TabsContent value="tab-3" className="space-y-3 m-0">
-              <FieldGroup title="Service Cards">
-                <FieldEdit
-                  htmlFor="cms-layanan-judul"
-                  label="Judul bagian"
-                  max={120}
-                  value={current.layananJudul}
-                  onChange={(v) => set("layananJudul", v)}
-                  placeholder={FALLBACK.layananJudul}
-                />
-                <FieldEdit
-                  htmlFor="cms-layanan-sub"
-                  label="Deskripsi kartu layanan"
-                  area
-                  max={300}
-                  value={current.layananSub}
-                  onChange={(v) => set("layananSub", v)}
-                  placeholder={FALLBACK.layananSub}
-                />
-                <DividerLabel>Kartu Pinjaman</DividerLabel>
-                <FieldEdit
-                  htmlFor="cms-pinjaman-judul"
-                  label="Judul kartu Pinjaman"
-                  max={80}
-                  value={current.pinjamanJudul}
-                  onChange={(v) => set("pinjamanJudul", v)}
-                  placeholder={FALLBACK.pinjamanJudul}
-                />
-                <FieldEdit
-                  htmlFor="cms-pinjaman-isi"
-                  label="Isi kartu Pinjaman"
-                  area
-                  max={400}
-                  value={current.pinjamanIsi}
-                  onChange={(v) => set("pinjamanIsi", v)}
-                  placeholder={FALLBACK.pinjamanIsi}
-                />
-                <FieldEdit
-                  htmlFor="cms-pinjaman-cta"
-                  label="Tombol kartu Pinjaman"
-                  max={40}
-                  value={current.pinjamanCta}
-                  onChange={(v) => set("pinjamanCta", v)}
-                  placeholder={FALLBACK.pinjamanCta}
-                />
-                <DividerLabel>Kartu Gadai</DividerLabel>
-                <FieldEdit
-                  htmlFor="cms-gadai-judul"
-                  label="Judul kartu Gadai"
-                  max={80}
-                  value={current.gadaiJudul}
-                  onChange={(v) => set("gadaiJudul", v)}
-                  placeholder={FALLBACK.gadaiJudul}
-                />
-                <FieldEdit
-                  htmlFor="cms-gadai-isi"
-                  label="Isi kartu Gadai"
-                  area
-                  max={400}
-                  value={current.gadaiIsi}
-                  onChange={(v) => set("gadaiIsi", v)}
-                  placeholder={FALLBACK.gadaiIsi}
-                />
-                <FieldEdit
-                  htmlFor="cms-gadai-cta"
-                  label="Tombol kartu Gadai"
-                  max={40}
-                  value={current.gadaiCta}
-                  onChange={(v) => set("gadaiCta", v)}
-                  placeholder={FALLBACK.gadaiCta}
-                />
-              </FieldGroup>
-            </TabsContent>
-
-            <TabsContent value="tab-4" className="space-y-3 m-0">
+            <TabsContent value="tab-2" className="m-0 space-y-3">
               <FieldGroup title="Android &amp; WhatsApp">
                 <p className="text-sm leading-6 text-muted-foreground">
-                  Nama, ikon, dan tautan unduhan aplikasi diatur di menu <strong>Aplikasi Android</strong>.
-                  Template pesan WhatsApp diatur di menu <strong>WhatsApp</strong>. Keduanya tidak
-                  disimpan dari halaman ini, karena halaman ini hanya mengatur teks halaman publik.
+                  Nama, ikon, dan tautan unduhan aplikasi diatur di menu{" "}
+                  <strong>Aplikasi Android</strong>. Template pesan WhatsApp diatur di menu{" "}
+                  <strong>WhatsApp</strong>. Keduanya tidak disimpan dari halaman ini, karena
+                  halaman ini hanya mengatur teks halaman publik.
                 </p>
               </FieldGroup>
             </TabsContent>
@@ -656,7 +398,9 @@ export function AnnouncementCms() {
               <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
                 <ArrowLeftRight className="size-4 text-primary" />
                 <span className="text-sm font-semibold text-navy">Live Mockup Simulator</span>
-                <span className="ml-auto text-[11px] text-muted-foreground">50% · pratinjau real-time</span>
+                <span className="ml-auto text-[11px] text-muted-foreground">
+                  50% · pratinjau real-time
+                </span>
               </div>
               <Separator />
               <div className="flex-1 overflow-auto p-4">
@@ -675,21 +419,11 @@ export function AnnouncementCms() {
             {!draft ? "Tidak ada perubahan yang ditahan." : "Ada perubahan yang belum tersimpan."}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy}
-              onClick={kembalikanDefault}
-            >
+            <Button variant="outline" size="sm" disabled={busy} onClick={kembalikanDefault}>
               <ArrowLeftRight className="mr-1.5 size-3.5" />
               Reset ke Default
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy}
-              onClick={bersihkanTeksLama}
-            >
+            <Button variant="outline" size="sm" disabled={busy} onClick={bersihkanTeksLama}>
               Bersihkan Teks Lama
             </Button>
             <Button
@@ -712,46 +446,27 @@ export function AnnouncementCms() {
   );
 }
 
-/** Simulasi halaman publik mini, hanya UI (tidak render halaman sebenarnya).
+/** Simulasi tampilan bar/popup/widget, hanya UI (tidak render halaman sebenarnya).
  *  Catatan: ini adalah pratinjau CMS — tidak ada akses backend di sini.
  */
-function SitePreview({ values }: { values: {
-  barTeks: string;
-  barTautan: string;
-  barAktif: boolean;
-  popupJudul: string;
-  popupIsi: string;
-  popupCta: string;
-  popupAktif: boolean;
-  floatJudul: string;
-  floatIsi: string;
-  floatCta: string;
-  floatAktif: boolean;
-  floatDelayDetik: number;
-  logoTeks: string;
-  nav1: string;
-  nav2: string;
-  nav3: string;
-  nav4: string;
-  heroBadge: string;
-  heroJudul: string;
-  heroJudul2: string;
-  heroSub: string;
-  heroCta1: string;
-  heroCta2: string;
-  chip1Label: string;
-  chip1Nilai: string;
-  chip2Label: string;
-  chip2Nilai: string;
-  layananJudul: string;
-  layananSub: string;
-  pinjamanJudul: string;
-  pinjamanIsi: string;
-  pinjamanCta: string;
-  gadaiJudul: string;
-  gadaiIsi: string;
-  gadaiCta: string;
-}}) {
+function SitePreview({
+  values,
+}: {
+  values: {
+    barTeks: string;
+    barTautan: string;
+    barAktif: boolean;
+    popupJudul: string;
+    popupIsi: string;
+    popupCta: string;
+    popupAktif: boolean;
+    floatJudul: string;
+    floatIsi: string;
+    floatCta: string;
+    floatAktif: boolean;
+    floatDelayDetik: number;
+  };
+}) {
   const bar = values.barTeks;
   if (!bar) return null;
   return (
@@ -774,69 +489,10 @@ function SitePreview({ values }: { values: {
         Pratinjau CMS · tanpa publish
       </div>
 
-      {/* Nav */}
-      <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs text-navy">
-        {[values.nav1, values.nav2, values.nav3, values.nav4].map((label) => (
-          <span key={label} className="font-medium text-navy">
-            {label}
-          </span>
-        ))}
-      </div>
-
-      {/* Hero */}
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-              {values.heroBadge}
-            </span>
-          </div>
-          <span className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
-            {values.chip1Label}: {values.chip1Nilai}
-          </span>
-          <span className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
-            {values.chip2Label}: {values.chip2Nilai}
-          </span>
-        </div>
-        <h1 className="mt-3 text-xl font-semibold text-navy sm:text-2xl">
-          {values.heroJudul}
-          <br />
-          <span className="text-emerald-700">{values.heroJudul2}</span>
-        </h1>
-        <p className="mt-2 text-slate-600">{values.heroSub}</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-800 px-4 py-1 text-xs font-semibold text-white">
-            {values.heroCta1}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-xl border border-slate-300 px-4 py-1 text-xs font-semibold text-navy">
-            {values.heroCta2}
-          </span>
-        </div>
-      </div>
-
-      {/* Service cards */}
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <p className="text-base font-semibold text-navy">{values.layananJudul}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{values.layananSub}</p>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-sm font-semibold text-navy">{values.pinjamanJudul}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{values.pinjamanIsi}</p>
-            <span className="mt-3 inline-block rounded-lg bg-emerald-800 px-3 py-1 text-xs font-semibold text-white">
-              {values.pinjamanCta}
-            </span>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-sm font-semibold text-navy">{values.gadaiJudul}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{values.gadaiIsi}</p>
-            <span className="mt-3 inline-block rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold text-navy">
-              {values.gadaiCta}
-            </span>
-          </div>
-        </div>
-      </div>
+      <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+        Hero, kartu layanan, dan panduan beranda tidak dipratinjau di sini — teksnya
+        diatur di panel Konten Beranda.
+      </p>
 
       {/* Popup preview */}
       {values.popupAktif && (

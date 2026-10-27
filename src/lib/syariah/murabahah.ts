@@ -4,9 +4,9 @@
  * Rumus produk:
  *   Margin Keuntungan Total = Harga Jual Akhir - Harga Pokok Barang
  *   Margin yang boleh disepakati 15-20% dari harga pokok (bukan per bulan).
- *   Hak Pendana (Shahibul Maal) = Harga Pokok + 92% Margin
- *   Hak Platform (Ujrah Pengelola) = 8% Margin (pembulatan ke bawah)
- *   Porsi itu bisa diubah admin; parameter `persenPlatform` yang menentukan.
+ *   Hak Pendana (Shahibul Maal) = Harga Pokok + 78,33% Margin
+ *   Hak Platform (Ujrah Pengelola) = 21,67% Margin (13/60, pembulatan ke bawah)
+ *   Porsi ini tetap dan sama dengan produk konvensional.
  *
  * Harga pokok kembali 100% ke pendana karena dialah yang membeli barang lebih
  * dulu. Identitas yang selalu berlaku:
@@ -16,11 +16,10 @@
  */
 import type { Rupiah } from "../money";
 import {
-  bagiNisbah,
-  floorPersen,
-  NISBAH_PLATFORM_PERSEN,
-  pastikanRupiah,
-} from "./nisbah";
+  PERSEN_PORSI_PENDANA,
+  PERSEN_PORSI_PLATFORM,
+} from "../kebijakanPinjaman";
+import { bagiNisbah, floorPersen, pastikanRupiah } from "./nisbah";
 
 /**
  * Rentang margin yang boleh disepakati: persen dari harga pokok untuk SELURUH
@@ -58,11 +57,9 @@ export type BagiHasilMurabahah = {
 export function bagiHasilMurabahah({
   hargaPokok,
   hargaJual,
-  persenPlatform = NISBAH_PLATFORM_PERSEN,
 }: {
   hargaPokok: Rupiah;
   hargaJual: Rupiah;
-  persenPlatform?: number;
 }): BagiHasilMurabahah {
   pastikanRupiah(hargaPokok, "Harga pokok");
   pastikanRupiah(hargaJual, "Harga jual");
@@ -76,10 +73,7 @@ export function bagiHasilMurabahah({
   }
 
   const marginTotal = hargaJual - hargaPokok;
-  const { nisbahPendana, nisbahPlatform } = bagiNisbah(
-    marginTotal,
-    persenPlatform,
-  );
+  const { nisbahPendana, nisbahPlatform } = bagiNisbah(marginTotal);
 
   return {
     hargaPokok,
@@ -89,8 +83,8 @@ export function bagiHasilMurabahah({
     nisbahPlatform,
     pendanaTerima: hargaPokok + nisbahPendana,
     platformTerima: nisbahPlatform,
-    persenPendana: 100 - persenPlatform,
-    persenPlatform,
+    persenPendana: PERSEN_PORSI_PENDANA,
+    persenPlatform: PERSEN_PORSI_PLATFORM,
   };
 }
 

@@ -15,6 +15,7 @@ import {
 } from "./auth/enumerasi";
 import { emailOtp } from "./auth/emailOtp";
 import { google, jagaMasukGoogle } from "./auth/google";
+import { nikOtp } from "./auth/nikOtp";
 import { alamatKembaliGoogle, ORIGIN_APLIKASI_BAWAAN, originAplikasi } from "../lib/akunGoogle";
 import { pratinjauAdmin } from "./auth/pratinjau";
 import { whatsappOtp } from "./auth/whatsappOtp";
@@ -162,6 +163,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     emailOtp,
     adminPassword,
     whatsappOtp,
+    // NIK sebagai nama pengguna; buktinya tetap kode ke WhatsApp terdaftar.
+    nikOtp,
     pratinjauAdmin,
     google,
     Anonymous,

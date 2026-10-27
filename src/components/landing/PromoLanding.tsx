@@ -79,7 +79,7 @@ export function PromoSection({ sudahMasuk }: { sudahMasuk: boolean }) {
         className="animate-drift pointer-events-none absolute -right-24 bottom-0 size-80 rounded-full bg-[#cbb47e]/15 blur-3xl"
       />
 
-      <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:gap-14">
+      <div className="relative mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:gap-14">
         <div className="min-w-0">
           <Reveal>
             <SectionHeading

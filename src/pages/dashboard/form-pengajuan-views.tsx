@@ -284,7 +284,7 @@ export function FormPengajuanSection({
               />
             )}
             {aktif.id === "kredit" && (
-              <div className="space-y-8">
+              <div className="space-y-6 sm:space-y-8">
                 <KreditBarangForm
                   onBukaKyc={onBukaKyc}
                   onCreated={(ref) =>

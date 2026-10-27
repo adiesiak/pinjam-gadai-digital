@@ -212,8 +212,8 @@ export function PanelSiklusPendana() {
                     {row.pendanaNama}
                   </p>
                   <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
-                    Pokok {formatRupiah(row.pokok)} · Imbal{" "}
-                    {formatRupiah(row.imbal)} · Biaya{" "}
+                    Pokok {formatRupiah(row.pokok)} · Marjin{" "}
+                    {formatRupiah(row.imbal)} · Porsi platform{" "}
                     {formatRupiah(row.potongan)} · Jatuh tempo{" "}
                     {tanggal(row.jatuhTempoPada)}
                   </p>

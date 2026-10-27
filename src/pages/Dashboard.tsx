@@ -431,12 +431,12 @@ export default function Dashboard() {
       <main
         id="konten"
         tabIndex={-1}
-        className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-8 sm:pb-24 lg:pb-8"
+        className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-24 sm:px-6 sm:py-8 sm:pb-24 lg:pb-8"
       >
         <Tabs
           value={activeTab}
           onValueChange={gantiTab}
-          className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8"
+          className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-8"
         >
           {/* ===== Sisi kiri: profil + navigasi tab (hanya lg ke atas) ===== */}
           <aside className="hidden w-full shrink-0 lg:sticky lg:top-20 lg:block lg:w-64">

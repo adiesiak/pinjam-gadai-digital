@@ -32,6 +32,7 @@ import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { PengingatPembaruanPanel } from "@/components/admin/PengingatPembaruanPanel";
+import { KartuApkTerbit } from "@/components/admin/KartuApkTerbit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +51,8 @@ import {
   type KunciAsetAplikasi,
 } from "@/lib/asetAndroidApp";
 import { gambarAsetAndroid } from "@/lib/asetAndroid";
+import { urlUnduhAplikasi } from "@/lib/pembaruanAplikasi";
+import { muatInfoUnduhan, type HasilMuatUnduhan } from "@/lib/unduhAplikasi";
 import { unggahDokumen } from "@/lib/unggahDokumen";
 import { cn } from "@/lib/utils";
 
@@ -121,8 +124,11 @@ function TombolSalin({ teks, label }: { teks: string; label: string }) {
 export function AplikasiAndroidPanel() {
   const baris = useQuery(api.androidApp.getConfigRow);
   const aktif = useQuery(api.androidApp.asetAktif);
+  const statusPembaruan = useQuery(api.pembaruanAplikasi.status);
+  const wajibPembaruan = useQuery(api.pembaruanAplikasi.wajib);
   const simpan = useMutation(api.androidApp.simpan);
   const reset = useMutation(api.androidApp.reset);
+  const umumkanPembaruan = useMutation(api.pembaruanAplikasi.umumkan);
   const mintaUrl = useMutation(api.androidApp.generateUploadUrl);
 
   const [draft, setDraft] = useState<{
@@ -135,6 +141,22 @@ export function AplikasiAndroidPanel() {
   const [busy, setBusy] = useState(false);
   const [unggah, setUnggah] = useState<KunciAsetAplikasi | null>(null);
   const [konfirmasiReset, setKonfirmasiReset] = useState(false);
+  // Versi APK yang benar-benar disajikan server, dibaca dari berkas yang sama
+  // dengan halaman /aplikasi. Bukan pengaturan, hanya keadaan berkas.
+  const [apk, setApk] = useState<HasilMuatUnduhan | null>(null);
+  const [apkPercobaan, setApkPercobaan] = useState(0);
+  const [umumkanBusy, setUmumkanBusy] = useState(false);
+  const [galatUmumkan, setGalatUmumkan] = useState<string | null>(null);
+
+  useEffect(() => {
+    let dibatalkan = false;
+    void muatInfoUnduhan().then((hasil) => {
+      if (!dibatalkan) setApk(hasil);
+    });
+    return () => {
+      dibatalkan = true;
+    };
+  }, [apkPercobaan]);
 
   // URL objek pratinjau dibersihkan saat panel ditutup atau slot diganti.
   useEffect(() => {
@@ -171,6 +193,20 @@ export function AplikasiAndroidPanel() {
 
   const json = JSON.stringify(aktif, null, 2);
   const ringkas = ringkasAsetAplikasi(aktif);
+  const infoApk = apk?.ok === true ? apk.info : null;
+  const statusApk: "memuat" | "siap" | "gagal" =
+    apk === null ? "memuat" : apk.ok ? "siap" : "gagal";
+  const alamatUnduh =
+    infoApk === null || typeof window === "undefined"
+      ? null
+      : urlUnduhAplikasi(window.location.origin, infoApk.tautan);
+  const versiTerumumkan = statusPembaruan?.terbaru ?? null;
+  // Tombol umumkan hanya muncul saat berkas terbit memang lebih baru dan
+  // tautannya bisa dibuka penerima WhatsApp (server menolak jalur relatif).
+  const bisaUmumkan =
+    infoApk !== null &&
+    alamatUnduh !== null &&
+    (versiTerumumkan === null || versiTerumumkan.versiKode < infoApk.versiKode);
   // Ikon yang akan tampil di dalam aplikasi: pratinjau unggahan baru lebih dulu,
   // lalu berkas tersimpan, terakhir berkas bawaan.
   const ikonAktif =
@@ -229,6 +265,29 @@ export function AplikasiAndroidPanel() {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan pengaturan.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** Umumkan versi yang benar-benar terbit, tanpa menyalin angkanya manual. */
+  const umumkanApkTerbit = async () => {
+    if (infoApk === null || alamatUnduh === null) return;
+    setUmumkanBusy(true);
+    setGalatUmumkan(null);
+    try {
+      await umumkanPembaruan({
+        versiKode: infoApk.versiKode,
+        versiNama: infoApk.versiNama,
+        tautan: alamatUnduh,
+      });
+      toast.success(
+        `PINDAI ${infoApk.versiNama} (kode ${infoApk.versiKode}) diumumkan. Notifikasi muncul di pusat notifikasi semua akun.`,
+      );
+    } catch (err) {
+      const pesan = err instanceof Error ? err.message : "Pengumuman gagal disimpan.";
+      setGalatUmumkan(pesan);
+      toast.error(pesan);
+    } finally {
+      setUmumkanBusy(false);
     }
   };
 
@@ -308,6 +367,25 @@ export function AplikasiAndroidPanel() {
           </Button>
         </div>
       </div>
+
+      {statusPembaruan !== undefined && (
+        <KartuApkTerbit
+          status={statusApk}
+          info={infoApk}
+          alasan={apk?.ok === false ? apk.alasan : null}
+          terumumkan={versiTerumumkan}
+          versiMinimum={wajibPembaruan?.versiMinimum ?? null}
+          alamatUnduh={alamatUnduh}
+          onMuatUlang={() => {
+            setApk(null);
+            setApkPercobaan((n) => n + 1);
+          }}
+          bisaUmumkan={bisaUmumkan}
+          sedangUmumkan={umumkanBusy}
+          galatUmumkan={galatUmumkan}
+          onUmumkan={() => void umumkanApkTerbit()}
+        />
+      )}
 
       <PengingatPembaruanPanel />
 

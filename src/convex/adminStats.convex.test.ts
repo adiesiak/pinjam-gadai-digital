@@ -20,6 +20,7 @@ import { modules } from "./test.setup";
 import { hitungMenunggu } from "../lib/admin-queue";
 import { diTahapTinjauan } from "../lib/statusPinjaman";
 import { quoteKreditBarang } from "../lib/kredit";
+import { DEFAULT_CONFIG } from "../lib/system-config";
 
 const NIK = "3201234567890003";
 const REKENING = "1234567890";
@@ -218,5 +219,105 @@ describe("ringkasan admin: agregat pinjaman menunggu", () => {
     const stats = await asAdmin.query(api.admin.adminStats, {});
     expect(stats.totalPinjamanDiajukan).toBe(7_000_000);
     expect(stats.pinjamanBaru).toBe(1);
+  });
+});
+
+describe("ringkasan admin: jarak lokasi dari brankas", () => {
+  /**
+   * `gpsMismatch` dibaca dari titik TERAKHIR di `lokasiStatus`, bukan dari
+   * riwayat `lokasiJejak` per pinjaman. Fixture ini sengaja membuat riwayat
+   * yang BERLAWANAN dengan status, jadi kedua sumber memberi angka berbeda:
+   *
+   *   - A: status jauh (±111 km), riwayat dekat  → status: dihitung.
+   *   - B: status dekat (±1 km), riwayat jauh     → status: tidak dihitung.
+   *   - C: status jauh, tanpa riwayat sama sekali  → status: dihitung.
+   *
+   * Sumber status = 2. Kalau query kembali membaca riwayat, hasilnya 1 (hanya
+   * B) — dan kalau ia membaca riwayat lalu jatuh ke "tanpa titik", hasilnya 0.
+   * Angka 2 inilah yang membedakan ketiganya.
+   */
+  it("menghitung dari lokasiStatus terakhir, bukan dari riwayat jejak", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: asAdmin } = await siapkanPengguna(t, "admin-gps", {
+      email: "admin-gps@pindai.test",
+      role: "admin",
+    });
+    const { userId: userA } = await siapkanPengguna(t, "peminjam-gps-a", {
+      email: "gps-a@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: userB } = await siapkanPengguna(t, "peminjam-gps-b", {
+      email: "gps-b@pindai.test",
+      role: "peminjam",
+    });
+    const { userId: userC } = await siapkanPengguna(t, "peminjam-gps-c", {
+      email: "gps-c@pindai.test",
+      role: "peminjam",
+    });
+
+    // Koordinat relatif terhadap brankas dari konfigurasi bawaan, supaya tes
+    // tidak bergantung pada koordinat gudang yang sebenarnya.
+    const dekat = { lat: DEFAULT_CONFIG.vaultLat + 0.01, lng: DEFAULT_CONFIG.vaultLng };
+    const jauh = { lat: DEFAULT_CONFIG.vaultLat + 1, lng: DEFAULT_CONFIG.vaultLng };
+
+    await t.run(async (ctx) => {
+      const now = Date.now();
+      for (const [userId, nomorReferensi] of [
+        [userA, "PGL-GPS-A"],
+        [userB, "PGL-GPS-B"],
+        [userC, "PGL-GPS-C"],
+      ] as const) {
+        await ctx.db.insert("loans", {
+          userId,
+          pokokPinjaman: 1_000_000,
+          nomorReferensi,
+          tujuan: "modal_usaha",
+          status: "didanai",
+          namaLengkap: "Peminjam GPS",
+          nomorRekening: REKENING,
+          tenorHari: 30,
+          didanaiPada: now,
+        });
+      }
+
+      await ctx.db.insert("lokasiStatus", {
+        userId: userA,
+        ...jauh,
+        akurasi: 8,
+        waktu: now,
+        sumber: "web",
+      });
+      await ctx.db.insert("lokasiStatus", {
+        userId: userB,
+        ...dekat,
+        akurasi: 8,
+        waktu: now,
+        sumber: "web",
+      });
+      await ctx.db.insert("lokasiStatus", {
+        userId: userC,
+        ...jauh,
+        akurasi: 8,
+        waktu: now,
+        sumber: "web",
+      });
+
+      // Riwayat yang berlawanan dengan status.
+      await ctx.db.insert("lokasiJejak", {
+        userId: userA,
+        ...dekat,
+        akurasi: 8,
+        waktu: now,
+      });
+      await ctx.db.insert("lokasiJejak", {
+        userId: userB,
+        ...jauh,
+        akurasi: 8,
+        waktu: now,
+      });
+    });
+
+    const stats = await asAdmin.query(api.admin.adminStats, {});
+    expect(stats.gpsMismatch).toBe(2);
   });
 });

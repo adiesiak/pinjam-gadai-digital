@@ -9,6 +9,8 @@ import { internal } from "./_generated/api";
  * - UTC 17:30 (00:30 WIB) — retensi jejak lokasi: hapus titik lebih tua dari
  *   LOKASI_RETENSI.jejakHari (90 hari), kecuali titik milik pinjaman yang
  *   masih berjalan (ditahan sampai 400 hari sebagai bukti audit).
+ * - UTC 17:40 & 17:50 (00:40 & 00:50 WIB) — retensi isi pesan WhatsApp dan
+ *   jejak audit, memakai ambang yang diatur admin di Pengaturan Sistem.
  * - UTC 18:00 — retensi kunci idempotensi: buang kunci lebih tua dari 7 hari
  *   (jauh melewati jendela retry jaringan mana pun).
  * - UTC 18:15 — retensi jejak gerbang pengiriman: buang baris pembatas laju
@@ -56,6 +58,15 @@ crons.hourly(
   internal.angsuranPengingat.jalankanPengingatAngsuran,
 );
 
+// Pengingat voucher H-3 — sekali sehari pagi WIB. Voucher yang hampir hangus
+// tidak punya jalur penagihan lain, jadi tanpanya hadiah apresiasi/referral
+// hangus tanpa pernah diketahui pemiliknya. Idempoten per voucher.
+crons.daily(
+  "pengingat-voucher-h3",
+  { hourUTC: 1, minuteUTC: 0 },
+  internal.pengingatVoucher.jalankanPengingatVoucher,
+);
+
 crons.daily(
   "bersihkan-kunci-idempotensi",
   { hourUTC: 18, minuteUTC: 0 },
@@ -75,6 +86,22 @@ crons.daily(
   { hourUTC: 17, minuteUTC: 30 },
   internal.tracking.bersihkanLokasiLama,
   // Argumen kosong = pakai kebijakan LOKASI_RETENSI (satu sumber di lib).
+  {},
+);
+
+// Retensi data pribadi: isi pesan WhatsApp dan jejak audit. Ambangnya diatur
+// admin di Pengaturan Sistem (`retensiLogWaHari`, `retensiAuditHari`).
+crons.daily(
+  "retensi-log-wa",
+  { hourUTC: 17, minuteUTC: 40 },
+  internal.retensi.bersihkanLogWhatsapp,
+  {},
+);
+
+crons.daily(
+  "retensi-audit",
+  { hourUTC: 17, minuteUTC: 50 },
+  internal.retensi.bersihkanAudit,
   {},
 );
 

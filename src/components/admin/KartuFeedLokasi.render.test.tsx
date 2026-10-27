@@ -39,6 +39,10 @@ const baris = (o: Partial<BarisFeedLokasi> = {}): BarisFeedLokasi => ({
   jarakVaultKm: 12.34,
   mismatch: false,
   tanda: [],
+  umurDetik: 12,
+  langsung: true,
+  akurasi: 8,
+  perangkat: null,
   ...o,
 });
 
@@ -52,6 +56,10 @@ const tanpaPilih = () => {};
   ada(html, "bg-emerald-100", "warna lencana aman");
   ada(html, "PGD-20261001-AB12", "kode referensi tampil");
   ada(html, "12.3 km dari titik acuan", "jarak tampil satu desimal");
+  ada(html, "Langsung", "status langsung tampil");
+  ada(html, "12 dtk lalu", "umur titik tampil");
+  ada(html, "GPS ±8 m", "akurasi GPS tampil");
+  ada(html, "badge-dot--hidup", "titik langsung berdenyut");
   ada(html, "flex-col", "tata letak kolom flex");
   ada(html, "p-3.5", "kartu mandiri berpadding");
   ok(!html.includes("absolute"), "tanpa position absolute (anti-overlap)");
@@ -91,6 +99,34 @@ const tanpaPilih = () => {};
   );
   ada(html, "jarak tidak diketahui", "jarak kosong dinyatakan jujur");
   bersih(html, "kartu tanpa jarak");
+}
+
+// ===== 4b. Titik lama TIDAK boleh mengaku langsung =====
+{
+  const html = renderToStaticMarkup(
+    <KartuFeedLokasi
+      r={baris({ umurDetik: 7_200, langsung: false, akurasi: null })}
+      onPilih={tanpaPilih}
+    />,
+  );
+  ada(html, "Tidak aktif", "titik lama dilabeli tidak aktif");
+  ada(html, "2 jam lalu", "umur titik lama tampil dalam jam");
+  ok(!html.includes("Langsung<"), "titik lama tidak memakai label langsung");
+  ok(!html.includes("badge-dot--hidup"), "titik lama tidak berdenyut");
+  bersih(html, "kartu tidak aktif");
+}
+
+// ===== 4c. Tanpa informasi umur, baris keaktifan tidak dirender =====
+{
+  const html = renderToStaticMarkup(
+    <KartuFeedLokasi
+      r={baris({ umurDetik: undefined, langsung: undefined, akurasi: undefined })}
+      onPilih={tanpaPilih}
+    />,
+  );
+  ok(!html.includes("Tidak aktif"), "pemanggil tanpa umur tidak dipaksa berbohong");
+  ok(!html.includes("belum pernah"), "tidak ada umur karangan saat data tidak dikirim");
+  bersih(html, "kartu tanpa umur");
 }
 
 // ===== 5. Penjagaan "peta blank" di LiveLocationMap =====

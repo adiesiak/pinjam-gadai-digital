@@ -25,6 +25,7 @@ import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
 import { getConfig, audit } from "./system";
 import { jarakKm } from "../lib/geo";
+import { LOKASI_KEBIJAKAN } from "../lib/lokasi";
 import {
   apakahPelunasanTepatWaktu,
   clampPlafon,
@@ -54,7 +55,7 @@ import {
 } from "../lib/analitikAdmin";
 import { statusKanonik } from "../lib/statusPinjaman";
 import { terbitkanKontrakGadai, terbitkanKontrakPinjaman } from "./kontrakDigital";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   kelompokkanJurnalYatim,
   ringkasJurnalYatim,
@@ -805,6 +806,13 @@ export const adminOverview = query({
             pokokGadai: p.pokokGadai,
             persenSewaModal: p.persenSewaModal,
             sisaPokok: p.sisaPokok,
+            // Model 1 gadai = 1 pendana. Nama akun dipakai agar panel admin
+            // menampilkan pemilik yang sama dengan saat ditetapkan.
+            pendanaId: p.pendanaId ?? null,
+            pendanaNama:
+              p.pendanaId !== undefined
+                ? await namaPendanaAkun(p.pendanaId, p.pendanaNama ?? null)
+                : p.pendanaNama ?? null,
             dicairkanPada: p.dicairkanPada,
           };
         }),
@@ -812,7 +820,9 @@ export const adminOverview = query({
 
     // Ringkasan pengajuan kredit barang (Skema C) untuk penghitung tab admin;
     // rincian lengkap dibaca panel verifikasi lewat api.kredit.antreanKreditBarang.
-    const kreditRows = (await ctx.db.query("kreditBarang").collect())
+    // Baris mentahnya disimpan: agregat di bawah memakainya, bukan membaca ulang.
+    const kreditMentah = await ctx.db.query("kreditBarang").collect();
+    const kreditRows = kreditMentah
       .sort((a, b) => b._creationTime - a._creationTime)
       .map((k) => ({
         _id: k._id,
@@ -824,7 +834,31 @@ export const adminOverview = query({
         status: k.status,
       }));
 
-    return { isAdmin: true, loans: loanRows, pawns: pawnRows, kredit: kreditRows };
+    // Waktu acuan dihitung di server: panel memakainya untuk umur tunggu
+    // antrean, supaya angkanya tidak bergantung pada jam perangkat admin.
+    const sekarang = Date.now();
+
+    // Kartu angka dan grafik untuk layar YANG SAMA dihitung di sini, dari data
+    // yang baru saja dibaca. Sebelumnya `adminStats` dan `adminAnalitik`
+    // memindai loans/pawns/kredit/nasabahProfil sekali lagi untuk layar yang
+    // sama, jadi satu kunjungan admin membaca seluruh riwayat pinjaman tiga
+    // kali — dan pada volume tertentu itu gagal, bukan hanya melambat.
+    const stats = await bangunStatsAdmin(ctx, {
+      loans,
+      pawns,
+      kreditBarang: kreditMentah,
+    });
+    const analitik = await bangunAnalitikAdmin(ctx, loans);
+
+    return {
+      isAdmin: true,
+      dihitungPada: sekarang,
+      loans: loanRows,
+      pawns: pawnRows,
+      kredit: kreditRows,
+      stats,
+      analitik,
+    };
   },
 });
 
@@ -1040,12 +1074,29 @@ export const promoteToAdmin = mutation({
 });
 
 // Statistik antrean (hanya admin) — agregasi nyata dari database.
+//
+// Isi perhitungannya tinggal di `bangunStatsAdmin` supaya `adminOverview` bisa
+// memakainya dengan data yang SUDAH ia baca. Layar "Hari ini" dulu memindai
+// loans/pawns/kredit sekali untuk antrean dan sekali lagi untuk kartu angka;
+// sekarang satu kali, dan kedua jalur tidak mungkin menampilkan angka berbeda.
 export const adminStats = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const loans = await ctx.db.query("loans").collect();
-    const pawns = await ctx.db.query("pawns").collect();
+    return bangunStatsAdmin(ctx);
+  },
+});
+
+/** Data mentah untuk agregat; dioper bila pemanggil sudah membacanya. */
+type BahanStatsAdmin = {
+  loans: Doc<"loans">[];
+  pawns: Doc<"pawns">[];
+  kreditBarang: Doc<"kreditBarang">[];
+};
+
+async function bangunStatsAdmin(ctx: QueryCtx, bahan?: Partial<BahanStatsAdmin>) {
+    const loans = bahan?.loans ?? (await ctx.db.query("loans").collect());
+    const pawns = bahan?.pawns ?? (await ctx.db.query("pawns").collect());
 
     // Status "menunggu keputusan" dibaca dari SATU sumber kebenaran yang sama
     // dengan lencana sub-tab (`lib/admin-queue.ts`). Sebelumnya di sini hanya
@@ -1060,7 +1111,8 @@ export const adminStats = query({
     const taksiranTotal = pawns
       .filter((p) => p.status === "disetujui" && p.nilaiTaksiran !== undefined)
       .reduce((acc, p) => acc + (p.nilaiTaksiran ?? 0), 0);
-    const kreditBarang = await ctx.db.query("kreditBarang").collect();
+    const kreditBarang =
+      bahan?.kreditBarang ?? (await ctx.db.query("kreditBarang").collect());
 
     // Pokok gadai yang MASIH beredar (sisa menurun; fallback pokok awal) untuk
     // gadai aktif — pembanding "sedang berjalan" milik pinjaman tunai.
@@ -1131,15 +1183,12 @@ export const adminStats = query({
       promoBungaPersenNormal?: number;
     }): number => {
       try {
-        return bagiHasilPinjamanDari(
-          {
-            pokokPinjaman: l.pokokPinjaman,
-            tenorBulan: l.tenorBulan ?? null,
-            persenBunga: l.persenBunga ?? cfg.persenBunga,
-            promoBungaPersenNormal: l.promoBungaPersenNormal ?? null,
-          },
-          cfg.persenAdmin,
-        ).keuntunganAdmin;
+        return bagiHasilPinjamanDari({
+          pokokPinjaman: l.pokokPinjaman,
+          tenorBulan: l.tenorBulan ?? null,
+          persenBunga: l.persenBunga ?? cfg.persenBunga,
+          promoBungaPersenNormal: l.promoBungaPersenNormal ?? null,
+        }).keuntunganAdmin;
       } catch {
         return 0;
       }
@@ -1154,34 +1203,32 @@ export const adminStats = query({
       .filter((l) => l.status === "didanai")
       .reduce((acc, l) => acc + keuntunganAdminSatu(l), 0);
 
-    // GPS mismatch: posisi terakhir peminjam aktif vs gudang brankas.
+    // Satu baca untuk seluruh status lokasi: satu baris per pengguna, berisi
+    // titik TERAKHIR yang sah. Titik dari perangkat admin saat pratinjau
+    // dipulihkan saat sesi pratinjau ditutup (`pratinjau.pulihkanLokasiNasabah`),
+    // jadi baris ini tidak membawa lokasi admin.
+    const statusLokasi = await ctx.db.query("lokasiStatus").collect();
+    const waktuLokasiPerPeminjam = new Map<string, number>();
+    const titikLokasiPerPeminjam = new Map<string, { lat: number; lng: number }>();
+    for (const s of statusLokasi) {
+      waktuLokasiPerPeminjam.set(s.userId as string, s.waktu);
+      titikLokasiPerPeminjam.set(s.userId as string, { lat: s.lat, lng: s.lng });
+    }
+
+    // GPS mismatch: posisi terakhir peminjam aktif vs gudang brankas. Dibaca
+    // dari `lokasiStatus` yang sudah diambil di atas, BUKAN satu query
+    // `lokasiJejak` per pinjaman aktif: versi lama membaca sampai 20 titik
+    // riwayat untuk setiap pinjaman berjalan, sehingga biaya query ini tumbuh
+    // sebanding jumlah pinjaman aktif dikali 20 — puluhan ribu dokumen
+    // terbaca pada satu kunjungan dashboard. Titik terakhirnya sama saja.
     const vault = { lat: cfg.vaultLat, lng: cfg.vaultLng };
     let gpsMismatch = 0;
     for (const l of loans) {
       if (l.status !== "didanai") continue;
-      const titikJejak = await ctx.db
-        .query("lokasiJejak")
-        .withIndex("by_user", (q) => q.eq("userId", l.userId))
-        .order("desc")
-        .take(20);
-      // Titik dari perangkat admin saat pratinjau tidak dihitung sebagai
-      // lokasi peminjam (lihat pemulihan `pratinjau._pulihkanJejakPratinjau`).
-      const titik = titikJejak.find((r) => r.dikecualikan === undefined) ?? null;
-      if (
-        titik &&
-        jarakKm({ lat: titik.lat, lng: titik.lng }, vault) > cfg.gpsMismatchKm
-      ) {
+      const titik = titikLokasiPerPeminjam.get(l.userId as string) ?? null;
+      if (titik && jarakKm(titik, vault) > cfg.gpsMismatchKm) {
         gpsMismatch += 1;
       }
-    }
-
-    // Satu baca untuk seluruh status lokasi: dipakai menghitung pinjaman yang
-    // lokasinya tidak mengalir sekaligus titik yang ditandai mencurigakan
-    // (indikasi lokasi palsu). Tabel ini satu baris per pengguna.
-    const statusLokasi = await ctx.db.query("lokasiStatus").collect();
-    const waktuLokasiPerPeminjam = new Map<string, number>();
-    for (const s of statusLokasi) {
-      waktuLokasiPerPeminjam.set(s.userId as string, s.waktu);
     }
 
     // Gerbang lokasi wajib: pinjaman aktif yang titik GPS-nya tidak mengalir
@@ -1236,8 +1283,7 @@ export const adminStats = query({
       /** Peringatan lokasi yang belum diakui nasabah di dashboard. */
       peringatanLokasiAktif,
     };
-  },
-});
+}
 
 // Re-quote helper dipakai ulang untuk tampilan admin (rincian biaya pinjaman).
 // tenorBulan diisi → rincian skema bulanan (DP 0%, potongan di muka 2% untuk
@@ -1718,10 +1764,20 @@ export const adminAnalitik = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
+    return bangunAnalitikAdmin(ctx);
+  },
+});
+
+/**
+ * Agregat tren & komposisi untuk Ringkasan. Sama seperti `bangunStatsAdmin`:
+ * `adminOverview` mengopernya daftar pinjaman yang sudah dibaca, jadi layar
+ * "Hari ini" tidak memindai tabel pinjaman dua kali untuk dua kartu.
+ */
+async function bangunAnalitikAdmin(ctx: QueryCtx, bahanLoans?: Doc<"loans">[]) {
     const sekarang = Date.now();
     const batas = sekarang - (HARI_TREN - 1) * MS_HARI;
 
-    const loans = await ctx.db.query("loans").collect();
+    const loans = bahanLoans ?? (await ctx.db.query("loans").collect());
     const profil = await ctx.db.query("nasabahProfil").collect();
     const penghasilanPerUser = new Map<string, number | undefined>();
     for (const p of profil) penghasilanPerUser.set(p.userId, p.penghasilanBulanan);
@@ -1774,28 +1830,70 @@ export const adminAnalitik = query({
       pendapatanDiBawahAmbang,
       dihitungPada: sekarang,
     };
-  },
-});
+}
 
-/** Baris ledger untuk export CSV & tab Ledger (admin). */
+/** Ukuran satu halaman arsip ledger — cukup besar untuk ekspor, cukup kecil
+ * supaya satu permintaan tidak menembus batas baca Convex. */
+const HALAMAN_LEDGER = 500;
+
+/**
+ * Satu halaman arsip ledger untuk tab Ledger & ekspor CSV (admin).
+ *
+ * Ledger adalah arsip akuntansi: isi ekspornya TIDAK boleh dipotong. Karena itu
+ * jalurnya halaman berkursor, bukan satu pembacaan tabel penuh — pemanggil
+ * mengambil halaman berikutnya sampai `selesai`, lalu merangkainya menjadi satu
+ * berkas. Urutannya dari jurnal terlama ke terbaru supaya hasil ekspor runut.
+ */
 export const ledgerRows = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { kursor: v.optional(v.string()), batas: v.optional(v.number()) },
+  handler: async (ctx, { kursor, batas }) => {
     await requireAdmin(ctx);
-    return ctx.db.query("ledger_entries").collect();
+    const ukuran = Math.min(
+      1_000,
+      Math.max(50, Math.floor(batas ?? HALAMAN_LEDGER)),
+    );
+    const halaman = await ctx.db
+      .query("ledger_entries")
+      .withIndex("by_waktu")
+      .order("asc")
+      .paginate({ cursor: kursor ?? null, numItems: ukuran });
+    return {
+      rows: halaman.page,
+      kursor: halaman.isDone ? null : halaman.continueCursor,
+      selesai: halaman.isDone,
+    };
   },
 });
 
 /**
- * Titik lokasi peminjam untuk peta live (OpenStreetMap): satu baris per
- * peminjam dengan pinjaman — posisi realtime (jejak) atau lokasi pengajuan.
+ * Titik lokasi peminjam untuk peta lokasi langsung (OpenStreetMap): satu baris
+ * per peminjam dengan pinjaman.
+ *
+ * Penting untuk dibaca sebelum mengubah tampilan: peta ini HANYA bisa
+ * langsung sejauh perangkatnya memang mengirim heartbeat. Peramban mengirim
+ * tiap ±60 detik selama dashboard terbuka; aplikasi native bisa lebih lama
+ * lewat layanan latar belakang. Karena itu setiap baris membawa umurnya
+ * sendiri (`umurDetik`, `langsung`), dan titik pengajuan lama TIDAK pernah
+ * disebut langsung — dulu peta menyebut semuanya "live" padahal sebagian
+ * titiknya berumur berhari-hari.
  */
 export const petaPeminjam = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const cfg = await getConfig(ctx);
+    const sekarang = Date.now();
     const vault = { lat: cfg.vaultLat, lng: cfg.vaultLng };
+    // Ambang "masih mengirim" memakai kebijakan yang sama dengan gerbang
+    // transaksi (`requireLokasiSegar`), bukan angka terpisah di antarmuka.
+    const batasUmurMenit = Math.max(1, cfg.lokasiMaxUmurMenit);
+    const batasUmurMs = batasUmurMenit * 60_000;
+    /** Titik terbaru yang dibaca per nasabah (titik terkini + jalur). */
+    const JEJAK_DIBACA = 50;
+    /** Titik yang digambar sebagai jalur pergerakan — cukup untuk arah, murah dibaca. */
+    const JALUR_MAKS_TITIK = 20;
+    /** Jalur hanya digambar dari pergerakan dua jam terakhir. */
+    const JALUR_MAKS_UMUR_MS = 2 * 60 * 60 * 1000;
     const loans = await ctx.db.query("loans").collect();
     // Jendela pratinjau per nasabah: titik dan lokasi pengajuan yang jatuh di
     // dalamnya tidak boleh menjadi pin peta (ditulis perangkat admin).
@@ -1822,7 +1920,26 @@ export const petaPeminjam = query({
       namaLengkap: string;
       nomorReferensi: string;
       statusPinjaman: string;
-      posisi: { lat: number; lng: number; waktu: number; sumber: string } | null;
+      posisi: {
+        lat: number;
+        lng: number;
+        waktu: number;
+        sumber: "perangkat" | "pengajuan";
+      } | null;
+      /** Umur titik terkini (detik) — dihitung di server, bukan di peramban. */
+      umurDetik: number | null;
+      /** Titik perangkat yang masih dalam ambang kebijakan. */
+      langsung: boolean;
+      akurasi: number | null;
+      /** Jalur pergerakan (urut lama → baru) dari dua jam terakhir. */
+      jalur: Array<{ lat: number; lng: number; waktu: number }>;
+      /** Perangkat terakhir yang mengirim heartbeat, null bila hanya peramban. */
+      perangkat: {
+        platform: string;
+        versiApp: string;
+        terakhirDilihat: number;
+        aktif: boolean;
+      } | null;
       jarakVaultKm: number | null;
       mismatch: boolean;
       /** Tanda kecurigaan lokasi palsu pada titik terakhir (kosong = normal). */
@@ -1836,15 +1953,67 @@ export const petaPeminjam = query({
         .query("lokasiJejak")
         .withIndex("by_user", (q) => q.eq("userId", l.userId))
         .order("desc")
-        .take(50);
+        .take(JEJAK_DIBACA);
       const titik =
         titikJejak.find((r) => r.dikecualikan === undefined) ?? null;
       const lok = l.lokasiAjukan;
       const posisi = titik
-        ? { lat: titik.lat, lng: titik.lng, waktu: titik.waktu, sumber: "realtime" }
+        ? {
+            lat: titik.lat,
+            lng: titik.lng,
+            waktu: titik.waktu,
+            sumber: "perangkat" as const,
+          }
         : lok !== undefined && !dalamPratinjau(l.userId, lok.waktu)
-          ? { lat: lok.lat, lng: lok.lng, waktu: lok.waktu, sumber: "pengajuan" }
+          ? {
+              lat: lok.lat,
+              lng: lok.lng,
+              waktu: lok.waktu,
+              sumber: "pengajuan" as const,
+            }
           : null;
+      const umurDetik =
+        posisi === null
+          ? null
+          : Math.max(0, Math.floor((sekarang - posisi.waktu) / 1000));
+      // HANYA titik perangkat yang masih segar boleh disebut langsung. Titik
+      // pengajuan bisa berumur berhari-hari: menyebutnya live akan menyesatkan
+      // tim review yang sedang mencari posisi nasabah sekarang.
+      const langsung =
+        posisi !== null &&
+        posisi.sumber === "perangkat" &&
+        sekarang - posisi.waktu <= batasUmurMs;
+
+      const jalur = titikJejak
+        .filter(
+          (r) =>
+            r.dikecualikan === undefined &&
+            sekarang - r.waktu <= JALUR_MAKS_UMUR_MS,
+        )
+        .slice(0, JALUR_MAKS_TITIK)
+        .reverse()
+        .map((r) => ({ lat: r.lat, lng: r.lng, waktu: r.waktu }));
+
+      // Heartbeat perangkat native: satu-satunya bukti bahwa GPS benar-benar
+      // masih hidup saat aplikasi di latar belakang. Peramban tidak mendaftar
+      // perangkat, jadi `null` berarti titik datang dari web.
+      const daftarPerangkat = await ctx.db
+        .query("perangkat")
+        .withIndex("by_user", (q) => q.eq("userId", l.userId))
+        .collect();
+      const perangkatTerakhir =
+        daftarPerangkat.sort((a, b) => b.terakhirDilihat - a.terakhirDilihat)[0] ??
+        null;
+      const perangkat =
+        perangkatTerakhir === null
+          ? null
+          : {
+              platform: perangkatTerakhir.platform,
+              versiApp: perangkatTerakhir.versiApp,
+              terakhirDilihat: perangkatTerakhir.terakhirDilihat,
+              aktif: sekarang - perangkatTerakhir.terakhirDilihat <= batasUmurMs,
+            };
+
       const jarak = posisi ? jarakKm(posisi, vault) : null;
       rows.push({
         userId: l.userId,
@@ -1852,12 +2021,63 @@ export const petaPeminjam = query({
         nomorReferensi: l.nomorReferensi,
         statusPinjaman: l.status,
         posisi,
+        umurDetik,
+        langsung,
+        akurasi: titik?.akurasi ?? null,
+        jalur,
+        perangkat,
         jarakVaultKm: jarak,
         mismatch: jarak !== null && jarak > cfg.gpsMismatchKm,
         tanda: titik?.tanda ?? [],
       });
     }
-    return { vault, gpsMismatchKm: cfg.gpsMismatchKm, rows };
+    // Urutan yang berguna saat memantau: yang masih mengirim lebih dulu, lalu
+    // yang titiknya paling baru.
+    rows.sort(
+      (a, b) =>
+        Number(b.langsung) - Number(a.langsung) ||
+        (a.umurDetik ?? Number.MAX_SAFE_INTEGER) -
+          (b.umurDetik ?? Number.MAX_SAFE_INTEGER),
+    );
+    return {
+      vault,
+      gpsMismatchKm: cfg.gpsMismatchKm,
+      batasUmurMenit,
+      intervalDetik: LOKASI_KEBIJAKAN.intervalDetik,
+      diperbaruiPada: sekarang,
+      rows,
+    };
+  },
+});
+
+/**
+ * Nomor WhatsApp satu peminjam — untuk tombol "Kirim rekening" per baris
+ * pinjaman di ruang pendana.
+ *
+ * SENGAJA dibaca lewat query terpisah, bukan sebagai kolom di
+ * `penyediaDana.daftarPengajuan`. Daftar itu juga dibaca akun pendana dan
+ * pemantau, dan ada tes yang menjaga agar tidak satu pun nomor identitas ikut
+ * di dalamnya; menambah kolom nomor di sana akan membocorkan nomor ke pembaca
+ * yang tidak berhak, walau tombolnya disembunyikan di antarmuka. Nomor hanya
+ * diambil saat admin benar-benar menekan tombol, untuk satu pinjaman, dengan
+ * gerbang admin yang sama seperti query admin lain.
+ */
+export const kontakPeminjam = query({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    await requireAdmin(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) return null;
+    // Pinjaman adalah sumber utama; baris lama atau hasil migrasi kadang hanya
+    // menyimpan nomor di profil nasabahnya.
+    const profil = await ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_user", (q) => q.eq("userId", loan.userId))
+      .first();
+    return {
+      nama: loan.namaLengkap,
+      nomorWhatsApp: loan.nomorWhatsApp ?? profil?.nomorWhatsApp ?? null,
+    };
   },
 });
 
