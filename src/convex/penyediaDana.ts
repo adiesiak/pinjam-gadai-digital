@@ -50,6 +50,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { SLOT_AKSES_BERSAMA } from "./aksesBersama";
 import { requireAdminSession } from "./adminAuthz";
+import { userIdAkunUji } from "./akunUjiInternal";
 import {
   PERSEN_IMBAL_PENDANA,
   TENOR_PENDANA_HARI,
@@ -618,11 +619,17 @@ async function bacaPinjaman(
   terpotong: boolean;
   angkaTerpotong: boolean;
 }> {
+  // Pinjaman AKUN UJI PINJAMAN tidak pernah menjadi portofolio pendana.
+  const idUji = await userIdAkunUji(ctx);
+  const bukanUji = (loan: Doc<"loans">): boolean =>
+    idUji === null || loan.userId !== idUji;
   if (cakupan === null) {
-    const penuh = await ctx.db
-      .query("loans")
-      .order("desc")
-      .take(BATAS_AGREGAT + 1);
+    const penuh = (
+      await ctx.db
+        .query("loans")
+        .order("desc")
+        .take(BATAS_AGREGAT + 1)
+    ).filter(bukanUji);
     const angkaTerpotong = penuh.length > BATAS_AGREGAT;
     const isi = angkaTerpotong ? penuh.slice(0, BATAS_AGREGAT) : penuh;
     return {
@@ -633,11 +640,15 @@ async function bacaPinjaman(
       angkaTerpotong,
     };
   }
-  const jendela = await ctx.db.query("loans").order("desc").take(BATAS_BARIS + 1);
-  const milik = await ctx.db
-    .query("loans")
-    .withIndex("by_pendana", (q) => q.eq("pendanaId", cakupan.userId))
-    .take(BATAS_AGREGAT + 1);
+  const jendela = (
+    await ctx.db.query("loans").order("desc").take(BATAS_BARIS + 1)
+  ).filter(bukanUji);
+  const milik = (
+    await ctx.db
+      .query("loans")
+      .withIndex("by_pendana", (q) => q.eq("pendanaId", cakupan.userId))
+      .take(BATAS_AGREGAT + 1)
+  ).filter(bukanUji);
   const warisanNama = jendela.filter(
     (loan) =>
       loan.pendanaId === undefined && pinjamanMilikPendana(loan, cakupan.userId, cakupan.kunci),
@@ -662,7 +673,9 @@ async function bacaPinjaman(
     await Promise.all(idAlokasi.map((id) => ctx.db.get(id)))
   ).filter(
     (loan): loan is Doc<"loans"> =>
-      loan !== null && !dipindahKePendanaLain(loan, cakupan.userId),
+      loan !== null &&
+      !dipindahKePendanaLain(loan, cakupan.userId) &&
+      bukanUji(loan),
   );
   const peta = new Map(
     [...warisanNama, ...warisanAlokasi, ...milik].map((loan) => [loan._id, loan]),
@@ -2009,9 +2022,13 @@ export const daftarInvestor = query({
     // Posisi dana dibaca dari model baru: satu pinjaman = satu pendana.
     // Baris alokasi lama (`fundings`/`kreditFundings`) tidak lagi menjadi
     // sumber angka panel — posisi pemilik dihitung dari `loans` berstatus
-    // didanai/lunas, persis seperti rekap di ruang penyedia dana.
+    // didanai/lunas, persis seperti rekap di ruang penyedia dana. Pinjaman
+    // AKUN UJI PINJAMAN tidak masuk portofolio siapa pun.
+    const idUji = await userIdAkunUji(ctx);
     const pinjamanBerposisi = (await ctx.db.query("loans").collect()).filter(
-      (l) => l.status === "didanai" || l.status === "lunas",
+      (l) =>
+        (l.status === "didanai" || l.status === "lunas") &&
+        (idUji === null || l.userId !== idUji),
     );
 
     // Seluruh catatan transfer dibaca SEKALI lalu dipetakan per pinjaman, supaya

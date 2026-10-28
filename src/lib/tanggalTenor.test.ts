@@ -9,11 +9,13 @@
  *  - pergantian bulan dan tahun mengikuti kalender, termasuk tahun kabisat.
  */
 import {
+  akhirPekan,
   hariIniLokal,
   rentangTanggalTenor,
   selisihHari,
   tambahHari,
   tanggalJatuhTempo,
+  tanggalSebelumAkhirPekan,
   tenorDariTanggal,
 } from "@/lib/tanggalTenor";
 
@@ -91,6 +93,26 @@ eq(
 const dasar = tanggalJatuhTempo(14, siang);
 eq(tanggal(tambahHari(dasar, 7)), "2026-11-18", "voucher +7 hari menggeser tanggal akhir");
 eq(selisihHari(dasar, tambahHari(dasar, 7)), 7, "selisih tanggal akhir 7 hari");
+
+// ---- Akhir pekan & hari kerja terdekat ----
+ok(akhirPekan(new Date(2026, 9, 31)), "Sabtu 31 Oktober 2026 dianggap akhir pekan");
+ok(akhirPekan(new Date(2026, 10, 1)), "Minggu 1 November 2026 dianggap akhir pekan");
+ok(!akhirPekan(new Date(2026, 9, 28)), "Rabu 28 Oktober 2026 bukan akhir pekan");
+eq(
+  tanggal(tanggalSebelumAkhirPekan(new Date(2026, 9, 31))),
+  "2026-10-30",
+  "Sabtu dimajukan ke Jumat",
+);
+eq(
+  tanggal(tanggalSebelumAkhirPekan(new Date(2026, 10, 1))),
+  "2026-10-30",
+  "Minggu dimajukan ke Jumat",
+);
+eq(
+  tanggal(tanggalSebelumAkhirPekan(new Date(2026, 9, 28))),
+  "2026-10-28",
+  "hari kerja tidak digeser",
+);
 
 // ---- Rentang minimum & maksimum ----
 const { min, maks } = rentangTanggalTenor(siang);

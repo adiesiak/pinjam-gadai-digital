@@ -59,7 +59,7 @@ ada(cepat, "export function PengajuanCepatSection", "komponen pengajuan cepat ad
 
 // Empat isian yang diminta produk.
 ada(cepat, "Nominal pinjaman", "isian nominal ada");
-ada(cepat, "Lama pinjaman", "isian tenor ada");
+ada(cepat, "Tanggal jatuh tempo", "isian tenor berupa tanggal jatuh tempo");
 ada(cepat, "Keperluan pinjaman", "isian keperluan ada");
 ada(cepat, "Rekening penerima dana", "konfirmasi rekening tersimpan ada");
 ada(cepat, "Setujui & kirim pengajuan", "tombol kirim satu halaman ada");

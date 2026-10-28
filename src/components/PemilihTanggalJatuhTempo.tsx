@@ -8,12 +8,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { TENOR_OPTIONS, tenorHarianSah } from "@/lib/loan";
+import { persenBungaHarian, TENOR_OPTIONS, tenorHarianSah } from "@/lib/loan";
+import { formatRupiah, percentOf } from "@/lib/money";
 import {
+  akhirPekan,
   hariIniLokal,
   rentangTanggalTenor,
   tambahHari,
   tanggalJatuhTempo,
+  tanggalSebelumAkhirPekan,
   tengahHariWIB,
   tenorDariTanggal,
 } from "@/lib/tanggalTenor";
@@ -60,6 +63,34 @@ export function PemilihTanggalJatuhTempo({
   const { maks } = rentangTanggalTenor(sekarang);
   const dipilih = tanggalJatuhTempo(tenor, sekarang);
   const akhir = tambahanHari > 0 ? tambahHari(dipilih, tambahanHari) : null;
+  // Bunga dihitung dari mesin harga yang sama dengan server, bukan perkiraan
+  // terpisah: angka di popover harus sama dengan yang muncul di ringkasan.
+  const bungaUntuk = (hari: number): number | null => {
+    if (!Number.isInteger(pokok) || pokok <= 0) return null;
+    const persen = persenBungaHarian(pokok, hari);
+    return persen === null ? null : percentOf(pokok, persen);
+  };
+  const bungaSekarang = bungaUntuk(tenor);
+  const bungaSehariLagi = bungaUntuk(tenor + 1);
+  const tambahanSehari =
+    bungaSekarang !== null && bungaSehariLagi !== null
+      ? bungaSehariLagi - bungaSekarang
+      : null;
+  // Jatuh tempo di Sabtu/Minggu tetap sah, tetapi tim penagihan manual libur.
+  // Tawarkan Jumat sebelumnya tanpa memaksa: tanggal tetap pilihan nasabah.
+  const jatuhAkhirPekan = akhirPekan(dipilih);
+  const jumat = tanggalSebelumAkhirPekan(dipilih);
+  const tenorJumat = jatuhAkhirPekan
+    ? tenorDariTanggal(jumat, pokok, sekarang)
+    : null;
+  const labelJumat =
+    tenorJumat === null
+      ? null
+      : formatTanggalWIB(tengahHariWIB(jumat), {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        });
 
   const label = formatTanggalWIB(tengahHariWIB(dipilih), {
     weekday: "short",
@@ -123,7 +154,7 @@ export function PemilihTanggalJatuhTempo({
           </p>
           <p className="mt-0.5 text-xs leading-5 text-slate-500">
             Tenor {TENOR_OPTIONS[0]}–50 hari dari hari ini. Tanggal di luar
-            rentang itu tidak bisa dipilih.
+            rentang itu tidak bisa dipilih; warna kuning menandai akhir pekan.
           </p>
         </div>
 
@@ -134,6 +165,10 @@ export function PemilihTanggalJatuhTempo({
           startMonth={hariIni}
           endMonth={maks}
           locale={localeId}
+          modifiers={{
+            akhirPekan: (date) => date.getDay() === 0 || date.getDay() === 6,
+          }}
+          modifiersClassNames={{ akhirPekan: "bg-amber-50/70" }}
           disabled={(date) => tenorDariTanggal(date, pokok, sekarang) === null}
           onSelect={(date) => {
             if (date === undefined) return;
@@ -144,6 +179,57 @@ export function PemilihTanggalJatuhTempo({
           }}
           className="w-full [--cell-size:--spacing(9)]"
         />
+
+        {tenorJumat !== null && labelJumat !== null && (
+          <div className="border-t border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-[11px] leading-5 text-amber-950">
+              Jatuh tempo {label} bertepatan akhir pekan. Bisa tetap dipilih,
+              atau majukan ke hari kerja terdekat.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                onPilih(tenorJumat);
+                setBuka(false);
+              }}
+              className="mt-1.5 min-h-8 rounded-lg border border-amber-300 bg-white px-2.5 text-[11px] font-semibold text-amber-900 transition-colors hover:border-amber-500"
+            >
+              Pilih Jumat, {labelJumat} ({tenorJumat} hari)
+            </button>
+          </div>
+        )}
+
+        {bungaSekarang !== null && (
+          <div className="border-t border-slate-200 px-4 py-3 text-[11px] leading-5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-slate-500">Sisa waktu</span>
+              <span className="font-semibold tabular-nums text-slate-900">
+                {tenor} hari dari hari ini
+              </span>
+            </div>
+            <div className="mt-0.5 flex items-baseline justify-between gap-3">
+              <span className="text-slate-500">Bunga tenor {tenor} hari</span>
+              <span className="font-semibold tabular-nums text-slate-900">
+                {formatRupiah(bungaSekarang)}
+              </span>
+            </div>
+            <div className="mt-0.5 flex items-baseline justify-between gap-3">
+              <span className="text-slate-500">Total kembali</span>
+              <span className="font-semibold tabular-nums text-slate-900">
+                {formatRupiah(pokok + bungaSekarang)}
+              </span>
+            </div>
+            {tambahanSehari !== null && tambahanSehari > 0 && (
+              <p className="mt-1 text-slate-500">
+                Mundur satu hari menambah bunga{" "}
+                <strong className="font-semibold text-amber-800">
+                  {formatRupiah(tambahanSehari)}
+                </strong>
+                .
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-1.5 border-t border-slate-200 px-4 py-3">
           {TENOR_OPTIONS.map((hari) => {

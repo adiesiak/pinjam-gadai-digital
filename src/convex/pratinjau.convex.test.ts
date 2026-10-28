@@ -1027,6 +1027,68 @@ describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
     expect(pinjaman[0].lokasiAjukan).toBeUndefined();
   });
 
+  it("menyaring data uji dari ringkasan dan hanya menghapus pengajuan yang batal", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const uji = await siapkanPengguna(t, AKUN_UJI.nama, {
+      email: "akun.uji@pindai.test",
+      role: "peminjam",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("nasabahProfil", {
+        userId: uji.userId,
+        namaLengkap: AKUN_UJI.nama,
+        nik: AKUN_UJI.nik,
+        nomorWhatsApp: AKUN_UJI.nomorWhatsApp,
+        diperbaruiPada: Date.now(),
+        diperbaruiOlehLabel: "Seed akun uji",
+      });
+      const dasar = {
+        userId: uji.userId,
+        pokokPinjaman: 500_000,
+        tujuan: "Uji alur",
+        namaLengkap: AKUN_UJI.nama,
+        nomorRekening: "1234567890",
+        tenorHari: 7,
+      };
+      await ctx.db.insert("loans", {
+        ...dasar,
+        status: "ditolak",
+        nomorReferensi: "PGD-UJI-TOLAK",
+      });
+      await ctx.db.insert("loans", {
+        ...dasar,
+        status: "didanai",
+        nomorReferensi: "PGD-UJI-CAIR",
+        didanaiPada: Date.now(),
+      });
+    });
+
+    // Ringkasan produksi tidak menghitung percobaan akun uji.
+    const stats = await admin.sesi.query(api.admin.adminStats, {});
+    expect(stats.totalPinjaman).toBe(0);
+
+    const ringkas = await admin.sesi.query(api.dataUji.ringkasanDataUji, {});
+    expect(ringkas).toMatchObject({
+      akunUjiAda: true,
+      total: 2,
+      bisaDibersihkan: 1,
+      tersimpan: 1,
+    });
+
+    const hasil = await admin.sesi.mutation(api.dataUji.bersihkanDataUji, {
+      konfirmasi: "BERSIHKAN_DATA_UJI",
+    });
+    expect(hasil).toEqual({ dihapus: 1, tersimpan: 1 });
+
+    const sisa = await t.run((ctx) => ctx.db.query("loans").collect());
+    expect(sisa).toHaveLength(1);
+    expect(sisa[0].status).toBe("didanai");
+  });
+
   it("menutup otomatis pratinjau yang kehabisan waktu, termasuk pemulihan lokasi", async () => {
     const t = convexTest(schema, modules);
     const admin = await siapkanPengguna(t, "super admin", {

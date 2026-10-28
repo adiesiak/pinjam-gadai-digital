@@ -45,6 +45,7 @@ import { simpanDataDiriProfil, bacaProfilUntukForm } from "./dataDiriProfil";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { hapusTurunanAkun, totalTurunanAkun } from "./hapusAkunTurunan";
+import { userIdAkunUji } from "./akunUjiInternal";
 import { tautanBerkas } from "./berkas";
 import { quoteKreditBarang } from "../lib/kredit";
 import { STATUS_MENUNGGU } from "../lib/admin-queue";
@@ -1095,8 +1096,17 @@ type BahanStatsAdmin = {
 };
 
 async function bangunStatsAdmin(ctx: QueryCtx, bahan?: Partial<BahanStatsAdmin>) {
-    const loans = bahan?.loans ?? (await ctx.db.query("loans").collect());
-    const pawns = bahan?.pawns ?? (await ctx.db.query("pawns").collect());
+    // Data AKUN UJI PINJAMAN adalah percobaan internal, bukan portofolio: ia
+    // tidak boleh menggeser omzet, antrean keputusan, atau rasio kesehatan di
+    // ringkasan admin. Baris uji lama (tanpa penanda) tetap tersaring lewat
+    // userId akun uji, jadi tidak perlu migrasi.
+    const idUji = await userIdAkunUji(ctx);
+    const loans = (bahan?.loans ?? (await ctx.db.query("loans").collect())).filter(
+      (l) => idUji === null || l.userId !== idUji,
+    );
+    const pawns = (bahan?.pawns ?? (await ctx.db.query("pawns").collect())).filter(
+      (p) => idUji === null || p.userId !== idUji,
+    );
 
     // Status "menunggu keputusan" dibaca dari SATU sumber kebenaran yang sama
     // dengan lencana sub-tab (`lib/admin-queue.ts`). Sebelumnya di sini hanya
@@ -1111,8 +1121,9 @@ async function bangunStatsAdmin(ctx: QueryCtx, bahan?: Partial<BahanStatsAdmin>)
     const taksiranTotal = pawns
       .filter((p) => p.status === "disetujui" && p.nilaiTaksiran !== undefined)
       .reduce((acc, p) => acc + (p.nilaiTaksiran ?? 0), 0);
-    const kreditBarang =
-      bahan?.kreditBarang ?? (await ctx.db.query("kreditBarang").collect());
+    const kreditBarang = (
+      bahan?.kreditBarang ?? (await ctx.db.query("kreditBarang").collect())
+    ).filter((k) => idUji === null || k.userId !== idUji);
 
     // Pokok gadai yang MASIH beredar (sisa menurun; fallback pokok awal) untuk
     // gadai aktif — pembanding "sedang berjalan" milik pinjaman tunai.
@@ -1777,7 +1788,11 @@ async function bangunAnalitikAdmin(ctx: QueryCtx, bahanLoans?: Doc<"loans">[]) {
     const sekarang = Date.now();
     const batas = sekarang - (HARI_TREN - 1) * MS_HARI;
 
-    const loans = bahanLoans ?? (await ctx.db.query("loans").collect());
+    // Pemantauan produksi tidak menghitung percobaan AKUN UJI PINJAMAN.
+    const idUji = await userIdAkunUji(ctx);
+    const loans = (bahanLoans ?? (await ctx.db.query("loans").collect())).filter(
+      (l) => idUji === null || l.userId !== idUji,
+    );
     const profil = await ctx.db.query("nasabahProfil").collect();
     const penghasilanPerUser = new Map<string, number | undefined>();
     for (const p of profil) penghasilanPerUser.set(p.userId, p.penghasilanBulanan);

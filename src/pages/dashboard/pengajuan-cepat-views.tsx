@@ -544,7 +544,7 @@ export function PengajuanCepatSection({
           {/* 2. Tenor */}
           <div className="min-w-0">
             <label htmlFor="cepat-tenor" className="text-xs font-semibold text-slate-900">
-              Lama pinjaman
+              Tanggal jatuh tempo
             </label>
             <div className="mt-1.5">
               <PemilihTanggalJatuhTempo

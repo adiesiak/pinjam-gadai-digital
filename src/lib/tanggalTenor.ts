@@ -47,6 +47,23 @@ export function tanggalJatuhTempo(tenor: number, sekarang = Date.now()): Date {
   return tambahHari(hariIniLokal(sekarang), tenor);
 }
 
+/** Apakah tanggal jatuh pada Sabtu atau Minggu. */
+export function akhirPekan(tanggal: Date): boolean {
+  const hari = tanggal.getDay();
+  return hari === 0 || hari === 6;
+}
+
+/**
+ * Tanggal kerja terakhir sebelum akhir pekan: Jumat untuk Sabtu maupun Minggu.
+ * Tanggal kerja lain dikembalikan apa adanya.
+ */
+export function tanggalSebelumAkhirPekan(tanggal: Date): Date {
+  const hari = tanggal.getDay();
+  if (hari === 6) return tambahHari(tanggal, -1);
+  if (hari === 0) return tambahHari(tanggal, -2);
+  return tanggal;
+}
+
 /**
  * Tenor (hari) untuk tanggal yang dipilih, atau `null` bila tanggalnya di luar
  * 7–50 hari dari hari ini atau tidak sah untuk nominal tersebut.

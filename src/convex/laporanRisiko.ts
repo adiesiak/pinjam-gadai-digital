@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
+import { userIdAkunUji } from "./akunUjiInternal";
 import { hitungAging, konsentrasiProduk, type BarisProduk } from "../lib/aging";
 
 /**
@@ -21,7 +22,10 @@ export const ringkasanRisiko = query({
     await requireAdminSession(ctx);
     const sekarang = Date.now();
 
-    const [pinjaman, gadai, kredit] = await Promise.all([
+    // Portofolio risiko hanya berisi pinjaman sungguhan; percobaan akun uji
+    // tidak boleh menaikkan DPD, konsentrasi produk, atau jumlah baris.
+    const idUji = await userIdAkunUji(ctx);
+    const [semuaPinjaman, semuaGadai, semuaKredit] = await Promise.all([
       ctx.db
         .query("loans")
         .withIndex("by_status", (q) => q.eq("status", "didanai"))
@@ -35,6 +39,16 @@ export const ringkasanRisiko = query({
         .withIndex("by_status", (q) => q.eq("status", "didanai"))
         .collect(),
     ]);
+    const pinjaman = semuaPinjaman.filter(
+      (baris) => idUji === null || baris.userId !== idUji,
+    );
+    const gadai = semuaGadai.filter(
+      (baris) => idUji === null || baris.userId !== idUji,
+    );
+    const kredit = semuaKredit.filter(
+      (baris) => idUji === null || baris.userId !== idUji,
+    );
+
 
     const aging = hitungAging(pinjaman, sekarang);
 

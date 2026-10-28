@@ -28,6 +28,7 @@ import { PemulihanJejakPratinjauPanel } from "./PemulihanJejakPratinjauPanel";
 import { PencatatanTransferGadai } from "./PencatatanTransferGadai";
 import { PencatatanTransferPendana } from "./PencatatanTransferPendana";
 import { PenyediaDanaTable } from "./PenyediaDanaTable";
+import { DataUjiPanel } from "./DataUjiPanel";
 import { PratinjauAktifPanel } from "./PratinjauAktifPanel";
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 
@@ -458,6 +459,7 @@ function TabAkunAkses() {
       <PanelSiklusPendana />
       <PenyediaDanaTable />
       <PratinjauAktifPanel />
+      <DataUjiPanel />
       <PemulihanJejakPratinjauPanel />
     </div>
   );

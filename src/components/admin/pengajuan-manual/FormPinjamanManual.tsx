@@ -2,6 +2,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2, Save, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
+import { PemilihTanggalJatuhTempo } from "@/components/PemilihTanggalJatuhTempo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,6 @@ import {
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
   TENOR_OPTIONS,
-  TENOR_PERPANJANGAN,
   tenorHarianDefault,
   tenorHarianEfektif,
   tenorHarianSemua,
@@ -200,49 +200,69 @@ export function FormPinjamanManual({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="manual-pinjaman-tenor">Tenor</Label>
-          <Select
-            value={bulanan ? tenorBulan : String(tenorHarianManual)}
-            onValueChange={(nilai) => {
-              if (bulanan) setTenorBulan(nilai);
-              else setTenorHari(nilai);
-              setError(null);
-            }}
-            disabled={busy}
-          >
-            <SelectTrigger id="manual-pinjaman-tenor" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(bulanan ? TENOR_BULANAN_OPTIONS.map((t) => `${t}`) : tenorHarianOpsi.map((t) => `${t}`)).map(
-                (nilai) => {
-                  const aktif = bulanan
-                    ? true
-                    : (tenorHarianOpsi as readonly number[]).includes(Number(nilai));
-                  return (
-                    <SelectItem key={nilai} value={nilai} disabled={!aktif}>
-                      {bulanan ? `${nilai} bulan` : `${nilai} hari`}
-                      {!bulanan && Number(nilai) >= TENOR_PERPANJANGAN.min
-                        ? " · perpanjangan"
-                        : !bulanan &&
-                            !(TENOR_OPTIONS as readonly number[]).includes(Number(nilai))
-                          ? " · tanggal bebas"
-                          : ""}
-                      {!bulanan &&
-                      adaMatriksHarian &&
-                      Number(nilai) === tenorHarianDefault(pokok ?? 0)
-                        ? " · bawaan"
-                        : ""}
-                      {!aktif ? " · terkunci" : ""}
-                    </SelectItem>
-                  );
-                },
-              )}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="manual-pinjaman-tenor">
+            {bulanan ? "Tenor" : "Tanggal jatuh tempo"}
+          </Label>
+          {bulanan ? (
+            <Select
+              value={tenorBulan}
+              onValueChange={(nilai) => {
+                setTenorBulan(nilai);
+                setError(null);
+              }}
+              disabled={busy}
+            >
+              <SelectTrigger id="manual-pinjaman-tenor" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TENOR_BULANAN_OPTIONS.map((t) => (
+                  <SelectItem key={t} value={`${t}`}>
+                    {t} bulan
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : adaMatriksHarian ? (
+            <PemilihTanggalJatuhTempo
+              id="manual-pinjaman-tenor"
+              pokok={pokok ?? 0}
+              tenor={tenorHarianManual}
+              disabled={busy}
+              onPilih={(hari) => {
+                setTenorHari(String(hari));
+                setError(null);
+              }}
+            />
+          ) : (
+            // Di luar matriks harian (pencatatan lama di atas Rp1 juta), pilihan
+            // tenor tetap ringkas dan tidak memakai kalender karena tarif per
+            // tanggal tidak berlaku di wilayah itu.
+            <Select
+              value={String(tenorHarianManual)}
+              onValueChange={(nilai) => {
+                setTenorHari(nilai);
+                setError(null);
+              }}
+              disabled={busy}
+            >
+              <SelectTrigger id="manual-pinjaman-tenor" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {tenorHarianOpsi.map((t) => (
+                  <SelectItem key={t} value={`${t}`}>
+                    {t} hari
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {!bulanan && (
             <p className="text-xs leading-5 text-muted-foreground">
-              Tenor yang tersedia: {tenorHarianOpsi.join(" / ")} hari.
+              {adaMatriksHarian
+                ? `Tanggal dihitung dari hari ini; tenor yang tersedia ${tenorHarianOpsi.join(" / ")} hari.`
+                : `Tenor yang tersedia: ${tenorHarianOpsi.join(" / ")} hari.`}
             </p>
           )}
         </div>

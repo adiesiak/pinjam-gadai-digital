@@ -217,9 +217,9 @@ export function validasiPengajuanCepat(
     maks as Rupiah,
   );
   if (pesanTenor !== null) {
-    return `${pesanTenor} Pilih lama pinjaman: ${tenorHarianTersedia(
+    return `${pesanTenor} Pilih tanggal jatuh tempo di kalender: ${tenorHarianTersedia(
       isian.pokokPinjaman,
-    ).join(" / ")} hari.`;
+    ).join(" / ")} hari dari hari ini.`;
   }
   if (isian.tujuan.trim() === "") {
     return "Pilih keperluan pinjaman.";
