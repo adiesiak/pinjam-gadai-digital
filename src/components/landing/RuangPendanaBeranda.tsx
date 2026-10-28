@@ -6,6 +6,7 @@
  * halaman `/jadi-pendana` tetap di balik gerbang itu. Yang ditampilkan di sini
  * hanya jalan masuknya, supaya pendana lama tidak perlu menghafal URL.
  */
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import { Link } from "react-router";
 
@@ -84,6 +85,7 @@ export function RuangPendanaBeranda() {
                 rel="noreferrer"
                 className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-white/25 px-4 text-sm font-semibold text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
+                <IkonWhatsapp className="mr-1.5 size-4" />
                 Belum punya kode? Chat admin
               </a>
             </div>

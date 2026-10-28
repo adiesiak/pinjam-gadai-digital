@@ -7,6 +7,7 @@
  * satu berubah, halaman ini ikut berubah — karena itu angkanya dibaca dari
  * konstanta yang sama dengan mesinnya, bukan ditulis ulang.
  */
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { motion } from "framer-motion";
 import { ArrowLeft, FileJson, LockKeyhole, MapPin, ShieldCheck, UserCheck } from "lucide-react";
 import type { ReactNode } from "react";
@@ -433,6 +434,7 @@ export function PrivasiView() {
             <div className="mt-4">
               <Button asChild variant="outline">
                 <a href={urlChatCs("Halo PINDAI, saya ingin bertanya soal data pribadi saya.")}>
+                  <IkonWhatsapp className="mr-2 size-4" />
                   Chat WhatsApp layanan
                 </a>
               </Button>

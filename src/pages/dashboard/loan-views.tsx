@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
-import { ArrowRight, CalendarClock, Send, Wallet } from "lucide-react";
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
+import { ArrowRight, CalendarClock, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -394,7 +395,7 @@ function ActiveLoanCard({
             target="_blank"
             rel="noreferrer"
           >
-            <Send className="mr-1.5 size-4" /> Chat CS
+            <IkonWhatsapp className="mr-1.5 size-4" /> Chat CS
           </a>
         </Button>
       </div>

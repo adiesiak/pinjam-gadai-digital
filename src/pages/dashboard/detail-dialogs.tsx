@@ -1,4 +1,5 @@
 import { useQuery } from "convex/react";
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 
@@ -15,7 +16,7 @@ import {
 import { SkeletonDetail } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { CheckCircle2, MessageCircle, ReceiptText } from "lucide-react";
+import { CheckCircle2, ReceiptText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -494,7 +495,7 @@ export function LoanDetailDialog({
                       target="_blank"
                       rel="noreferrer"
                     >
-                      <MessageCircle className="size-3.5" aria-hidden /> Hubungi CS
+                      <IkonWhatsapp className="size-3.5" /> Hubungi CS
                     </a>
                   </Button>
                 </div>

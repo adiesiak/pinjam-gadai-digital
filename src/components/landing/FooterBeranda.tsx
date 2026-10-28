@@ -11,7 +11,8 @@
  * Semua tujuan di bawah adalah rute yang benar-benar terdaftar di `main.tsx`.
  * Teks deskripsi tetap datang dari CMS supaya admin bisa menggantinya.
  */
-import { MessageCircle } from "lucide-react";
+
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { Link } from "react-router";
 
 import { VaultLogo } from "@/components/VaultLogo";
@@ -100,7 +101,7 @@ export function FooterBeranda({ deskripsi }: { deskripsi: string }) {
               className="mt-5 flex max-w-sm items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
-                <MessageCircle className="size-4" aria-hidden="true" />
+                <IkonWhatsapp className="size-4" />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-foreground">

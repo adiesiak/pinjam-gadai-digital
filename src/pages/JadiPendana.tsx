@@ -1,5 +1,6 @@
 import { useQuery } from "convex/react";
-import { FileDown, Loader2, MessageCircle } from "lucide-react";
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
+import { FileDown, Loader2 } from "lucide-react";
 import { Fragment, useState } from "react";
 import { Link } from "react-router";
 
@@ -1423,7 +1424,7 @@ export function JadiPendanaView({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <MessageCircle className="mr-2 size-4" aria-hidden />
+                  <IkonWhatsapp className="mr-2 size-4" />
                   Chat layanan pelanggan
                 </a>
               </Button>
