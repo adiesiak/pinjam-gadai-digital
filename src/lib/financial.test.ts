@@ -21,6 +21,8 @@ import {
 let passed = 0;
 let failed = 0;
 
+import { formatRupiahRingkas } from "./money";
+
 function eq(actual: unknown, expected: unknown, label: string) {
   if (actual === expected) {
     passed += 1;
@@ -251,6 +253,12 @@ eq(
 
 // formatting never breaks on integers
 eq(formatRupiah(13_000_000), "Rp 13.000.000", "format id-ID");
+
+// ringkas: cukup dibaca di dalam sel kalender
+eq(formatRupiahRingkas(1_030_000), "1,03 jt", "ringkas 1,03 juta");
+eq(formatRupiahRingkas(16_536_000), "16,5 jt", "ringkas 16,5 juta");
+eq(formatRupiahRingkas(1_000_000), "1 jt", "ringkas satu juta");
+eq(formatRupiahRingkas(150_000), "150 rb", "ringkas seratus lima puluh ribu");
 
 console.log(`financial tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

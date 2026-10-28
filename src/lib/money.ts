@@ -49,6 +49,27 @@ export function formatRupiahAman(v: Rupiah): string {
 }
 
 /**
+ * Rupiah ringkas untuk ruang sempit, mis. label di dalam sel kalender:
+ * "1,03 jt" atau "150 rb".
+ *
+ * Bukan pengganti `formatRupiah` untuk nominal resmi: angka di sini dibulatkan
+ * untuk dibaca sekilas, bukan untuk dihitung ulang. Nilai penuh tetap dipakai
+ * semua perhitungan; yang ringkas hanya tampilannya.
+ */
+export function formatRupiahRingkas(v: Rupiah): string {
+  if (!isRupiah(v)) throw new Error(`Bukan rupiah bulat yang valid: ${v}`);
+  if (v >= 1_000_000) {
+    const juta = v / 1_000_000;
+    const angka = Number(juta.toFixed(juta >= 10 ? 1 : 2));
+    return `${angka.toLocaleString("id-ID", { maximumFractionDigits: 2 })} jt`;
+  }
+  if (v >= 1_000) {
+    return `${Math.round(v / 1_000).toLocaleString("id-ID")} rb`;
+  }
+  return v.toLocaleString("id-ID");
+}
+
+/**
  * Kelompokkan ribuan untuk KOLOM MASUKAN uang, tanpa awalan "Rp".
  *
  * Kenapa terpisah dari `formatRupiah`: kolom masukan menyimpan digit mentah

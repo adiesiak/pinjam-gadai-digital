@@ -1,15 +1,16 @@
 import { id as localeId } from "date-fns/locale";
 import { CalendarDays, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
+import type { DayButton } from "react-day-picker";
 
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { persenBungaHarian, TENOR_OPTIONS, tenorHarianSah } from "@/lib/loan";
-import { formatRupiah, percentOf } from "@/lib/money";
+import { formatRupiah, formatRupiahRingkas, percentOf } from "@/lib/money";
 import {
   akhirPekan,
   hariIniLokal,
@@ -22,6 +23,58 @@ import {
 } from "@/lib/tanggalTenor";
 import { formatTanggalWIB } from "@/lib/waktu";
 import { cn } from "@/lib/utils";
+
+/**
+ * Satu sel kalender: tanggal dan perkiraan total bayar untuk tenor itu.
+ *
+ * Angka kecil di bawah tanggal memakai mesin harga yang sama dengan server,
+ * jadi nasabah bisa membandingkan beberapa tanggal tanpa menutup kalender dan
+ * tanpa menghitung sendiri. Tanggal yang tidak sah untuk nominal ini tidak
+ * menampilkan angka, sebab memang tidak bisa dipilih.
+ *
+ * Latar kuning menandai Sabtu dan Minggu. Warnanya sengaja ditempel di tombol,
+ * bukan di sel tabel, supaya sudutnya ikut membulat dan tidak tertutup latar
+ * tombol transparan.
+ */
+function HariTenor({
+  pokok,
+  sekarang,
+  ...props
+}: ComponentProps<typeof DayButton> & { pokok: number; sekarang: number }) {
+  const tenor = tenorDariTanggal(props.day.date, pokok, sekarang);
+  const persen = tenor === null ? null : persenBungaHarian(pokok, tenor);
+  const total =
+    tenor === null || persen === null ? null : pokok + percentOf(pokok, persen);
+  const akhirPekan = props.modifiers.akhirPekan === true;
+  const dipilih = props.modifiers.selected === true;
+
+  return (
+    <CalendarDayButton
+      {...props}
+      className={cn(
+        props.className,
+        "gap-0 p-0",
+        akhirPekan && !dipilih && "bg-amber-100 text-amber-950 hover:bg-amber-200/80",
+        akhirPekan && dipilih && "ring-2 ring-amber-400 ring-offset-1",
+      )}
+    >
+      <div className="flex w-full flex-col items-center leading-none">
+        <span className="text-xs font-semibold">{props.day.date.getDate()}</span>
+        {total === null ? (
+          // Ruang kosong yang sama tinggi, supaya angka tanggal tidak melompat
+          // saat berpindah baris ke tanggal yang tidak sah.
+          <span aria-hidden className="mt-0.5 text-[8px] leading-[10px]">
+            &nbsp;
+          </span>
+        ) : (
+          <span className="mt-0.5 text-[8px] font-medium tabular-nums opacity-80">
+            {formatRupiahRingkas(total)}
+          </span>
+        )}
+      </div>
+    </CalendarDayButton>
+  );
+}
 
 /**
  * Pemilih tanggal jatuh tempo untuk pinjaman harian.
@@ -154,7 +207,8 @@ export function PemilihTanggalJatuhTempo({
           </p>
           <p className="mt-0.5 text-xs leading-5 text-slate-500">
             Tenor {TENOR_OPTIONS[0]}–50 hari dari hari ini. Tanggal di luar
-            rentang itu tidak bisa dipilih; warna kuning menandai akhir pekan.
+            rentang itu tidak bisa dipilih. Angka kecil di bawah tanggal adalah
+            perkiraan total bayar, dan latar kuning menandai akhir pekan.
           </p>
         </div>
 
@@ -168,7 +222,11 @@ export function PemilihTanggalJatuhTempo({
           modifiers={{
             akhirPekan: (date) => date.getDay() === 0 || date.getDay() === 6,
           }}
-          modifiersClassNames={{ akhirPekan: "bg-amber-50/70" }}
+          components={{
+            DayButton: (props) => (
+              <HariTenor {...props} pokok={pokok} sekarang={sekarang} />
+            ),
+          }}
           disabled={(date) => tenorDariTanggal(date, pokok, sekarang) === null}
           onSelect={(date) => {
             if (date === undefined) return;
@@ -177,7 +235,7 @@ export function PemilihTanggalJatuhTempo({
             onPilih(hasil);
             setBuka(false);
           }}
-          className="w-full [--cell-size:--spacing(9)]"
+          className="w-full [--cell-size:--spacing(10)]"
         />
 
         {tenorJumat !== null && labelJumat !== null && (
