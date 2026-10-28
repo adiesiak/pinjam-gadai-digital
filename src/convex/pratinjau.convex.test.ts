@@ -20,6 +20,7 @@ import {
   buatPengguna,
   seedKycTerverifikasi,
   siapkanPengguna,
+  simpanBerkasUji,
   type KonteksUji,
   type SesiUji,
 } from "./test.helpers";
@@ -27,6 +28,8 @@ import { modules } from "./test.setup";
 
 /** Nonce uji — panjang & bentuknya sama dengan yang dibuat klien. */
 const NONCE = "9f2c1d4b7a6e5c8d3f0a1b2c4d5e6f70";
+const TTD =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/fMkAAAAASUVORK5CYII=";
 
 async function barisPratinjau(t: KonteksUji) {
   return t.run((ctx) => ctx.db.query("pratinjauSesi").collect());
@@ -964,6 +967,64 @@ describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
     const baris = await t.run((ctx) => ctx.db.query("kreditBarang").collect());
     expect(baris).toHaveLength(1);
     expect(baris[0].userId).toBe(uji.userId);
+  });
+
+  it("membiarkan AKUN UJI PINJAMAN mengajukan pinjaman tanpa titik GPS", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const uji = await siapkanPengguna(t, AKUN_UJI.nama, {
+      email: "akun.uji@pindai.test",
+      role: "peminjam",
+    });
+    await t.run((ctx) =>
+      ctx.db.insert("nasabahProfil", {
+        userId: uji.userId,
+        namaLengkap: AKUN_UJI.nama,
+        nik: AKUN_UJI.nik,
+        nomorWhatsApp: AKUN_UJI.nomorWhatsApp,
+        diperbaruiPada: Date.now(),
+        diperbaruiOlehLabel: "Seed akun uji",
+      }),
+    );
+    await seedKycTerverifikasi(t, uji.userId);
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: uji.userId,
+      nonce: NONCE,
+    });
+    const sesiUji = await sesiPratinjau(t, tiket.tiketId, uji.userId);
+
+    const ktp = await simpanBerkasUji(t, "ktp-uji");
+    const selfie = await simpanBerkasUji(t, "selfie-uji");
+    const slip = await simpanBerkasUji(t, "slip-uji");
+    // Tanpa `lokasiAjukan`: gerbang lokasi akun uji dilewati, dan titik
+    // peramban admin tidak boleh tersimpan sebagai lokasi pengajuan.
+    const hasil = await sesiUji.mutation(api.loans.createLoanApplication, {
+      pokokPinjaman: 500_000,
+      tenorHari: 7,
+      tujuan: "Modal usaha kecil",
+      namaLengkap: AKUN_UJI.nama,
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+      nik: AKUN_UJI.nik,
+      nomorWhatsApp: AKUN_UJI.nomorWhatsApp,
+      penghasilanBulanan: 4_000_000,
+      sumberPenghasilan: "Usaha warung",
+      dokKtpId: ktp,
+      dokSelfieKtpId: selfie,
+      dokSlipGajiId: slip,
+      persetujuanSyarat: true,
+      tandaTangan: TTD,
+    });
+
+    expect(hasil.nomorReferensi).toMatch(/^PGD-/);
+    const pinjaman = await t.run((ctx) => ctx.db.query("loans").collect());
+    expect(pinjaman).toHaveLength(1);
+    expect(pinjaman[0].userId).toBe(uji.userId);
+    expect(pinjaman[0].lokasiAjukan).toBeUndefined();
   });
 
   it("menutup otomatis pratinjau yang kehabisan waktu, termasuk pemulihan lokasi", async () => {

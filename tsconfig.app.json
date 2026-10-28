@@ -28,5 +28,10 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "vly-toolbar-readonly.tsx"]
+  "include": ["src", "vly-toolbar-readonly.tsx"],
+  /* Fungsi Convex punya proyek typecheck sendiri (`src/convex/tsconfig.json`,
+     dijalankan `convex dev`). Mengeluarkannya dari proyek frontend membuat
+     `tsc -b` muat di heap Node bawaan; tipe yang diimpor frontend dari
+     `@/convex/...` tetap ikut diperiksa sebagai dependensi. */
+  "exclude": ["src/convex"]
 }

@@ -691,7 +691,7 @@ export function PengajuanCepatSection({
           {/* Lokasi perangkat: dicatat dari tombol kirim, tanpa tombol terpisah. */}
           <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 sm:col-span-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              Lokasi Anda saat mengirim formulir (wajib)
+              {akunUji ? "Lokasi akun uji (tidak diminta)" : "Lokasi Anda saat mengirim formulir (wajib)"}
             </p>
             {lokasi ? (
               <p role="status" aria-live="polite" className="mt-1 text-xs leading-5 tabular-nums">
@@ -705,9 +705,11 @@ export function PengajuanCepatSection({
                 aria-live="polite"
                 className="mt-1 text-[11px] leading-5 text-muted-foreground"
               >
-                {lokBusy
-                  ? "Mengambil lokasi…"
-                  : "Lokasi belum tercatat. Titik GPS diambil saat Anda menekan tombol kirim."}
+                {akunUji
+                  ? "Akun uji internal tidak menyimpan titik GPS; pengajuan tetap bisa dikirim."
+                  : lokBusy
+                    ? "Mengambil lokasi…"
+                    : "Lokasi belum tercatat. Titik GPS diambil saat Anda menekan tombol kirim."}
               </p>
             )}
           </div>
