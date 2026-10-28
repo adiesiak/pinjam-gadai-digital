@@ -31,6 +31,7 @@ import {
   SlidersHorizontal,
   Settings2,
   Trophy,
+  Wallet,
   ShieldCheck,
   PanelsTopLeft,
   Smartphone,
@@ -73,6 +74,7 @@ import {
   PanelPendana,
   PanelPengembangan,
   PanelPengumuman,
+  PanelPpob,
   PanelPetaLokasi,
   PanelPlafon,
   PanelPromo,
@@ -242,6 +244,14 @@ export function AdminTabs({
           badge: syariahMenunggu === null ? null : `${syariahMenunggu}`,
           hitung: "menunggu",
           Icon: HandCoins,
+        },
+        {
+          value: "ppob",
+          label: "PPOB Publik",
+          hint: "Etalase pulsa, data, token listrik, game, dan e-wallet: tarik harga dari server H2H, verifikasi pembayaran, lalu kirim topup.",
+          badge: null,
+          hitung: "tidak",
+          Icon: Wallet,
         },
         {
           value: "kyc",
@@ -590,6 +600,7 @@ export function AdminTabs({
       />
     ),
     syariah: <SyariahPanel />,
+    ppob: <PanelPpob />,
     kyc: <KycPanel />,
     alokasi: <LoanAllocationQueueTab onOpen={onOpenLoan} />,
     undian: <PanelUndian />,

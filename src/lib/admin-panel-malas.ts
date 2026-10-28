@@ -128,6 +128,11 @@ export const PanelAkses = lazy(() =>
     default: m.AksesPenyediaDanaPanel,
   })),
 );
+export const PanelPpob = lazy(() =>
+  import("@/components/admin/PpobPanel").then((m) => ({
+    default: m.PpobPanel,
+  })),
+);
 
 /**
  * Pemuat mentah per modul — dipakai untuk pramuat saat menu disorot.
@@ -155,6 +160,7 @@ const PEMUAT: Partial<Record<NilaiModulAdmin, () => Promise<unknown>>> = {
   undian: () => import("@/components/admin/UndianPanel"),
   plafon: () => import("@/components/admin/PlafonPanel"),
   akses: () => import("@/components/admin/AksesPenyediaDanaPanel"),
+  ppob: () => import("@/components/admin/PpobPanel"),
 };
 
 /**

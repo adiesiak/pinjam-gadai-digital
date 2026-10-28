@@ -419,4 +419,95 @@ http.route({
   }),
 });
 
+/**
+ * Webhook status transaksi dari server pulsa/H2H.
+ *
+ * Ditandatangani HMAC-SHA1 atas body MENTAH, sesuai format Digiflazz:
+ * `X-Hub-Signature: sha1=<hex>`. Body diperiksa sebelum diurai, karena
+ * mengurai lalu menyusun ulang JSON akan mengubah byte dan membuat tanda tangan
+ * yang sah terlihat palsu.
+ *
+ * Tanpa `PPOB_H2H_WEBHOOK_SECRET` endpoint ini MENOLAK semua permintaan:
+ * status pesanan adalah dasar pengiriman barang digital, jadi pintu tanpa
+ * verifikasi lebih berbahaya daripada webhook yang tidak aktif.
+ */
+http.route({
+  path: "/ppob/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const mentah = await request.text();
+    if (mentah.length > 16_384) {
+      return balas(413, { ok: false, error: "Body terlalu besar." });
+    }
+
+    const header = request.headers.get("X-Hub-Signature") ?? "";
+    const tanda = header.toLowerCase().startsWith("sha1=")
+      ? header.slice(5).trim()
+      : "";
+    if (tanda === "") {
+      return balas(401, { ok: false, error: "Tanda tangan webhook tidak ada." });
+    }
+    // HMAC-SHA1 dihitung di action Node: Web Crypto runtime HTTP tidak
+    // menjamin SHA-1, sedangkan Digiflazz menandatangani dengan SHA-1.
+    const verifikasi = await ctx.runAction(internal.ppobH2h.verifikasiWebhook, {
+      body: mentah,
+      tanda,
+    });
+    if (!verifikasi.siap) {
+      return balas(503, {
+        ok: false,
+        error: "PPOB_H2H_WEBHOOK_SECRET belum diisi di environment.",
+      });
+    }
+    if (!verifikasi.cocok) {
+      return balas(401, { ok: false, error: "Tanda tangan webhook tidak cocok." });
+    }
+
+    let diurai: unknown;
+    try {
+      diurai = JSON.parse(mentah);
+    } catch {
+      return balas(400, { ok: false, error: "Body harus berupa JSON." });
+    }
+    if (typeof diurai !== "object" || diurai === null) {
+      return balas(400, { ok: false, error: "Body harus berupa objek JSON." });
+    }
+
+    const akar = diurai as Record<string, unknown>;
+    const data =
+      typeof akar.data === "object" && akar.data !== null
+        ? (akar.data as Record<string, unknown>)
+        : akar;
+    const refId = typeof data.ref_id === "string" ? data.ref_id.trim() : "";
+    const status = typeof data.status === "string" ? data.status.trim() : "";
+    if (refId === "" || status === "") {
+      return balas(400, { ok: false, error: "`ref_id` dan `status` wajib ada." });
+    }
+
+    try {
+      const hasil = await ctx.runMutation(internal.ppob.terapkanStatus, {
+        refId,
+        status,
+        ...(typeof data.rc === "string" || typeof data.rc === "number"
+          ? { rc: String(data.rc) }
+          : {}),
+        ...(typeof data.sn === "string" && data.sn.trim() !== ""
+          ? { sn: data.sn.trim() }
+          : {}),
+        ...(typeof data.message === "string" && data.message.trim() !== ""
+          ? { pesan: data.message.trim() }
+          : {}),
+      });
+      // Pesanan yang tidak dikenal tetap dijawab 200: bukan tugas provider
+      // mengulang selamanya untuk referensi yang memang bukan miliknya.
+      return balas(200, { ...hasil, ok: true });
+    } catch (err) {
+      return balas(500, {
+        ok: false,
+        error: err instanceof Error ? err.message : "Gagal menyimpan status.",
+      });
+    }
+  }),
+});
+
 export default http;

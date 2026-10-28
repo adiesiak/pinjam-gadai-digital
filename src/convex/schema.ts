@@ -4032,6 +4032,157 @@ const schema = defineSchema(
     })
       .index("by_status", ["status"])
       .index("by_loan", ["loanId"]),
+
+    /**
+     * Etalase PPOB publik — salinan harga dari server pulsa/H2H.
+     *
+     * Sumber kebenaran harga modal tetap provider; baris di sini adalah snapshot
+     * saat sinkron terakhir. `hargaJual` disimpan, bukan dihitung saat dibaca,
+     * karena harga yang sudah ditampilkan ke pembeli tidak boleh berubah di
+     * tengah checkout hanya karena admin menyentuh markup.
+     *
+     * Produk di sini TERPISAH dari `katalogSyariah`: etalase ini penjualan tunai,
+     * bukan akad murabahah.
+     */
+    ppobProduk: defineTable({
+      /** SKU provider; kunci upsert saat sinkron. */
+      kode: v.string(),
+      nama: v.string(),
+      kategori: v.union(
+        v.literal("pulsa"),
+        v.literal("data"),
+        v.literal("token-listrik"),
+        v.literal("game"),
+        v.literal("ewallet"),
+      ),
+      /** Nama operator/brand dari provider, mis. Telkomsel, PLN, Mobile Legends. */
+      operator: v.optional(v.string()),
+      /** Harga modal dari provider — rupiah bulat. */
+      hargaModal: v.number(),
+      /** Harga yang dibayar pembeli — rupiah bulat. */
+      hargaJual: v.number(),
+      /** Admin pernah menyetel harga; sinkron tidak menimpanya kecuali di bawah modal. */
+      hargaManual: v.optional(v.boolean()),
+      /** Sakelar tampil di etalase publik. */
+      aktif: v.boolean(),
+      /** Provider menyatakan produk bisa dibeli pada sinkron terakhir. */
+      tersedia: v.boolean(),
+      /** Stok dari provider bila dilaporkan; kosong = tidak dibatasi. */
+      stok: v.optional(v.number()),
+      diperbaruiPada: v.number(),
+      dibuatPada: v.number(),
+    })
+      .index("by_kode", ["kode"])
+      .index("by_kategori", ["kategori", "aktif", "tersedia"])
+      .index("by_aktif", ["aktif"])
+      .index("by_nama", ["nama"])
+      .index("by_diperbarui", ["diperbaruiPada"]),
+
+    /**
+     * Pesanan PPOB publik.
+     *
+     * `refId` adalah kunci idempotensi provider: dikirim ulang dengan nilai yang
+     * sama berarti "periksa transaksi ini", bukan transaksi baru. `hargaModal`
+     * dan `hargaJual` dibekukan saat pesanan dibuat supaya laba tidak berubah
+     * ketika admin menaikkan markup kemudian.
+     */
+    ppobPesanan: defineTable({
+      kodePesanan: v.string(),
+      refId: v.string(),
+      produkKode: v.string(),
+      namaProduk: v.string(),
+      kategori: v.union(
+        v.literal("pulsa"),
+        v.literal("data"),
+        v.literal("token-listrik"),
+        v.literal("game"),
+        v.literal("ewallet"),
+      ),
+      nomorTujuan: v.string(),
+      namaPembeli: v.optional(v.string()),
+      /** Nomor WhatsApp pembeli untuk konfirmasi pembayaran & kendala. */
+      whatsapp: v.string(),
+      hargaModal: v.number(),
+      hargaJual: v.number(),
+      /** hargaJual - hargaModal; tidak pernah negatif. */
+      laba: v.number(),
+      status: v.union(
+        v.literal("menunggu_bayar"),
+        v.literal("dibayar"),
+        v.literal("diproses"),
+        v.literal("sukses"),
+        v.literal("gagal"),
+        v.literal("refund"),
+      ),
+      /** Pesan terakhir dari provider, ditampilkan apa adanya kepada admin. */
+      pesanProvider: v.optional(v.string()),
+      /** Nomor seri/token/voucher dari provider. */
+      sn: v.optional(v.string()),
+      dibuatPada: v.number(),
+      dibayarPada: v.optional(v.number()),
+      diprosesPada: v.optional(v.number()),
+      selesaiPada: v.optional(v.number()),
+      /** Admin yang memverifikasi pembayaran. */
+      diverifikasiOleh: v.optional(v.id("users")),
+      catatanAdmin: v.optional(v.string()),
+      /** Jumlah percobaan topup; mencegah dua proses berjalan bersamaan. */
+      percobaan: v.optional(v.number()),
+    })
+      .index("by_kode_pesanan", ["kodePesanan"])
+      .index("by_ref", ["refId"])
+      .index("by_status", ["status", "dibuatPada"])
+      .index("by_whatsapp", ["whatsapp", "dibuatPada"])
+      .index("by_dibuat", ["dibuatPada"]),
+
+    /**
+     * Mutasi saldo deposit di server pulsa.
+     *
+     * Hanya catatan; saldo sebenarnya tetap milik provider. Dipakai admin untuk
+     * melihat kapan deposit terakhir masuk dan berapa sisa yang dilaporkan.
+     */
+    ppobMutasiSaldo: defineTable({
+      arah: v.union(v.literal("masuk"), v.literal("keluar")),
+      nominal: v.number(),
+      /** Saldo yang dilaporkan provider setelah mutasi, bila ada. */
+      saldoSetelah: v.optional(v.number()),
+      keterangan: v.string(),
+      /** "manual" | "cek-provider" | "topup" */
+      sumber: v.string(),
+      pesananKode: v.optional(v.string()),
+      dibuatPada: v.number(),
+      dibuatOleh: v.optional(v.id("users")),
+    }).index("by_waktu", ["dibuatPada"]),
+
+    /**
+     * Pengaturan etalase PPOB — satu baris `slot = "global"`.
+     *
+     * Username disimpan di sini karena bukan rahasia; API key tetap di
+     * environment (`PPOB_H2H_API_KEY`) supaya tidak pernah ikut ke snapshot
+     * konfigurasi atau riwayat perubahan.
+     */
+    ppobPengaturan: defineTable({
+      slot: v.string(),
+      /** Etalase menerima pesanan baru. */
+      aktif: v.boolean(),
+      /** "digiflazz" atau "kustom". */
+      provider: v.string(),
+      /** URL dasar server pulsa kustom; kosong = alamat bawaan provider. */
+      baseUrl: v.optional(v.string()),
+      username: v.optional(v.string()),
+      /** Markup harga jual dari modal (persen). */
+      markupPersen: v.number(),
+      /** Markup minimum per produk (rupiah), menutup biaya transfer. */
+      markupMin: v.number(),
+      /** Kalimat tambahan di halaman pembayaran, mis. jam operasional. */
+      instruksi: v.optional(v.string()),
+      /** Saldo deposit terakhir yang dilaporkan provider. */
+      saldoTerakhir: v.optional(v.number()),
+      saldoDiperbaruiPada: v.optional(v.number()),
+      terakhirSinkron: v.optional(v.number()),
+      terakhirSinkronOleh: v.optional(v.id("users")),
+      diperbaruiPada: v.number(),
+      diperbaruiOleh: v.optional(v.id("users")),
+    }).index("by_slot", ["slot"]),
   },
   {
     schemaValidation: false,

@@ -116,6 +116,16 @@ crons.hourly(
   {},
 );
 
+// PPOB publik: pesanan yang tertahan "diproses" diperiksa ulang ke server pulsa
+// dengan ref_id yang sama. Sepuluh menit cukup longgar untuk provider yang
+// lambat, tetapi tetap jauh di bawah waktu tunggu pembeli.
+crons.interval(
+  "ppob-cek-pesanan-tertahan",
+  { minutes: 10 },
+  internal.ppobH2h.cekPesananTertahan,
+  {},
+);
+
 // Pemeriksa kesehatan sistem: ledger tidak seimbang, gateway WhatsApp gagal,
 // dan cron yang berhenti berdenyut. Menulis audit hanya saat ada masalah kritis.
 crons.interval(

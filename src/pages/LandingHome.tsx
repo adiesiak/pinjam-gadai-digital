@@ -57,6 +57,7 @@ const TAUTAN_MENU = [
   { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
   { href: "/layanan/gadai", label: "Gadai" },
   { href: "/layanan/kredit-barang", label: "Kredit barang" },
+  { href: "/ppob", label: "Pulsa & PPOB" },
   { href: "/biaya", label: "Biaya" },
   { href: "/cara-kerja", label: "Cara kerja" },
   { href: "/keamanan", label: "Keamanan" },
@@ -230,7 +231,7 @@ export default function LandingHome() {
           </Link>
           <nav
             aria-label="Navigasi utama"
-            className="hidden items-center gap-3 whitespace-nowrap text-[13px] text-slate-600 lg:flex xl:gap-5 xl:text-sm"
+            className="hidden items-center gap-2.5 whitespace-nowrap text-[13px] text-slate-600 lg:flex xl:gap-5 xl:text-sm"
           >
             <Link className="hover:text-primary" to="/layanan/pinjaman-tunai">
               Pinjaman tunai
@@ -240,6 +241,9 @@ export default function LandingHome() {
             </Link>
             <Link className="hover:text-primary" to="/layanan/kredit-barang">
               Kredit barang
+            </Link>
+            <Link className="hover:text-primary" to="/ppob">
+              Pulsa & PPOB
             </Link>
             <Link className="hover:text-primary" to="/biaya">
               Biaya

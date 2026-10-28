@@ -53,6 +53,16 @@ const ProdukPinjaman = lazy(
 const JadiPendana = lazy(
   denganPercobaan(() => import("./pages/JadiPendana.tsx")),
 );
+// Etalase PPOB publik: pembeli tidak perlu akun, jadi halaman ini dimuat
+// terpisah dari dashboard dan tidak menarik mesin pinjaman sama sekali.
+const Ppob = lazy(
+  denganPercobaan(() => import("./pages/Ppob").then((m) => ({ default: m.Ppob }))),
+);
+const PpobPesanan = lazy(
+  denganPercobaan(() =>
+    import("./pages/Ppob").then((m) => ({ default: m.PpobPesanan })),
+  ),
+);
 
 /**
  * Daftarkan service worker pemasangan (lihat `public/sw.js`). Tanpa cache:
@@ -419,6 +429,9 @@ createRoot(document.getElementById("root")!).render(
                   element={<ProdukPinjaman produk="syariah" />}
                 />
                 <Route path="/cara-kerja" element={<PublicInfoPage />} />
+                {/* Etalase PPOB: penjualan tunai, bukan pengajuan pinjaman. */}
+                <Route path="/ppob" element={<Ppob />} />
+                <Route path="/ppob/pesanan/:kode" element={<PpobPesanan />} />
                 <Route
                   path="/layanan/pinjaman-tunai"
                   element={<PublicInfoPage />}
