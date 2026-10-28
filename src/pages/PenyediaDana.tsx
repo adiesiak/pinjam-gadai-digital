@@ -1950,15 +1950,24 @@ function IsiRuang() {
     );
 
   /** Data ringkas yang dibutuhkan dialog pencatatan keuntungan pendana. */
-  const targetKeuntungan = (row: BarisPinjaman): TargetKeuntungan | null =>
-    row.pendana === null
-      ? null
-      : {
-          loanId: row._id,
-          pendanaNama: tampilNama(row.pendana),
-          nomorReferensi: row.nomorReferensi,
-          jumlah: row.keuntunganPendana,
-        };
+  const targetKeuntungan = (row: BarisPinjaman): TargetKeuntungan | null => {
+    if (row.pendana === null) return null;
+    // Marjin nol berarti tidak ada yang bisa dicatat: server menolak nominal
+    // nol, jadi tombol yang membuka dialog hanya menghasilkan kegagalan.
+    // Sebabnya dijelaskan di sini, bukan dibiarkan jadi galat tanpa arah.
+    if (row.keuntunganPendana <= 0) {
+      toast.error(
+        `Tidak ada keuntungan untuk dicatat di ${row.nomorReferensi}: marjin pinjaman ini ${rupiah(row.keuntunganPendana)}.`,
+      );
+      return null;
+    }
+    return {
+      loanId: row._id,
+      pendanaNama: tampilNama(row.pendana),
+      nomorReferensi: row.nomorReferensi,
+      jumlah: row.keuntunganPendana,
+    };
+  };
   // Query tidak dipanggil sebelum peran diketahui atau tanpa akses; server tetap
   // penjaga utama karena gerbangnya juga dijalankan di sisi Convex.
   const data = useQuery(

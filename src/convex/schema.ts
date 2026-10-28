@@ -1318,6 +1318,8 @@ const schema = defineSchema(
       notifWhatsappAktif: v.optional(v.boolean()),
       /** Sakelar GLOBAL admin untuk pengingat tagihan lewat email. */
       notifEmailAktif: v.optional(v.boolean()),
+      /** Kirim laporan pelunasan ke pendana otomatis saat lunas. */
+      laporanPelunasanOtomatis: v.optional(v.boolean()),
       /**
        * Retensi jejak lokasi (hari) untuk job cron `retensi-lokasi-jejak`.
        * Titik milik pinjaman belum selesai tetap ditahan minimal 400 hari.

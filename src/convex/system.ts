@@ -1,5 +1,12 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation, query, internalQuery, MutationCtx, QueryCtx } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  MutationCtx,
+  QueryCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { requireAdminSession } from "./adminAuthz";
 import {
@@ -31,6 +38,11 @@ import {
   type RincianHapus,
 } from "../lib/auditHapus";
 import type { Id } from "./_generated/dataModel";
+import {
+  apakahSumberDokumen,
+  apakahTabelSnapshot,
+  type TabelSnapshot,
+} from "../lib/backupTabel";
 
 /**
  * Konfigurasi sistem, kill switch, snapshot data, dan audit trail.
@@ -145,6 +157,9 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
     // konfigurasi yang dibuat sebelum kolomnya ada.
     notifWhatsappAktif: kanalAktif(row.notifWhatsappAktif),
     notifEmailAktif: kanalAktif(row.notifEmailAktif),
+    // Bawaan MATI: laporan keuangan ke pendana tidak berangkat sendiri.
+    laporanPelunasanOtomatis:
+      row.laporanPelunasanOtomatis ?? DEFAULT_CONFIG.laporanPelunasanOtomatis,
     retensiLokasiHari: row.retensiLokasiHari ?? DEFAULT_CONFIG.retensiLokasiHari,
     retensiLogWaHari: row.retensiLogWaHari ?? DEFAULT_CONFIG.retensiLogWaHari,
     retensiAuditHari: row.retensiAuditHari ?? DEFAULT_CONFIG.retensiAuditHari,
@@ -169,6 +184,44 @@ export async function getConfig(ctx: QueryCtx): Promise<SystemConfig> {
  * berbeda pendapat dengan proses yang benar-benar mengirim. Internal: klien
  * tidak perlu (dan tidak boleh) menanyakan keputusan pengiriman secara langsung.
  */
+/**
+ * Tulis jejak audit pengiriman laporan keuangan (internal, tanpa sesi admin).
+ *
+ * Action pengirim tidak punya akses db langsung, jadi barisnya ditulis lewat
+ * mutasi ini. Aktornya diambil dari `olehUserId` supaya Audit Trail menyebut
+ * orang yang meminta, bukan hanya kata "sistem".
+ */
+export const _auditLaporanPendana = internalMutation({
+  args: {
+    aksi: v.string(),
+    target: v.string(),
+    detail: v.string(),
+    olehUserId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, { aksi, target, detail, olehUserId }) => {
+    const aktor = olehUserId === undefined ? null : await ctx.db.get(olehUserId);
+    await audit(
+      ctx,
+      olehUserId ?? null,
+      aktor?.email ?? aktor?.name ?? "sistem",
+      aksi,
+      target,
+      detail,
+    );
+    return { ok: true };
+  },
+});
+
+/**
+ * Apakah laporan pelunasan ke pendana boleh berangkat SENDIRI saat lunas.
+ * Dibaca action pengirim lewat `runQuery`; admin mematikannya bila ingin
+ * mengirim laporan secara manual saja.
+ */
+export const _laporanPelunasanOtomatis = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<boolean> => (await getConfig(ctx)).laporanPelunasanOtomatis,
+});
+
 export const _kanalNotifikasiAktif = internalQuery({
   args: { kanal: v.union(v.literal("whatsapp"), v.literal("email")) },
   handler: async (ctx, { kanal }): Promise<boolean> => {
@@ -621,6 +674,8 @@ async function bersihkanConfigMasuk(
     // membiarkan nilai sekarang secara diam-diam.
     notifWhatsappAktif: kanalAktif(input.notifWhatsappAktif),
     notifEmailAktif: kanalAktif(input.notifEmailAktif),
+    laporanPelunasanOtomatis:
+      input.laporanPelunasanOtomatis ?? DEFAULT_CONFIG.laporanPelunasanOtomatis,
     // Snapshot lama (sebelum sakelar produk ada) tidak memuat kolom ini.
     // Rollback ke snapshot itu menyalakan kembali produknya, bukan mematikan
     // diam-diam karena nilainya undefined.
@@ -756,6 +811,8 @@ export const saveConfig = mutation({
     wajibAplikasiNative: v.boolean(),
     notifWhatsappAktif: v.boolean(),
     notifEmailAktif: v.boolean(),
+    /** Opsional: pemanggil lama (rollback) tidak mengirimnya. */
+    laporanPelunasanOtomatis: v.optional(v.boolean()),
     retensiLokasiHari: v.number(),
     /** Opsional: pemanggil lama tidak mengirimnya — nilai berlaku dipertahankan. */
     retensiLogWaHari: v.optional(v.number()),
@@ -822,6 +879,8 @@ export const saveConfig = mutation({
       wajibAplikasiNative: args.wajibAplikasiNative,
       notifWhatsappAktif: args.notifWhatsappAktif,
       notifEmailAktif: args.notifEmailAktif,
+      laporanPelunasanOtomatis:
+        args.laporanPelunasanOtomatis ?? prev.laporanPelunasanOtomatis,
       retensiLokasiHari: args.retensiLokasiHari,
       retensiLogWaHari: args.retensiLogWaHari ?? prev.retensiLogWaHari,
       retensiAuditHari: args.retensiAuditHari ?? prev.retensiAuditHari,
@@ -1110,140 +1169,180 @@ export const setKillSwitch = mutation({
  * dengan URL penyimpanan permanen agar berkas bisa diambil kembali dari backup.
  * BERISI DATA PRIBADI — URL itu tidak kedaluwarsa, jadi berkas backup harus
  * diperlakukan sebagai rahasia dan tidak dibagikan.
+ *
+ * Dibaca PER HALAMAN, bukan satu pembacaan tabel penuh. Satu fungsi Convex
+ * hanya boleh membaca ribuan dokumen per eksekusi, dan arsip yang dulu diunduh
+ * dengan satu `collect()` per tabel akan berhenti bisa diunduh begitu datanya
+ * melewati batas itu — tepat saat backup paling dibutuhkan, dan tanpa pesan
+ * yang menjelaskan bahwa arsipnya sudah tidak lengkap. Panel Ekspor meminta
+ * halaman berikutnya sampai `kursor` null lalu merangkainya, jadi tetap tidak
+ * ada satu baris pun yang terpotong.
  */
-export const snapshotData = query({
-  args: {},
-  handler: async (ctx) => {
-    await requireAdmin(ctx);
-    const [
-      loans,
-      pawns,
-      kreditBarang,
-      pawnPayments,
-      kreditPayments,
-      deposits,
-      fundings,
-      kreditFundings,
-      withdrawals,
-      transferPendana,
-      receipts,
-      waLogs,
-      lokasiJejak,
-      pengingat,
-      lokasiPeringatan,
-      pengumuman,
-      ledgerEntries,
-      auditLog,
-      users,
-    ] = await Promise.all([
-      ctx.db.query("loans").collect(),
-      ctx.db.query("pawns").collect(),
-      ctx.db.query("kreditBarang").collect(),
-      ctx.db.query("pawnPayments").collect(),
-      ctx.db.query("kreditPayments").collect(),
-      ctx.db.query("deposits").collect(),
-      ctx.db.query("fundings").collect(),
-      ctx.db.query("kreditFundings").collect(),
-      ctx.db.query("withdrawals").collect(),
-      ctx.db.query("transferPendana").collect(),
-      ctx.db.query("manualPaymentReceipts").collect(),
-      ctx.db.query("waLogs").collect(),
-      ctx.db.query("lokasiJejak").collect(),
-      ctx.db.query("pengingat").collect(),
-      ctx.db.query("lokasiPeringatan").collect(),
-      ctx.db.query("pengumuman").collect(),
-      ctx.db.query("ledger_entries").collect(),
-      ctx.db.query("auditLog").collect(),
-      ctx.db.query("users").collect(),
-    ]);
-    const config = await getConfig(ctx);
 
-    // Dokumen storage + URL permanen: tanpa ini berkas KYC dan bukti tidak ikut
-    // ter-backup meski barisnya ada. URL-nya sengaja permanen agar pemulihan
-    // masih mungkin; jangan pernah membagikan berkas hasil backup ini.
+/** Ukuran satu halaman snapshot: jauh di bawah batas baca, tetap efisien. */
+const HALAMAN_SNAPSHOT = 400;
+
+type HalamanTabel = {
+  page: unknown[];
+  isDone: boolean;
+  continueCursor: string;
+};
+
+/**
+ * Satu halaman tabel snapshot. Ditulis eksplisit per tabel, bukan lewat nama
+ * tabel dinamis, supaya tipe hasilnya nyata dan tabel yang tidak dikenal
+ * berhenti di daftar `TABEL_SNAPSHOT`, bukan di query yang mengembalikan kosong.
+ */
+async function bacaHalamanSnapshot(
+  ctx: QueryCtx,
+  tabel: TabelSnapshot,
+  kursor: string | null,
+  numItems: number,
+): Promise<HalamanTabel> {
+  const opsi = { cursor: kursor, numItems };
+  switch (tabel) {
+    case "loans":
+      return await ctx.db.query("loans").paginate(opsi);
+    case "pawns":
+      return await ctx.db.query("pawns").paginate(opsi);
+    case "kreditBarang":
+      return await ctx.db.query("kreditBarang").paginate(opsi);
+    case "pawnPayments":
+      return await ctx.db.query("pawnPayments").paginate(opsi);
+    case "kreditPayments":
+      return await ctx.db.query("kreditPayments").paginate(opsi);
+    case "deposits":
+      return await ctx.db.query("deposits").paginate(opsi);
+    case "fundings":
+      return await ctx.db.query("fundings").paginate(opsi);
+    case "kreditFundings":
+      return await ctx.db.query("kreditFundings").paginate(opsi);
+    case "withdrawals":
+      return await ctx.db.query("withdrawals").paginate(opsi);
+    case "transferPendana":
+      return await ctx.db.query("transferPendana").paginate(opsi);
+    case "manualPaymentReceipts":
+      return await ctx.db.query("manualPaymentReceipts").paginate(opsi);
+    case "waLogs":
+      return await ctx.db.query("waLogs").paginate(opsi);
+    case "lokasiJejak":
+      return await ctx.db.query("lokasiJejak").paginate(opsi);
+    case "pengingat":
+      return await ctx.db.query("pengingat").paginate(opsi);
+    case "lokasiPeringatan":
+      return await ctx.db.query("lokasiPeringatan").paginate(opsi);
+    case "pengumuman":
+      return await ctx.db.query("pengumuman").paginate(opsi);
+    case "ledger_entries":
+      return await ctx.db.query("ledger_entries").paginate(opsi);
+    case "auditLog":
+      return await ctx.db.query("auditLog").paginate(opsi);
+    case "users":
+      return await ctx.db.query("users").paginate(opsi);
+  }
+  throw new Error(`Tabel snapshot tidak dikenal: ${String(tabel)}`);
+}
+
+/**
+ * Satu halaman satu tabel untuk berkas backup. `batas` hanya boleh kecil saat
+ * pengujian; panel memakai ukuran bawaan.
+ */
+export const snapshotBagian = query({
+  args: {
+    tabel: v.string(),
+    kursor: v.optional(v.string()),
+    batas: v.optional(v.number()),
+  },
+  handler: async (ctx, { tabel, kursor, batas }) => {
+    await requireAdmin(ctx);
+    if (!apakahTabelSnapshot(tabel)) {
+      throw new Error(`Tabel snapshot tidak dikenal: ${tabel}`);
+    }
+    const ukuran = Math.min(1_000, Math.max(1, Math.floor(batas ?? HALAMAN_SNAPSHOT)));
+    const halaman = await bacaHalamanSnapshot(ctx, tabel, kursor ?? null, ukuran);
+    return {
+      baris: halaman.page,
+      kursor: halaman.isDone ? null : halaman.continueCursor,
+    };
+  },
+});
+
+/**
+ * Satu halaman tautan dokumen penyimpanan untuk berkas backup.
+ *
+ * Tanpa ini, backup hanya memuat BARIS data sementara foto KTP, selfie, slip
+ * gaji, foto barang, dan bukti setoran tetap tinggal di storage. Tautannya
+ * sengaja permanen supaya pemulihan masih mungkin — jangan pernah membagikan
+ * berkas hasil backup ini.
+ */
+export const snapshotDokumen = query({
+  args: {
+    sumber: v.string(),
+    kursor: v.optional(v.string()),
+    batas: v.optional(v.number()),
+  },
+  handler: async (ctx, { sumber, kursor, batas }) => {
+    await requireAdmin(ctx);
+    if (!apakahSumberDokumen(sumber)) {
+      throw new Error(`Sumber dokumen tidak dikenal: ${sumber}`);
+    }
+    const ukuran = Math.min(500, Math.max(1, Math.floor(batas ?? HALAMAN_SNAPSHOT)));
+    const opsi = { cursor: kursor ?? null, numItems: ukuran };
     const dokumen: Array<{
       jenis: string;
       pemilik: string;
       storageId: string;
       url: string | null;
     }> = [];
-    const tambahDokumen = async (
+    const tambah = async (
       jenis: string,
       pemilik: string,
       id: Id<"_storage"> | undefined | null,
     ) => {
       if (!id) return;
-      dokumen.push({
-        jenis,
-        pemilik,
-        storageId: id,
-        url: await ctx.storage.getUrl(id),
-      });
+      dokumen.push({ jenis, pemilik, storageId: id, url: await ctx.storage.getUrl(id) });
     };
-    for (const l of loans) {
-      await tambahDokumen("ktp", l.nomorReferensi, l.dokKtpId);
-      await tambahDokumen("selfie_ktp", l.nomorReferensi, l.dokSelfieKtpId);
-      await tambahDokumen("slip_gaji", l.nomorReferensi, l.dokSlipGajiId);
-      await tambahDokumen("kartu_keluarga", l.nomorReferensi, l.dokKartuKeluargaId);
-      await tambahDokumen("bukti_domisili", l.nomorReferensi, l.dokBuktiDomisiliId);
-    }
-    for (const p of pawns) {
-      await tambahDokumen("foto_barang", p.nomorReferensi, p.fotoBarangId);
-    }
-    for (const r of receipts) {
-      await tambahDokumen("bukti_pembayaran", r.nomorReferensi, r.buktiPembayaranId);
-    }
-    for (const d of deposits) {
-      await tambahDokumen("bukti_setoran", d.nomorReferensi, d.buktiPembayaranId);
-    }
-    await tambahDokumen("qris", "konfigurasi", config.qrisImageId);
 
-    return {
-      dibuatPada: new Date().toISOString(),
-      jumlah: {
-        loans: loans.length,
-        pawns: pawns.length,
-        kreditBarang: kreditBarang.length,
-        pawnPayments: pawnPayments.length,
-        kreditPayments: kreditPayments.length,
-        deposits: deposits.length,
-        fundings: fundings.length,
-        kreditFundings: kreditFundings.length,
-        withdrawals: withdrawals.length,
-        transferPendana: transferPendana.length,
-        manualPaymentReceipts: receipts.length,
-        waLogs: waLogs.length,
-        lokasiJejak: lokasiJejak.length,
-        pengingat: pengingat.length,
-        lokasiPeringatan: lokasiPeringatan.length,
-        pengumuman: pengumuman.length,
-        ledgerEntries: ledgerEntries.length,
-        auditLog: auditLog.length,
-        users: users.length,
-        dokumen: dokumen.length,
-      },
-      loans,
-      pawns,
-      kreditBarang,
-      pawnPayments,
-      kreditPayments,
-      deposits,
-      fundings,
-      kreditFundings,
-      withdrawals,
-      transferPendana,
-      manualPaymentReceipts: receipts,
-      waLogs,
-      lokasiJejak,
-      pengingat,
-      lokasiPeringatan,
-      pengumuman,
-      ledger_entries: ledgerEntries,
-      auditLog,
-      systemConfig: config,
-      users,
-      dokumen,
-    };
+    // QRIS hanya satu dokumen: dibaca dari konfigurasi, bukan dari tabel transaksi.
+    if (sumber === "qris") {
+      const cfg = await getConfig(ctx);
+      await tambah("qris", "konfigurasi", cfg.qrisImageId);
+      return { dokumen, kursor: null };
+    }
+
+    if (sumber === "loans") {
+      const halaman = await ctx.db.query("loans").paginate(opsi);
+      for (const l of halaman.page) {
+        await tambah("ktp", l.nomorReferensi, l.dokKtpId);
+        await tambah("selfie_ktp", l.nomorReferensi, l.dokSelfieKtpId);
+        await tambah("slip_gaji", l.nomorReferensi, l.dokSlipGajiId);
+        await tambah("kartu_keluarga", l.nomorReferensi, l.dokKartuKeluargaId);
+        await tambah("bukti_domisili", l.nomorReferensi, l.dokBuktiDomisiliId);
+      }
+      return { dokumen, kursor: halaman.isDone ? null : halaman.continueCursor };
+    }
+
+    if (sumber === "pawns") {
+      const halaman = await ctx.db.query("pawns").paginate(opsi);
+      for (const p of halaman.page) {
+        await tambah("foto_barang", p.nomorReferensi, p.fotoBarangId);
+      }
+      return { dokumen, kursor: halaman.isDone ? null : halaman.continueCursor };
+    }
+
+    if (sumber === "manualPaymentReceipts") {
+      const halaman = await ctx.db.query("manualPaymentReceipts").paginate(opsi);
+      for (const r of halaman.page) {
+        await tambah("bukti_pembayaran", r.nomorReferensi, r.buktiPembayaranId);
+      }
+      return { dokumen, kursor: halaman.isDone ? null : halaman.continueCursor };
+    }
+
+    const halaman = await ctx.db.query("deposits").paginate(opsi);
+    for (const d of halaman.page) {
+      await tambah("bukti_setoran", d.nomorReferensi, d.buktiPembayaranId);
+    }
+    return { dokumen, kursor: halaman.isDone ? null : halaman.continueCursor };
   },
 });
 

@@ -24,21 +24,24 @@ import {
   action,
   internalAction,
   internalQuery,
+  mutation,
   query,
   type ActionCtx,
   type QueryCtx,
 } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
+import { CS_WHATSAPP } from "../lib/kontak";
+import { requireAdminSession } from "./adminAuthz";
 import type { Id } from "./_generated/dataModel";
 import {
-  laporanPelunasan,
   laporanPortofolio,
   laporanRekapPendana,
-  namaBerkasPelunasan,
   namaBerkasPortofolio,
   namaBerkasRekapPendana,
   pesanPelunasan,
+  contohDataPelunasan,
+  PEMBUKA_CONTOH_LAPORAN,
   pesanPortofolio,
   pesanRekapPendana,
   type BarisPortofolioPendana,
@@ -347,9 +350,80 @@ async function kirimLaporanPdf(
  * pemanggil manual dapat membedakan "terkirim" dari "tidak dikirim karena nomor
  * belum diisi".
  */
+/**
+ * Kirim satu laporan sebagai PESAN TEKS dan catat hasilnya di `waLogs`.
+ *
+ * Dipakai laporan pelunasan: gateway yang dipakai tidak selalu mengantarkan
+ * lampiran, dan pesan yang menjanjikan "ada di lampiran" tanpa berkas lebih
+ * buruk daripada pesan yang memuat rinciannya sendiri.
+ */
+async function kirimLaporanTeks(
+  ctx: ActionCtx,
+  opsi: {
+    jenis: JenisLaporan;
+    nomor: string | null;
+    pesan: string;
+    loanId?: Id<"loans">;
+    olehUserId?: Id<"users">;
+  },
+): Promise<HasilKirimLaporan> {
+  async function catat(status: string, respon: string) {
+    await ctx.runMutation(internal.whatsapp._appendLog, {
+      ...(opsi.loanId === undefined ? {} : { loanId: opsi.loanId }),
+      nomorTujuan: opsi.nomor ?? "-",
+      jenis: opsi.jenis,
+      isiPesan: opsi.pesan,
+      status,
+      respon,
+      ...(opsi.olehUserId === undefined ? {} : { olehUserId: opsi.olehUserId }),
+    });
+  }
+
+  if (opsi.nomor === null) {
+    const alasan = "Nomor WhatsApp laporan belum diisi pemilik akun. Isi di ruang penyedia dana.";
+    await catat("tanpa_nomor", alasan);
+    return { ok: false, status: "tanpa_nomor", respon: alasan };
+  }
+
+  const settings: WaSettings = await ctx.runQuery(internal.whatsapp._getSettings, {});
+  if (settings.aktif !== true || !settings.apiUrl) {
+    const alasan = "Integrasi WhatsApp belum aktif, jadi laporan tidak dikirim.";
+    await catat("dinonaktifkan", alasan);
+    return { ok: false, status: "dinonaktifkan", respon: alasan };
+  }
+
+  const apiKey = apiKeyGatewayWa();
+  if (apiKey === "") {
+    const alasan = "WHATSAPP_API_KEY belum diisi di environment.";
+    await catat("gagal", alasan);
+    return { ok: false, status: "gagal", respon: alasan };
+  }
+
+  const hasil = await kirimViaGateway(apiKey, settings, opsi.nomor, opsi.pesan);
+  await catat(hasil.ok ? "terkirim" : "gagal", hasil.respon);
+  return { ok: hasil.ok, status: hasil.ok ? "terkirim" : "gagal", respon: hasil.respon };
+}
+
 export const kirimLaporanPelunasan = internalAction({
-  args: { loanId: v.id("loans"), olehUserId: v.optional(v.id("users")) },
-  handler: async (ctx, { loanId, olehUserId }): Promise<HasilKirimLaporan> => {
+  args: {
+    loanId: v.id("loans"),
+    olehUserId: v.optional(v.id("users")),
+    /** true = dikirim atas permintaan admin, mengabaikan sakelar otomatis. */
+    paksa: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { loanId, olehUserId, paksa }): Promise<HasilKirimLaporan> => {
+    // Sakelar admin: laporan pelunasan memuat catatan keuntungan pendana, jadi
+    // ia tidak berangkat sendiri kecuali admin menyalakannya.
+    if (paksa !== true) {
+      const otomatis = await ctx.runQuery(internal.system._laporanPelunasanOtomatis, {});
+      if (!otomatis) {
+        return {
+          ok: false,
+          status: "dilewati",
+          respon: "Laporan pelunasan otomatis dimatikan; kirim manual dari ruang penyedia dana.",
+        };
+      }
+    }
     const data = await ctx.runQuery(internal.laporanPendana._dataPelunasan, { loanId });
     if (data === null) {
       return { ok: false, status: "dilewati", respon: "Pinjaman tidak punya akun pendana kanonik." };
@@ -358,51 +432,46 @@ export const kirimLaporanPelunasan = internalAction({
     const b = data.baris;
     const dicetakPada = Date.now();
     // Dokumen lama bisa sudah lunas tanpa tanggal acuan. Urutan cadangannya:
-    // pelunasan → waktu keputusan status terakhir → waktu laporan dibuat. Ketiga
-    // tanggal itu nyata; yang tidak dilakukan adalah mengosongkan tanggal
-    // pelunasan pada dokumen yang memang sudah lunas.
+    // pelunasan -> waktu keputusan status terakhir -> waktu laporan dibuat.
     const lunasPada = b.lunasPada ?? data.diputuskanPada ?? dicetakPada;
     const bahasa = await ctx.runQuery(internal.bahasaPendana._untukPengguna, {
       userId: data.pendanaId,
     });
-    const dokumen = laporanPelunasan(
-      {
-      namaPendana: data.namaPendana,
-      nomorReferensi: b.nomorReferensi,
-      namaPeminjam: b.namaLengkap,
-      pokokPinjaman: b.pokokPinjaman,
-      totalLunas: b.totalLunas,
-      potonganAdmin: b.potonganAdmin,
-      keuntunganPendana: b.keuntunganPendana,
-      didanaiPada: b.didanaiPada,
-      lunasPada,
-        transferDicatat: b.transfer.status === "dicatat",
-        dicetakPada,
-      },
-      bahasa,
-    );
 
-    return await kirimLaporanPdf(ctx, {
+    const hasil = await kirimLaporanTeks(ctx, {
       jenis: "laporan_pelunasan",
       nomor: data.nomor,
-      namaBerkas: namaBerkasPelunasan(b.nomorReferensi),
-      byte: susunPdfResmi(dokumen),
-      pesan: pesanPelunasan({
-        namaPendana: data.namaPendana,
-        nomorReferensi: b.nomorReferensi,
-        namaPeminjam: b.namaLengkap,
-        pokokPinjaman: b.pokokPinjaman,
-        totalLunas: b.totalLunas,
-        potonganAdmin: b.potonganAdmin,
-        keuntunganPendana: b.keuntunganPendana,
-        didanaiPada: b.didanaiPada,
-        lunasPada,
-        transferDicatat: b.transfer.status === "dicatat",
-        dicetakPada,
-      }, bahasa),
+      pesan: pesanPelunasan(
+        {
+          namaPendana: data.namaPendana,
+          nomorReferensi: b.nomorReferensi,
+          namaPeminjam: b.namaLengkap,
+          pokokPinjaman: b.pokokPinjaman,
+          totalLunas: b.totalLunas,
+          potonganAdmin: b.potonganAdmin,
+          keuntunganPendana: b.keuntunganPendana,
+          didanaiPada: b.didanaiPada,
+          lunasPada,
+          transferDicatat: b.transfer.status === "dicatat",
+          dicetakPada,
+        },
+        bahasa,
+      ),
       loanId,
       ...(olehUserId === undefined ? {} : { olehUserId }),
     });
+
+    // Jejak audit: dokumen keuangan yang keluar atas permintaan manusia harus
+    // bisa ditelusuri — siapa yang meminta, dan apa hasil kirimannya.
+    await ctx.runMutation(internal.system._auditLaporanPendana, {
+      aksi: "laporan_pelunasan",
+      target: b.nomorReferensi,
+      detail:
+        `Laporan pelunasan ${b.nomorReferensi} ke ${data.namaPendana}: ${hasil.status}` +
+        `${paksa === true ? " (diminta admin)" : " (otomatis)"}. ${hasil.respon}`,
+      ...(olehUserId === undefined ? {} : { olehUserId }),
+    });
+    return hasil;
   },
 });
 
@@ -410,6 +479,70 @@ export const kirimLaporanPelunasan = internalAction({
 function jumlahkan(rekap: RekapPendana[], kolom: (r: RekapPendana) => number): number {
   return rekap.reduce((total, r) => total + kolom(r), 0);
 }
+
+/**
+ * Kirim laporan pelunasan SATU pinjaman sekarang, atas permintaan admin.
+ *
+ * Dipakai saat sakelar `laporanPelunasanOtomatis` dimatikan: laporan tetap bisa
+ * berangkat kapan admin siap. Gerbangnya admin murni, dan penerimanya tetap
+ * pemilik kanonik pinjaman (`pendanaId`) — nomor tujuan tidak pernah bisa
+ * dipilih pemanggil.
+ */
+export const kirimLaporanPelunasanManual = mutation({
+  args: { loanId: v.id("loans") },
+  handler: async (ctx, { loanId }) => {
+    const { userId: adminId } = await requireAdminSession(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) throw new ConvexError("Pinjaman tidak ditemukan.");
+    if (loan.status !== "lunas") {
+      throw new ConvexError("Laporan pelunasan hanya untuk pinjaman yang sudah lunas.");
+    }
+    if (loan.pendanaId === undefined) {
+      throw new ConvexError("Pinjaman ini tidak punya akun penyedia dana yang bisa dikirimi.");
+    }
+    await ctx.scheduler.runAfter(0, internal.laporanPendana.kirimLaporanPelunasan, {
+      loanId,
+      olehUserId: adminId,
+      paksa: true,
+    });
+    return { ok: true };
+  },
+});
+
+/**
+ * Kirim CONTOH format laporan pelunasan ke nomor CS PINDAI.
+ *
+ * Dipakai admin untuk memeriksa tampilan pesan yang akan diterima pendana,
+ * tanpa menyentuh data siapa pun: isinya data contoh. Penerimanya nomor CS dari
+ * `lib/kontak`, bukan nomor pilihan pemanggil.
+ */
+export const _kirimContohLaporanCs = internalAction({
+  args: {},
+  handler: async (ctx): Promise<HasilKirimLaporan> => {
+    const pesan = `${PEMBUKA_CONTOH_LAPORAN}\n\n${pesanPelunasan(contohDataPelunasan())}`;
+    const hasil = await kirimLaporanTeks(ctx, {
+      jenis: "laporan_pelunasan",
+      nomor: CS_WHATSAPP,
+      pesan,
+    });
+    await ctx.runMutation(internal.system._auditLaporanPendana, {
+      aksi: "contoh_laporan",
+      target: "nomor CS",
+      detail: `Contoh format laporan pelunasan dikirim ke CS: ${hasil.status}. ${hasil.respon}`,
+    });
+    return hasil;
+  },
+});
+
+/** Picu pengiriman contoh ke CS (admin saja). */
+export const kirimContohLaporanCs = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminSession(ctx);
+    await ctx.scheduler.runAfter(0, internal.laporanPendana._kirimContohLaporanCs, {});
+    return { ok: true };
+  },
+});
 
 /**
  * Kirim laporan portofolio akun yang sedang masuk ke WhatsApp-nya sendiri.

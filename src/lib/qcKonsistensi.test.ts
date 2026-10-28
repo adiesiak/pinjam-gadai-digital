@@ -136,11 +136,11 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
 // ===== 1. Suite sehat: seluruh pemeriksaan lulus =====
 {
   const hasil = jalankanQc(sehat());
-  eq(hasil.ringkasan.total, 11, "suite memuat 11 pemeriksaan");
+  eq(hasil.ringkasan.total, 12, "suite memuat 12 pemeriksaan");
   eq(hasil.ringkasan.gagal, 0, "tidak ada gagalan pada data sehat");
   eq(hasil.ringkasan.awas, 0, "tidak ada peringatan pada data sehat");
   eq(hasil.ringkasan.lewat, 0, "tidak ada pemeriksaan terlewat pada data sehat");
-  eq(hasil.ringkasan.lulus, 11, "semua pemeriksaan lulus");
+  eq(hasil.ringkasan.lulus, 12, "semua pemeriksaan lulus");
   ok(hasil.lulusSemua, "suite sehat dinyatakan lulus");
   for (const c of hasil.cek) {
     eq(c.status, "lulus", `sehat → ${c.id}`);
@@ -148,7 +148,7 @@ function statusDari(hasil: ReturnType<typeof jalankanQc>, id: string): StatusCek
     ok(c.nilai.length > 0, `${c.id} punya angka pengamatan`);
     ok(GRUP_QC.includes(c.grup as (typeof GRUP_QC)[number]), `${c.id} dalam grup resmi`);
   }
-  eq(new Set(hasil.cek.map((c) => c.id)).size, 11, "id pemeriksaan unik");
+  eq(new Set(hasil.cek.map((c) => c.id)).size, 12, "id pemeriksaan unik");
 }
 
 // ===== 2. Ruang: pembagian Imbal Hasil tidak kembali utuh → gagal =====

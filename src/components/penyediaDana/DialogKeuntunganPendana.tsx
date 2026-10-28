@@ -1,5 +1,5 @@
 import { useMutation } from "convex/react";
-import { Ban, Coins, Loader2 } from "lucide-react";
+import { Ban, Coins, Loader2, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -65,10 +65,32 @@ function FormCatat({
   onClose: () => void;
 }) {
   const catat = useMutation(api.penyediaDana.catatTransferPendana);
+  const kirimLaporan = useMutation(api.laporanPendana.kirimLaporanPelunasanManual);
+  const kirimContoh = useMutation(api.laporanPendana.kirimContohLaporanCs);
   const [metode, setMetode] = useState<Metode>("transfer_bank");
   const [referensi, setReferensi] = useState("");
   const [catatan, setCatatan] = useState("");
   const [busy, setBusy] = useState(false);
+  const [kirimBusy, setKirimBusy] = useState(false);
+  const [contohBusy, setContohBusy] = useState(false);
+
+  /**
+   * Kirim laporan pelunasan — yang memuat catatan keuntungan pendana ini — ke
+   * WhatsApp pendananya sekarang juga. Laporan itu tidak lagi berangkat
+   * sendiri saat pinjaman lunas; admin yang menentukan waktunya. Penerimanya
+   * tetap pemilik pinjaman, bukan nomor pilihan pemanggil.
+   */
+  const kirimLaporanSekarang = async () => {
+    setKirimBusy(true);
+    try {
+      await kirimLaporan({ loanId: target.loanId });
+      toast.success("Laporan pelunasan dijadwalkan ke WhatsApp pendana.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengirim laporan.");
+    } finally {
+      setKirimBusy(false);
+    }
+  };
 
   const kirim = async (event: FormEvent) => {
     event.preventDefault();
@@ -90,6 +112,19 @@ function FormCatat({
       );
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** Kirim contoh format laporan ke nomor CS — data contoh, bukan data nasabah. */
+  const kirimContohKeCs = async () => {
+    setContohBusy(true);
+    try {
+      await kirimContoh({});
+      toast.success("Contoh format laporan dikirim ke WhatsApp CS.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengirim contoh.");
+    } finally {
+      setContohBusy(false);
     }
   };
 
@@ -150,6 +185,43 @@ function FormCatat({
           disabled={busy}
           className="mt-1"
         />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+        <p className="text-[11px] leading-4 text-slate-600">
+          Laporan pelunasan ke pendana tidak dikirim otomatis. Kirim sekarang bila catatan
+          keuntungan di atas sudah siap, atau nyalakan pengiriman otomatis di Pengaturan Sistem.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 w-full justify-start"
+          disabled={busy || kirimBusy}
+          onClick={() => void kirimLaporanSekarang()}
+        >
+          {kirimBusy ? (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          ) : (
+            <Send className="mr-2 size-4 text-emerald-600" />
+          )}
+          Kirim laporan pelunasan ke pendana
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mt-1 w-full justify-start text-[11px]"
+          disabled={busy || contohBusy}
+          onClick={() => void kirimContohKeCs()}
+        >
+          {contohBusy ? (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          ) : (
+            <Send className="mr-2 size-4 text-slate-500" />
+          )}
+          Kirim contoh format ke CS
+        </Button>
       </div>
 
       <DialogFooter>

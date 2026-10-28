@@ -16,6 +16,7 @@ import {
   namaBerkasPortofolio,
   namaBerkasRekapPendana,
   pesanPelunasan,
+  contohDataPelunasan,
   pesanPortofolio,
   pesanRekapPendana,
   proyeksiReturnTerdekat,
@@ -468,7 +469,10 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
   ok(pesan.includes("PND/2026/09/0001"), "pesan pelunasan menyebut nomor referensi");
   ok(pesan.includes("Rp 1.200.000"), "pesan pelunasan menyebut angka yang dibukukan");
   ok(!pesan.includes("\u2014"), "pesan pelunasan tanpa tanda pisah panjang");
-  ok(pesan.includes("lampiran PDF"), "pesan menunjuk lampirannya");
+  ok(!pesan.includes("lampiran"), "pesan pelunasan tidak menjanjikan lampiran");
+  ok(pesan.includes("RINCIAN PELUNASAN"), "pesan memuat judul tabel rincian");
+  ok(pesan.includes("Keuntungan Anda"), "tabel memuat baris keuntungan pendana");
+  ok(pesan.includes("Anda terima"), "tabel memuat jumlah yang diterima pendana");
   ok(pesan.includes("Bu** Sa*****"), "pesan WhatsApp juga memakai nama tersamarkan");
   ok(!pesan.includes("Budi Santoso"), "nama lengkap tidak bocor lewat pesan WhatsApp");
 

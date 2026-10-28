@@ -1201,6 +1201,14 @@ export function SystemConfigPanel() {
                   accent="emerald"
                 />
                 <SwitchRow
+                  htmlFor="cfg-laporan-pelunasan-otomatis"
+                  label="Laporan pelunasan otomatis"
+                  hint="Laporan pelunasan + catatan keuntungan pendana dikirim ke WhatsApp pendana sendiri saat pinjaman lunas. Matikan (bawaan) untuk mengirim manual dari ruang penyedia dana."
+                  checked={form.laporanPelunasanOtomatis}
+                  onChange={(v) => upd("laporanPelunasanOtomatis", v)}
+                  accent="emerald"
+                />
+                <SwitchRow
                   htmlFor="cfg-notif-email"
                   label="Notifikasi Email"
                   hint="Pengingat tagihan ke alamat email akun nasabah. Akun tanpa email tidak menerima apa pun."

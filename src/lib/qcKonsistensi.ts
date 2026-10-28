@@ -286,6 +286,25 @@ export function jalankanQc(input: InputQc): HasilQc {
     ],
   );
 
+  // Pinjaman bermarjin nol tidak punya hak pendana yang bisa dicatat, dan
+  // admin baru mengetahuinya saat tombol "Catat keuntungan" menolak. Cek ini
+  // membuatnya terlihat sebagai daftar, bukan kejutan di tengah pekerjaan.
+  const marjinNol = baris.filter((b) => b.bunga <= 0 || b.keuntunganPendana <= 0);
+  tambah(
+    "baris-marjin-nol",
+    GRUP_QC[0],
+    "Semua pinjaman punya marjin untuk dibagi",
+    baris.length === 0 ? "lewat" : marjinNol.length === 0 ? "lulus" : "awas",
+    baris.length === 0
+      ? "Belum ada baris pinjaman untuk diperiksa."
+      : marjinNol.length === 0
+        ? `${baris.length} baris punya marjin positif, jadi keuntungan pendana bisa dicatat.`
+        : `${marjinNol.length} pinjaman bermarjin nol sehingga keuntungan pendana tidak bisa dicatat: ${batasi(marjinNol.map((b) => b.nomorReferensi))}`,
+    marjinNol.length === 0
+      ? [`${baris.length} baris diperiksa`]
+      : marjinNol.slice(0, 5).map((b) => b.nomorReferensi),
+  );
+
   // 3) Ringkasan ruang harus dijumlah dari baris/rekap yang sama.
   const jumlahBungaBaris = jumlah(baris, (b) => b.bunga);
   const rekap = ruang.rekapPendana;

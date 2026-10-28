@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
+import { LABEL_JUMLAH, SUMBER_DOKUMEN, TABEL_SNAPSHOT } from "@/lib/backupTabel";
 import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
 import { formatWaktuWIB } from "@/lib/waktu";
 
@@ -42,6 +43,12 @@ function csvCell(value: unknown): string {
 /** Satu halaman arsip ledger — bentuknya ditentukan query server. */
 type HalamanLedger = FunctionReturnType<typeof api.admin.ledgerRows>;
 
+/** Satu halaman tabel snapshot (bentuknya ditentukan query server). */
+type HalamanBagian = { baris: unknown[]; kursor: string | null };
+
+/** Satu halaman tautan dokumen untuk berkas backup. */
+type HalamanDokumen = { dokumen: unknown[]; kursor: string | null };
+
 export function BackupPanel() {
   /**
    * Snapshot dan ledger diambil SAAT tombol ditekan (`klien.query`), bukan lewat
@@ -60,6 +67,8 @@ export function BackupPanel() {
   const backfillKode = useMutation(api.admin.backfillKodePeminjam);
   const backfillBerkasKyc = useMutation(api.kyc.backfillMetadataBerkas);
   const [busy, setBusy] = useState<string | null>(null);
+  /** Jumlah tabel yang sudah terbaca saat snapshot JSON disusun. */
+  const [tabelJson, setTabelJson] = useState<number | null>(null);
   const [kodePeminjamDiterbitkan, setKodePeminjamDiterbitkan] = useState<number | null>(null);
   const [metadataBerkasDilengkapi, setMetadataBerkasDilengkapi] = useState<number | null>(null);
 
@@ -76,15 +85,76 @@ export function BackupPanel() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  /**
+   * Snapshot diunduh PER HALAMAN.
+   *
+   * Server membatasi jumlah dokumen yang boleh dibaca satu fungsi, sedangkan
+   * arsip tumbuh terus. Karena itu setiap tabel diminta halaman demi halaman
+   * sampai `kursor` bernilai null, lalu semuanya dirangkai menjadi SATU berkas.
+   * Hasilnya tetap utuh, bukan potongan yang berhenti diam-diam di halaman
+   * pertama saat backup paling dibutuhkan.
+   */
   const unduhJson = async () => {
     setBusy("json");
+    setTabelJson(0);
     try {
-      const snapshot = await klien.query(api.system.snapshotData, {});
-      unduhFile(`pindai-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(snapshot, null, 2), "application/json");
+      const isi: Record<string, unknown[]> = {};
+      const jumlah: Record<string, number> = {};
+      for (const [urutan, tabel] of TABEL_SNAPSHOT.entries()) {
+        const baris: unknown[] = [];
+        let kursor: string | null = null;
+        do {
+          const halaman: HalamanBagian = await klien.query(api.system.snapshotBagian, {
+            tabel,
+            kursor: kursor ?? undefined,
+          });
+          baris.push(...halaman.baris);
+          kursor = halaman.kursor;
+        } while (kursor !== null);
+        isi[tabel] = baris;
+        jumlah[LABEL_JUMLAH[tabel]] = baris.length;
+        setTabelJson(urutan + 1);
+      }
+
+      // Tautan dokumen diambil terpisah: barisnya sama dengan yang sudah di atas,
+      // tetapi URL penyimpanan hanya bisa dibuat di server.
+      const dokumen: unknown[] = [];
+      for (const sumber of SUMBER_DOKUMEN) {
+        let kursor: string | null = null;
+        do {
+          const halaman: HalamanDokumen = await klien.query(api.system.snapshotDokumen, {
+            sumber,
+            kursor: kursor ?? undefined,
+          });
+          dokumen.push(...halaman.dokumen);
+          kursor = halaman.kursor;
+        } while (kursor !== null);
+      }
+      jumlah.dokumen = dokumen.length;
+
+      // Konfigurasi sistem ikut supaya berkas ini bisa dipulihkan utuh.
+      const config =
+        auditData?.config ?? (await klien.query(api.system.getConfigAdmin, {})).config;
+
+      const snapshot = {
+        dibuatPada: new Date().toISOString(),
+        jumlah,
+        ...isi,
+        systemConfig: config,
+        dokumen,
+      };
+      unduhFile(
+        `pindai-backup-${new Date().toISOString().slice(0, 10)}.json`,
+        JSON.stringify(snapshot, null, 2),
+        "application/json",
+      );
       await catat({ jenis: "snapshot-json" });
-      toast.success("Snapshot JSON terunduh & tercatat di audit.");
+      toast.success(
+        `Snapshot JSON terunduh (${TABEL_SNAPSHOT.length} tabel) & tercatat di audit.`,
+      );
     } finally {
       setBusy(null);
+      setTabelJson(null);
     }
   };
 
@@ -211,7 +281,9 @@ export function BackupPanel() {
         <div className="space-y-2">
           <Button variant="outline" className="w-full justify-start" disabled={busy !== null} onClick={unduhJson}>
             {busy === "json" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-primary" />}
-            Unduh snapshot database (.JSON)
+            {busy === "json" && tabelJson !== null
+              ? `Membaca tabel ${tabelJson}/${TABEL_SNAPSHOT.length}…`
+              : "Unduh snapshot database (.JSON)"}
           </Button>
           <Button variant="outline" className="w-full justify-start" disabled={busy !== null} onClick={unduhCsv}>
             {busy === "csv" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-emerald-600" />}

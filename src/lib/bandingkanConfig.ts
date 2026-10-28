@@ -50,6 +50,7 @@ export const LABEL_CONFIG: Record<string, string> = {
   wajibAplikasiNative: "Wajib aplikasi native",
   notifWhatsappAktif: "Notifikasi WhatsApp",
   notifEmailAktif: "Notifikasi Email",
+  laporanPelunasanOtomatis: "Laporan pelunasan otomatis ke pendana",
   retensiLokasiHari: "Retensi jejak lokasi (hari)",
   retensiLogWaHari: "Retensi isi pesan WhatsApp (hari)",
   retensiAuditHari: "Retensi jejak audit (hari)",

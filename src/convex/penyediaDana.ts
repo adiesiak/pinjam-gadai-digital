@@ -44,7 +44,7 @@
  * di layar.
  */
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -3417,24 +3417,24 @@ export const catatTransferPendana = mutation({
     const { userId: adminId, user: admin } = await requireAdminSession(ctx);
 
     const loan = await ctx.db.get(loanId);
-    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (loan === null) throw new ConvexError("Pinjaman tidak ditemukan.");
 
     // Keuntungan penyedia dana baru jatuh tempo setelah kewajiban Peminjam
     // lunas. Pinjaman berjalan belum punya keuntungan untuk dicatat.
     if (loan.status !== "lunas") {
-      throw new Error(
+      throw new ConvexError(
         "Keuntungan penyedia dana baru dapat dicatat setelah pinjaman berstatus lunas.",
       );
     }
     if (loan.pendanaId === undefined && loan.pendanaNama === undefined) {
-      throw new Error("Pinjaman ini tidak memiliki penyedia dana.");
+      throw new ConvexError("Pinjaman ini tidak memiliki penyedia dana.");
     }
 
     // Satu pinjaman = satu pendana, jadi hanya boleh ada satu catatan berlaku.
     // Catatan lama tidak dihapus — batalkan dulu bila salah.
     const sebelumnya = await ringkasTransferPinjaman(ctx, loanId);
     if (sebelumnya.status === "dicatat") {
-      throw new Error(
+      throw new ConvexError(
         "Transfer pinjaman ini sudah dicatat. Batalkan catatan lama sebelum mencatat ulang.",
       );
     }
@@ -3444,7 +3444,7 @@ export const catatTransferPendana = mutation({
     // salah tidak pernah masuk catatan.
     const bagi = bagiPendanaAman(loan);
     if (bagi.keuntunganPendana <= 0) {
-      throw new Error("Keuntungan penyedia dana untuk pinjaman ini nol.");
+      throw new ConvexError("Keuntungan penyedia dana untuk pinjaman ini nol.");
     }
 
     const adminLabel = admin.email ?? admin.name ?? "admin";
@@ -3490,11 +3490,11 @@ export const batalkanTransferPendana = mutation({
 
     const bersih = alasan.trim();
     if (bersih.length < 3) {
-      throw new Error("Isi alasan pembatalan (minimal 3 karakter).");
+      throw new ConvexError("Isi alasan pembatalan (minimal 3 karakter).");
     }
 
     const loan = await ctx.db.get(loanId);
-    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (loan === null) throw new ConvexError("Pinjaman tidak ditemukan.");
 
     // Hanya baris milik PINJAMAN ini. Tanpa batas itu, satu pembatalan akan
     // ikut menandai batal catatan milik pinjaman — dan pendana — lain, dan
@@ -3506,7 +3506,7 @@ export const batalkanTransferPendana = mutation({
         .collect()
     ).filter((r) => r.status === "dicatat");
     if (berlaku.length === 0) {
-      throw new Error("Tidak ada catatan transfer yang berlaku untuk pinjaman ini.");
+      throw new ConvexError("Tidak ada catatan transfer yang berlaku untuk pinjaman ini.");
     }
 
     const adminLabel = admin.email ?? admin.name ?? "admin";

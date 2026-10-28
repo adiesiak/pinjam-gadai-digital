@@ -199,6 +199,13 @@ export type SystemConfig = {
    */
   notifEmailAktif: boolean;
   /**
+   * Kirim laporan pelunasan (PDF, memuat catatan keuntungan pendana) ke
+   * WhatsApp pendana OTOMATIS saat pinjaman menjadi lunas. Bawaan MATI:
+   * laporan keuangan hanya berangkat saat admin memintanya. Nyalakan bila
+   * laporan boleh dikirim sendiri oleh sistem.
+   */
+  laporanPelunasanOtomatis: boolean;
+  /**
    * Retensi jejak lokasi (hari) — job cron harian menghapus titik yang lebih
    * tua dari ini. Titik milik pinjaman belum selesai selalu ditahan minimal
    * LOKASI_RETENSI.buktiPinjamanHari (400 hari), berapa pun nilai di sini.
@@ -304,6 +311,7 @@ export const DEFAULT_CONFIG: SystemConfig = {
   wajibAplikasiNative: false,
   notifWhatsappAktif: true,
   notifEmailAktif: true,
+  laporanPelunasanOtomatis: false,
   retensiLokasiHari: LOKASI_RETENSI.jejakHari,
   retensiLogWaHari: 180,
   retensiAuditHari: 730,

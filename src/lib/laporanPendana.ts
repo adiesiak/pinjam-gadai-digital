@@ -829,38 +829,103 @@ export function laporanRekapPendana(data: DataRekapPendana): DokumenResmiPdf {
   };
 }
 
+/** Baris tabel monospace: label di kiri, nominal rata kanan di kolom tetap. */
+function barisRincian(label: string, nominal: number): string {
+  return `${label.padEnd(18)}${rupiah(nominal).padStart(14)}`;
+}
+
 /**
- * Keterangan pesan WhatsApp yang menemani lampiran.
+ * Keterangan pesan WhatsApp laporan pelunasan — LENGKAP DI PESAN, tanpa lampiran.
  *
- * Sengaja pendek dan menunjuk lampirannya: pesan panjang dengan angka yang sama
- * dengan PDF membuat dua versi angka beredar di percakapan, dan yang salah
- * dibaca adalah yang paling akhir terlihat.
+ * Dulu pesan ini hanya menyebut angka penting lalu menunjuk lampiran PDF.
+ * Gateway yang dipakai tidak selalu benar-benar mengantarkan lampirannya,
+ * sehingga pendana menerima janji "rincian ada di lampiran" tanpa berkas.
+ * Sekarang seluruh rincian ada di badan pesan sebagai tabel monospace, jadi
+ * tidak ada yang bergantung pada lampiran yang mungkin tidak sampai.
  */
 export function pesanPelunasan(
   data: DataPelunasanPendana,
   bhs: BahasaLaporan = "id",
 ): string {
+  // Yang diterima pendana = pokok yang ia danai + keuntungannya. Angka ini sah
+  // untuk skema harian maupun bulanan, karena biaya layanan tidak termasuk.
+  const diterima = data.pokokPinjaman + data.keuntunganPendana;
+
   if (bhs === "en") {
-    const transfer = data.transferDicatat
-      ? "The admin has recorded the profit transfer."
-      : "The admin has not recorded the profit transfer yet.";
+    const tabel = [
+      "LOAN SETTLEMENT DETAIL",
+      barisRincian("Principal", data.pokokPinjaman),
+      barisRincian("Platform share", data.potonganAdmin),
+      barisRincian("Your profit", data.keuntunganPendana),
+      barisRincian("You receive", diterima),
+    ].join("\n");
+    const status = data.transferDicatat
+      ? "The admin has recorded your profit transfer."
+      : "The admin has not recorded your profit transfer yet.";
+    const tanggalDana =
+      data.didanaiPada === null
+        ? ""
+        : `Funded ${tanggalBahasa(data.didanaiPada, "en")} · Settled ${tanggalBahasa(data.lunasPada, "en")}\n`;
     return (
       `Hello ${data.namaPendana}, loan ${data.nomorReferensi} for ${samarkanNama(data.namaPeminjam)} ` +
-      `was settled on ${tanggalBahasa(data.lunasPada, "en")}. ` +
-      `Your booked profit is ${rupiah(data.keuntunganPendana)}. ` +
-      `${transfer} The full breakdown is in the attached PDF.`
+      `was settled on ${tanggalBahasa(data.lunasPada, "en")}.\n\n` +
+      `\`\`\`\n${tabel}\n\`\`\`\n\n` +
+      tanggalDana +
+      `${status}\n\n` +
+      "These figures are the same as the ones shown in the PINDAI funding room."
     );
   }
-  const transfer = data.transferDicatat
+
+  const tabel = [
+    "RINCIAN PELUNASAN",
+    barisRincian("Pokok pinjaman", data.pokokPinjaman),
+    barisRincian("Porsi platform", data.potonganAdmin),
+    barisRincian("Keuntungan Anda", data.keuntunganPendana),
+    barisRincian("Anda terima", diterima),
+  ].join("\n");
+  const status = data.transferDicatat
     ? "Catatan transfer keuntungannya sudah dibuat admin."
     : "Catatan transfer keuntungannya belum dibuat admin.";
+  const tanggalDana =
+    data.didanaiPada === null
+      ? ""
+      : `Didanai ${tanggal(data.didanaiPada)} · Lunas ${tanggal(data.lunasPada)}\n`;
   return (
     `Halo ${data.namaPendana}, pinjaman ${data.nomorReferensi} atas nama ${samarkanNama(data.namaPeminjam)} ` +
-    `tercatat lunas pada ${tanggal(data.lunasPada)}. ` +
-    `Keuntungan yang dibukukan untuk Anda ${rupiah(data.keuntunganPendana)}. ` +
-    `${transfer} Rincian lengkapnya ada di lampiran PDF.`
+    `tercatat LUNAS pada ${tanggal(data.lunasPada)}.\n\n` +
+    `\`\`\`\n${tabel}\n\`\`\`\n\n` +
+    tanggalDana +
+    `${status}\n\n` +
+    "Angka ini sama dengan yang tampil di ruang penyedia dana PINDAI."
   );
 }
+
+/**
+ * Data CONTOH untuk mengirim format laporan ke CS.
+ *
+ * Sengaja bukan pinjaman nyata: yang diperiksa tampilan pesannya, bukan data
+ * orang. Angkanya mengikuti kebijakan 47 : 13 pada pokok Rp1.000.000.
+ */
+export function contohDataPelunasan(sekarang = Date.now()): DataPelunasanPendana {
+  const sehari = 24 * 60 * 60 * 1000;
+  return {
+    namaPendana: "Contoh Pendana",
+    nomorReferensi: "PGD-CONTOH-0001",
+    namaPeminjam: "Contoh Peminjam",
+    pokokPinjaman: 1_000_000,
+    totalLunas: 1_300_000,
+    potonganAdmin: 65_000,
+    keuntunganPendana: 235_000,
+    didanaiPada: sekarang - 30 * sehari,
+    lunasPada: sekarang,
+    transferDicatat: false,
+    dicetakPada: sekarang,
+  };
+}
+
+/** Pembuka pesan contoh supaya penerimanya tahu ini bukan tagihan nyata. */
+export const PEMBUKA_CONTOH_LAPORAN =
+  "CONTOH format laporan pelunasan PINDAI. Angka di bawah ini data contoh, bukan pinjaman atau tagihan siapa pun.";
 
 /**
  * Jatuh tempo terdekat dari pinjaman yang masih berjalan.
