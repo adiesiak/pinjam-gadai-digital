@@ -15,6 +15,7 @@ import {
   maskNomor,
   nomorTujuanBersih,
   nomorTujuanValid,
+  persenMarkupKategori,
   statusDariProvider,
 } from "./ppob";
 
@@ -105,6 +106,28 @@ sama(statusDariProvider("", "00"), "sukses", "rc 00 tanpa status");
 sama(statusDariProvider("", "02"), "gagal", "rc 02");
 sama(statusDariProvider("Entah"), "diproses", "status asing ditahan di proses");
 sama(statusDariProvider("success"), "sukses", "server kustom memakai success");
+
+// ===== Markup per kategori =====
+sama(persenMarkupKategori(5, {}, "pulsa"), 5, "tanpa isian memakai markup global");
+sama(persenMarkupKategori(5, { pulsa: 2 }, "pulsa"), 2, "pulsa memakai tarif khusus");
+sama(persenMarkupKategori(5, { pulsa: 2 }, "game"), 5, "kategori lain tetap global");
+sama(
+  persenMarkupKategori(5, { tokenListrik: 7 }, "token-listrik"),
+  7,
+  "token listrik memetakan kolom tokenListrik",
+);
+sama(persenMarkupKategori(5, { game: -1 }, "game"), 5, "nilai negatif diabaikan");
+sama(persenMarkupKategori(5, { data: Number.NaN }, "data"), 5, "NaN diabaikan");
+sama(
+  hargaJualDariModal(10_000, persenMarkupKategori(5, { pulsa: 2 }, "pulsa"), 0),
+  10_200,
+  "harga pulsa memakai markup kategori",
+);
+sama(
+  hargaJualDariModal(10_000, persenMarkupKategori(5, {}, "game"), 0),
+  10_500,
+  "harga game tetap memakai markup global",
+);
 
 console.log(`\n${lulus} lulus, ${gagal} gagal`);
 if (gagal > 0) process.exit(1);

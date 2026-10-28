@@ -11,7 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
 // Hook Convex diganti nilai tetap. Urutan pemanggilan di `Ppob` adalah:
-// ringkasEtalase → kategoriEtalase → daftarProduk.
+// ringkasEtalase → kategoriEtalase → pesananSaya → daftarProduk.
 let panggilan = 0;
 mock.module("convex/react", () => ({
   useQuery: () => {
@@ -35,6 +35,7 @@ mock.module("convex/react", () => ({
         instruksi: "",
       };
     }
+    if (panggilan === 3) return [];
     return [
       {
         kode: "TSEL10",

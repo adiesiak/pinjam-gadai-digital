@@ -223,9 +223,12 @@ function CekPesanan() {
 /** Dialog pemesanan satu produk. */
 function DialogPesan({
   produk,
+  awal,
   onClose,
 }: {
   produk: { kode: string; nama: string; kategori: KategoriPpob; hargaJual: number } | null;
+  /** Isian dari tombol "Pesan lagi" di riwayat pembeli. */
+  awal: { nomorTujuan: string; nama: string; whatsapp: string } | null;
   onClose: () => void;
 }) {
   const pesan = useMutation(api.ppob.buatPesanan);
@@ -239,12 +242,12 @@ function DialogPesan({
 
   useEffect(() => {
     if (produk === null) return;
-    setNomor("");
-    setNama("");
-    setWa("");
+    setNomor(awal?.nomorTujuan ?? "");
+    setNama(awal?.nama ?? "");
+    setWa(awal?.whatsapp ?? "");
     setSetuju(false);
     setGalat(null);
-  }, [produk]);
+  }, [produk, awal]);
 
   const nomorSah = produk !== null && nomorTujuanValid(produk.kategori, nomor);
   const bisaKirim =
@@ -399,8 +402,14 @@ function DialogPesan({
 export function Ppob() {
   const ringkas = useQuery(api.ppob.ringkasEtalase, {});
   const kategori = useQuery(api.ppob.kategoriEtalase, {});
+  const riwayat = useQuery(api.ppob.pesananSaya, {});
   const [pilih, setPilih] = useState<KategoriPpob | null>(null);
   const [cari, setCari] = useState("");
+  const [ulang, setUlang] = useState<{
+    nomorTujuan: string;
+    nama: string;
+    whatsapp: string;
+  } | null>(null);
   const [dialog, setDialog] = useState<{
     kode: string;
     nama: string;
@@ -496,6 +505,72 @@ export function Ppob() {
             </div>
           </div>
         </section>
+
+        {riwayat !== undefined && riwayat.length > 0 ? (
+          <section className="mx-auto max-w-6xl px-4 pt-8 sm:px-6" aria-labelledby="riwayat-ppob">
+            <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+              <div>
+                <h2 id="riwayat-ppob" className="text-base font-semibold text-navy">
+                  Pesanan saya
+                </h2>
+                <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                  Pesanan yang dibuat saat Anda masuk ke akun ini. Tekan “Pesan lagi”
+                  untuk mengisi ulang nomor tujuan yang sama.
+                </p>
+              </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {riwayat.map((item) => (
+                  <div
+                    key={item.kodePesanan}
+                    className="rounded-xl border border-border bg-background p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {item.namaProduk}
+                        </p>
+                        <p className="mt-0.5 truncate font-mono text-[10px] text-slate-500">
+                          {item.kodePesanan} · {formatTanggalWIB(item.dibuatPada)}
+                        </p>
+                      </div>
+                      <BadgeStatus status={item.status as StatusPesananPpob} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-semibold tabular-nums text-emerald-800">
+                        {formatRupiahAman(item.hargaJual)}
+                      </span>
+                      <div className="flex gap-1.5">
+                        <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-[11px]">
+                          <Link to={`/ppob/pesanan/${encodeURIComponent(item.kodePesanan)}`}>
+                            Lihat
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-[11px]"
+                          onClick={() => {
+                            setUlang({
+                              nomorTujuan: item.nomorTujuan,
+                              nama: item.namaPembeli,
+                              whatsapp: item.whatsapp,
+                            });
+                            setPilih(item.kategori as KategoriPpob);
+                            document
+                              .getElementById("etalase")
+                              ?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                        >
+                          Pesan lagi
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section id="etalase" className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -618,7 +693,7 @@ export function Ppob() {
         <CekPesanan />
       </main>
       <FooterPpob />
-      <DialogPesan produk={dialog} onClose={() => setDialog(null)} />
+      <DialogPesan produk={dialog} awal={ulang} onClose={() => setDialog(null)} />
     </div>
   );
 }

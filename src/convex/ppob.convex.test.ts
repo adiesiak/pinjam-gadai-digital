@@ -353,4 +353,133 @@ describe("PPOB publik", () => {
       "menunggu_bayar",
     );
   });
+
+  it("markup per kategori menggantikan tarif global, bukan menambah di atasnya", async () => {
+    const t = convexTest(schema, modules);
+    const { admin } = await siapkanEtalase(t);
+    await admin.mutation(api.ppob.simpanPengaturan, {
+      ...PENGATURAN,
+      markupMin: 0,
+      markupKategori: { pulsa: 2, tokenListrik: 7, game: 10 },
+    });
+    await t.mutation(internal.ppob.simpanHasilSinkron, {
+      produk: [
+        { kode: "PULSA-A", nama: "Pulsa A", kategori: "pulsa", hargaModal: 10_000, tersedia: true },
+        { kode: "GAME-A", nama: "Game A", kategori: "game", hargaModal: 10_000, tersedia: true },
+        {
+          kode: "PLN-A",
+          nama: "Token A",
+          kategori: "token-listrik",
+          hargaModal: 100_000,
+          tersedia: true,
+        },
+        { kode: "DATA-A", nama: "Data A", kategori: "data", hargaModal: 10_000, tersedia: true },
+      ],
+    });
+
+    const harga = async (kode: string) =>
+      (
+        await t.run((ctx) =>
+          ctx.db
+            .query("ppobProduk")
+            .withIndex("by_kode", (q) => q.eq("kode", kode))
+            .first(),
+        )
+      )?.hargaJual;
+
+    expect(await harga("PULSA-A")).toBe(10_200);
+    expect(await harga("GAME-A")).toBe(11_000);
+    expect(await harga("PLN-A")).toBe(107_000);
+    expect(await harga("DATA-A")).toBe(10_500);
+  });
+
+  it("laporan memisahkan hari ini, bulan ini, dan per kategori", async () => {
+    const t = convexTest(schema, modules);
+    const { admin } = await siapkanEtalase(t);
+    await t.run((ctx) =>
+      ctx.db.insert("ppobProduk", {
+        kode: "ML10",
+        nama: "Mobile Legends 10 Diamond",
+        kategori: "game",
+        hargaModal: 9_000,
+        hargaJual: 10_000,
+        aktif: true,
+        tersedia: true,
+        diperbaruiPada: Date.now(),
+        dibuatPada: Date.now(),
+      }),
+    );
+
+    const pertama = await pesan(t);
+    const kedua = await t.mutation(api.ppob.buatPesanan, {
+      kodeProduk: "ML10",
+      nomorTujuan: "12345678(1234)",
+      nama: "Rani",
+      whatsapp: "081298765432",
+    });
+    const ketiga = await t.mutation(api.ppob.buatPesanan, {
+      kodeProduk: "TSEL10",
+      nomorTujuan: "081234567891",
+      nama: "Rani",
+      whatsapp: "081298765432",
+    });
+
+    await t.run(async (ctx) => {
+      const cari = async (kode: string) =>
+        (await ctx.db
+          .query("ppobPesanan")
+          .withIndex("by_kode_pesanan", (q) => q.eq("kodePesanan", kode))
+          .first())!;
+      const a = await cari(pertama.kodePesanan);
+      const b = await cari(kedua.kodePesanan);
+      const c = await cari(ketiga.kodePesanan);
+      await ctx.db.patch(a._id, { status: "sukses", selesaiPada: Date.now() });
+      await ctx.db.patch(b._id, { status: "sukses", selesaiPada: Date.now() });
+      await ctx.db.patch(c._id, {
+        status: "gagal",
+        pesanProvider: "Nomor tujuan tidak terdaftar",
+        selesaiPada: Date.now(),
+      });
+    });
+
+    const laporan = await admin.query(api.ppob.laporanPpob, {});
+    expect(laporan.hariIni.sukses).toBe(2);
+    expect(laporan.hariIni.omzet).toBe(10_400 + 10_000);
+    expect(laporan.hariIni.laba).toBe(550 + 1_000);
+    expect(laporan.hariIni.gagal).toBe(1);
+    expect(laporan.bulanIni.pesanan).toBe(3);
+    expect(laporan.bulanIni.laba).toBe(1_550);
+
+    const pulsa = laporan.perKategori.find((item) => item.kategori === "pulsa");
+    const game = laporan.perKategori.find((item) => item.kategori === "game");
+    expect(pulsa?.pesanan).toBe(2);
+    expect(pulsa?.sukses).toBe(1);
+    expect(pulsa?.laba).toBe(550);
+    expect(game?.laba).toBe(1_000);
+    expect(laporan.daftarGagal).toHaveLength(1);
+    expect(laporan.daftarGagal[0]?.kodePesanan).toBe(ketiga.kodePesanan);
+  });
+
+  it("pembeli yang masuk hanya melihat pesanannya sendiri", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanEtalase(t);
+    const { sesi: pembeli } = await siapkanPengguna(t, "Rani Pembeli", {
+      email: "pembeli-ppob@pindai.test",
+      role: "peminjam",
+    });
+
+    const milik = await pembeli.mutation(api.ppob.buatPesanan, {
+      kodeProduk: "TSEL10",
+      nomorTujuan: "081234567892",
+      nama: "Rani Pembeli",
+      whatsapp: "081298765433",
+    });
+    await pesan(t);
+
+    const daftar = await pembeli.query(api.ppob.pesananSaya, {});
+    expect(daftar).toHaveLength(1);
+    expect(daftar[0]?.kodePesanan).toBe(milik.kodePesanan);
+    expect(daftar[0]?.nomorTujuan).toBe("081234567892");
+    expect(await t.query(api.ppob.pesananSaya, {})).toEqual([]);
+  });
 });

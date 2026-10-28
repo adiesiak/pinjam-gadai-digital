@@ -132,6 +132,44 @@ export function hargaJualDariModal(
   return Math.ceil((hargaModal + markup) / 100) * 100;
 }
 
+/**
+ * Markup per kategori yang disimpan admin.
+ *
+ * `tokenListrik` (tanpa tanda hubung) adalah nama kolom di database; kunci
+ * kategori publiknya tetap `token-listrik`. Pemetaan ada di
+ * `persenMarkupKategori` supaya perbedaan penamaan tidak merembes ke UI.
+ */
+export type MarkupPerKategori = {
+  pulsa?: number;
+  data?: number;
+  tokenListrik?: number;
+  game?: number;
+  ewallet?: number;
+};
+
+/**
+ * Tarif markup yang berlaku untuk satu kategori.
+ *
+ * Nilai per kategori MENGGANTIKAN tarif global, bukan menambah di atasnya —
+ * admin yang menulis 3% untuk pulsa tidak perlu menghitung selisih dari 5%.
+ * Nilai tidak sah diabaikan supaya etalase tidak menjual di bawah modal hanya
+ * karena satu kolom salah ketik.
+ */
+export function persenMarkupKategori(
+  global: number,
+  perKategori: MarkupPerKategori | undefined,
+  kategori: KategoriPpob,
+): number {
+  const khusus =
+    kategori === "token-listrik"
+      ? perKategori?.tokenListrik
+      : perKategori?.[kategori];
+  if (typeof khusus === "number" && Number.isFinite(khusus) && khusus >= 0) {
+    return khusus;
+  }
+  return Number.isFinite(global) && global >= 0 ? global : 0;
+}
+
 /** Laba kotor satu pesanan; tidak pernah negatif bila harga jual diubah manual. */
 export function labaPesanan(hargaJual: number, hargaModal: number): number {
   if (!Number.isInteger(hargaJual) || !Number.isInteger(hargaModal)) {

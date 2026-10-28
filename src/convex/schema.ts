@@ -4102,6 +4102,8 @@ const schema = defineSchema(
       namaPembeli: v.optional(v.string()),
       /** Nomor WhatsApp pembeli untuk konfirmasi pembayaran & kendala. */
       whatsapp: v.string(),
+      /** Akun pembeli bila sedang masuk; dipakai daftar "pesanan saya". */
+      userId: v.optional(v.id("users")),
       hargaModal: v.number(),
       hargaJual: v.number(),
       /** hargaJual - hargaModal; tidak pernah negatif. */
@@ -4132,6 +4134,7 @@ const schema = defineSchema(
       .index("by_ref", ["refId"])
       .index("by_status", ["status", "dibuatPada"])
       .index("by_whatsapp", ["whatsapp", "dibuatPada"])
+      .index("by_user", ["userId", "dibuatPada"])
       .index("by_dibuat", ["dibuatPada"]),
 
     /**
@@ -4173,6 +4176,28 @@ const schema = defineSchema(
       markupPersen: v.number(),
       /** Markup minimum per produk (rupiah), menutup biaya transfer. */
       markupMin: v.number(),
+      /**
+       * Markup per kategori (%) yang MENGGANTIKAN markup global untuk kategori
+       * itu. Pulsa paling sensitif harga, sedangkan token listrik dan voucher
+       * game menanggung risiko dan biaya layanan lebih besar. Kosong = ikut
+       * `markupPersen`.
+       */
+      markupKategori: v.optional(
+        v.object({
+          pulsa: v.optional(v.number()),
+          data: v.optional(v.number()),
+          /** Nama kunci tanpa tanda hubung: validator Convex menolak `-`. */
+          tokenListrik: v.optional(v.number()),
+          game: v.optional(v.number()),
+          ewallet: v.optional(v.number()),
+        }),
+      ),
+      /** Nomor WhatsApp admin penerima ping pesanan baru dan alarm saldo. */
+      nomorAdminWa: v.optional(v.string()),
+      /** Saldo provider di bawah angka ini memicu alarm (rupiah). */
+      saldoMinimum: v.optional(v.number()),
+      /** Waktu alarm saldo terakhir dikirim; mencegah ping berulang. */
+      saldoPeringatanPada: v.optional(v.number()),
       /** Kalimat tambahan di halaman pembayaran, mis. jam operasional. */
       instruksi: v.optional(v.string()),
       /** Saldo deposit terakhir yang dilaporkan provider. */

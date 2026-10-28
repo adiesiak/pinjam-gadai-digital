@@ -15,9 +15,11 @@
  */
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
+  BarChart3,
   Check,
   Clock,
   Copy,
+  Download,
   ExternalLink,
   Info,
   Loader2,
@@ -68,7 +70,19 @@ import { kelompokkanDigit, formatRupiahAman } from "@/lib/money";
 import { formatDate } from "./admin-format";
 import { cn } from "@/lib/utils";
 
-type TabPpob = "pesanan" | "produk" | "pengaturan";
+type TabPpob = "pesanan" | "produk" | "laporan" | "pengaturan";
+
+/** Kunci kolom markup per kategori; `tokenListrik` mengikuti nama di skema. */
+const KUNCI_MARKUP = ["pulsa", "data", "tokenListrik", "game", "ewallet"] as const;
+type KunciMarkup = (typeof KUNCI_MARKUP)[number];
+
+const LABEL_MARKUP: Record<KunciMarkup, string> = {
+  pulsa: "Pulsa",
+  data: "Paket data",
+  tokenListrik: "Token listrik",
+  game: "Voucher game",
+  ewallet: "E-wallet",
+};
 
 const FILTER_STATUS: Array<{ nilai: "semua" | StatusPesananPpob; label: string }> = [
   { nilai: "semua", label: "Semua" },
@@ -307,6 +321,7 @@ export function PpobPanel() {
   const [tab, setTab] = useState<TabPpob>("pesanan");
   const pengaturan = useQuery(api.ppob.getPengaturan, {});
   const ringkasan = useQuery(api.ppob.ringkasanPpob, {});
+  const laporan = useQuery(api.ppob.laporanPpob, {});
   const [statusFilter, setStatusFilter] = useState<"semua" | StatusPesananPpob>("semua");
   const pesanan = useQuery(api.ppob.daftarPesananAdmin, {
     status: statusFilter === "semua" ? undefined : statusFilter,
@@ -476,6 +491,7 @@ export function PpobPanel() {
           [
             ["pesanan", "Pesanan", Send],
             ["produk", "Produk", Package],
+            ["laporan", "Laporan", BarChart3],
             ["pengaturan", "Pengaturan", Settings2],
           ] as const
         ).map(([nilai, label, Ikon]) => (
@@ -812,6 +828,8 @@ export function PpobPanel() {
         </section>
       ) : null}
 
+      {tab === "laporan" ? <LaporanPpob laporan={laporan} /> : null}
+
       {tab === "pengaturan" ? (
         <FormPengaturan
           pengaturan={pengaturan}
@@ -826,6 +844,172 @@ export function PpobPanel() {
       />
       <DialogHarga produk={dialogHarga} onClose={() => setDialogHarga(null)} />
     </div>
+  );
+}
+
+type DataLaporan = FunctionReturnType<typeof api.ppob.laporanPpob>;
+
+/** Satu sel CSV; tanda kutip digandakan, pemisah memakai titik koma (Excel ID). */
+function selCsv(nilai: string | number): string {
+  const teks = String(nilai).replace(/"/g, '""');
+  return /[";\n]/.test(teks) ? `"${teks}"` : teks;
+}
+
+function csvLaporanPpob(data: DataLaporan): string {
+  const baris: string[] = [
+    "Bagian;Kategori;Pesanan;Sukses;Gagal;Omzet;Laba",
+    ["Hari ini", "Semua", data.hariIni.pesanan, data.hariIni.sukses, data.hariIni.gagal, data.hariIni.omzet, data.hariIni.laba]
+      .map(selCsv)
+      .join(";"),
+    ["Bulan ini", "Semua", data.bulanIni.pesanan, data.bulanIni.sukses, data.bulanIni.gagal, data.bulanIni.omzet, data.bulanIni.laba]
+      .map(selCsv)
+      .join(";"),
+    ...data.perKategori.map((item) =>
+      ["Bulan ini", LABEL_KATEGORI_PPOB[item.kategori], item.pesanan, item.sukses, item.gagal, item.omzet, item.laba]
+        .map(selCsv)
+        .join(";"),
+    ),
+    "",
+    "Pesanan gagal/refund bulan ini",
+    "Kode;Produk;Tujuan;Nominal;Status;Tanggal;Pesan provider",
+    ...data.daftarGagal.map((item) =>
+      [
+        item.kodePesanan,
+        item.namaProduk,
+        item.nomorTujuan,
+        item.hargaJual,
+        LABEL_STATUS_PPOB[item.status as StatusPesananPpob],
+        waktu(item.dibuatPada),
+        item.pesanProvider,
+      ]
+        .map(selCsv)
+        .join(";"),
+    ),
+  ];
+  return baris.join("\n");
+}
+
+/** Rekap laba PPOB + daftar pesanan yang tidak menghasilkan. */
+function LaporanPpob({ laporan }: { laporan: DataLaporan | undefined }) {
+  if (laporan === undefined) {
+    return (
+      <p className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-muted-foreground">
+        Memuat laporan…
+      </p>
+    );
+  }
+
+  const unduh = () => {
+    const isi = `\uFEFF${csvLaporanPpob(laporan)}`;
+    const blob = new Blob([isi], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const tautan = document.createElement("a");
+    tautan.href = url;
+    tautan.download = `laporan-ppob-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(tautan);
+    tautan.click();
+    tautan.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-semibold text-navy">
+            <BarChart3 className="size-4 text-emerald-700" aria-hidden />
+            Laporan laba PPOB
+          </p>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
+            Laba diakui hanya dari pesanan selesai; omzet mengikuti pesanan yang sama supaya
+            angkanya bisa dicocokkan dengan uang yang benar-benar diterima.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" className="min-h-10" onClick={unduh}>
+          <Download className="mr-1.5 size-4" aria-hidden />
+          Unduh CSV
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KartuAngka label="Laba hari ini" nilai={formatRupiahAman(laporan.hariIni.laba)} nada="hijau" />
+        <KartuAngka label="Omzet hari ini" nilai={formatRupiahAman(laporan.hariIni.omzet)} />
+        <KartuAngka label="Laba bulan ini" nilai={formatRupiahAman(laporan.bulanIni.laba)} nada="hijau" />
+        <KartuAngka label="Omzet bulan ini" nilai={formatRupiahAman(laporan.bulanIni.omzet)} />
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="hidden grid-cols-[1.2fr_0.7fr_0.7fr_0.7fr_1fr_1fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+          <span>Kategori</span>
+          <span>Pesanan</span>
+          <span>Sukses</span>
+          <span>Gagal</span>
+          <span>Omzet</span>
+          <span className="text-right">Laba</span>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {laporan.perKategori.map((item) => (
+            <div
+              key={item.kategori}
+              className="grid gap-1 px-4 py-3 text-xs sm:grid-cols-[1.2fr_0.7fr_0.7fr_0.7fr_1fr_1fr] sm:items-center"
+            >
+              <span className="text-sm font-medium text-slate-900">
+                {LABEL_KATEGORI_PPOB[item.kategori]}
+              </span>
+              <span className="tabular-nums text-slate-600">{item.pesanan}</span>
+              <span className="tabular-nums text-emerald-700">{item.sukses}</span>
+              <span className="tabular-nums text-slate-600">{item.gagal}</span>
+              <span className="tabular-nums text-slate-700">{formatRupiahAman(item.omzet)}</span>
+              <span className="tabular-nums font-semibold text-emerald-800 sm:text-right">
+                {formatRupiahAman(item.laba)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {laporan.terbatas ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
+          Angka bulan ini dihitung dari 3.000 pesanan terbaru. Untuk bulan yang sangat ramai,
+          unduh CSV lalu cocokkan dengan mutasi saldo provider.
+        </p>
+      ) : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <p className="text-sm font-semibold text-navy">Pesanan gagal / refund bulan ini</p>
+        {laporan.daftarGagal.length === 0 ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Tidak ada pesanan gagal atau refund bulan ini.
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-slate-100">
+            {laporan.daftarGagal.map((item) => (
+              <li key={item.kodePesanan} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
+                <div className="min-w-0">
+                  <p className="font-mono text-[11px] font-semibold text-slate-800">
+                    {item.kodePesanan}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-600">
+                    {item.namaProduk} · {item.nomorTujuan} · {waktu(item.dibuatPada)}
+                  </p>
+                  {item.pesanProvider ? (
+                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-muted-foreground">
+                      {item.pesanProvider}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-semibold tabular-nums text-slate-800">
+                    {formatRupiahAman(item.hargaJual)}
+                  </p>
+                  <BadgeStatus status={item.status as StatusPesananPpob} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -852,6 +1036,9 @@ function FormPengaturan({
     username: string;
     markupPersen: string;
     markupMin: string;
+    markupKategori: Record<KunciMarkup, string>;
+    nomorAdminWa: string;
+    saldoMinimum: string;
     instruksi: string;
   } | null>(null);
   const [sibuk, setSibuk] = useState(false);
@@ -872,12 +1059,33 @@ function FormPengaturan({
       username: pengaturan.username,
       markupPersen: String(pengaturan.markupPersen),
       markupMin: kelompokkanDigit(String(pengaturan.markupMin)),
+      markupKategori: Object.fromEntries(
+        KUNCI_MARKUP.map((kunci) => [
+          kunci,
+          pengaturan.markupKategori?.[kunci] === undefined
+            ? ""
+            : String(pengaturan.markupKategori[kunci]),
+        ]),
+      ) as Record<KunciMarkup, string>,
+      nomorAdminWa: pengaturan.nomorAdminWa,
+      saldoMinimum: kelompokkanDigit(String(pengaturan.saldoMinimum)),
       instruksi: pengaturan.instruksi,
     };
   const ubah = (patch: Partial<typeof nilai>) =>
     setDraf({ ...nilai, ...patch });
 
   const kirim = async () => {
+    const markupKategori: Partial<Record<KunciMarkup, number>> = {};
+    for (const kunci of KUNCI_MARKUP) {
+      const teks = nilai.markupKategori[kunci].trim();
+      if (teks === "") continue;
+      const angka = Number(teks.replace(",", "."));
+      if (!Number.isFinite(angka)) {
+        toast.error(`Markup ${LABEL_MARKUP[kunci]} harus berupa angka.`);
+        return;
+      }
+      markupKategori[kunci] = angka;
+    }
     setSibuk(true);
     try {
       await simpan({
@@ -887,6 +1095,9 @@ function FormPengaturan({
         username: nilai.username,
         markupPersen: Number(nilai.markupPersen.replace(",", ".")) || 0,
         markupMin: Number(nilai.markupMin.replace(/\D/g, "")) || 0,
+        markupKategori,
+        nomorAdminWa: nilai.nomorAdminWa.trim(),
+        saldoMinimum: Number(nilai.saldoMinimum.replace(/\D/g, "")) || 0,
         instruksi: nilai.instruksi,
       });
       setDraf(null);
@@ -986,6 +1197,71 @@ function FormPengaturan({
             />
             <p className="text-[11px] leading-5 text-muted-foreground">
               Menutup biaya transfer; harga jual dibulatkan ke atas ke ratusan rupiah.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+          <p className="text-sm font-semibold text-navy">Markup per kategori</p>
+          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+            Kosongkan untuk mengikuti markup global. Angka di sini menggantikan tarif
+            global untuk kategori itu, bukan menambah di atasnya. Tekan “Terapkan markup”
+            di tab Produk setelah mengubahnya.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {KUNCI_MARKUP.map((kunci) => (
+              <div key={kunci} className="space-y-1.5">
+                <Label htmlFor={`ppob-markup-${kunci}`} className="text-[11px]">
+                  {LABEL_MARKUP[kunci]} (%)
+                </Label>
+                <Input
+                  id={`ppob-markup-${kunci}`}
+                  inputMode="decimal"
+                  value={nilai.markupKategori[kunci]}
+                  onChange={(e) =>
+                    ubah({
+                      markupKategori: {
+                        ...nilai.markupKategori,
+                        [kunci]: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder={nilai.markupPersen}
+                  className="h-9"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="ppob-admin-wa">WhatsApp admin</Label>
+            <Input
+              id="ppob-admin-wa"
+              value={nilai.nomorAdminWa}
+              onChange={(e) => ubah({ nomorAdminWa: e.target.value })}
+              placeholder="6281234567890"
+              inputMode="tel"
+              autoComplete="off"
+            />
+            <p className="text-[11px] leading-5 text-muted-foreground">
+              Menerima ping pesanan baru dan alarm saldo lewat gateway di menu WhatsApp.
+              Format internasional tanpa +.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ppob-saldo-min">Ambang alarm saldo (Rp)</Label>
+            <Input
+              id="ppob-saldo-min"
+              inputMode="numeric"
+              className="tabular-nums"
+              value={nilai.saldoMinimum}
+              onChange={(e) => ubah({ saldoMinimum: kelompokkanDigit(e.target.value) })}
+            />
+            <p className="text-[11px] leading-5 text-muted-foreground">
+              Alarm dikirim paling sering sekali per 12 jam saat saldo provider turun di
+              bawah angka ini.
             </p>
           </div>
         </div>

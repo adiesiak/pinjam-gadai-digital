@@ -148,6 +148,33 @@ saat sinkron berikutnya selama masih menutup modal baru; bila modal naik
 melewatinya, harga dihitung ulang agar tidak menjual rugi. Tombol **Terapkan
 markup** menyeragamkan semua produk dan menghapus tanda manual.
 
+Markup per kategori (Pulsa, Paket data, Token listrik, Game, E-wallet) bersifat
+opsional dan **menggantikan** tarif global untuk kategori itu — bukan menambah
+di atasnya. Kolom kosong berarti ikut global. Contoh wajar: pulsa 2%, paket
+data 4%, token listrik 7%, game 10%, e-wallet 3%. Setelah mengubah tarif, buka
+tab Produk dan tekan **Terapkan markup**; sinkron berikutnya juga memakai tarif
+baru untuk produk yang belum dihargai manual.
+
+## Notifikasi WhatsApp
+
+Isi **WhatsApp admin** di tab Pengaturan (format `62…` tanpa `+`). Nomor itu
+menerima ping saat pesanan baru dibuat dan alarm saat saldo provider turun di
+bawah **Ambang alarm saldo**. Alarm dikirim paling sering sekali per 12 jam,
+lewat gateway WhatsApp yang sama dengan pengingat pinjaman; bila gateway belum
+aktif, percobaan tetap tercatat di `waLogs` dengan status `gagal`.
+
+Pembeli menerima kabar otomatis saat pesanan berubah menjadi dibayar, diproses,
+selesai (beserta nomor seri/token), gagal, atau refund. Kabar hanya dikirim saat
+status benar-benar berubah, jadi webhook yang diulang tidak mengirim pesan ganda.
+
+## Laporan
+
+Tab **Laporan** menghitung omzet dan laba dari pesanan `sukses` saja, dipisah
+hari ini (kalender WIB), bulan ini, dan per kategori. Daftar gagal/refund ikut
+ditampilkan, dan seluruh rekap bisa diunduh sebagai CSV. Angka bulan ini dibaca
+dari maksimal 3.000 pesanan terbaru; bila batas itu tercapai, panel menampilkan
+peringatan agar rekap dicocokkan dengan mutasi saldo provider.
+
 ## Batas yang disengaja
 
 - Pembayaran masih manual (transfer/QRIS) dan diverifikasi admin. Belum ada
