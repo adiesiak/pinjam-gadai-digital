@@ -32,6 +32,7 @@ import {
   assertPokokPinjamanValid,
   pelunasanPinjaman,
   persenBungaHarian,
+  TENOR_HARIAN_MAKS,
   PINDAI_PRICING,
   quoteLoan,
   quoteLoanBunga,
@@ -970,8 +971,10 @@ export const createLoanApplication = mutation({
       status: "diajukan",
       nomorReferensi,
       // Voucher tambah tenor memperpanjang jatuh tempo tanpa menaikkan tarif:
-      // bunga di atas sudah dihitung dari tenor dasar pilihan nasabah.
-      tenorHari: args.tenorHari + tambahanTenorVoucher,
+      // bunga di atas sudah dihitung dari tenor dasar pilihan nasabah. Hadiah
+      // harinya tetap dibatasi tenor terpanjang supaya tidak lahir tenor 58 hari
+      // yang tidak punya tarif.
+      tenorHari: Math.min(TENOR_HARIAN_MAKS, args.tenorHari + tambahanTenorVoucher),
       // Hanya skema harian yang punya biaya ekspres; skema bulanan memakai
       // potongan 2% tetap, jadi pilihan ini tidak disimpan di sana.
       cairEkspres: tenorBulanSim === undefined ? cairEkspres : undefined,

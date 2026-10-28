@@ -63,9 +63,12 @@ import {
   persenBungaHarian,
   PINDAI_PRICING,
   quoteLoanBunga,
-  sesuaikanTenorHarian,
   TENOR_OPTIONS,
+  TENOR_PERPANJANGAN,
   tenorHarianDefault,
+  tenorHarianEfektif,
+  tenorHarianSah,
+  tenorHarianSemua,
   tenorHarianTersedia,
 } from "@/lib/loan";
 import { formatRupiah, percentOf } from "@/lib/money";
@@ -497,7 +500,7 @@ export function LoanForm({
   // Tenor harian mengikuti matriks nominal. Pilihan yang tidak sah digeser ke
   // tenor terdekat supaya dropdown dan rincian tidak pernah berbeda dari yang
   // diterima server.
-  const tenorHarian = sesuaikanTenorHarian(
+  const tenorHarian = tenorHarianEfektif(
     pokok,
     Number(tenorHari) || tenorHarianDefault(pokok),
   );
@@ -589,7 +592,7 @@ export function LoanForm({
     if (bulanan) return;
     queueMicrotask(() => {
       setTenorHari((sebelumnya) =>
-        String(sesuaikanTenorHarian(pokok, Number(sebelumnya) || tenorHarianDefault(pokok))),
+        String(tenorHarianEfektif(pokok, Number(sebelumnya) || tenorHarianDefault(pokok))),
       );
     });
   }, [bulanan, pokok]);
@@ -671,12 +674,7 @@ export function LoanForm({
       // draf tetap bisa dikirim tanpa ditolak matriks.
       setTenorHari(
         String(
-          sesuaikanTenorHarian(
-            draftQuery.pokokPinjaman,
-            (TENOR_OPTIONS as readonly number[]).includes(draftQuery.tenorHari)
-              ? draftQuery.tenorHari
-              : TENOR_OPTIONS[TENOR_OPTIONS.length - 1],
-          ),
+          tenorHarianEfektif(draftQuery.pokokPinjaman, draftQuery.tenorHari),
         ),
       );
       if (draftQuery.tenorBulan !== null) setTenorBulan(String(draftQuery.tenorBulan));
@@ -1378,11 +1376,16 @@ export function LoanForm({
                       {t} bulan
                     </SelectItem>
                   ))
-                : TENOR_OPTIONS.map((t) => {
-                    const aktif = (tenorHarianOpsi as readonly number[]).includes(t);
+                : tenorHarianSemua(pokok).map((t) => {
+                    const aktif = tenorHarianSah(pokok, t);
                     return (
                       <SelectItem key={t} value={String(t)} disabled={!aktif}>
                         {t} hari
+                        {t >= TENOR_PERPANJANGAN.min
+                          ? " · perpanjangan"
+                          : (TENOR_OPTIONS as readonly number[]).includes(t)
+                            ? ""
+                            : " · tanggal bebas"}
                         {t === tenorHarianDefault(pokok) ? " · bawaan" : ""}
                         {!aktif ? " · terkunci" : ""}
                       </SelectItem>
@@ -1395,6 +1398,9 @@ export function LoanForm({
               Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari. Bunga{" "}
               <strong className="font-semibold text-slate-800">{tarifEfektif}%</strong> sesuai matriks
               produk.
+              Tanggal bebas {TENOR_OPTIONS[0]}–{TENOR_PERPANJANGAN.maks} hari:
+              semakin lama tenor, semakin besar bunga. Di atas 28 hari, setiap hari
+              tambahan dikenakan 1,5 kali harga satu hari tenor 28 hari.
               {tambahanTenorVoucher > 0
                 ? ` Voucher menambah ${tambahanTenorVoucher} hari, jadi jatuh tempo ${tenorHarian + tambahanTenorVoucher} hari.`
                 : ""}

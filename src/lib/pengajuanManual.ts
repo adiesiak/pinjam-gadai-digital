@@ -27,7 +27,6 @@ import type { JenisPengajuan } from "./jenisPengajuan";
 import {
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
-  TENOR_OPTIONS,
   validasiTenorHarian,
 } from "./loan";
 import { formatRupiah, parseRupiah } from "./money";
@@ -249,7 +248,7 @@ export function kumpulkanNamaCatatan(
 
 export type PinjamanManualInput = {
   pokokPinjaman: number;
-  /** Skema harian: salah satu TENOR_OPTIONS. */
+  /** Skema harian: 7/14/21/28 hari, atau perpanjangan 29–50 hari. */
   tenorHari?: number;
   /** Skema bulanan: salah satu TENOR_BULANAN_OPTIONS (menang atas tenorHari). */
   tenorBulan?: number;
@@ -305,21 +304,15 @@ export function validasiPinjamanManual(
         )} dan ${formatRupiah(POKOK_MANUAL_MAKS)}.`,
       );
     }
-    if (!(TENOR_OPTIONS as readonly number[]).includes(input.tenorHari ?? 0)) {
-      throw new Error(
-        `Tenor harus salah satu dari ${TENOR_OPTIONS.join(" / ")} hari (maksimal ${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari).`,
-      );
-    }
-    // Dalam batas produk harian, pasangan nominal–tenor mengikuti matriks.
-    // Pencatatan manual di atas Rp1 juta tetap bebas karena menampung pinjaman
-    // lama/keputusan luar aplikasi yang tidak mengikuti paket produk ini.
-    if (input.pokokPinjaman <= LOAN_LIMITS.maxPokok) {
-      const pesanTenor = validasiTenorHarian(
-        input.pokokPinjaman,
-        input.tenorHari as number,
-      );
-      if (pesanTenor !== null) throw new Error(pesanTenor);
-    }
+    // Pasangan nominal–tenor mengikuti matriks yang sama dengan pengajuan
+    // nasabah: 7/14/21/28 hari, atau perpanjangan 29–50 hari dengan bunga
+    // tambahan per hari. Pencatatan di atas Rp1 juta memakai tier teratas.
+    const pesanTenor = validasiTenorHarian(
+      input.pokokPinjaman,
+      input.tenorHari as number,
+      POKOK_MANUAL_MAKS,
+    );
+    if (pesanTenor !== null) throw new Error(pesanTenor);
   }
   if (!LOAN_PURPOSE_OPTIONS.some((o) => o.value === input.tujuan)) {
     throw new Error("Pilih keperluan pinjaman yang valid.");

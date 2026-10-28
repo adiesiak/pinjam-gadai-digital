@@ -57,6 +57,37 @@ export const TENOR_OPTIONS = [7, 14, 21, 28] as const;
 export type Tenor = (typeof TENOR_OPTIONS)[number];
 
 /**
+ * PERPANJANGAN TENOR HARIAN: hari ke-29 sampai ke-50.
+ *
+ * Produk harian berhenti di 28 hari, tetapi nasabah boleh memilih tanggal bayar
+ * yang lebih jauh sampai H+50. Hari di atas 28 TIDAK gratis: bunganya ditambah
+ * 1,5 kali harga satu hari tenor 28 hari (lihat
+ * `PENGALI_TARIF_PERPANJANGAN`) untuk setiap hari tambahan. Pita ini sengaja
+ * lebih mahal daripada hari biasa karena sudah melewati tenor maksimum produk
+ * dan dana pendana tertahan lebih lama.
+ *
+ * Hari 8–27 (tanggal bebas) memakai tarif di antara dua acuan: setiap hari
+ * tambahan selalu lebih mahal daripada hari sebelumnya, karena tarifnya
+ * diinterpolasi linear antara acuan bawah dan acuan atas.
+ */
+export const TENOR_PERPANJANGAN = {
+  min: TENOR_OPTIONS[TENOR_OPTIONS.length - 1] + 1,
+  maks: 50,
+} as const;
+
+/** Tenor harian terpanjang yang boleh dipilih nasabah (hari). */
+export const TENOR_HARIAN_MAKS = TENOR_PERPANJANGAN.maks;
+
+/**
+ * Harga satu hari perpanjangan = pengali × harga satu hari tenor 28 hari.
+ *
+ * 1,5 berarti hari ke-29 dan seterusnya dihargai separuh lebih mahal daripada
+ * rata-rata satu hari di tenor 28 hari. Angka ini kebijakan produk: naikkan bila
+ * perpanjangan perlu lebih menahan, turunkan bila peminjam keberatan.
+ */
+export const PENGALI_TARIF_PERPANJANGAN = 1.5;
+
+/**
  * Matriks tenor & bunga pinjaman HARIAN.
  *
  * Aturan produk yang dijaga di sini (berlaku sama di klien dan server):
@@ -150,10 +181,76 @@ export function sesuaikanTenorHarian(pokok: number, tenor: number): Tenor {
   );
 }
 
-/** Persentase bunga untuk kombinasi nominal & tenor; `null` bila tidak sah. */
+/**
+ * Harga satu hari perpanjangan: tarif 28 hari dibagi 28, dua desimal.
+ * `null` bila nominalnya di luar matriks.
+ */
+export function persenPerHariPerpanjangan(pokok: number): number | null {
+  const baris = barisMatriksHarian(pokok);
+  if (baris === null) return null;
+  const acuan = baris.tarif[baris.tarif.length - 1];
+  return (
+    Math.round(
+      ((acuan.persenBunga / acuan.tenor) * PENGALI_TARIF_PERPANJANGAN) * 100,
+    ) / 100
+  );
+}
+
+/**
+ * Persentase bunga untuk kombinasi nominal & tenor; `null` bila tidak sah.
+ *
+ * Tenor 7/14/21/28 memakai matriks. Tenor 29–50 memakai tarif 28 hari ditambah
+ * harga satu hari perpanjangan untuk setiap hari ekstra. Angkanya pecahan dua
+ * desimal, tetapi rupiahnya tetap dihitung `percentOf` (HALF-UP) — tidak ada
+ * pecahan rupiah yang tersimpan.
+ */
 export function persenBungaHarian(pokok: number, tenor: number): number | null {
   const baris = barisMatriksHarian(pokok);
-  return baris?.tarif.find((tarif) => tarif.tenor === tenor)?.persenBunga ?? null;
+  if (baris === null) return null;
+  const tarif = baris.tarif.find((barisTarif) => barisTarif.tenor === tenor);
+  if (tarif !== undefined) return tarif.persenBunga;
+  if (tenor < TENOR_OPTIONS[0] || tenor > TENOR_PERPANJANGAN.maks) return null;
+  const acuanAtas = baris.tarif[baris.tarif.length - 1];
+  // Di atas tenor maksimum: tarif 28 hari ditambah harga satu hari tenor 28
+  // hari untuk setiap hari ekstra.
+  if (tenor > acuanAtas.tenor) {
+    const hariEkstra = tenor - acuanAtas.tenor;
+    const hargaHari =
+      (acuanAtas.persenBunga / acuanAtas.tenor) * PENGALI_TARIF_PERPANJANGAN;
+    return Math.round((acuanAtas.persenBunga + hargaHari * hariEkstra) * 100) / 100;
+  }
+  // 8–27 hari (tanggal bebas): interpolasi linear antara dua acuan. Dengan
+  // begitu semakin lama tenor, semakin besar bunga — tidak ada hari yang lebih
+  // murah daripada hari sebelumnya.
+  const acuanBawah = baris.tarif.filter((b) => b.tenor < tenor).pop();
+  const acuanDiAtas = baris.tarif.find((b) => b.tenor > tenor);
+  if (acuanBawah === undefined || acuanDiAtas === undefined) return null;
+  const porsi = (tenor - acuanBawah.tenor) / (acuanDiAtas.tenor - acuanBawah.tenor);
+  const bunga =
+    acuanBawah.persenBunga +
+    (acuanDiAtas.persenBunga - acuanBawah.persenBunga) * porsi;
+  return Math.round(bunga * 100) / 100;
+}
+
+/** Apakah pasangan nominal–tenor bisa dipakai pengajuan (termasuk perpanjangan). */
+export function tenorHarianSah(pokok: number, tenor: number): boolean {
+  return Number.isInteger(tenor) && persenBungaHarian(pokok, tenor) !== null;
+}
+
+/** Seluruh tenor harian yang bisa dipilih untuk satu nominal, urut naik. */
+export function tenorHarianSemua(pokok: number): number[] {
+  if (barisMatriksHarian(pokok) === null) return [...TENOR_OPTIONS];
+  const hari: number[] = [];
+  for (let t = TENOR_OPTIONS[0]; t <= TENOR_PERPANJANGAN.maks; t += 1) hari.push(t);
+  return hari;
+}
+
+/**
+ * Tenor yang benar-benar dipakai untuk menghitung: nilai sah dibiarkan apa
+ * adanya (termasuk 29–50), nilai asing digeser ke acuan terdekat.
+ */
+export function tenorHarianEfektif(pokok: number, tenor: number): number {
+  return tenorHarianSah(pokok, tenor) ? tenor : sesuaikanTenorHarian(pokok, tenor);
 }
 
 /**
@@ -167,11 +264,11 @@ export function validasiTenorHarian(
   maks: Rupiah = LOAN_LIMITS.maxPokok as Rupiah,
 ): string | null {
   assertPokokPinjamanValid(pokok, maks);
-  const opsi = tenorHarianTersedia(pokok);
-  if (!(opsi as readonly number[]).includes(tenor)) {
-    return `Untuk nominal ${formatRupiah(pokok)}, tenor yang tersedia ${opsi.join(
+  if (!tenorHarianSah(pokok, tenor)) {
+    const opsi = tenorHarianTersedia(pokok);
+    return `Untuk nominal ${formatRupiah(pokok)}, tenor yang tersedia ${TENOR_OPTIONS[0]}–${TENOR_PERPANJANGAN.maks} hari (acuan ${opsi.join(
       " / ",
-    )} hari.`;
+    )} hari).`;
   }
   return null;
 }

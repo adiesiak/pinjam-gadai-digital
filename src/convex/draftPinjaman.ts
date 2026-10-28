@@ -20,7 +20,13 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import { BULANAN_LIMITS, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
-import { LOAN_LIMITS, TENOR_OPTIONS, sesuaikanTenorHarian } from "../lib/loan";
+import {
+  LOAN_LIMITS,
+  TENOR_OPTIONS,
+  TENOR_PERPANJANGAN,
+  tenorHarianEfektif,
+  tenorHarianSah,
+} from "../lib/loan";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { audit } from "./system";
@@ -99,13 +105,16 @@ function validasiDraf(args: {
     // tenorHari disimpan untuk kelengkapan form; nilai final dihitung saat kirim.
     tenorHari = 30;
   } else {
-    if (!(TENOR_OPTIONS as readonly number[]).includes(args.tenorHari)) {
-      throw new Error(`Tenor draf harus ${TENOR_OPTIONS.join(" / ")} hari.`);
+    // Tenor draf: 7/14/21/28 hari, atau perpanjangan 29–50 hari.
+    if (!tenorHarianSah(args.pokokPinjaman, args.tenorHari)) {
+      throw new Error(
+        `Tenor draf harus ${TENOR_OPTIONS.join(" / ")} hari, atau perpanjangan ${TENOR_PERPANJANGAN.min}–${TENOR_PERPANJANGAN.maks} hari.`,
+      );
     }
     // Draf tidak menyimpan kombinasi nominal/tenor yang nanti ditolak server.
-    // Sesuaikan ke tenor terdekat yang sah agar isian pengguna tidak hilang
-    // hanya karena nominalnya berubah sebelum draf disimpan.
-    tenorHari = sesuaikanTenorHarian(args.pokokPinjaman, args.tenorHari);
+    // Tenor sah dibiarkan apa adanya; nilai asing digeser ke acuan terdekat
+    // supaya isian pengguna tidak hilang hanya karena nominalnya berubah.
+    tenorHari = tenorHarianEfektif(args.pokokPinjaman, args.tenorHari);
   }
 
   const tujuan = args.tujuan.trim();

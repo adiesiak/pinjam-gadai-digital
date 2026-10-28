@@ -29,6 +29,7 @@ import {
   LOAN_LIMITS,
   LATE_FEE_POLICY,
   persenBungaHarian,
+  TENOR_HARIAN_MAKS,
   PINDAI_PRICING,
   TARIF_BIAYA_DEFAULT,
   tarifBiayaAman,
@@ -393,6 +394,16 @@ const PASAL: Pasal[] = [
             {persenBungaHarian(2_000_000, 21)}%), atau 28 hari ({" "}
             {persenBungaHarian(2_000_000, 28)}%). Bunga dihitung flat dari pokok;
             total kewajiban pelunasan = pokok + bunga.
+          </Ayat>
+          <Ayat>
+            <strong>Tanggal bayar fleksibel.</strong> Tenor harian dapat dipilih{" "}
+            dari {TENOR_OPTIONS[0]} sampai {TENOR_HARIAN_MAKS} hari; semakin lama
+            tenor, semakin besar bunga. Hari di antara tenor acuan memakai tarif di
+            antara kedua acuan, sedangkan hari ke-29 sampai ke-{TENOR_HARIAN_MAKS}
+            dikenakan tarif 28 hari ditambah 1,5 kali harga satu hari tenor 28 hari
+            untuk setiap hari tambahan. Contoh pokok {formatRupiah(1_000_000)}: 28 hari{" "}
+            {persenBungaHarian(1_000_000, 28)}%, sedangkan 50 hari{" "}
+            {persenBungaHarian(1_000_000, 50)?.toLocaleString("id-ID")}%.
           </Ayat>
           <AyatTarifBulanan />
         </ul>

@@ -51,8 +51,11 @@ import {
   persenBungaHarian,
   PINDAI_PRICING,
   quoteLoanBunga,
-  sesuaikanTenorHarian,
+  TENOR_PERPANJANGAN,
   tenorHarianDefault,
+  tenorHarianEfektif,
+  tenorHarianSah,
+  tenorHarianSemua,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { bungaSetelahPromo, pilihPromoBunga } from "@/lib/promoBunga";
@@ -204,7 +207,7 @@ export function PengajuanCepatSection({
     if (!batas.adaSisa) return;
     queueMicrotask(() => {
       setTenorHari((sebelumnya) =>
-        String(sesuaikanTenorHarian(pokok, Number(sebelumnya) || tenorHarianDefault(pokok))),
+        String(tenorHarianEfektif(pokok, Number(sebelumnya) || tenorHarianDefault(pokok))),
       );
     });
   }, [pokok, batas.adaSisa]);
@@ -267,7 +270,7 @@ export function PengajuanCepatSection({
   // tombol kirim tetap terkunci oleh `batas.adaSisa`.
   const pokokHitung = pokok > 0 ? pokok : batas.min;
   const tenorTersedia = tenorCepat(pokokHitung);
-  const tenor = sesuaikanTenorHarian(
+  const tenor = tenorHarianEfektif(
     pokokHitung,
     Number(tenorHari) || tenorHarianDefault(pokokHitung),
   );
@@ -303,7 +306,7 @@ export function PengajuanCepatSection({
     const angka = Math.min(Math.max(nilai, batas.min), batas.maks);
     setPokok(angka);
     setTenorHari((sebelumnya) =>
-      String(sesuaikanTenorHarian(angka, Number(sebelumnya) || tenorHarianDefault(angka))),
+      String(tenorHarianEfektif(angka, Number(sebelumnya) || tenorHarianDefault(angka))),
     );
   };
   const kurangKtp = kekuranganKtpTerverifikasi(ktp);
@@ -547,11 +550,16 @@ export function PengajuanCepatSection({
                 <SelectValue>{`${tenor} hari`}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {TENOR_CEPAT.map((hari) => {
-                  const aktif = (tenorTersedia as readonly number[]).includes(hari);
+                {tenorHarianSemua(pokokHitung).map((hari) => {
+                  const aktif = tenorHarianSah(pokokHitung, hari);
                   return (
                     <SelectItem key={hari} value={String(hari)} disabled={!aktif}>
                       {hari} hari
+                      {hari >= TENOR_PERPANJANGAN.min
+                        ? " · perpanjangan"
+                        : (TENOR_CEPAT as readonly number[]).includes(hari)
+                          ? ""
+                          : " · tanggal bebas"}
                       {hari === tenorHarianDefault(pokok) ? " · bawaan" : ""}
                       {!aktif ? " · terkunci" : ""}
                     </SelectItem>
@@ -563,6 +571,9 @@ export function PengajuanCepatSection({
               Nominal ini menerima tenor {tenorTersedia.join(" / ")} hari. Bunga{" "}
               <strong className="font-semibold text-slate-800">{tarifBunga}%</strong> sesuai matriks
               produk.
+              Tanggal bebas 7–{TENOR_PERPANJANGAN.maks} hari: semakin lama tenor,
+              semakin besar bunga. Di atas 28 hari, setiap hari tambahan dikenakan
+              1,5 kali harga satu hari tenor 28 hari.
               {promoBunga !== null && (
                 <>
                   {" "}

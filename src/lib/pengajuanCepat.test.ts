@@ -158,16 +158,19 @@ ok(
   "sisa habis tidak menawarkan nominal maksimal palsu",
 );
 ada(tolak({ pokokPinjaman: 500_000.5 }), "minimal", "nominal pecahan ditolak");
-ada(tolak({ tenorHari: 45 }), "Pilih lama pinjaman", "tenor di luar daftar ditolak");
-ada(
-  tolak({ pokokPinjaman: 500_000, tenorHari: 30 }),
-  "tenor yang tersedia 7 / 14 / 21 / 28 hari",
-  "Rp500.000 tidak menerima tenor 30 hari",
+ada(tolak({ tenorHari: 51 }), "7–50", "tenor di atas H+50 ditolak");
+ada(tolak({ tenorHari: 6 }), "7–50", "tenor di bawah 7 hari ditolak");
+ok(
+  !tolak({ tenorHari: 20 }).includes("tenor yang tersedia"),
+  "tanggal bebas 20 hari diterima",
 );
-ada(
-  tolak({ pokokPinjaman: 1_000_000, tenorHari: 30 }),
-  "tenor yang tersedia 7 / 14 / 21 / 28 hari",
-  "Rp1 juta tidak menerima tenor 30 hari",
+ok(
+  !tolak({ pokokPinjaman: 500_000, tenorHari: 30 }).includes("tenor yang tersedia"),
+  "Rp500.000 menerima tenor 30 hari sebagai perpanjangan",
+);
+ok(
+  !tolak({ pokokPinjaman: 1_000_000, tenorHari: 30 }).includes("tenor yang tersedia"),
+  "Rp1 juta menerima tenor 30 hari sebagai perpanjangan",
 );
 ada(tolak({ tujuan: "" }), "keperluan", "keperluan kosong ditolak");
 ada(tolak({ rekeningBenar: false }), "rekening bank", "konfirmasi rekening wajib");

@@ -18,10 +18,11 @@ import { TENOR_BULANAN_OPTIONS } from "@/lib/bulanan";
 import {
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
-  sesuaikanTenorHarian,
   TENOR_OPTIONS,
+  TENOR_PERPANJANGAN,
   tenorHarianDefault,
-  tenorHarianTersedia,
+  tenorHarianEfektif,
+  tenorHarianSemua,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import {
@@ -88,11 +89,11 @@ export function FormPinjamanManual({
   const adaMatriksHarian =
     pokok !== null && pokok >= LOAN_LIMITS.minPokok && pokok <= LOAN_LIMITS.maxPokok;
   const tenorHarianOpsi = adaMatriksHarian
-    ? tenorHarianTersedia(pokok ?? 0)
-    : TENOR_OPTIONS;
+    ? tenorHarianSemua(pokok ?? 0)
+    : (TENOR_OPTIONS as readonly number[]);
   const tenorHarianManual =
     pokok !== null
-      ? sesuaikanTenorHarian(pokok, Number(tenorHari) || tenorHarianDefault(pokok))
+      ? tenorHarianEfektif(pokok, Number(tenorHari) || tenorHarianDefault(pokok))
       : Number(tenorHari) || 28;
   const tenorTerpilih = bulanan ? Number(tenorBulan) : tenorHarianManual;
   // Pratinjau hanya diminta saat pokoknya sudah masuk batas jalur manual
@@ -192,7 +193,7 @@ export function FormPinjamanManual({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="harian">Harian (7/14/21/28 hari)</SelectItem>
+              <SelectItem value="harian">Harian (7–28 hari, sampai 50 hari)</SelectItem>
               <SelectItem value="bulanan">Bulanan (1/3/6/9/12 bulan)</SelectItem>
             </SelectContent>
           </Select>
@@ -213,7 +214,7 @@ export function FormPinjamanManual({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(bulanan ? TENOR_BULANAN_OPTIONS.map((t) => `${t}`) : TENOR_OPTIONS.map((t) => `${t}`)).map(
+              {(bulanan ? TENOR_BULANAN_OPTIONS.map((t) => `${t}`) : tenorHarianOpsi.map((t) => `${t}`)).map(
                 (nilai) => {
                   const aktif = bulanan
                     ? true
@@ -221,6 +222,12 @@ export function FormPinjamanManual({
                   return (
                     <SelectItem key={nilai} value={nilai} disabled={!aktif}>
                       {bulanan ? `${nilai} bulan` : `${nilai} hari`}
+                      {!bulanan && Number(nilai) >= TENOR_PERPANJANGAN.min
+                        ? " · perpanjangan"
+                        : !bulanan &&
+                            !(TENOR_OPTIONS as readonly number[]).includes(Number(nilai))
+                          ? " · tanggal bebas"
+                          : ""}
                       {!bulanan &&
                       adaMatriksHarian &&
                       Number(nilai) === tenorHarianDefault(pokok ?? 0)
@@ -254,7 +261,7 @@ export function FormPinjamanManual({
             if (angka !== null) {
               setTenorHari((sebelumnya) =>
                 String(
-                  sesuaikanTenorHarian(
+                  tenorHarianEfektif(
                     angka,
                     Number(sebelumnya) || tenorHarianDefault(angka),
                   ),

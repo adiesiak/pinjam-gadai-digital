@@ -24,8 +24,9 @@ export function DashboardFooter() {
             sehingga tidak memenuhi beberapa layar ponsel dengan tembok teks. */}
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>
-            Harian (7–28 hari): potongan di muka {rincianPotonganDiMuka(tarif)},
-            bunga flat 26–40% sesuai nominal dan tenor.
+            Harian (7–50 hari; semakin lama tenor, semakin besar bunga): potongan
+            di muka {rincianPotonganDiMuka(tarif)}, bunga flat mulai 26% sesuai
+            nominal dan tenor.
           </li>
           <li>
             Bulanan (1/3/6/9/12 bulan): DP 0%, potongan di muka 2% (biaya admin;
