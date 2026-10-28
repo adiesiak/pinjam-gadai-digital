@@ -38,6 +38,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
+import { VaultLogo } from "@/components/VaultLogo";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useHitungMundur } from "@/hooks/use-hitung-mundur";
 import {
@@ -150,9 +151,14 @@ export function KepalaMerekAuth() {
         className="group flex items-center gap-3 transition-opacity hover:opacity-90"
         aria-label="PINDAI, kembali ke beranda"
       >
-        <span className="flex size-11 items-center justify-center rounded-2xl bg-[#064E3B] text-lg font-bold text-emerald-50 shadow-md transition-transform group-hover:scale-105">
-          P
-        </span>
+        {/* Lambang brand, bukan lagi blok huruf "P" berwarna: lambang brankas
+            ini satu-satunya sumber kebenaran merek dan sudah dipakai di header
+            beranda, dashboard, panel admin, serta ruang pendana. Blok huruf lama
+            juga memakai warna heksadesimal di luar token tema. */}
+        <VaultLogo
+          size={44}
+          className="shrink-0 transition-transform group-hover:scale-105"
+        />
         <span className="flex flex-col text-left leading-tight">
           <span className="text-base font-semibold tracking-[0.22em] text-slate-900">
             PINDAI
