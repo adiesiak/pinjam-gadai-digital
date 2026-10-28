@@ -2,9 +2,9 @@
  * Panel admin PPOB publik.
  *
  * Tiga pekerjaan, satu layar:
- *  1. Pesanan — verifikasi transfer lalu kirim topup ke server pulsa. Tombol
- *     "Verifikasi & proses" menjalankan keduanya berurutan supaya admin tidak
- *     bolak-balik membuka detail.
+ *  1. Pesanan — verifikasi transfer (nominal + referensi bank), lalu tekan
+ *     Proses untuk mengirim topup. Dua langkah terpisah supaya satu klik tidak
+ *     membelanjakan saldo provider.
  *  2. Produk — harga modal dari provider, harga jual, dan sakelar tampil.
  *     Sinkron harian tidak menimpa harga manual; tombol "Terapkan markup"
  *     yang menyeragamkan.

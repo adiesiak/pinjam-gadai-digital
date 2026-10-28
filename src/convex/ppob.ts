@@ -354,7 +354,7 @@ export const buatPesanan = mutation({
  * Status pesanan publik, dibuka lewat kode pesanan.
  *
  * Nomor tujuan disamarkan dan tidak ada data admin yang ikut. Kode pesanan
- * memuat enam karakter acak sehingga tidak bisa ditebak berurutan.
+ * memuat dua belas karakter acak sehingga tidak bisa ditebak berurutan.
  */
 export const statusPesanan = query({
   args: { kode: v.string() },

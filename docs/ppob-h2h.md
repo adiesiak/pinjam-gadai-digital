@@ -9,10 +9,11 @@ murabahah: katalog syariah tetap terpisah, dengan margin akadnya sendiri.
 1. Pembeli memilih produk di `/ppob`, mengisi nomor tujuan dan WhatsApp.
 2. Server membuat pesanan dengan **harga dan laba yang dibekukan**.
 3. Pembeli transfer ke rekening usaha yang tercantum di `/ppob/pesanan/:kode`.
-4. Admin membuka **Admin → Operasional → PPOB Publik**, menekan
-   **Verifikasi & proses**.
-5. Server memanggil H2H, menyimpan status, dan halaman pembeli ikut berubah.
-6. Webhook provider mempercepat status akhir; cron tiap 10 menit memeriksa
+4. Admin membuka **Admin → Operasional → PPOB Publik** dan memverifikasi
+   transfer: nominal harus sama dengan tagihan, referensi mutasi bank wajib.
+5. Setelah yakin, admin menekan **Proses** untuk mengirim topup ke H2H.
+6. Server menyimpan status, dan halaman pembeli ikut berubah.
+7. Webhook provider mempercepat status akhir; cron tiap 10 menit memeriksa
    pesanan yang masih `diproses` dengan `ref_id` yang sama.
 
 Laba = `hargaJual - hargaModal`, dicatat per pesanan. Tidak ada jurnal pinjaman
