@@ -960,6 +960,10 @@ const schema = defineSchema(
       totpPendingSecret: v.optional(v.string()),
       /** Counter TOTP terakhir yang berhasil — cegah replay dalam 1 step. */
       totpLastCounter: v.optional(v.number()),
+      /** Jumlah kode TOTP salah pada jendela saat ini. */
+      totpGagal: v.optional(v.number()),
+      /** Kunci verifikasi TOTP sampai waktu ini setelah percobaan habis. */
+      totpTerkunciSampai: v.optional(v.number()),
       /** Convex Auth session IDs that completed the TOTP gate (never client IDs). */
       totpVerifiedAuthSessionIds: v.optional(v.array(v.string())),
       /**
@@ -4120,6 +4124,20 @@ const schema = defineSchema(
       pesanProvider: v.optional(v.string()),
       /** Nomor seri/token/voucher dari provider. */
       sn: v.optional(v.string()),
+      /** Nominal yang benar-benar masuk, dicatat saat verifikasi transfer. */
+      nominalDiterima: v.optional(v.number()),
+      /** Referensi mutasi bank; unik supaya satu transfer tidak dipakai dua pesanan. */
+      referensiBank: v.optional(v.string()),
+      /** Catatan admin saat memverifikasi pembayaran. */
+      catatanVerifikasi: v.optional(v.string()),
+      /** Referensi transfer balik saat refund dicatat. */
+      referensiRefund: v.optional(v.string()),
+      /** Percobaan salah membuka nomor seri; dibatasi per pesanan. */
+      snGagal: v.optional(v.number()),
+      /** Waktu kunci sementara setelah percobaan membuka nomor seri habis. */
+      snTerkunciSampai: v.optional(v.number()),
+      /** Waktu nomor seri terakhir dibuka lewat verifikasi 4 digit. */
+      snDibukaPada: v.optional(v.number()),
       dibuatPada: v.number(),
       dibayarPada: v.optional(v.number()),
       diprosesPada: v.optional(v.number()),
@@ -4135,6 +4153,7 @@ const schema = defineSchema(
       .index("by_status", ["status", "dibuatPada"])
       .index("by_whatsapp", ["whatsapp", "dibuatPada"])
       .index("by_user", ["userId", "dibuatPada"])
+      .index("by_referensi", ["referensiBank"])
       .index("by_dibuat", ["dibuatPada"]),
 
     /**

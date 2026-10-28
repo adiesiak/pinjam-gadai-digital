@@ -197,4 +197,28 @@ describe("perangkat dipercaya (ingat perangkat ini)", () => {
       sesi.mutation(api.security.lupakanPerangkatPercaya, { token: "" }),
     ).resolves.toEqual({ ok: true });
   });
+
+  it("mengunci verifikasi TOTP setelah lima kode salah", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi } = await adminTanpaSesiTerverifikasi(t, "pd-5@pindai.test");
+    const benar = await totpNow(TEST_TOTP_SECRET);
+    const salah = benar === "000000" ? "111111" : "000000";
+
+    for (let i = 0; i < 5; i += 1) {
+      const hasil = await sesi.mutation(api.security.verifyTotp, {
+        kode: salah,
+        perangkat: PERANGKAT,
+        ip: IP,
+      });
+      expect(hasil.ok).toBe(false);
+    }
+
+    await expect(
+      sesi.mutation(api.security.verifyTotp, {
+        kode: benar,
+        perangkat: PERANGKAT,
+        ip: IP,
+      }),
+    ).rejects.toThrow(/dikunci/);
+  });
 });

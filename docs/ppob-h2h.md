@@ -175,6 +175,22 @@ ditampilkan, dan seluruh rekap bisa diunduh sebagai CSV. Angka bulan ini dibaca
 dari maksimal 3.000 pesanan terbaru; bila batas itu tercapai, panel menampilkan
 peringatan agar rekap dicocokkan dengan mutasi saldo provider.
 
+## Verifikasi pembayaran dan nomor seri
+
+- Kode pesanan baru memakai 12 karakter base32 dan dicek unik sebelum disimpan.
+  Kode lama tetap bisa dilacak lewat halaman status.
+- Halaman status publik TIDAK menampilkan `sn`. Pembeli membukanya dengan 4 digit
+  terakhir nomor tujuan; 5 percobaan salah mengunci pembukaan selama 15 menit.
+  Salinan nomor seri tetap dikirim ke WhatsApp pembeli.
+- Admin wajib mengisi nominal diterima dan referensi mutasi bank saat verifikasi.
+  Nominal harus sama persis dengan tagihan, dan satu referensi hanya boleh dipakai
+  untuk satu pesanan. Verifikasi tidak lagi langsung mengirim topup — tekan
+  **Proses** secara terpisah setelah yakin.
+- Refund hanya dari pesanan `gagal` yang pernah dibayar (atau `diproses` dengan
+  bukti kegagalan), dan wajib menyertakan referensi transfer balik. Pesanan
+  `sukses` tidak bisa direfund.
+- Verifikasi TOTP admin dikunci 15 menit setelah 5 kode salah.
+
 ## Batas yang disengaja
 
 - Pembayaran masih manual (transfer/QRIS) dan diverifikasi admin. Belum ada

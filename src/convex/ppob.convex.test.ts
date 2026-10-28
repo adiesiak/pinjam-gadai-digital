@@ -13,6 +13,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
 import { modules } from "./test.setup";
@@ -50,6 +51,20 @@ async function siapkanEtalase(t: ReturnType<typeof convexTest>) {
   return { admin, produkId };
 }
 
+/** Verifikasi pembayaran dengan nominal + referensi bank yang wajib. */
+async function bayar(
+  admin: Awaited<ReturnType<typeof siapkanPengguna>>["sesi"],
+  id: Id<"ppobPesanan">,
+  referensiBank: string,
+  nominalDiterima = 10_400,
+) {
+  return await admin.mutation(api.ppob.tandaiDibayar, {
+    id,
+    nominalDiterima,
+    referensiBank,
+  });
+}
+
 async function pesan(
   t: ReturnType<typeof convexTest>,
   nomorTujuan = "081234567890",
@@ -69,7 +84,7 @@ describe("PPOB publik", () => {
 
     const hasil = await pesan(t);
     expect(hasil.ulang).toBe(false);
-    expect(hasil.kodePesanan).toMatch(/^PPOB-\d{6}-[A-Z0-9]{6}$/);
+    expect(hasil.kodePesanan).toMatch(/^PPOB-\d{6}-[A-Z0-9]{12}$/);
 
     const baris = await t.run((ctx) =>
       ctx.db
@@ -157,13 +172,131 @@ describe("PPOB publik", () => {
       nasabah.query(api.ppob.getPengaturan, {}),
     ).rejects.toThrow(/Super Admin/);
     await expect(
-      nasabah.mutation(api.ppob.tandaiDibayar, { id: pesanan!._id }),
+      bayar(nasabah, pesanan!._id, "TRF-NASABAH"),
     ).rejects.toThrow(/Super Admin/);
 
-    await admin.mutation(api.ppob.tandaiDibayar, { id: pesanan!._id });
+    await bayar(admin, pesanan!._id, "TRF-ADMIN-1");
     const sesudah = await t.run((ctx) => ctx.db.get(pesanan!._id));
     expect(sesudah?.status).toBe("dibayar");
     expect(sesudah?.diverifikasiOleh).toBeDefined();
+    expect(sesudah?.nominalDiterima).toBe(10_400);
+    expect(sesudah?.referensiBank).toBe("TRF-ADMIN-1");
+  });
+
+  it("menolak nominal yang tidak cocok dan referensi bank yang dipakai ulang", async () => {
+    const t = convexTest(schema, modules);
+    const { admin } = await siapkanEtalase(t);
+    const pertama = await pesan(t);
+    const kedua = await pesan(t, "081234567891");
+    const baca = async (kode: string) =>
+      (await t.run((ctx) =>
+        ctx.db
+          .query("ppobPesanan")
+          .withIndex("by_kode_pesanan", (q) => q.eq("kodePesanan", kode))
+          .first(),
+      ))!;
+    const a = await baca(pertama.kodePesanan);
+    const b = await baca(kedua.kodePesanan);
+
+    await expect(bayar(admin, a._id, "TRF-SAMA", 1_000)).rejects.toThrow(
+      /tidak sama dengan tagihan/,
+    );
+    await bayar(admin, a._id, "TRF-SAMA");
+    await expect(bayar(admin, b._id, "TRF-SAMA")).rejects.toThrow(/sudah dipakai/);
+    expect((await t.run((ctx) => ctx.db.get(b._id)))?.status).toBe("menunggu_bayar");
+  });
+
+  it("nomor seri hanya terbuka dengan 4 digit terakhir nomor tujuan", async () => {
+    const t = convexTest(schema, modules);
+    const { admin } = await siapkanEtalase(t);
+    const { kodePesanan } = await pesan(t);
+    const pesanan = await t.run((ctx) =>
+      ctx.db
+        .query("ppobPesanan")
+        .withIndex("by_kode_pesanan", (q) => q.eq("kodePesanan", kodePesanan))
+        .first(),
+    );
+    await bayar(admin, pesanan!._id, "TRF-SN-1");
+    await t.mutation(internal.ppob.tandaiDiproses, { id: pesanan!._id });
+    await t.mutation(internal.ppob.terapkanStatus, {
+      refId: pesanan!.refId,
+      status: "Sukses",
+      rc: "00",
+      sn: "TOKEN-123",
+    });
+
+    const publik = await t.query(api.ppob.statusPesanan, { kode: kodePesanan });
+    expect(publik).not.toHaveProperty("sn");
+    expect(publik?.snTersedia).toBe(true);
+
+    await expect(
+      t.mutation(api.ppob.bukaSn, { kode: kodePesanan, empatDigit: "0000" }),
+    ).rejects.toThrow(/tidak cocok/);
+    const dibuka = await t.mutation(api.ppob.bukaSn, {
+      kode: kodePesanan,
+      empatDigit: "7890",
+    });
+    expect(dibuka.sn).toBe("TOKEN-123");
+  });
+
+  it("refund hanya untuk pesanan gagal yang pernah dibayar", async () => {
+    const t = convexTest(schema, modules);
+    const { admin } = await siapkanEtalase(t);
+    const baca = async (kode: string) =>
+      (await t.run((ctx) =>
+        ctx.db
+          .query("ppobPesanan")
+          .withIndex("by_kode_pesanan", (q) => q.eq("kodePesanan", kode))
+          .first(),
+      ))!;
+
+    const sukses = await pesan(t);
+    const a = await baca(sukses.kodePesanan);
+    await bayar(admin, a._id, "TRF-RFD-1");
+    await t.mutation(internal.ppob.tandaiDiproses, { id: a._id });
+    await t.mutation(internal.ppob.terapkanStatus, {
+      refId: a.refId,
+      status: "Sukses",
+      rc: "00",
+    });
+    await expect(
+      admin.mutation(api.ppob.tandaiRefund, {
+        id: a._id,
+        catatan: "pembeli minta refund",
+        referensiRefund: "RFD-1",
+      }),
+    ).rejects.toThrow(/sudah selesai/);
+
+    const gagal = await pesan(t, "081234567891");
+    const b = await baca(gagal.kodePesanan);
+    await bayar(admin, b._id, "TRF-RFD-2");
+    await admin.mutation(api.ppob.batalkanPesanan, {
+      id: b._id,
+      alasan: "provider menolak nomor",
+    });
+    const hasil = await admin.mutation(api.ppob.tandaiRefund, {
+      id: b._id,
+      catatan: "ditransfer balik ke pengirim",
+      referensiRefund: "RFD-2",
+    });
+    expect(hasil.ok).toBe(true);
+    const sesudah = await t.run((ctx) => ctx.db.get(b._id));
+    expect(sesudah?.status).toBe("refund");
+    expect(sesudah?.referensiRefund).toBe("RFD-2");
+
+    const belumBayar = await pesan(t, "081234567892");
+    const c = await baca(belumBayar.kodePesanan);
+    await admin.mutation(api.ppob.batalkanPesanan, {
+      id: c._id,
+      alasan: "salah pilih produk",
+    });
+    await expect(
+      admin.mutation(api.ppob.tandaiRefund, {
+        id: c._id,
+        catatan: "tidak ada dana masuk",
+        referensiRefund: "RFD-3",
+      }),
+    ).rejects.toThrow(/belum pernah dibayar/);
   });
 
   it("menerapkan status provider dan tidak membalik status final", async () => {
@@ -189,7 +322,7 @@ describe("PPOB publik", () => {
       "menunggu_bayar",
     );
 
-    await admin.mutation(api.ppob.tandaiDibayar, { id: pesanan!._id });
+    await bayar(admin, pesanan!._id, "TRF-ADMIN-2");
     await t.mutation(internal.ppob.tandaiDiproses, { id: pesanan!._id });
     await t.mutation(internal.ppob.terapkanStatus, {
       refId: pesanan!.refId,
@@ -334,7 +467,7 @@ describe("PPOB publik", () => {
         .withIndex("by_kode_pesanan", (q) => q.eq("kodePesanan", kedua.kodePesanan))
         .first(),
     );
-    await admin.mutation(api.ppob.tandaiDibayar, { id: baris!._id });
+    await bayar(admin, baris!._id, "TRF-ADMIN-3");
     await t.mutation(internal.ppob.tandaiDiproses, { id: baris!._id });
     await expect(
       admin.mutation(api.ppob.batalkanPesanan, {

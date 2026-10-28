@@ -187,7 +187,7 @@ function CekPesanan() {
           <div>
             <p className="text-sm font-semibold text-navy">Sudah pesan? Lacak di sini.</p>
             <p className="mt-1 text-xs leading-5 text-slate-600">
-              Masukkan kode pesanan dari halaman pembayaran, mis. PPOB-261028-7K3M9Q.
+              Masukkan kode pesanan dari halaman pembayaran, mis. PPOB-261028-7K3M9QXW2N4P.
               Statusnya diperbarui otomatis saat admin memverifikasi dan provider mengirim.
             </p>
           </div>
@@ -702,6 +702,24 @@ export function Ppob() {
 export function PpobPesanan() {
   const { kode = "" } = useParams();
   const status = useQuery(api.ppob.statusPesanan, { kode });
+  const bukaSn = useMutation(api.ppob.bukaSn);
+  const [sn, setSn] = useState<string | null>(null);
+  const [empatDigit, setEmpatDigit] = useState("");
+  const [sibukSn, setSibukSn] = useState(false);
+  const [galatSn, setGalatSn] = useState<string | null>(null);
+
+  const bukaNomorSeri = async () => {
+    setGalatSn(null);
+    setSibukSn(true);
+    try {
+      const hasil = await bukaSn({ kode, empatDigit });
+      setSn(hasil.sn);
+    } catch (err) {
+      setGalatSn(err instanceof Error ? err.message : "Nomor seri gagal dibuka.");
+    } finally {
+      setSibukSn(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -856,24 +874,66 @@ export function PpobPesanan() {
               {status.status === "sukses" ? (
                 <div className="mt-5 rounded-xl border border-emerald-200 bg-background p-4">
                   <p className="text-sm font-semibold text-emerald-900">Produk sudah dikirim.</p>
-                  {status.sn ? (
+                  {sn !== null ? (
                     <>
                       <p className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">
                         Nomor seri / token
                       </p>
                       <p className="mt-1 break-all font-mono text-lg font-semibold text-slate-900">
-                        {status.sn}
+                        {sn}
                       </p>
                       <Button
                         variant="outline"
                         size="sm"
                         className="mt-2 min-h-10"
-                        onClick={() => salin(status.sn ?? "", "Nomor seri")}
+                        onClick={() => salin(sn, "Nomor seri")}
                       >
                         <Copy className="mr-1.5 size-3.5" />
                         Salin nomor seri
                       </Button>
                     </>
+                  ) : status.snTersedia ? (
+                    <form
+                      className="mt-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void bukaNomorSeri();
+                      }}
+                    >
+                      <p className="text-xs leading-5 text-slate-600">
+                        Nomor seri/token tidak ditampilkan terbuka. Masukkan 4 digit terakhir
+                        nomor tujuan untuk membukanya — kode pesanan saja tidak cukup.
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Input
+                          value={empatDigit}
+                          onChange={(e) =>
+                            setEmpatDigit(e.target.value.replace(/\D/g, "").slice(0, 4))
+                          }
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={4}
+                          placeholder="4 digit terakhir"
+                          aria-label="Empat digit terakhir nomor tujuan"
+                          className="h-10 w-40 tabular-nums"
+                        />
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          className="min-h-10"
+                          disabled={sibukSn || empatDigit.length !== 4}
+                        >
+                          {sibukSn ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+                          Buka nomor seri
+                        </Button>
+                      </div>
+                      {galatSn ? (
+                        <p className="mt-1.5 text-[11px] leading-5 text-red-700">{galatSn}</p>
+                      ) : null}
+                      <p className="mt-1.5 text-[10px] leading-4 text-slate-500">
+                        Nomor seri juga dikirim ke WhatsApp yang Anda isi saat memesan.
+                      </p>
+                    </form>
                   ) : (
                     <p className="mt-1 text-xs leading-5 text-slate-600">
                       Provider tidak mengirim nomor seri untuk produk ini. Simpan halaman

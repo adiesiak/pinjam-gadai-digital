@@ -45,6 +45,13 @@ const ADMIN_RATE_WINDOW_MS = 15 * 60 * 1000;
 /** Batas permintaan token aktivasi/reset — di atas batas, email tidak dikirim. */
 const ADMIN_TOKEN_MAX_PERMOHONAN = 3;
 const ADMIN_TOKEN_WINDOW_MS = 15 * 60 * 1000;
+/**
+ * Batas tebak kode TOTP. Kata sandi sudah dibatasi 5x/15 menit, tetapi tanpa
+ * batas di sini kata sandi yang sudah bocor cukup ditemani tebakan 6 digit
+ * tanpa henti sampai verifikasi kedua tembus.
+ */
+const TOTP_MAKS_GAGAL = 5;
+const TOTP_KUNCI_MS = 15 * 60 * 1000;
 
 /** Masa berlaku "ingat perangkat ini" — 30 hari sejak verifikasi TOTP. */
 export const MASA_PERANGKAT_PERCAYA_MS = 30 * 24 * 60 * 60 * 1000;
@@ -566,17 +573,42 @@ export const verifyTotp = mutation({
     if (secret === undefined || mfa === null) {
       throw new Error("Aktifkan TOTP terlebih dahulu.");
     }
+    const sekarang = Date.now();
+    if ((mfa.totpTerkunciSampai ?? 0) > sekarang) {
+      const sisa = Math.ceil(((mfa.totpTerkunciSampai ?? 0) - sekarang) / 60_000);
+      throw new Error(
+        `Terlalu banyak kode TOTP salah. Verifikasi dikunci; coba lagi dalam ${sisa} menit.`,
+      );
+    }
     const ok = await verifyTotpCode(secret, kode);
     if (!ok) {
+      const gagal = (mfa.totpGagal ?? 0) + 1;
+      const terkunci = gagal >= TOTP_MAKS_GAGAL;
+      await ctx.db.patch(mfa._id, {
+        totpGagal: terkunci ? 0 : gagal,
+        ...(terkunci ? { totpTerkunciSampai: sekarang + TOTP_KUNCI_MS } : {}),
+      });
       await catatLogin(ctx, {
         userId: user._id,
         status: "gagal",
         metode: "totp",
         ip,
         userAgent: perangkat,
-        keterangan: "Kode TOTP salah",
+        keterangan: terkunci
+          ? `Kode TOTP salah ${TOTP_MAKS_GAGAL}x — verifikasi dikunci 15 menit.`
+          : "Kode TOTP salah",
       });
-      throw new Error("Kode TOTP salah.");
+      // Jangan melempar di sini: mutation Convex bersifat atomik, jadi error
+      // akan membatalkan patch penghitung percobaan dan kunci tidak pernah
+      // terbentuk. Pemanggil membaca `ok: false` dan menampilkan pesannya.
+      return {
+        ok: false as const,
+        butuh: true as const,
+        tokenPerangkat: null,
+        pesan: terkunci
+          ? "Terlalu banyak kode TOTP salah. Verifikasi dikunci 15 menit."
+          : "Kode TOTP salah.",
+      };
     }
     // Anti-replay: kode yang sama tidak boleh dipakai dua kali (±1 window).
     const counter = Math.floor(Date.now() / 30_000);
@@ -585,6 +617,8 @@ export const verifyTotp = mutation({
     }
     await ctx.db.patch(mfa._id, {
       totpLastCounter: counter,
+      totpGagal: 0,
+      totpTerkunciSampai: 0,
       totpVerifiedAuthSessionIds: addVerifiedAuthSession(
         mfa.totpVerifiedAuthSessionIds,
         authSessionId,

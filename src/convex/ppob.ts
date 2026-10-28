@@ -127,13 +127,19 @@ function validasiMarkupKategori(
   return hasil;
 }
 
-/** Kode acak kriptografis; tidak perlu rahasia, cukup tidak mudah ditebak. */
+/**
+ * Kode acak kriptografis dari alfabet 32 karakter.
+ *
+ * `crypto.getRandomValues` dengan alfabet 32 TIDAK bias: 256 habis dibagi 32,
+ * jadi setiap huruf punya peluang yang sama. UUID dipakai sebelumnya hanya
+ * memberi 16 kemungkinan per karakter, terlalu sempit untuk kunci publik.
+ */
+const ALFABET_KODE = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 function kodeAcak(panjang: number): string {
-  return crypto
-    .randomUUID()
-    .replace(/-/g, "")
-    .toUpperCase()
-    .slice(0, panjang);
+  const byte = crypto.getRandomValues(new Uint8Array(panjang));
+  let hasil = "";
+  for (const nilai of byte) hasil += ALFABET_KODE[nilai % ALFABET_KODE.length];
+  return hasil.slice(0, panjang);
 }
 
 /** Batas spam ringan: satu nomor tidak bisa membanjiri antrean admin. */
@@ -288,8 +294,32 @@ export const buatPesanan = mutation({
       );
     }
 
-    const kodePesanan = buatKodePesanan(sekarang, kodeAcak(6));
-    const refId = buatRefId(sekarang, kodeAcak(8));
+    // Kode adalah kunci publik halaman status: cek bentrok sebelum menulis,
+    // karena Convex tidak punya indeks unik. Ruang 32^12 membuat bentrok sangat
+    // jarang, tetapi satu bentrokan tetap berarti dua pembeli berbagi kunci.
+    let kodePesanan = "";
+    let refId = "";
+    for (let percobaan = 0; percobaan < 5 && kodePesanan === ""; percobaan += 1) {
+      const kandidatKode = buatKodePesanan(sekarang, kodeAcak(12));
+      const kandidatRef = buatRefId(sekarang, kodeAcak(12));
+      const [kodeDipakai, refDipakai] = await Promise.all([
+        ctx.db
+          .query("ppobPesanan")
+          .withIndex("by_kode_pesanan", (q) => q.eq("kodePesanan", kandidatKode))
+          .first(),
+        ctx.db
+          .query("ppobPesanan")
+          .withIndex("by_ref", (q) => q.eq("refId", kandidatRef))
+          .first(),
+      ]);
+      if (kodeDipakai === null && refDipakai === null) {
+        kodePesanan = kandidatKode;
+        refId = kandidatRef;
+      }
+    }
+    if (kodePesanan === "" || refId === "") {
+      throw new Error("Gagal membuat kode pesanan yang unik. Coba lagi.");
+    }
     const hargaJual = produk.hargaJual;
     // Pembeli yang sedang masuk mendapat tautan pesanan di beranda akunnya;
     // pembeli tamu tetap bisa melacak lewat kode pesanan.
@@ -346,14 +376,70 @@ export const statusPesanan = query({
       nomorTujuan: maskNomor(pesanan.nomorTujuan),
       hargaJual: pesanan.hargaJual,
       status: pesanan.status,
-      sn: pesanan.sn ?? null,
-      pesanProvider: pesanan.pesanProvider ?? null,
+      // Nomor seri TIDAK ikut di sini: halaman ini bisa dibuka siapa pun yang
+      // memegang kode, dan token listrik/voucher adalah nilai yang bisa dipakai
+      // orang lain. Pembeli membukanya lewat `bukaSn` dengan verifikasi nomor.
+      snTersedia: pesanan.status === "sukses" && (pesanan.sn ?? "") !== "",
+      pesanProvider: pesanan.status === "sukses" ? null : (pesanan.pesanProvider ?? null),
       dibuatPada: pesanan.dibuatPada,
       dibayarPada: pesanan.dibayarPada ?? null,
       selesaiPada: pesanan.selesaiPada ?? null,
       pembayaran,
       instruksi: pengaturan.instruksi,
     };
+  },
+});
+
+/** Batas salah memasukkan 4 digit sebelum nomor seri dikunci sementara. */
+const MAKS_BUKA_SN_GAGAL = 5;
+const KUNCI_BUKA_SN_MS = 15 * 60 * 1000;
+
+/**
+ * Buka nomor seri/token dengan verifikasi 4 digit terakhir nomor tujuan.
+ *
+ * Kode pesanan saja tidak cukup: kode bisa tersalin ke orang lain, dan token
+ * listrik dapat ditukarkan siapa pun yang membacanya. Pesan galat untuk kode
+ * yang tidak ada dan nomor yang tidak cocok sengaja SAMA supaya endpoint ini
+ * tidak bisa dipakai memastikan sebuah kode valid.
+ */
+export const bukaSn = mutation({
+  args: { kode: v.string(), empatDigit: v.string() },
+  handler: async (ctx, args) => {
+    const galat = "Kode pesanan atau 4 digit terakhir nomor tidak cocok.";
+    const pesanan = await ctx.db
+      .query("ppobPesanan")
+      .withIndex("by_kode_pesanan", (q) => q.eq("kodePesanan", args.kode.trim()))
+      .first();
+    if (pesanan === null) throw new Error(galat);
+
+    const sekarang = Date.now();
+    if ((pesanan.snTerkunciSampai ?? 0) > sekarang) {
+      const sisa = Math.ceil(((pesanan.snTerkunciSampai ?? 0) - sekarang) / 60_000);
+      throw new Error(`Terlalu banyak percobaan. Coba lagi dalam ${sisa} menit.`);
+    }
+
+    const digit = args.empatDigit.replace(/\D/g, "");
+    const nomor = pesanan.nomorTujuan.replace(/\D/g, "");
+    if (digit.length !== 4 || !nomor.endsWith(digit)) {
+      const gagal = (pesanan.snGagal ?? 0) + 1;
+      await ctx.db.patch(
+        pesanan._id,
+        gagal >= MAKS_BUKA_SN_GAGAL
+          ? { snGagal: 0, snTerkunciSampai: sekarang + KUNCI_BUKA_SN_MS }
+          : { snGagal: gagal },
+      );
+      throw new Error(galat);
+    }
+
+    if (pesanan.status !== "sukses" || (pesanan.sn ?? "") === "") {
+      throw new Error("Nomor seri belum tersedia untuk pesanan ini.");
+    }
+    await ctx.db.patch(pesanan._id, {
+      snGagal: 0,
+      snTerkunciSampai: 0,
+      snDibukaPada: sekarang,
+    });
+    return { sn: pesanan.sn ?? "" };
   },
 });
 
@@ -701,9 +787,21 @@ export const hitungUlangHarga = mutation({
   },
 });
 
-/** Admin memverifikasi transfer masuk. */
+/**
+ * Admin memverifikasi transfer masuk.
+ *
+ * Nominal dan referensi WAJIB, bukan sekadar centang: tanpa dua angka itu admin
+ * hanya melihat klaim pembeli, sedangkan saldo provider tetap berkurang saat
+ * topup dikirim. Referensi bank juga dicek unik supaya satu mutasi tidak bisa
+ * dipakai untuk dua pesanan.
+ */
 export const tandaiDibayar = mutation({
-  args: { id: v.id("ppobPesanan") },
+  args: {
+    id: v.id("ppobPesanan"),
+    nominalDiterima: v.number(),
+    referensiBank: v.string(),
+    catatan: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const admin = await requireAdminSession(ctx);
     const pesanan = await ctx.db.get(args.id);
@@ -711,10 +809,34 @@ export const tandaiDibayar = mutation({
     if (pesanan.status !== "menunggu_bayar") {
       throw new Error("Pesanan ini tidak sedang menunggu pembayaran.");
     }
+    if (!Number.isInteger(args.nominalDiterima) || args.nominalDiterima <= 0) {
+      throw new Error("Nominal diterima harus rupiah bulat lebih dari nol.");
+    }
+    if (args.nominalDiterima !== pesanan.hargaJual) {
+      throw new Error(
+        `Nominal diterima Rp ${args.nominalDiterima} tidak sama dengan tagihan Rp ${pesanan.hargaJual}. Periksa mutasi bank sebelum memverifikasi.`,
+      );
+    }
+    const referensi = args.referensiBank.trim().replace(/\s+/g, " ").toUpperCase().slice(0, 80);
+    if (referensi.length < 4) {
+      throw new Error("Referensi bank wajib diisi (minimal 4 karakter, dari mutasi bank).");
+    }
+    const bentrok = await ctx.db
+      .query("ppobPesanan")
+      .withIndex("by_referensi", (q) => q.eq("referensiBank", referensi))
+      .first();
+    if (bentrok !== null) {
+      throw new Error(
+        `Referensi bank ini sudah dipakai pesanan ${bentrok.kodePesanan}. Satu transfer tidak boleh diverifikasi dua kali.`,
+      );
+    }
     await ctx.db.patch(args.id, {
       status: "dibayar",
       dibayarPada: Date.now(),
       diverifikasiOleh: admin.userId,
+      nominalDiterima: args.nominalDiterima,
+      referensiBank: referensi,
+      catatanVerifikasi: (args.catatan ?? "").trim().slice(0, 200),
     });
     await ctx.scheduler.runAfter(0, internal.ppobNotifikasi.kabarkanPesanan, {
       pesananId: args.id,
@@ -769,28 +891,58 @@ export const batalkanPesanan = mutation({
   },
 });
 
-/** Tandai dana sudah dikembalikan ke pembeli (setelah gagal provider). */
+/**
+ * Tandai dana sudah dikembalikan ke pembeli.
+ *
+ * Hanya pesanan yang PERNAH dibayar dan tidak sukses yang boleh direfund:
+ *  - `sukses` dilarang karena produk sudah diterima; refund di sini akan
+ *    mengeluarkan uang dua kali untuk barang yang sama.
+ *  - `dibayar` harus dibatalkan lebih dulu (status `gagal`) supaya alasannya
+ *    tercatat.
+ * Referensi transfer balik wajib supaya klaim "sudah dikembalikan" bisa
+ * dicocokkan dengan mutasi bank, bukan sekadar catatan bebas.
+ */
 export const tandaiRefund = mutation({
-  args: { id: v.id("ppobPesanan"), catatan: v.string() },
+  args: {
+    id: v.id("ppobPesanan"),
+    catatan: v.string(),
+    referensiRefund: v.string(),
+  },
   handler: async (ctx, args) => {
     await requireAdminSession(ctx);
     const pesanan = await ctx.db.get(args.id);
     if (pesanan === null) throw new Error("Pesanan tidak ditemukan.");
+    if (pesanan.status === "refund") return { ok: true, sudah: true };
     if (pesanan.status === "menunggu_bayar") {
       throw new Error("Pesanan belum dibayar; batalkan saja, tidak perlu refund.");
     }
-    const sudahRefund = pesanan.status === "refund";
+    if (pesanan.status === "sukses") {
+      throw new Error(
+        "Pesanan sudah selesai dan produknya terkirim. Refund hanya untuk pesanan gagal atau yang masih diproses.",
+      );
+    }
+    if (pesanan.status !== "gagal" && pesanan.status !== "diproses") {
+      throw new Error("Batalkan pesanan yang sudah dibayar terlebih dahulu, lalu catat refund.");
+    }
+    if (pesanan.dibayarPada === undefined) {
+      throw new Error("Pesanan belum pernah dibayar; tidak ada dana yang perlu dikembalikan.");
+    }
+    const catatan = args.catatan.trim().slice(0, 200);
+    if (catatan.length < 4) throw new Error("Alasan refund wajib diisi.");
+    const referensi = args.referensiRefund.trim().replace(/\s+/g, " ").toUpperCase().slice(0, 80);
+    if (referensi.length < 4) {
+      throw new Error("Referensi transfer balik wajib diisi (dari mutasi bank).");
+    }
     await ctx.db.patch(args.id, {
       status: "refund",
-      catatanAdmin: args.catatan.trim().slice(0, 200),
+      catatanAdmin: catatan,
+      referensiRefund: referensi,
       selesaiPada: Date.now(),
     });
-    if (!sudahRefund) {
-      await ctx.scheduler.runAfter(0, internal.ppobNotifikasi.kabarkanPesanan, {
-        pesananId: args.id,
-        jenis: "refund",
-      });
-    }
+    await ctx.scheduler.runAfter(0, internal.ppobNotifikasi.kabarkanPesanan, {
+      pesananId: args.id,
+      jenis: "refund",
+    });
     return { ok: true };
   },
 });

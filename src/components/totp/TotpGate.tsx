@@ -79,6 +79,11 @@ export function TotpGate() {
         ip,
         ingatPerangkat: ingat,
       });
+      if (!hasil.ok) {
+        setError(hasil.pesan ?? "Kode TOTP salah.");
+        setKode("");
+        return;
+      }
       if (hasil.tokenPerangkat) simpanTokenPerangkat(hasil.tokenPerangkat);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Kode salah.");

@@ -17,7 +17,7 @@ type Jawaban = {
   nomorTujuan: string;
   hargaJual: number;
   status: "menunggu_bayar" | "sukses";
-  sn: string | null;
+  snTersedia: boolean;
   pesanProvider: string | null;
   dibuatPada: number;
   dibayarPada: number | null;
@@ -33,13 +33,13 @@ type Jawaban = {
 };
 
 let jawaban: Jawaban = {
-  kodePesanan: "PPOB-261028-7K3M9Q",
+  kodePesanan: "PPOB-261028-7K3M9QXW2N4P",
   namaProduk: "Telkomsel 10.000",
   kategori: "pulsa",
   nomorTujuan: "0812••••7890",
   hargaJual: 10_400,
   status: "menunggu_bayar",
-  sn: null,
+  snTersedia: false,
   pesanProvider: null,
   dibuatPada: Date.UTC(2026, 9, 28, 7, 0, 0),
   dibayarPada: null,
@@ -75,7 +75,7 @@ function cek(nama: string, syarat: boolean) {
 
 function render() {
   return renderToStaticMarkup(
-    <MemoryRouter initialEntries={["/ppob/pesanan/PPOB-261028-7K3M9Q"]}>
+    <MemoryRouter initialEntries={["/ppob/pesanan/PPOB-261028-7K3M9QXW2N4P"]}>
       <Routes>
         <Route path="/ppob/pesanan/:kode" element={<PpobPesanan />} />
       </Routes>
@@ -84,7 +84,7 @@ function render() {
 }
 
 const menunggu = render();
-cek("kode pesanan tercetak", menunggu.includes("PPOB-261028-7K3M9Q"));
+cek("kode pesanan tercetak", menunggu.includes("PPOB-261028-7K3M9QXW2N4P"));
 cek("nominal transfer", menunggu.includes("Rp 10.400"));
 cek("rekening tujuan", menunggu.includes("901234567890"));
 cek("nama pemilik rekening", menunggu.includes("PINDAI DIGITAL"));
@@ -96,14 +96,15 @@ cek("tanpa undefined", !menunggu.includes("undefined"));
 jawaban = {
   ...jawaban,
   status: "sukses",
-  sn: "TOKEN-1234-5678-9012",
+  snTersedia: true,
   pesanProvider: "Transaksi Sukses",
   selesaiPada: Date.UTC(2026, 9, 28, 7, 15, 0),
 };
 const sukses = render();
 cek("status selesai", sukses.includes("Produk sudah dikirim."));
-cek("nomor seri tampil", sukses.includes("TOKEN-1234-5678-9012"));
-cek("tombol salin nomor seri", sukses.includes("Salin nomor seri"));
+cek("token tidak tampil terbuka", !sukses.includes("TOKEN-1234-5678-9012"));
+cek("form buka nomor seri", sukses.includes("Buka nomor seri"));
+cek("petunjuk 4 digit", sukses.includes("4 digit terakhir"));
 cek("tanpa NaN", !sukses.includes("NaN"));
 cek("tanpa objek bocor", !sukses.includes("[object Object]"));
 

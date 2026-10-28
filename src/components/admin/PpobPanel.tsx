@@ -57,7 +57,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { FunctionReturnType } from "convex/server";
 
 import { api } from "@/convex/_generated/api";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
+import type { Doc } from "@/convex/_generated/dataModel";
 import {
   KATEGORI_PPOB,
   LABEL_KATEGORI_PPOB,
@@ -161,6 +161,7 @@ function DialogBatal({
   const batalkan = useMutation(api.ppob.batalkanPesanan);
   const refund = useMutation(api.ppob.tandaiRefund);
   const [alasan, setAlasan] = useState("");
+  const [referensi, setReferensi] = useState("");
   const [sibuk, setSibuk] = useState(false);
 
   const kirim = async () => {
@@ -168,9 +169,16 @@ function DialogBatal({
     setSibuk(true);
     try {
       if (mode === "batal") await batalkan({ id: pesanan._id, alasan });
-      else await refund({ id: pesanan._id, catatan: alasan });
+      else {
+        await refund({
+          id: pesanan._id,
+          catatan: alasan,
+          referensiRefund: referensi,
+        });
+      }
       toast.success(mode === "batal" ? "Pesanan dibatalkan." : "Refund tercatat.");
       setAlasan("");
+      setReferensi("");
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan.");
@@ -185,6 +193,7 @@ function DialogBatal({
       onOpenChange={(terbuka) => {
         if (!terbuka) {
           setAlasan("");
+          setReferensi("");
           onClose();
         }
       }}
@@ -197,8 +206,8 @@ function DialogBatal({
           <DialogDescription>
             {pesanan?.kodePesanan} · {pesanan?.namaProduk}.{" "}
             {mode === "batal"
-              ? "Pesanan yang sudah dibayar akan berstatus refund, bukan gagal."
-              : "Pastikan transfer balik benar-benar sudah dilakukan."}
+              ? "Pembatalan menghentikan pengiriman ke provider. Bila sudah dibayar, dana dikembalikan lewat catatan refund terpisah."
+              : "Hanya untuk pesanan yang gagal atau masih diproses. Isi referensi transfer balik dari mutasi bank."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -214,20 +223,162 @@ function DialogBatal({
               mode === "batal"
                 ? "mis. nomor tujuan salah; pembeli minta dibatalkan"
                 : "mis. ditransfer balik ke rekening pengirim, 28 Okt 14.10"
-            }
-          />
+            }          />
         </div>
+        {mode === "refund" ? (
+          <div className="space-y-2">
+            <Label htmlFor="refund-ppob">Referensi transfer balik</Label>
+            <Input
+              id="refund-ppob"
+              value={referensi}
+              onChange={(e) => setReferensi(e.target.value)}
+              placeholder="mis. TRF-281026-10400"
+              autoComplete="off"
+            />
+            <p className="text-[11px] leading-5 text-muted-foreground">
+              Diambil dari mutasi bank, bukan dari tangkapan layar pembeli.
+            </p>
+          </div>
+        ) : null}
+
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={sibuk}>
             Batal
           </Button>
           <Button
             onClick={() => void kirim()}
-            disabled={sibuk || alasan.trim().length < 4}
+            disabled={
+              sibuk ||
+              alasan.trim().length < 4 ||
+              (mode === "refund" && referensi.trim().length < 4)
+            }
             className="bg-red-600 text-white hover:bg-red-700"
           >
             {sibuk ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
             {mode === "batal" ? "Batalkan pesanan" : "Catat refund"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Dialog verifikasi transfer.
+ *
+ * Nominal dan referensi wajib dicocokkan dengan mutasi bank. Sesudah ini admin
+ * masih harus menekan "Proses" secara terpisah — verifikasi tidak lagi langsung
+ * membelanjakan saldo provider dalam satu klik.
+ */
+function DialogVerifikasi({
+  pesanan,
+  onClose,
+}: {
+  pesanan: Doc<"ppobPesanan">;
+  onClose: () => void;
+}) {
+  const verifikasi = useMutation(api.ppob.tandaiDibayar);
+  const [nominal, setNominal] = useState(() =>
+    kelompokkanDigit(String(pesanan.hargaJual)),
+  );
+  const [referensi, setReferensi] = useState("");
+  const [catatan, setCatatan] = useState("");
+  const [sibuk, setSibuk] = useState(false);
+  const angka = Number(nominal.replace(/\D/g, "")) || 0;
+  const cocok = angka === pesanan.hargaJual;
+
+  const kirim = async () => {
+    setSibuk(true);
+    try {
+      await verifikasi({
+        id: pesanan._id,
+        nominalDiterima: angka,
+        referensiBank: referensi,
+        catatan,
+      });
+      toast.success("Pembayaran diverifikasi. Tekan Proses untuk mengirim topup.");
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal memverifikasi pembayaran.");
+    } finally {
+      setSibuk(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(terbuka) => !terbuka && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Verifikasi pembayaran</DialogTitle>
+          <DialogDescription>
+            {pesanan.kodePesanan} · {pesanan.namaProduk}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+            Tagihan
+          </p>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-navy">
+            {formatRupiahAman(pesanan.hargaJual)}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="verifikasi-nominal">Nominal diterima (Rp)</Label>
+          <Input
+            id="verifikasi-nominal"
+            inputMode="numeric"
+            className="tabular-nums"
+            value={nominal}
+            onChange={(e) => setNominal(kelompokkanDigit(e.target.value))}
+          />
+          {!cocok ? (
+            <p className="flex items-start gap-1.5 text-[11px] leading-5 text-red-700">
+              <ShieldAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              Nominal tidak sama dengan tagihan. Jangan verifikasi sebelum cocok dengan
+              mutasi bank.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="verifikasi-referensi">Referensi mutasi bank</Label>
+          <Input
+            id="verifikasi-referensi"
+            value={referensi}
+            onChange={(e) => setReferensi(e.target.value)}
+            placeholder="mis. TRF-281026-10400"
+            autoComplete="off"
+          />
+          <p className="text-[11px] leading-5 text-muted-foreground">
+            Satu referensi hanya bisa dipakai untuk satu pesanan. Ambil dari mutasi bank,
+            bukan tangkapan layar pembeli.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="verifikasi-catatan">Catatan (opsional)</Label>
+          <Input
+            id="verifikasi-catatan"
+            value={catatan}
+            onChange={(e) => setCatatan(e.target.value)}
+            placeholder="mis. transfer BCA a.n. Rani"
+            maxLength={200}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={sibuk}>
+            Batal
+          </Button>
+          <Button
+            onClick={() => void kirim()}
+            disabled={sibuk || !cocok || referensi.trim().length < 4}
+            className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+          >
+            {sibuk ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+            Verifikasi pembayaran
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -337,7 +488,6 @@ export function PpobPanel() {
   const cekSaldo = useAction(api.ppobH2h.cekSaldo);
   const proses = useAction(api.ppobH2h.prosesPesanan);
   const cekStatus = useAction(api.ppobH2h.cekStatusPesanan);
-  const tandaiDibayar = useMutation(api.ppob.tandaiDibayar);
   const setAktifProduk = useMutation(api.ppob.setProdukAktif);
   const hitungUlang = useMutation(api.ppob.hitungUlangHarga);
 
@@ -346,6 +496,7 @@ export function PpobPanel() {
     pesanan: Doc<"ppobPesanan">;
     mode: "batal" | "refund";
   } | null>(null);
+  const [dialogVerifikasi, setDialogVerifikasi] = useState<Doc<"ppobPesanan"> | null>(null);
   const [dialogHarga, setDialogHarga] = useState<Doc<"ppobProduk"> | null>(null);
 
   const jalankan = async (kunci: string, kerja: () => Promise<unknown>, sukses: string) => {
@@ -355,20 +506,6 @@ export function PpobPanel() {
       toast.success(sukses);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Tindakan gagal.");
-    } finally {
-      setSibuk(null);
-    }
-  };
-
-  const verifikasiDanProses = async (pesananId: Id<"ppobPesanan">) => {
-    setSibuk(`proses-${pesananId}`);
-    try {
-      await tandaiDibayar({ id: pesananId });
-      const hasil = await proses({ id: pesananId });
-      if (hasil.ok) toast.success("Pembayaran diverifikasi dan pesanan dikirim ke provider.");
-      else toast.warning(hasil.pesan ?? "Pesanan dikirim, tetapi provider belum memberi status final.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal memproses pesanan.");
     } finally {
       setSibuk(null);
     }
@@ -559,7 +696,6 @@ export function PpobPanel() {
                 {pesanan.map((item) => {
                   const status = item.status as StatusPesananPpob;
                   const kunci = `proses-${item._id}`;
-                  const sedangSibuk = sibuk === kunci;
                   return (
                     <div
                       key={item._id}
@@ -605,15 +741,10 @@ export function PpobPanel() {
                           <Button
                             size="sm"
                             className="h-8 bg-[#064E3B] px-2.5 text-[11px] text-white hover:bg-[#021E17]"
-                            disabled={sedangSibuk}
-                            onClick={() => void verifikasiDanProses(item._id)}
+                            onClick={() => setDialogVerifikasi(item)}
                           >
-                            {sedangSibuk ? (
-                              <Loader2 className="mr-1 size-3.5 animate-spin" />
-                            ) : (
-                              <Check className="mr-1 size-3.5" />
-                            )}
-                            Verifikasi & proses
+                            <Check className="mr-1 size-3.5" />
+                            Verifikasi bayar
                           </Button>
                         ) : null}
                         {status === "dibayar" || status === "diproses" ? (
@@ -660,7 +791,8 @@ export function PpobPanel() {
                             </Button>
                           </>
                         ) : null}
-                        {status !== "sukses" && status !== "refund" && status !== "diproses" ? (
+                        {status === "gagal" && item.dibayarPada === undefined ? null :
+                        status !== "sukses" && status !== "refund" && status !== "diproses" ? (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -842,6 +974,13 @@ export function PpobPanel() {
         mode={dialogBatal?.mode ?? "batal"}
         onClose={() => setDialogBatal(null)}
       />
+      {dialogVerifikasi !== null ? (
+        <DialogVerifikasi
+          key={dialogVerifikasi._id}
+          pesanan={dialogVerifikasi}
+          onClose={() => setDialogVerifikasi(null)}
+        />
+      ) : null}
       <DialogHarga produk={dialogHarga} onClose={() => setDialogHarga(null)} />
     </div>
   );

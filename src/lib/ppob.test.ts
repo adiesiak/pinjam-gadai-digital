@@ -91,12 +91,21 @@ sama(maskNomor("12345"), "12••45", "nomor pendek tetap tersamar");
 // ===== Kode pesanan & referensi =====
 // 2026-10-28T18:00:00Z = 29 Oktober 2026 pukul 01.00 WIB.
 const waktu = Date.UTC(2026, 9, 28, 18, 0, 0);
-sama(buatKodePesanan(waktu, "7k3m9q"), "PPOB-261029-7K3M9Q", "kode memakai tanggal WIB");
-sama(buatRefId(waktu, "ab12cd34").startsWith("PDB"), true, "ref diawali PDB");
-sama(buatRefId(waktu, "ab12cd34"), buatRefId(waktu, "ab12cd34"), "ref stabil");
-cek("ref hanya alfanumerik", /^[A-Z0-9]+$/.test(buatRefId(waktu, "ab12cd34")));
+sama(
+  buatKodePesanan(waktu, "7k3m9qxw2n4p"),
+  "PPOB-261029-7K3M9QXW2N4P",
+  "kode memakai tanggal WIB dan 12 karakter acak",
+);
+sama(buatRefId(waktu, "ab12cd34ef56").startsWith("PDB"), true, "ref diawali PDB");
+sama(
+  buatRefId(waktu, "ab12cd34ef56"),
+  buatRefId(waktu, "ab12cd34ef56"),
+  "ref stabil",
+);
+cek("ref hanya alfanumerik", /^[A-Z0-9]+$/.test(buatRefId(waktu, "ab12cd34ef56")));
 tolak("kode acak terlalu pendek ditolak", () => buatKodePesanan(waktu, "ab"));
-tolak("ref acak terlalu pendek ditolak", () => buatRefId(waktu, "ab"));
+tolak("kode 6 karakter lama ditolak", () => buatKodePesanan(waktu, "7k3m9q"));
+tolak("ref acak terlalu pendek ditolak", () => buatRefId(waktu, "ab12cd34"));
 
 // ===== Status provider =====
 sama(statusDariProvider("Sukses"), "sukses", "Sukses");

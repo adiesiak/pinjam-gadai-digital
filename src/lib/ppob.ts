@@ -247,15 +247,29 @@ export function maskNomor(nomor: string): string {
   return `${bersih.slice(0, 4)}••••${bersih.slice(-4)}`;
 }
 
+/** Panjang bagian acak kode pesanan. */
+export const PANJANG_KODE_PESANAN = 12;
+
 /**
- * Kode pesanan yang dibaca manusia: `PPOB-261028-7K3M9Q`.
+ * Kode pesanan yang dibaca manusia: `PPOB-261028-7K3M9QXW2N4P`.
+ *
+ * Dua belas karakter dari alfabet 32 huruf memberi ruang 32^12 (~10^18),
+ * bukan 16^6 (~1,6×10^7) seperti potongan UUID heksadesimal sebelumnya. Itu
+ * penting karena halaman status publik memakai kode sebagai satu-satunya kunci:
+ * ruang tebakan yang kecil membuat token listrik/voucher bisa dipanen dengan
+ * menebak kode satu per satu.
  *
  * Tanggal memakai kalender WIB (fungsi `tanggalWIB`), bukan tanggal perangkat
  * atau UTC, supaya pesanan pukul 01.00 WIB tidak tampak terbuat kemarin.
  */
 export function buatKodePesanan(waktu: number, acak: string): string {
-  const kode = acak.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-  if (kode.length < 4) throw new Error("Kode acak pesanan terlalu pendek.");
+  const kode = acak
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, PANJANG_KODE_PESANAN);
+  if (kode.length < PANJANG_KODE_PESANAN) {
+    throw new Error(`Kode acak pesanan minimal ${PANJANG_KODE_PESANAN} karakter.`);
+  }
   const tanggal = new Date(waktu + 7 * 60 * 60 * 1000).toISOString().slice(2, 10);
   return `PPOB-${tanggal.replace(/-/g, "")}-${kode}`;
 }
@@ -269,8 +283,8 @@ export function buatKodePesanan(waktu: number, acak: string): string {
  * ketika admin menekan "proses" dua kali.
  */
 export function buatRefId(waktu: number, acak: string): string {
-  const kode = acak.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
-  if (kode.length < 4) throw new Error("Kode acak referensi terlalu pendek.");
+  const kode = acak.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+  if (kode.length < 12) throw new Error("Kode acak referensi minimal 12 karakter.");
   return `PDB${waktu.toString(36).toUpperCase()}${kode}`;
 }
 
