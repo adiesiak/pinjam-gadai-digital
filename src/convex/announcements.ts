@@ -203,6 +203,12 @@ export const getPublic = query({
 });
 
 /**
+ * LEGACY — banner satu-slot yang tersimpan di baris CMS.
+ *
+ * Dipertahankan hanya untuk data dan klien lama; halaman serta panel baru
+ * memakai `bannerPromo.aktif` (tabel `bannerPromo`, banyak kampanye, dua
+ * rasio). Jangan menambah pemakai baru di sini.
+ *
  * Banner promo yang tampil di beranda, atau null bila tidak ada yang layak
  * tampil.
  *

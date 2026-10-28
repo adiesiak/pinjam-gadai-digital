@@ -16,10 +16,10 @@ import { Button } from "@/components/ui/button";
 import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
-import { BannerPromoBeranda } from "@/components/landing/BannerPromoBeranda";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { PilihanProdukSection } from "@/components/landing/PilihanProduk";
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
+import { BannerPromoGambar } from "@/components/promo/BannerPromoGambar";
 import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
@@ -315,7 +315,7 @@ export default function LandingHome() {
 
         {/* Gambar kampanye dari admin. Komponennya sendiri yang menyembunyikan
             diri bila tidak ada promo berjalan, jadi tidak ada ruang kosong. */}
-        <BannerPromoBeranda />
+        <BannerPromoGambar penempatan="beranda" />
 
         {/* Dua jalur produk dipisah sebelum pengunjung masuk ke formulir:
             konvensional dan syariah punya aturan serta kalkulator sendiri. */}

@@ -25,6 +25,11 @@ export const PanelLanding = lazy(() =>
     default: m.LandingCmsPanel,
   })),
 );
+export const PanelBannerPromo = lazy(() =>
+  import("@/components/admin/BannerPromoPanel").then((m) => ({
+    default: m.BannerPromoPanel,
+  })),
+);
 export const PanelPendana = lazy(() =>
   import("@/components/admin/KontenPendanaPanel").then((m) => ({
     default: m.KontenPendanaPanel,
@@ -130,6 +135,7 @@ export const PanelAkses = lazy(() =>
  */
 const PEMUAT: Partial<Record<NilaiModulAdmin, () => Promise<unknown>>> = {
   landing: () => import("@/components/admin/LandingCmsPanel"),
+  banner: () => import("@/components/admin/BannerPromoPanel"),
   pendana: () => import("@/components/admin/KontenPendanaPanel"),
   pengumuman: () => import("@/components/admin/AnnouncementCms"),
   promo: () => import("@/components/admin/PromoPinjamanPanel"),

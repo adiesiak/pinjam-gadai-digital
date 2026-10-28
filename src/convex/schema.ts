@@ -2634,13 +2634,13 @@ const schema = defineSchema(
         }),
       ),
       /**
-       * Banner promo beranda — satu gambar kampanye yang diunggah admin.
+       * PENSIUN — banner promo satu-slot dari versi pertama.
        *
-       * `promoBungaId` opsional mengikat tampilnya banner ke satu promo bunga:
-       * banner hanya tampil selama promo itu aktif dan berada dalam rentang
-       * tanggalnya. Bila kosong, banner mengikuti sakelar `aktif` saja. Berkas
-       * disimpan di Convex storage; URL-nya memang publik karena materi
-       * kampanye, berbeda dengan dokumen KYC yang selalu lewat `/berkas`.
+       * Sudah digantikan tabel `bannerPromo` (banyak kampanye, dua rasio
+       * gambar, tiga penempatan). Kolom ini dipertahankan hanya agar baris
+       * produksi yang sempat menyimpannya tetap lolos validasi schema; tidak
+       * ada kode baru yang membacanya. Hapus blok ini setelah baris lama
+       * dibersihkan.
        */
       bannerPromo: v.optional(
         v.object({
@@ -3724,6 +3724,52 @@ const schema = defineSchema(
       diperbaruiPada: v.number(),
       diperbaruiOleh: v.string(),
     }).index("by_diperbarui", ["diperbaruiPada"]),
+
+    /**
+     * Banner promo bergambar — satu baris satu kampanye.
+     *
+     * Berbeda dari `promoPinjaman` (teks) dan `promoBunga` (angka): tabel ini
+     * mengatur materi gambar untuk beranda, dashboard, dan `/promo`. Beberapa
+     * baris boleh berjalan bersamaan; `prioritas` kecil tampil lebih dulu,
+     * sehingga admin bisa menyiapkan kampanye berikutnya dan membiarkan
+     * jadwalnya berganti tanpa menyentuh gambar lagi.
+     *
+     * Dua berkas untuk dua rasio: `desktop` (8:3) dan `mobile` (4:5). Bila salah
+     * satu kosong, gambar yang ada dipakai untuk keduanya. `promoBungaId`
+     * opsional mengikat tampilnya banner ke promo bunga: banner ikut berhenti
+     * saat promo berakhir. URL storage memang publik karena materi kampanye,
+     * berbeda dengan dokumen KYC yang selalu lewat `/berkas`.
+     */
+    bannerPromo: defineTable({
+      /** Nama internal kampanye, mis. "Payday tenor 7 hari". */
+      nama: v.string(),
+      /** Teks alternatif gambar; juga tampil bila gambar gagal dimuat. */
+      judul: v.string(),
+      /** Path internal tujuan klik; string kosong = banner statis. */
+      tautan: v.string(),
+      gambarDesktopId: v.optional(v.id("_storage")),
+      gambarMobileId: v.optional(v.id("_storage")),
+      /** Tempat tampil; minimal satu diisi server. */
+      penempatan: v.array(
+        v.union(
+          v.literal("beranda"),
+          v.literal("dashboard"),
+          v.literal("promo"),
+        ),
+      ),
+      /** Awal hari pertama dan akhir hari terakhir (WIB), milidetik. */
+      mulai: v.number(),
+      selesai: v.number(),
+      aktif: v.boolean(),
+      promoBungaId: v.optional(v.id("promoBunga")),
+      /** Angka kecil tampil lebih dulu saat beberapa banner berjalan. */
+      prioritas: v.number(),
+      dibuatPada: v.number(),
+      diperbaruiPada: v.number(),
+      diperbaruiOleh: v.string(),
+    })
+      .index("by_prioritas", ["prioritas"])
+      .index("by_diperbarui", ["diperbaruiPada"]),
 
     /**
      * Promo BUNGA pinjaman harian — admin menetapkan bunga pengganti untuk

@@ -19,7 +19,7 @@
  * Navigasi dan identitas utama situs tidak diubah; halaman ini hanya mengisi
  * rute /promo yang sudah ada.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { useQuery } from "convex/react";
 import {
@@ -68,6 +68,7 @@ import {
 import { ASET_ANDROID } from "@/lib/asetAndroid";
 import { EASE_OUT } from "@/lib/motion";
 import { api } from "@/convex/_generated/api";
+import { BannerPromoGambar } from "@/components/promo/BannerPromoGambar";
 import { PromoPinjamanKartu } from "@/components/promo/PromoPinjamanKartu";
 import type { DataPromoPinjaman } from "@/lib/promoPinjaman";
 import type { TarifBiaya } from "@/lib/loan";
@@ -396,9 +397,15 @@ function KartuPoster({
 export function Promo({
   promoPinjaman = null,
   tarifBiaya = null,
+  banner = null,
 }: {
   /** Kampanye pinjaman aktif; rute mengisinya lewat `PromoDenganKampanye`. */
   promoPinjaman?: DataPromoPinjaman | null;
+  /**
+   * Banner promo bergambar dari wrapper. Diterima sebagai node, bukan di-query
+   * di sini, supaya galeri poster tetap bisa dirender tanpa provider Convex.
+   */
+  banner?: ReactNode;
   /**
    * Tarif potongan di muka untuk poster "Biaya"; kosong = tarif bawaan mesin,
    * sehingga galeri tetap bisa dirender tanpa Convex di uji statis.
@@ -497,6 +504,8 @@ export function Promo({
             </a>
           </motion.div>
         </motion.header>
+
+        {banner}
 
         {promoPinjaman === null ? null : (
           <PromoPinjamanKartu
@@ -754,6 +763,12 @@ export function PromoDenganKampanye() {
     <Promo
       promoPinjaman={promo ?? null}
       tarifBiaya={ketentuan?.tarifBiaya ?? null}
+      banner={
+        <BannerPromoGambar
+          penempatan="promo"
+          className="mt-6 max-w-none px-0 sm:px-0"
+        />
+      }
     />
   );
 }

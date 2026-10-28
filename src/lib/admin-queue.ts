@@ -19,13 +19,15 @@
  * Seluruh nilai tab panel admin, urut sesuai peta di dokumen desain §4.
  * `voucher` menampung pengaturan voucher nasabah (terbitkan, sunting, cabut)
  * yang sebelumnya hanya punya mutation server tanpa layar admin.
- * 26 modul lama + `voucher` + `kalender` = 28 (panel "Ledger internal"
+ * 26 modul lama + `voucher` + `kalender` + `banner` = 29 (panel "Ledger internal"
  * dihapus dari panel admin; query ledger tetap dipakai halaman /qc).
  * `killswitch` ditambahkan agar pintu darurat punya tempat di sidebar
  * (grup Sistem) selain tombol di header — memakai mutation
  * `system.setKillSwitch` yang sudah ada, tanpa backend baru.
  * `pengembangan` adalah halaman dokumentasi internal: peta halaman, fitur, dan
  * logika bisnis yang hanya dibaca admin. Ia tidak menyimpan data apa pun.
+ * `banner` memisahkan materi gambar kampanye dari teks beranda: satu banner
+ * bisa tampil di beranda, dashboard, dan /promo sekaligus.
  * Menambah modul di sini akan memaksa `panel` di `admin-tabs.tsx` menambahkan isinya.
  */
 export const NILAI_MODUL_ADMIN = [
@@ -43,6 +45,7 @@ export const NILAI_MODUL_ADMIN = [
   "akses",
   "lokasi",
   "landing",
+  "banner",
   "pendana",
   "pengumuman",
   "promo",
@@ -114,6 +117,7 @@ export const GRUP_NAV: readonly GrupNav[] = [
     modul: [
       "template",
       "landing",
+      "banner",
       "pendana",
       "pengumuman",
       "promo",

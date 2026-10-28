@@ -3,7 +3,6 @@ import { Check, ExternalLink, Loader2, RotateCcw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { BannerPromoSection } from "@/components/admin/BannerPromoSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,8 +111,8 @@ export function LandingCmsPanel() {
             Konten Beranda
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Banner promo, teks hero, tiga kartu layanan, panduan, kalkulator,
-            FAQ, dan footer halaman{" "}
+            Teks hero, tiga kartu layanan, panduan, kalkulator, FAQ, dan footer
+            halaman{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">/</code>.
             Tautan dan ikon tetap diatur kode; di sini hanya tulisannya.
           </p>
@@ -125,8 +124,6 @@ export function LandingCmsPanel() {
           </a>
         </Button>
       </div>
-
-      <BannerPromoSection />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Bagian judul="Hero">

@@ -40,6 +40,7 @@ import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
 import { KartuReferral } from "@/components/KartuReferral";
 import { KartuLimitVoucher } from "@/components/voucher/KartuLimitVoucher";
+import { BannerPromoGambar } from "@/components/promo/BannerPromoGambar";
 import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
 import { PromoDashboard } from "@/components/promo/PromoDashboard";
 
@@ -471,13 +472,20 @@ export default function Dashboard() {
                     ke pengajuan. Riwayat dan formulir punya halamannya sendiri,
                     jadi tidak ada bagian yang muncul dua kali di layar. */}
                 <TabsContent value="ringkasan" className="mt-6 animate-masuk">
-                  {/* Satu banner saja: promo bunga menang atas kampanye teks,
-                      supaya tagihan terdekat tidak terdorong ke bawah lipatan. */}
+                  {/* Banner gambar dari admin tampil lebih dulu bila ada;
+                      kartu promo teks/bunga tetap satu-satunya banner angka,
+                      supaya tagihan terdekat tidak terdorong jauh ke bawah. */}
                   {role === "dana" ? null : (
-                    <PromoDashboard
-                      onAjukan={() => bukaPengajuan("pinjaman")}
-                      className="mb-4"
-                    />
+                    <>
+                      <BannerPromoGambar
+                        penempatan="dashboard"
+                        className="mt-0 mb-4 max-w-none px-0 sm:px-0"
+                      />
+                      <PromoDashboard
+                        onAjukan={() => bukaPengajuan("pinjaman")}
+                        className="mb-4"
+                      />
+                    </>
                   )}
                   {/* Tagihan angsuran terdekat langsung di Ringkasan. Halaman
                       Cicilan tetap memegang dialog pembayaran; kartu ini hanya

@@ -58,6 +58,7 @@ const GRUP: Array<{ judul: string; modul: string[] }> = [
     modul: [
       "template",
       "landing",
+      "banner",
       "pendana",
       "pengumuman",
       "promo",
@@ -89,6 +90,7 @@ const LABEL: Record<string, string> = {
   bi: "Kesehatan Sistem",
   template: "Template Website",
   landing: "Konten Beranda",
+  banner: "Banner Promo",
   pendana: "Halaman Pendana",
   pengumuman: "Banner & Pengumuman",
   promo: "Promo Pinjaman",

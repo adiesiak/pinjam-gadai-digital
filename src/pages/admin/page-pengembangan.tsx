@@ -163,6 +163,7 @@ const MODUL_ADMIN: readonly Kelompok[] = [
     modul: [
       "Template Website",
       "Konten Beranda",
+      "Banner Promo",
       "Halaman Pendana",
       "Banner & Pengumuman",
       "Promo Pinjaman",
