@@ -2633,6 +2633,28 @@ const schema = defineSchema(
           berkasPada: v.optional(v.number()),
         }),
       ),
+      /**
+       * Banner promo beranda — satu gambar kampanye yang diunggah admin.
+       *
+       * `promoBungaId` opsional mengikat tampilnya banner ke satu promo bunga:
+       * banner hanya tampil selama promo itu aktif dan berada dalam rentang
+       * tanggalnya. Bila kosong, banner mengikuti sakelar `aktif` saja. Berkas
+       * disimpan di Convex storage; URL-nya memang publik karena materi
+       * kampanye, berbeda dengan dokumen KYC yang selalu lewat `/berkas`.
+       */
+      bannerPromo: v.optional(
+        v.object({
+          berkasId: v.optional(v.id("_storage")),
+          berkasNama: v.optional(v.string()),
+          berkasPada: v.optional(v.number()),
+          /** Teks alternatif gambar; juga dipakai bila gambar gagal dimuat. */
+          judul: v.optional(v.string()),
+          /** Path internal tujuan klik banner; kosong = banner statis. */
+          tautan: v.optional(v.string()),
+          aktif: v.optional(v.boolean()),
+          promoBungaId: v.optional(v.id("promoBunga")),
+        }),
+      ),
       /** Audit ringan: kapan terakhir diubah admin. */
       diperbaruiPada: v.number(),
     }).index("by_slot", ["slot"]),

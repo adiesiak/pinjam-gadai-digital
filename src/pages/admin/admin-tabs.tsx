@@ -350,7 +350,7 @@ export function AdminTabs({
         {
           value: "landing",
           label: "Konten Beranda",
-          hint: "Teks hero, tiga kartu layanan, panduan, dan footer halaman publik.",
+          hint: "Banner promo, teks hero, tiga kartu layanan, panduan, dan footer halaman publik.",
           badge: null,
           hitung: "tidak",
           Icon: Newspaper,

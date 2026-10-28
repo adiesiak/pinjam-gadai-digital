@@ -9,7 +9,14 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+  BATAS_BANNER,
+  MAKS_BANNER_BYTE,
+  jenisGambarDariKepala,
+  namaBerkasBanner,
+  tautanBannerValid,
+} from "../lib/bannerPromo";
 import {
   BATAS_LANDING,
   JUMLAH_KARTU_LAYANAN,
@@ -192,6 +199,268 @@ export const getPublic = query({
       /** Konten `/jadi-pendana` (tanpa berkas: URL proposal dibaca terpisah). */
       pendana: lengkapiKontenPendana(row?.pendana),
     };
+  },
+});
+
+/**
+ * Banner promo yang tampil di beranda, atau null bila tidak ada yang layak
+ * tampil.
+ *
+ * Tiga syarat diperiksa di server, bukan di klien: gambarnya ada, sakelar admin
+ * menyala, dan — bila banner diikat ke satu promo bunga — promo itu masih aktif
+ * serta berada dalam rentang tanggalnya. Dengan begitu banner kampanye tidak
+ * tertinggal di beranda setelah promonya berakhir.
+ */
+export const bannerPromoBerjalan = query({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    const banner = row?.bannerPromo;
+    if (banner?.berkasId === undefined || banner.aktif !== true) return null;
+
+    let promoNama: string | null = null;
+    let selesai: number | null = null;
+    if (banner.promoBungaId !== undefined) {
+      const promo = await ctx.db.get(banner.promoBungaId);
+      if (promo === null) return null;
+      const sekarang = Date.now();
+      if (!promo.aktif || promo.mulai > sekarang || promo.selesai < sekarang) {
+        return null;
+      }
+      promoNama = promo.nama;
+      selesai = promo.selesai;
+    }
+
+    // URL storage bersifat permanen. Itu disengaja di sini: banner adalah
+    // materi kampanye yang memang boleh dibagikan, bukan dokumen KYC.
+    const url = await ctx.storage.getUrl(banner.berkasId);
+    if (url === null) return null;
+    return {
+      url,
+      judul: banner.judul ?? "Promo PINDAI",
+      tautan: banner.tautan ?? "",
+      promoNama,
+      selesai,
+    };
+  },
+});
+
+/** Pengaturan banner untuk panel admin — null bila pemanggil bukan admin. */
+export const bannerPromoAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    const gate = await getAdminGateStatus(ctx);
+    if (!gate.isAdmin) return null;
+    await requireAdmin(ctx);
+    const row = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    const banner = row?.bannerPromo;
+    const url =
+      banner?.berkasId === undefined
+        ? null
+        : await ctx.storage.getUrl(banner.berkasId);
+    return {
+      url,
+      berkasNama: banner?.berkasNama ?? null,
+      berkasPada: banner?.berkasPada ?? null,
+      judul: banner?.judul ?? "",
+      tautan: banner?.tautan ?? "",
+      aktif: banner?.aktif ?? false,
+      promoBungaId: banner?.promoBungaId ?? null,
+    };
+  },
+});
+
+/**
+ * Simpan pengaturan banner promo. Gambar tidak disentuh di sini.
+ *
+ * `promoBungaId` wajib dikirim (boleh null) supaya admin bisa MELEPAS ikatan
+ * promo, bukan hanya menggantinya. Tautan divalidasi server seperti tautan bar
+ * CMS: hanya path internal yang boleh dirender sebagai tombol.
+ */
+export const simpanBannerPromo = mutation({
+  args: {
+    judul: v.string(),
+    tautan: v.string(),
+    aktif: v.boolean(),
+    promoBungaId: v.union(v.id("promoBunga"), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user } = await requireAdmin(ctx);
+    const tautan = args.tautan.trim();
+    if (!tautanBannerValid(tautan)) {
+      throw new Error(
+        "Tautan banner harus path internal yang diawali satu garis miring, mis. /promo. Alamat lengkap dan skrip tidak diterima.",
+      );
+    }
+    const judul = args.judul.trim().slice(0, BATAS_BANNER.judul);
+
+    let promoBungaId: Id<"promoBunga"> | undefined;
+    if (args.promoBungaId !== null) {
+      const promo = await ctx.db.get(args.promoBungaId);
+      if (promo === null) {
+        throw new Error("Promo yang dipilih tidak ditemukan.");
+      }
+      promoBungaId = args.promoBungaId;
+    }
+
+    const existing = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    const bannerPromo = {
+      ...(existing?.bannerPromo ?? {}),
+      judul: judul !== "" ? judul : undefined,
+      tautan:
+        tautan !== "" ? tautan.slice(0, BATAS_BANNER.tautan) : undefined,
+      aktif: args.aktif,
+      promoBungaId,
+    };
+
+    if (existing === null) {
+      await ctx.db.insert("pengumuman", {
+        slot: SLOT,
+        bannerPromo,
+        diperbaruiPada: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(existing._id, {
+        bannerPromo,
+        diperbaruiPada: Date.now(),
+      });
+    }
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "simpan_banner_promo",
+      `pengumuman:${SLOT}`,
+      `Banner promo ${args.aktif ? "diaktifkan" : "dinonaktifkan"}${
+        promoBungaId !== undefined ? ", mengikuti promo bunga" : ""
+      }.`,
+    );
+    return { ok: true };
+  },
+});
+
+/** URL unggah gambar banner — hanya admin aktif yang dapat memintanya. */
+export const generateUploadBannerUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Pasang gambar banner yang sudah lolos pemeriksaan isi.
+ *
+ * Seperti proposal, unggahan langsung ke storage tidak melewati server, jadi
+ * label MIME dari peramban tidak bisa dipercaya: beberapa byte pertama harus
+ * berupa tanda tangan JPEG, PNG, atau WebP. Berkas lama dihapus setelah yang
+ * baru tersimpan agar beranda tidak pernah kehilangan gambar karena unggahan
+ * yang gagal di tengah jalan.
+ */
+export const pasangBannerPromo = action({
+  args: { berkasId: v.id("_storage"), namaBerkas: v.optional(v.string()) },
+  // Anotasi tipe balik mencegah lingkaran inferensi lewat `internal`, sama
+  // seperti `pasangProposal`.
+  handler: async (ctx, args): Promise<{ ok: boolean; namaBerkas: string }> => {
+    await ctx.runQuery(internal.announcements._cekAdmin, {});
+    const blob = await ctx.storage.get(args.berkasId);
+    if (blob === null) throw new Error("Berkas tidak ditemukan.");
+    if (blob.size <= 0) throw new Error("Berkas kosong.");
+    if (blob.size > MAKS_BANNER_BYTE) {
+      throw new Error(
+        `Ukuran banner melebihi ${Math.round(MAKS_BANNER_BYTE / (1024 * 1024))} MB.`,
+      );
+    }
+    const kepala = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
+    if (jenisGambarDariKepala(kepala) === null) {
+      throw new Error("Banner harus berupa gambar JPG, PNG, atau WebP.");
+    }
+    return await ctx.runMutation(internal.announcements._pasangBannerPromo, {
+      berkasId: args.berkasId,
+      namaBerkas: namaBerkasBanner(args.namaBerkas ?? ""),
+    });
+  },
+});
+
+/** Tulis gambar banner yang sudah lolos pemeriksaan isi. */
+export const _pasangBannerPromo = internalMutation({
+  args: {
+    berkasId: v.id("_storage"),
+    namaBerkas: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    const lama = existing?.bannerPromo?.berkasId;
+    const bannerPromo = {
+      ...(existing?.bannerPromo ?? {}),
+      berkasId: args.berkasId,
+      berkasNama: args.namaBerkas,
+      berkasPada: Date.now(),
+      // Unggahan pertama langsung tampil; admin tetap bisa mematikannya.
+      aktif: existing?.bannerPromo?.aktif ?? true,
+    };
+
+    if (existing === null) {
+      await ctx.db.insert("pengumuman", {
+        slot: SLOT,
+        bannerPromo,
+        diperbaruiPada: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(existing._id, {
+        bannerPromo,
+        diperbaruiPada: Date.now(),
+      });
+    }
+    if (lama !== undefined && lama !== args.berkasId) {
+      await ctx.storage.delete(lama);
+    }
+    return { ok: true, namaBerkas: args.namaBerkas };
+  },
+});
+
+/** Lepas gambar banner tanpa mengubah jadwal/sakelar/tautannya. */
+export const hapusBannerPromo = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { userId, user } = await requireAdmin(ctx);
+    const existing = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    const berkasId = existing?.bannerPromo?.berkasId;
+    if (berkasId === undefined || existing === null) return { ok: true };
+    await ctx.db.patch(existing._id, {
+      bannerPromo: {
+        ...existing.bannerPromo,
+        berkasId: undefined,
+        berkasNama: undefined,
+        berkasPada: undefined,
+      },
+      diperbaruiPada: Date.now(),
+    });
+    await ctx.storage.delete(berkasId);
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "hapus_banner_promo",
+      `pengumuman:${SLOT}`,
+      "Gambar banner promo dilepas dari beranda.",
+    );
+    return { ok: true };
   },
 });
 
@@ -744,6 +1013,11 @@ export const resetToDefaults = mutation({
       .withIndex("by_slot", (q) => q.eq("slot", SLOT))
       .first();
     if (existing !== null) {
+      // Berkas storage tidak ikut terhapus bersama barisnya; lepaskan dulu
+      // supaya gambar banner lama tidak menumpuk sebagai yatim.
+      if (existing.bannerPromo?.berkasId !== undefined) {
+        await ctx.storage.delete(existing.bannerPromo.berkasId);
+      }
       await ctx.db.delete(existing._id);
       await audit(
         ctx,

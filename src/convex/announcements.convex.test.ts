@@ -404,4 +404,133 @@ describe("CMS situs publik — pengaturan admin", () => {
       peminjam.mutation(api.announcements.hapusProposal, {}),
     ).rejects.toThrow(/admin/i);
   });
+
+  it("banner promo tampil hanya saat gambar, sakelar, dan promo yang diikat sama-sama berjalan", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPengguna(t, "Admin Banner", {
+      email: "admin-banner@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPengguna(t, "Peminjam Banner", {
+      email: "peminjam-banner@pindai.test",
+      role: "peminjam",
+    });
+
+    // Tanpa gambar: tidak ada yang dirender, bukan kotak kosong.
+    expect(await t.query(api.announcements.bannerPromoBerjalan, {})).toBeNull();
+
+    const png = await t.run((ctx) =>
+      ctx.storage.store(
+        new Blob(
+          [
+            new Uint8Array([
+              0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
+            ]),
+          ],
+          { type: "image/png" },
+        ),
+      ),
+    );
+
+    // Berkas yang bukan gambar ditolak walau namanya gambar.
+    const teks = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["bukan gambar"], { type: "image/png" })),
+    );
+    await expect(
+      admin.action(api.announcements.pasangBannerPromo, { berkasId: teks }),
+    ).rejects.toThrow(/JPG, PNG, atau WebP/i);
+
+    await expect(
+      admin.action(api.announcements.pasangBannerPromo, {
+        berkasId: png,
+        namaBerkas: "promo/15%.png",
+      }),
+    ).resolves.toMatchObject({ ok: true, namaBerkas: "promo-15%.png" });
+
+    // Unggahan pertama langsung tampil dengan teks alternatif bawaan.
+    const awal = await t.query(api.announcements.bannerPromoBerjalan, {});
+    expect(awal).toMatchObject({ judul: "Promo PINDAI", tautan: "" });
+    expect(awal?.url).toMatch(/^https?:/);
+
+    await admin.mutation(api.announcements.simpanBannerPromo, {
+      judul: "Promo tenor 7 hari",
+      tautan: "/promo",
+      aktif: true,
+      promoBungaId: null,
+    });
+    expect(await t.query(api.announcements.bannerPromoBerjalan, {})).toMatchObject({
+      judul: "Promo tenor 7 hari",
+      tautan: "/promo",
+    });
+
+    // Promo yang belum berjalan menahan banner tetap tersembunyi.
+    const sekarang = Date.now();
+    const promoId = await t.run((ctx) =>
+      ctx.db.insert("promoBunga", {
+        nama: "Banner tes",
+        persenBunga: 15,
+        tenor: [7],
+        mulai: sekarang + 86_400_000,
+        selesai: sekarang + 2 * 86_400_000,
+        aktif: true,
+        dibuatPada: sekarang,
+        diperbaruiPada: sekarang,
+        diperbaruiOleh: "tes",
+      }),
+    );
+    await admin.mutation(api.announcements.simpanBannerPromo, {
+      judul: "Promo tenor 7 hari",
+      tautan: "/promo",
+      aktif: true,
+      promoBungaId: promoId,
+    });
+    expect(await t.query(api.announcements.bannerPromoBerjalan, {})).toBeNull();
+
+    // Begitu promonya berjalan, banner ikut terbit.
+    await t.run((ctx) =>
+      ctx.db.patch(promoId, {
+        mulai: sekarang - 86_400_000,
+        selesai: sekarang + 86_400_000,
+      }),
+    );
+    expect(await t.query(api.announcements.bannerPromoBerjalan, {})).toMatchObject({
+      promoNama: "Banner tes",
+    });
+
+    // Sakelar admin tetap yang terakhir menentukan.
+    await admin.mutation(api.announcements.simpanBannerPromo, {
+      judul: "Promo tenor 7 hari",
+      tautan: "/promo",
+      aktif: false,
+      promoBungaId: promoId,
+    });
+    expect(await t.query(api.announcements.bannerPromoBerjalan, {})).toBeNull();
+
+    // Tautan luar ditolak; banner hanya boleh mengarah ke rute internal.
+    await expect(
+      admin.mutation(api.announcements.simpanBannerPromo, {
+        judul: "Promo tenor 7 hari",
+        tautan: "https://situs-luar.test/promo",
+        aktif: true,
+        promoBungaId: null,
+      }),
+    ).rejects.toThrow(/path internal/i);
+
+    await expect(
+      peminjam.mutation(api.announcements.simpanBannerPromo, {
+        judul: "Bukan haknya",
+        tautan: "",
+        aktif: true,
+        promoBungaId: null,
+      }),
+    ).rejects.toThrow(/admin/i);
+    await expect(
+      peminjam.action(api.announcements.pasangBannerPromo, { berkasId: png }),
+    ).rejects.toThrow(/admin/i);
+
+    await expect(
+      admin.mutation(api.announcements.hapusBannerPromo, {}),
+    ).resolves.toEqual({ ok: true });
+    expect(await t.query(api.announcements.bannerPromoBerjalan, {})).toBeNull();
+  });
 });
