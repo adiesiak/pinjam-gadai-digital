@@ -862,12 +862,14 @@ export const createLoanApplication = mutation({
     // Batas ukuran/jenis yang hanya diperiksa di form bisa dilewati dengan
     // mengirim langsung ke URL unggah, jadi aturannya ditegakkan di sini.
     // Fungsi ini melempar pesan siap tampil bila berkas tidak lolos.
-    for (const [label, id] of [
-      ["Foto KTP", args.dokKtpId],
-      ["Selfie dengan KTP", args.dokSelfieKtpId],
-      ["Slip gaji / bukti penghasilan", args.dokSlipGajiId],
+    // `jenisDokumen` menegakkan masa berlaku: berkas KTP/selfie/slip yang dipakai
+    // ulang dari KYC lama ditolak, sehingga nasabah mengunggah yang baru.
+    for (const [label, id, jenis] of [
+      ["Foto KTP", args.dokKtpId, "ktp"],
+      ["Selfie dengan KTP", args.dokSelfieKtpId, "selfie"],
+      ["Slip gaji / bukti penghasilan", args.dokSlipGajiId, "buktiPenghasilan"],
     ] as const) {
-      await periksaBerkasIdentitasStorage(ctx, label, id);
+      await periksaBerkasIdentitasStorage(ctx, label, id, { jenisDokumen: jenis });
     }
 
     // ===== Jaminan tambahan =====
@@ -890,7 +892,7 @@ export const createLoanApplication = mutation({
         ctx,
         "Foto Kartu Keluarga",
         args.dokKartuKeluargaId,
-        { bolehPdf: true },
+        { bolehPdf: true, jenisDokumen: "kartuKeluarga" },
       );
       if (args.dokBuktiDomisiliId === undefined) {
         throw new Error(
@@ -901,7 +903,7 @@ export const createLoanApplication = mutation({
         ctx,
         "Bukti domisili",
         args.dokBuktiDomisiliId,
-        { bolehPdf: true },
+        { bolehPdf: true, jenisDokumen: "buktiDomisili" },
       );
       if (args.atmDititipkan !== true) {
         throw new Error(

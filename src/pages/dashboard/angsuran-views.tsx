@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   CalendarClock,
+  CalendarPlus,
   CheckCircle2,
   Clock3,
   ReceiptText,
@@ -33,6 +34,7 @@ import {
   PENERBIT_KUITANSI,
   PENAFIAN_PINDAI,
 } from "@/lib/branding";
+import { buatIcs, namaBerkasIcs, type AcaraKalender } from "@/lib/kalenderIcs";
 import { formatRupiah } from "@/lib/money";
 import { formatTanggalWIB } from "@/lib/waktu";
 import { EmptyState } from "./empty-state";
@@ -41,6 +43,43 @@ type DataAngsuran = FunctionReturnType<typeof api.angsuran.myAngsuran>;
 type Grup = DataAngsuran["grup"][number];
 type Baris = Grup["angsuran"][number];
 type Kuitansi = { grup: Grup; baris: Baris };
+
+/**
+ * Acara kalender dari tagihan yang BELUM lunas.
+ *
+ * Angsuran yang sudah lunas tidak dimasukkan: kalender yang masih memuat
+ * tagihan lama akan mengingatkan nasabah untuk sesuatu yang sudah dibayar.
+ * Tanggalnya diambil apa adanya dari server, bukan dihitung ulang di layar.
+ */
+function acaraJadwal(data: DataAngsuran): AcaraKalender[] {
+  return data.grup.flatMap((grup) =>
+    grup.angsuran
+      .filter((baris) => baris.status !== "lunas")
+      .map((baris) => ({
+        uid: `angsuran-${baris._id}`,
+        judul: `Angsuran ${baris.nomor}/${grup.ringkasan.jumlah} · ${grup.nomorReferensi}`,
+        deskripsi: `Total ${formatRupiah(baris.total)}. Bayar dari halaman Cicilan PINDAI, lalu unggah bukti transfernya.`,
+        mulai: baris.jatuhTempoPada,
+      })),
+  );
+}
+
+/** Unduh jadwal sebagai berkas `.ics` — dibuka aplikasi kalender ponsel. */
+function unduhJadwalKalender(data: DataAngsuran) {
+  const isi = buatIcs(acaraJadwal(data), {
+    namaKalender: "Jadwal tagihan PINDAI",
+  });
+  const blob = new Blob([isi], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const tautan = document.createElement("a");
+  tautan.href = url;
+  tautan.download = namaBerkasIcs();
+  tautan.rel = "noopener";
+  document.body.appendChild(tautan);
+  tautan.click();
+  tautan.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 
 /** Nada visual mengikuti status, bukan warna acak. */
 const NADA: Record<TampilanAngsuran, string> = {
@@ -387,16 +426,38 @@ export function AngsuranSection() {
     );
   }
 
+  const adaTagihan = acaraJadwal(data).length > 0;
+
   return (
     <div className="mt-6 space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">Cicilan</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Tagihan per angsuran, denda yang menempel pada tagihan yang telat, dan
-          bukti transfer untuk dicocokkan tim PINDAI. Angka di halaman ini
-          dihitung server dari jadwal pinjaman Anda.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold tracking-tight">Cicilan</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Tagihan per angsuran, denda yang menempel pada tagihan yang telat, dan
+            bukti transfer untuk dicocokkan tim PINDAI. Angka di halaman ini
+            dihitung server dari jadwal pinjaman Anda.
+          </p>
+        </div>
+        {adaTagihan && (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 shrink-0 gap-2"
+            onClick={() => unduhJadwalKalender(data)}
+          >
+            <CalendarPlus className="size-4" aria-hidden />
+            Simpan ke kalender
+          </Button>
+        )}
       </div>
+
+      {adaTagihan && (
+        <p className="text-xs leading-5 text-muted-foreground">
+          Berkas kalender berisi tanggal jatuh tempo yang belum lunas, dengan
+          pengingat sehari sebelumnya. Buka berkasnya di ponsel untuk menambahkannya.
+        </p>
+      )}
 
       {data.ringkasan.terlambat > 0 && (
         <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-800">

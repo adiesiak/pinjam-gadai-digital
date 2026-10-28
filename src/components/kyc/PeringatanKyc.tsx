@@ -26,6 +26,7 @@ import { BadgeCheck, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { sensorNik } from "@/lib/kyc";
+import { formatTanggalWIB } from "@/lib/waktu";
 
 export function PeringatanKyc({ onBukaKyc }: { onBukaKyc?: () => void }) {
   return (
@@ -116,12 +117,19 @@ export function IdentitasKycTerverifikasi({
   nik = "",
   nomorWhatsApp = "",
   petunjuk,
+  dokumenKedaluwarsa = [],
   onBukaKyc,
 }: {
   namaLengkap: string;
   /** NIK apa adanya dari KYC; ditampilkan bertopeng oleh komponen ini. */
   nik?: string;
   nomorWhatsApp?: string;
+  /**
+   * Dokumen KYC yang sudah lewat masa berlaku. Daftarnya kosong pada nasabah
+   * dengan dokumen terbaru; bila berisi, pengajuan baru tidak boleh dikirim
+   * sebelum dokumennya diperbarui.
+   */
+  dokumenKedaluwarsa?: ReadonlyArray<{ label: string; berlakuSampai: number }>;
   /**
    * Kalimat pengantar yang disesuaikan produknya (pinjaman tunai / kredit
    * barang / gadai). Bawaannya menyebut parameter pinjaman tunai.
@@ -158,6 +166,24 @@ export function IdentitasKycTerverifikasi({
           </div>
         ))}
       </dl>
+      {dokumenKedaluwarsa.length > 0 && (
+        <div
+          role="alert"
+          className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950"
+        >
+          <p className="text-xs font-semibold">Dokumen KYC perlu diperbarui</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs leading-5">
+            {dokumenKedaluwarsa.map((dokumen) => (
+              <li key={dokumen.label}>
+                {dokumen.label} berlaku sampai {formatTanggalWIB(dokumen.berlakuSampai)}.
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs leading-5">
+            Unggah ulang dokumennya di halaman KYC sebelum mengirim pengajuan baru.
+          </p>
+        </div>
+      )}
       {onBukaKyc !== undefined && (
         <Button
           type="button"

@@ -13,6 +13,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireAdminSession } from "./adminAuthz";
 import { tautanBerkas } from "./berkas";
 import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
+import { waktuBerkasDiunggah } from "./berkasWaktu";
 import { ROLES } from "./schema";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { bacaDataDiri, galatDataDiri, type DataDiriForm } from "../lib/dataDiri";
@@ -750,6 +751,8 @@ export const kycSaya = query({
           hubunganKontakDarurat: "",
         },
         dokumen: { ktpId: null, selfieKtpId: null, buktiPenghasilanId: null },
+        // Belum ada baris = belum ada berkas, jadi belum ada waktu unggah.
+        diunggahDokumen: { ktp: null, selfie: null, buktiPenghasilan: null },
         url: { ktp: null, selfie: null, buktiPenghasilan: null },
         kekurangan: kekuranganKyc({}),
         lengkap: false,
@@ -783,6 +786,16 @@ export const kycSaya = query({
       tautanBerkas(row.ktpId),
       tautanBerkas(row.selfieKtpId),
       tautanBerkas(row.buktiPenghasilanId),
+    ]);
+    // Waktu unggah asli tiap dokumen. Formulir pengajuan memakainya untuk
+    // memperingatkan dokumen yang lewat masa berlaku SEBELUM formulir diisi
+    // panjang; server tetap memeriksa ulang saat pengajuan dikirim.
+    const [unggahKtp, unggahSelfie, unggahBukti] = await Promise.all([
+      row.ktpId === undefined ? null : waktuBerkasDiunggah(ctx, row.ktpId),
+      row.selfieKtpId === undefined ? null : waktuBerkasDiunggah(ctx, row.selfieKtpId),
+      row.buktiPenghasilanId === undefined
+        ? null
+        : waktuBerkasDiunggah(ctx, row.buktiPenghasilanId),
     ]);
     const riwayat = await ctx.db
       .query("kycRiwayat")
@@ -832,6 +845,12 @@ export const kycSaya = query({
         ktpId: row.ktpId ?? null,
         selfieKtpId: row.selfieKtpId ?? null,
         buktiPenghasilanId: row.buktiPenghasilanId ?? null,
+      },
+      /** Waktu unggah berkas (epoch ms) — dasar masa berlaku di `lib/masaBerlakuDokumen`. */
+      diunggahDokumen: {
+        ktp: unggahKtp,
+        selfie: unggahSelfie,
+        buktiPenghasilan: unggahBukti,
       },
       url: { ktp, selfie, buktiPenghasilan: bukti },
       kekurangan: kekuranganKyc(r),

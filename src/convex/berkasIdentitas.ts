@@ -12,6 +12,13 @@ import {
   periksaIsiGambar,
   periksaUkuranGambar,
 } from "../lib/kyc";
+import {
+  labelDokumen,
+  pesanMasaBerlaku,
+  statusMasaBerlaku,
+  type JenisDokumen,
+} from "../lib/masaBerlakuDokumen";
+import { waktuBerkasDiunggah } from "./berkasWaktu";
 
 /**
  * Byte pertama yang dibaca untuk memeriksa isi + header dimensi. Cukup untuk
@@ -39,12 +46,17 @@ const PREFIKS_BACA = 64 * 1024;
  * action yang boleh membaca isi berkas di Convex.
  *
  * Melempar `Error` dengan kalimat siap tampil bila berkas tidak lolos.
+ *
+ * `opsi.jenisDokumen` menambahkan pemeriksaan MASA BERLAKU: berkas yang diunggah
+ * terlalu lama tidak boleh dipakai lagi untuk pengajuan baru, sekalipun isinya
+ * masih terbaca. Tanpa ini, slip gaji setahun lalu tetap lolos syarat "3 bulan
+ * terakhir" hanya karena berkasnya masih ada di penyimpanan.
  */
 export async function periksaBerkasIdentitasStorage(
   ctx: MutationCtx,
   label: string,
   id: Id<"_storage">,
-  opsi: { bolehPdf?: boolean } = {},
+  opsi: { bolehPdf?: boolean; jenisDokumen?: JenisDokumen } = {},
 ): Promise<{ size: number; contentType: string }> {
   const meta = await ctx.db.system.get("_storage", id);
   const bentuk = periksaBerkasIdentitas(
@@ -53,7 +65,32 @@ export async function periksaBerkasIdentitasStorage(
     opsi,
   );
   if (bentuk !== null) throw new Error(bentuk);
+  if (opsi.jenisDokumen !== undefined) {
+    await pastikanDokumenMasihBerlaku(ctx, opsi.jenisDokumen, id);
+  }
   return { size: meta?.size ?? 0, contentType: meta?.contentType ?? "" };
+}
+
+/** Tolak dokumen yang sudah lewat jendela berlakunya, dengan kalimat siap tampil. */
+async function pastikanDokumenMasihBerlaku(
+  ctx: MutationCtx,
+  jenis: JenisDokumen,
+  id: Id<"_storage">,
+): Promise<void> {
+  const waktu = await waktuBerkasDiunggah(ctx, id);
+  // Berkas yang tidak ada sudah ditolak `periksaBerkasIdentitas` di atas.
+  if (waktu === null) return;
+  const status = statusMasaBerlaku(jenis, waktu);
+  if (!status.kedaluwarsa) return;
+  const pesan = pesanMasaBerlaku([
+    {
+      jenis,
+      label: labelDokumen(jenis),
+      berlakuSampai: status.berlakuSampai,
+      lewatHari: Math.max(1, -status.sisaHari),
+    },
+  ]);
+  if (pesan !== null) throw new Error(pesan);
 }
 
 /**

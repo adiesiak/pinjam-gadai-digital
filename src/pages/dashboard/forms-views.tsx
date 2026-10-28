@@ -54,6 +54,10 @@ import {
 import { isKycVerified } from "@/lib/kycStatus";
 import { periksaMinimumPokok, syaratUnderwriting } from "@/lib/kebijakanPinjaman";
 import {
+  dokumenKedaluwarsa as cariDokumenKedaluwarsa,
+  pesanMasaBerlaku,
+} from "@/lib/masaBerlakuDokumen";
+import {
   BULANAN_LIMITS,
   hitungSimulasiBulanan,
   persenBungaPerBulan,
@@ -648,6 +652,19 @@ export function LoanForm({
       })
     : null;
   const identitasTersimpan = identitasKyc !== null;
+  // Dokumen KYC yang dipakai ulang juga punya umur: KTP, selfie, dan slip gaji
+  // tidak boleh dipakai selamanya. Dihitung dari waktu unggah asli (server),
+  // bukan dari tanggal yang diketik di formulir.
+  const dokumenKedaluwarsaKyc = kycSiap
+    ? cariDokumenKedaluwarsa([
+        { jenis: "ktp", diunggahPada: kycQuery?.diunggahDokumen.ktp ?? null },
+        { jenis: "selfie", diunggahPada: kycQuery?.diunggahDokumen.selfie ?? null },
+        {
+          jenis: "buktiPenghasilan",
+          diunggahPada: kycQuery?.diunggahDokumen.buktiPenghasilan ?? null,
+        },
+      ])
+    : [];
   // Nama untuk akad & ledger: dari KYC bila sudah terverifikasi, kalau tidak
   // dari isian formulir.
   const namaPengajuan = identitasKyc === null ? namaLengkap : identitasKyc.namaLengkap;
@@ -897,6 +914,11 @@ export function LoanForm({
         );
         return;
       }
+    } else if (dokumenKedaluwarsaKyc.length > 0) {
+      // Ditahan di sini supaya nasabah tidak mengisi seluruh formulir lalu
+      // ditolak server; pesannya sama dengan yang dipakai server.
+      setError(pesanMasaBerlaku(dokumenKedaluwarsaKyc) ?? "Dokumen KYC sudah lewat masa berlaku.");
+      return;
     }
     // Jaminan tambahan — diperiksa juga di server. PIN tidak pernah diminta:
     // yang dicatat hanya nomor tanda terima penitipan kartu ATM.
@@ -1053,6 +1075,7 @@ export function LoanForm({
           namaLengkap={identitasKyc.namaLengkap}
           nik={identitasKyc.nik}
           nomorWhatsApp={identitasKyc.nomorWhatsApp}
+          dokumenKedaluwarsa={dokumenKedaluwarsaKyc}
           onBukaKyc={onBukaKyc}
         />
       )}
