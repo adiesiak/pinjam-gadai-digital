@@ -73,6 +73,7 @@ import {
 } from "./ledger";
 import { getConfig, audit, tarifDendaBerlaku } from "./system";
 import { requireGerbangLokasi } from "./lokasi";
+import { adalahAkunUji } from "./akunUjiInternal";
 import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { requireKycTerverifikasi } from "./kyc";
@@ -580,13 +581,18 @@ export const createLoanApplication = mutation({
     dokBuktiDomisiliId: v.optional(v.id("_storage")),
     atmDititipkan: v.optional(v.boolean()),
     nomorTandaTerimaAtm: v.optional(v.string()),
-    /** Lokasi real (GPS device) saat pengajuan — wajib, bukan input manual. */
-    lokasiAjukan: v.object({
+    /**
+     * Lokasi real (GPS device) saat pengajuan — wajib untuk nasabah, bukan
+     * input manual. Akun uji internal boleh mengirim tanpa titik: gerbang
+     * lokasi melewatinya, dan titik peramban admin tidak boleh tercatat sebagai
+     * lokasi nasabah.
+     */
+    lokasiAjukan: v.optional(v.object({
       lat: v.number(),
       lng: v.number(),
       akurasi: v.number(),
       waktu: v.number(),
-    }),
+    })),
     /**
      * Jejak anti-pengiriman-palsu dari formulir, diperiksa `gerbangPengajuan`
      * sebelum pekerjaan mahal apa pun. Kolom jebakan yang TERISI adalah tanda
@@ -909,14 +915,22 @@ export const createLoanApplication = mutation({
       }
     }
     // Lokasi real wajib: bukan (0,0), koordinat valid, dan segar (≤10 menit).
+    // Akun uji internal dikecualikan dari kewajiban ini — sama dengan gerbang
+    // lokasinya — dan titik yang tidak ada tidak disimpan sebagai lokasi palsu.
     const lok = args.lokasiAjukan;
-    const lokValid =
-      lok.lat !== 0 &&
-      lok.lng !== 0 &&
-      Math.abs(lok.lat) <= 90 &&
-      Math.abs(lok.lng) <= 180 &&
-      Date.now() - lok.waktu < 10 * 60 * 1000;
-    if (!lokValid) {
+    if (lok !== undefined) {
+      const lokValid =
+        lok.lat !== 0 &&
+        lok.lng !== 0 &&
+        Math.abs(lok.lat) <= 90 &&
+        Math.abs(lok.lng) <= 180 &&
+        Date.now() - lok.waktu < 10 * 60 * 1000;
+      if (!lokValid) {
+        throw new Error(
+          "Izinkan akses lokasi perangkat — pengajuan wajib menyertakan posisi real Anda.",
+        );
+      }
+    } else if (!(await adalahAkunUji(ctx, userId))) {
       throw new Error(
         "Izinkan akses lokasi perangkat — pengajuan wajib menyertakan posisi real Anda.",
       );
@@ -1021,7 +1035,7 @@ export const createLoanApplication = mutation({
             nomorTandaTerimaAtm: nomorTandaTerima,
           }
         : {}),
-      lokasiAjukan: { ...lok, waktu: now },
+      ...(lok !== undefined ? { lokasiAjukan: { ...lok, waktu: now } } : {}),
       tandaTanganPeminjam: tandaTangan,
       tandaTanganPada: now,
       persetujuanPengajuanPada: now,

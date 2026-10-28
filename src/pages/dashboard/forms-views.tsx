@@ -9,9 +9,11 @@ import {
   PeringatanKyc,
 } from "@/components/kyc/PeringatanKyc";
 import { BlokLokasiKirim } from "@/components/BlokLokasiKirim";
+import { PemilihTanggalJatuhTempo } from "@/components/PemilihTanggalJatuhTempo";
 import { GerbangTurnstile, turnstileDipasang } from "@/components/GerbangTurnstile";
 import { JebakanFormulir } from "@/components/JebakanFormulir";
 import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
+import { AKUN_UJI } from "@/lib/akunUji";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BilahTakTentu } from "@/components/ui/loading";
@@ -36,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { UnggahDokumen } from "@/components/admin/pengajuan-manual/UnggahDokumen";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useAuth } from "@/hooks/use-auth";
 import { useCegahTinggalkan, useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { NAMA_ENTITAS_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
@@ -64,11 +67,8 @@ import {
   PINDAI_PRICING,
   quoteLoanBunga,
   TENOR_OPTIONS,
-  TENOR_PERPANJANGAN,
   tenorHarianDefault,
   tenorHarianEfektif,
-  tenorHarianSah,
-  tenorHarianSemua,
   tenorHarianTersedia,
 } from "@/lib/loan";
 import { formatRupiah, percentOf } from "@/lib/money";
@@ -172,6 +172,10 @@ export function LoanForm({
 }) {
   // Skema harian (1 jt / 28 hari) atau bulanan (1/3/6 bulan) — dua paket
   // harga berbeda; formulir menampilkan rincian sesuai skema terpilih.
+  // Akun uji internal tidak diminta GPS: alat ujinya bisa dipakai di mana saja,
+  // dan titik peramban admin tidak boleh tercatat sebagai lokasi nasabah.
+  const { user } = useAuth();
+  const akunUji = user?.name?.trim() === AKUN_UJI.nama;
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const [pokok, setPokok] = useState<number>(LOAN_LIMITS.maxPokok);
   const [tenorHari, setTenorHari] = useState<string>(
@@ -352,10 +356,11 @@ export function LoanForm({
   // Minta izin GPS otomatis saat form dibuka. Dijadwalkan sebagai microtask
   // agar tidak memanggil setState langsung di dalam tubuh efek.
   useEffect(() => {
+    if (akunUji) return;
     queueMicrotask(() => {
       void ambilLokasi();
     });
-  }, [ambilLokasi]);
+  }, [ambilLokasi, akunUji]);
 
   const handleFile = async (key: KycFileKey, label: string, file: File | undefined) => {
     if (!file) return;
@@ -918,8 +923,8 @@ export function LoanForm({
     // Tombol kirim sekaligus mengambil titik GPS: yang terkirim adalah lokasi
     // saat mengirim, bukan titik lama saat formulir baru dibuka. Bila GPS gagal
     // tetapi titik lama sudah ada, pengajuan tetap boleh lanjut.
-    const titik = (await ambilLokasi()) ?? lokasi;
-    if (titik === null) {
+    const titik = akunUji ? lokasi : (await ambilLokasi()) ?? lokasi;
+    if (!akunUji && titik === null) {
       setError(
         "Lokasi belum bisa diambil. Izinkan akses lokasi pada browser, lalu kirim lagi.",
       );
@@ -948,7 +953,8 @@ export function LoanForm({
     const dokSelfieId = identitasKyc === null ? dok.selfie.id : identitasKyc.dokSelfieKtpId;
     const dokSlipId = identitasKyc === null ? dok.slip.id : identitasKyc.dokSlipGajiId;
     // Jaga-jaga: jangan kirim bila dokumen/lokasi hilang antara validasi dan klik setuju.
-    if (!dokKtpId || !dokSelfieId || !dokSlipId || lokasi === null) return;
+    if (!dokKtpId || !dokSelfieId || !dokSlipId) return;
+    if (!akunUji && lokasi === null) return;
     // Satu pengiriman saja, walau tombol setuju ditekan berulang.
     if (!kirimSekali.kunci()) return;
     if (!turnstileSiap) {
@@ -1002,7 +1008,7 @@ export function LoanForm({
               nomorTandaTerimaAtm: nomorTandaTerimaAtm.trim(),
             }
           : {}),
-        lokasiAjukan: lokasi,
+        lokasiAjukan: lokasi ?? undefined,
         jebakan,
         formDibukaPada,
         kunciIdempotensi: kunciKirim,
@@ -1348,61 +1354,58 @@ export function LoanForm({
         />
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="loan-tenor-trigger">Pilih lama pinjaman</Label>
-          <Select
-            value={bulanan ? tenorBulan : String(tenorHarian)}
-            onValueChange={(v) => (bulanan ? setTenorBulan(v) : setTenorHari(v))}
-            disabled={submitting || !adaSisa}
-          >
-            <SelectTrigger
-              id="loan-tenor-trigger"
-              aria-label="Lama pinjaman"
-              aria-required="true"
-              aria-invalid={error !== null && !tenorHari && !bulanan}
-              aria-describedby={error !== null && !tenorHari && !bulanan ? "loan-form-error" : undefined}
-              className="w-full"
-            >
-              {/* Label dipasang manual: Radix hanya mengisi wajah trigger dari
-                  item yang sudah pernah dirender, jadi tanpa children ini
-                  dropdown tenor tampak kosong sampai dibuka sekali. */}
-              <SelectValue placeholder="Pilih lama pinjaman">
-                {bulanan ? `${tenorBulan} bulan` : `${tenorHarian} hari`}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {bulanan
-                ? TENOR_BULANAN_OPTIONS.map((t) => (
+          {bulanan ? (
+            <>
+              <Label htmlFor="loan-tenor-trigger">Pilih lama pinjaman</Label>
+              <Select
+                value={tenorBulan}
+                onValueChange={setTenorBulan}
+                disabled={submitting || !adaSisa}
+              >
+                <SelectTrigger
+                  id="loan-tenor-trigger"
+                  aria-label="Lama pinjaman"
+                  aria-required="true"
+                  className="w-full"
+                >
+                  {/* Label dipasang manual: Radix hanya mengisi wajah trigger
+                      dari item yang sudah pernah dirender. */}
+                  <SelectValue placeholder="Pilih lama pinjaman">
+                    {`${tenorBulan} bulan`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {TENOR_BULANAN_OPTIONS.map((t) => (
                     <SelectItem key={t} value={String(t)}>
                       {t} bulan
                     </SelectItem>
-                  ))
-                : tenorHarianSemua(pokok).map((t) => {
-                    const aktif = tenorHarianSah(pokok, t);
-                    return (
-                      <SelectItem key={t} value={String(t)} disabled={!aktif}>
-                        {t} hari
-                        {t >= TENOR_PERPANJANGAN.min
-                          ? " · perpanjangan"
-                          : (TENOR_OPTIONS as readonly number[]).includes(t)
-                            ? ""
-                            : " · tanggal bebas"}
-                        {t === tenorHarianDefault(pokok) ? " · bawaan" : ""}
-                        {!aktif ? " · terkunci" : ""}
-                      </SelectItem>
-                    );
-                  })}
-            </SelectContent>
-          </Select>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          ) : (
+            <>
+              <Label htmlFor="loan-tenor-trigger">Tanggal jatuh tempo</Label>
+              <PemilihTanggalJatuhTempo
+                pokok={pokok}
+                tenor={tenorHarian}
+                tambahanHari={tambahanTenorVoucher}
+                disabled={submitting || !adaSisa}
+                invalid={error !== null}
+                onPilih={(hari) => setTenorHari(String(hari))}
+              />
+            </>
+          )}
           {!bulanan && (
             <p className="text-xs leading-5 text-muted-foreground">
               Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari. Bunga{" "}
-              <strong className="font-semibold text-slate-800">{tarifEfektif}%</strong> sesuai matriks
-              produk.
-              Tanggal bebas {TENOR_OPTIONS[0]}–{TENOR_PERPANJANGAN.maks} hari:
-              semakin lama tenor, semakin besar bunga. Di atas 28 hari, setiap hari
-              tambahan dikenakan 1,5 kali harga satu hari tenor 28 hari.
+              <strong className="font-semibold text-slate-800">{tarifEfektif}%</strong> untuk
+              tenor {tenorHarian} hari mengikuti matriks produk. Tanggal yang bisa
+              dipilih 7–50 hari dari hari ini: semakin jauh tanggalnya, semakin besar
+              bunga. Di atas 28 hari, setiap hari tambahan dikenakan 1,5 kali harga
+              satu hari tenor 28 hari.
               {tambahanTenorVoucher > 0
-                ? ` Voucher menambah ${tambahanTenorVoucher} hari, jadi jatuh tempo ${tenorHarian + tambahanTenorVoucher} hari.`
+                ? ` Voucher menambah ${tambahanTenorVoucher} hari tanpa menambah bunga.`
                 : ""}
             </p>
           )}

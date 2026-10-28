@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { usePratinjau } from "@/hooks/use-pratinjau";
+import { AKUN_UJI } from "@/lib/akunUji";
 import { bacaNonce } from "@/lib/pratinjau";
 
 /**
@@ -56,6 +57,11 @@ export function BilahPratinjau({
   busy: boolean;
   onKembali: () => void;
 }) {
+  // Akun uji internal boleh bertransaksi dari pratinjau (lihat
+  // `requireBukanPratinjau`); akun nasabah sungguhan tidak. Kalimat di bawah
+  // harus jujur untuk keduanya. Dibandingkan lewat label yang dikirim server.
+  const akunUji = info !== undefined && info.targetLabel.trim() === AKUN_UJI.nama;
+
   return (
     <aside
       aria-label="Bilah pratinjau Super Admin"
@@ -75,11 +81,13 @@ export function BilahPratinjau({
               <span className="font-semibold">{info.adminLabel}</span>. Berlaku sampai{" "}
               {jamRingkas(info.berlakuHingga)}.
             </p>
-            {/* Dua pembatasan ini tidak terlihat dari layar mana pun: GPS tidak
-                dikirim (gerbang lokasi juga tidak muncul) dan tombol transaksi
-                ditolak server. Tanpa satu baris ini, admin mengira GPS-nya rusak. */}
+            {/* Pembatasan ini tidak terlihat dari layar mana pun: GPS tidak
+                dikirim (gerbang lokasi juga tidak muncul). Tanpa satu baris ini,
+                admin mengira GPS-nya rusak. */}
             <p className="text-xs leading-5 text-[#6e5523]">
-              Lokasi tidak dipantau dan transaksi diblokir selama pratinjau.
+              {akunUji
+                ? "Lokasi tidak dipantau. Akun uji internal tetap bisa bertransaksi seperti nasabah sungguhan."
+                : "Lokasi tidak dipantau dan transaksi diblokir selama pratinjau, kecuali untuk AKUN UJI PINJAMAN."}
             </p>
           </div>
         )}

@@ -11,6 +11,7 @@ import type { Id } from "./_generated/dataModel";
 import { ROLES } from "./schema";
 import { internal } from "./_generated/api";
 import { sesiPratinjauAktif } from "./adminAuthz";
+import { adalahAkunUji } from "./akunUjiInternal";
 import { audit, getConfig } from "./system";
 import { jarakKm } from "../lib/geo";
 import { plafonPeminjam } from "../lib/plafon";
@@ -332,6 +333,11 @@ export async function requireLokasiSegar(
   userId: Id<"users">,
   titikPengajuan?: { lat: number; lng: number },
 ): Promise<void> {
+  // Akun uji internal tidak mewakili lokasi siapa pun: perangkat yang dipakai
+  // menguji bisa berada di mana saja, dan titiknya tidak pernah boleh dicatat
+  // sebagai lokasi nasabah. Gerbang lokasi tetap berlaku untuk semua akun lain.
+  if (await adalahAkunUji(ctx, userId)) return;
+
   const cfg = await getConfig(ctx);
   if (!cfg.lokasiWajib) return;
 
@@ -397,6 +403,10 @@ export async function requireAplikasiNative(
   ctx: QueryCtx,
   userId: Id<"users">,
 ): Promise<void> {
+  // Sama dengan gerbang lokasi: akun uji diuji dari web maupun aplikasi, jadi
+  // syarat "hanya aplikasi" tidak berlaku untuknya.
+  if (await adalahAkunUji(ctx, userId)) return;
+
   const cfg = await getConfig(ctx);
   if (!cfg.wajibAplikasiNative) return;
 

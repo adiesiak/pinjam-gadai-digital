@@ -15,6 +15,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { PESAN_BLOKIR_PRATINJAU } from "./adminAuthz";
+import { AKUN_UJI } from "../lib/akunUji";
 import {
   buatPengguna,
   seedKycTerverifikasi,
@@ -912,6 +913,57 @@ describe("pratinjau Super Admin — jejak nasabah tidak terkotori", () => {
     await expect(
       peminjam.sesi.mutation(api.kredit.ajukanKreditBarang, kredit),
     ).rejects.toThrow(/Lokasi wajib aktif/i);
+  });
+
+  it("membiarkan AKUN UJI PINJAMAN bertransaksi dari pratinjau", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    const uji = await siapkanPengguna(t, AKUN_UJI.nama, {
+      email: "akun.uji@pindai.test",
+      role: "peminjam",
+    });
+    // Penanda akun uji adalah profil nasabah dengan nomor WhatsApp tetapnya.
+    await t.run((ctx) =>
+      ctx.db.insert("nasabahProfil", {
+        userId: uji.userId,
+        namaLengkap: AKUN_UJI.nama,
+        nik: AKUN_UJI.nik,
+        nomorWhatsApp: AKUN_UJI.nomorWhatsApp,
+        diperbaruiPada: Date.now(),
+        diperbaruiOlehLabel: "Seed akun uji",
+      }),
+    );
+    await seedKycTerverifikasi(t, uji.userId);
+
+    const tiket = await admin.sesi.mutation(api.pratinjau.mintaTiket, {
+      targetId: uji.userId,
+      nonce: NONCE,
+    });
+    const sesiUji = await sesiPratinjau(t, tiket.tiketId, uji.userId);
+
+    // Satu-satunya akun yang boleh menulis dari pratinjau: alurnya memang untuk
+    // dicoba, dan lokasi perangkat admin tidak pernah dicatat sebagai nasabah.
+    const hasil = await sesiUji.mutation(api.kredit.ajukanKreditBarang, {
+      namaBarang: "Kulkas dua pintu",
+      kategori: "Elektronik",
+      merchant: "Tokopedia",
+      hargaBarang: 1_000_000,
+      dpPersen: 20,
+      tenorBulan: 6,
+      marginPersenPerBulan: 3,
+      namaLengkap: AKUN_UJI.nama,
+      nik: AKUN_UJI.nik,
+      nomorRekening: "1234567892",
+      nomorWhatsApp: AKUN_UJI.nomorWhatsApp,
+    });
+
+    expect(hasil.nomorReferensi).toMatch(/^KRD-/);
+    const baris = await t.run((ctx) => ctx.db.query("kreditBarang").collect());
+    expect(baris).toHaveLength(1);
+    expect(baris[0].userId).toBe(uji.userId);
   });
 
   it("menutup otomatis pratinjau yang kehabisan waktu, termasuk pemulihan lokasi", async () => {

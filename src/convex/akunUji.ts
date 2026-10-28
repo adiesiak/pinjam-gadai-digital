@@ -24,13 +24,14 @@ import { ROLES } from "./schema";
 import { simpanDataDiriProfil } from "./dataDiriProfil";
 import { ensureKodePeminjam } from "./peminjamCode";
 import { audit } from "./system";
+import { AKUN_UJI } from "../lib/akunUji";
 import { PLAFON_BATAS } from "../lib/plafon";
 import { VERSI_PERSETUJUAN_KYC } from "../lib/persetujuanKyc";
 
 /** Identitas tetap akun uji — dipakai juga untuk mencari baris yang sudah ada. */
-const NAMA_UJI = "AKUN UJI PINJAMAN";
-const NIK_UJI = "3200000000000002";
-const WA_UJI = "628000000002";
+const NAMA_UJI = AKUN_UJI.nama;
+const NIK_UJI = AKUN_UJI.nik;
+const WA_UJI = AKUN_UJI.nomorWhatsApp;
 
 /**
  * PNG 300×200 (pola hijau) untuk ketiga berkas KYC. Ukurannya > 1 KB dan

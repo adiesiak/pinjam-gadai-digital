@@ -76,9 +76,12 @@ ada(cepat, "tandaTanganAda", "kesiapan pengajuan mengikuti tanda tangan dari KYC
 ada(cepat, "lokasiAjukan: titik", "titik GPS tetap dikirim (syarat server)");
 ada(
   cepat,
-  "const titik = (await ambilLokasi()) ?? lokasi",
+  "const titik = akunUji ? lokasi : (await ambilLokasi()) ?? lokasi",
   "titik GPS diambil saat tombol kirim ditekan, bukan dari tombol lokasi terpisah",
 );
+// Tenor dipilih lewat kalender, bukan dropdown puluhan baris "N hari".
+ada(cepat, "<PemilihTanggalJatuhTempo", "tenor dipilih lewat kalender interaktif");
+tidakAda(cepat, "· tanggal bebas", "dropdown tanggal bebas sudah tidak ada");
 tidakAda(cepat, '"Ambil lokasi"', "tidak ada tombol lokasi terpisah");
 tidakAda(cepat, '"Perbarui lokasi"', "tidak ada tombol perbarui lokasi terpisah");
 ada(cepat, "dokKtpId,", "id dokumen KYC dipakai ulang, tidak diunggah lagi");

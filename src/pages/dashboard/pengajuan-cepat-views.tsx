@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { GerbangTurnstile, turnstileDipasang } from "@/components/GerbangTurnstile";
+import { PemilihTanggalJatuhTempo } from "@/components/PemilihTanggalJatuhTempo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -41,8 +42,10 @@ import {
 } from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useAuth } from "@/hooks/use-auth";
 import { useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { JebakanFormulir } from "@/components/JebakanFormulir";
+import { AKUN_UJI } from "@/lib/akunUji";
 import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
 import { maskRekening } from "@/lib/kycTahapan";
 import {
@@ -54,8 +57,6 @@ import {
   TENOR_PERPANJANGAN,
   tenorHarianDefault,
   tenorHarianEfektif,
-  tenorHarianSah,
-  tenorHarianSemua,
 } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 import { bungaSetelahPromo, pilihPromoBunga } from "@/lib/promoBunga";
@@ -151,6 +152,10 @@ export function PengajuanCepatSection({
     perHari: ketentuanBiaya?.persenDendaKeterlambatan ?? LATE_FEE_POLICY.percentPerDay,
     maks: ketentuanBiaya?.maksDendaPersen ?? LATE_FEE_POLICY.maxPercent,
   };
+  // Akun uji internal tidak diminta GPS: alat ujinya bisa dipakai di mana saja,
+  // dan titik peramban admin tidak boleh tercatat sebagai lokasi nasabah.
+  const { user } = useAuth();
+  const akunUji = user?.name?.trim() === AKUN_UJI.nama;
   const createLoan = useMutation(api.loans.createLoanApplication);
   // Gerbang izin server: mencatat percobaan mencurigakan dan menegakkan kunci
   // sementara sebelum payload mahal apa pun disusun.
@@ -259,10 +264,11 @@ export function PengajuanCepatSection({
   // Minta izin GPS otomatis saat formulir dibuka. Dijadwalkan sebagai microtask
   // agar tidak memanggil setState langsung di dalam tubuh efek.
   useEffect(() => {
+    if (akunUji) return;
     queueMicrotask(() => {
       void ambilLokasi();
     });
-  }, [ambilLokasi]);
+  }, [ambilLokasi, akunUji]);
 
   // ===== Hitungan & kesiapan =====
   // Saat sisa batas habis, state nominal bisa masih 0 sebelum efek perbaikan
@@ -327,14 +333,17 @@ export function PengajuanCepatSection({
     // Tombol kirim sekaligus mengambil titik GPS: yang terkirim adalah lokasi
     // saat mengirim, bukan titik lama saat formulir baru dibuka. Bila GPS gagal
     // tetapi titik lama sudah ada, pengajuan tetap boleh lanjut.
-    const titik = (await ambilLokasi()) ?? lokasi;
-    if (titik === null) {
+    const titik = akunUji ? lokasi : (await ambilLokasi()) ?? lokasi;
+    if (!akunUji && titik === null) {
       setError(
         "Lokasi belum bisa diambil. Izinkan akses lokasi pada peramban, lalu kirim lagi.",
       );
       return;
     }
-    const isianSaatKirim: IsianPengajuanCepat = { ...isianCepat, lokasiTercatat: true };
+    const isianSaatKirim: IsianPengajuanCepat = {
+      ...isianCepat,
+      lokasiTercatat: akunUji || titik !== null,
+    };
     const pesan = validasiPengajuanCepat(isianSaatKirim, ktp, sisaBatas);
     if (pesan !== null) {
       setError(pesan);
@@ -382,7 +391,7 @@ export function PengajuanCepatSection({
         dokKtpId,
         dokSelfieKtpId,
         dokSlipGajiId,
-        lokasiAjukan: titik,
+        lokasiAjukan: titik ?? undefined,
         jebakan,
         formDibukaPada,
         kunciIdempotensi: kunciKirim,
@@ -537,36 +546,15 @@ export function PengajuanCepatSection({
             <label htmlFor="cepat-tenor" className="text-xs font-semibold text-slate-900">
               Lama pinjaman
             </label>
-            <Select
-              value={String(tenor)}
-              onValueChange={(nilai) => setTenorHari(nilai)}
-              disabled={submitting || !batas.adaSisa}
-            >
-              <SelectTrigger
+            <div className="mt-1.5">
+              <PemilihTanggalJatuhTempo
                 id="cepat-tenor"
-                aria-label="Lama pinjaman"
-                className="mt-1.5 h-11 w-full rounded-xl text-sm"
-              >
-                <SelectValue>{`${tenor} hari`}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {tenorHarianSemua(pokokHitung).map((hari) => {
-                  const aktif = tenorHarianSah(pokokHitung, hari);
-                  return (
-                    <SelectItem key={hari} value={String(hari)} disabled={!aktif}>
-                      {hari} hari
-                      {hari >= TENOR_PERPANJANGAN.min
-                        ? " · perpanjangan"
-                        : (TENOR_CEPAT as readonly number[]).includes(hari)
-                          ? ""
-                          : " · tanggal bebas"}
-                      {hari === tenorHarianDefault(pokok) ? " · bawaan" : ""}
-                      {!aktif ? " · terkunci" : ""}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+                pokok={pokokHitung}
+                tenor={tenor}
+                disabled={submitting || !batas.adaSisa}
+                onPilih={(hari) => setTenorHari(String(hari))}
+              />
+            </div>
             <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
               Nominal ini menerima tenor {tenorTersedia.join(" / ")} hari. Bunga{" "}
               <strong className="font-semibold text-slate-800">{tarifBunga}%</strong> sesuai matriks

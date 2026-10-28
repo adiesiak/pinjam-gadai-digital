@@ -1,7 +1,8 @@
 import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
+import { adalahAkunUji } from "./akunUjiInternal";
 import { ROLES } from "./schema";
 
 const MAX_VERIFIED_AUTH_SESSIONS = 20;
@@ -59,20 +60,25 @@ export async function getCurrentAuthSessionId(
  * berlaku. Karena itu yang dicocokkan hanya identitas sesi. Sesi asli nasabah
  * (dibuat sebelum pratinjau) tidak pernah cocok.
  */
-export async function sesiPratinjauAktif(ctx: QueryCtx): Promise<boolean> {
+export async function barisPratinjauSesi(
+  ctx: QueryCtx,
+): Promise<Doc<"pratinjauSesi"> | null> {
   const sessionId = await getAuthSessionId(ctx);
-  if (typeof sessionId !== "string") return false;
+  if (typeof sessionId !== "string") return null;
 
   // Satu pembacaan berindeks. Sebelumnya fungsi ini mengumpulkan SELURUH baris
   // pratinjau milik nasabah lalu mencocokkan sesinya; biayanya tumbuh seiring
   // riwayat pratinjau, padahal fungsi ini dipanggil di setiap heartbeat lokasi.
-  const baris = await ctx.db
+  return await ctx.db
     .query("pratinjauSesi")
     .withIndex("by_sesi_pratinjau", (q) =>
       q.eq("sesiPratinjauId", sessionId as Id<"authSessions">),
     )
     .first();
-  return baris !== null;
+}
+
+export async function sesiPratinjauAktif(ctx: QueryCtx): Promise<boolean> {
+  return (await barisPratinjauSesi(ctx)) !== null;
 }
 
 /** Kalimat penolakan transaksi selama pratinjau — satu versi untuk semua jalur. */
@@ -92,7 +98,16 @@ export const PESAN_BLOKIR_PRATINJAU =
  * tidak terpengaruh: yang dicocokkan hanya sesi hasil pratinjau.
  */
 export async function requireBukanPratinjau(ctx: QueryCtx): Promise<void> {
-  if (await sesiPratinjauAktif(ctx)) throw new Error(PESAN_BLOKIR_PRATINJAU);
+  const baris = await barisPratinjauSesi(ctx);
+  if (baris === null) return;
+
+  // AKUN UJI PINJAMAN adalah satu-satunya akun yang boleh bertransaksi dari
+  // pratinjau: akun itu memang dibuat untuk mencoba alur uang dari ujung ke
+  // ujung, tidak punya jalur masuk sendiri, dan tidak mewakili nasabah mana pun.
+  // Pratinjau ke akun nasabah sungguhan tetap hanya untuk melihat.
+  if (await adalahAkunUji(ctx, baris.targetId)) return;
+
+  throw new Error(PESAN_BLOKIR_PRATINJAU);
 }
 
 /** Checks the signed-in user's admin role without granting access to admin data. */
