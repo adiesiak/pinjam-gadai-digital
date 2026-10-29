@@ -644,8 +644,22 @@ export const buatPesananPascabayar = mutation({
     if (tagihan.perangkatHash !== perangkatHash) {
       throw new Error("Tagihan ini dibuat dari perangkat lain. Cek tagihan ulang.");
     }
+
+    // Idempotensi dibaca SEBELUM penanda `dipakai`: klik ganda atau kiriman
+    // ulang setelah jaringan putus harus mengembalikan pesanan yang sama, bukan
+    // pesan "tagihan sudah dipakai" yang justru menyuruh pembeli cek ulang.
+    const kembar = await ctx.db
+      .query("ppobPesanan")
+      .withIndex("by_ref", (q) => q.eq("refId", tagihan.refId))
+      .first();
     if (tagihan.dipakai) {
+      if (kembar !== null) {
+        return { kodePesanan: kembar.kodePesanan, ulang: true };
+      }
       throw new Error("Tagihan ini sudah dipakai untuk pesanan lain. Cek tagihan ulang.");
+    }
+    if (kembar !== null) {
+      return { kodePesanan: kembar.kodePesanan, ulang: true };
     }
     if (tagihan.kedaluwarsa <= Date.now()) {
       throw new Error("Tagihan sudah kedaluwarsa. Cek tagihan ulang.");
@@ -654,14 +668,6 @@ export const buatPesananPascabayar = mutation({
     const whatsapp = nomorTujuanBersih("pulsa", args.whatsapp);
     const nama = args.nama.trim().slice(0, 80);
     if (nama.length < 2) throw new Error("Nama pemesan minimal 2 karakter.");
-
-    const kembar = await ctx.db
-      .query("ppobPesanan")
-      .withIndex("by_ref", (q) => q.eq("refId", tagihan.refId))
-      .first();
-    if (kembar !== null) {
-      return { kodePesanan: kembar.kodePesanan, ulang: true };
-    }
 
     const sekarang = Date.now();
     await periksaBatasPerangkat(ctx, perangkatHash, sekarang);
