@@ -15,6 +15,9 @@ import { internal } from "./_generated/api";
  *   (jauh melewati jendela retry jaringan mana pun).
  * - UTC 18:15 — retensi jejak gerbang pengiriman: buang baris pembatas laju
  *   yang lebih tua dari 7 hari (jejak `auditLog` pelanggarannya tetap ada).
+ * - UTC 17:05 (00:05 WIB) — rekonsiliasi saldo PPOB: bandingkan saldo provider
+ *   dengan saldo buku sejak pemeriksaan terakhir; selisih di atas ambang
+ *   dikabarkan ke admin lewat WhatsApp.
  * - TIAP JAM (menit 20): tutup pratinjau Super Admin yang kehabisan waktu,
  *   cabut sesinya, dan pulihkan status lokasi nasabah.
  * - TIAP JAM: pengingat WhatsApp jatuh tempo & keterlambatan. Jenis
@@ -113,6 +116,15 @@ crons.hourly(
   "tutup-pratinjau-kedaluwarsa",
   { minuteUTC: 20 },
   internal.pratinjau.tutupPratinjauKedaluwarsa,
+  {},
+);
+
+// Rekonsiliasi saldo PPOB sebelum jam kerja: saldo provider kemarin malam
+// dibandingkan dengan catatan deposit dan modal yang sudah terkirim.
+crons.daily(
+  "ppob-rekonsiliasi-saldo",
+  { hourUTC: 17, minuteUTC: 5 },
+  internal.ppobH2h.rekonsiliasiHarian,
   {},
 );
 

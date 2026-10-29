@@ -42,9 +42,10 @@ memakai endpoint resmi:
 - `POST /v1/cek-saldo` — `cmd: "deposit"`, `sign = md5(username + apiKey + "depo")`
 - `POST /v1/transaction` — `sign = md5(username + apiKey + ref_id)`
 
-Hanya produk prabayar yang masuk ke lima kategori PINDAI. Produk pascabayar
-(PDAM, BPJS, TV pascabayar) sengaja belum diambil karena butuh pemeriksaan
-tagihan sebelum pembayaran, bukan satu kolom nomor.
+Produk prabayar masuk ke lima kategori PINDAI, sedangkan produk pascabayar
+(BPJS, PDAM, PLN pascabayar) diambil lewat `cmd: "pasca"`. Produk pascabayar
+memakai alur cek tagihan: `commands: "inq-pasca"` lebih dulu, lalu
+`pay-pasca` dengan `ref_id` yang sama.
 
 Webhook Digiflazz mengirim `X-Hub-Signature: sha1=<hmac>`; yang diverifikasi
 adalah **body mentah** dengan `PPOB_H2H_WEBHOOK_SECRET` sebagai kunci
@@ -85,7 +86,18 @@ yang dikenal, tanpa kode, atau dengan harga nol dibuang.
 { "saldo": 1500000 }
 ```
 
-### 3. `POST /transaksi`
+### 3. `POST /tagihan` (khusus pascabayar)
+
+```json
+{ "refId": "PDB…", "kode": "BPJS-KES", "nomorTujuan": "0001234567890" }
+```
+
+Balas dengan `namaPelanggan`, `periode`, `nominal`/`nilai_tagihan`, `admin`, dan
+`price` (biaya yang ditarik provider dari deposit). `refId` yang sama wajib
+dipakai saat membayar tagihan. Digiflazz memakai endpoint `/transaction` dengan
+`commands: "inq-pasca"`.
+
+### 4. `POST /transaksi`
 
 ```json
 {
@@ -104,12 +116,12 @@ Balasan status:
 `status` menerima `Sukses`/`success`, `Pending`, atau `Gagal`/`failed` (tidak
 peka huruf besar-kecil). Status yang tidak dikenal dianggap masih diproses.
 
-### 4. `GET /transaksi/:refId`
+### 5. `GET /transaksi/:refId`
 
 Dipakai cron dan tombol **Cek**. Balas dengan bentuk yang sama seperti
 `POST /transaksi`.
 
-### 5. Webhook (opsional tetapi disarankan)
+### 6. Webhook (opsional tetapi disarankan)
 
 `POST https://<deployment>.convex.site/ppob/webhook`
 
@@ -192,11 +204,43 @@ peringatan agar rekap dicocokkan dengan mutasi saldo provider.
   `sukses` tidak bisa direfund.
 - Verifikasi TOTP admin dikunci 15 menit setelah 5 kode salah.
 
+## Pascabayar (BPJS, PDAM, PLN)
+
+1. Pembeli mengisi nomor pelanggan, lalu menekan **Cek tagihan**.
+2. Server bertanya ke provider dan menyimpan hasilnya di `ppobTagihan` selama
+   15 menit. Peramban hanya menerima token, bukan hak menentukan nominal.
+3. Setelah tagihan tampil, pembeli membuat pesanan. `refId` pesanan sama dengan
+   `refId` cek tagihan supaya provider membayar tagihan yang tadi dilihat.
+4. Setelah admin memverifikasi transfer, **Proses** mengirim `pay-pasca`.
+
+Biaya platform adalah biaya admin tetap per tagihan (diatur di panel), bukan
+persen dari nominal. Bila biaya yang ditarik provider lebih besar, biaya admin
+otomatis dinaikkan agar platform tidak menjual di bawah modal.
+
+## Pengamanan dan rekonsiliasi
+
+- **Turnstile**: bila `VITE_TURNSTILE_SITE_KEY` dan `TURNSTILE_SECRET_KEY` diisi,
+  setiap pembeli harus lolos verifikasi. Pas terikat hash perangkat dan hanya
+  berlaku sekali; cek tagihan memakai pas tanpa menghabiskannya.
+- **Batas per perangkat**: maksimal 3 pesanan belum dibayar per jam dan jeda
+  30 detik antar pesanan. Hash perangkat dibuat dari ID acak peramban, bukan
+  sidik jari.
+- **Rekening operasional PPOB**: isi nama, bank, dan nomor di panel. Bila kosong,
+  halaman pembayaran memakai rekening usaha utama. Rekening angsuran tidak ikut
+  berubah.
+- **Rekonsiliasi**: setiap 00.05 WIB server membandingkan saldo provider dengan
+  saldo buku (saldo akhir sebelumnya + deposit manual - modal pesanan yang sudah
+  dikirim). Selisih di atas Rp 10.000 dikabarkan ke WhatsApp admin. Riwayat dan
+  tombol **Periksa** ada di tab Pengaturan.
+- **Aksi sensitif**: verifikasi pembayaran, refund, dan penerapan markup massal
+  mengirim pesan WhatsApp ke admin yang sama.
+
 ## Batas yang disengaja
 
 - Pembayaran masih manual (transfer/QRIS) dan diverifikasi admin. Belum ada
   payment gateway otomatis.
-- Hanya produk prabayar. Pascabayar butuh alur cek tagihan tersendiri.
+- Rekonsiliasi memakai pesanan `diproses` dan `sukses`; pesanan yang gagal
+  sebelum dikirim tidak mengurangi saldo provider.
 - Saldo deposit tidak bisa ditarik dari aplikasi; isi deposit di dashboard
   provider.
 - Refund tidak otomatis; admin menandainya setelah transfer balik benar-benar

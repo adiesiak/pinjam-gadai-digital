@@ -1344,10 +1344,11 @@ export const jalankanPengingatJatuhTempo = internalAction({
 
       let waAktif = prefWa.get(p.userId);
       if (waAktif === undefined) {
-        waAktif = await ctx.runQuery(internal.notifikasiNasabah._kanalAktif, {
-          userId: p.userId,
-          kanal: "whatsapp",
-        });
+        waAktif =
+          (await ctx.runQuery(internal.notifikasiNasabah._kanalAktif, {
+            userId: p.userId,
+            kanal: "whatsapp",
+          })) === true;
         prefWa.set(p.userId, waAktif);
       }
       if (waAktif && bolehWa) {

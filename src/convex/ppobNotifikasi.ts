@@ -200,6 +200,85 @@ export const _lepasAlarmSaldo = internalMutation({
   },
 });
 
+/** Nomor admin PPOB; kosong berarti alarm tidak dikirim. */
+export const _nomorAdminPpob = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.db
+      .query("ppobPengaturan")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    return (row?.nomorAdminWa ?? "").trim();
+  },
+});
+
+/**
+ * Kabar instan untuk aksi admin yang mengubah uang atau harga.
+ *
+ * Verifikasi transfer, refund, dan penerapan markup massal tidak boleh lewat
+ * diam-diam: satu salah klik bisa mengirim produk atau mengubah harga seluruh
+ * etalase. Pesan ini sengaja ringkas dan menyebut nominalnya supaya admin lain
+ * bisa menegur saat itu juga, bukan saat tutup buku.
+ */
+export const kabarkanAksiSensitif = internalAction({
+  args: { aksi: v.string(), ringkas: v.string() },
+  handler: async (ctx, args): Promise<{ ok: boolean }> => {
+    const nomor = await ctx.runQuery(internal.ppobNotifikasi._nomorAdminPpob, {});
+    if (nomor === "") return { ok: false };
+
+    const isi = [
+      `PPOB — ${args.aksi}`,
+      args.ringkas,
+      "Bila ini bukan Anda, segera periksa panel PPOB dan ganti kredensial admin.",
+    ].join("\n");
+    const kirim = await ctx.runAction(internal.whatsapp._kirimPesanUmum, {
+      nomor,
+      isi,
+    });
+    await ctx.runMutation(internal.whatsapp._appendLog, {
+      nomorTujuan: nomor,
+      jenis: "ppob_admin_sensitif",
+      isiPesan: isi,
+      status: kirim.ok ? "terkirim" : "gagal",
+      respon: kirim.respon.slice(0, 500),
+    });
+    return { ok: kirim.ok };
+  },
+});
+
+/** Alarm saat saldo buku dan saldo provider berbeda di luar ambang. */
+export const kabarkanSelisihRekonsiliasi = internalAction({
+  args: {
+    selisih: v.number(),
+    saldoBuku: v.number(),
+    saldoProvider: v.number(),
+  },
+  handler: async (ctx, args): Promise<{ ok: boolean }> => {
+    const nomor = await ctx.runQuery(internal.ppobNotifikasi._nomorAdminPpob, {});
+    if (nomor === "") return { ok: false };
+
+    const isi = [
+      "Rekonsiliasi saldo PPOB menemukan selisih.",
+      `Saldo buku: ${rupiah(args.saldoBuku)}`,
+      `Saldo provider: ${rupiah(args.saldoProvider)}`,
+      `Selisih: ${rupiah(args.selisih)}`,
+      "Periksa deposit, pesanan yang dikirim, dan mutasi saldo provider hari ini.",
+    ].join("\n");
+    const kirim = await ctx.runAction(internal.whatsapp._kirimPesanUmum, {
+      nomor,
+      isi,
+    });
+    await ctx.runMutation(internal.whatsapp._appendLog, {
+      nomorTujuan: nomor,
+      jenis: "ppob_selisih_saldo",
+      isiPesan: isi,
+      status: kirim.ok ? "terkirim" : "gagal",
+      respon: kirim.respon.slice(0, 500),
+    });
+    return { ok: kirim.ok };
+  },
+});
+
 /** Periksa saldo provider dan kirim alarm bila di bawah ambang. */
 export const periksaSaldo = internalAction({
   args: {},

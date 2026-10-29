@@ -1160,6 +1160,114 @@ type DataPengaturan = FunctionReturnType<typeof api.ppob.getPengaturan>;
  * Draf `null` berarti "ikuti data server", sehingga perubahan dari perangkat
  * lain langsung terlihat tanpa menimpa ketikan yang sedang berjalan.
  */
+/**
+ * Rekonsiliasi saldo provider.
+ *
+ * Angka di sini adalah hasil pemeriksaan, bukan saldo yang bisa diubah. Tombol
+ * "Periksa sekarang" hanya membandingkan saldo provider dengan catatan deposit
+ * dan modal pesanan yang sudah dikirim.
+ */
+function PanelRekonsiliasi() {
+  const riwayat = useQuery(api.ppob.riwayatRekonsiliasi, {});
+  const periksa = useAction(api.ppobH2h.rekonsiliasiSekarang);
+  const [sibuk, setSibuk] = useState(false);
+  const terakhir = riwayat?.[0];
+
+  const jalankan = async () => {
+    setSibuk(true);
+    try {
+      const hasil = await periksa({});
+      toast.success(
+        hasil.status === "selisih"
+          ? `Selisih ${formatRupiahAman(Math.abs(hasil.selisih))} dicatat dan dikabarkan ke admin.`
+          : hasil.status === "cocok"
+            ? "Saldo provider cocok dengan saldo buku."
+            : "Titik awal rekonsiliasi disimpan.",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Rekonsiliasi gagal dijalankan.");
+    } finally {
+      setSibuk(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-navy">Rekonsiliasi saldo</p>
+          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+            Saldo provider dibandingkan dengan catatan deposit dan modal yang sudah
+            terkirim. Berjalan otomatis pukul 00.05 WIB.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          disabled={sibuk}
+          onClick={() => void jalankan()}
+        >
+          {sibuk ? (
+            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-1.5 size-3.5" />
+          )}
+          Periksa
+        </Button>
+      </div>
+
+      {terakhir === undefined ? (
+        <p className="mt-3 rounded-lg border border-dashed border-slate-300 px-2 py-3 text-[11px] text-muted-foreground">
+          {riwayat === undefined ? "Memuat riwayat…" : "Belum ada pemeriksaan."}
+        </p>
+      ) : (
+        <dl className="mt-3 space-y-1.5 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-muted-foreground">Status</dt>
+            <dd
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                terakhir.status === "cocok"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : terakhir.status === "selisih"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-slate-200 bg-slate-50 text-slate-600",
+              )}
+            >
+              {terakhir.status}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt className="text-muted-foreground">Saldo provider</dt>
+            <dd className="tabular-nums">{formatRupiahAman(terakhir.saldoAkhir)}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt className="text-muted-foreground">Saldo buku</dt>
+            <dd className="tabular-nums">{formatRupiahAman(terakhir.saldoBuku)}</dd>
+          </div>
+          <div className="flex justify-between gap-2 border-t border-slate-200 pt-1.5">
+            <dt className="text-muted-foreground">Selisih</dt>
+            <dd
+              className={cn(
+                "font-semibold tabular-nums",
+                terakhir.selisih === 0
+                  ? "text-slate-800"
+                  : "text-red-700",
+              )}
+            >
+              {formatRupiahAman(terakhir.selisih)}
+            </dd>
+          </div>
+          <p className="pt-1 text-[10px] text-muted-foreground">
+            {formatDate(terakhir.dibuatPada)}
+          </p>
+        </dl>
+      )}
+    </section>
+  );
+}
+
 function FormPengaturan({
   pengaturan,
   onSalin,
@@ -1175,10 +1283,14 @@ function FormPengaturan({
     username: string;
     markupPersen: string;
     markupMin: string;
+    biayaAdminPascabayar: string;
     markupKategori: Record<KunciMarkup, string>;
     nomorAdminWa: string;
     saldoMinimum: string;
     instruksi: string;
+    rekeningPpobNama: string;
+    rekeningPpobBank: string;
+    rekeningPpobNomor: string;
   } | null>(null);
   const [sibuk, setSibuk] = useState(false);
 
@@ -1198,6 +1310,9 @@ function FormPengaturan({
       username: pengaturan.username,
       markupPersen: String(pengaturan.markupPersen),
       markupMin: kelompokkanDigit(String(pengaturan.markupMin)),
+      biayaAdminPascabayar: kelompokkanDigit(
+        String(pengaturan.biayaAdminPascabayar),
+      ),
       markupKategori: Object.fromEntries(
         KUNCI_MARKUP.map((kunci) => [
           kunci,
@@ -1209,6 +1324,9 @@ function FormPengaturan({
       nomorAdminWa: pengaturan.nomorAdminWa,
       saldoMinimum: kelompokkanDigit(String(pengaturan.saldoMinimum)),
       instruksi: pengaturan.instruksi,
+      rekeningPpobNama: pengaturan.rekeningPpobNama,
+      rekeningPpobBank: pengaturan.rekeningPpobBank,
+      rekeningPpobNomor: pengaturan.rekeningPpobNomor,
     };
   const ubah = (patch: Partial<typeof nilai>) =>
     setDraf({ ...nilai, ...patch });
@@ -1234,10 +1352,14 @@ function FormPengaturan({
         username: nilai.username,
         markupPersen: Number(nilai.markupPersen.replace(",", ".")) || 0,
         markupMin: Number(nilai.markupMin.replace(/\D/g, "")) || 0,
+        biayaAdminPascabayar: Number(nilai.biayaAdminPascabayar.replace(/\D/g, "")) || 0,
         markupKategori,
         nomorAdminWa: nilai.nomorAdminWa.trim(),
         saldoMinimum: Number(nilai.saldoMinimum.replace(/\D/g, "")) || 0,
         instruksi: nilai.instruksi,
+        rekeningPpobNama: nilai.rekeningPpobNama.trim(),
+        rekeningPpobBank: nilai.rekeningPpobBank.trim(),
+        rekeningPpobNomor: nilai.rekeningPpobNomor.trim(),
       });
       setDraf(null);
       toast.success("Pengaturan PPOB tersimpan.");
@@ -1341,6 +1463,28 @@ function FormPengaturan({
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+          <p className="text-sm font-semibold text-navy">Tagihan pascabayar</p>
+          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+            Biaya tetap yang ditambahkan ke tagihan BPJS, PDAM, dan PLN pascabayar.
+            Nominal tagihan selalu diambil dari provider, bukan dari peramban.
+          </p>
+          <div className="mt-3 max-w-xs space-y-1.5">
+            <Label htmlFor="ppob-biaya-pasca" className="text-[11px] uppercase tracking-wide">
+              Biaya admin per tagihan (Rp)
+            </Label>
+            <Input
+              id="ppob-biaya-pasca"
+              inputMode="numeric"
+              className="tabular-nums"
+              value={nilai.biayaAdminPascabayar}
+              onChange={(e) =>
+                ubah({ biayaAdminPascabayar: kelompokkanDigit(e.target.value) })
+              }
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
           <p className="text-sm font-semibold text-navy">Markup per kategori</p>
           <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
             Kosongkan untuk mengikuti markup global. Angka di sini menggantikan tarif
@@ -1405,6 +1549,51 @@ function FormPengaturan({
           </div>
         </div>
 
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+          <p className="text-sm font-semibold text-navy">Rekening operasional PPOB</p>
+          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+            Rekening khusus untuk pembelian pulsa dan tagihan, terpisah dari rekening
+            angsuran pinjaman. Kosongkan ketiganya untuk memakai rekening usaha utama.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="ppob-rek-nama" className="text-[11px]">
+                Nama pemilik
+              </Label>
+              <Input
+                id="ppob-rek-nama"
+                value={nilai.rekeningPpobNama}
+                onChange={(e) => ubah({ rekeningPpobNama: e.target.value })}
+                placeholder="Nama rekening"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ppob-rek-bank" className="text-[11px]">
+                Bank
+              </Label>
+              <Input
+                id="ppob-rek-bank"
+                value={nilai.rekeningPpobBank}
+                onChange={(e) => ubah({ rekeningPpobBank: e.target.value })}
+                placeholder="mis. BCA"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ppob-rek-nomor" className="text-[11px]">
+                Nomor rekening
+              </Label>
+              <Input
+                id="ppob-rek-nomor"
+                inputMode="numeric"
+                className="tabular-nums"
+                value={nilai.rekeningPpobNomor}
+                onChange={(e) => ubah({ rekeningPpobNomor: e.target.value })}
+                placeholder="1234567890"
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="ppob-instruksi">Instruksi di halaman pembayaran</Label>
           <Textarea
@@ -1438,6 +1627,8 @@ function FormPengaturan({
       </section>
 
       <aside className="space-y-4">
+        <PanelRekonsiliasi />
+
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="text-sm font-semibold text-navy">Kredensial</p>
           <dl className="mt-3 space-y-2 text-xs">

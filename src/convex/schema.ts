@@ -4058,6 +4058,13 @@ const schema = defineSchema(
         v.literal("token-listrik"),
         v.literal("game"),
         v.literal("ewallet"),
+        v.literal("bpjs"),
+        v.literal("pdam"),
+        v.literal("pln-pascabayar"),
+      ),
+      /** `prabayar` = nominal tetap; `pascabayar` = tagihan dicek dulu. */
+      jenis: v.optional(
+        v.union(v.literal("prabayar"), v.literal("pascabayar")),
       ),
       /** Nama operator/brand dari provider, mis. Telkomsel, PLN, Mobile Legends. */
       operator: v.optional(v.string()),
@@ -4065,6 +4072,8 @@ const schema = defineSchema(
       hargaModal: v.number(),
       /** Harga yang dibayar pembeli — rupiah bulat. */
       hargaJual: v.number(),
+      /** Komisi provider pascabayar per transaksi, bila dilaporkan. */
+      komisi: v.optional(v.number()),
       /** Admin pernah menyetel harga; sinkron tidak menimpanya kecuali di bawah modal. */
       hargaManual: v.optional(v.boolean()),
       /** Sakelar tampil di etalase publik. */
@@ -4101,7 +4110,29 @@ const schema = defineSchema(
         v.literal("token-listrik"),
         v.literal("game"),
         v.literal("ewallet"),
+        v.literal("bpjs"),
+        v.literal("pdam"),
+        v.literal("pln-pascabayar"),
       ),
+      /** Kosong pada pesanan lama = prabayar. */
+      jenis: v.optional(
+        v.union(v.literal("prabayar"), v.literal("pascabayar")),
+      ),
+      /** Tagihan pascabayar yang dipakai; kosong untuk prabayar. */
+      tagihanId: v.optional(v.id("ppobTagihan")),
+      /** Nama pelanggan dari provider (pascabayar). */
+      namaPelanggan: v.optional(v.string()),
+      /** Periode tagihan dari provider, mis. `202610`. */
+      periode: v.optional(v.string()),
+      /** Nominal tagihan sebelum biaya admin provider/platform. */
+      nominalTagihan: v.optional(v.number()),
+      /** Biaya admin provider dan biaya platform, dibekukan saat pesanan dibuat. */
+      biayaAdmin: v.optional(v.number()),
+      biayaPlatform: v.optional(v.number()),
+      /** Rincian tagihan apa adanya dari provider, untuk ditampilkan admin. */
+      rincianTagihan: v.optional(v.string()),
+      /** Penanda perangkat peramban untuk pembatas laju pesanan publik. */
+      perangkatHash: v.optional(v.string()),
       nomorTujuan: v.string(),
       namaPembeli: v.optional(v.string()),
       /** Nomor WhatsApp pembeli untuk konfirmasi pembayaran & kendala. */
@@ -4154,6 +4185,7 @@ const schema = defineSchema(
       .index("by_whatsapp", ["whatsapp", "dibuatPada"])
       .index("by_user", ["userId", "dibuatPada"])
       .index("by_referensi", ["referensiBank"])
+      .index("by_perangkat", ["perangkatHash", "dibuatPada"])
       .index("by_dibuat", ["dibuatPada"]),
 
     /**
@@ -4176,6 +4208,83 @@ const schema = defineSchema(
     }).index("by_waktu", ["dibuatPada"]),
 
     /**
+     * Cek tagihan pascabayar yang sudah diverifikasi provider.
+     *
+     * Baris ini adalah bukti bahwa nominal tagihan berasal dari provider, bukan
+     * dari angka kiriman peramban. `refId` dipakai ulang saat pembayaran karena
+     * Digiflazz mensyaratkan ref_id yang sama untuk inquiry dan pay-pasca.
+     */
+    ppobTagihan: defineTable({
+      token: v.string(),
+      refId: v.string(),
+      produkKode: v.string(),
+      namaProduk: v.string(),
+      kategori: v.union(
+        v.literal("bpjs"),
+        v.literal("pdam"),
+        v.literal("pln-pascabayar"),
+      ),
+      nomorTujuan: v.string(),
+      namaPelanggan: v.string(),
+      periode: v.string(),
+      nominalTagihan: v.number(),
+      hargaModal: v.number(),
+      hargaJual: v.number(),
+      biayaAdmin: v.number(),
+      biayaPlatform: v.number(),
+      laba: v.number(),
+      rincian: v.string(),
+      perangkatHash: v.optional(v.string()),
+      kedaluwarsa: v.number(),
+      dipakai: v.boolean(),
+      dibuatPada: v.number(),
+    })
+      .index("by_token", ["token"])
+      .index("by_kedaluwarsa", ["kedaluwarsa"])
+      .index("by_perangkat", ["perangkatHash", "dibuatPada"]),
+
+    /**
+     * Rekonsiliasi saldo provider per periode.
+     *
+     * Selisih dihitung dari saldo awal + deposit tercatat - modal pesanan yang
+     * sudah dikirim, lalu dibandingkan dengan saldo yang dilaporkan provider.
+     * Baris ini tidak mengubah saldo apa pun; hanya bukti pemeriksaan.
+     */
+    ppobRekonsiliasi: defineTable({
+      periodeMulai: v.number(),
+      saldoAwal: v.number(),
+      deposit: v.number(),
+      modalTerpakai: v.number(),
+      saldoBuku: v.number(),
+      saldoAkhir: v.number(),
+      selisih: v.number(),
+      status: v.union(
+        v.literal("baseline"),
+        v.literal("cocok"),
+        v.literal("selisih"),
+      ),
+      catatan: v.string(),
+      dibuatPada: v.number(),
+      dibuatOleh: v.optional(v.id("users")),
+    }).index("by_dibuat", ["dibuatPada"]),
+
+    /**
+     * Pas singkat setelah Turnstile lolos untuk satu kiriman PPOB.
+     *
+     * Token hanya berlaku sekali dan kedaluwarsa cepat. Tanpa pas ini,
+     * mutation pembuatan pesanan ditolak saat Turnstile aktif.
+     */
+    ppobGerbang: defineTable({
+      token: v.string(),
+      perangkatHash: v.string(),
+      kedaluwarsa: v.number(),
+      dipakai: v.boolean(),
+      dibuatPada: v.number(),
+    })
+      .index("by_token", ["token"])
+      .index("by_kedaluwarsa", ["kedaluwarsa"]),
+
+    /**
      * Pengaturan etalase PPOB — satu baris `slot = "global"`.
      *
      * Username disimpan di sini karena bukan rahasia; API key tetap di
@@ -4195,6 +4304,12 @@ const schema = defineSchema(
       markupPersen: v.number(),
       /** Markup minimum per produk (rupiah), menutup biaya transfer. */
       markupMin: v.number(),
+      /** Biaya admin tetap untuk tagihan pascabayar (rupiah). */
+      biayaAdminPascabayar: v.optional(v.number()),
+      /** Rekening operasional PPOB; kosong = ikut rekening usaha utama. */
+      rekeningPpobNama: v.optional(v.string()),
+      rekeningPpobBank: v.optional(v.string()),
+      rekeningPpobNomor: v.optional(v.string()),
       /**
        * Markup per kategori (%) yang MENGGANTIKAN markup global untuk kategori
        * itu. Pulsa paling sensitif harga, sedangkan token listrik dan voucher

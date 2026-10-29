@@ -14,6 +14,7 @@ import { Loader2, ShieldCheck, ShieldX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "@/convex/_generated/api";
+import { idPerangkatPpob } from "@/lib/ppob";
 import { cn } from "@/lib/utils";
 
 const KUNCI_SITUS = (
@@ -73,15 +74,22 @@ type Status = "memuat" | "siap" | "memeriksa" | "lolos" | "gagal";
 export function GerbangTurnstile({
   onSiap,
   onGalat,
+  onToken,
+  publik = false,
   className,
 }: {
   /** Dipanggil setiap status kelolosan berubah; `true` = boleh mengirim. */
   onSiap: (siap: boolean) => void;
   /** Pesan kegagalan untuk ditampilkan formulir induk, bila ada. */
   onGalat?: (pesan: string | null) => void;
+  /** Pas sekali pakai untuk formulir tanpa akun, mis. pesanan PPOB. */
+  onToken?: (token: string | null) => void;
+  /** `true` = pembeli tanpa akun; memakai endpoint verifikasi publik. */
+  publik?: boolean;
   className?: string;
 }) {
   const verifikasi = useAction(api.turnstile.verifikasiTurnstile);
+  const verifikasiPublik = useAction(api.turnstile.verifikasiGerbangPpob);
   const wadah = useRef<HTMLDivElement | null>(null);
   const apiRef = useRef<ApiTurnstile | null>(null);
   const idWidget = useRef<string | null>(null);
@@ -91,9 +99,9 @@ export function GerbangTurnstile({
   // Callback terbaru disimpan di ref lewat efek, bukan saat render: efek
   // pemasangan widget tidak boleh dipasang ulang setiap render (widget
   // Turnstile tidak suka dipasang dua kali).
-  const cbRef = useRef({ verifikasi, onSiap, onGalat });
+  const cbRef = useRef({ verifikasi, verifikasiPublik, onSiap, onGalat, onToken, publik });
   useEffect(() => {
-    cbRef.current = { verifikasi, onSiap, onGalat };
+    cbRef.current = { verifikasi, verifikasiPublik, onSiap, onGalat, onToken, publik };
   });
 
   useEffect(() => {
@@ -106,7 +114,36 @@ export function GerbangTurnstile({
       setStatus("memeriksa");
       setPesan(null);
       cbRef.current.onGalat?.(null);
+      cbRef.current.onToken?.(null);
       try {
+        if (cbRef.current.publik) {
+          const hasil = await cbRef.current.verifikasiPublik({
+            token,
+            perangkatId: idPerangkatPpob(),
+          });
+          if (batal) return;
+          if (hasil.aktif && hasil.gerbangToken !== null) {
+            setStatus("lolos");
+            cbRef.current.onSiap(true);
+            cbRef.current.onToken?.(hasil.gerbangToken);
+            return;
+          }
+          if (!hasil.aktif) {
+            // Situs dikonfigurasi tetapi server belum punya rahasia: server juga
+            // melewati gerbang, jadi formulir tidak boleh terkunci.
+            setStatus("lolos");
+            cbRef.current.onSiap(true);
+            return;
+          }
+          setStatus("gagal");
+          setPesan(hasil.alasan ?? "Verifikasi keamanan tidak lolos.");
+          cbRef.current.onSiap(false);
+          cbRef.current.onGalat?.(
+            hasil.alasan ?? "Verifikasi keamanan tidak lolos.",
+          );
+          return;
+        }
+
         const hasil = await cbRef.current.verifikasi({ token });
         if (batal) return;
         if (hasil.ok) {
@@ -143,6 +180,7 @@ export function GerbangTurnstile({
           "expired-callback": () => {
             setStatus("siap");
             cbRef.current.onSiap(false);
+            cbRef.current.onToken?.(null);
           },
           "error-callback": () => {
             setStatus("gagal");

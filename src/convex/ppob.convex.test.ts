@@ -16,6 +16,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 import { siapkanPengguna } from "./test.helpers";
+import { hashPerangkat } from "../lib/ppob";
 import { modules } from "./test.setup";
 
 const PENGATURAN = {
@@ -68,16 +69,30 @@ async function bayar(
 async function pesan(
   t: ReturnType<typeof convexTest>,
   nomorTujuan = "081234567890",
+  /** Perangkat berbeda tiap panggilan supaya jeda 30 detik tidak ikut teruji. */
+  perangkatId = crypto.randomUUID(),
 ) {
   return await t.mutation(api.ppob.buatPesanan, {
     kodeProduk: "TSEL10",
     nomorTujuan,
     nama: "Rani",
     whatsapp: "081298765432",
+    perangkatId,
   });
 }
 
 describe("PPOB publik", () => {
+  it("menahan dua pesanan beruntun dari perangkat yang sama", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanEtalase(t);
+    const perangkat = crypto.randomUUID();
+
+    await pesan(t, "081234567890", perangkat);
+    await expect(pesan(t, "081234567891", perangkat)).rejects.toThrow(
+      /Tunggu \d+ detik/,
+    );
+  });
+
   it("membuat pesanan dengan harga dan laba yang dibekukan", async () => {
     const t = convexTest(schema, modules);
     const { admin, produkId } = await siapkanEtalase(t);
@@ -549,12 +564,14 @@ describe("PPOB publik", () => {
       nomorTujuan: "12345678(1234)",
       nama: "Rani",
       whatsapp: "081298765432",
+      perangkatId: crypto.randomUUID(),
     });
     const ketiga = await t.mutation(api.ppob.buatPesanan, {
       kodeProduk: "TSEL10",
       nomorTujuan: "081234567891",
       nama: "Rani",
       whatsapp: "081298765432",
+      perangkatId: crypto.randomUUID(),
     });
 
     await t.run(async (ctx) => {
@@ -593,6 +610,66 @@ describe("PPOB publik", () => {
     expect(laporan.daftarGagal[0]?.kodePesanan).toBe(ketiga.kodePesanan);
   });
 
+  it("pascabayar hanya bisa dipesan dari tagihan yang terikat perangkat", async () => {
+    const t = convexTest(schema, modules);
+    await siapkanEtalase(t);
+    const perangkat = crypto.randomUUID();
+    const tagihan = await t.mutation(internal.ppob._simpanTagihan, {
+      produkKode: "BPJS-KES",
+      namaProduk: "BPJS Kesehatan",
+      kategori: "bpjs",
+      nomorTujuan: "0001234567890",
+      refId: "PDBTAGIHAN0001",
+      perangkatHash: hashPerangkat(perangkat),
+      namaPelanggan: "RANI PELANGGAN",
+      periode: "202610",
+      nominalTagihan: 150_000,
+      hargaModal: 152_500,
+      biayaAdminProvider: 2_500,
+      biayaAdminPlatform: 5_000,
+      rincian: "{}",
+    });
+
+    await expect(
+      t.mutation(api.ppob.buatPesananPascabayar, {
+        tagihanToken: tagihan.token,
+        nama: "Rani",
+        whatsapp: "081298765432",
+        perangkatId: crypto.randomUUID(),
+      }),
+    ).rejects.toThrow(/perangkat lain/);
+
+    const dibuat = await t.mutation(api.ppob.buatPesananPascabayar, {
+      tagihanToken: tagihan.token,
+      nama: "Rani",
+      whatsapp: "081298765432",
+      perangkatId: perangkat,
+    });
+    const pesanan = await t.run((ctx) =>
+      ctx.db
+        .query("ppobPesanan")
+        .withIndex("by_kode_pesanan", (q) => q.eq("kodePesanan", dibuat.kodePesanan))
+        .first(),
+    );
+    expect(pesanan).toMatchObject({
+      jenis: "pascabayar",
+      nominalTagihan: 150_000,
+      biayaPlatform: 5_000,
+      hargaJual: 155_000,
+      hargaModal: 152_500,
+      laba: 2_500,
+      refId: "PDBTAGIHAN0001",
+    });
+
+    const ulang = await t.mutation(api.ppob.buatPesananPascabayar, {
+      tagihanToken: tagihan.token,
+      nama: "Rani",
+      whatsapp: "081298765432",
+      perangkatId: perangkat,
+    });
+    expect(ulang).toEqual({ kodePesanan: dibuat.kodePesanan, ulang: true });
+  });
+
   it("pembeli yang masuk hanya melihat pesanannya sendiri", async () => {
     const t = convexTest(schema, modules);
     await siapkanEtalase(t);
@@ -606,6 +683,7 @@ describe("PPOB publik", () => {
       nomorTujuan: "081234567892",
       nama: "Rani Pembeli",
       whatsapp: "081298765433",
+      perangkatId: crypto.randomUUID(),
     });
     await pesan(t);
 

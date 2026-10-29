@@ -13,16 +13,31 @@
  * dua dasar harga dan dua jenis bukti transaksi.
  */
 
-/** Lima kelompok yang benar-benar bisa diproses provider prabayar. */
+/** Lima kelompok prabayar + tiga tagihan pascabayar. */
 export const KATEGORI_PPOB = [
   "pulsa",
   "data",
   "token-listrik",
   "game",
   "ewallet",
+  "bpjs",
+  "pdam",
+  "pln-pascabayar",
 ] as const;
 
 export type KategoriPpob = (typeof KATEGORI_PPOB)[number];
+
+/** Tagihan yang nominalnya baru diketahui setelah cek tagihan provider. */
+export const KATEGORI_PASCABAYAR = ["bpjs", "pdam", "pln-pascabayar"] as const;
+export type KategoriPascabayar = (typeof KATEGORI_PASCABAYAR)[number];
+export type KategoriPrabayar = Exclude<KategoriPpob, KategoriPascabayar>;
+
+/** Apakah kategori ini memakai alur cek tagihan, bukan nominal tetap. */
+export function kategoriPascabayar(
+  kategori: KategoriPpob,
+): kategori is KategoriPascabayar {
+  return (KATEGORI_PASCABAYAR as readonly string[]).includes(kategori);
+}
 
 export const LABEL_KATEGORI_PPOB: Record<KategoriPpob, string> = {
   pulsa: "Pulsa",
@@ -30,6 +45,9 @@ export const LABEL_KATEGORI_PPOB: Record<KategoriPpob, string> = {
   "token-listrik": "Token listrik",
   game: "Voucher game",
   ewallet: "Saldo e-wallet",
+  bpjs: "BPJS",
+  pdam: "PDAM",
+  "pln-pascabayar": "PLN pascabayar",
 };
 
 /** Status pesanan yang dikenal UI dan server. */
@@ -77,18 +95,28 @@ export function kategoriPpobAman(nilai: unknown): KategoriPpob | null {
 }
 
 /**
- * Kategori Digiflazz (dan server pulsa yang meniru penamaannya) ke lima
- * kelompok PINDAI.
- *
- * Produk yang tidak terpetakan sengaja DIBUANG, bukan dimasukkan ke "lainnya":
- * etalase publik hanya boleh menampilkan jenis yang nomor tujuannya sudah
- * divalidasi. Produk pascabayar (PDAM, BPJS) tidak termasuk karena butuh
- * pemeriksaan tagihan sebelum pembayaran — alur tersendiri, bukan satu kolom
- * nomor.
+ * Kategori Digiflazz (dan server pulsa yang meniru penamaannya) ke kelompok
+ * PINDAI. Kategori `Pascabayar` masih perlu brand untuk memilih BPJS, PDAM,
+ * atau PLN; tanpa brand yang dikenal produknya dibuang.
  */
-export function kategoriDariProvider(nilai: unknown): KategoriPpob | null {
+export function kategoriDariProvider(
+  nilai: unknown,
+  brand?: unknown,
+): KategoriPpob | null {
   if (typeof nilai !== "string") return null;
   const kunci = nilai.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const merek =
+    typeof brand === "string" ? brand.trim().toLowerCase().replace(/[^a-z]/g, "") : "";
+
+  if (kunci === "pascabayar" || kunci === "postpaid") {
+    if (merek.includes("pln")) return "pln-pascabayar";
+    if (merek.includes("pdam") || merek.includes("aetra") || merek.includes("palyja")) {
+      return "pdam";
+    }
+    if (merek.includes("bpjs")) return "bpjs";
+    return null;
+  }
+
   const peta: Record<string, KategoriPpob> = {
     pulsa: "pulsa",
     data: "data",
@@ -160,6 +188,9 @@ export function persenMarkupKategori(
   perKategori: MarkupPerKategori | undefined,
   kategori: KategoriPpob,
 ): number {
+  // Tagihan pascabayar memakai biaya admin tetap, bukan persen dari nominal
+  // tagihan; persentase akan membuat biaya melonjak pada tagihan besar.
+  if (kategoriPascabayar(kategori)) return 0;
   const khusus =
     kategori === "token-listrik"
       ? perKategori?.tokenListrik
@@ -176,6 +207,32 @@ export function labaPesanan(hargaJual: number, hargaModal: number): number {
     throw new Error("Nominal pesanan harus rupiah bulat.");
   }
   return Math.max(0, hargaJual - hargaModal);
+}
+
+/**
+ * Harga yang dibayar pembeli pascabayar: harga jual provider + biaya admin
+ * platform. Biaya admin TIDAK dihitung sebagai persen tagihan.
+ */
+export function hargaJualPascabayar(
+  sellingPrice: number,
+  biayaAdmin: number,
+): number {
+  if (!Number.isInteger(sellingPrice) || sellingPrice < 0) {
+    throw new Error("Harga tagihan harus rupiah bulat yang tidak negatif.");
+  }
+  if (!Number.isInteger(biayaAdmin) || biayaAdmin < 0) {
+    throw new Error("Biaya admin harus rupiah bulat yang tidak negatif.");
+  }
+  return sellingPrice + biayaAdmin;
+}
+
+/** Laba pascabayar = selisih harga jual provider + biaya admin platform. */
+export function labaPascabayar(
+  price: number,
+  sellingPrice: number,
+  biayaAdmin: number,
+): number {
+  return labaPesanan(hargaJualPascabayar(sellingPrice, biayaAdmin), price);
 }
 
 /**
@@ -204,6 +261,13 @@ export function nomorTujuanBersih(kategori: KategoriPpob, teks: string): string 
   if (kategori === "token-listrik") {
     if (!/^\d{11,12}$/.test(digit)) {
       throw new Error("Nomor meter/token listrik harus 11–12 angka.");
+    }
+    return digit;
+  }
+
+  if (kategoriPascabayar(kategori)) {
+    if (!/^\d{6,20}$/.test(digit)) {
+      throw new Error("Nomor pelanggan harus 6–20 angka.");
     }
     return digit;
   }
@@ -320,4 +384,88 @@ export function bolehDiproses(status: StatusPesananPpob): boolean {
 /** Status yang sudah final — webhook susulan tidak boleh mengubahnya lagi. */
 export function statusFinal(status: StatusPesananPpob): boolean {
   return status === "sukses" || status === "gagal" || status === "refund";
+}
+
+/** Jenis alur sebuah kategori: nominal tetap atau tagihan yang dicek dulu. */
+export function jenisKategori(kategori: KategoriPpob): "prabayar" | "pascabayar" {
+  return kategoriPascabayar(kategori) ? "pascabayar" : "prabayar";
+}
+
+/**
+ * Hash pembatas perangkat untuk pesanan publik.
+ *
+ * Peramban mengirim ID acak yang dibuat sendiri (bukan sidik jari perangkat),
+ * lalu server hanya menyimpan hash-nya. Tujuannya bukan mengenali orang,
+ * melainkan menghitung "berapa pesanan dari peramban yang sama" tanpa menyimpan
+ * ID mentah yang bisa dipakai melacak pengunjung lintas fitur.
+ *
+ * FNV-1a 64-bit dipecah ke dua putaran 32-bit supaya stabil, sinkron, dan tidak
+ * bergantung pada Web Crypto — mutation Convex harus deterministik.
+ */
+export function hashPerangkat(id: string): string {
+  const bersih = id.trim();
+  if (bersih.length < 16 || bersih.length > 128) {
+    throw new Error("ID perangkat tidak sah. Muat ulang halaman lalu coba lagi.");
+  }
+  let a = 0x811c9dc5;
+  let b = 0x01000193;
+  for (let i = 0; i < bersih.length; i += 1) {
+    const kode = bersih.charCodeAt(i);
+    a = Math.imul(a ^ kode, 0x01000193) >>> 0;
+    b = Math.imul(b ^ (kode + i), 0x85ebca6b) >>> 0;
+    b = (b ^ (b >>> 13)) >>> 0;
+  }
+  return `${a.toString(16).padStart(8, "0")}${b.toString(16).padStart(8, "0")}`;
+}
+
+const KUNCI_PERANGKAT_PPOB = "pindai.ppob.perangkat.v1";
+let perangkatCadangan: string | null = null;
+
+/**
+ * ID acak peramban untuk pembatas laju pesanan PPOB.
+ *
+ * Bukan sidik jari perangkat: nilainya dibuat sendiri, tidak memuat data pribadi,
+ * dan hanya dikirim sebagai hash. Bila penyimpanan diblokir (mode privat ketat),
+ * ID sementara dipakai supaya formulir tetap bisa dipakai — pembatas perangkat
+ * menjadi lebih longgar, bukan memblokir pembeli.
+ */
+export function idPerangkatPpob(): string {
+  try {
+    const tersimpan = globalThis.localStorage?.getItem(KUNCI_PERANGKAT_PPOB);
+    if (typeof tersimpan === "string" && tersimpan.length >= 16) return tersimpan;
+    const baru = crypto.randomUUID();
+    globalThis.localStorage?.setItem(KUNCI_PERANGKAT_PPOB, baru);
+    return baru;
+  } catch {
+    perangkatCadangan ??= crypto.randomUUID();
+    return perangkatCadangan;
+  }
+}
+
+/** Batas pesanan belum dibayar dari satu peramban dalam satu jam. */
+export const MAKS_PESANAN_PPOB_PER_PERANGKAT = 3;
+
+/** Jeda minimum antar pesanan dari peramban yang sama. */
+export const JEDA_PESANAN_PPOB_PER_PERANGKAT_MS = 30_000;
+
+/** Umur pas Turnstile dan tagihan pascabayar yang sudah dicek. */
+export const MASA_BERLAKU_GERBANG_PPOB_MS = 10 * 60_000;
+export const MASA_BERLAKU_TAGIHAN_PPOB_MS = 15 * 60_000;
+
+/**
+ * Total yang dibayar pembeli pascabayar: tagihan provider + biaya admin
+ * platform. Biaya admin TIDAK memakai persen supaya tagihan besar tidak
+ * menghasilkan biaya layanan yang tidak masuk akal.
+ */
+export function totalTagihanPascabayar(
+  nominalTagihan: number,
+  biayaAdminPlatform: number,
+): number {
+  if (!Number.isInteger(nominalTagihan) || nominalTagihan <= 0) {
+    throw new Error("Nominal tagihan harus rupiah bulat lebih dari nol.");
+  }
+  if (!Number.isInteger(biayaAdminPlatform) || biayaAdminPlatform < 0) {
+    throw new Error("Biaya admin harus rupiah bulat yang tidak negatif.");
+  }
+  return nominalTagihan + biayaAdminPlatform;
 }

@@ -23,10 +23,20 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { v } from "convex/values";
 
-import { kategoriDariProvider, kategoriPpobAman, type KategoriPpob } from "../lib/ppob";
+import {
+  buatRefId,
+  kategoriDariProvider,
+  kategoriPascabayar,
+  kategoriPpobAman,
+  nomorTujuanBersih,
+  type KategoriPpob,
+} from "../lib/ppob";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
+
+/** Selisih saldo di atas angka ini memicu alarm; sama dengan panel PPOB. */
+const PPOB_AMBANG_REKONSILIASI = 10_000;
 
 type Provider = "digiflazz" | "kustom";
 
@@ -36,14 +46,18 @@ type PengaturanH2h = {
   username: string;
   markupPersen: number;
   markupMin: number;
+  biayaAdminPascabayar: number;
 };
 
 type ProdukH2h = {
   kode: string;
   nama: string;
   kategori: KategoriPpob;
+  jenis: "prabayar" | "pascabayar";
   operator?: string;
   hargaModal: number;
+  /** Komisi buyer dari price list pascabayar, bila dilaporkan. */
+  komisi?: number;
   tersedia: boolean;
   stok?: number;
 };
@@ -53,6 +67,38 @@ type HasilTransaksi = {
   rc?: string;
   sn?: string;
   pesan?: string;
+};
+
+type JenisTransaksi = "prabayar" | "pascabayar";
+
+type HasilTagihan = {
+  namaPelanggan: string;
+  periode: string;
+  nominalTagihan: number;
+  biayaAdmin: number;
+  hargaModal: number;
+  hargaJualProvider: number;
+  rincian: string;
+};
+
+type HasilRekonsiliasi = {
+  saldo: number;
+  saldoBuku: number;
+  selisih: number;
+  status: "baseline" | "cocok" | "selisih";
+};
+
+type TagihanTampil = {
+  token: string;
+  namaProduk: string;
+  kategori: string;
+  nomorTujuan: string;
+  namaPelanggan: string;
+  periode: string;
+  nominalTagihan: number;
+  biayaAdmin: number;
+  total: number;
+  kedaluwarsa: number;
 };
 
 const BATAS_WAKTU_MS = 20_000;
@@ -134,23 +180,46 @@ export function normalisasiProdukDigiflazz(mentah: unknown): ProdukH2h | null {
   const item = mentah as Record<string, unknown>;
   const kode = typeof item.buyer_sku_code === "string" ? item.buyer_sku_code : "";
   const nama = typeof item.product_name === "string" ? item.product_name : "";
-  const kategori = kategoriDariProvider(item.category);
+  const kategori = kategoriDariProvider(item.category, item.brand);
+  const pascabayar =
+    typeof item.category === "string" && /pasca|postpaid/i.test(item.category);
+  const aktifPembeli = item.buyer_product_status !== false;
+  const aktifPenjual = item.seller_product_status !== false;
+  const brand =
+    typeof item.brand === "string" && item.brand.trim() !== ""
+      ? item.brand.trim()
+      : undefined;
+
+  if (pascabayar) {
+    const admin = angka(item.admin) ?? angka(item.price);
+    if (kode === "" || nama === "" || kategori === null || admin === null) {
+      return null;
+    }
+    return {
+      kode,
+      nama,
+      kategori,
+      jenis: "pascabayar",
+      ...(brand !== undefined ? { operator: brand } : {}),
+      hargaModal: admin,
+      komisi: angka(item.commission) ?? 0,
+      tersedia: aktifPembeli && aktifPenjual,
+    };
+  }
+
   const harga = angka(item.price);
   if (kode === "" || nama === "" || kategori === null || harga === null || harga <= 0) {
     return null;
   }
   const stok = angka(item.stock);
-  const aktifPembeli = item.buyer_product_status !== false;
-  const aktifPenjual = item.seller_product_status !== false;
   const tersedia =
     aktifPembeli && aktifPenjual && (stok === null || stok > 0);
   return {
     kode,
     nama,
     kategori,
-    ...(typeof item.brand === "string" && item.brand.trim() !== ""
-      ? { operator: item.brand.trim() }
-      : {}),
+    jenis: "prabayar",
+    ...(brand !== undefined ? { operator: brand } : {}),
     hargaModal: harga,
     tersedia,
     ...(stok !== null ? { stok } : {}),
@@ -164,21 +233,35 @@ export function normalisasiProdukKustom(mentah: unknown): ProdukH2h | null {
   const kode = String(item.kode ?? item.sku ?? item.code ?? "").trim();
   const nama = String(item.nama ?? item.name ?? "").trim();
   const kategoriMentah = String(item.kategori ?? item.category ?? "");
+  const operator =
+    typeof item.operator === "string" && item.operator.trim() !== ""
+      ? item.operator.trim()
+      : typeof item.brand === "string" && item.brand.trim() !== ""
+        ? item.brand.trim()
+        : undefined;
   const kategori =
-    kategoriPpobAman(kategoriMentah) ?? kategoriDariProvider(kategoriMentah);
-  const harga = angka(item.harga ?? item.hargaModal ?? item.price);
-  if (kode === "" || nama === "" || kategori === null || harga === null || harga <= 0) {
+    kategoriPpobAman(kategoriMentah) ??
+    kategoriDariProvider(kategoriMentah, operator);
+  const pascabayar =
+    item.jenis === "pascabayar" ||
+    /pasca|postpaid/i.test(kategoriMentah) ||
+    (kategori !== null && kategoriPascabayar(kategori));
+  const harga = pascabayar
+    ? angka(item.admin ?? item.biayaAdmin ?? item.harga ?? item.price)
+    : angka(item.harga ?? item.hargaModal ?? item.price);
+  if (kode === "" || nama === "" || kategori === null || harga === null) {
     return null;
   }
+  if (!pascabayar && harga <= 0) return null;
   const stok = angka(item.stok ?? item.stock);
   return {
     kode,
     nama,
     kategori,
-    ...(typeof item.operator === "string" && item.operator.trim() !== ""
-      ? { operator: item.operator.trim() }
-      : {}),
+    jenis: pascabayar ? "pascabayar" : "prabayar",
+    ...(operator !== undefined ? { operator } : {}),
     hargaModal: harga,
+    ...(pascabayar ? { komisi: angka(item.komisi ?? item.commission) ?? 0 } : {}),
     tersedia: item.aktif !== false && item.active !== false && (stok === null || stok > 0),
     ...(stok !== null ? { stok } : {}),
   };
@@ -200,33 +283,42 @@ async function ambilDaftarHarga(
   if (pengaturan.provider === "digiflazz") {
     const username = usernameEfektif(pengaturan);
     if (username === "") throw new Error("Username Digiflazz belum diisi.");
-    const isi = await mintaJson(
-      `${dasar}/price-list`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cmd: "prepaid",
-          username,
-          sign: tandaDigiflazz(username, kunci, "pricelist"),
-        }),
-      },
-      "Daftar harga",
-    );
-    const data = (isi as { data?: unknown })?.data;
-    if (!Array.isArray(data)) {
-      const pesan = (isi as { data?: { message?: unknown } })?.data?.message;
-      throw new Error(
-        typeof pesan === "string"
-          ? `Provider menolak permintaan: ${pesan}`
-          : "Provider tidak mengembalikan daftar produk.",
+
+    const ambil = async (cmd: "prepaid" | "pasca") => {
+      const isi = await mintaJson(
+        `${dasar}/price-list`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cmd,
+            username,
+            sign: tandaDigiflazz(username, kunci, "pricelist"),
+          }),
+        },
+        cmd === "prepaid" ? "Daftar harga prabayar" : "Daftar harga pascabayar",
       );
-    }
-    return unikkanProduk(
-      data
+      const data = (isi as { data?: unknown })?.data;
+      if (!Array.isArray(data)) {
+        const pesan = (isi as { data?: { message?: unknown } })?.data?.message;
+        throw new Error(
+          typeof pesan === "string"
+            ? `Provider menolak permintaan: ${pesan}`
+            : "Provider tidak mengembalikan daftar produk.",
+        );
+      }
+      return data
         .map(normalisasiProdukDigiflazz)
-        .filter((item): item is ProdukH2h => item !== null),
-    );
+        .filter((item): item is ProdukH2h => item !== null);
+    };
+
+    // Dua daftar terpisah: prabayar dan pascabayar. Produk pascabayar tanpa
+    // brand yang dikenal (BPJS/PDAM/PLN) sudah dibuang normalizer.
+    const [prabayar, pascabayar] = await Promise.all([
+      ambil("prepaid"),
+      ambil("pasca"),
+    ]);
+    return unikkanProduk([...prabayar, ...pascabayar]);
   }
 
   const isi = await mintaJson(
@@ -323,7 +415,12 @@ function bacaHasilTransaksi(mentah: unknown): HasilTransaksi {
 async function kirimTransaksi(
   pengaturan: PengaturanH2h,
   kunci: string,
-  input: { refId: string; kode: string; nomorTujuan: string },
+  input: {
+    refId: string;
+    kode: string;
+    nomorTujuan: string;
+    jenis: JenisTransaksi;
+  },
 ): Promise<HasilTransaksi> {
   const dasar = alamatDasar(pengaturan);
   if (pengaturan.provider === "digiflazz") {
@@ -335,6 +432,7 @@ async function kirimTransaksi(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(input.jenis === "pascabayar" ? { commands: "pay-pasca" } : {}),
           username,
           buyer_sku_code: input.kode,
           customer_no: input.nomorTujuan,
@@ -342,7 +440,7 @@ async function kirimTransaksi(
           sign: tandaDigiflazz(username, kunci, input.refId),
         }),
       },
-      "Transaksi",
+      input.jenis === "pascabayar" ? "Pembayaran tagihan" : "Transaksi",
     );
     return bacaHasilTransaksi(isi);
   }
@@ -359,9 +457,10 @@ async function kirimTransaksi(
         refId: input.refId,
         kode: input.kode,
         nomorTujuan: input.nomorTujuan,
+        jenis: input.jenis,
       }),
     },
-    "Transaksi",
+    input.jenis === "pascabayar" ? "Pembayaran tagihan" : "Transaksi",
   );
   return bacaHasilTransaksi(isi);
 }
@@ -369,7 +468,12 @@ async function kirimTransaksi(
 async function cekTransaksi(
   pengaturan: PengaturanH2h,
   kunci: string,
-  input: { refId: string; kode: string; nomorTujuan: string },
+  input: {
+    refId: string;
+    kode: string;
+    nomorTujuan: string;
+    jenis: JenisTransaksi;
+  },
 ): Promise<HasilTransaksi> {
   // Digiflazz memeriksa status dengan MENGIRIM ULANG ref_id yang sama.
   if (pengaturan.provider === "digiflazz") {
@@ -384,6 +488,295 @@ async function cekTransaksi(
   return bacaHasilTransaksi(isi);
 }
 
+function ambilTeks(obj: Record<string, unknown>, ...kunci: string[]): string {
+  for (const k of kunci) {
+    const nilai = obj[k];
+    if (typeof nilai === "string" && nilai.trim() !== "") return nilai.trim();
+  }
+  return "";
+}
+
+function angkaDari(obj: Record<string, unknown>, ...kunci: string[]): number | null {
+  for (const k of kunci) {
+    const nilai = angka(obj[k]);
+    if (nilai !== null) return nilai;
+  }
+  return null;
+}
+
+/**
+ * Cek tagihan pascabayar ke provider.
+ *
+ * Digiflazz memakai endpoint transaksi dengan `commands: "inq-pasca"` dan
+ * `ref_id` yang nanti WAJIB dipakai lagi saat `pay-pasca`. Custom H2H memakai
+ * `POST /tagihan` dengan bentuk yang sama seperti kontrak di docs.
+ */
+async function cekTagihan(
+  pengaturan: PengaturanH2h,
+  kunci: string,
+  input: { refId: string; kode: string; nomorTujuan: string },
+): Promise<HasilTagihan> {
+  const dasar = alamatDasar(pengaturan);
+  let isiMentah: unknown;
+
+  if (pengaturan.provider === "digiflazz") {
+    const username = usernameEfektif(pengaturan);
+    if (username === "") throw new Error("Username Digiflazz belum diisi.");
+    isiMentah = await mintaJson(
+      `${dasar}/transaction`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commands: "inq-pasca",
+          username,
+          buyer_sku_code: input.kode,
+          customer_no: input.nomorTujuan,
+          ref_id: input.refId,
+          sign: tandaDigiflazz(username, kunci, input.refId),
+        }),
+      },
+      "Cek tagihan",
+    );
+  } else {
+    isiMentah = await mintaJson(
+      `${dasar}/tagihan`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${kunci}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          refId: input.refId,
+          kode: input.kode,
+          nomorTujuan: input.nomorTujuan,
+        }),
+      },
+      "Cek tagihan",
+    );
+  }
+
+  const akar =
+    typeof isiMentah === "object" && isiMentah !== null
+      ? (isiMentah as Record<string, unknown>)
+      : {};
+  const data =
+    typeof akar.data === "object" && akar.data !== null
+      ? (akar.data as Record<string, unknown>)
+      : akar;
+  const status = ambilTeks(data, "status", "Status");
+  const rc = ambilTeks(data, "rc", "RC");
+  if (/gagal|failed|error/i.test(status) || (rc !== "" && rc !== "00")) {
+    throw new Error(
+      ambilTeks(data, "message", "pesan", "msg") || "Provider menolak cek tagihan.",
+    );
+  }
+
+  const hargaModal = angkaDari(data, "price", "harga") ?? 0;
+  const hargaJualProvider =
+    angkaDari(data, "selling_price", "sellingPrice", "hargaJual") ?? hargaModal;
+  const admin = angkaDari(data, "admin", "biayaAdmin") ?? 0;
+  const desc =
+    typeof data.desc === "object" && data.desc !== null
+      ? (data.desc as Record<string, unknown>)
+      : {};
+  const detail = Array.isArray(desc.detail) ? desc.detail : [];
+  const periodeDariDetail = detail
+    .map((baris) =>
+      typeof baris === "object" && baris !== null
+        ? ambilTeks(baris as Record<string, unknown>, "periode")
+        : "",
+    )
+    .filter((teks) => teks !== "");
+  const nominalDariDetail = detail.reduce((total, baris) => {
+    if (typeof baris !== "object" || baris === null) return total;
+    const nilai = angkaDari(baris as Record<string, unknown>, "nilai_tagihan", "nominal");
+    return total + (nilai ?? 0);
+  }, 0);
+  const nominalEksplisit = angkaDari(data, "nominal", "nilai_tagihan", "totalTagihan");
+  const nominalTagihan =
+    nominalEksplisit ??
+    (nominalDariDetail > 0
+      ? nominalDariDetail
+      : Math.max(0, hargaModal - admin));
+  const namaPelanggan =
+    ambilTeks(data, "customer_name", "nama", "namaPelanggan") || "Pelanggan";
+  const periode =
+    periodeDariDetail.join(", ") || ambilTeks(desc, "periode") || "-";
+  const rincian =
+    detail.length > 0
+      ? JSON.stringify(detail).slice(0, 2_000)
+      : JSON.stringify({
+          periode,
+          nominalTagihan,
+          admin,
+          hargaModal,
+          hargaJualProvider,
+        });
+
+  if (hargaModal <= 0) {
+    throw new Error("Provider tidak mengembalikan nominal tagihan yang bisa dibayar.");
+  }
+  return {
+    namaPelanggan,
+    periode,
+    nominalTagihan,
+    biayaAdmin: admin,
+    hargaModal,
+    hargaJualProvider,
+    rincian,
+  };
+}
+
+/** Action internal: cek tagihan + kembalikan angka mentah provider. */
+export const cekTagihanProvider = internalAction({
+  args: {
+    produkKode: v.string(),
+    nomorTujuan: v.string(),
+    refId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const pengaturan = await bacaPengaturanDariDb(ctx);
+    return await cekTagihan(pengaturan, apiKey(), {
+      refId: args.refId,
+      kode: args.produkKode,
+      nomorTujuan: args.nomorTujuan,
+    });
+  },
+});
+
+/**
+ * Samakan saldo provider dengan saldo buku sejak pemeriksaan terakhir.
+ *
+ * Hasilnya selalu disimpan, termasuk saat cocok, supaya panel punya riwayat dan
+ * periode berikutnya mulai dari saldo akhir yang baru. Selisih di atas ambang
+ * dikabarkan ke admin lewat WhatsApp; nominalnya tidak pernah dikoreksi diam-diam.
+ */
+async function jalankanRekonsiliasi(
+  ctx: ActionCtx,
+): Promise<HasilRekonsiliasi> {
+  const pengaturan = await bacaPengaturanDariDb(ctx);
+  const saldo = await ambilSaldo(pengaturan, apiKey());
+  const data = await ctx.runQuery(internal.ppob.dataRekonsiliasi, {});
+  const saldoBuku = data.saldoAwal + data.deposit - data.modalTerpakai;
+  const selisih = saldo - saldoBuku;
+  const status = !data.adaBaseline
+    ? ("baseline" as const)
+    : Math.abs(selisih) <= PPOB_AMBANG_REKONSILIASI
+      ? ("cocok" as const)
+      : ("selisih" as const);
+  const catatan =
+    status === "baseline"
+      ? "Titik awal rekonsiliasi; belum ada pembanding sebelumnya."
+      : `Deposit ${data.deposit}, modal terpakai ${data.modalTerpakai}, ambang ${PPOB_AMBANG_REKONSILIASI}.`;
+
+  await ctx.runMutation(internal.ppob._catatRekonsiliasi, {
+    periodeMulai: data.periodeMulai,
+    saldoAwal: data.saldoAwal,
+    deposit: data.deposit,
+    modalTerpakai: data.modalTerpakai,
+    saldoBuku,
+    saldoAkhir: saldo,
+    selisih,
+    status,
+    catatan,
+  });
+  await ctx.runMutation(internal.ppob.catatSaldoProvider, { saldo });
+
+  if (status === "selisih") {
+    await ctx.runAction(
+      internal.ppobNotifikasi.kabarkanSelisihRekonsiliasi,
+      { selisih, saldoBuku, saldoProvider: saldo },
+    );
+  }
+  return { saldo, saldoBuku, selisih, status };
+}
+
+/** Cron harian: rekonsiliasi tanpa admin masuk. */
+export const rekonsiliasiHarian = internalAction({
+  args: {},
+  handler: async (ctx): Promise<Record<string, unknown>> => {
+    if ((process.env.PPOB_H2H_API_KEY ?? "").trim() === "") {
+      return { ok: false, alasan: "PPOB_H2H_API_KEY belum diisi." };
+    }
+    return { ok: true, ...(await jalankanRekonsiliasi(ctx)) };
+  },
+});
+
+/** Tombol "Periksa sekarang" di panel admin. */
+export const rekonsiliasiSekarang = action({
+  args: {},
+  handler: async (ctx): Promise<HasilRekonsiliasi> => {
+    await ctx.runQuery(internal.ppob.gerbangAdmin, {});
+    return await jalankanRekonsiliasi(ctx);
+  },
+});
+
+/**
+ * Cek tagihan pascabayar dari etalase publik.
+ *
+ * Nominal tagihan TIDAK diterima dari peramban. Action ini bertanya ke provider,
+ * membekukan hasilnya di `ppobTagihan`, lalu mengembalikan token sekali pakai.
+ * Pembuatan pesanan hanya menerima token itu, sehingga harga tidak bisa diubah
+ * dari sisi klien.
+ */
+export const cekTagihanPpob = action({
+  args: {
+    produkKode: v.string(),
+    nomorTujuan: v.string(),
+    perangkatId: v.string(),
+    gerbangToken: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<TagihanTampil> => {
+    const produk = await ctx.runQuery(internal.ppob.produkUntukTagihan, {
+      kode: args.produkKode,
+    });
+    if (produk === null) {
+      throw new Error("Produk tagihan ini sedang tidak tersedia. Pilih produk lain.");
+    }
+
+    const nomorTujuan = nomorTujuanBersih(produk.kategori, args.nomorTujuan);
+    const { perangkatHash } = await ctx.runMutation(
+      internal.ppob._periksaGerbangPpob,
+      { perangkatId: args.perangkatId, gerbangToken: args.gerbangToken },
+    );
+
+    const pengaturan = await bacaPengaturanDariDb(ctx);
+    const acak = crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase();
+    const refId = buatRefId(Date.now(), acak);
+    const hasil = await cekTagihan(pengaturan, apiKey(), {
+      refId,
+      kode: produk.kode,
+      nomorTujuan,
+    });
+
+    // Biaya platform tidak boleh lebih kecil dari selisih yang ditarik provider,
+    // supaya tagihan besar tidak membuat platform menjual di bawah modal.
+    const biayaPlatform = Math.max(
+      0,
+      produk.biayaAdminPlatform,
+      hasil.hargaModal - hasil.nominalTagihan,
+    );
+
+    return await ctx.runMutation(internal.ppob._simpanTagihan, {
+      produkKode: produk.kode,
+      namaProduk: produk.nama,
+      kategori: produk.kategori,
+      nomorTujuan,
+      refId,
+      perangkatHash,
+      namaPelanggan: hasil.namaPelanggan,
+      periode: hasil.periode,
+      nominalTagihan: hasil.nominalTagihan,
+      hargaModal: hasil.hargaModal,
+      biayaAdminProvider: hasil.biayaAdmin,
+      biayaAdminPlatform: biayaPlatform,
+      rincian: hasil.rincian,
+    });
+  },
+});
+
 /** Ambil pengaturan lewat internal query; dipakai semua action. */
 async function bacaPengaturanDariDb(ctx: ActionCtx): Promise<PengaturanH2h> {
   const pengaturan = await ctx.runQuery(internal.ppob._pengaturanUntukUji, {});
@@ -393,6 +786,8 @@ async function bacaPengaturanDariDb(ctx: ActionCtx): Promise<PengaturanH2h> {
     username: pengaturan.username,
     markupPersen: pengaturan.markupPersen,
     markupMin: pengaturan.markupMin,
+    biayaAdminPascabayar:
+      pengaturan.biayaAdminPascabayar ?? 2_500,
   };
 }
 
@@ -509,12 +904,14 @@ async function prosesSatuPesanan(
         username: pengaturan.username,
         markupPersen: pengaturan.markupPersen,
         markupMin: pengaturan.markupMin,
+        biayaAdminPascabayar: pengaturan.biayaAdminPascabayar,
       },
       apiKey(),
       {
         refId: pesanan.refId,
         kode: pesanan.produkKode,
         nomorTujuan: pesanan.nomorTujuan,
+        jenis: pesanan.jenis === "pascabayar" ? "pascabayar" : "prabayar",
       },
     );
     await ctx.runMutation(internal.ppob.terapkanStatus, {
@@ -556,12 +953,14 @@ export const cekStatusPesanan = action({
         username: pengaturan.username,
         markupPersen: pengaturan.markupPersen,
         markupMin: pengaturan.markupMin,
+        biayaAdminPascabayar: pengaturan.biayaAdminPascabayar,
       },
       apiKey(),
       {
         refId: pesanan.refId,
         kode: pesanan.produkKode,
         nomorTujuan: pesanan.nomorTujuan,
+        jenis: pesanan.jenis === "pascabayar" ? "pascabayar" : "prabayar",
       },
     );
     await ctx.runMutation(internal.ppob.terapkanStatus, {
@@ -606,12 +1005,14 @@ export const cekPesananTertahan = internalAction({
             username: pengaturan.username,
             markupPersen: pengaturan.markupPersen,
             markupMin: pengaturan.markupMin,
+            biayaAdminPascabayar: pengaturan.biayaAdminPascabayar,
           },
           apiKey(),
           {
             refId: pesanan.refId,
             kode: pesanan.produkKode,
             nomorTujuan: pesanan.nomorTujuan,
+            jenis: pesanan.jenis === "pascabayar" ? "pascabayar" : "prabayar",
           },
         );
         await ctx.runMutation(internal.ppob.terapkanStatus, {

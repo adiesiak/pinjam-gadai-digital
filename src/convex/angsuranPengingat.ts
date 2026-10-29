@@ -231,10 +231,11 @@ export const jalankanPengingatAngsuran = internalAction({
 
       let waAktif = prefWa.get(k.userId);
       if (waAktif === undefined) {
-        waAktif = await ctx.runQuery(internal.notifikasiNasabah._kanalAktif, {
-          userId: k.userId,
-          kanal: "whatsapp",
-        });
+        waAktif =
+          (await ctx.runQuery(internal.notifikasiNasabah._kanalAktif, {
+            userId: k.userId,
+            kanal: "whatsapp",
+          })) === true;
         prefWa.set(k.userId, waAktif);
       }
 

@@ -20,14 +20,23 @@ import {
   KATEGORI_PPOB,
   buatKodePesanan,
   buatRefId,
+  JEDA_PESANAN_PPOB_PER_PERANGKAT_MS,
+  MAKS_PESANAN_PPOB_PER_PERANGKAT,
+  MASA_BERLAKU_TAGIHAN_PPOB_MS,
   hargaJualDariModal,
+  hargaJualPascabayar,
+  hashPerangkat,
+  kategoriPascabayar,
   kategoriPpobAman,
+  labaPascabayar,
   labaPesanan,
   maskNomor,
   nomorTujuanBersih,
   persenMarkupKategori,
   statusDariProvider,
+  totalTagihanPascabayar,
   statusFinal,
+  type KategoriPascabayar,
   type KategoriPpob,
   type MarkupPerKategori,
 } from "../lib/ppob";
@@ -40,6 +49,7 @@ import {
   internalQuery,
   mutation,
   query,
+  type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
@@ -52,11 +62,20 @@ const SLOT = "global";
 /** Markup bawaan: cukup menutup biaya transfer, jauh di bawah margin akad. */
 export const PPOB_MARKUP_BAWAAN = 5;
 export const PPOB_MARKUP_MIN_BAWAAN = 500;
+/** Biaya admin tetap tagihan pascabayar; tidak memakai persen tagihan. */
+export const PPOB_BIAYA_ADMIN_PASCABAYAR_BAWAAN = 2_500;
 /** Ambang bawaan alarm saldo provider; cukup untuk beberapa transaksi kecil. */
 export const PPOB_SALDO_MINIMUM_BAWAAN = 100_000;
+/** Selisih rekonsiliasi di atas angka ini dianggap perlu diperiksa. */
+export const PPOB_AMBANG_REKONSILIASI = 10_000;
 
 const PROVIDER = ["digiflazz", "kustom"] as const;
 type Provider = (typeof PROVIDER)[number];
+
+/** Jenis alur kategori; dipakai normalisasi produk saat sinkron. */
+function jenisKategori(kategori: KategoriPpob): "prabayar" | "pascabayar" {
+  return kategoriPascabayar(kategori) ? "pascabayar" : "prabayar";
+}
 
 type PengaturanEfektif = {
   rowId: Id<"ppobPengaturan"> | null;
@@ -66,11 +85,15 @@ type PengaturanEfektif = {
   username: string;
   markupPersen: number;
   markupMin: number;
+  biayaAdminPascabayar: number;
   markupKategori: MarkupPerKategori;
   nomorAdminWa: string;
   saldoMinimum: number;
   instruksi: string;
   terakhirSinkron: number | null;
+  rekeningPpobNama: string;
+  rekeningPpobBank: string;
+  rekeningPpobNomor: string;
 };
 
 function providerAman(nilai: string | undefined): Provider {
@@ -90,11 +113,16 @@ async function bacaPengaturan(ctx: QueryCtx): Promise<PengaturanEfektif> {
     username: (row?.username ?? "").trim(),
     markupPersen: row?.markupPersen ?? PPOB_MARKUP_BAWAAN,
     markupMin: row?.markupMin ?? PPOB_MARKUP_MIN_BAWAAN,
+    biayaAdminPascabayar:
+      row?.biayaAdminPascabayar ?? PPOB_BIAYA_ADMIN_PASCABAYAR_BAWAAN,
     markupKategori: row?.markupKategori ?? {},
     nomorAdminWa: (row?.nomorAdminWa ?? "").trim(),
     saldoMinimum: row?.saldoMinimum ?? PPOB_SALDO_MINIMUM_BAWAAN,
     instruksi: (row?.instruksi ?? "").trim(),
     terakhirSinkron: row?.terakhirSinkron ?? null,
+    rekeningPpobNama: (row?.rekeningPpobNama ?? "").trim(),
+    rekeningPpobBank: (row?.rekeningPpobBank ?? "").trim(),
+    rekeningPpobNomor: (row?.rekeningPpobNomor ?? "").trim(),
   };
 }
 
@@ -170,7 +198,7 @@ export const kategoriEtalase = query({
     return {
       aktif: pengaturan.aktif,
       kategori: [...jumlah.entries()]
-        .map(([id, cacah]) => ({ id, jumlah: cacah }))
+        .map(([id, cacah]) => ({ id, jenis: jenisKategori(id), jumlah: cacah }))
         .sort((a, b) => b.jumlah - a.jumlah),
       diperbaruiPada: pengaturan.terakhirSinkron,
       instruksi: pengaturan.instruksi,
@@ -208,6 +236,9 @@ export const daftarProduk = query({
         nama: item.nama,
         operator: item.operator ?? "",
         kategori: item.kategori,
+        jenis: item.jenis ?? jenisKategori(item.kategori),
+        /** Untuk pascabayar, `hargaJual` adalah biaya admin tetap, bukan tagihan. */
+        biayaAdmin: kategoriPascabayar(item.kategori) ? item.hargaJual : null,
         hargaJual: item.hargaJual,
       }));
   },
@@ -219,16 +250,106 @@ async function pembayaranPublik(ctx: QueryCtx) {
     .query("systemConfig")
     .withIndex("by_slot", (q) => q.eq("slot", SYSTEM_SLOT))
     .first();
-  const namaRekening = cfg?.rekeningUsahaNama ?? "";
-  const namaBank = cfg?.rekeningUsahaBank ?? "";
-  const nomorRekening = cfg?.rekeningUsahaNomor ?? "";
+  const ppob = await ctx.db
+    .query("ppobPengaturan")
+    .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+    .first();
+  const namaPpob = (ppob?.rekeningPpobNama ?? "").trim();
+  const bankPpob = (ppob?.rekeningPpobBank ?? "").trim();
+  const nomorPpob = (ppob?.rekeningPpobNomor ?? "").trim();
+  const khususPpob = Boolean(namaPpob && bankPpob && nomorPpob);
+  const namaRekening = khususPpob ? namaPpob : (cfg?.rekeningUsahaNama ?? "");
+  const namaBank = khususPpob ? bankPpob : (cfg?.rekeningUsahaBank ?? "");
+  const nomorRekening = khususPpob ? nomorPpob : (cfg?.rekeningUsahaNomor ?? "");
   return {
     namaRekening,
     namaBank,
     nomorRekening,
+    khususPpob,
     qrisUrl: cfg?.qrisImageId ? await ctx.storage.getUrl(cfg.qrisImageId) : null,
     tersedia: Boolean(namaRekening && namaBank && nomorRekening),
   };
+}
+
+/**
+ * Periksa pas Turnstile dan kembalikan hash perangkat.
+ *
+ * Saat Turnstile belum dipasang (`TURNSTILE_SECRET_KEY` kosong), hash tetap
+ * dihitung supaya pembatas laju per perangkat bekerja — proteksi itu tidak
+ * bergantung pada Cloudflare. Saat aktif, token wajib dan hanya boleh dipakai
+ * sekali.
+ */
+async function periksaGerbangPpob(
+  ctx: MutationCtx,
+  args: { perangkatId: string; gerbangToken?: string; konsumsi: boolean },
+): Promise<string> {
+  const perangkatHash = hashPerangkat(args.perangkatId);
+  // Dibaca langsung dari environment, bukan dari modul `turnstile.ts`: impor
+  // silang ke modul yang memakai `internal` membuat tipe API melingkar dan
+  // seluruh `api.*` kehilangan tipe.
+  if ((process.env.TURNSTILE_SECRET_KEY ?? "").trim() === "") return perangkatHash;
+
+  const token = (args.gerbangToken ?? "").trim();
+  if (token === "") {
+    throw new Error("Selesaikan verifikasi keamanan sebelum memesan.");
+  }
+  const pas = await ctx.db
+    .query("ppobGerbang")
+    .withIndex("by_token", (q) => q.eq("token", token))
+    .first();
+  if (
+    pas === null ||
+    pas.perangkatHash !== perangkatHash ||
+    pas.dipakai ||
+    pas.kedaluwarsa <= Date.now()
+  ) {
+    throw new Error(
+      "Verifikasi keamanan sudah kedaluwarsa atau tidak cocok. Muat ulang lalu coba lagi.",
+    );
+  }
+  if (args.konsumsi) await ctx.db.patch(pas._id, { dipakai: true });
+  return perangkatHash;
+}
+
+/**
+ * Batas laju per perangkat, di samping batas per nomor WhatsApp.
+ *
+ * Nomor WhatsApp bisa dibuat banyak; peramban yang dipakai memesan biasanya
+ * satu. Batas ini menahan pengiriman beruntun dari satu peramban tanpa
+ * menghukum pembeli yang memesan beberapa produk berbeda pada hari yang sama.
+ */
+async function periksaBatasPerangkat(
+  ctx: MutationCtx,
+  perangkatHash: string,
+  sekarang: number,
+): Promise<void> {
+  const baris = await ctx.db
+    .query("ppobPesanan")
+    .withIndex("by_perangkat", (q) =>
+      q
+        .eq("perangkatHash", perangkatHash)
+        .gte("dibuatPada", sekarang - 60 * 60 * 1000),
+    )
+    .take(30);
+  if (baris.length === 0) return;
+
+  const terakhir = Math.max(...baris.map((item) => item.dibuatPada));
+  const jeda = sekarang - terakhir;
+  if (jeda < JEDA_PESANAN_PPOB_PER_PERANGKAT_MS) {
+    const detik = Math.ceil(
+      (JEDA_PESANAN_PPOB_PER_PERANGKAT_MS - jeda) / 1000,
+    );
+    throw new Error(`Tunggu ${detik} detik sebelum membuat pesanan berikutnya.`);
+  }
+
+  const menunggu = baris.filter(
+    (item) => item.status === "menunggu_bayar",
+  ).length;
+  if (menunggu >= MAKS_PESANAN_PPOB_PER_PERANGKAT) {
+    throw new Error(
+      "Terlalu banyak pesanan yang belum dibayar dari perangkat ini. Selesaikan pembayaran atau hubungi admin.",
+    );
+  }
 }
 
 /**
@@ -243,6 +364,8 @@ export const buatPesanan = mutation({
     nomorTujuan: v.string(),
     nama: v.string(),
     whatsapp: v.string(),
+    perangkatId: v.string(),
+    gerbangToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const pengaturan = await bacaPengaturan(ctx);
@@ -256,6 +379,11 @@ export const buatPesanan = mutation({
       .first();
     if (produk === null || !produk.aktif || !produk.tersedia) {
       throw new Error("Produk ini sedang tidak tersedia. Pilih produk lain.");
+    }
+    if (produk.jenis === "pascabayar" || kategoriPascabayar(produk.kategori)) {
+      throw new Error(
+        "Produk ini memakai cek tagihan. Masukkan nomor pelanggan lebih dulu untuk melihat tagihannya.",
+      );
     }
 
     const nomorTujuan = nomorTujuanBersih(produk.kategori, args.nomorTujuan);
@@ -293,6 +421,19 @@ export const buatPesanan = mutation({
         "Terlalu banyak pesanan yang belum dibayar untuk nomor ini. Selesaikan pembayaran sebelumnya atau hubungi admin.",
       );
     }
+
+    // Perangkat diperiksa SEBELUM pas Turnstile dikonsumsi: pengguna yang
+    // kena jeda tidak perlu menyelesaikan verifikasi keamanan dua kali.
+    await periksaBatasPerangkat(
+      ctx,
+      hashPerangkat(args.perangkatId),
+      sekarang,
+    );
+    const perangkatHash = await periksaGerbangPpob(ctx, {
+      perangkatId: args.perangkatId,
+      gerbangToken: args.gerbangToken,
+      konsumsi: true,
+    });
 
     // Kode adalah kunci publik halaman status: cek bentrok sebelum menulis,
     // karena Convex tidak punya indeks unik. Ruang 32^12 membuat bentrok sangat
@@ -333,6 +474,7 @@ export const buatPesanan = mutation({
       nomorTujuan,
       namaPembeli: nama,
       whatsapp,
+      perangkatHash,
       ...(userId !== null ? { userId } : {}),
       hargaModal: produk.hargaModal,
       hargaJual,
@@ -342,6 +484,221 @@ export const buatPesanan = mutation({
     });
     // Ping admin berangkat di action terpisah supaya pembuatan pesanan tidak
     // menunggu gateway WhatsApp dan tetap berhasil bila gateway sedang mati.
+    await ctx.scheduler.runAfter(0, internal.ppobNotifikasi.kabarkanPesanan, {
+      pesananId,
+      jenis: "baru",
+    });
+    return { kodePesanan, ulang: false };
+  },
+});
+
+/** Produk pascabayar yang boleh dicek tagihannya, plus biaya admin platform. */
+export const produkUntukTagihan = internalQuery({
+  args: { kode: v.string() },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    kode: string;
+    nama: string;
+    kategori: KategoriPascabayar;
+    operator: string;
+    biayaAdminPlatform: number;
+  } | null> => {
+    const produk = await ctx.db
+      .query("ppobProduk")
+      .withIndex("by_kode", (q) => q.eq("kode", args.kode.trim()))
+      .first();
+    if (produk === null || !produk.aktif || !produk.tersedia) return null;
+    if (produk.jenis !== "pascabayar" && !kategoriPascabayar(produk.kategori)) {
+      return null;
+    }
+    const pengaturan = await bacaPengaturan(ctx);
+    return {
+      kode: produk.kode,
+      nama: produk.nama,
+      kategori: produk.kategori as KategoriPascabayar,
+      operator: produk.operator ?? "",
+      biayaAdminPlatform: pengaturan.biayaAdminPascabayar,
+    };
+  },
+});
+
+/**
+ * Periksa pas Turnstile tanpa mengonsumsinya.
+ *
+ * Dipakai action cek tagihan: cek tagihan memakan kuota provider, jadi harus
+ * melewati Turnstile, tetapi pas yang sama masih dibutuhkan saat pembeli
+ * menekan "Buat pesanan" beberapa detik kemudian.
+ */
+export const _periksaGerbangPpob = internalMutation({
+  args: { perangkatId: v.string(), gerbangToken: v.optional(v.string()) },
+  handler: async (ctx, args) => ({
+    perangkatHash: await periksaGerbangPpob(ctx, {
+      perangkatId: args.perangkatId,
+      gerbangToken: args.gerbangToken,
+      konsumsi: false,
+    }),
+  }),
+});
+
+/**
+ * Simpan tagihan yang sudah diverifikasi provider menjadi token sekali pakai.
+ *
+ * Nominal dan biaya dibekukan di sini. Peramban tidak pernah mengirim nominal
+ * tagihan; yang dikirim saat membuat pesanan hanya token ini. Tanpa aturan itu,
+ * pembeli bisa membayar Rp 1.000 untuk tagihan Rp 500.000.
+ */
+export const _simpanTagihan = internalMutation({
+  args: {
+    produkKode: v.string(),
+    namaProduk: v.string(),
+    kategori: v.union(
+      v.literal("bpjs"),
+      v.literal("pdam"),
+      v.literal("pln-pascabayar"),
+    ),
+    nomorTujuan: v.string(),
+    refId: v.string(),
+    perangkatHash: v.string(),
+    namaPelanggan: v.string(),
+    periode: v.string(),
+    nominalTagihan: v.number(),
+    hargaModal: v.number(),
+    biayaAdminProvider: v.number(),
+    biayaAdminPlatform: v.number(),
+    rincian: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const hargaJual = totalTagihanPascabayar(
+      args.nominalTagihan,
+      args.biayaAdminPlatform,
+    );
+    const token = kodeAcak(24);
+    const kedaluwarsa = Date.now() + MASA_BERLAKU_TAGIHAN_PPOB_MS;
+    await ctx.db.insert("ppobTagihan", {
+      token,
+      refId: args.refId,
+      produkKode: args.produkKode,
+      namaProduk: args.namaProduk,
+      kategori: args.kategori,
+      nomorTujuan: args.nomorTujuan,
+      namaPelanggan: args.namaPelanggan,
+      periode: args.periode,
+      nominalTagihan: args.nominalTagihan,
+      hargaModal: args.hargaModal,
+      hargaJual,
+      biayaAdmin: args.biayaAdminProvider,
+      biayaPlatform: args.biayaAdminPlatform,
+      laba: labaPesanan(hargaJual, args.hargaModal),
+      rincian: args.rincian,
+      perangkatHash: args.perangkatHash,
+      kedaluwarsa,
+      dipakai: false,
+      dibuatPada: Date.now(),
+    });
+    return {
+      token,
+      namaProduk: args.namaProduk,
+      kategori: args.kategori,
+      nomorTujuan: maskNomor(args.nomorTujuan),
+      namaPelanggan: args.namaPelanggan,
+      periode: args.periode,
+      nominalTagihan: args.nominalTagihan,
+      biayaAdmin: args.biayaAdminPlatform,
+      total: hargaJual,
+      kedaluwarsa,
+    };
+  },
+});
+
+/**
+ * Buat pesanan pascabayar dari tagihan yang sudah dicek.
+ *
+ * `refId` WAJIB sama dengan ref inquiry: Digiflazz memakai ref_id untuk
+ * memasangkan cek tagihan dengan pembayaran. Membuat ref baru di sini akan
+ * membuat provider menagih ulang, bukan membayar tagihan yang tadi dilihat
+ * pembeli.
+ */
+export const buatPesananPascabayar = mutation({
+  args: {
+    tagihanToken: v.string(),
+    nama: v.string(),
+    whatsapp: v.string(),
+    perangkatId: v.string(),
+    gerbangToken: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const pengaturan = await bacaPengaturan(ctx);
+    if (!pengaturan.aktif) {
+      throw new Error("Etalase PPOB sedang ditutup. Coba lagi nanti.");
+    }
+    const perangkatHash = hashPerangkat(args.perangkatId);
+    const tagihan = await ctx.db
+      .query("ppobTagihan")
+      .withIndex("by_token", (q) => q.eq("token", args.tagihanToken.trim()))
+      .first();
+    if (tagihan === null) {
+      throw new Error("Tagihan tidak ditemukan. Cek tagihan ulang.");
+    }
+    if (tagihan.perangkatHash !== perangkatHash) {
+      throw new Error("Tagihan ini dibuat dari perangkat lain. Cek tagihan ulang.");
+    }
+    if (tagihan.dipakai) {
+      throw new Error("Tagihan ini sudah dipakai untuk pesanan lain. Cek tagihan ulang.");
+    }
+    if (tagihan.kedaluwarsa <= Date.now()) {
+      throw new Error("Tagihan sudah kedaluwarsa. Cek tagihan ulang.");
+    }
+
+    const whatsapp = nomorTujuanBersih("pulsa", args.whatsapp);
+    const nama = args.nama.trim().slice(0, 80);
+    if (nama.length < 2) throw new Error("Nama pemesan minimal 2 karakter.");
+
+    const kembar = await ctx.db
+      .query("ppobPesanan")
+      .withIndex("by_ref", (q) => q.eq("refId", tagihan.refId))
+      .first();
+    if (kembar !== null) {
+      return { kodePesanan: kembar.kodePesanan, ulang: true };
+    }
+
+    const sekarang = Date.now();
+    await periksaBatasPerangkat(ctx, perangkatHash, sekarang);
+    await periksaGerbangPpob(ctx, {
+      perangkatId: args.perangkatId,
+      gerbangToken: args.gerbangToken,
+      konsumsi: true,
+    });
+
+    const kodePesanan = buatKodePesanan(sekarang, kodeAcak(12));
+    const userId = await getAuthUserId(ctx);
+    const pesananId = await ctx.db.insert("ppobPesanan", {
+      kodePesanan,
+      refId: tagihan.refId,
+      produkKode: tagihan.produkKode,
+      namaProduk: tagihan.namaProduk,
+      kategori: tagihan.kategori,
+      jenis: "pascabayar",
+      tagihanId: tagihan._id,
+      namaPelanggan: tagihan.namaPelanggan,
+      periode: tagihan.periode,
+      nominalTagihan: tagihan.nominalTagihan,
+      biayaAdmin: tagihan.biayaAdmin,
+      biayaPlatform: tagihan.biayaPlatform,
+      rincianTagihan: tagihan.rincian,
+      perangkatHash,
+      nomorTujuan: tagihan.nomorTujuan,
+      namaPembeli: nama,
+      whatsapp,
+      ...(userId !== null ? { userId } : {}),
+      hargaModal: tagihan.hargaModal,
+      hargaJual: tagihan.hargaJual,
+      laba: tagihan.laba,
+      status: "menunggu_bayar",
+      dibuatPada: sekarang,
+    });
+    await ctx.db.patch(tagihan._id, { dipakai: true });
     await ctx.scheduler.runAfter(0, internal.ppobNotifikasi.kabarkanPesanan, {
       pesananId,
       jenis: "baru",
@@ -370,6 +727,11 @@ export const statusPesanan = query({
       kodePesanan: pesanan.kodePesanan,
       namaProduk: pesanan.namaProduk,
       kategori: pesanan.kategori,
+      jenis: pesanan.jenis ?? "prabayar",
+      namaPelanggan: pesanan.namaPelanggan ?? null,
+      periode: pesanan.periode ?? null,
+      nominalTagihan: pesanan.nominalTagihan ?? null,
+      biayaPlatform: pesanan.biayaPlatform ?? null,
       // Penyamaran dilakukan di server, bukan di UI: kode pesanan bisa dibagikan
       // ke orang lain, dan nomor lengkap tidak perlu ikut terbaca. Pembeli tetap
       // melihat nomor penuh di formulir sebelum menekan pesan.
@@ -572,6 +934,101 @@ export const laporanPpob = query({
   },
 });
 
+/**
+ * Bahan hitung rekonsiliasi saldo provider.
+ *
+ * Saldo buku = saldo akhir periode lalu + deposit yang tercatat - modal pesanan
+ * yang benar-benar dikirim. Deposit otomatis dari `cek-provider` tidak dihitung
+ * karena itu hanya pembacaan saldo, bukan uang masuk.
+ */
+export const dataRekonsiliasi = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const [pengaturan, terakhir] = await Promise.all([
+      ctx.db
+        .query("ppobPengaturan")
+        .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+        .first(),
+      ctx.db
+        .query("ppobRekonsiliasi")
+        .withIndex("by_dibuat")
+        .order("desc")
+        .first(),
+    ]);
+    const periodeMulai = terakhir?.dibuatPada ?? 0;
+
+    const mutasi = await ctx.db
+      .query("ppobMutasiSaldo")
+      .withIndex("by_waktu", (q) => q.gte("dibuatPada", periodeMulai))
+      .take(1_000);
+    const deposit = mutasi
+      .filter((item) => item.arah === "masuk" && item.sumber !== "cek-provider")
+      .reduce((total, item) => total + item.nominal, 0);
+
+    const [diproses, sukses] = await Promise.all(
+      (["diproses", "sukses"] as const).map((status) =>
+        ctx.db
+          .query("ppobPesanan")
+          .withIndex("by_status", (q) => q.eq("status", status))
+          .take(1_000),
+      ),
+    );
+    const modalTerpakai = [...diproses, ...sukses]
+      .filter((item) => (item.diprosesPada ?? item.dibuatPada) >= periodeMulai)
+      .reduce((total, item) => total + item.hargaModal, 0);
+
+    return {
+      periodeMulai,
+      saldoAwal: terakhir?.saldoAkhir ?? 0,
+      deposit,
+      modalTerpakai,
+      saldoProvider: pengaturan?.saldoTerakhir ?? null,
+      saldoDiperbaruiPada: pengaturan?.saldoDiperbaruiPada ?? null,
+      nomorAdminWa: (pengaturan?.nomorAdminWa ?? "").trim(),
+      adaBaseline: terakhir !== null,
+    };
+  },
+});
+
+/** Simpan satu baris rekonsiliasi; dipanggil action setelah saldo dicek. */
+export const _catatRekonsiliasi = internalMutation({
+  args: {
+    periodeMulai: v.number(),
+    saldoAwal: v.number(),
+    deposit: v.number(),
+    modalTerpakai: v.number(),
+    saldoBuku: v.number(),
+    saldoAkhir: v.number(),
+    selisih: v.number(),
+    status: v.union(
+      v.literal("baseline"),
+      v.literal("cocok"),
+      v.literal("selisih"),
+    ),
+    catatan: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("ppobRekonsiliasi", {
+      ...args,
+      dibuatPada: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/** Riwayat pemeriksaan saldo untuk panel admin. */
+export const riwayatRekonsiliasi = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminSession(ctx);
+    return await ctx.db
+      .query("ppobRekonsiliasi")
+      .withIndex("by_dibuat")
+      .order("desc")
+      .take(20);
+  },
+});
+
 /** Pengaturan + kesiapan kredensial untuk panel admin. */
 export const getPengaturan = query({
   args: {},
@@ -612,6 +1069,7 @@ export const simpanPengaturan = mutation({
     username: v.string(),
     markupPersen: v.number(),
     markupMin: v.number(),
+    biayaAdminPascabayar: v.optional(v.number()),
     markupKategori: v.optional(
       v.object({
         pulsa: v.optional(v.number()),
@@ -624,6 +1082,9 @@ export const simpanPengaturan = mutation({
     nomorAdminWa: v.optional(v.string()),
     saldoMinimum: v.optional(v.number()),
     instruksi: v.string(),
+    rekeningPpobNama: v.optional(v.string()),
+    rekeningPpobBank: v.optional(v.string()),
+    rekeningPpobNomor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const admin = await requireAdminSession(ctx);
@@ -633,6 +1094,26 @@ export const simpanPengaturan = mutation({
     }
     if (!Number.isInteger(args.markupMin) || args.markupMin < 0 || args.markupMin > 100_000) {
       throw new Error("Markup minimum harus rupiah bulat antara 0 dan 100.000.");
+    }
+    const biayaAdminPascabayar =
+      args.biayaAdminPascabayar ?? PPOB_BIAYA_ADMIN_PASCABAYAR_BAWAAN;
+    if (
+      !Number.isInteger(biayaAdminPascabayar) ||
+      biayaAdminPascabayar < 0 ||
+      biayaAdminPascabayar > 100_000
+    ) {
+      throw new Error("Biaya admin pascabayar harus rupiah bulat antara 0 dan 100.000.");
+    }
+    const rekeningPpob = {
+      nama: (args.rekeningPpobNama ?? "").trim().slice(0, 80),
+      bank: (args.rekeningPpobBank ?? "").trim().slice(0, 40),
+      nomor: (args.rekeningPpobNomor ?? "").trim().replace(/\s+/g, "").slice(0, 40),
+    };
+    if ((rekeningPpob.nama === "") !== (rekeningPpob.bank === "") || (rekeningPpob.bank === "") !== (rekeningPpob.nomor === "")) {
+      throw new Error("Rekening PPOB harus diisi lengkap: nama, bank, dan nomor.");
+    }
+    if (rekeningPpob.nomor !== "" && !/^\d{6,30}$/.test(rekeningPpob.nomor)) {
+      throw new Error("Nomor rekening PPOB harus 6–30 angka.");
     }
     const markupKategori = validasiMarkupKategori(args.markupKategori);
     const nomorAdminWa = (args.nomorAdminWa ?? "").trim();
@@ -659,10 +1140,14 @@ export const simpanPengaturan = mutation({
       username: args.username.trim().slice(0, 80),
       markupPersen: args.markupPersen,
       markupMin: args.markupMin,
+      biayaAdminPascabayar,
       markupKategori,
       nomorAdminWa,
       saldoMinimum,
       instruksi: args.instruksi.trim(),
+      rekeningPpobNama: rekeningPpob.nama,
+      rekeningPpobBank: rekeningPpob.bank,
+      rekeningPpobNomor: rekeningPpob.nomor,
       diperbaruiPada: Date.now(),
       diperbaruiOleh: admin.userId,
     };
@@ -783,6 +1268,14 @@ export const hitungUlangHarga = mutation({
         diubah += 1;
       }
     }
+    await ctx.scheduler.runAfter(
+      0,
+      internal.ppobNotifikasi.kabarkanAksiSensitif,
+      {
+        aksi: "Markup diterapkan ke seluruh produk",
+        ringkas: `${diubah} produk dihitung ulang. Periksa harga sebelum menerima pesanan.`,
+      },
+    );
     return { diubah };
   },
 });
@@ -842,6 +1335,14 @@ export const tandaiDibayar = mutation({
       pesananId: args.id,
       jenis: "dibayar",
     });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.ppobNotifikasi.kabarkanAksiSensitif,
+      {
+        aksi: "Pembayaran pesanan diverifikasi",
+        ringkas: `${pesanan.kodePesanan} · Rp ${args.nominalDiterima} · ref ${referensi}`,
+      },
+    );
     return { ok: true };
   },
 });
@@ -943,6 +1444,14 @@ export const tandaiRefund = mutation({
       pesananId: args.id,
       jenis: "refund",
     });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.ppobNotifikasi.kabarkanAksiSensitif,
+      {
+        aksi: "Refund pesanan dicatat",
+        ringkas: `${pesanan.kodePesanan} · Rp ${pesanan.hargaJual} · ref ${referensi}`,
+      },
+    );
     return { ok: true };
   },
 });
@@ -1085,9 +1594,16 @@ export const simpanHasilSinkron = internalMutation({
           v.literal("token-listrik"),
           v.literal("game"),
           v.literal("ewallet"),
+          v.literal("bpjs"),
+          v.literal("pdam"),
+          v.literal("pln-pascabayar"),
+        ),
+        jenis: v.optional(
+          v.union(v.literal("prabayar"), v.literal("pascabayar")),
         ),
         operator: v.optional(v.string()),
         hargaModal: v.number(),
+        komisi: v.optional(v.number()),
         tersedia: v.boolean(),
         stok: v.optional(v.number()),
       }),
@@ -1100,16 +1616,17 @@ export const simpanHasilSinkron = internalMutation({
     let diperbarui = 0;
 
     for (const item of args.produk) {
+      const pascabayar = item.jenis === "pascabayar";
       const tarif = persenMarkupKategori(
         pengaturan.markupPersen,
         pengaturan.markupKategori,
         item.kategori,
       );
-      const hargaJualHitung = hargaJualDariModal(
-        item.hargaModal,
-        tarif,
-        pengaturan.markupMin,
-      );
+      // Tagihan pascabayar memakai biaya admin tetap; harga modal produk hanya
+      // biaya admin provider, bukan nominal tagihan pelanggan.
+      const hargaJualHitung = pascabayar
+        ? item.hargaModal + pengaturan.biayaAdminPascabayar
+        : hargaJualDariModal(item.hargaModal, tarif, pengaturan.markupMin);
       const lama = await ctx.db
         .query("ppobProduk")
         .withIndex("by_kode", (q) => q.eq("kode", item.kode))
@@ -1120,9 +1637,11 @@ export const simpanHasilSinkron = internalMutation({
           kode: item.kode,
           nama: item.nama,
           kategori: item.kategori,
+          jenis: item.jenis ?? "prabayar",
           operator: item.operator,
           hargaModal: item.hargaModal,
           hargaJual: hargaJualHitung,
+          komisi: item.komisi,
           aktif: true,
           tersedia: item.tersedia,
           stok: item.stok,
@@ -1135,11 +1654,13 @@ export const simpanHasilSinkron = internalMutation({
 
       // Harga manual dipertahankan selama masih di atas modal + markup minimum;
       // bila modal naik melewatinya, harga dihitung ulang supaya tidak menjual rugi.
-      const lantai = hargaJualDariModal(
-        item.hargaModal,
-        tarif,
-        pengaturan.markupMin,
-      );
+      const lantai = pascabayar
+        ? item.hargaModal + pengaturan.biayaAdminPascabayar
+        : hargaJualDariModal(
+            item.hargaModal,
+            tarif,
+            pengaturan.markupMin,
+          );
       const pertahankanManual =
         lama.hargaManual === true && lama.hargaJual >= lantai;
       const hargaJual = pertahankanManual ? lama.hargaJual : lantai;
@@ -1147,9 +1668,11 @@ export const simpanHasilSinkron = internalMutation({
       await ctx.db.patch(lama._id, {
         nama: item.nama,
         kategori: item.kategori,
+        jenis: item.jenis ?? "prabayar",
         operator: item.operator,
         hargaModal: item.hargaModal,
         hargaJual,
+        komisi: item.komisi,
         hargaManual: pertahankanManual,
         tersedia: item.tersedia,
         stok: item.stok,

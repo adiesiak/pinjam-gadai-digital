@@ -16,9 +16,12 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  Droplets,
   Gamepad2,
+  HeartPulse,
   Info,
   Loader2,
+  ReceiptText,
   Search,
   ShieldCheck,
   Smartphone,
@@ -28,9 +31,10 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 
+import { GerbangTurnstile, turnstileDipasang } from "@/components/GerbangTurnstile";
 import { VaultLogo } from "@/components/VaultLogo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -56,6 +60,8 @@ import {
   LABEL_KATEGORI_PPOB,
   LABEL_STATUS_PPOB,
   NADA_STATUS_PPOB,
+  idPerangkatPpob,
+  kategoriPascabayar,
   nomorTujuanBersih,
   nomorTujuanValid,
   type KategoriPpob,
@@ -70,6 +76,9 @@ const IKON_KATEGORI: Record<KategoriPpob, typeof Smartphone> = {
   "token-listrik": Zap,
   game: Gamepad2,
   ewallet: Wallet,
+  bpjs: HeartPulse,
+  pdam: Droplets,
+  "pln-pascabayar": ReceiptText,
 };
 
 const CONTOH_BELI: Record<KategoriPpob, string> = {
@@ -78,6 +87,9 @@ const CONTOH_BELI: Record<KategoriPpob, string> = {
   "token-listrik": "12 digit nomor meter",
   game: "ID game (server)",
   ewallet: "0812 3456 7890",
+  bpjs: "Nomor kartu BPJS",
+  pdam: "Nomor pelanggan PDAM",
+  "pln-pascabayar": "Nomor meter / ID pelanggan PLN",
 };
 
 const LABEL_TUJUAN: Record<KategoriPpob, string> = {
@@ -86,6 +98,9 @@ const LABEL_TUJUAN: Record<KategoriPpob, string> = {
   "token-listrik": "Nomor meter / ID pelanggan",
   game: "ID game",
   ewallet: "Nomor akun e-wallet",
+  bpjs: "Nomor kartu BPJS",
+  pdam: "Nomor pelanggan PDAM",
+  "pln-pascabayar": "Nomor meter / ID pelanggan PLN",
 };
 
 const KELAS_NADA: Record<string, string> = {
@@ -226,19 +241,38 @@ function DialogPesan({
   awal,
   onClose,
 }: {
-  produk: { kode: string; nama: string; kategori: KategoriPpob; hargaJual: number } | null;
+  produk: {
+    kode: string;
+    nama: string;
+    kategori: KategoriPpob;
+    hargaJual: number;
+    jenis?: "prabayar" | "pascabayar";
+  } | null;
   /** Isian dari tombol "Pesan lagi" di riwayat pembeli. */
   awal: { nomorTujuan: string; nama: string; whatsapp: string } | null;
   onClose: () => void;
 }) {
   const pesan = useMutation(api.ppob.buatPesanan);
+  const pesanTagihan = useMutation(api.ppob.buatPesananPascabayar);
+  const cekTagihan = useAction(api.ppobH2h.cekTagihanPpob);
   const navigate = useNavigate();
   const [nomor, setNomor] = useState("");
   const [nama, setNama] = useState("");
   const [wa, setWa] = useState("");
   const [setuju, setSetuju] = useState(false);
   const [sibuk, setSibuk] = useState(false);
+  const [cekSibuk, setCekSibuk] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
+  const [gerbangSiap, setGerbangSiap] = useState(!turnstileDipasang);
+  const [gerbangToken, setGerbangToken] = useState<string | null>(null);
+  const [tagihan, setTagihan] = useState<{
+    token: string;
+    namaPelanggan: string;
+    periode: string;
+    nominalTagihan: number;
+    biayaAdmin: number;
+    total: number;
+  } | null>(null);
 
   useEffect(() => {
     if (produk === null) return;
@@ -247,28 +281,75 @@ function DialogPesan({
     setWa(awal?.whatsapp ?? "");
     setSetuju(false);
     setGalat(null);
+    setTagihan(null);
   }, [produk, awal]);
 
+  const pascabayar = produk !== null && kategoriPascabayar(produk.kategori);
   const nomorSah = produk !== null && nomorTujuanValid(produk.kategori, nomor);
+  const bisaCek = pascabayar && nomorSah && gerbangSiap && !cekSibuk && !sibuk;
   const bisaKirim =
     produk !== null &&
     nomorSah &&
     nama.trim().length >= 2 &&
     nomorTujuanValid("pulsa", wa) &&
     setuju &&
-    !sibuk;
+    gerbangSiap &&
+    (!pascabayar || tagihan !== null) &&
+    !sibuk &&
+    !cekSibuk;
+
+  const mintaTagihan = async () => {
+    if (produk === null) return;
+    setGalat(null);
+    setCekSibuk(true);
+    try {
+      const hasil = await cekTagihan({
+        produkKode: produk.kode,
+        nomorTujuan: nomor,
+        perangkatId: idPerangkatPpob(),
+        ...(gerbangToken !== null ? { gerbangToken } : {}),
+      });
+      setTagihan({
+        token: hasil.token,
+        namaPelanggan: hasil.namaPelanggan,
+        periode: hasil.periode,
+        nominalTagihan: hasil.nominalTagihan,
+        biayaAdmin: hasil.biayaAdmin,
+        total: hasil.total,
+      });
+    } catch (err) {
+      setTagihan(null);
+      setGalat(err instanceof Error ? err.message : "Tagihan gagal dicek.");
+    } finally {
+      setCekSibuk(false);
+    }
+  };
 
   const kirim = async () => {
     if (produk === null) return;
+    if (pascabayar && tagihan === null) {
+      setGalat("Cek tagihan lebih dulu sebelum membuat pesanan.");
+      return;
+    }
     setGalat(null);
     setSibuk(true);
     try {
-      const hasil = await pesan({
-        kodeProduk: produk.kode,
-        nomorTujuan: nomor,
-        nama,
-        whatsapp: wa,
-      });
+      const hasil = pascabayar
+        ? await pesanTagihan({
+            tagihanToken: tagihan!.token,
+            nama,
+            whatsapp: wa,
+            perangkatId: idPerangkatPpob(),
+            ...(gerbangToken !== null ? { gerbangToken } : {}),
+          })
+        : await pesan({
+            kodeProduk: produk.kode,
+            nomorTujuan: nomor,
+            nama,
+            whatsapp: wa,
+            perangkatId: idPerangkatPpob(),
+            ...(gerbangToken !== null ? { gerbangToken } : {}),
+          });
       toast.success(
         hasil.ulang
           ? "Pesanan yang sama masih menunggu pembayaran — membuka halaman pembayarannya."
@@ -293,11 +374,17 @@ function DialogPesan({
       <DialogContent className="max-h-[92dvh] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-base">{produk?.nama}</DialogTitle>
-          <DialogDescription className="flex items-baseline gap-2 text-sm">
-            <span className="text-xl font-semibold tabular-nums text-emerald-800">
-              {produk ? formatRupiahAman(produk.hargaJual) : ""}
-            </span>
-            <span>sudah termasuk biaya layanan.</span>
+          <DialogDescription className="text-sm">
+            {pascabayar ? (
+              <span>Tagihan dicek langsung dari provider sebelum pesanan dibuat.</span>
+            ) : (
+              <span className="flex items-baseline gap-2">
+                <span className="text-xl font-semibold tabular-nums text-emerald-800">
+                  {produk ? formatRupiahAman(produk.hargaJual) : ""}
+                </span>
+                <span>sudah termasuk biaya layanan.</span>
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -310,7 +397,10 @@ function DialogPesan({
                 inputMode="numeric"
                 autoComplete="off"
                 value={nomor}
-                onChange={(e) => setNomor(e.target.value)}
+                onChange={(e) => {
+                  setNomor(e.target.value);
+                  setTagihan(null);
+                }}
                 placeholder={CONTOH_BELI[produk.kategori]}
                 aria-invalid={nomor !== "" && !nomorSah}
                 className="min-h-11 tabular-nums"
@@ -321,10 +411,58 @@ function DialogPesan({
                     ? "Nomor meter harus 11–12 angka."
                     : produk.kategori === "game"
                       ? "ID game 5–20 angka; tambahkan server dalam kurung bila perlu."
-                      : "Nomor HP harus diawali 08 dan berisi 10–13 angka."}
+                      : kategoriPascabayar(produk.kategori)
+                        ? "Nomor pelanggan harus 6–20 angka."
+                        : "Nomor HP harus diawali 08 dan berisi 10–13 angka."}
                 </p>
               ) : null}
+              {pascabayar ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 w-full"
+                  disabled={!bisaCek}
+                  onClick={() => void mintaTagihan()}
+                >
+                  {cekSibuk ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <ReceiptText className="mr-2 size-4" />
+                  )}
+                  {tagihan === null ? "Cek tagihan" : "Cek ulang tagihan"}
+                </Button>
+              ) : null}
             </div>
+
+            {tagihan !== null ? (
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{tagihan.namaPelanggan}</p>
+                    <p className="mt-0.5 text-[11px] text-sky-800">
+                      Periode {tagihan.periode}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-sky-300 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                    Tagihan
+                  </span>
+                </div>
+                <dl className="mt-2 space-y-1 border-t border-sky-200 pt-2">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-sky-800">Nominal tagihan</dt>
+                    <dd className="tabular-nums">{formatRupiahAman(tagihan.nominalTagihan)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-sky-800">Biaya admin</dt>
+                    <dd className="tabular-nums">{formatRupiahAman(tagihan.biayaAdmin)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2 border-t border-sky-200 pt-1 text-sm font-semibold">
+                    <dt>Total bayar</dt>
+                    <dd className="tabular-nums">{formatRupiahAman(tagihan.total)}</dd>
+                  </div>
+                </dl>
+              </div>
+            ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -351,6 +489,12 @@ function DialogPesan({
                 />
               </div>
             </div>
+
+            <GerbangTurnstile
+              publik
+              onSiap={setGerbangSiap}
+              onToken={setGerbangToken}
+            />
 
             <label className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/50 p-3 text-xs leading-5 text-slate-700">
               <Checkbox
@@ -385,7 +529,10 @@ function DialogPesan({
               ) : (
                 <ArrowRight className="mr-2 size-4" />
               )}
-              Buat pesanan · {produk ? formatRupiahAman(produk.hargaJual) : ""}
+              Buat pesanan ·{" "}
+              {produk
+                ? formatRupiahAman(tagihan?.total ?? produk.hargaJual)
+                : ""}
             </Button>
             <p className="text-center text-[11px] text-slate-500">
               Pembayaran diverifikasi admin sebelum produk dikirim. Simpan kode pesanan
@@ -415,6 +562,7 @@ export function Ppob() {
     nama: string;
     kategori: KategoriPpob;
     hargaJual: number;
+    jenis?: "prabayar" | "pascabayar";
   } | null>(null);
 
   const kategoriAktif: KategoriPpob = pilih ?? kategori?.kategori[0]?.id ?? "pulsa";
@@ -672,9 +820,15 @@ export function Ppob() {
                     <ChevronRight className="mt-0.5 size-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" aria-hidden />
                   </span>
                   <span className="mt-3 flex items-baseline justify-between gap-2">
-                    <span className="text-lg font-semibold tabular-nums text-emerald-800">
-                      {formatRupiahAman(item.hargaJual)}
-                    </span>
+                    {item.jenis === "pascabayar" || kategoriPascabayar(item.kategori) ? (
+                      <span className="text-[11px] font-medium text-slate-600">
+                        Cek tagihan · admin {formatRupiahAman(item.biayaAdmin ?? 0)}
+                      </span>
+                    ) : (
+                      <span className="text-lg font-semibold tabular-nums text-emerald-800">
+                        {formatRupiahAman(item.hargaJual)}
+                      </span>
+                    )}
                     <span className="text-[10px] font-medium text-slate-500">Pilih</span>
                   </span>
                 </button>
@@ -786,6 +940,35 @@ export function PpobPesanan() {
                   {status.namaProduk} · tujuan {status.nomorTujuan}
                 </p>
               </div>
+
+              {status.jenis === "pascabayar" ? (
+                <dl className="mt-3 space-y-1.5 rounded-xl border border-border bg-background p-4 text-xs text-slate-700">
+                  <div className="flex justify-between gap-3">
+                    <dt>Nama pelanggan</dt>
+                    <dd className="text-right font-medium text-slate-900">
+                      {status.namaPelanggan ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>Periode</dt>
+                    <dd className="text-right font-medium text-slate-900">
+                      {status.periode ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt>Nominal tagihan</dt>
+                    <dd className="text-right tabular-nums">
+                      {formatRupiahAman(status.nominalTagihan ?? 0)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-t border-border pt-1.5">
+                    <dt>Biaya admin</dt>
+                    <dd className="text-right tabular-nums">
+                      {formatRupiahAman(status.biayaPlatform ?? 0)}
+                    </dd>
+                  </div>
+                </dl>
+              ) : null}
 
               {status.status === "menunggu_bayar" ? (
                 <div className="mt-5 space-y-3">
