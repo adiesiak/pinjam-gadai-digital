@@ -6,7 +6,6 @@ import {
   ExternalLink,
   FileText,
   KeyRound,
-  Layers,
   Loader2,
   Lock,
   HandCoins,
@@ -69,8 +68,6 @@ import {
   KalkulatorImbalPendana,
   PortofolioPendanaanSection,
 } from "@/components/penyediaDana/KalkulatorImbalPendana";
-import { SimulatorPendanaan } from "@/components/penyediaDana/SimulatorPendanaan";
-import { PilihanProduk } from "@/components/landing/PilihanProduk";
 import { SaringanPengajuan } from "@/components/penyediaDana/SaringanPengajuan";
 import { PortofolioPendana } from "@/components/penyediaDana/PortofolioPendana";
 import { TabelPendana } from "@/components/penyediaDana/TabelPendana";
@@ -1978,7 +1975,6 @@ function IsiRuang() {
    * urutan di bawah, bukan urutan daftar ini.
    */
   const tabPengelola = [
-    "produk",
     "belum",
     "didanai",
     "lunas",
@@ -1987,7 +1983,7 @@ function IsiRuang() {
     "kredit",
     "lokasi",
   ];
-  const tabPendana = ["produk", "didanai", "lunas", "gadai", "kredit", "lokasi"];
+  const tabPendana = ["didanai", "lunas", "gadai", "kredit", "lokasi"];
   const tabTampil = isPendana ? tabPendana : tabPengelola;
   const tab = tabPilihan ?? (isPendana ? "didanai" : "belum");
   const setTab = setTabPilihan;
@@ -2756,7 +2752,7 @@ function IsiRuang() {
             <KepalaFolio
               nomor={8}
               judul="Daftar pengajuan"
-              catatan="Satu pengajuan satu baris, terbagi menurut status dan produk"
+              catatan="Satu pengajuan satu baris, terbagi menurut status"
               className="mt-6 scroll-mt-24"
             />
 
@@ -2770,12 +2766,6 @@ function IsiRuang() {
                 aria-label="Kategori pengajuan"
                 className="sticky top-14 z-30 h-auto w-full flex-nowrap justify-start gap-x-1 overflow-x-auto rounded-none border-b border-gold/40 bg-white p-0 [scrollbar-width:none] [&_button]:whitespace-nowrap lg:flex-wrap [&::-webkit-scrollbar]:hidden"
               >
-                <TabsTrigger
-                  value="produk"
-                  className="group h-11 flex-none items-center gap-2 rounded-none border-b-2 border-transparent px-3.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy data-[state=active]:border-emerald-700 data-[state=active]:text-navy"
-                >
-                  <Layers className="size-3.5" /> Produk
-                </TabsTrigger>
                 {tabTampil.includes("belum") && (
                   <TabsTrigger
                     value="belum"
@@ -2847,7 +2837,7 @@ function IsiRuang() {
               {/* Saringan di atas tabel data pinjaman — nama peminjam dan
                   pendana. Disembunyikan di tab peta: daftarnya bukan
                   pengajuan, dan tab gadai tidak punya kolom pendana. */}
-              {tab !== "lokasi" && tab !== "produk" && (
+              {tab !== "lokasi" && (
                 <SaringanPengajuan
                   cari={filter.cari}
                   onCari={(nilai) =>
@@ -2865,22 +2855,6 @@ function IsiRuang() {
                   namaTampil={tampilNama}
                 />
               )}
-
-              {/* ===== Produk dan simulator ===== */}
-              <TabsContent value="produk" className="mt-4 space-y-5">
-                <div>
-                  <h3 className="text-sm font-semibold text-navy">
-                    Tempatkan dana dengan aturan tetap
-                  </h3>
-                  <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-                    Penempatan konvensional memakai imbal tetap 30% per 30 hari.
-                    Akad syariah masih skema pada Fase 1: angkanya bisa
-                    disimulasikan, tetapi belum bisa diajukan.
-                  </p>
-                  <PilihanProduk ringkas className="mt-3" />
-                </div>
-                <SimulatorPendanaan />
-              </TabsContent>
 
               {/* ===== Pinjaman baru: belum didanai ===== */}
               <TabsContent value="belum" className="mt-4">

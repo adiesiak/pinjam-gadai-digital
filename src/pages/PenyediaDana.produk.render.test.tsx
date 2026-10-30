@@ -1,11 +1,12 @@
 /**
- * Uji tab Produk di ruang penyedia dana.
+ * Uji tab Produk yang sudah dilepas dari ruang penyedia dana.
  * Run: bun src/pages/PenyediaDana.produk.render.test.tsx
  *
- * Halaman utuh butuh sesi Convex, jadi yang diperiksa di sini: sambungan tabnya
- * di sumber halaman (pemicu, isi, dan penyaring yang tidak ikut tampil), lalu
- * dua bagian presentasional yang benar-benar dirender di tab itu — kartu pilihan
- * produk dan simulator empat akad.
+ * Penjelasan produk dan simulator tidak lagi ditampilkan sebagai tab di ruang
+ * pendana: pendana membaca pinjaman yang benar-benar ada di portofolionya,
+ * termasuk tenor di bawah 30 hari. Halaman utuh butuh sesi Convex, jadi sumber
+ * halaman diperiksa supaya tab itu tidak kembali tanpa sengaja. Dua bagian
+ * presentasionalnya tetap diuji karena masih dipakai di layar lain.
  */
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
@@ -35,32 +36,23 @@ const ringkas = readFileSync(
   "utf8",
 );
 
-// ===== Sambungan tab di halaman =====
+// ===== Tab produk sudah tidak ada di halaman =====
 cek(
-  halaman.includes('value="produk"'),
-  "pemicu tab Produk terpasang",
+  !halaman.includes('value="produk"'),
+  "pemicu tab Produk tidak lagi dipasang",
 );
 cek(
-  halaman.includes("<TabsContent value=\"produk\""),
-  "isi tab Produk punya wadahnya",
+  !halaman.includes("TabsContent value=\"produk\""),
+  "isi tab Produk tidak lagi punya wadah",
 );
 cek(
-  halaman.includes('import { SimulatorPendanaan }') &&
-    halaman.includes("<SimulatorPendanaan"),
-  "simulator pendanaan dirender di tab Produk",
+  !halaman.includes("SimulatorPendanaan") &&
+    !halaman.includes("<PilihanProduk"),
+  "simulator dan kartu produk tidak dirender di ruang pendana",
 );
 cek(
-  halaman.includes('import { PilihanProduk }') &&
-    halaman.includes("<PilihanProduk ringkas"),
-  "kartu pilihan produk dirender di tab Produk",
-);
-cek(
-  halaman.includes('tab !== "produk"'),
-  "penyaring daftar pengajuan tidak tampil di tab Produk",
-);
-cek(
-  halaman.includes("Akad syariah masih skema pada Fase 1"),
-  "tab menyatakan lingkup Fase 1 apa adanya",
+  !halaman.includes("Akad syariah masih skema pada Fase 1"),
+  "penjelasan lingkup produk tidak tersisa di halaman",
 );
 
 // ===== Proyeksi nisbah syariah di ringkasan atas =====
@@ -101,7 +93,7 @@ cek(
   cek(!html.includes("undefined"), "kartu produk tanpa nilai kosong");
 }
 
-// ===== Simulator di dalam tab =====
+// ===== Simulator empat akad (dipakai di layar lain) =====
 {
   const html = renderToStaticMarkup(
     createElement(SimulatorPendanaan, { persenPotonganAdmin: 5 }),
