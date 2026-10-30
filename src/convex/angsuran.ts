@@ -23,7 +23,7 @@ import { akunDompetDana, appendJournal, catatMarginSpread } from "./ledger";
 
 import { formatRupiah } from "../lib/money";
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
-import { audit, getConfig, tarifDendaBerlaku } from "./system";
+import { audit, tarifDendaBerlaku } from "./system";
 import { pembayaranSiklus } from "./siklusPendana";
 import { siklusPendanaan } from "../lib/imbalPendana";
 
@@ -238,7 +238,6 @@ async function distribusikanKePendana(
   rows: readonly Doc<"angsuran">[],
   selesaiPada: number,
 ) {
-  const cfg = await getConfig(ctx);
   const aktif = (
     await ctx.db
       .query("fundings")
@@ -359,10 +358,6 @@ async function distribusikanKePendana(
     totalKelebihan += kelebihan;
   }
 
-  const totalBruto = imbalBagian.reduce(
-    (acc, x) => acc + x.funding.jumlahAlokasi + x.imbal,
-    0,
-  );
   // Kas yang sudah diterima = pokok + bunga seluruh angsuran. Yang dibayarkan
   // ke pendana = totalBruto; selisihnya tepat margin spread platform.
   if (
@@ -706,6 +701,127 @@ export const verifikasiBuktiAngsuran = mutation({
       lunas: true as const,
       semuaLunas: hasil.semuaLunas,
     };
+  },
+});
+
+/**
+ * Catat pelunasan penuh pinjaman BULANAN dari mutasi bank yang sudah diterima.
+ *
+ * Setiap angsuran yang belum lunas ditulis jurnalnya sendiri, lalu penutup
+ * jadwal memanggil mesin yang sama dengan pencocokan bukti angsuran: hak
+ * penyedia dana dibayar, posisi alokasi ditutup, voucher dan tiket terbit sekali.
+ * Nominal wajib sama dengan sisa tagihan pada tanggal terima, termasuk denda.
+ */
+export const catatPelunasanManualBulanan = mutation({
+  args: {
+    loanId: v.id("loans"),
+    referensiMutasi: v.string(),
+    jumlahMutasi: v.number(),
+    tanggal: v.number(),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user } = await requireAdminSession(ctx);
+    const adminLabel = user.email ?? user.name ?? "admin";
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (loan.status !== "didanai") {
+      throw new Error("Hanya pinjaman berstatus Didanai yang bisa dilunasi.");
+    }
+    if (loan.tenorBulan === undefined) {
+      throw new Error(
+        "Pinjaman harian dilunasi lewat catat pelunasan pinjaman, bukan lewat angsuran.",
+      );
+    }
+
+    const referensi = args.referensiMutasi.trim();
+    if (referensi.length < 4 || referensi.length > 120) {
+      throw new Error("Referensi mutasi bank wajib 4 sampai 120 karakter.");
+    }
+    if (!Number.isSafeInteger(args.jumlahMutasi) || args.jumlahMutasi <= 0) {
+      throw new Error("Nominal mutasi bank wajib rupiah bulat positif.");
+    }
+    if (
+      !Number.isSafeInteger(args.tanggal) ||
+      args.tanggal <= 0 ||
+      args.tanggal > Date.now() + 5 * 60_000
+    ) {
+      throw new Error("Tanggal terima pembayaran tidak valid.");
+    }
+    if (loan.didanaiPada !== undefined && args.tanggal < loan.didanaiPada) {
+      throw new Error("Tanggal terima tidak boleh sebelum dana disalurkan.");
+    }
+    const catatan = (args.catatan ?? "").trim();
+    if (catatan.length > 500) throw new Error("Catatan maksimal 500 karakter.");
+
+    const menunggu = await ctx.db
+      .query("manualPaymentReceipts")
+      .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+      .collect();
+    if (menunggu.some((row) => row.status === "menunggu_pencocokan")) {
+      throw new Error(
+        "Ada bukti pembayaran yang menunggu pencocokan. Selesaikan atau tolak bukti itu lebih dulu.",
+      );
+    }
+
+    await pastikanAngsuran(ctx, loan);
+    const rows = await ctx.db
+      .query("angsuran")
+      .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+      .collect();
+    const belum = rows
+      .filter((row) => row.status !== "lunas")
+      .sort((a, b) => a.nomor - b.nomor);
+    if (belum.length === 0) {
+      throw new Error("Tidak ada angsuran yang tersisa; pinjaman ini sudah selesai.");
+    }
+    if (belum.some((row) => row.status === "menunggu_verifikasi")) {
+      throw new Error(
+        "Ada angsuran yang menunggu verifikasi bukti. Selesaikan atau tolak bukti itu lebih dulu.",
+      );
+    }
+
+    const tarif = await tarifDendaBerlaku(ctx);
+    const rencana = belum.map((row) => ({
+      row,
+      denda: dendaAngsuran(row.pokok, row.jatuhTempoPada, args.tanggal, tarif),
+    }));
+    const totalDue = rencana.reduce(
+      (acc, item) => acc + item.row.total + item.denda,
+      0,
+    );
+    if (args.jumlahMutasi !== totalDue) {
+      throw new Error(
+        `Nominal mutasi ${formatRupiah(args.jumlahMutasi)} tidak sama dengan sisa tagihan ${formatRupiah(totalDue)} untuk ${belum.length} angsuran pada tanggal terima.`,
+      );
+    }
+
+    for (const { row, denda } of rencana) {
+      const dibayar = row.total + denda;
+      await jurnalAngsuran(ctx, loan, row, denda, dibayar, adminId);
+      await ctx.db.patch(row._id, {
+        status: "lunas",
+        dibayarPada: args.tanggal,
+        dendaDibayar: denda,
+      });
+    }
+
+    const hasil = await selesaikanBilaLunas(
+      ctx,
+      loan,
+      adminId,
+      adminLabel,
+      args.tanggal,
+    );
+    await audit(
+      ctx,
+      adminId,
+      adminLabel,
+      "pelunasan_angsuran_manual",
+      loan.nomorReferensi,
+      `Mutasi ${referensi} sebesar ${formatRupiah(totalDue)} menutup ${belum.length} angsuran${catatan === "" ? "" : `; catatan: ${catatan}`}.`,
+    );
+    return { ok: true as const, totalDue, semuaLunas: hasil.semuaLunas };
   },
 });
 

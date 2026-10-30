@@ -50,6 +50,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { loanPurposeLabel } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
+import { tanggalWIB } from "@/lib/waktu";
 import { rincianPinjamanNyata } from "@/lib/rincianAliranDana";
 import type { StatusKyc } from "@/lib/kycStatus";
 import { STATUS_TERKUNCI, diTahapTinjauan, nominalTerkunci } from "@/lib/statusPinjaman";
@@ -102,6 +103,10 @@ export function LoanReviewDialog({
   // Penetapan pendana + koreksi nominal memakai jalur yang sama dengan ruang
   // pendana, sehingga nama pendana langsung tampil di sana.
   const simpanPendana = useMutation(api.penyediaDana.ubahDataPinjaman);
+  // Pelunasan manual: satu jalur untuk pinjaman harian, satu untuk bulanan.
+  // Keduanya mencatat mutasi bank lebih dulu, bukan mengubah status diam-diam.
+  const catatPelunasanHarian = useMutation(api.perpanjanganPinjaman.catatPelunasanManual);
+  const catatPelunasanBulanan = useMutation(api.angsuran.catatPelunasanManualBulanan);
 
   // Konfirmasi khusus: pinjaman yang sudah berpindah dana (punya alokasi/jurnal)
   // hanya boleh dihapus bila admin menyatakannya sadar. Default mati.
@@ -122,6 +127,17 @@ export function LoanReviewDialog({
   const [lampiranTerbuka, setLampiranTerbuka] = useState(false);
   /** Rincian lengkap (data diri, KYC, koordinat, kontrak) disembunyikan dulu. */
   const [bukaRincian, setBukaRincian] = useState(false);
+  // Dialog pelunasan manual: nominal dihitung server, admin hanya mengisi
+  // bukti mutasi, tanggal terima, dan catatan opsional.
+  const [pelunasanTerbuka, setPelunasanTerbuka] = useState(false);
+  const [referensiPelunasan, setReferensiPelunasan] = useState("");
+  const [tanggalPelunasan, setTanggalPelunasan] = useState(() => tanggalWIB(Date.now()));
+  // Tanggal hari ini dihitung sekali saat komponen dipasang, lalu disegarkan
+  // saat dialog dibuka. `max` jadi stabil selama render dan tetap benar.
+  const [tanggalHariIni, setTanggalHariIni] = useState(() => tanggalWIB(Date.now()));
+  const [catatanPelunasan, setCatatanPelunasan] = useState("");
+  const [errorPelunasan, setErrorPelunasan] = useState<string | null>(null);
+  const [busyPelunasan, setBusyPelunasan] = useState(false);
 
   // Pratinjau pesan WhatsApp yang akan dikirim — admin melihat persis isinya
   // sebelum menekan tombol, termasuk kalimat persetujuan sebagian.
@@ -149,6 +165,22 @@ export function LoanReviewDialog({
     api.admin.dokumenKycUrls,
     row === null ? ("skip" as const) : { loanId: row._id },
   );
+  // Tanggal terima ikut dikirim ke server supaya denda dan total di dialog
+  // memakai tanggal yang sama dengan yang nanti dicatat, bukan selalu hari ini.
+  const tanggalAcuanPelunasan = new Date(
+    `${tanggalPelunasan}T12:00:00+07:00`,
+  ).getTime();
+  const pelunasanQ = useQuery(
+    api.perpanjanganPinjaman.infoPelunasanManual,
+    pelunasanTerbuka && row !== null
+      ? {
+          loanId: row._id,
+          ...(Number.isFinite(tanggalAcuanPelunasan)
+            ? { tanggal: tanggalAcuanPelunasan }
+            : {}),
+        }
+      : ("skip" as const),
+  );
 
   // Sasaran status & nominal menyesuaikan saat dialog dibuka untuk baris lain.
   //
@@ -168,6 +200,11 @@ export function LoanReviewDialog({
     setErrorHapus(null);
     setLampiranTerbuka(false);
     setBukaRincian(false);
+    setPelunasanTerbuka(false);
+    setReferensiPelunasan("");
+    setTanggalPelunasan(tanggalHariIni);
+    setCatatanPelunasan("");
+    setErrorPelunasan(null);
   }
 
   if (row === null) return null;
@@ -274,6 +311,51 @@ export function LoanReviewDialog({
       if (pesan.includes("belum punya penyedia dana")) setActiveTab("aliran");
     } finally {
       setBusy(null);
+    }
+  };
+
+  const kirimPelunasan = async () => {
+    if (row === null || pelunasanQ === undefined || pelunasanQ === null) return;
+    if (!pelunasanQ.bisa) {
+      setErrorPelunasan(pelunasanQ.alasan);
+      return;
+    }
+    const referensi = referensiPelunasan.trim();
+    if (referensi.length < 4) {
+      setErrorPelunasan("Referensi mutasi bank minimal 4 karakter.");
+      return;
+    }
+    const tanggal = new Date(`${tanggalPelunasan}T12:00:00+07:00`).getTime();
+    if (!Number.isFinite(tanggal)) {
+      setErrorPelunasan("Tanggal terima belum diisi dengan benar.");
+      return;
+    }
+    setBusyPelunasan(true);
+    setErrorPelunasan(null);
+    try {
+      const args = {
+        loanId: row._id,
+        referensiMutasi: referensi,
+        jumlahMutasi: pelunasanQ.totalDue,
+        tanggal,
+        ...(catatanPelunasan.trim() === "" ? {} : { catatan: catatanPelunasan.trim() }),
+      };
+      if (pelunasanQ.jalur === "harian") {
+        await catatPelunasanHarian(args);
+      } else {
+        await catatPelunasanBulanan(args);
+      }
+      toast.success(
+        "Pelunasan tercatat. Angsuran, jurnal, dan hak penyedia dana ikut ditutup.",
+      );
+      setPelunasanTerbuka(false);
+      onClose();
+    } catch (err) {
+      setErrorPelunasan(
+        err instanceof Error ? err.message : "Gagal mencatat pelunasan.",
+      );
+    } finally {
+      setBusyPelunasan(false);
     }
   };
 
@@ -1154,13 +1236,18 @@ export function LoanReviewDialog({
             {row.status === "didanai" && (
               <Button
                 disabled={busy !== null}
-                onClick={() =>
-                  run("lunas", () => ubahStatus({ loanId: row._id, status: "lunas" }))
-                }
+                onClick={() => {
+                  const hariIni = tanggalWIB(Date.now());
+                  setErrorPelunasan(null);
+                  setReferensiPelunasan("");
+                  setCatatanPelunasan("");
+                  setTanggalHariIni(hariIni);
+                  setTanggalPelunasan(hariIni);
+                  setPelunasanTerbuka(true);
+                }}
                 className={`rounded-xl bg-slate-800 px-4 text-sm font-medium text-white hover:bg-slate-900 ${MICRO_TOMBOL}`}
               >
-                {busy === "lunas" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Tandai lunas
+                Catat pelunasan
               </Button>
             )}
 
@@ -1294,6 +1381,144 @@ export function LoanReviewDialog({
             <strong className="font-mono">{dokumenQ.nomorTandaTerimaAtm ?? "belum dicatat"}</strong>.
             PIN tidak diminta dan tidak disimpan.
           </p>
+        )}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog
+      open={pelunasanTerbuka}
+      onOpenChange={(open) => {
+        setPelunasanTerbuka(open);
+        if (!open) setErrorPelunasan(null);
+      }}
+    >
+      <DialogContent className="max-h-[90vh] w-full overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Catat pelunasan</DialogTitle>
+          <DialogDescription>
+            Pelunasan {row.nomorReferensi} untuk {namaHurufBesar(row.namaLengkap)}. Nominal
+            dihitung server dari sisa tagihan, dan angka yang disimpan harus sama dengan mutasi
+            bank.
+          </DialogDescription>
+        </DialogHeader>
+
+        {pelunasanQ === undefined ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Menghitung sisa tagihan...
+          </p>
+        ) : pelunasanQ === null ? (
+          <p className="text-sm text-muted-foreground">Pinjaman tidak ditemukan.</p>
+        ) : !pelunasanQ.bisa ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {pelunasanQ.alasan}
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-xs uppercase tracking-wide text-slate-500">
+                  Total pelunasan
+                </span>
+                <span className="text-xl font-semibold text-slate-900">
+                  {formatRupiah(pelunasanQ.totalDue)}
+                </span>
+              </div>
+              <dl className="mt-3 space-y-1 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-slate-500">Pokok</dt>
+                  <dd className="font-medium text-slate-800">
+                    {formatRupiah(pelunasanQ.pokok)}
+                  </dd>
+                </div>
+                {pelunasanQ.bunga > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500">Bunga</dt>
+                    <dd className="font-medium text-slate-800">
+                      {formatRupiah(pelunasanQ.bunga)}
+                    </dd>
+                  </div>
+                )}
+                {pelunasanQ.biayaAdmin > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500">Biaya admin cicilan</dt>
+                    <dd className="font-medium text-slate-800">
+                      {formatRupiah(pelunasanQ.biayaAdmin)}
+                    </dd>
+                  </div>
+                )}
+                {pelunasanQ.denda > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-amber-700">Denda keterlambatan</dt>
+                    <dd className="font-medium text-amber-800">
+                      {formatRupiah(pelunasanQ.denda)}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              {pelunasanQ.jalur === "bulanan" && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Menutup {pelunasanQ.jumlahAngsuran} angsuran yang belum lunas.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="referensi-pelunasan">Referensi mutasi bank</Label>
+              <Input
+                id="referensi-pelunasan"
+                value={referensiPelunasan}
+                onChange={(event) => setReferensiPelunasan(event.target.value)}
+                placeholder="Nomor transaksi dari rekening koran"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="tanggal-pelunasan">Tanggal terima</Label>
+              <Input
+                id="tanggal-pelunasan"
+                type="date"
+                max={tanggalHariIni}
+                value={tanggalPelunasan}
+                onChange={(event) => setTanggalPelunasan(event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="catatan-pelunasan">Catatan (opsional)</Label>
+              <Input
+                id="catatan-pelunasan"
+                value={catatanPelunasan}
+                onChange={(event) => setCatatanPelunasan(event.target.value)}
+                maxLength={500}
+                placeholder="Misalnya setoran tunai di kantor"
+              />
+            </div>
+
+            {errorPelunasan !== null && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {errorPelunasan}
+              </p>
+            )}
+
+            <div className="flex flex-wrap justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                disabled={busyPelunasan}
+                onClick={() => setPelunasanTerbuka(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                disabled={busyPelunasan}
+                onClick={() => void kirimPelunasan()}
+                className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+              >
+                {busyPelunasan ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Simpan pelunasan
+              </Button>
+            </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>

@@ -1706,7 +1706,36 @@ async function setLoanStatus(
   const cek = validasiUbahStatus(loan.status, status);
   if (!cek.ok) throw new Error(cek.alasan);
 
+  // Alokasi aktif menandakan uang pendana sudah berpindah. Sejak titik itu,
+  // status tidak boleh mundur ke tahap sebelum pencairan: laporan akan
+  // menampilkan pinjaman "belum cair" padahal dana dan jurnalnya sudah keluar.
+  const fundings = await ctx.db
+    .query("fundings")
+    .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+    .collect();
+  const adaAlokasiAktif = fundings.some((row) => row.status === "dialokasikan");
   const statusLama = loan.status;
+  if (adaAlokasiAktif && statusLama === "didanai" && status !== "lunas") {
+    throw new Error(
+      "Dana pinjaman ini sudah tersalurkan dan alokasi pendana masih aktif. Status tidak bisa dikembalikan ke tahap sebelumnya; selesaikan pelunasan dengan mencatat mutasi bank.",
+    );
+  }
+
+  // "Lunas" bukan sekadar label: ia menutup hak penyedia dana dan seluruh
+  // jadwal angsuran. Karena itu status ini hanya boleh dicapai lewat jalur yang
+  // mencatat uangnya (catat pelunasan manual atau pencocokan bukti angsuran).
+  // Tanpa pagar ini, satu tombol bisa menghapus sisa pokok di laporan padahal
+  // jurnal dan alokasi pendana tidak bergerak.
+  if (status === "lunas" && adaAlokasiAktif) {
+    // Yang dijaga adalah uang pendana, bukan label saja: selama masih ada
+    // alokasi aktif, menutup pinjaman harus lewat jalur yang membayar hak
+    // pendana dan menulis jurnal. Pinjaman manual lama tanpa alokasi tetap
+    // boleh ditutup admin seperti sebelumnya.
+    throw new Error(
+      "Pinjaman ini masih punya alokasi dana aktif. Catat pelunasan lewat tombol Catat pelunasan agar jurnal, angsuran, dan hak pendana ikut ditutup.",
+    );
+  }
+
   const pokokDiajukan = loan.pokokDiajukan ?? loan.pokokPinjaman;
 
   // Nominal hanya boleh disesuaikan selama dana belum tersalurkan. Setelah itu

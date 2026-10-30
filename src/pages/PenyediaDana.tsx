@@ -1727,7 +1727,7 @@ function FormUbahPinjaman({
             <SelectContent>
               <SelectItem value={TETAP_STATUS}>Tidak diubah</SelectItem>
               {STATUS_PINJAMAN.filter(
-                (s) => keStatusTersimpan(s) !== row.status,
+                (s) => s !== "lunas" && keStatusTersimpan(s) !== row.status,
               ).map((s) => (
                 <SelectItem key={s} value={s}>
                   {LABEL_STATUS_PINJAMAN[s]}
@@ -1738,7 +1738,7 @@ function FormUbahPinjaman({
           <p className="text-xs leading-5 text-muted-foreground">
             {row.status === "lunas"
               ? "Pinjaman sudah lunas — posisinya ditutup dan statusnya tidak dapat diubah lagi."
-              : `Status sekarang: ${labelStatusPinjaman(row.status)}. Perubahan status memakai pintu yang sama dengan panel admin: peminjam menerima kabar WhatsApp berisi status dan catatan di atas (boleh dikosongkan).`}
+              : `Status sekarang: ${labelStatusPinjaman(row.status)}. Perubahan status memakai pintu yang sama dengan panel admin: peminjam menerima kabar WhatsApp berisi status dan catatan di atas (boleh dikosongkan). Pelunasan dicatat dari detail pinjaman lewat tombol Catat pelunasan.`}
           </p>
         </div>
 

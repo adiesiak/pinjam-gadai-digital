@@ -21,13 +21,15 @@ import {
   catatMarginSpread,
 } from "./ledger";
 import { bagiMargin } from "../lib/kebijakanPinjaman";
+import { dendaAngsuran, jadwalAngsuranPinjaman } from "../lib/angsuran";
+import { hitungRencanaPembayaran } from "../lib/perpanjanganPinjaman";
 
 import { apakahPelunasanTepatWaktu } from "../lib/plafon";
 import { beriTiketPelunasan, beriTiketPendanaan } from "./doorprize";
 import { catatDanaKembali } from "./matchingQueue";
 import { quotePinjaman } from "../lib/loan";
 import { formatRupiah } from "../lib/money";
-import { audit, getConfig } from "./system";
+import { audit, tarifDendaBerlaku } from "./system";
 import { pembayaranSiklus } from "./siklusPendana";
 import { siklusPendanaan } from "../lib/imbalPendana";
 import { selesaikanReferralPelunasan } from "./referral";
@@ -203,7 +205,20 @@ export const verifikasiPembayaranPinjaman = mutation({
 
     const now = Date.now();
     if (receipt.paymentType === "pelunasan_total") {
-      await catatPelunasanTotal(ctx, loan, receipt, rencanaDari(receipt), adminId, adminLabel);
+      await catatPelunasanTotal(
+        ctx,
+        loan,
+        {
+          tanggal: receipt.tanggalTransfer,
+          asal: "bukti",
+          nomorReferensi: receipt.nomorReferensi,
+          buktiPembayaranId: receipt.buktiPembayaranId,
+          receiptId: receipt._id,
+        },
+        rencanaDari(receipt),
+        adminId,
+        adminLabel,
+      );
       await ctx.db.patch(receipt._id, {
         status: "dicocokkan",
         referensiMutasi: referensi,
@@ -234,6 +249,211 @@ export const verifikasiPembayaranPinjaman = mutation({
       dicocokkanOleh: adminId,
     });
     return { ok: true as const, lunas: false as const };
+  },
+});
+
+/**
+ * Angka pelunasan yang akan dicatat admin untuk satu pinjaman.
+ *
+ * Dipakai dialog "Catat pelunasan" supaya nominal yang diketik sama dengan
+ * hitungan server. Pinjaman harian memakai mesin rencana pembayaran, pinjaman
+ * bulanan menjumlahkan angsuran yang belum lunas beserta denda pada hari ini.
+ */
+export const infoPelunasanManual = query({
+  args: {
+    loanId: v.id("loans"),
+    /** Tanggal terima pilihan admin; kosong = hari ini. */
+    tanggal: v.optional(v.number()),
+  },
+  handler: async (ctx, { loanId, tanggal }) => {
+    await requireAdminRole(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) return null;
+    const jalur = loan.tenorBulan === undefined ? "harian" : "bulanan";
+    if (loan.status !== "didanai") {
+      return {
+        bisa: false as const,
+        jalur,
+        alasan: "Hanya pinjaman berjalan yang bisa dilunasi.",
+        totalDue: 0,
+        pokok: 0,
+        bunga: 0,
+        biayaAdmin: 0,
+        denda: 0,
+        jumlahAngsuran: 0,
+      };
+    }
+
+    const tarif = await tarifDendaBerlaku(ctx);
+    const sekarang = tanggal ?? Date.now();
+    if (loan.tenorBulan === undefined) {
+      const rencana = hitungRencanaPembayaran({
+        loan,
+        mode: "pelunasan_total",
+        waktuTransaksi: sekarang,
+        tarifDendaPerHari: tarif,
+      });
+      return {
+        bisa: true as const,
+        jalur,
+        totalDue: rencana.totalDue,
+        pokok: rencana.principalSebelum,
+        bunga: rencana.interestDue,
+        biayaAdmin: 0,
+        denda: rencana.lateFee,
+        jumlahAngsuran: 1,
+      };
+    }
+
+    const rows = await ctx.db
+      .query("angsuran")
+      .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+      .collect();
+    const belum = rows
+      .filter((row) => row.status !== "lunas")
+      .sort((a, b) => a.nomor - b.nomor);
+    // Pinjaman lama bisa belum punya baris angsuran. Hitung dari jadwal murni
+    // supaya dialog tetap memberi angka yang sama dengan yang nanti dibuat
+    // `pastikanAngsuran` saat pelunasan dicatat.
+    const jadwal = belum.length === 0 && rows.length === 0
+      ? jadwalAngsuranPinjaman(loan).map((row) => ({
+          nomor: row.nomor,
+          jatuhTempoPada: row.jatuhTempoPada,
+          pokok: row.pokok,
+          bunga: row.bunga,
+          biayaAdmin: row.biayaAdmin,
+          total: row.total,
+        }))
+      : belum;
+    if (jadwal.length === 0) {
+      return {
+        bisa: false as const,
+        jalur,
+        alasan: "Tidak ada angsuran yang tersisa; pinjaman ini sudah selesai.",
+        totalDue: 0,
+        pokok: 0,
+        bunga: 0,
+        biayaAdmin: 0,
+        denda: 0,
+        jumlahAngsuran: 0,
+      };
+    }
+    const jumlah = (pilih: (row: { pokok: number; bunga: number; biayaAdmin: number; total: number }) => number) =>
+      jadwal.reduce((acc, row) => acc + pilih(row), 0);
+    const denda = jadwal.reduce(
+      (acc, row) => acc + dendaAngsuran(row.pokok, row.jatuhTempoPada, sekarang, tarif),
+      0,
+    );
+    return {
+      bisa: true as const,
+      jalur,
+      totalDue: jumlah((row) => row.total) + denda,
+      pokok: jumlah((row) => row.pokok),
+      bunga: jumlah((row) => row.bunga),
+      biayaAdmin: jumlah((row) => row.biayaAdmin),
+      denda,
+      jumlahAngsuran: jadwal.length,
+    };
+  },
+});
+
+/** Validasi masukan pencatatan pelunasan yang dipakai dua jalur di atas. */
+function periksaMasukanPelunasan(
+  args: { referensiMutasi: string; jumlahMutasi: number; tanggal: number },
+  loan: Doc<"loans">,
+): string {
+  const referensi = args.referensiMutasi.trim();
+  if (referensi.length < 4 || referensi.length > 120) {
+    throw new Error("Referensi mutasi bank wajib 4 sampai 120 karakter.");
+  }
+  if (!Number.isSafeInteger(args.jumlahMutasi) || args.jumlahMutasi <= 0) {
+    throw new Error("Nominal mutasi bank wajib rupiah bulat positif.");
+  }
+  if (
+    !Number.isSafeInteger(args.tanggal) ||
+    args.tanggal <= 0 ||
+    args.tanggal > Date.now() + 5 * 60_000
+  ) {
+    throw new Error("Tanggal terima pembayaran tidak valid.");
+  }
+  if (loan.didanaiPada !== undefined && args.tanggal < loan.didanaiPada) {
+    throw new Error("Tanggal terima tidak boleh sebelum dana disalurkan.");
+  }
+  return referensi;
+}
+
+/**
+ * Catat pelunasan penuh pinjaman HARIAN dari mutasi bank yang sudah diterima.
+ *
+ * Jalur ini menulis jurnal pelunasan, menutup seluruh angsuran, membayar hak
+ * penyedia dana, dan menutup posisi alokasinya. Bedanya dengan tombol "lunas"
+ * lama: tidak ada status yang berubah tanpa uang dan tanpa jurnal. Pinjaman
+ * bulanan memakai `angsuran.catatPelunasanManualBulanan`.
+ */
+export const catatPelunasanManual = mutation({
+  args: {
+    loanId: v.id("loans"),
+    referensiMutasi: v.string(),
+    jumlahMutasi: v.number(),
+    tanggal: v.number(),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user } = await requireAdminSession(ctx);
+    const adminLabel = user.email ?? user.name ?? "admin";
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
+    if (loan.status !== "didanai") {
+      throw new Error("Hanya pinjaman berstatus Didanai yang bisa dilunasi.");
+    }
+    if (loan.tenorBulan !== undefined) {
+      throw new Error(
+        "Pinjaman bulanan dilunasi lewat angsuran. Gunakan catat pelunasan angsuran agar setiap cicilan punya barisnya sendiri.",
+      );
+    }
+    const referensi = periksaMasukanPelunasan(args, loan);
+    const catatan = (args.catatan ?? "").trim();
+    if (catatan.length > 500) throw new Error("Catatan maksimal 500 karakter.");
+
+    const menunggu = await ctx.db
+      .query("manualPaymentReceipts")
+      .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+      .collect();
+    if (menunggu.some((row) => row.status === "menunggu_pencocokan")) {
+      throw new Error(
+        "Ada bukti pembayaran yang menunggu pencocokan. Selesaikan atau tolak bukti itu lebih dulu.",
+      );
+    }
+
+    const rencana = hitungRencanaPembayaran({
+      loan,
+      mode: "pelunasan_total",
+      waktuTransaksi: args.tanggal,
+      tarifDendaPerHari: await tarifDendaBerlaku(ctx),
+    });
+    if (args.jumlahMutasi !== rencana.totalDue) {
+      throw new Error(
+        `Nominal mutasi ${formatRupiah(args.jumlahMutasi)} tidak sama dengan total pelunasan ${formatRupiah(rencana.totalDue)} (pokok ${formatRupiah(rencana.principalSebelum)}, bunga ${formatRupiah(rencana.interestDue)}, denda ${formatRupiah(rencana.lateFee)}).`,
+      );
+    }
+
+    await catatPelunasanTotal(
+      ctx,
+      loan,
+      { tanggal: args.tanggal, asal: "mutasi", nomorReferensi: referensi },
+      rencana,
+      adminId,
+      adminLabel,
+    );
+    await audit(
+      ctx,
+      adminId,
+      adminLabel,
+      "pelunasan_manual_dicatat",
+      loan.nomorReferensi,
+      `Mutasi ${referensi} sebesar ${formatRupiah(rencana.totalDue)} dicatat sebagai pelunasan penuh${catatan === "" ? "" : `; catatan: ${catatan}`}.`,
+    );
+    return { ok: true as const, totalDue: rencana.totalDue };
   },
 });
 
@@ -341,15 +561,30 @@ async function catatPerpanjangan(
   );
 }
 
+/**
+ * Asal uang pelunasan yang dicatat admin.
+ *
+ * `bukti` berasal dari unggahan nasabah yang dicocokkan, `mutasi` dari
+ * pencatatan langsung admin setelah dana masuk rekening usaha. Keduanya harus
+ * menyebut nomor yang bisa ditelusuri, bukan sekadar tombol "lunas".
+ */
+type SumberPelunasan = {
+  tanggal: number;
+  asal: "bukti" | "mutasi";
+  /** Nomor bukti nasabah atau referensi mutasi bank. */
+  nomorReferensi: string;
+  buktiPembayaranId?: Id<"_storage">;
+  receiptId?: Id<"manualPaymentReceipts">;
+};
+
 async function catatPelunasanTotal(
   ctx: MutationCtx,
   loan: Doc<"loans">,
-  receipt: Doc<"manualPaymentReceipts">,
+  sumber: SumberPelunasan,
   rencana: NonNullable<Doc<"manualPaymentReceipts">["rencana"]>,
   adminId: Id<"users">,
   adminLabel: string,
 ) {
-  const cfg = await getConfig(ctx);
   const fundings = await ctx.db
     .query("fundings")
     .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
@@ -472,7 +707,7 @@ async function catatPelunasanTotal(
       lenderProfit: imbal - potonganAdmin,
       potonganAdmin,
       imbalHasilNet: imbalBersih,
-      diselesaikanPada: receipt.tanggalTransfer,
+      diselesaikanPada: sumber.tanggal,
       status: "selesai",
     });
     terdistribusi += imbalBersih;
@@ -532,16 +767,18 @@ async function catatPelunasanTotal(
   for (const row of jadwal) {
     await ctx.db.patch(row._id, {
       status: "lunas",
-      dibayarPada: receipt.tanggalTransfer,
+      dibayarPada: sumber.tanggal,
       ...(rencana.lateFee > 0 ? { dendaDibayar: rencana.lateFee } : {}),
-      buktiPembayaranId: receipt.buktiPembayaranId,
-      receiptId: receipt._id,
+      ...(sumber.buktiPembayaranId === undefined
+        ? {}
+        : { buktiPembayaranId: sumber.buktiPembayaranId }),
+      ...(sumber.receiptId === undefined ? {} : { receiptId: sumber.receiptId }),
     });
   }
 
   await ctx.db.patch(loan._id, {
     status: "lunas",
-    lunasPada: receipt.tanggalTransfer,
+    lunasPada: sumber.tanggal,
     remainingPrincipal: 0,
     // Simpan bunga periode terakhir agar laporan penyedia dana menghitung
     // seluruh Imbal Hasil, bukan hanya periode yang sudah dibayar sebelumnya.
@@ -556,7 +793,7 @@ async function catatPelunasanTotal(
     adminLabel,
     "loan_lunas",
     loan.nomorReferensi,
-    `${loan.namaLengkap}: pelunasan total ${formatRupiah(rencana.totalDue)} dicocokkan dari bukti ${receipt.nomorReferensi}; sisa pokok 0, alokasi penyedia dana ditutup.`,
+    `${loan.namaLengkap}: pelunasan total ${formatRupiah(rencana.totalDue)} dicocokkan dari ${sumber.asal === "bukti" ? `bukti ${sumber.nomorReferensi}` : `mutasi bank ${sumber.nomorReferensi}`}; sisa pokok 0, alokasi penyedia dana ditutup.`,
   );
 
   // Tiket Doorprize Emas pada jalur pencocokan admin, dengan aturan yang sama
@@ -565,35 +802,35 @@ async function catatPelunasanTotal(
   const tepatWaktu = apakahPelunasanTepatWaktu({
     ...loan,
     status: "lunas",
-    lunasPada: receipt.tanggalTransfer,
+    lunasPada: sumber.tanggal,
   });
   await beriTiketPelunasan(ctx, {
     pemilikId: loan.userId,
     nomorReferensi: loan.nomorReferensi,
     tepatWaktu,
-    waktu: receipt.tanggalTransfer,
+    waktu: sumber.tanggal,
   });
   // Jalur inilah yang paling sering menutup pinjaman (admin mencocokkan bukti
   // transfer), jadi voucher apresiasi harus terbit di sini juga — dulu hanya
   // jalur pelunasan lain yang memanggilnya, sehingga peminjam yang lunas lewat
   // pencocokan mutasi tidak pernah menerima voucher.
   await beriVoucherApresiasi(ctx, {
-    loan: { ...loan, status: "lunas", lunasPada: receipt.tanggalTransfer },
-    sekarang: receipt.tanggalTransfer,
+    loan: { ...loan, status: "lunas", lunasPada: sumber.tanggal },
+    sekarang: sumber.tanggal,
   });
   await selesaikanReferralPelunasan(ctx, {
-    loan: { ...loan, status: "lunas", lunasPada: receipt.tanggalTransfer },
-    sekarang: receipt.tanggalTransfer,
+    loan: { ...loan, status: "lunas", lunasPada: sumber.tanggal },
+    sekarang: sumber.tanggal,
   });
   for (const { funding } of bagian) {
     await beriTiketPendanaan(ctx, {
       pemilikId: funding.danaId,
       nomorReferensi: funding.nomorReferensi,
       jumlahAlokasi: funding.jumlahAlokasi,
-      waktu: receipt.tanggalTransfer,
+      waktu: sumber.tanggal,
     });
   }
-  await catatDanaKembali(ctx, loan, receipt.tanggalTransfer);
+  await catatDanaKembali(ctx, loan, sumber.tanggal);
 
   if (loan.pendanaId !== undefined) {
     await ctx.scheduler.runAfter(0, internal.laporanPendana.kirimLaporanPelunasan, {
