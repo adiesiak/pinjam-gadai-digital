@@ -6,10 +6,10 @@
  *  - `kertas` memakai kertas padat tanpa bayangan, karena bayangan hanya menandai
  *    ketinggian; kalau semua bagian sama-sama melayang, tidak ada yang menonjol.
  *  - `fokus` adalah satu-satunya permukaan bertepi kuningan ganda + bayangan
- *    bertinta, karena satu layar hanya boleh punya satu titik fokus (DESIGN.md §4).
+ *    bertinta, karena satu layar hanya boleh punya satu titik fokus (DESIGN.md §3D).
  *  - `garis` dan `kepalaTabel` memakai garis rambut, karena ruang ini adalah
  *    buku besar: yang memisahkan catatan adalah garis, bukan kotak.
- *  - `kode` memakai monospace, karena DESIGN.md §B meminta angka kartu, nomor
+ *  - `kode` memakai monospace, karena DESIGN.md §2.2 meminta angka kartu, nomor
  *    referensi, dan nomor bagian dicetak monospace agar sejajar antar baris.
  *  - `jalur` (bidang masuk) dipakai angka yang bukan titik fokus, supaya angka
  *    utama dan angka pendukung tidak terbaca setara.

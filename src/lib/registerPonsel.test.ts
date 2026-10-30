@@ -5,7 +5,7 @@
  *
  * Run: bun src/lib/registerPonsel.test.ts
  *
- * Kenapa ada: `DESIGN.md` §3C1 menetapkan satu register ponsel, yaitu jarak
+ * Kenapa ada: `DESIGN.md` §2.3 menetapkan satu register ponsel, yaitu jarak
  * vertikal bagian 40px, celah grid 24px, padding kartu 16px, dan padding kartu
  * halaman masuk 24px. Register itu mudah melenceng kembali tanpa sengaja, karena
  * nilai desktop yang disalin ke komponen baru tetap terlihat "wajar" selama
