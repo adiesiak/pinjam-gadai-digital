@@ -50,7 +50,7 @@ cek(
 );
 cek("1e tanpa NaN", !html.includes("NaN"));
 cek("1f tanpa undefined", !html.includes("undefined"));
-// R-02 antislop: em dash dilarang pada teks yang dibaca admin.
+// R-02: em dash dilarang pada teks yang dibaca admin.
 cek("1g tanpa em dash", !html.includes("\u2014"));
 
 // ===== 2. Angka ringkasan =====

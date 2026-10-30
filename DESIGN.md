@@ -1,7 +1,7 @@
 # DESIGN.md — PINDAI UI/UX & Visual Direction
 
-Note for AI Coding Agents (anti-slop compliance):
-This file supplies explicit, intentional visual direction for PINDAI. anti-slop filters generic AI outputs; this document defines the actual aesthetic, spatial, and functional parameters to build.
+Note for AI Coding Agents (UI/UX Pro Max):
+Panduan UI/UX repo ini memakai skill `.claude/skills/ui-ux-pro-max` beserta `ui-styling` dan `design-system` (lihat `AGENTS.md`). File ini tetap sumber arah visual PINDAI dan menang atas rekomendasi generik dari skill: palet, tipografi, dan keputusan satu wajah terang di bawah tidak diganti oleh hasil pencarian. Skill dipakai untuk pola interaksi, aksesibilitas, tipografi, dan panduan stack.
 
 ## 1. Brand Identity & Aesthetic Concept
 
@@ -103,8 +103,11 @@ Radius menyatakan ukuran benda, bukan selera: makin besar permukaannya, makin be
 
 Bayangan mengikuti §4: hanya satu titik fokus per layar. Tombol dan kartu daftar memakai garis rambut, bukan bayangan; bayangan bertinta hanya untuk permukaan fokus. Kelas `dark:` tidak dipakai di mana pun karena aplikasi hanya punya satu wajah terang (§1); varian gelap pada komponen hasil shadcn adalah cabang mati dan tidak boleh ditambah ke komponen baru.
 
-## 4. Anti-Slop Checkpoints for PINDAI
+## 4. UI/UX Pro Max Checkpoints for PINDAI
 
+- Accessibility first: kontras teks minimal 4.5:1, fokus keyboard terlihat, dan setiap tombol ikon punya label yang terbaca pembaca layar.
+- Touch and motion: target sentuh minimal 44px, jarak antar target minimal 8px, dan animasi non-esensial berhenti saat `prefers-reduced-motion` aktif.
+- Resilient text: judul, chip, badge, dan label harus membungkus atau terpotong dengan jalur baca penuh; tidak boleh ada teks terpotong tanpa alternatif di lebar 375px.
 - No Generic Cards, and glass stays at the focal point (keputusan pemilik): kaca kertas cerah + garis ganda kuningan hanya untuk **satu titik fokus per layar** (mis. kartu hero, atau satu kartu angka utama). Kartu lain memakai permukaan padat, tanpa blur dan tanpa pendaran; garis emerald tipis boleh tetap ada sebagai penanda batas. Teknik kaca/glow di tempat lain harus punya alasan tertulis, bukan diulang karena resep ini ada.
 - No Placeholder Icons: Do not sprinkle unnecessary shopping cart or world icons on credit cards or dashboards.
 - No Mismatched Gradients: Gradients are strictly reserved for Gold metallic finishes (`from-amber-200 via-amber-400 to-amber-600`) and Emerald lighting cues.
