@@ -369,22 +369,6 @@ const schema = defineSchema(
       diputuskanPada: v.optional(v.number()),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
-      /**
-       * Jejak admin mengubah TENOR pinjaman yang dananya sudah berjalan.
-       *
-       * Perubahan tenor menggeser jatuh tempo, jadi dana pendana bisa kembali
-       * lebih lambat daripada yang ia setujui. Karena itu waktunya dicatat di
-       * sini, lalu dibaca ruang pendana dan pusat notifikasi supaya perubahan
-       * jadwal tidak pernah terjadi tanpa sepengetahuan pendananya. Kosong pada
-       * pinjaman yang tenornya belum pernah dikoreksi setelah berjalan.
-       */
-      jadwalDiubahPada: v.optional(v.number()),
-      /** Tenor sebelum dikoreksi, mis. "30 hari" atau "3 bulan". */
-      jadwalDiubahDari: v.optional(v.string()),
-      /** Tenor sesudah dikoreksi, mis. "45 hari" atau "6 bulan". */
-      jadwalDiubahKe: v.optional(v.string()),
-      /** Catatan alasan dari admin saat mengubah jadwal; boleh kosong. */
-      jadwalDiubahCatatan: v.optional(v.string()),
       /** Terisi saat kewajiban pokok + bunga (+ denda bila terlambat) dibayar penuh. */
       lunasPada: v.optional(v.number()),
       /** Denda keterlambatan rupiah bulat yang dibayar saat pelunasan. */

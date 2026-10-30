@@ -246,17 +246,6 @@ export type BarisPinjaman = {
    * sebagai proyeksi tanggal return. Null bila tenor/penjadwalan tidak terbaca.
    */
   jatuhTempoPada: number | null;
-  /**
-   * Jejak admin mengubah tenor SETELAH dana berjalan — null bila tidak pernah.
-   * Perubahan tenor menggeser jatuh tempo, yaitu kapan dana pendana kembali,
-   * jadi ruang pendana menampilkannya apa adanya, bukan menyembunyikannya.
-   */
-  jadwalDiubah: {
-    pada: number;
-    dari: string;
-    ke: string;
-    catatan: string | null;
-  } | null;
   /** Nama penyedia dana tunggal pinjaman ini — null bila belum didanai. */
   pendana: string | null;
   /** Imbal Hasil pendana TETAP = pokok × 30% (bukan bunga nasabah). */
@@ -723,27 +712,6 @@ export async function pinjamanLunasMilikPendana(
 }
 
 /**
- * Pinjaman milik satu akun penyedia dana yang JADWALNYA pernah diubah admin
- * setelah dananya berjalan.
- *
- * Dipakai pusat notifikasi supaya kabar "jadwal pinjaman Anda diubah" memakai
- * aturan kepemilikan yang SAMA dengan ruang pendana. Yang dibaca hanya kolom
- * jejak di pinjamannya sendiri (`jadwalDiubahPada`), jadi tidak ada notifikasi
- * yang dikarang untuk perubahan yang tidak pernah terjadi. Akun yang bukan
- * penyedia dana menerima daftar kosong.
- */
-export async function pinjamanJadwalDiubahMilikPendana(
-  ctx: QueryCtx,
-  user: Doc<"users">,
-  userId: Id<"users">,
-): Promise<Doc<"loans">[]> {
-  const cakupan = cakupanPendana(user, userId);
-  if (cakupan === null) return [];
-  const { rows } = await bacaPinjaman(ctx, cakupan);
-  return rows.filter((loan) => loan.jadwalDiubahPada !== undefined);
-}
-
-/**
  * Kredit barang yang alokasinya atas nama satu pendana, terbaru lebih dulu.
  *
  * Dibaca dari id alokasinya, bukan dari jendela 200 baris terbaru: alokasinya
@@ -1018,15 +986,6 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         jatuhTempoPada:
           pelunasanPinjaman(loan, sekarang, cfg.persenDendaKeterlambatan)
             ?.jatuhTempoPada ?? null,
-        jadwalDiubah:
-          loan.jadwalDiubahPada === undefined
-            ? null
-            : {
-                pada: loan.jadwalDiubahPada,
-                dari: loan.jadwalDiubahDari ?? "tenor sebelumnya",
-                ke: loan.jadwalDiubahKe ?? labelTenorPinjaman(loan),
-                catatan: loan.jadwalDiubahCatatan ?? null,
-              },
         pendana,
         bunga: bagi.imbal,
         totalLunas: loan.pokokPinjaman + bagi.imbal,
@@ -3083,20 +3042,6 @@ export const ubahAkunPendana = mutation({
 });
 
 /**
- * Label tenor untuk jejak perubahan jadwal: "30 hari" atau "3 bulan".
- * Dipakai saat admin mengoreksi tenor supaya sebelum → sesudah terbaca jelas
- * di audit, di ruang pendana, dan di pusat notifikasi.
- */
-function labelTenorPinjaman(tenor: {
-  tenorHari: number;
-  tenorBulan?: number | undefined;
-}): string {
-  return tenor.tenorBulan === undefined
-    ? `${tenor.tenorHari} hari`
-    : `${tenor.tenorBulan} bulan`;
-}
-
-/**
  * Super Admin mengoreksi data satu pinjaman langsung dari ruang penyedia dana
  * — termasuk menetapkan siapa pendananya (mis. pinjaman A didanai Robert atau
  * Asep), tujuan, tenor, dan nominal yang disetujui.
@@ -3117,10 +3062,6 @@ function labelTenorPinjaman(tenor: {
  *    setelah dana tersalurkan (`nominalTerkunci`);
  *  - **nama peminjam dapat diperbaiki** bila salah tulis (typo), dan disimpan
  *    HURUF BESAR (`lib/nama.ts`) supaya sama dengan ruang peminjam lain;
- *  - **perubahan tenor pinjaman yang sudah berjalan tidak senyap**: waktunya
- *    dicatat di pinjaman (`jadwalDiubah*`) sehingga muncul di ruang pendana dan
- *    pusat notifikasi pendananya — dana mereka terkunci lebih lama, jadi
- *    jadwal baru harus mereka ketahui, bukan hanya admin;
  *  - setiap perubahan dicatat di audit trail (catatan alasan opsional).
  */
 export const ubahDataPinjaman = mutation({
@@ -3178,18 +3119,8 @@ export const ubahDataPinjaman = mutation({
       tenorHari?: number;
       tenorBulan?: number | undefined;
       pokokPinjaman?: number;
-      jadwalDiubahPada?: number;
-      jadwalDiubahDari?: string;
-      jadwalDiubahKe?: string;
-      jadwalDiubahCatatan?: string | undefined;
     } = {};
     const perubahan: string[] = [];
-    // Tenor akhir dihitung terpisah dari `patch` karena `tenorBulan: undefined`
-    // berarti "kembali ke skema harian", bukan "tidak diubah".
-    const tenorLama = labelTenorPinjaman(loan);
-    let tenorHariAkhir = loan.tenorHari;
-    let tenorBulanAkhir = loan.tenorBulan;
-    let tenorBerubah = false;
 
     if (args.pendanaEmail !== undefined || args.pendanaUserId !== undefined) {
         const lepas =
@@ -3269,8 +3200,6 @@ export const ubahDataPinjaman = mutation({
         }
         if (args.tenorHari !== loan.tenorHari) {
           patch.tenorHari = args.tenorHari;
-          tenorHariAkhir = args.tenorHari;
-          tenorBerubah = true;
           perubahan.push(`tenor ${args.tenorHari} hari`);
         }
       }
@@ -3279,8 +3208,6 @@ export const ubahDataPinjaman = mutation({
         if (args.tenorBulan === null) {
           if (loan.tenorBulan !== undefined) {
             patch.tenorBulan = undefined;
-            tenorBulanAkhir = undefined;
-            tenorBerubah = true;
             perubahan.push("tenor kembali ke skema harian");
           }
         } else {
@@ -3293,8 +3220,6 @@ export const ubahDataPinjaman = mutation({
           }
           if (args.tenorBulan !== loan.tenorBulan) {
             patch.tenorBulan = args.tenorBulan;
-            tenorBulanAkhir = args.tenorBulan;
-            tenorBerubah = true;
             perubahan.push(`tenor ${args.tenorBulan} bulan`);
           }
         }
@@ -3339,34 +3264,12 @@ export const ubahDataPinjaman = mutation({
         }
       }
 
-      /**
-       * Tenor pinjaman yang dananya SUDAH berjalan menggeser jatuh tempo,
-       * jadi perubahan ini tidak boleh senyap: waktunya dicatat di pinjaman,
-       * dan pendananya menerima kabar di pusat notifikasi dan di ruang pendana
-       * (lihat `penyediaDana.pinjamanJadwalDiubahMilikPendana`).
-       */
-      const jadwalDiumumkan = tenorBerubah && loan.didanaiPada !== undefined;
-      if (jadwalDiumumkan) {
-        patch.jadwalDiubahPada = Date.now();
-        patch.jadwalDiubahDari = tenorLama;
-        patch.jadwalDiubahKe = labelTenorPinjaman({
-          tenorHari: tenorHariAkhir,
-          tenorBulan: tenorBulanAkhir,
-        });
-        patch.jadwalDiubahCatatan = alasan === "" ? undefined : alasan;
-      }
-
       if (perubahan.length === 0) {
         const dicairkan =
           args.cairkanSekarang === true
             ? (await cairkanSetelahPendana(ctx, loan._id)).dicairkan
             : false;
-        return {
-          ok: true,
-          perubahan: [] as string[],
-          dicairkan,
-          pendanaDiberitahu: false,
-        };
+        return { ok: true, perubahan: [] as string[], dicairkan };
       }
 
       await ctx.db.patch(loan._id, patch);
@@ -3377,9 +3280,6 @@ export const ubahDataPinjaman = mutation({
         "ubah_data_pinjaman",
         loan.nomorReferensi,
         `${loan.namaLengkap} — ${perubahan.join(", ")}` +
-          (jadwalDiumumkan
-            ? `. Jadwal pinjaman berjalan: ${tenorLama} → ${patch.jadwalDiubahKe}; pendana diberi tahu`
-            : "") +
           (alasan === "" ? " (tanpa catatan)" : `. Catatan: ${alasan}`),
       );
       if (danaIdLama !== undefined && danaIdBaru !== undefined && danaIdLama !== danaIdBaru) {
@@ -3394,7 +3294,7 @@ export const ubahDataPinjaman = mutation({
           ? (await cairkanSetelahPendana(ctx, loan._id)).dicairkan
           : false;
 
-      return { ok: true, perubahan, dicairkan, pendanaDiberitahu: jadwalDiumumkan };
+      return { ok: true, perubahan, dicairkan };
   },
 });
 
