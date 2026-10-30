@@ -322,6 +322,28 @@ function AksiPinjaman({
  * baris ditampilkan sebagai kartu berisi semua kolom penting, plus satu tombol
  * aksi untuk rincian lengkap. Di layar lebar tabel aslinya tetap dipakai.
  */
+/**
+ * Jejak admin mengubah tenor pinjaman yang sudah berjalan.
+ *
+ * Ditampilkan apa adanya di ruang pendana: mengubah tenor menggeser jatuh
+ * tempo, yaitu kapan dana pendana kembali, jadi perubahan itu tidak boleh
+ * hanya terlihat oleh admin.
+ */
+function CatatanJadwalDiubah({
+  jadwal,
+}: {
+  jadwal: BarisPinjaman["jadwalDiubah"];
+}) {
+  if (jadwal === null) return null;
+  return (
+    <span className="mt-1.5 block rounded-md border border-amber-300/70 bg-amber-50 px-2 py-1 text-[11px] leading-4 text-amber-900">
+      <span className="font-semibold">Tenor pinjaman diubah admin</span>{" "}
+      {tanggalRingkas(jadwal.pada)}: {jadwal.dari} menjadi {jadwal.ke}
+      {jadwal.catatan === null ? "" : ` · ${jadwal.catatan}`}
+    </span>
+  );
+}
+
 function KartuPengajuan({
   nama,
   kode,
@@ -1412,6 +1434,7 @@ function DaftarPinjaman({
             </InfoKartu>
             <InfoKartu label="Jatuh tempo">
               <TampilanJatuhTempoRingkas tampilan={jatuhTempo(row)} />
+              <CatatanJadwalDiubah jadwal={row.jadwalDiubah} />
             </InfoKartu>
             <InfoKartu label="Kepercayaan peminjam">
               <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -1512,6 +1535,7 @@ function DaftarPinjaman({
               </TableCell>
               <TableCell className="align-top">
                 <TampilanJatuhTempo tampilan={jatuhTempo(row)} />
+                <CatatanJadwalDiubah jadwal={row.jadwalDiubah} />
               </TableCell>
               <TableCell className="align-top text-slate-600">
                 {tanggalRingkas(row.diajukanPada)}
@@ -1724,7 +1748,11 @@ function FormUbahPinjaman({
       toast.success(
         perubahan.length === 0
           ? "Tidak ada perubahan yang disimpan."
-          : `Tersimpan: ${perubahan.join(", ")}`,
+          : `Tersimpan: ${perubahan.join(", ")}${
+              hasil.pendanaDiberitahu
+                ? ". Pendana menerima kabar perubahan jadwal."
+                : ""
+            }`,
       );
       onClose();
     } catch (err) {
@@ -1875,6 +1903,11 @@ function FormUbahPinjaman({
             />
           </div>
         </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          {row.status === "didanai"
+            ? `Pinjaman ini sudah berjalan${row.pendana === null ? "" : ` dengan dana ${row.pendana}`}. Mengubah tenor berarti menggeser jatuh tempo, jadi pendananya menerima kabar di pusat notifikasi dan melihat jejak perubahannya di ruang pendana.`
+            : "Pinjaman ini belum berjalan, jadi perubahan tenor hanya mengoreksi catatan dan belum menyentuh dana siapa pun."}
+        </p>
 
         <div className="space-y-2">
           <Label htmlFor="ubah-pokok">Pokok disetujui (Rp)</Label>

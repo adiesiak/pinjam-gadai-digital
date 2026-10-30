@@ -8,7 +8,10 @@ import { formatTanggalWIB } from "../lib/waktu";
 import { kunciNotifikasiPembaruan } from "../lib/pembaruanAplikasi";
 import { LABEL_STATUS_KYC, type StatusKyc } from "../lib/kycStatus";
 import { LABEL_STATUS_PENGADUAN } from "../lib/penagihan";
-import { pinjamanLunasMilikPendana } from "./penyediaDana";
+import {
+  pinjamanJadwalDiubahMilikPendana,
+  pinjamanLunasMilikPendana,
+} from "./penyediaDana";
 
 /**
  * Pusat notifikasi in-app PINDAI.
@@ -27,6 +30,7 @@ import { pinjamanLunasMilikPendana } from "./penyediaDana";
  * | `pengaduanNasabah` + `pengaduanPesan` | info / sukses / peringatan | `notifikasiBaca` |
  * | `kycRiwayat`           | info / sukses / peringatan | `notifikasiBaca`        |
  * | `loans` (status berubah) | info / sukses / peringatan | `notifikasiBaca`      |
+ * | `loans` (jadwal pendana diubah) | peringatan       | `notifikasiBaca`          |
  * | `pembaruanAplikasi`    | info                    | `notifikasiBaca`          |
  * | `voucher` (H-3)        | peringatan              | `notifikasiBaca`          |
  * | `doorprizeUndian`      | sukses                  | `notifikasiBaca`          |
@@ -517,6 +521,33 @@ async function susunNotifikasi(
         jenis: "sukses",
         judul: "Pinjaman yang Anda danai tercatat lunas",
         ringkasan: `${loan.nomorReferensi} · pokok ${formatRupiahAman(loan.pokokPinjaman)} · ${kalimatWaktu(waktu, sekarang)}. Hasil dananya tercatat di ruang pendana.`,
+        waktu,
+        tautan: "/penyedia-dana",
+        dibaca: false,
+      });
+    }
+  }
+
+  // ===== Sumber 8a: jadwal pinjaman yang DIDANAI akun ini diubah admin
+  //
+  // Perubahan tenor menggeser jatuh tempo, yaitu kapan dana pendana kembali,
+  // jadi kabarnya berjenis "peringatan" — bukan info biasa. Sumbernya kolom
+  // jejak di pinjamannya sendiri (`jadwalDiubah*`), bukan tebakan dari isi
+  // audit trail, sehingga tidak ada kabar untuk perubahan yang tidak terjadi.
+  if (pengguna !== null) {
+    const jadwalBerubah = (
+      await pinjamanJadwalDiubahMilikPendana(ctx, pengguna, userId)
+    ).sort((a, b) => (b.jadwalDiubahPada ?? 0) - (a.jadwalDiubahPada ?? 0));
+    for (const loan of jadwalBerubah.slice(0, BATAS_PER_SUMBER)) {
+      const waktu = loan.jadwalDiubahPada;
+      if (waktu === undefined) continue;
+      item.push({
+        kunci: `pendana:${loan._id}:jadwal:${waktu}`,
+        sumber: "pendana",
+        ref: loan._id,
+        jenis: "peringatan",
+        judul: "Jadwal pinjaman yang Anda danai diubah",
+        ringkasan: `${loan.nomorReferensi} · tenor ${loan.jadwalDiubahDari ?? "sebelumnya"} menjadi ${loan.jadwalDiubahKe ?? "sekarang"}, dicatat ${kalimatWaktu(waktu, sekarang)}. Jatuh temponya ikut bergeser; rinciannya ada di ruang pendana.`,
         waktu,
         tautan: "/penyedia-dana",
         dibaca: false,
