@@ -597,14 +597,25 @@ async function catatPelunasanTotal(
     .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
     .collect();
   const aktif = fundings.filter((f) => f.status === "dialokasikan");
-  if (aktif.length === 0) {
-    throw new Error("Tidak ada posisi alokasi dana aktif pada pinjaman ini.");
-  }
-  const totalAlokasi = aktif.reduce((acc, f) => acc + f.jumlahAlokasi, 0);
-  if (totalAlokasi !== loan.pokokPinjaman) {
+  // Pinjaman yang dicatat admin dengan pendana di luar aplikasi tidak punya
+  // baris `fundings` sama sekali: dananya tidak pernah bergerak lewat ledger,
+  // jadi tidak ada posisi pendana yang bisa ditutup. Pelunasan tetap dicatat
+  // (kas masuk, angsuran ditutup, status lunas); yang dilewati hanya pembagian
+  // ke pendana. Yang ditolak adalah alokasi yang SUDAH selesai: itu tanda
+  // pinjaman pernah diselesaikan, dan mencatat lunas dua kali akan menggandakan
+  // laporan pendana.
+  if (aktif.length === 0 && fundings.some((f) => f.status === "selesai")) {
     throw new Error(
-      `Alokasi dana (${formatRupiah(totalAlokasi)}) tidak cocok dengan pokok pinjaman (${formatRupiah(loan.pokokPinjaman)}).`,
+      "Posisi alokasi dana pinjaman ini sudah ditutup sebelumnya. Periksa laporan pendana sebelum mencatat pelunasan lagi.",
     );
+  }
+  if (aktif.length > 0) {
+    const totalAlokasi = aktif.reduce((acc, f) => acc + f.jumlahAlokasi, 0);
+    if (totalAlokasi !== loan.pokokPinjaman) {
+      throw new Error(
+        `Alokasi dana (${formatRupiah(totalAlokasi)}) tidak cocok dengan pokok pinjaman (${formatRupiah(loan.pokokPinjaman)}).`,
+      );
+    }
   }
 
   await appendJournal(ctx, {
@@ -638,6 +649,9 @@ async function catatPelunasanTotal(
 
   // Hak pendana TETAP, tidak mengikuti bunga akumulatif dari perpanjangan /
   // cicil pokok. Selisih kas peminjam menjadi pendapatan atau beban platform.
+  // Tanpa posisi alokasi, tidak ada dompet pendana yang dibayar dan tidak ada
+  // margin spread yang diakui: dananya memang tidak pernah masuk lewat aplikasi.
+  if (aktif.length > 0) {
   aktif.sort((a, b) => b.jumlahAlokasi - a.jumlahAlokasi);
   const bagian = aktif.map((f) => ({
     funding: f,
@@ -765,6 +779,7 @@ async function catatPelunasanTotal(
   if (terdistribusi + totalPotongan + selisihHak + rencana.lateFee !== totalKas) {
     throw new Error("Pelunasan tidak seimbang. Transaksi dibatalkan.");
   }
+  }
 
   await pastikanAngsuran(ctx, loan);
   const jadwal = await ctx.db
@@ -806,7 +821,7 @@ async function catatPelunasanTotal(
         : sumber.nomorReferensi === ""
           ? "pencocokan admin tanpa nomor mutasi"
           : `mutasi bank ${sumber.nomorReferensi}`
-    }; sisa pokok 0, alokasi penyedia dana ditutup.`,
+    }; ${aktif.length > 0 ? "sisa pokok 0, alokasi penyedia dana ditutup." : "sisa pokok 0, tanpa posisi alokasi pendana di aplikasi."}`,
   );
 
   // Tiket Doorprize Emas pada jalur pencocokan admin, dengan aturan yang sama
@@ -835,7 +850,7 @@ async function catatPelunasanTotal(
     loan: { ...loan, status: "lunas", lunasPada: sumber.tanggal },
     sekarang: sumber.tanggal,
   });
-  for (const { funding } of bagian) {
+  for (const funding of aktif) {
     await beriTiketPendanaan(ctx, {
       pemilikId: funding.danaId,
       nomorReferensi: funding.nomorReferensi,

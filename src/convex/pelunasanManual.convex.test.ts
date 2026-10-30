@@ -62,6 +62,40 @@ async function siapkanPinjaman(
   });
 }
 
+/**
+ * Pinjaman yang pendananya dicatat admin di luar aplikasi: `pendanaId` terisi
+ * tetapi tidak ada baris `fundings`, persis seperti pinjaman yang dicatat
+ * manual. Pelunasan tetap harus bisa dicatat tanpa mengarang posisi pendana.
+ */
+async function siapkanPinjamanTanpaAlokasi(
+  t: ReturnType<typeof convexTest>,
+  opsi: {
+    userId: Id<"users">;
+    pendanaId: Id<"users">;
+    nomorReferensi: string;
+    tenorBulan?: number;
+  },
+): Promise<Id<"loans">> {
+  const bulanan = opsi.tenorBulan !== undefined;
+  return t.run(async (ctx) =>
+    ctx.db.insert("loans", {
+      userId: opsi.userId,
+      pokokPinjaman: bulanan ? 3_000_000 : 1_000_000,
+      tujuan: "Modal usaha",
+      namaLengkap: "Rani Manual",
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+      status: "didanai",
+      nomorReferensi: opsi.nomorReferensi,
+      tenorHari: bulanan ? 90 : 30,
+      ...(opsi.tenorBulan === undefined ? {} : { tenorBulan: opsi.tenorBulan }),
+      pendanaId: opsi.pendanaId,
+      pendanaNama: "Dana Manual",
+      didanaiPada: Date.now() - 5 * HARI,
+    }),
+  );
+}
+
 async function siapkanAdminDanNasabah(t: ReturnType<typeof convexTest>) {
   const admin = await siapkanPengguna(t, "admin pelunasan", {
     email: "admin-pelunasan@pindai.test",
@@ -221,6 +255,93 @@ describe("pelunasan manual oleh admin", () => {
       .filter((entry) => entry.arah === "kredit")
       .reduce((acc, entry) => acc + entry.jumlah, 0);
     expect(debit).toBe(kredit);
+  });
+
+  it("melunasi pinjaman harian tanpa posisi alokasi pendana di aplikasi", async () => {
+    const t = convexTest(schema, modules);
+    const { admin, peminjam, pendana } = await siapkanAdminDanNasabah(t);
+    const loanId = await siapkanPinjamanTanpaAlokasi(t, {
+      userId: peminjam.userId,
+      pendanaId: pendana.userId,
+      nomorReferensi: "PGD-MANUAL-HARIAN",
+    });
+
+    const info = await admin.sesi.query(api.perpanjanganPinjaman.infoPelunasanManual, {
+      loanId,
+    });
+    if (info === null || !info.bisa) throw new Error("Info pelunasan tidak tersedia.");
+    expect(info.totalDue).toBeGreaterThan(1_000_000);
+
+    await admin.sesi.mutation(api.perpanjanganPinjaman.catatPelunasanManual, {
+      loanId,
+      referensiMutasi: "MUTASI-MANUAL-001",
+      jumlahMutasi: info.totalDue,
+      tanggal: Date.now(),
+    });
+
+    const sesudah = await t.run(async (ctx) => {
+      const loan = await ctx.db.get(loanId);
+      const angsuran = await ctx.db
+        .query("angsuran")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .collect();
+      const entries = await ctx.db.query("ledger_entries").collect();
+      return { loan, angsuran, entries };
+    });
+
+    expect(sesudah.loan?.status).toBe("lunas");
+    expect(sesudah.loan?.remainingPrincipal).toBe(0);
+    expect(sesudah.angsuran.every((row) => row.status === "lunas")).toBe(true);
+    // Kas masuk dicatat, tetapi tidak ada pembayaran pendana yang dikarang.
+    expect(sesudah.entries.length).toBeGreaterThan(0);
+    expect(sesudah.entries.every((entry) => entry.jenis === "repayment")).toBe(true);
+
+    const jejak = await t.run(async (ctx) => {
+      const rows = await ctx.db
+        .query("auditLog")
+        .filter((q) => q.eq(q.field("aksi"), "loan_lunas"))
+        .collect();
+      return rows[rows.length - 1] ?? null;
+    });
+    expect(jejak?.detail ?? "").toMatch(/tanpa posisi alokasi pendana/i);
+  });
+
+  it("melunasi pinjaman bulanan tanpa posisi alokasi pendana di aplikasi", async () => {
+    const t = convexTest(schema, modules);
+    const { admin, peminjam, pendana } = await siapkanAdminDanNasabah(t);
+    const loanId = await siapkanPinjamanTanpaAlokasi(t, {
+      userId: peminjam.userId,
+      pendanaId: pendana.userId,
+      nomorReferensi: "PGD-MANUAL-BULANAN",
+      tenorBulan: 3,
+    });
+
+    const info = await admin.sesi.query(api.perpanjanganPinjaman.infoPelunasanManual, {
+      loanId,
+    });
+    if (info === null || !info.bisa) throw new Error("Info pelunasan tidak tersedia.");
+
+    const hasil = await admin.sesi.mutation(api.angsuran.catatPelunasanManualBulanan, {
+      loanId,
+      jumlahMutasi: info.totalDue,
+      tanggal: Date.now(),
+    });
+    expect(hasil.semuaLunas).toBe(true);
+
+    const sesudah = await t.run(async (ctx) => {
+      const loan = await ctx.db.get(loanId);
+      const angsuran = await ctx.db
+        .query("angsuran")
+        .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+        .collect();
+      const entries = await ctx.db.query("ledger_entries").collect();
+      return { loan, angsuran, entries };
+    });
+
+    expect(sesudah.loan?.status).toBe("lunas");
+    expect(sesudah.angsuran).toHaveLength(3);
+    expect(sesudah.angsuran.every((row) => row.status === "lunas")).toBe(true);
+    expect(sesudah.entries.some((entry) => entry.jenis === "payout")).toBe(false);
   });
 
   it("menolak tombol ubah status ke lunas selama tagihan masih terbuka", async () => {

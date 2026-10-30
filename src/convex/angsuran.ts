@@ -238,12 +238,11 @@ async function distribusikanKePendana(
   rows: readonly Doc<"angsuran">[],
   selesaiPada: number,
 ) {
-  const aktif = (
-    await ctx.db
-      .query("fundings")
-      .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
-      .collect()
-  )
+  const alokasi = await ctx.db
+    .query("fundings")
+    .withIndex("by_loan", (q) => q.eq("loanId", loan._id))
+    .collect();
+  const aktif = alokasi
     .filter((f) => f.status === "dialokasikan")
     .sort(
       (a, b) =>
@@ -251,9 +250,17 @@ async function distribusikanKePendana(
         a.nomorReferensi.localeCompare(b.nomorReferensi),
     );
   if (aktif.length === 0) {
-    throw new Error(
-      "Alokasi dana aktif tidak ditemukan. Pelunasan tidak dicatat agar jurnal penyedia dana tidak hilang.",
-    );
+    // Pinjaman yang pendananya dicatat di luar aplikasi tidak punya posisi
+    // alokasi untuk dibayar. Angsuran tetap ditutup dan pinjaman tetap lunas;
+    // tidak ada jurnal payout yang dikarang untuk dana yang tidak pernah masuk
+    // lewat aplikasi. Bila alokasinya sudah selesai, itu tanda pinjaman pernah
+    // diselesaikan dan tidak boleh diproses dua kali.
+    if (alokasi.some((f) => f.status === "selesai")) {
+      throw new Error(
+        "Posisi alokasi dana pinjaman ini sudah ditutup sebelumnya. Periksa laporan pendana sebelum mencatat pelunasan lagi.",
+      );
+    }
+    return;
   }
 
   const totalPokok = rows.reduce((acc, r) => acc + r.pokok, 0);
