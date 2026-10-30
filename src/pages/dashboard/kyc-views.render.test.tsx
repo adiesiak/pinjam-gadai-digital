@@ -985,7 +985,7 @@ ok(
     "hanya satu tahap bertanda aktif di bilah lekat",
   );
   ok(!html.includes("Selesai"), "tahap kosong tidak diklaim selesai di bilah lekat");
-  ada(html, "min-h-9", "tombol tahap cukup tinggi untuk ditekan ibu jari");
+  ada(html, "min-h-11", "tombol tahap setinggi target sentuh 44px");
   bersih(html, "bilah tahap lekat");
 
   const penuh = renderToStaticMarkup(

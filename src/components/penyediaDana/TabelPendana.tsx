@@ -591,7 +591,7 @@ function Kendali({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 gap-1 px-2.5 text-xs"
+            className="h-11 gap-1 px-2.5 text-xs sm:h-8"
             title="Balik arah urutan"
             onClick={onArah}
           >

@@ -45,7 +45,7 @@ export function labelTujuan(value: string): string {
 /** Kelas tombol menu; yang sedang dibuka memakai latar emerald-50 + garis aksen. */
 function kelasMenu(aktif: boolean): string {
   return cn(
-    "relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
+    "relative flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
     aktif && "bg-emerald-50 font-semibold text-emerald-900 hover:bg-emerald-50",
   );
 }
@@ -87,7 +87,7 @@ export function DashboardTabNav({
                   <span
                     aria-label={`${badge.count} item`}
                     className={cn(
-                      "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                      "shrink-0 rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
                       badgeToneClass(badge.tone),
                     )}
                   >
@@ -137,7 +137,7 @@ export function DashboardBottomNav({
                 aria-current={aktif ? "page" : undefined}
                 aria-label={menu.label}
                 className={cn(
-                  "relative flex w-full flex-col items-center gap-1 px-1 py-2 text-[10px] font-medium text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-800",
+                  "relative flex min-h-11 w-full flex-col items-center justify-center gap-1 px-1 py-2 text-xs font-medium text-slate-600 transition-colors hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-800",
                   aktif && "text-emerald-900",
                 )}
               >
@@ -150,7 +150,7 @@ export function DashboardBottomNav({
                   <span
                     aria-label={`${badge.count} item`}
                     className={cn(
-                      "absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold tabular-nums",
+                      "absolute right-0.5 top-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
                       badgeToneClass(badge.tone),
                     )}
                   >

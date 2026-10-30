@@ -779,7 +779,7 @@ export function Ppob() {
               </p>
             </div>
           ) : belumAdaProduk ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+            <div className="mt-6 rounded-2xl border border-dashed border-border bg-card p-4 text-center sm:p-8">
               <p className="text-sm font-semibold text-navy">Produk belum tersedia.</p>
               <p className="mt-1 text-xs leading-5 text-slate-600">
                 Daftar harga belum ditarik dari server pulsa. Hubungi admin bila ini
@@ -793,7 +793,7 @@ export function Ppob() {
               ))}
             </div>
           ) : produk.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+            <div className="mt-6 rounded-2xl border border-dashed border-border bg-card p-4 text-center sm:p-8">
               <p className="text-sm font-semibold text-navy">Tidak ada yang cocok.</p>
               <p className="mt-1 text-xs text-slate-600">
                 Coba kata lain, atau pilih kategori lain di atas.
@@ -893,7 +893,7 @@ export function PpobPesanan() {
             <div className="h-48 animate-pulse rounded-2xl border border-border bg-muted" />
           </div>
         ) : status === null ? (
-          <div className="mt-4 rounded-2xl border border-border bg-card p-8 text-center">
+          <div className="mt-4 rounded-2xl border border-border bg-card p-4 text-center sm:p-8">
             <p className="text-sm font-semibold text-navy">Pesanan tidak ditemukan.</p>
             <p className="mt-1 text-xs leading-5 text-slate-600">
               Periksa kembali kode pesanan. Kode ditulis persis seperti di halaman

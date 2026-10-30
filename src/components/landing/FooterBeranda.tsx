@@ -52,7 +52,7 @@ function KolomTautan({
 }) {
   return (
     <nav aria-label={judul}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-foreground">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
         {judul}
       </p>
       <ul className="mt-3">

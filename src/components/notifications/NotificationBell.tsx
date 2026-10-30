@@ -121,7 +121,7 @@ export function NotificationBell() {
           type="button"
           variant="ghost"
           size="icon"
-          className="relative size-9 shrink-0"
+          className="relative size-11 shrink-0 sm:size-9"
           aria-label={labelLonceng}
         >
           <BellIcon className="size-4" aria-hidden />

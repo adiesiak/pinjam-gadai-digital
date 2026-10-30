@@ -85,7 +85,8 @@ export function DashboardSidebar({
         {link && (
           <a
             href={link.href}
-            className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-800 hover:text-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
+            aria-label={link.label}
+            className="flex min-h-11 shrink-0 items-center gap-1 rounded-sm text-xs font-medium text-emerald-800 hover:text-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
             onClick={(e) => {
               e.preventDefault();
               window.location.href = link.href;

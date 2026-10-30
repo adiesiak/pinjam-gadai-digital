@@ -232,7 +232,7 @@ export function SimulatorPendanaan() {
                   onChange={(event) =>
                     setTaksiranTeks(event.target.value.replace(/[^0-9.]/g, ""))
                   }
-                  className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold tabular-nums text-navy outline-none"
+                  className="min-h-11 min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold tabular-nums text-navy outline-none"
                 />
               </div>
 
@@ -252,7 +252,7 @@ export function SimulatorPendanaan() {
                   onChange={(event) =>
                     setPokokGadaiTeks(event.target.value.replace(/[^0-9.]/g, ""))
                   }
-                  className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold tabular-nums text-navy outline-none"
+                  className="min-h-11 min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold tabular-nums text-navy outline-none"
                 />
               </div>
 
@@ -295,7 +295,7 @@ export function SimulatorPendanaan() {
                   onChange={(event) =>
                     setNominalTeks(event.target.value.replace(/[^0-9.]/g, ""))
                   }
-                  className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold tabular-nums text-navy outline-none"
+                  className="min-h-11 min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold tabular-nums text-navy outline-none"
                 />
               </div>
 
@@ -344,7 +344,7 @@ export function SimulatorPendanaan() {
                     onChange={(event) =>
                       setMarginTeks(event.target.value.replace(/[^0-9.,]/g, ""))
                     }
-                    className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold tabular-nums text-navy focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
+                    className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold tabular-nums text-navy focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20"
                   />
                 </>
               )}

@@ -107,7 +107,7 @@ export function RoleDashboardMenu() {
           // Labelnya menyebut mode yang SEDANG terbuka, jadi pemicunya berbunyi
           // seperti sakelar, bukan seperti menu tanpa nama ("Akses Dashboard").
           aria-label={`${labelMode} aktif. Ganti mode ruang kerja PINDAI`}
-          className="h-9 gap-1.5 rounded-full px-3"
+          className="h-11 gap-1.5 rounded-full px-3 sm:h-9"
         >
           <LayoutDashboard className="size-4" aria-hidden />
           <span className="hidden md:inline">{labelMode}</span>
@@ -115,7 +115,7 @@ export function RoleDashboardMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel className="px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+        <DropdownMenuLabel className="px-3 py-2 text-xs uppercase tracking-[0.16em] text-muted-foreground">
           Ganti mode ruang kerja
         </DropdownMenuLabel>
         {menuSpaces.map(({ href, label, description, icon: Icon }) => {

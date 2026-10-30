@@ -14,6 +14,7 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
+import { SkipLink } from "@/components/SkipLink";
 import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
@@ -216,13 +217,14 @@ export default function LandingHome() {
     // Ruang bawah ekstra di ponsel: bilah aksi lengket tidak boleh menutupi
     // baris terakhir footer.
     <div className="min-h-screen w-full overflow-x-hidden bg-background pb-24 text-foreground sm:pb-0">
+      <SkipLink />
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             to="/"
             aria-label="PINDAI, beranda"
             onClick={handleBrandClick}
-            className="flex shrink-0 items-center gap-2.5"
+            className="flex min-h-11 shrink-0 items-center gap-2.5"
           >
             <VaultLogo size={34} />
             <span className="text-sm font-semibold tracking-[0.16em]">
@@ -231,7 +233,7 @@ export default function LandingHome() {
           </Link>
           <nav
             aria-label="Navigasi utama"
-            className="hidden items-center gap-2.5 whitespace-nowrap text-[13px] text-slate-600 lg:flex xl:gap-5 xl:text-sm"
+            className="hidden items-center gap-2.5 whitespace-nowrap text-[13px] text-slate-600 lg:flex xl:gap-5 xl:text-sm [&_a]:inline-flex [&_a]:min-h-11 [&_a]:items-center [&_a]:rounded-sm [&_a]:px-1 [&_a]:focus-visible:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-ring [&_a]:focus-visible:ring-offset-2"
           >
             <Link className="hover:text-primary" to="/layanan/pinjaman-tunai">
               Pinjaman tunai
@@ -375,13 +377,13 @@ export default function LandingHome() {
                         <span className="font-judul text-[2.6rem] leading-none tabular-nums text-foreground">
                           {sorotan.angka}
                         </span>
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
                           {sorotan.satuan}
                         </span>
                       </p>
                     </div>
                     <div className="flex flex-1 flex-col px-5 py-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
                         {sorotan.label}
                       </p>
                       <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
@@ -515,7 +517,7 @@ export default function LandingHome() {
 
           <div className="relative mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-foreground">
                 Sebelum mengajukan
               </p>
               <h2

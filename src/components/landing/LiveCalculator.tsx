@@ -72,6 +72,9 @@ export function LiveCalculator({
 }) {
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const bulanan = skema === "bulanan";
+  /** Cincin fokus yang sama untuk semua kontrol native di kalkulator. */
+  const kelasFokus =
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
   const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);
   const [tenor, setTenor] = useState<number>(tenorHarianDefault(LOAN_LIMITS.maxPokok));
   const [tenorBulan, setTenorBulan] = useState<number>(3);
@@ -120,15 +123,19 @@ export function LiveCalculator({
     <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-7">
       <div className="-mx-5 -mt-5 mb-5 border-b border-slate-200 bg-slate-50/80 px-5 py-5 sm:-mx-7 sm:-mt-7 sm:mb-6 sm:px-7">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-          <span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary sm:tracking-[0.16em]"><Calculator className="size-3.5" /> Kalkulator interaktif</span>
-          <span className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-[10px] font-medium text-primary">Hasil langsung</span>
+          <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary sm:tracking-[0.16em]"><Calculator className="size-3.5" /> Kalkulator interaktif</span>
+          <span className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-xs font-medium text-primary">Hasil langsung</span>
         </div>
         <h3 className="mt-2 text-lg font-semibold text-slate-900">Kalkulator pinjaman</h3>
         <p className="mt-1 text-xs leading-5 text-slate-500">Ubah nominal dan tenor untuk melihat perhitungan sebelum masuk.</p>
       </div>
 
       {/* Dua skema harga: harian (1 jt / 28 hari) atau bulanan (1–6 bulan). */}
-      <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+      <div
+        role="group"
+        aria-label="Skema pinjaman"
+        className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1"
+      >
         {([
           ["harian", "Harian · s.d. 1 jt"],
           ["bulanan", "Bulanan · s.d. 10 jt"],
@@ -137,10 +144,12 @@ export function LiveCalculator({
             key={nilai}
             type="button"
             onClick={() => gantiSkema(nilai)}
-            className="relative rounded-lg px-2 py-2 text-center text-xs font-medium leading-4 transition-colors sm:px-3"
+            aria-pressed={skema === nilai}
+            className={`relative min-h-11 rounded-lg px-2 py-2 text-center text-xs font-medium leading-4 transition-colors sm:px-3 ${kelasFokus}`}
           >
             {skema === nilai && (
               <motion.span
+                aria-hidden="true"
                 layoutId="calc-skema"
                 className="absolute inset-0 rounded-lg bg-white shadow-sm"
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
@@ -173,13 +182,18 @@ export function LiveCalculator({
           }
           className="mt-3 w-full accent-primary"
         />
-        <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
+        <div
+          role="group"
+          aria-label="Nominal cepat"
+          className="mt-3 flex flex-wrap gap-1.5 sm:gap-2"
+        >
           {cepat.map((q) => (
             <button
               key={q}
               type="button"
               onClick={() => pilihNominal(q)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              aria-pressed={amount === q}
+              className={`min-h-11 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${kelasFokus} ${
                 amount === q
                   ? "bg-primary text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -193,14 +207,15 @@ export function LiveCalculator({
 
       <div className="mt-5">
         <p className="text-sm font-medium text-slate-700">Tenor</p>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div role="group" aria-label="Pilih tenor" className="mt-2 grid grid-cols-3 gap-2">
           {bulanan
             ? TENOR_BULANAN_OPTIONS.map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTenorBulan(t)}
-                  className={`relative rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  aria-pressed={tenorBulan === t}
+                  className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${kelasFokus} ${
                     tenorBulan === t
                       ? "border-primary text-primary"
                       : "border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -226,7 +241,7 @@ export function LiveCalculator({
                     onClick={() => setTenor(t)}
                     disabled={!aktif}
                     aria-pressed={dipilih}
-                    className={`relative rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300 ${
+                    className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300 ${kelasFokus} ${
                       dipilih
                         ? "border-primary text-primary"
                         : aktif

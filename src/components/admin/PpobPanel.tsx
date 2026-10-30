@@ -676,7 +676,7 @@ export function PpobPanel() {
               Memuat pesanan…
             </p>
           ) : pesanan.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center sm:p-8">
               <p className="text-sm font-semibold text-navy">Belum ada pesanan di filter ini.</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Pesanan baru dari halaman /ppob akan muncul di sini begitu pembeli menekan
@@ -889,7 +889,7 @@ export function PpobPanel() {
               Memuat produk…
             </p>
           ) : produk.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center sm:p-8">
               <p className="text-sm font-semibold text-navy">Belum ada produk.</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Tekan “Tarik harga” setelah kredensial H2H tersimpan. Produk yang muncul

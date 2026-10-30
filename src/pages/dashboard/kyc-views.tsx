@@ -666,7 +666,7 @@ export function KycBilahTahapLekat({
                 disabled={!bolehDibuka}
                 aria-current={iniAktif ? "step" : undefined}
                 className={cn(
-                  "flex min-h-9 w-full items-center justify-center gap-1 rounded-lg border px-2 text-[11px] font-medium transition-colors",
+                  "flex min-h-11 w-full items-center justify-center gap-1 rounded-lg border px-2 text-xs font-medium transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2",
                   iniAktif
                     ? "border-emerald-300 bg-emerald-50 text-emerald-900"
@@ -762,7 +762,7 @@ export function KycStatusHeader({
                       type="button"
                       onClick={() => onBuka(tujuan)}
                       aria-label={`${item}: buka ${tahapKyc(tujuan).judul}`}
-                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/[0.06] px-2.5 py-1 text-[11px] font-medium leading-4 text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      className="inline-flex min-h-11 items-center gap-1 rounded-full border border-primary/30 bg-primary/[0.06] px-2.5 py-1 text-xs font-medium leading-4 text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     >
                       {item}
                       <ArrowRight className="size-3" aria-hidden />
@@ -882,7 +882,7 @@ export function KycBarisAksi({
         <button
           type="button"
           onClick={onBukaKurang}
-          className="mb-2 flex w-full flex-wrap items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-left text-[11px] font-medium leading-4 text-amber-900 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+          className="mb-2 flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-left text-xs font-medium leading-4 text-amber-900 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
         >
           <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
           <span>Sisa wajib: {sisaWajib} isian</span>

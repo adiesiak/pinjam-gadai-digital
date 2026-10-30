@@ -34,7 +34,7 @@ export function JudulBagian({
 }) {
   return (
     <div className={cn("border-t border-border pt-5", className)}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-foreground">
         {label}
       </p>
       <h2

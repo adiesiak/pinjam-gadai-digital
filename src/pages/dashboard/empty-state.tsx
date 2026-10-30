@@ -34,7 +34,7 @@ export function EmptyState({
       </p>
       {action && (
         <div className="mt-6">
-          <Button className="h-10 px-5 text-sm" variant={action.variant ?? "primary"} onClick={action.onClick}>
+          <Button className="h-11 px-5 text-sm sm:h-10" variant={action.variant ?? "primary"} onClick={action.onClick}>
             {action.label}
           </Button>
         </div>

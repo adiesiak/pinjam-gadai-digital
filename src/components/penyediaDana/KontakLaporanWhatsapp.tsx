@@ -190,7 +190,7 @@ export function KontakLaporanWhatsapp({
                     aria-pressed={bhs === pilihan.nilai}
                     onClick={() => onUbahBahasa(pilihan.nilai)}
                     className={cn(
-                      "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                      "min-h-11 rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       bhs === pilihan.nilai
                         ? "bg-emerald-800 text-white"
                         : "text-slate-600 hover:bg-slate-50",

@@ -41,10 +41,10 @@ export function DashboardFooter() {
           </li>
           <li>Angka dan status mengikuti catatan PINDAI.</li>
         </ul>
-        <p className="mt-4 max-w-3xl border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-500">
+        <p className="mt-4 max-w-3xl border-t border-slate-100 pt-3 text-xs leading-5 text-slate-500">
           {PENAFIAN_PINDAI}
         </p>
-        <p className="mt-1 text-[11px] text-slate-500">{HAK_CIPTA_PINDAI}</p>
+        <p className="mt-1 text-xs text-slate-500">{HAK_CIPTA_PINDAI}</p>
       </div>
     </footer>
   );

@@ -29,7 +29,7 @@ export function RuangPendanaBeranda() {
         <div className="rounded-kartu bg-navy px-5 py-8 text-white sm:px-8 sm:py-10">
           <div className="grid gap-7 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-12">
             <div>
-              <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
                 <LockKeyhole className="size-3.5" aria-hidden="true" />
                 Khusus pendana
               </p>

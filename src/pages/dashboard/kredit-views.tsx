@@ -392,7 +392,7 @@ export function KreditBarangForm({
                 disabled={submitting}
                 onClick={() => setTenorBulan(bulan)}
                 className={cn(
-                  "rounded-xl border px-3 py-2 text-xs font-medium tabular-nums transition-colors",
+                  "min-h-11 rounded-xl border px-3 py-2 text-xs font-medium tabular-nums transition-colors",
                   aktif
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-slate-200 bg-white text-slate-600 hover:border-primary hover:text-primary",

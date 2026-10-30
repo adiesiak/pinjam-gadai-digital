@@ -108,7 +108,7 @@ export function KalkulatorImbalPendana({
                 setNominal(Number.isSafeInteger(angka) ? angka : 0);
               }}
               placeholder="1.000.000"
-              className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold tabular-nums text-navy outline-none"
+              className="min-h-11 min-w-0 flex-1 bg-transparent px-2 py-2 text-sm font-semibold tabular-nums text-navy outline-none"
             />
           </div>
           <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
@@ -312,7 +312,7 @@ export function TabelPortofolioPendanaan({
                 setSaring(pilihan.kunci);
                 setHalaman(0);
               }}
-              className={`min-h-8 rounded-md border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`min-h-11 rounded-md border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 saring === pilihan.kunci
                   ? "border-emerald-700/50 bg-emerald-50 text-emerald-900"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -331,7 +331,7 @@ export function TabelPortofolioPendanaan({
               setBatas(Number(event.target.value));
               setHalaman(0);
             }}
-            className="h-8 rounded-md border border-slate-300 bg-white px-1.5 text-xs tabular-nums text-navy"
+            className="h-11 rounded-md border border-slate-300 bg-white px-1.5 text-xs tabular-nums text-navy sm:h-8"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -571,7 +571,7 @@ export function TabelPortofolioPendanaan({
                 type="button"
                 disabled={halamanAktif === 0}
                 onClick={() => setHalaman(Math.max(0, halamanAktif - 1))}
-                className="min-h-8 rounded-md border border-slate-300 bg-white px-2.5 font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-2.5 font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Sebelumnya
               </button>
@@ -582,7 +582,7 @@ export function TabelPortofolioPendanaan({
                 type="button"
                 disabled={halamanAktif >= totalHalaman - 1}
                 onClick={() => setHalaman(halamanAktif + 1)}
-                className="min-h-8 rounded-md border border-slate-300 bg-white px-2.5 font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-2.5 font-semibold text-navy transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Berikutnya
               </button>

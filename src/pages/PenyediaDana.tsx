@@ -26,6 +26,7 @@ import { Component, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { SkipLink } from "@/components/SkipLink";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { RoleDashboardMenu } from "@/components/RoleDashboardMenu";
 import { kunciNama, namaHurufBesar, namaRuangan } from "@/lib/nama";
@@ -2186,6 +2187,7 @@ function IsiRuang() {
 
   return (
     <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
+      <SkipLink />
       {/*
        * Bilah atas: tetap menempel saat menggulir karena ruang ini panjang, dan
        * diberi garis kuningan tipis di puncaknya sebagai penanda identitas
@@ -2193,7 +2195,7 @@ function IsiRuang() {
        */}
       <header className="animate-masuk glass-nav sticky top-0 z-40 border-t-2 border-gold pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5">
+          <Link to="/dashboard" aria-label="PINDAI, dashboard" className="flex min-h-11 shrink-0 items-center gap-2.5">
             <VaultLogo size={32} className="size-8 shrink-0" />
             <span className="hidden text-sm font-semibold tracking-[0.18em] text-navy sm:block">
               PINDAI
@@ -2217,7 +2219,7 @@ function IsiRuang() {
                 asChild
                 variant="outline"
                 size="sm"
-                className="h-9 gap-1.5 border-slate-300 px-2.5 text-xs font-semibold text-navy"
+                className="h-11 gap-1.5 border-slate-300 px-2.5 text-xs font-semibold text-navy sm:h-9"
               >
                 <Link to="/jadi-pendana">
                   <FileText className="size-3.5" aria-hidden />
@@ -2309,7 +2311,7 @@ function IsiRuang() {
                   <a
                     key={bagian.id}
                     href={`#${bagian.id}`}
-                    className="group inline-flex items-baseline gap-1.5 text-xs font-medium text-slate-600 transition-colors hover:text-navy"
+                    className="group inline-flex min-h-11 items-center gap-1.5 rounded-sm text-xs font-medium text-slate-600 transition-colors hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
                   >
                     <span
                       aria-hidden
@@ -2330,7 +2332,7 @@ function IsiRuang() {
               <details
                 className={`${FOLIO.jalur} mt-4 max-w-3xl px-4 py-3 text-xs leading-6 text-slate-700`}
               >
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-sm text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
                   Cara membaca ruang ini
                 </summary>
                 <p className="mt-2">
@@ -2657,7 +2659,7 @@ function IsiRuang() {
                  * melewati formulir simulasi setiap kali membuka halaman.
                  */}
                 <details className={`${FOLIO.jalur} mt-4 px-4 py-3`}>
-                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                  <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-sm text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
                     Simulasi penempatan
                   </summary>
                   <div className="mt-3">

@@ -226,7 +226,7 @@ export function PetaLokasiPeminjam({
         className="absolute inset-0 z-0 bg-[#ddd]"
       />
       {rows.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4 sm:p-6">
           <span
             className={cn(
               FOLIO.kertas,

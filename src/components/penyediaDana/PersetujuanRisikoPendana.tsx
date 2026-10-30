@@ -184,8 +184,8 @@ export function PersetujuanRisikoPendana({
           {/* Riwayat hanya muncul bila ada lebih dari satu baris: satu versi tidak
               perlu daftar, dan versi lama wajib tetap terbaca saat teks berubah. */}
           {status.riwayat.length > 1 && (
-            <details className="mt-2 rounded-lg border border-emerald-300/60 bg-white px-3 py-2">
-              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800">
+            <details className="mt-2 min-h-11 rounded-lg border border-emerald-300/60 bg-white px-3 py-2">
+              <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-sm text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
                 Riwayat persetujuan ({status.riwayat.length})
               </summary>
               <ul className="mt-1.5 space-y-1">

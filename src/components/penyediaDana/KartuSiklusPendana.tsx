@@ -198,7 +198,7 @@ export function KartuSiklusPendana() {
                           disabled={busyId !== null}
                           onClick={() => void simpanPilihan(row._id, nilai)}
                           className={cn(
-                            "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                            "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2",
                             aktif
                               ? "border-emerald-700 bg-emerald-700 text-white"
                               : "border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50",

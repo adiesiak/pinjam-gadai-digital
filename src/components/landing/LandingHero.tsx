@@ -58,7 +58,7 @@ export function LandingHero(props: LandingHeroProps) {
 
       <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-8 px-4 pb-10 pt-10 sm:gap-12 sm:px-6 sm:pb-16 sm:pt-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:pb-20 lg:pt-20">
         <div className="max-w-xl">
-          <p className="motion-slide-up inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+          <p className="motion-slide-up inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
             <Calculator className="size-3.5" aria-hidden="true" />
             {props.eyebrow}
           </p>
@@ -151,7 +151,7 @@ export function LandingHero(props: LandingHeroProps) {
 
         <div className="relative mx-auto w-full max-w-[340px] lg:max-w-[420px]">
           <PindaiCard3D />
-          <p className="mt-2 text-center text-[11px] font-medium text-slate-700">
+          <p className="mt-2 text-center text-xs font-medium text-slate-700">
             {props.sudahMasuk ? "Sesi aktif" : "Akun PINDAI"} · Pinjam &amp;
             gadai digital
           </p>

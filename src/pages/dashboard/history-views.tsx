@@ -91,7 +91,7 @@ export function CatatanPinjamanSection({
               aria-pressed={aktif}
               onClick={() => setSaringan(s.nilai)}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
+                "min-h-11 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
                 aktif
                   ? "border-emerald-800 bg-emerald-50 text-emerald-900"
                   : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900",

@@ -8,6 +8,7 @@ import { JENIS_PENGAJUAN_AWAL, type JenisPengajuan } from "@/lib/jenisPengajuan"
 import { formatRupiah } from "@/lib/money";
 
 import { LocationGate } from "@/components/LocationGate";
+import { SkipLink } from "@/components/SkipLink";
 import { ModeNasabahUji } from "@/components/ModeNasabahUji";
 import { FadeIn } from "@/components/Reveal";
 import { SkeletonBarisDaftar, SkeletonKartu } from "@/components/ui/loading";
@@ -315,8 +316,13 @@ export default function Dashboard() {
   if (isAnonymous) {
     return (
       <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
+        <SkipLink />
         <DashboardHeader />
-        <main className="mx-auto flex w-full max-w-4xl flex-1 items-center px-4 py-12 sm:px-6">
+        <main
+          id="konten"
+          tabIndex={-1}
+          className="mx-auto flex w-full max-w-4xl flex-1 items-center px-4 py-12 sm:px-6"
+        >
           <section className="w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Mode tamu · baca saja</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">Kenali PINDAI sebelum membuat akun.</h1>
@@ -424,6 +430,7 @@ export default function Dashboard() {
     // seperti PERAN_WAJIB_LOKASI di convex/lokasi.ts (hanya peminjam/member).
     <LocationGate aktif={role !== "admin" && role !== "dana"}>
       <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
+        <SkipLink />
         {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
 
       {/* ===== Bar atas ===== */}

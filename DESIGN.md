@@ -71,10 +71,10 @@ Warna semantik di `:root`:
 | Netral kertas | `--secondary` | `#f1ede3` | Latar lembut, chip |
 | Teks sekunder | `--muted-foreground` | `#6b6455` | Metadata, keterangan |
 | Garis | `--border` | `#e3ddd0` | Batas kartu dan pemisah |
-| Garis input | `--input` | `#cdc5b3` | Tepi bidang isian |
+| Garis input | `--input` | `#948b78` | Tepi bidang isian (kontras 3:1 di atas putih) |
 | Fokus | `--ring` | `#1f6a62` | Cincin fokus keyboard |
 | Bahaya | `--destructive` | `#a5303a` | Hapus, tolak, galat |
-| Kuningan | `--gold` | `#9c7b3a` | Nilai uang, status positif |
+| Kuningan | `--gold` | `#9c7b3a` | Garis, ikon, aksen; teks memakai `--gold-foreground` |
 | Tinta | `--navy` | `#0f3d3a` | Judul dan teks tegas |
 
 Pemetaan utilitas Tailwind di preset `tinta`:
@@ -102,7 +102,7 @@ Aturan kontras:
 
 Kuningan dan petrol:
 
-- Kuningan logam `#c9a86a` untuk garis dan tepi; `#9c7b3a` untuk label di atas kertas; `emerald-700 #6e5523` dan `emerald-800 #55421d` untuk angka, status, dan nama pemegang.
+- Kuningan logam `#c9a86a` untuk garis dan tepi; `#9c7b3a` untuk garis/ikon; label teks memakai `--gold-foreground #6e5523` agar lolos 4.5:1; `emerald-700 #6e5523` dan `emerald-800 #55421d` untuk angka, status, dan nama pemegang.
 - Petrol `#1f6a62` (`sky-600`) untuk tekstur batik dan aksen sekunder.
 - Kuningan terang hanya di dalam kotak logam bergradasi (`from-amber-200 via-amber-400 to-amber-600`), dengan huruf `--color-slate-950` di atasnya.
 
@@ -351,6 +351,7 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 - Konten berputar otomatis punya tombol jeda dan berhenti saat fokus atau reduced motion.
 - Drag-and-drop punya alternatif tombol dan keyboard.
 - Toast tidak merebut fokus; pengumuman memakai `aria-live="polite"`.
+- Dijaga `src/lib/kontrasWarna.test.ts` (kontras token teks dan batas kontrol) dan `src/lib/targetSentuhUi.render.test.tsx` (sampel landing, kalkulator, navigasi peminjam).
 
 ## 6. Copy dan data
 
@@ -431,4 +432,5 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 ## 9. Catatan perubahan
 
 - 2026-10-30: `DESIGN.md` diperbarui memakai UI/UX Pro Max. Antislop diganti; token, tipografi, gerak, aturan per peran, dan checklist dirapikan. Keputusan satu wajah terang tetap berlaku.
+- 2026-10-30: audit aksesibilitas landing, dashboard peminjam, dan ruang pendana. Target sentuh 44px, fokus keyboard, tautan lewati konten, batas input 3:1, serta uji `kontrasWarna` dan `targetSentuhUi` ditambahkan.
 - 2026-10-12: seluruh halaman memakai satu wajah terang; preset gelap `obsidian` dicabut; kartu hero landing ikut cerah.

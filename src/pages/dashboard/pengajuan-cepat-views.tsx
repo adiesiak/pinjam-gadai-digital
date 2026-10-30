@@ -610,7 +610,7 @@ export function PengajuanCepatSection({
                 <KartuRekeningTersimpan namaBank={ktp.namaBank} nomorRekening={ktp.nomorRekening} />
                 <label
                   htmlFor="cepat-rekening-benar"
-                  className="mt-2 flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5"
+                  className="mt-2 flex min-h-11 cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs leading-5"
                 >
                   <Checkbox
                     id="cepat-rekening-benar"
@@ -640,7 +640,7 @@ export function PengajuanCepatSection({
           <div className="min-w-0 sm:col-span-2">
             <label
               htmlFor="cepat-cair-ekspres"
-              className="mb-2 flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5"
+              className="mb-2 flex min-h-11 cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs leading-5"
             >
               <Checkbox
                 id="cepat-cair-ekspres"
@@ -731,7 +731,7 @@ export function PengajuanCepatSection({
 
           <label
             htmlFor="cepat-setuju"
-            className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-[11px] leading-5 sm:col-span-2"
+            className="flex min-h-11 cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs leading-5 sm:col-span-2"
           >
             <Checkbox
               id="cepat-setuju"
