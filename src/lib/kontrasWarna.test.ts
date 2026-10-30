@@ -66,8 +66,11 @@ const pasangan: Pasangan[] = [
   // Tombol dan status.
   { depan: "primary-foreground", belakang: "primary", minimum: 4.5, label: "teks tombol utama" },
   { depan: "gold-foreground", belakang: "background", minimum: 4.5, label: "label kuningan / kanvas" },
-  { depan: "color-emerald-800", belakang: "color-emerald-50", minimum: 4.5, label: "status positif" },
-  { depan: "color-emerald-700", belakang: "color-emerald-50", minimum: 4.5, label: "label positif" },
+  { depan: "success-foreground", belakang: "success-soft", minimum: 4.5, label: "status positif" },
+  { depan: "success-foreground", belakang: "background", minimum: 4.5, label: "teks success / kanvas" },
+  { depan: "success", belakang: "background", minimum: 3, label: "isian success / kanvas" },
+  { depan: "color-emerald-800", belakang: "color-emerald-50", minimum: 4.5, label: "nominal uang" },
+  { depan: "color-emerald-700", belakang: "color-emerald-50", minimum: 4.5, label: "label uang" },
   { depan: "color-amber-900", belakang: "color-amber-50", minimum: 4.5, label: "status peringatan" },
   { depan: "color-red-800", belakang: "color-red-50", minimum: 4.5, label: "status bahaya" },
 
@@ -75,6 +78,14 @@ const pasangan: Pasangan[] = [
   { depan: "ring", belakang: "background", minimum: 3, label: "cincin fokus / kanvas" },
   { depan: "input", belakang: "background", minimum: 3, label: "batas input / kanvas" },
   { depan: "gold", belakang: "background", minimum: 3, label: "garis kuningan / kanvas" },
+
+  // Grafik kategorikal: lima hue harus terpisah dari kanvas dan dari legenda.
+  ...[1, 2, 3, 4, 5].map((urut) => ({
+    depan: `chart-${urut}`,
+    belakang: "background",
+    minimum: 3,
+    label: `seri grafik ${urut} / kanvas`,
+  })),
 ];
 
 let lulus = 0;

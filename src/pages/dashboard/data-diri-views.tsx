@@ -87,7 +87,7 @@ export function DataDiriSection() {
           <Badge
             className={
               data.ada
-                ? "border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                ? "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft"
                 : "border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-100"
             }
           >

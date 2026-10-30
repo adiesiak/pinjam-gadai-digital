@@ -130,7 +130,7 @@ const RUTE_HALAMAN: readonly {
     isi: "Proposal pendanaan; dibuka dari ruang pendana setelah sesi lihat-saja.",
     gerbang: "akun",
   },
-  { rute: "/dashboard", isi: "Ruang peminjam enam tab, hanya untuk akun yang masuk.", gerbang: "akun" },
+  { rute: "/dashboard", isi: "Ruang peminjam lima menu, hanya untuk akun yang masuk.", gerbang: "akun" },
   {
     rute: "/penyedia-dana",
     isi: "Portofolio penyedia dana; perlu akun atau kode akses bersama.",
@@ -144,8 +144,7 @@ const TAB_PEMINJAM: readonly Baris[] = [
   { judul: "Cicilan", isi: "Jadwal angsuran, sisa hari, denda berjalan, unggah bukti transfer." },
   { judul: "Ajukan Pinjaman", isi: "Formulir harian atau bulanan, gadai, kredit barang, dan klaim pinjaman lama." },
   { judul: "Catatan Pinjaman", isi: "Riwayat pinjaman beserta status dan kontrak digitalnya." },
-  { judul: "Profil & Rekening", isi: "Data diri, rekening pencairan, dan preferensi notifikasi." },
-  { judul: "Status KYC", isi: "Tahapan verifikasi identitas dan perbaikan yang diminta admin." },
+  { judul: "Akun", isi: "Data diri, rekening pencairan, dan tahapan verifikasi identitas dalam satu halaman." },
 ];
 
 const MODUL_ADMIN: readonly Kelompok[] = [
@@ -346,7 +345,7 @@ const LOGIKA: readonly { judul: string; isi: string; rujukan: string }[] = [
 const ALUR_PEMINJAM: readonly string[] = [
   "Daftar atau masuk dengan OTP WhatsApp, jalur NIK KTP, atau akun Google. Kode NIK tetap dikirim ke WhatsApp yang terdaftar, jadi NIK saja tidak membuka akun.",
   "Lengkapi data diri, rekening pencairan, dan dokumen KYC: KTP, selfie-KTP, serta bukti penghasilan.",
-  "Tunggu verifikasi KYC. Bila diminta perbaikan, unggah ulang dari tab Status KYC.",
+  "Tunggu verifikasi KYC. Bila diminta perbaikan, unggah ulang dari subbagian Verifikasi KYC di menu Akun.",
   "Ajukan pinjaman: pilih skema harian, bulanan, gadai, atau kredit barang, lalu isi nominal dan tenor.",
   "Ikuti gerbang lokasi dan pengiriman; pengajuan ganda dari kiriman ulang ditahan kunci idempotensi.",
   "Pantau keputusan di Ringkasan dan Catatan Pinjaman. Setelah dicairkan, jadwal angsuran muncul di tab Cicilan.",

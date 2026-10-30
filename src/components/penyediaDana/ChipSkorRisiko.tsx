@@ -3,12 +3,12 @@
  *
  * Kenapa: skor 30 dan skor 85 terlihat sama saja kalau keduanya dicetak abu-abu.
  * Di ruang pendana, angka 3 digit yang menentukan apakah pengajuan layak didanai
- * harus bisa dinilai sekilas — hijau berarti riwayat bersih, kuning berarti perlu
- * dipantau, merah berarti berisiko.
+ * harus bisa dinilai sekilas — petrol (success) berarti riwayat bersih, kuning
+ * berarti perlu dipantau, merah berarti berisiko.
  *
  * Ambang batas (sengaja angka bulat dan tetap, bukan persentil per-periode,
  * supaya arti warnanya tidak berubah-ubah antar sesi):
- *   > 70  sehat          · `bg-emerald-50 text-emerald-700 border-emerald-200`
+ *   > 70  sehat          · `bg-success-soft text-success-foreground border-success-border`
  *   50–69 perlu dipantau · `bg-amber-50 text-amber-700 border-amber-200`
  *   < 50  berisiko       · `bg-rose-50 text-rose-700 border-rose-200`
  *
@@ -29,7 +29,7 @@ export const AMBANG_SKOR_PANTAU = 50;
 
 /** Kelas chip per rentang skor — diekspor agar bisa diuji sendiri. */
 export function kelasSkorRisiko(skor: number): string {
-  if (skor > AMBANG_SKOR_SEHAT) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (skor > AMBANG_SKOR_SEHAT) return "border-success-border bg-success-soft text-success-foreground";
   if (skor >= AMBANG_SKOR_PANTAU) return "border-amber-200 bg-amber-50 text-amber-700";
   return "border-rose-200 bg-rose-50 text-rose-700";
 }

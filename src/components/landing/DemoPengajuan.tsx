@@ -47,7 +47,7 @@ function Baris({ label, nilai }: { label: string; nilai: string }) {
 
 function JudulLayar({ children }: { children: string }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
       {children}
     </p>
   );
@@ -78,7 +78,7 @@ function LayarAkun() {
           ))}
         </div>
       </div>
-      <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-[11px] leading-5 text-slate-600">
+      <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-slate-600">
         Kode berlaku 5 menit. Tidak ada kata sandi yang perlu diingat.
       </p>
     </div>
@@ -112,7 +112,7 @@ function LayarVerifikasi() {
           </li>
         ))}
       </ul>
-      <p className="mt-4 flex items-start gap-2 text-[11px] leading-5 text-slate-600">
+      <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-slate-600">
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
         Berkas diperiksa tim PINDAI; pengajuan terkunci sampai verifikasi lengkap.
       </p>
@@ -133,7 +133,7 @@ function LayarAjukan({ tarif }: { tarif?: Partial<TarifBiaya> | null }) {
         <Baris label="Dana bersih diterima" nilai={formatRupiah(q.danaBersihDitransfer)} />
         <Baris label="Total kewajiban" nilai={formatRupiah(q.totalKewajibanPelunasan)} />
       </div>
-      <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-[11px] leading-5 text-slate-600">
+      <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-slate-600">
         Ilustrasi dari mesin hitung, bukan persetujuan pinjaman.
       </p>
     </div>
@@ -184,14 +184,14 @@ function LayarTinjau() {
               {tahap.teks}
             </span>
             {tahap.aktif ? (
-              <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
+              <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
                 sekarang
               </span>
             ) : null}
           </li>
         ))}
       </ol>
-      <p className="mt-4 text-[11px] leading-5 text-slate-600">
+      <p className="mt-4 text-xs leading-5 text-slate-600">
         Tim PINDAI meninjau pengajuan. Pencairan dana dilakukan di luar aplikasi.
       </p>
     </div>
@@ -208,7 +208,7 @@ function LayarCatatan({ tarif }: { tarif?: Partial<TarifBiaya> | null }) {
         <p className="text-sm font-semibold text-slate-900">
           Pinjaman tunai · {formatRupiah(DEMO_POKOK)}
         </p>
-        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground">
+        <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
           {LABEL_STATUS_PINJAMAN.lunas}
         </span>
       </div>
@@ -217,7 +217,7 @@ function LayarCatatan({ tarif }: { tarif?: Partial<TarifBiaya> | null }) {
         <Baris label="Tenor" nilai={`${DEMO_TENOR_HARI} hari`} />
         <Baris label="Riwayat" nilai="Tersimpan di dashboard" />
       </div>
-      <p className="mt-3 text-[11px] leading-5 text-slate-600">
+      <p className="mt-3 text-xs leading-5 text-slate-600">
         Nomor referensi, jadwal, dan status dapat dibuka lagi kapan saja.
       </p>
     </div>
@@ -314,7 +314,7 @@ export function DemoPengajuan({
 
         <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
               Langkah pengajuan
             </p>
             <ol className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1.5 lg:overflow-visible lg:pb-0">
@@ -336,7 +336,7 @@ export function DemoPengajuan({
                     >
                       <span
                         className={[
-                          "flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums",
+                          "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
                           ini
                             ? "bg-white/15 text-white"
                             : lewat
@@ -354,7 +354,7 @@ export function DemoPengajuan({
                 );
               })}
             </ol>
-            <p className="mt-3 hidden text-[11px] leading-5 text-slate-500 lg:block">
+            <p className="mt-3 hidden text-xs leading-5 text-slate-500 lg:block">
               Gerak dimatikan otomatis bila perangkat meminta gerak dikurangi.
             </p>
           </div>
@@ -366,10 +366,10 @@ export function DemoPengajuan({
                 <span className="size-2 rounded-full bg-border" />
                 <span className="size-2 rounded-full bg-border" />
               </span>
-              <span className="ml-1 truncate rounded-full border border-border bg-card px-2.5 py-1 font-mono text-[10px] text-slate-500">
+              <span className="ml-1 truncate rounded-full border border-border bg-card px-2.5 py-1 font-mono text-xs text-slate-500">
                 pindai.biz.id/pengajuan
               </span>
-              <span className="ml-auto shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-secondary-foreground">
+              <span className="ml-auto shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-secondary-foreground">
                 Contoh layar
               </span>
             </div>
@@ -410,7 +410,7 @@ export function DemoPengajuan({
 
               <div className="mt-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
                     Langkah {langkah.nomor} dari {LANGKAH_DEMO[LANGKAH_DEMO.length - 1].nomor}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-900">

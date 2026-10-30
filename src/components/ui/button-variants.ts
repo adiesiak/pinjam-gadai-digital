@@ -20,7 +20,7 @@ import { cva } from "class-variance-authority"
  * Perbesaran sengaja dibatasi 2% supaya tidak terasa memantul.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium touch-manipulation transition-[color,background-color,border-color,box-shadow,transform] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)] disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-[3px] focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-invalid:ring-destructive/20 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium touch-manipulation transition-[color,background-color,border-color,box-shadow,transform] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)] disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-[3px] focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-invalid:ring-destructive/20 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
@@ -50,8 +50,8 @@ const buttonVariants = cva(
         // 44px di ponsel; desktop boleh lebih rapat. Semua ukuran tetap
         // memenuhi target sentuh DESIGN.md §5 di lebar ponsel.
         default: "h-11 px-4 py-2 sm:h-9 has-[>svg]:px-3",
-        sm: "h-11 rounded-md gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5",
-        lg: "h-11 rounded-md px-6 sm:h-10 has-[>svg]:px-4",
+        sm: "h-11 rounded-lg gap-1.5 px-3 sm:h-8 has-[>svg]:px-2.5",
+        lg: "h-11 rounded-lg px-6 sm:h-10 has-[>svg]:px-4",
         icon: "size-11 sm:size-9",
         "icon-sm": "size-11 sm:size-8",
         "icon-lg": "size-11 sm:size-10",

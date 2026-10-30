@@ -32,9 +32,9 @@ function bersih(html: string, label: string): void {
 
 // ===== 1. Warna per rentang =====
 const SEHAT = renderToStaticMarkup(<ChipSkorRisiko skor={86} />);
-ada(SEHAT, "bg-emerald-50", "skor > 70 memakai latar emerald");
-ada(SEHAT, "text-emerald-700", "skor > 70 memakai teks emerald");
-ada(SEHAT, "border-emerald-200", "skor > 70 memakai border emerald");
+ada(SEHAT, "bg-success-soft", "skor > 70 memakai latar success");
+ada(SEHAT, "text-success-foreground", "skor > 70 memakai teks success");
+ada(SEHAT, "border-success-border", "skor > 70 memakai border success");
 ada(SEHAT, "86/100", "angkanya tetap tercetak, bukan hanya warna");
 
 const PANTAU = renderToStaticMarkup(<ChipSkorRisiko skor={62} />);
@@ -50,8 +50,8 @@ ada(BERISIKO, "border-rose-200", "skor < 50 memakai border rose");
 ada(BERISIKO, "31/100", "angka skor berisiko tercetak");
 
 // ===== 2. Batas rentang tepat di ambang =====
-ok(kelasSkorRisiko(71).includes("emerald"), "71 masih sehat (batas bawah sehat)");
-ok(!kelasSkorRisiko(70).includes("emerald"), "70 tidak lagi sehat — ambangnya > 70");
+ok(kelasSkorRisiko(71).includes("success"), "71 masih sehat (batas bawah sehat)");
+ok(!kelasSkorRisiko(70).includes("success"), "70 tidak lagi sehat — ambangnya > 70");
 ok(kelasSkorRisiko(70).includes("amber"), "70 masuk rentang perlu dipantau");
 ok(kelasSkorRisiko(50).includes("amber"), "50 tetap amber — batas bawah rentang dipantau");
 ok(!kelasSkorRisiko(49).includes("amber"), "49 keluar dari rentang perlu dipantau");
@@ -62,7 +62,7 @@ const PECAHAN = renderToStaticMarkup(<ChipSkorRisiko skor={84.6} />);
 ada(PECAHAN, "85/100", "skor pecahan dibulatkan ke bilangan bulat terdekat");
 ok(!PECAHAN.includes("84.6"), "angka pecahan tidak bocor ke layar");
 ok(!PECAHAN.includes("84,6"), "angka pecahan berkoma juga tidak bocor");
-ada(PECAHAN, "bg-emerald-50", "pembulatan tidak mengubah rentang warna (84.6 → sehat)");
+ada(PECAHAN, "bg-success-soft", "pembulatan tidak mengubah rentang warna (84.6 → sehat)");
 
 // ===== 4. Kalimat penjelas per rentang =====
 ok(labelSkorRisiko(86).includes("sehat"), "penjelasan skor tinggi menyebut sehat");

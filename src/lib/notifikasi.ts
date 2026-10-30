@@ -54,6 +54,7 @@ export const TAB_DASHBOARD = [
   "cicilan",
   "form",
   "pinjaman",
+  "akun",
   "diri",
   "kyc",
 ] as const;
@@ -62,7 +63,8 @@ export const TAB_DASHBOARD = [
 /**
  * Tab lama yang masih tersimpan di tautan notifikasi di database.
  *
- * Halaman nasabah sekarang lima; nama lama dipetakan ke halaman TERDEKATNYA
+ * Menu nasabah sekarang lima; `diri` dan `kyc` tetap sah karena keduanya
+ * membuka subbagian Akun. Nama lama lain dipetakan ke halaman TERDEKATNYA
  * supaya tautan yang sudah tersimpan tidak mendarat di halaman default tanpa
  * penjelasan. Pemetaan ini dihapus bersama tautan lama terakhir.
  */
@@ -72,6 +74,8 @@ const TAB_LAMA: Record<string, string> = {
   gadai: "pinjaman",
   kontrak: "pinjaman",
   bantuan: "ringkasan",
+  profil: "akun",
+  identitas: "akun",
 };
 
 export function tabDariParams(params: URLSearchParams): string | null {

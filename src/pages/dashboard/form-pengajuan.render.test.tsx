@@ -130,16 +130,14 @@ function renderMenuDashboard(
   );
 }
 
-// Menu dashboard kini DATAR: enam menu, satu menu satu halaman. Tidak ada lagi
-// pintu bertingkat maupun pengalih menu di layar sempit (digantikan bilah
-// bawah), jadi label halaman yang dihapus tidak boleh tertinggal.
+// Menu dashboard kini DATAR: lima menu, satu menu satu halaman. Profil dan KYC
+// berbagi halaman Akun, jadi bilah bawah kembali lima item.
 const MENU_DASHBOARD = [
   "Ringkasan",
   "Cicilan",
   "Ajukan Pinjaman",
   "Catatan Pinjaman",
-  "Profil & Rekening",
-  "Status KYC",
+  "Akun",
 ];
 const htmlMenuDashboard = renderMenuDashboard("form");
 const teksMenuDashboard = htmlMenuDashboard.replace(/&amp;/g, "&");
@@ -163,13 +161,13 @@ const sumberDashboard = bacaSumber("pages/Dashboard.tsx");
 const nilaiTabDashboard = [...sumberDashboard.matchAll(/<TabsContent value="([a-z]+)"/g)].map(
   (cocok) => cocok[1],
 );
-ok("dashboard punya enam halaman", nilaiTabDashboard.length === 6);
+ok("dashboard punya lima halaman", nilaiTabDashboard.length === 5);
 const sumberMenu = bacaSumber("pages/dashboard/dashboard-tab-nav.tsx");
 for (const nilai of nilaiTabDashboard) {
   ok(`halaman "${nilai}" punya baris menunya`, sumberMenu.includes(`value: "${nilai}"`));
 }
 
-// Bilah bawah (layar sempit): enam tombol, nama pendek di layar + nama lengkap
+// Bilah bawah (layar sempit): lima tombol, nama pendek di layar + nama lengkap
 // untuk pembaca layar, dan penanda menu aktif.
 const htmlBilahBawah = renderToStaticMarkup(
   <DashboardBottomNav
@@ -178,13 +176,20 @@ const htmlBilahBawah = renderToStaticMarkup(
     badges={{ pinjaman: { count: 2 } }}
   />,
 );
-ok("bilah bawah merender enam tombol", htmlBilahBawah.split("<button").length - 1 === 6);
+ok("bilah bawah merender lima tombol", htmlBilahBawah.split("<button").length - 1 === 5);
 ok("bilah bawah menandai menu aktif", htmlBilahBawah.includes('aria-current="page"'));
 ok(
   "bilah bawah memakai nama lengkap sebagai label",
   htmlBilahBawah.includes('aria-label="Catatan Pinjaman"'),
 );
 ok("bilah bawah hanya tampil di layar sempit", htmlBilahBawah.includes("lg:hidden"));
+const htmlAliasKyc = renderToStaticMarkup(
+  <DashboardBottomNav activeTab="kyc" onTabChange={() => {}} />,
+);
+ok(
+  "deep link KYC menyalakan menu Akun",
+  htmlAliasKyc.includes('aria-current="page" aria-label="Akun"'),
+);
 ok("bilah bawah benar-benar dipasang di dashboard", sumberDashboard.includes("<DashboardBottomNav"));
 
 // --- CTA "Buat pengajuan baru" di tab lain ----------------------------------

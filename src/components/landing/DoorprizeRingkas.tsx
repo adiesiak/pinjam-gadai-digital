@@ -89,7 +89,7 @@ export function DoorprizeRingkas({
         </div>
 
         <div className="min-w-0 border-t border-border pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
             Undian kuartal ini
           </p>
           <p className="mt-2 font-display text-xl leading-7 text-slate-900">

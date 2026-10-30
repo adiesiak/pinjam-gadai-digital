@@ -75,7 +75,7 @@ export function DoorprizeWidget({
     >
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-amber-100 px-4 py-3.5 sm:px-5">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">
             <Trophy className="size-3.5" aria-hidden /> Doorprize triwulanan
           </p>
           <h2
@@ -84,24 +84,24 @@ export function DoorprizeWidget({
           >
             {data.judul}
           </h2>
-          <p className="mt-0.5 text-[11px] leading-5 text-slate-600">
+          <p className="mt-0.5 text-xs leading-5 text-slate-600">
             {data.labelRentang} · Undian Kuartal {data.quarter}: {data.labelTanggalUndian}
           </p>
         </div>
-        <p className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
+        <p className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">
           {data.labelPeriode}
         </p>
       </header>
 
       <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
         <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5">
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
             <Ticket className="size-3.5" aria-hidden /> Jumlah tiket saya
           </p>
           <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">
             {tiketSendiri}
           </p>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-xs text-slate-500">
             {data.sudahDiundi
               ? `${data.tiketTerkumpul} tiket ikut undian ${data.labelPeriode}; saldo direset`
               : `${data.tiketAktif} tiket terkumpul kuartal ini`}
@@ -109,7 +109,7 @@ export function DoorprizeWidget({
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
             <Ikon className="size-3.5" aria-hidden /> Hadiah kuartal
           </p>
           {/* Rincian hadiah (berat emas dan nilai rupiahnya) sengaja tidak
@@ -118,17 +118,17 @@ export function DoorprizeWidget({
           <p className="mt-0.5 text-sm font-semibold leading-5 text-slate-900">
             {data.hadiah.labelKategori}
           </p>
-          <p className="text-[11px] text-slate-500">Rincian diumumkan saat pengundian</p>
+          <p className="text-xs text-slate-500">Rincian diumumkan saat pengundian</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
             <CalendarClock className="size-3.5" aria-hidden /> Pengundian
           </p>
           <p className="mt-0.5 text-sm font-semibold text-slate-900">
             {data.labelTanggalUndian}
           </p>
-          <p className="text-[11px] tabular-nums text-slate-500">
+          <p className="text-xs tabular-nums text-slate-500">
             {data.sudahDiundi
               ? "Undian selesai — pemenang sudah diumumkan"
               : data.bisaDiundi
@@ -139,8 +139,8 @@ export function DoorprizeWidget({
       </div>
 
       <div className="border-t border-amber-100 bg-white px-4 py-2.5 sm:px-5">
-        <p className="text-[11px] leading-5 text-slate-600">{data.teksKetentuan}</p>
-        <p className="mt-1 text-[11px] leading-5 text-slate-500">
+        <p className="text-xs leading-5 text-slate-600">{data.teksKetentuan}</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
           {data.pemenang === null
             ? `Saldo tiket kembali 0 saat ${data.labelPeriode} berakhir. ${sumberPeran}`
             : `Pemenang ${data.labelPeriode}: ${data.pemenang.nama} (${

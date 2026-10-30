@@ -150,7 +150,7 @@ export function IsiBrankas() {
                   </button>
                 );
               })}
-              <p className="mt-auto px-3.5 pb-1 pt-3 text-[11px] leading-5 text-white/45">
+              <p className="mt-auto px-3.5 pb-1 pt-3 text-xs leading-5 text-white/45">
                 Contoh ilustrasi tampilan. Angka sebenarnya dihitung aplikasi dari data pengajuan Anda
                 dan bukan tagihan atau bukti pembayaran.
               </p>

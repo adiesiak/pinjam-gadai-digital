@@ -29,7 +29,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       type={type}
       data-slot="input"
       className={cn(
-        "focus-glow file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border-input h-11 w-full min-w-0 rounded-xl border bg-white px-3.5 py-1 text-base sm:h-10 shadow-[inset_0_2px_5px_oklch(0.5_0.02_75/0.08)] transition-[color,box-shadow,border-color] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "focus-glow file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border-input h-11 w-full min-w-0 rounded-lg border bg-white px-3.5 py-1 text-base sm:h-10 shadow-[inset_0_2px_5px_oklch(0.5_0.02_75/0.08)] transition-[color,box-shadow,border-color] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         "focus-visible:border-ring focus-visible:ring-ring focus-visible:ring-[3px]",
         "aria-invalid:ring-destructive/20 aria-invalid:border-destructive",
         "user-invalid:border-destructive user-invalid:ring-destructive/20",

@@ -119,7 +119,7 @@ const htmlLunas = renderToStaticMarkup(
   <TampilanJatuhTempo tampilan={ringkasJatuhTempo(baris("lunas"), DIDANAI + 40 * HARI)} />,
 );
 ada(htmlLunas, "Sudah lunas", "pinjaman lunas tidak dihitung hari");
-ada(htmlLunas, "border-emerald-300", "lencana lunas memakai warna hijau tenang");
+ada(htmlLunas, "border-success-border", "lencana lunas memakai warna success tenang");
 ok(!htmlLunas.includes(WARNA.badgeTerlambat), "pinjaman lunas tidak diberi warna peringatan");
 
 const htmlBelum = renderToStaticMarkup(
@@ -156,7 +156,7 @@ eq(rajin.tingkat, "kuat", "tiga pelunasan tepat waktu → tingkat kuat");
 const htmlKuat = renderToStaticMarkup(<BadgeKepercayaan kepercayaan={rajin} />);
 ada(htmlKuat, rajin.label, "label tingkat tampil");
 ada(htmlKuat, `${rajin.skor}/100`, "skor tampil sebagai angka");
-ada(htmlKuat, "bg-emerald-600", "tingkat kuat memakai isian hijau pejal");
+ada(htmlKuat, "bg-success", "tingkat kuat memakai isian success pejal");
 ada(htmlKuat, "text-white", "lencana kepercayaan memakai teks putih agar menonjol");
 ada(htmlKuat, "3 pinjaman lunas tepat waktu", "dasar penilaian ada di tooltip");
 ada(htmlKuat, "bukan skor kredit lembaga", "tooltip menegaskan ini bukan skor kredit");

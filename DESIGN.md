@@ -49,6 +49,8 @@ Seluruh halaman, yaitu ruang peminjam, verifikasi aset, ruang pendana, meja kerj
 
 Preset gelap `obsidian` sudah dicabut seluruhnya. Presetnya tidak lagi terdaftar di `src/lib/system-config.ts`, kartunya hilang dari panel admin, dan blok token gelapnya dihapus dari `src/index.css`. Tidak ada aturan yang cocok dengan `data-theme="obsidian"` maupun `data-wajah="obsidian"`, jadi tidak ada jalan mengaktifkan tampilan gelap.
 
+Pengecualian operasional: panel admin punya sakelar **Dim** dan **Padat** yang disimpan per perangkat. Dim bukan preset tema dan tidak mengubah ruang nasabah/pendana; ia hanya menurunkan silau permukaan kerja admin lewat CSS yang dibatasi `.admin-shell`.
+
 Kartu hero landing (`src/components/landing/KartuHeroPindai.tsx`) juga cerah. Keputusan pemilik 2026-10-12: permukaan obsidian pada kartu ditinggalkan supaya titik fokus halaman ikut satu wajah terang. Permukaan barunya kertas hangat berkaca; bobot dan kemewahannya dibawa tepi kuningan, pola ombak berlapis, dan bayangan bertinta (lihat §3A).
 
 Konsekuensi untuk skill: rekomendasi `Dark Mode (OLED)` atau varian gelap lain tidak diterapkan. Bila pencarian mengembalikan saran itu, ambil bagian yang tetap relevan (kontras, hierarki tipografi, pola interaksi) dan buang paletnya.
@@ -75,13 +77,18 @@ Warna semantik di `:root`:
 | Fokus | `--ring` | `#1f6a62` | Cincin fokus keyboard |
 | Bahaya | `--destructive` | `#a5303a` | Hapus, tolak, galat |
 | Kuningan | `--gold` | `#9c7b3a` | Garis, ikon, aksen; teks memakai `--gold-foreground` |
+| Status positif | `--success` | `#1f6a62` | Isian dan ikon status selesai/berhasil |
+| Teks status positif | `--success-foreground` | `#124340` | Teks di atas `--success-soft` |
+| Permukaan status positif | `--success-soft` | `#eef5f3` | Latar lencana status |
+| Tepi status positif | `--success-border` | `#b9d2cd` | Garis lencana status |
 | Tinta | `--navy` | `#0f3d3a` | Judul dan teks tegas |
 
 Pemetaan utilitas Tailwind di preset `tinta`:
 
 - `sky` = hijau tinta tua (brand dan aksi).
 - `slate` = netral kertas hangat (latar, garis, teks).
-- `emerald` = kuningan (nilai uang dan status positif).
+- `emerald` = kuningan, **hanya nilai uang** (nominal, saldo, biaya).
+- `success` = petrol, khusus status positif (lunas, disetujui, terverifikasi). Uang dan status tidak boleh memakai warna yang sama.
 - `amber` = oranye bata (peringatan).
 - `red` = merah marun (bahaya).
 
@@ -96,14 +103,15 @@ Permukaan kertas:
 Aturan kontras:
 
 - Teks normal minimal 4.5:1 terhadap permukaannya. Teks besar (≥24px atau ≥19px tebal) minimal 3:1.
-- `slate-500` adalah batas terendah untuk teks sekunder 10-12px; jangan turun ke `slate-400` untuk teks yang harus dibaca.
+- `slate-500` adalah batas terendah untuk teks sekunder 12px; jangan turun ke `slate-400` untuk teks yang harus dibaca.
 - `amber-200`, `amber-300`, `emerald-300`, dan `#10B981` dilarang sebagai warna teks di permukaan terang.
+- Status positif memakai pasangan `success-foreground` / `success-soft` (9,98:1). Jangan memakai kuningan uang untuk status.
 - Status tidak boleh dibedakan hanya dengan warna. Selalu sertakan label, ikon, atau bentuk.
 
 Kuningan dan petrol:
 
-- Kuningan logam `#c9a86a` untuk garis dan tepi; `#9c7b3a` untuk garis/ikon; label teks memakai `--gold-foreground #6e5523` agar lolos 4.5:1; `emerald-700 #6e5523` dan `emerald-800 #55421d` untuk angka, status, dan nama pemegang.
-- Petrol `#1f6a62` (`sky-600`) untuk tekstur batik dan aksen sekunder.
+- Kuningan logam `#c9a86a` untuk garis dan tepi; `#9c7b3a` untuk garis/ikon; label teks memakai `--gold-foreground #6e5523` agar lolos 4.5:1; `emerald-700 #6e5523` dan `emerald-800 #55421d` hanya untuk angka uang dan nama pemegang.
+- Petrol `#1f6a62` (`success`/`sky-600`) untuk status positif, tekstur batik, dan aksen sekunder.
 - Kuningan terang hanya di dalam kotak logam bergradasi (`from-amber-200 via-amber-400 to-amber-600`), dengan huruf `--color-slate-950` di atasnya.
 
 Double Line Glow:
@@ -127,6 +135,7 @@ Double Line Glow:
 Aturan:
 
 - Skala yang dipakai: 12, 14, 16, 18, 20, 24, 32, 40. Jangan menambah ukuran acak.
+- Teks UI minimal 12px. Ukuran 10-11px hanya untuk pengecualian dekoratif: poster promo, ilustrasi/kartu contoh, cap "Dicatat", dan wordmark. Jangan memakai 10-11px untuk label, metadata, tombol, atau keterangan formulir.
 - Line-height isi 1.5-1.75. Judul pendek boleh 1.1-1.25.
 - Panjang baris nyaman 60-75 karakter di desktop dan 35-60 di ponsel.
 - Bobot hierarki: 600-700 untuk judul, 500 untuk label, 400 untuk isi.
@@ -140,14 +149,15 @@ Ritme spasi 4/8. Jarak bagian desktop 56-64px, ponsel 40px. Celah grid desktop 3
 
 Radius menyatakan ukuran benda, bukan selera:
 
-| Benda | Kelas | Contoh |
+Tiga peran saja. Jangan menambah tingkat radius keempat untuk kontrol baru.
+
+| Peran | Kelas | Contoh |
 | --- | --- | --- |
-| Tombol semua ukuran | `rounded-md` | `src/components/ui/button-variants.ts` |
-| Tombol aksi utama ruang pendana | `rounded-lg` | `KontakLaporanWhatsapp`, `RekapPendanaUnduhan` |
-| Bidang isian, pilihan, kotak catatan | `rounded-xl` | `src/components/ui/input.tsx`, `select.tsx` |
-| Kartu, panel, dialog, lembar | `rounded-2xl` | `src/components/ui/card.tsx`, `dialog.tsx` |
-| Lembar folio ruang pendana | `rounded-lg` | `src/components/penyediaDana/folio.ts` |
-| Badge, chip status, tombol ikon bulat | `rounded-full` | `src/components/ui/badge-variants.ts` |
+| Kontrol: tombol, bidang isian, pilihan, popover | `rounded-lg` | `src/components/ui/button-variants.ts`, `input.tsx`, `select.tsx`, `textarea.tsx` |
+| Permukaan: kartu, panel, dialog, kartu angka | `rounded-2xl` | `src/components/ui/card.tsx`, `dialog.tsx` |
+| Pil: badge, chip status, tab, tombol bulat | `rounded-full` | `src/components/ui/badge-variants.ts`, `tabs.tsx`, `StatusBadge.tsx` |
+
+Pengecualian yang dipertahankan: lembar folio ruang pendana memakai `rounded-lg` karena ia kertas kerja, bukan kartu maupun kontrol.
 
 Bayangan:
 
@@ -237,7 +247,8 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 
 ### D. Kartu dan permukaan
 
-- Satu permukaan kaca per layar. Sisanya padat.
+- Kaca hanya untuk panggung landing (hero/kartu contoh) dan kartu auth. Seluruh permukaan operasional, termasuk nav, dock aksi, kartu data, catatan, dan modal, memakai permukaan solid bertoken `--card`.
+- Satu titik fokus kaca per layar landing. Sisanya padat.
 - Jangan mencampur radius berbeda dalam satu baris kontrol.
 - Kartu daftar memakai garis rambut dan latar putih, bukan bayangan besar.
 - Kartu yang bisa diklik harus punya keadaan hover, fokus, dan tekan yang jelas, serta target sentuh penuh.
@@ -254,7 +265,9 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 
 ### F. Navigasi
 
-- Peminjam: sidebar di desktop, bilah bawah di ponsel. Enam menu saat ini (Ringkasan, Cicilan, Ajukan, Catatan, Profil, KYC). Ini penyimpangan sadar dari anjuran skill (maksimal 5 item): setiap menu adalah halaman top-level dan labelnya dibuat pendek. Jangan menambah item ke-7; gunakan menu "Lainnya" bila perlu.
+- Peminjam: sidebar di desktop, bilah bawah di ponsel. Lima menu: Ringkasan, Cicilan, Ajukan, Catatan, Akun. Profil & Rekening dan Verifikasi KYC berbagi halaman Akun lewat sub-pilihan 44px.
+- Deep link lama `?tab=diri` dan `?tab=kyc` tetap sah: keduanya membuka Akun dengan subbagian yang benar, dan menu Akun menyala. Jangan menghapus alias ini selama tautan notifikasi lama masih tersimpan.
+- Jangan menambah item keenam ke bilah bawah. Menu baru harus masuk ke salah satu dari lima tujuan itu atau menjadi sub-pilihan di dalamnya.
 - Pendana: navigasi jangkar dan tab di dalam satu halaman panjang. Jangan menambah bilah bawah baru.
 - Admin: sidebar desktop, lima grup di ponsel, strip chip modul, dan pencarian menu. Modul aktif disimpan di `?tab=`.
 - Label navigasi selalu disertai ikon; ikon saja tidak cukup.
@@ -289,6 +302,8 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 
 ### J. Grafik dan data
 
+- Palet kategorikal default: `--chart-1 #1f6a62` (petrol), `--chart-2 #8a641f` (kuningan tua), `--chart-3 #5c5688` (violet), `--chart-4 #3f6f8a` (baja), `--chart-5 #a05a4a` (terakota). Kelima hue harus tetap berbeda di semua preset; jangan mengganti menjadi gradasi satu warna.
+- Setiap seri grafik minimal 3:1 terhadap kanvas. Uji `src/lib/kontrasWarna.test.ts` menjaga lima token ini.
 - Jenis grafik mengikuti data: tren garis, perbandingan batang, proporsi donat maksimal lima kategori.
 - Legenda terlihat dan dekat grafik. Tooltip bisa diakses keyboard, bukan hanya hover.
 - Sediakan ringkasan teks atau `aria-label` untuk pembaca layar.
@@ -331,6 +346,7 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 - Aksi destruktif memakai warna bahaya, konfirmasi, dan alasan tertulis bila relevan.
 - Setiap tindakan yang mengubah uang atau status meninggalkan jejak audit.
 - Kepadatan tinggi diperbolehkan, tetapi hierarki harus jelas: judul modul, ringkasan, antrean, detail.
+- Kepala admin punya sakelar tampilan **Dim** dan **Padat** (44px, `role="switch"`), tersimpan di `localStorage` dan diterapkan sebagai `data-admin-tema`/`data-admin-padat` pada `<html>`. CSS-nya hanya boleh menyasar `.admin-shell`; jangan mengubah tema global atau ruang peran lain.
 - Pencarian menu dan `Ctrl+B`/`Cmd+B` harus tetap berfungsi; jangan menambah pintasan yang bertabrakan dengan input.
 
 ## 5. Aksesibilitas dan ketahanan teks
@@ -394,9 +410,12 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 
 ### Visual
 
-- [ ] Tidak ada mode gelap atau `dark:` baru.
-- [ ] Satu titik fokus kaca per layar; kartu lain padat.
-- [ ] Radius, bayangan, dan spasi mengikuti token.
+- [ ] Tidak ada mode gelap atau `dark:` baru. Dim admin bukan tema gelap dan tidak bocor ke peran lain.
+- [ ] Kaca hanya di landing/auth; nav, kartu kerja, dan modal solid.
+- [ ] Satu titik fokus kaca per layar landing; kartu lain padat.
+- [ ] Radius mengikuti tiga peran: kontrol `rounded-lg`, permukaan `rounded-2xl`, pil `rounded-full`.
+- [ ] Teks UI minimal 12px; 10-11px hanya pada poster/ilustrasi yang didokumentasikan.
+- [ ] Dim dan Padat admin tidak mengubah ruang nasabah/pendana.
 - [ ] Ikon dari Lucide, konsisten, tanpa emoji.
 - [ ] Angka uang memakai `tabular-nums` dan format Rupiah.
 - [ ] Tidak ada teks terpotong tanpa jalur baca penuh di 375px.
@@ -431,6 +450,7 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 
 ## 9. Catatan perubahan
 
+- 2026-10-30: override desain: menu peminjam menjadi lima dengan halaman Akun; token `success` memisahkan status dari uang; kaca dibatasi ke landing/auth; admin mendapat Dim/Padat; radius disederhanakan menjadi tiga peran; palet grafik kategorikal; microtype UI minimal 12px.
 - 2026-10-30: `DESIGN.md` diperbarui memakai UI/UX Pro Max. Antislop diganti; token, tipografi, gerak, aturan per peran, dan checklist dirapikan. Keputusan satu wajah terang tetap berlaku.
 - 2026-10-30: audit aksesibilitas landing, dashboard peminjam, dan ruang pendana. Target sentuh 44px, fokus keyboard, tautan lewati konten, batas input 3:1, serta uji `kontrasWarna` dan `targetSentuhUi` ditambahkan.
 - 2026-10-12: seluruh halaman memakai satu wajah terang; preset gelap `obsidian` dicabut; kartu hero landing ikut cerah.

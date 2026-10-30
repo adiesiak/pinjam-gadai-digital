@@ -28,7 +28,7 @@ import type { RingkasKepercayaan, TingkatKepercayaan } from "@/lib/kepercayaanPe
 
 /** Warna per tingkat kepercayaan — konsisten dengan palet slate halaman ini. */
 const KELAS_TINGKAT: Record<TingkatKepercayaan, string> = {
-  kuat: "border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-600",
+  kuat: "border-success bg-success text-white hover:bg-success",
   berkembang: "border-sky-700 bg-sky-600 text-white hover:bg-sky-600",
   baru: "border-slate-500 bg-slate-500 text-white hover:bg-slate-500",
   perlu_perhatian: "border-red-700 bg-red-600 text-white hover:bg-red-600",
@@ -65,7 +65,7 @@ const KELAS_NADA: Record<NadaJatuhTempo, { teks: string; badge: string }> = {
   },
   lunas: {
     teks: "text-slate-600",
-    badge: "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-50",
+    badge: "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft",
   },
   belum_didanai: {
     teks: "text-slate-600",

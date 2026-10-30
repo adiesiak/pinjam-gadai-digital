@@ -209,7 +209,7 @@ export function PromoSection({ sudahMasuk }: { sudahMasuk: boolean }) {
                 );
               })}
             </motion.div>
-            <p className="mt-4 text-center text-[11px] leading-5 text-slate-500">
+            <p className="mt-4 text-center text-xs leading-5 text-slate-500">
               Contoh {poster.length} dari {semuaPoster.length} poster · 1080 × 1350 px
             </p>
           </motion.div>

@@ -147,7 +147,7 @@ export function BandingProduk({ tarif }: { tarif: TarifBiaya }) {
               <dl className="mt-2 divide-y divide-border">
                 {baris.map((row) => (
                   <div key={row.label} className="py-2">
-                    <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+                    <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">
                       {row.label}
                     </dt>
                     <dd className="mt-0.5 text-xs leading-5 text-slate-700">

@@ -25,7 +25,7 @@ const nadaTinjau = nadaStatusPengaduan("ditinjau");
 const nadaSelesai = nadaStatusPengaduan("selesai");
 const nadaDitolak = nadaStatusPengaduan("ditolak");
 ok("status berbeda → nada berbeda", new Set([nadaBaru, nadaTinjau, nadaSelesai, nadaDitolak]).size === 4);
-ok("selesai bernada hijau", nadaSelesai.includes("emerald"));
+ok("selesai bernada success", nadaSelesai.includes("success"));
 ok("ditolak bernada merah", nadaDitolak.includes("red"));
 eq("status tak dikenal jatuh ke netral", nadaStatusPengaduan("entah"), nadaBaru);
 

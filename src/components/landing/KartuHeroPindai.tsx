@@ -618,7 +618,7 @@ export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
           Aktifkan gerak kartu
         </button>
       )}
-      <p className="mt-3 text-center text-[11px] font-medium text-slate-700">
+      <p className="mt-3 text-center text-xs font-medium text-slate-700">
         PINDAI · Pinjaman dan gadai digital
       </p>
     </div>

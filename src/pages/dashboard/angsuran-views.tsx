@@ -83,7 +83,7 @@ function unduhJadwalKalender(data: DataAngsuran) {
 
 /** Nada visual mengikuti status, bukan warna acak. */
 const NADA: Record<TampilanAngsuran, string> = {
-  lunas: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  lunas: "border-success-border bg-success-soft text-success-foreground",
   menunggu_verifikasi: "border-sky-200 bg-sky-50 text-sky-800",
   terlambat: "border-red-200 bg-red-50 text-red-700",
   hari_ini: "border-amber-300 bg-amber-50 text-amber-900",

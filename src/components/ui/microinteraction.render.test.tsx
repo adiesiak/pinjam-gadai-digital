@@ -275,14 +275,18 @@ ada(css, "@keyframes pindai-shimmer", "keyframes kilau batang ada");
 ada(css, "@keyframes pindai-bar-tumbuh", "keyframes luncuran batang ada");
 ada(css, "@keyframes pindai-badge-pop", "keyframes lencana dinamis ada");
 ada(css, "--bar-lebar", "batang grafik memakai variabel panjang target");
+ada(css, ':root[data-admin-tema="dim"] .admin-shell', "Dim dibatasi ke panel admin");
+ada(css, ':root[data-admin-padat="padat"] .admin-shell', "Padat dibatasi ke panel admin");
+ada(css, "--success:", "token status positif terpisah dari uang");
 
-// Kaca otomatis hanya boleh menyentuh latar + blur: tepi, `ring`, dan bayangan
+// Permukaan otomatis hanya boleh menyentuh latar: tepi, `ring`, dan bayangan
 // tetap milik pemanggil supaya penanda keadaan (kartu terpilih) tidak hilang.
+// Kaca hanya untuk landing/auth, jadi tidak boleh ada blur di sini.
 {
   const mulai = css.indexOf(":where(:is(.rounded-2xl, .rounded-3xl).border.bg-white)");
   const blok = css.slice(mulai, css.indexOf("}", mulai));
-  ada(blok, "background-color", "kaca otomatis: latar jadi transparan");
-  ada(blok, "backdrop-filter", "kaca otomatis: memakai blur");
+  ada(blok, "background-color", "permukaan otomatis: latar pekat");
+  ok(!blok.includes("backdrop-filter"), "permukaan otomatis tidak memakai blur");
   // Dicek sebagai deklarasi (`:`) — keduanya memang boleh muncul di daftar
   // `transition`, asal tidak dipakai untuk mengunci nilainya.
   ok(!/border-color\s*:/.test(blok), "kaca otomatis tidak mengunci warna tepi");

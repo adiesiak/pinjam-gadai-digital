@@ -1,18 +1,17 @@
-import { CalendarClock, FilePlus2, FileText, Home, IdCard, ShieldCheck } from "lucide-react";
+import { CalendarClock, FilePlus2, FileText, Home, IdCard } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 /**
- * Enam menu dashboard nasabah — satu menu, satu halaman.
+ * Lima menu dashboard nasabah — satu menu, satu tujuan.
  *
- * Kenapa datar: tujuannya sudah spesifik (ringkasan, cicilan, ajukan, catatan
- * pinjaman, profil & rekening, status KYC), jadi pintu bertingkat hanya
- * menambah ketukan tanpa memuat apa pun. Urutan mengikuti alur pemakaian:
- * lihat keadaan hari ini → bayar tagihan → ajukan → periksa catatan → rapikan
- * data → urus identitas.
+ * Profil dan KYC digabung menjadi "Akun" karena keduanya menjawab pertanyaan
+ * yang sama: siapa saya dan sudah selesai apa identitas saya. Penggabungan ini
+ * membuat bilah bawah kembali lima item, sesuai anjuran skill dan ruang jempol
+ * di 375px. Deep link lama `?tab=diri` dan `?tab=kyc` tetap diterima, dengan
+ * menu Akun yang menyala dan subbagian yang benar.
  *
- * `labelPendek` dipakai bilah navigasi bawah di ponsel: pada 360px lebar tiap
- * tombol hanya ±70px, jadi label panjang akan terpotong. Nama lengkapnya tetap
+ * `labelPendek` dipakai bilah navigasi bawah di ponsel. Nama lengkapnya tetap
  * dibacakan lewat `aria-label`, jadi tidak ada informasi yang hilang.
  */
 export const MENU_DASHBOARD = [
@@ -20,9 +19,14 @@ export const MENU_DASHBOARD = [
   { value: "cicilan", label: "Cicilan", labelPendek: "Cicilan", icon: CalendarClock },
   { value: "form", label: "Ajukan Pinjaman", labelPendek: "Ajukan", icon: FilePlus2 },
   { value: "pinjaman", label: "Catatan Pinjaman", labelPendek: "Catatan", icon: FileText },
-  { value: "diri", label: "Profil & Rekening", labelPendek: "Profil", icon: IdCard },
-  { value: "kyc", label: "Status KYC", labelPendek: "KYC", icon: ShieldCheck },
+  { value: "akun", label: "Akun", labelPendek: "Akun", icon: IdCard },
 ] as const;
+
+/** Apakah satu menu sedang aktif, termasuk alias lama `diri`/`kyc`. */
+export function menuAktif(value: string, activeTab: string): boolean {
+  if (value === activeTab) return true;
+  return value === "akun" && (activeTab === "diri" || activeTab === "kyc");
+}
 
 /**
  * Indikator jumlah pada item menu: `neutral` (informasi), `warning` (perlu
@@ -39,6 +43,7 @@ export function badgeToneClass(tone: TabBadge["tone"]): string {
 
 /** Label satu menu dari nilai tabnya — satu sumber untuk semua wadah menu. */
 export function labelTujuan(value: string): string {
+  if (value === "diri" || value === "kyc") return "Akun";
   return MENU_DASHBOARD.find((menu) => menu.value === value)?.label ?? "Ringkasan";
 }
 
@@ -64,8 +69,8 @@ export function DashboardTabNav({
     <nav aria-label="Menu dashboard" className="rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
       <ul className="space-y-1">
         {MENU_DASHBOARD.map((menu) => {
-          const aktif = menu.value === activeTab;
-          const badge = badges?.[menu.value];
+          const aktif = menuAktif(menu.value, activeTab);
+          const badge = badges?.[menu.value] ?? (menu.value === "akun" ? badges?.kyc : undefined);
           const Ikon = menu.icon;
           return (
             <li key={menu.value}>
@@ -126,8 +131,8 @@ export function DashboardBottomNav({
     >
       <ul className="mx-auto flex w-full max-w-lg items-stretch">
         {MENU_DASHBOARD.map((menu) => {
-          const aktif = menu.value === activeTab;
-          const badge = badges?.[menu.value];
+          const aktif = menuAktif(menu.value, activeTab);
+          const badge = badges?.[menu.value] ?? (menu.value === "akun" ? badges?.kyc : undefined);
           const Ikon = menu.icon;
           return (
             <li key={menu.value} className="min-w-0 flex-1">

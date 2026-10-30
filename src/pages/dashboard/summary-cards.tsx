@@ -418,8 +418,8 @@ export function RiwayatProgresPlafon() {
 
 /**
  * Ringkasan keuangan peminjam — tiga kartu: batas pinjaman, tagihan aktif, dan
- * status verifikasi KYC. KYC di sini hanya ringkasan; isinya di halaman
- * Status KYC.
+ * status verifikasi KYC. KYC di sini hanya ringkasan; isinya di subbagian
+ * Verifikasi KYC pada halaman Akun.
  */
 export function SummaryCards({
   schedule,

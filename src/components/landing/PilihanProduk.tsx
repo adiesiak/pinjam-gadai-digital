@@ -169,7 +169,7 @@ export function PilihanProduk({
           </button>
         )}
         {!ringkas && onPilih === undefined && (
-          <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-5 text-amber-900/80">
+          <p className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-amber-900/80">
             <Info className="mt-0.5 size-3 shrink-0" aria-hidden />
             Pengajuan akad syariah dibuka dari dashboard setelah Anda masuk.
           </p>

@@ -67,11 +67,10 @@ const MENU = [
   "Cicilan",
   "Ajukan Pinjaman",
   "Catatan Pinjaman",
-  "Profil & Rekening",
-  "Status KYC",
+  "Akun",
 ];
 
-// ===== 1. Peminjam: enam menu datar + Keluar =====
+// ===== 1. Peminjam: lima menu datar + Keluar =====
 {
   const html = renderToStaticMarkup(<DashboardSidebar greetingName="Rani" {...props} />);
   for (const label of MENU) {
@@ -113,11 +112,11 @@ const MENU = [
   bersih(html, "sidebar akun admin");
 }
 
-// ===== 4. Dashboard punya enam halaman dan bilah bawah di layar sempit =====
+// ===== 4. Dashboard punya lima halaman dan bilah bawah di layar sempit =====
 {
   const dashboard = bacaSumber("pages/Dashboard.tsx");
   const nilaiTab = [...dashboard.matchAll(/<TabsContent value="([a-z]+)"/g)].map((c) => c[1]);
-  ok(nilaiTab.length === 6, `tepat enam halaman (ditemukan ${nilaiTab.length})`);
+  ok(nilaiTab.length === 5, `tepat lima halaman (ditemukan ${nilaiTab.length})`);
   ada(dashboard, "<AngsuranSection", "halaman Cicilan dipasang");
   ok(
     MENU.every((label) => dashboard.includes(`value: "${label.toLowerCase()}"`) || true),
@@ -176,7 +175,10 @@ const MENU = [
 
 // ===== 6. Nama menu & nada lencana dari satu sumber =====
 {
-  ok(labelTujuan("kyc") === "Status KYC", "label menu dibaca dari daftar menu");
+  ok(
+    ["akun", "diri", "kyc"].every((nilai) => labelTujuan(nilai) === "Akun"),
+    "Akun dan alias lamanya memakai satu label",
+  );
   ok(labelTujuan("tidak-ada") === "Ringkasan", "nilai tak dikenal tidak jadi nama kosong");
   ok(badgeToneClass("danger").includes("red"), "nada bahaya memakai merah");
   ok(badgeToneClass(undefined).includes("slate"), "nada bawaan tetap netral");

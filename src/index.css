@@ -43,6 +43,10 @@
   /* PINDAI tokens — aksen hijau tinta + netral kertas hangat. */
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-border: var(--success-border);
   --color-navy: var(--navy);
 }
 
@@ -52,7 +56,8 @@
  * sini sehingga seluruh aplikasi otomatis memakai warna yang sama:
  *   sky     → aksen hijau tinta tua (brand, aksi)
  *   slate   → netral kertas hangat (latar, garis, teks)
- *   emerald → kuningan (nilai uang & status positif)
+ *   emerald → kuningan (nilai uang saja)
+ *   success → petrol (status positif; sengaja terpisah dari uang)
  *   amber   → oranye bata (peringatan)
  *   red     → merah bata (bahaya)
  */
@@ -85,7 +90,7 @@
   --color-slate-900: #1c1a15;
   --color-slate-950: #12110c;
 
-  /* Nilai uang & status positif — kuningan. */
+  /* Nilai uang — kuningan. Status positif memakai keluarga `success`. */
   --color-emerald-50: #faf5e6;
   --color-emerald-100: #f4e8cb;
   --color-emerald-200: #e8d39f;
@@ -162,15 +167,22 @@
   /* Batas kontrol harus >=3:1 terhadap putih; nilai lama #cdc5b3 hanya 1,72:1. */
   --input: #948b78;
   --ring: #1f6a62;
-  /* Semantik nilai & status positif: kuningan. */
+  /* Semantik nilai uang: kuningan. */
   --gold: #9c7b3a;
   --gold-foreground: #6e5523;
+  /* Semantik status positif: petrol, bukan kuningan uang. */
+  --success: #1f6a62;
+  --success-foreground: #124340;
+  --success-soft: #eef5f3;
+  --success-border: #b9d2cd;
   --navy: #0f3d3a;
-  --chart-1: #0f3d3a;
-  --chart-2: #9c7b3a;
-  --chart-3: #827a68;
-  --chart-4: #a79e8b;
-  --chart-5: #cdc5b3;
+  /* Lima hue muted yang berbeda; grafik tidak boleh tampak seperti gradasi
+     satu warna karena seri kategorikal harus terbaca tanpa legenda. */
+  --chart-1: #1f6a62;
+  --chart-2: #8a641f;
+  --chart-3: #5c5688;
+  --chart-4: #3f6f8a;
+  --chart-5: #a05a4a;
   --sidebar: #f8f6f1;
   --sidebar-foreground: #1c1a15;
   --sidebar-primary: #0f3d3a;
@@ -296,10 +308,10 @@
   --gold-foreground: #68491e;
   --navy: #143d50;
   --chart-1: #14586e;
-  --chart-2: #b98743;
-  --chart-3: #3b8791;
-  --chart-4: #76aeb2;
-  --chart-5: #a8c7ca;
+  --chart-2: #8a641f;
+  --chart-3: #5c5688;
+  --chart-4: #a05a4a;
+  --chart-5: #3f7a5a;
   --sidebar: #eef5f6;
   --sidebar-foreground: #17313b;
   --sidebar-primary: #14586e;
@@ -355,10 +367,10 @@
   --gold-foreground: #65451e;
   --navy: #513328;
   --chart-1: #81432f;
-  --chart-2: #a4793a;
-  --chart-3: #b66b4d;
-  --chart-4: #d19573;
-  --chart-5: #e4c2aa;
+  --chart-2: #8a641f;
+  --chart-3: #5c5688;
+  --chart-4: #2f6f78;
+  --chart-5: #6b7a3a;
   --sidebar: #faf2ec;
   --sidebar-foreground: #3b2821;
   --sidebar-primary: #81432f;
@@ -415,10 +427,10 @@
   --gold-foreground: #3d5162;
   --navy: #24435a;
   --chart-1: #2f5d7c;
-  --chart-2: #7d94a6;
-  --chart-3: #4a86ab;
-  --chart-4: #9fb8c8;
-  --chart-5: #c9d9e3;
+  --chart-2: #8a641f;
+  --chart-3: #5c5688;
+  --chart-4: #a05a4a;
+  --chart-5: #3f7a5a;
   --sidebar: #e8eff4;
   --sidebar-foreground: #1d2b36;
   --sidebar-primary: #2f5d7c;
@@ -1754,86 +1766,56 @@
 }
 
 /* ==========================================================================
-   Lapisan GLASSMORPHISM & MICRO-INTERACTION (Ruang Pendana, Admin, Peminjam)
+   PERMUKAAN OPERASIONAL & MICRO-INTERACTION (Ruang Pendana, Admin, Peminjam)
    ==========================================================================
 
-   Kenapa kelas bersama, bukan menempelkan `backdrop-blur` + `transition-all
-   duration-300` di setiap komponen:
+   Kaca hanya dipakai di panggung landing dan kartu auth. Permukaan kerja
+   (navigasi, kartu data, catatan, modal, dock aksi) sengaja SOLID: teks kecil
+   dan angka uang harus tetap tajam di atas apa pun yang lewat di belakangnya,
+   dan blur berlapis membuat tabel panjang sulit dipindai.
 
-   - Repo ini sudah punya aturan gerak yang DIUJI
-     (`microinteraction.render.test.tsx` menolak `transition-all` dan durasi
-     ad-hoc di primitif UI, `motion.test.ts` menuntut setiap kelas `.motion-*`
-     punya opt-out reduced-motion). Menulis efeknya sekali di sini menjaga
-     aturan itu tetap benar, dan tiap komponen cukup memakai satu kelas.
-   - Warna kaca memakai token tema (`--card`, `--primary`, `--border`), jadi
-     efek kaca tetap benar di semua preset tema (pesisir, gelap, dan lainnya)
-     tanpa menulis ulang kelasnya per tema.
-   - Kelas ini sengaja TIDAK berada di `@layer utilities`: utilities Tailwind
-     (mis. `bg-white`, `border-slate-200`) berasal dari pemanggil, dan efek kaca
-     tidak boleh diam-diam kalah oleh satu utilitas yang tertinggal. Tidak ada
-     properti tata letak (width/height/margin) yang diubah — hanya warna,
-     bayangan, blur, dan transform, sehingga tidak memicu layout shift. */
+   Nama kelas lama tetap dipertahankan supaya markup tidak perlu diubah, tetapi
+   nilainya sekarang permukaan pekat bertoken tema (`--card`, `--border`).
+   Kelas ini sengaja TIDAK berada di `@layer utilities`: utilities Tailwind
+   (mis. `bg-white`, `border-slate-200`) berasal dari pemanggil, dan permukaan
+   tidak boleh diam-diam kalah oleh satu utilitas yang tertinggal. */
 
-/* Latar ambient "Soft Slate" dengan aksen Deep Emerald (#064E3B) sangat tipis.
-   Dipakai di kulit portal (Peminjam, Admin, Ruang Pendana), bukan di landing
-   yang punya panggungnya sendiri. */
+/* Latar portal (Peminjam, Admin, Ruang Pendana). Solid, tanpa gradien kaca. */
 .bg-ambient-glass {
-  background-color: #f8fafc;
-  background-image: linear-gradient(
-    to bottom right,
-    #f8fafc 0%,
-    rgb(236 253 245 / 20%) 45%,
-    #f1f5f9 100%
-  );
+  background-color: var(--muted);
+  background-image: none;
 }
 
 /* Top navigation & sticky action header. */
 .glass-nav {
-  background-color: rgb(255 255 255 / 0.7);
-  border-bottom: 1px solid rgb(255 255 255 / 0.6);
+  background-color: var(--card);
+  border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
-  backdrop-filter: blur(12px) saturate(1.1);
-  -webkit-backdrop-filter: blur(12px) saturate(1.1);
 }
 
-/* Sticky action header di dasar panel (baris tombol simpan/batal). Sama seperti
-   `.glass-nav`, tetapi tepinya di atas karena menempel ke bawah panel. */
+/* Sticky action header di dasar panel (baris tombol simpan/batal). */
 .glass-dock {
-  background-color: rgb(255 255 255 / 0.7);
-  border-top: 1px solid rgb(255 255 255 / 0.6);
+  background-color: var(--card);
+  border-top: 1px solid var(--border);
   box-shadow: 0 -1px 2px rgb(15 23 42 / 0.04);
-  backdrop-filter: blur(12px) saturate(1.1);
-  -webkit-backdrop-filter: blur(12px) saturate(1.1);
 }
 
-/* ===== Kaca otomatis untuk kartu bawaan lama =====
-   Aplikasi ini sudah punya pola kontainer yang sangat seragam:
+/* ===== Permukaan kartu otomatis =====
+   Aplikasi sudah punya pola kontainer yang seragam:
    `rounded-2xl border border-slate-200 bg-white` (kartu, section, daftar).
-   Alih-alih menulis ulang ratusan kelas di puluhan berkas — yang berisiko
-   menghilangkan kelas fungsional (grid, padding, grid-cols) dan memecah uji
-   markup — pola itu sendiri yang dijadikan pemicu: elemen yang sekaligus
-   membulat 1rem+, punya tepi penuh, dan berlatar `bg-white` mendapat permukaan
-   kaca (latar sedikit transparan + blur + tepi putih halus + bayangan lembut).
+   Pola itu dijadikan pemicu permukaan pekat, tanpa menyunting ratusan kelas.
 
    Kunci amannya `:where(...)`: spesifisitasnya nol, jadi TIDAK ada kelas yang
-   ditimpa secara paksa — hanya nilai yang tadinya datang dari utilitas
-   (yang berada di `@layer utilities`, kalah dari CSS tanpa layer), sehingga
-   pemanggil tetap bisa menimpanya, mis. `.glass-card:hover` atau
-   `bg-emerald-50/60` pada kartu bertema. Tidak ada properti tata letak
-   (width/height/margin/padding/display) yang diubah, jadi tidak ada
-   pergeseran tata letak.
+   ditimpa secara paksa — hanya nilai yang tadinya datang dari utilitas, dan
+   pemanggil tetap bisa menimpanya (mis. kartu bertema `bg-emerald-50/60`).
+   Tidak ada properti tata letak yang diubah, jadi tidak ada pergeseran.
 
-   Sengaja HANYA latar + blur yang diubah: warna tepi, `ring`, dan bayangan
-   tetap milik pemanggil, karena di aplikasi ini beberapa kartu memakai ketiganya
-   sebagai penanda keadaan (mis. kartu pendana terpilih: `border-emerald-300` +
-   `ring-2 ring-emerald-600`). Kalau aturan ini ikut mengunci tepi/bayangan,
-   penanda keadaan itu ikut hilang. Transisinya sendiri menyertakan transform,
-   tepi, dan bayangan supaya `hover:-translate-y-0.5` / `hover:shadow-md` milik
-   pemanggil tetap halus. */
+   Sengaja HANYA latar yang diubah: warna tepi, `ring`, dan bayangan tetap
+   milik pemanggil, karena beberapa kartu memakai ketiganya sebagai penanda
+   keadaan (mis. kartu pendana terpilih: `border-emerald-300` +
+   `ring-2 ring-emerald-600`). */
 :where(:is(.rounded-2xl, .rounded-3xl).border.bg-white) {
-  background-color: color-mix(in oklab, var(--card) 78%, transparent);
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  background-color: var(--card);
   transition:
     background-color var(--motion-normal) var(--motion-ease-out),
     transform var(--motion-normal) var(--motion-ease-out),
@@ -1843,10 +1825,8 @@
 
 /* Kartu, kontainer, dan kartu angka ringkasan. */
 .glass-card {
-  background-color: color-mix(in oklab, var(--card) 75%, transparent);
-  border-color: rgb(255 255 255 / 0.8);
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  background-color: var(--card);
+  border-color: var(--border);
   box-shadow:
     0 1px 2px oklch(0.3 0.02 75 / 0.05),
     0 10px 30px -24px oklch(0.3 0.02 75 / 0.28);
@@ -1857,28 +1837,23 @@
     box-shadow var(--motion-normal) var(--motion-ease-out);
 }
 .glass-card:hover {
-  background-color: color-mix(in oklab, var(--card) 82%, transparent);
+  background-color: var(--card);
   box-shadow:
     0 1px 2px oklch(0.3 0.02 75 / 0.05),
     0 16px 36px -24px oklch(0.3 0.02 75 / 0.34);
 }
 
-/* Kotak teks panjang & keterangan paragraf: opasitas lebih tinggi supaya
-   kalimatnya tetap nyaman dibaca (kontras lebih penting daripada efek kaca). */
+/* Kotak teks panjang & keterangan paragraf. */
 .glass-note {
-  background-color: color-mix(in oklab, var(--card) 92%, transparent);
+  background-color: var(--card);
   border: 1px solid color-mix(in oklab, var(--primary) 10%, transparent);
   border-radius: 1rem;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 /* Container modal (overlay-nya diatur `DialogOverlay`). */
 .glass-modal {
-  background-color: color-mix(in oklab, var(--card) 90%, transparent);
-  border-color: rgb(255 255 255 / 0.8);
-  backdrop-filter: blur(20px) saturate(1.1);
-  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  background-color: var(--card);
+  border-color: var(--border);
   box-shadow:
     0 24px 60px -20px oklch(0.3 0.02 75 / 0.35),
     0 2px 8px oklch(0.3 0.02 75 / 0.12);
@@ -1990,19 +1965,17 @@
   }
 }
 
-/* Chip nama pendana: latar transparan buram yang merespon hover lembut. */
+/* Chip nama pendana: permukaan pekat yang merespon hover lembut. */
 .chip-glass {
   border-radius: 999px;
-  background-color: rgb(255 255 255 / 0.55);
-  border: 1px solid rgb(255 255 255 / 0.7);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background-color: var(--card);
+  border: 1px solid var(--border);
   transition:
     background-color var(--motion-fast) var(--motion-ease-out),
     border-color var(--motion-fast) var(--motion-ease-out);
 }
 .chip-glass:hover {
-  background-color: rgb(255 255 255 / 0.8);
+  background-color: var(--card);
   border-color: color-mix(in oklab, var(--primary) 25%, transparent);
 }
 
@@ -2076,36 +2049,12 @@
   animation-duration: var(--accordion-durasi);
 }
 
-/* ===== Ponsel: kaca yang lebih tenang =====
-   Blur latar berlapis di layar kecil memakan biaya komposisi dan membuat teks
-   di atasnya kabur. Di ponsel permukaannya dibuat hampir pekat, blur hanya
-   disisakan pada modal; bayangan kartu diturunkan satu tingkat supaya daftar
-   panjang tidak terlihat seperti tumpukan lapisan. */
+/* ===== Ponsel: bayangan lebih tenang =====
+   Daftar panjang tidak perlu terlihat seperti tumpukan lapisan. Permukaannya
+   sudah solid di semua lebar, jadi tidak ada blur yang perlu dimatikan. */
 @media (max-width: 767px) {
-  .glass-nav,
-  .glass-dock {
-    background-color: rgb(255 255 255 / 0.94);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  :where(:is(.rounded-2xl, .rounded-3xl).border.bg-white) {
-    background-color: color-mix(in oklab, var(--card) 94%, transparent);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
   .glass-card {
-    background-color: color-mix(in oklab, var(--card) 94%, transparent);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     box-shadow: 0 1px 2px oklch(0.3 0.02 75 / 0.05);
-  }
-
-  .glass-modal {
-    background-color: color-mix(in oklab, var(--card) 96%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
   }
 }
 
@@ -2168,6 +2117,67 @@
 .kolom-admin {
   transition: padding-left var(--motion-normal) var(--motion-ease-out);
 }
+
+/* ===== Tampilan panel admin: Dim & Padat =====
+   Atribut dipasang di `<html>` oleh `TampilanAdmin`, tetapi seluruh aturan di
+   sini dibatasi `.admin-shell` supaya ruang nasabah/pendana tidak ikut berubah.
+   `!important` dipakai karena panel admin memakai utilitas Tailwind langsung
+   (`bg-white`, `text-slate-900`), bukan token semantik; tanpa itu mode dim akan
+   kalah oleh satu kelas utilitas. Hanya warna dan padding yang disentuh. */
+:root[data-admin-tema="dim"] .admin-shell {
+  --background: #1d231f;
+  --foreground: #f3eee4;
+  --card: #272d28;
+  --card-foreground: #f3eee4;
+  --popover: #2b322c;
+  --popover-foreground: #f3eee4;
+  --secondary: #343b35;
+  --secondary-foreground: #f3eee4;
+  --muted: #2f3630;
+  --muted-foreground: #c9c2b3;
+  --border: #454d46;
+  --input: #8c978b;
+  background-color: var(--background) !important;
+  color: var(--foreground);
+  color-scheme: dark;
+}
+
+:root[data-admin-tema="dim"] .admin-shell :is(.bg-white, .bg-slate-50, .bg-slate-100) {
+  background-color: var(--card) !important;
+}
+:root[data-admin-tema="dim"] .admin-shell :is([class*="bg-white/"], [class*="bg-slate-50/"]) {
+  background-color: color-mix(in oklab, var(--card) 94%, transparent) !important;
+}
+:root[data-admin-tema="dim"] .admin-shell :is(.text-slate-900, .text-slate-800, .text-navy, .text-foreground) {
+  color: var(--foreground) !important;
+}
+:root[data-admin-tema="dim"] .admin-shell :is(.text-slate-700, .text-slate-600, .text-muted-foreground) {
+  color: var(--muted-foreground) !important;
+}
+:root[data-admin-tema="dim"] .admin-shell :is(.text-slate-500, .text-slate-400) {
+  color: #b5ae9f !important;
+}
+:root[data-admin-tema="dim"] .admin-shell :is(.border-slate-200, .border-slate-100, .border-border) {
+  border-color: var(--border) !important;
+}
+:root[data-admin-tema="dim"] .admin-shell :is(input, textarea, select)::placeholder {
+  color: #a9a293;
+}
+:root[data-admin-tema="dim"] .admin-shell .hover\:bg-slate-50:hover,
+:root[data-admin-tema="dim"] .admin-shell .hover\:bg-slate-100:hover {
+  background-color: #353d36 !important;
+}
+
+:root[data-admin-padat="padat"] .admin-shell main :is(.rounded-xl, .rounded-2xl):is(.p-4, .p-5, .p-6) {
+  padding: 0.8rem !important;
+}
+:root[data-admin-padat="padat"] .admin-shell main > :is(.space-y-4, .space-y-5, .space-y-6) > * + * {
+  margin-top: 0.7rem !important;
+}
+:root[data-admin-padat="padat"] .admin-shell [data-slot="table-cell"] {
+  padding-block: 0.4rem !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar-admin,
   .kolom-admin {

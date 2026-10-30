@@ -241,7 +241,7 @@ export function LencanaStatusSyariah({
 }) {
   const kelas =
     status === "disetujui"
-      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+      ? "border-success-border bg-success-soft text-success-foreground"
       : status === "ditolak"
         ? "border-red-200 bg-red-50 text-red-800"
         : status === "dibatalkan"

@@ -89,20 +89,20 @@ export function DaftarVoucherSheet({
                 <p className="text-sm font-semibold leading-5 text-navy">
                   {voucher.judul}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-5 text-slate-600">
+                <p className="mt-0.5 text-xs leading-5 text-slate-600">
                   {LABEL_JENIS_VOUCHER[voucher.jenis as JenisVoucher] ?? voucher.jenis}
                   {" · "}
                   {labelNilaiVoucher(voucher.jenis, voucher.nilai)}
                   {" · "}
                   berlaku sampai {tanggalRingkas(voucher.berlakuSampai)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-5 text-slate-500">
+                <p className="mt-0.5 text-xs leading-5 text-slate-500">
                   Minimal pengajuan {formatRupiah(voucher.minPokok)} · kode{" "}
                   <span className="font-mono">{voucher.kode}</span>
                 </p>
               </div>
               <span
-                className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
+                className={`shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-semibold ${
                   voucher.layak
                     ? "border-emerald-300 bg-white text-emerald-800"
                     : "border-slate-300 bg-white text-slate-600"
@@ -112,7 +112,7 @@ export function DaftarVoucherSheet({
               </span>
             </div>
             {!voucher.layak && voucher.alasan !== null && (
-              <p className="mt-1.5 text-[11px] leading-5 text-amber-900">
+              <p className="mt-1.5 text-xs leading-5 text-amber-900">
                 {voucher.alasan}
               </p>
             )}
@@ -220,7 +220,7 @@ export function KartuLimitVoucher({ className = "" }: { className?: string }) {
       </div>
 
       {limit.terpakai > 0 && (
-        <p className="mt-3 border-t border-slate-100 pt-2 text-[11px] leading-5 text-slate-500">
+        <p className="mt-3 border-t border-slate-100 pt-2 text-xs leading-5 text-slate-500">
           Voucher potongan biaya tidak mengembalikan plafon: pemakaian tetap
           sebesar pokok pinjaman, dan dana yang Anda terima bertambah sebesar
           potongannya.

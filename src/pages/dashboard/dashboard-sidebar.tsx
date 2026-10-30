@@ -26,8 +26,8 @@ const ROLE_LINKS: Record<string, { label: string; icon: React.ReactNode; href: s
 };
 
 /**
- * Sisi kiri dashboard nasabah (layar lebar): kartu profil kecil, enam menu
- * (satu menu = satu halaman), menu tahap KYC selama identitas belum disetujui,
+ * Sisi kiri dashboard nasabah (layar lebar): kartu profil kecil, lima menu
+ * (Akun mencakup profil & KYC), menu tahap KYC selama identitas belum disetujui,
  * lalu Keluar di bawah.
  *
  * Peran admin/pendana tidak dibawa ke menu peminjam: mereka memakai pintasan

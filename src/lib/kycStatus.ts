@@ -298,7 +298,7 @@ export const NADA_STATUS_KYC: Record<StatusKyc, string> = {
   IN_PROGRESS: "border-sky-200 bg-sky-100 text-sky-700",
   PENDING_REVIEW: "border-amber-200 bg-amber-100 text-amber-800",
   NEEDS_CORRECTION: "border-orange-200 bg-orange-100 text-orange-800",
-  VERIFIED: "border-emerald-200 bg-emerald-100 text-emerald-700",
+  VERIFIED: "border-success-border bg-success-soft text-success-foreground",
   REJECTED: "border-red-200 bg-red-100 text-red-700",
   REVERIFICATION_REQUIRED: "border-violet-200 bg-violet-100 text-violet-800",
 };

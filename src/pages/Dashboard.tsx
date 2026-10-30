@@ -148,6 +148,12 @@ export default function Dashboard() {
   const tabDariUrl = tabDariParams(parameter);
   const [tabLokal, setTabLokal] = useState<string>(() => tabDariUrl ?? "pinjaman");
   const activeTab = tabDariUrl ?? tabLokal;
+  // Profil dan KYC berbagi satu halaman Akun. Nilai tab lama tetap diterima
+  // agar tautan notifikasi `?tab=diri`/`?tab=kyc` membuka subbagian yang benar.
+  const tabTampil = activeTab === "diri" || activeTab === "kyc" ? "akun" : activeTab;
+  const [bagianAkun, setBagianAkun] = useState<"diri" | "kyc">(
+    activeTab === "kyc" ? "kyc" : "diri",
+  );
   const gantiTab = (value: string) => {
     setTabLokal(value);
     // Simpan tab di URL tanpa menumpuk riwayat: muat ulang dan tautan yang
@@ -160,6 +166,17 @@ export default function Dashboard() {
         setParameter(berikut, { replace: true });
       }
     }
+  };
+
+  // Bila tab berpindah lewat tautan (mis. notifikasi KYC), subbagian Akun
+  // mengikuti nilai tab lama itu; klik submenu sendiri tidak mengubahnya.
+  useEffect(() => {
+    if (activeTab === "diri" || activeTab === "kyc") setBagianAkun(activeTab);
+  }, [activeTab]);
+
+  const pilihBagianAkun = (bagian: "diri" | "kyc") => {
+    setBagianAkun(bagian);
+    if (activeTab !== "akun") gantiTab("akun");
   };
 
   // Judul tab peramban mengikuti menu yang dibuka, supaya beberapa tab
@@ -399,10 +416,10 @@ export default function Dashboard() {
       kyc.status === "REJECTED" ||
       kyc.status === "REVERIFICATION_REQUIRED")
   ) {
-    tabBadges.kyc = { count: 1, tone: kyc.status === "REJECTED" ? "danger" : "warning" };
+    tabBadges.akun = { count: 1, tone: kyc.status === "REJECTED" ? "danger" : "warning" };
   }
 
-  /** Isi kolom kiri (layar lebar): kartu profil, enam menu, tahap KYC, Keluar. */
+  /** Isi kolom kiri (layar lebar): kartu profil, lima menu, tahap KYC, Keluar. */
   const isiMenu = (
     <DashboardSidebar
       greetingName={greetingName}
@@ -442,7 +459,7 @@ export default function Dashboard() {
         className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 pb-24 sm:px-6 sm:py-8 sm:pb-24 lg:pb-8"
       >
         <Tabs
-          value={activeTab}
+          value={tabTampil}
           onValueChange={gantiTab}
           className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-8"
         >
@@ -596,7 +613,7 @@ export default function Dashboard() {
                   </section>
                 </TabsContent>
 
-                {/* ===== TAB 5: FORM PENGAJUAN, satu halaman, tiga jenis =====
+                {/* ===== TAB 4: FORM PENGAJUAN, satu halaman, tiga jenis =====
                     Peminjam memilih pinjaman / gadai / kredit barang lewat menu
                     dropdown; hanya formulir jenis itu yang dirender. */}
                 <TabsContent value="form" className="mt-8 min-w-0 animate-masuk">
@@ -617,19 +634,50 @@ export default function Dashboard() {
                   />
                 </TabsContent>
 
-                {/* ===== TAB: DATA DIRI, sunting mandiri nasabah ===== */}
-                <TabsContent value="diri" className="mt-8 min-w-0 animate-masuk">
-                  <DataDiriSection />
-                </TabsContent>
+                {/* ===== TAB: AKUN, profil & rekening + verifikasi KYC =====
+                    Dua halaman yang dulu terpisah digabung karena menjawab
+                    pertanyaan yang sama. Deep link `?tab=diri` dan `?tab=kyc`
+                    tetap membuka subbagian yang benar. */}
+                <TabsContent value="akun" className="mt-8 min-w-0 animate-masuk">
+                  <div
+                    role="group"
+                    aria-label="Bagian akun"
+                    className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1"
+                  >
+                    {(
+                      [
+                        { value: "diri", label: "Profil & Rekening" },
+                        { value: "kyc", label: "Verifikasi KYC" },
+                      ] as const
+                    ).map((bagian) => (
+                      <button
+                        key={bagian.value}
+                        type="button"
+                        aria-pressed={bagianAkun === bagian.value}
+                        onClick={() => pilihBagianAkun(bagian.value)}
+                        className={`min-h-11 rounded-full px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2 ${
+                          bagianAkun === bagian.value
+                            ? "bg-white text-emerald-900 shadow-sm"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        {bagian.label}
+                      </button>
+                    ))}
+                  </div>
 
-                {/* ===== TAB: VERIFIKASI KYC, modul mandiri =====
-                    Terpisah dari formulir pengajuan: menyimpan KYC tidak membuat
-                    catatan pinjaman apa pun, dan status VERIFIED bukan
-                    persetujuan pinjaman. */}
-                {/* Batas 48rem: sejak navigasi tahap pindah ke sidebar, kolom isi
-                    KYC jadi lebih lebar daripada formulirnya. */}
-                <TabsContent value="kyc" className="mt-8 min-w-0 max-w-3xl animate-masuk">
-                  <KycSection tahapPilihan={tahapKyc} onPilihTahap={setTahapKyc} />
+                  <div className={bagianAkun === "kyc" ? "mt-6 max-w-3xl" : "mt-6"}>
+                    {bagianAkun === "diri" ? (
+                      <DataDiriSection />
+                    ) : (
+                      /* Terpisah dari formulir pengajuan: menyimpan KYC tidak
+                         membuat catatan pinjaman apa pun, dan status VERIFIED
+                         bukan persetujuan pinjaman. Batas 48rem: sejak navigasi
+                         tahap pindah ke sidebar, kolom isi KYC jadi lebih lebar
+                         daripada formulirnya. */
+                      <KycSection tahapPilihan={tahapKyc} onPilihTahap={setTahapKyc} />
+                    )}
+                  </div>
                 </TabsContent>
 
               </>

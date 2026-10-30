@@ -91,7 +91,7 @@ export function DokumenPerlindungan({
 
           <div className="grid gap-4">
             <div className="rounded-kartu border border-border bg-card p-5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
                 Disiapkan sebelum mengajukan
               </p>
               <ul className="mt-3 space-y-1.5">
@@ -111,7 +111,7 @@ export function DokumenPerlindungan({
             </div>
 
             <div className="rounded-kartu border border-border bg-card p-5">
-              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
                 <FileText className="size-3.5 text-primary" aria-hidden="true" />
                 Diterima setelah pengajuan
               </p>

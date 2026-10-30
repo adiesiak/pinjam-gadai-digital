@@ -84,7 +84,7 @@ export function BadgeKredit({ status }: { status: string }) {
 export function BadgeTransferPendana({ ringkas }: { ringkas: RingkasTransfer }) {
   const meta =
     ringkas.status === "dicatat"
-      ? { label: "sudah dicatat", kelas: "border-emerald-200 bg-emerald-50 text-emerald-800" }
+      ? { label: "sudah dicatat", kelas: "border-success-border bg-success-soft text-success-foreground" }
       : ringkas.status === "dibatalkan"
         ? { label: "catatan dibatalkan", kelas: "border-amber-200 bg-amber-50 text-amber-900" }
         : { label: "belum dicatat", kelas: "border-slate-200 bg-slate-100 text-slate-800" };

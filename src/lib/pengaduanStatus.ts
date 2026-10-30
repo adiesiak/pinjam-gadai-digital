@@ -14,7 +14,7 @@
 
 /** Kelas lencana status pengaduan. */
 export function nadaStatusPengaduan(status: string): string {
-  if (status === "selesai") return "border-emerald-200 bg-emerald-100 text-emerald-700";
+  if (status === "selesai") return "border-success-border bg-success-soft text-success-foreground";
   if (status === "ditolak") return "border-red-300 bg-red-50 text-red-700";
   if (status === "ditinjau") return "border-sky-200 bg-sky-50 text-sky-700";
   return "border-slate-200 bg-slate-100 text-slate-600";

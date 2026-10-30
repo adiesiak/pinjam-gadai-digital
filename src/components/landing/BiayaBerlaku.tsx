@@ -68,7 +68,7 @@ export function BiayaBerlaku({ tarif }: { tarif: TarifBiaya }) {
             nilai. Bentuknya seperti kartu tarif resmi, bukan daftar polos, dan
             tetap satu kolom saat layar sempit. */}
         <div className="rounded-kartu border border-border bg-card">
-          <p className="border-b border-border px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-foreground">
+          <p className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
             Tarif yang berlaku
           </p>
           <dl className="divide-y divide-border px-5">

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -10,7 +10,10 @@ import {
   Landmark,
   Loader2,
   Menu,
+  Moon,
+  Rows3,
   ShieldCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -233,6 +236,104 @@ export type KendaliMenuPonsel = {
   onToggle: () => void;
 };
 
+const KUNCI_TEMA_ADMIN = "pindai.admin.tema";
+const KUNCI_PADAT_ADMIN = "pindai.admin.padat";
+
+/** Baca pilihan tampilan dari perangkat; aman saat dirender di luar peramban. */
+function bacaTampilanAdmin(): { dim: boolean; padat: boolean } {
+  if (typeof window === "undefined") return { dim: false, padat: false };
+  try {
+    return {
+      dim: window.localStorage.getItem(KUNCI_TEMA_ADMIN) === "dim",
+      padat: window.localStorage.getItem(KUNCI_PADAT_ADMIN) === "1",
+    };
+  } catch {
+    return { dim: false, padat: false };
+  }
+}
+
+/**
+ * Sakelar tampilan panel: "Dim" menurunkan silau permukaan, "Padat" merapatkan
+ * jarak kartu dan baris tabel untuk layar kerja yang panjang.
+ *
+ * Nilainya disimpan per perangkat dan diterapkan sebagai atribut di `<html>`;
+ * CSS-nya dibatasi `.admin-shell`, jadi ruang nasabah dan pendana tidak ikut
+ * berubah. Tombol tetap 44px di ponsel dan status aktif ditulis sebagai teks,
+ * bukan hanya warna.
+ */
+function TampilanAdmin() {
+  const awal = bacaTampilanAdmin();
+  const [dim, setDim] = useState(awal.dim);
+  const [padat, setPadat] = useState(awal.padat);
+
+  useEffect(() => {
+    const akar = document.documentElement;
+    akar.dataset.adminTema = dim ? "dim" : "terang";
+    akar.dataset.adminPadat = padat ? "padat" : "lega";
+    try {
+      window.localStorage.setItem(KUNCI_TEMA_ADMIN, dim ? "dim" : "terang");
+      window.localStorage.setItem(KUNCI_PADAT_ADMIN, padat ? "1" : "0");
+    } catch {
+      // Penyimpanan bisa diblokir mode privat; tampilan tetap berlaku sesi ini.
+    }
+    return () => {
+      delete akar.dataset.adminTema;
+      delete akar.dataset.adminPadat;
+    };
+  }, [dim, padat]);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="outline"
+          className="rounded-full border-slate-200 text-slate-700 hover:bg-slate-50"
+          aria-label="Tampilan panel admin"
+        >
+          <SlidersHorizontal className="size-4" aria-hidden />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-3">
+        <p className="text-sm font-semibold text-slate-900">Tampilan panel</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Tersimpan di perangkat ini dan hanya berlaku di panel admin.
+        </p>
+        <div className="mt-3 space-y-1">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={dim}
+            onClick={() => setDim((sebelumnya) => !sebelumnya)}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <Moon className="size-4 shrink-0 text-slate-600" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-slate-900">Dim</span>
+              <span className="block text-xs text-muted-foreground">Kurangi silau permukaan</span>
+            </span>
+            <span className="text-xs font-semibold text-slate-600">{dim ? "Aktif" : "Mati"}</span>
+          </button>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={padat}
+            onClick={() => setPadat((sebelumnya) => !sebelumnya)}
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <Rows3 className="size-4 shrink-0 text-slate-600" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-slate-900">Padat</span>
+              <span className="block text-xs text-muted-foreground">Rapatkan kartu dan baris tabel</span>
+            </span>
+            <span className="text-xs font-semibold text-slate-600">{padat ? "Aktif" : "Mati"}</span>
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /**
  * Kepala panel admin — duduk di kolom KONTEN, bukan di atas sidebar.
  *
@@ -286,6 +387,7 @@ export function AdminHeader({
           {/* Lonceng yang sama dengan dashboard nasabah: sumbernya catatan milik
               pengguna yang sedang masuk, jadi tidak ada notifikasi orang lain. */}
           <NotificationBell />
+          <TampilanAdmin />
           <StatusSistem killSwitch={killSwitch} seimbang={seimbang} />
           {/* Menu profil: pintu keluar dan perpindahan ke mode nasabah ada di
               dalamnya, jadi kepala panel tidak penuh tombol. */}

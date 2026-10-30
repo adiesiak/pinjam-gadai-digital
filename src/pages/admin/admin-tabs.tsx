@@ -640,7 +640,7 @@ export function AdminTabs({
   return (
     <div
       className={cn(
-        "kolom-admin min-h-screen bg-slate-50",
+        "admin-shell kolom-admin min-h-screen bg-slate-50",
         sidebarTerbuka ? KELAS_GESER_KONTEN.terbuka : KELAS_GESER_KONTEN.tertutup,
       )}
     >

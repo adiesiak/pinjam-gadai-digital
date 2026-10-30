@@ -840,8 +840,8 @@ for (const status of KYC_STATUS) {
     <BarisKyc item={item({ status: "VERIFIED" })} aktif onPilih={() => {}} />,
   );
   ok(
-    terverifikasi.includes("bg-emerald-100"),
-    "status Terverifikasi memakai hijau, bukan kuning",
+    terverifikasi.includes("bg-success-soft"),
+    "status Terverifikasi memakai success, bukan kuning",
   );
   ok(!terverifikasi.includes("bg-amber-100"), "Terverifikasi tidak dicat kuning");
 

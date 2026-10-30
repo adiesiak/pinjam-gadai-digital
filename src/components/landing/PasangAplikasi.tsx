@@ -74,7 +74,7 @@ export function PasangAplikasi() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
         <div className="grid gap-6 rounded-kartu border border-border bg-card p-4 sm:gap-8 sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center lg:gap-12">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-foreground">
               Aplikasi PINDAI
             </p>
             <h2
@@ -97,7 +97,7 @@ export function PasangAplikasi() {
           {/* Kotak pemasangan dipisah dari penjelasan supaya tombolnya punya
               tempat sendiri, tidak mengambang di samping dua paragraf. */}
           <div className="rounded-kartu border border-border bg-muted p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
               Pasang sekarang
             </p>
             <Button
@@ -116,7 +116,7 @@ export function PasangAplikasi() {
               >
                 Unduh APK Android (pasang manual)
               </a>
-              <p className="mt-1 text-[11px] leading-5 text-slate-500">
+              <p className="mt-1 text-xs leading-5 text-slate-500">
                 Untuk Android yang tidak menampilkan tawaran pemasangan.
                 Izinkan “instal dari sumber ini” saat diminta.
               </p>
@@ -144,7 +144,7 @@ export function PasangAplikasi() {
                   key={teks}
                   className="flex gap-3 text-sm leading-6 text-slate-700"
                 >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold tabular-nums text-secondary-foreground">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold tabular-nums text-secondary-foreground">
                     {i + 1}
                   </span>
                   <span>{teks}</span>

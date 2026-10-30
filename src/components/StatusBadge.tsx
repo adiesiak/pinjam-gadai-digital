@@ -12,8 +12,9 @@ import { diTahapTinjauan } from "@/lib/statusPinjaman";
  * SATU sistem warna untuk seluruh aplikasi (tabel, kartu, dan panel admin),
  * supaya arti sebuah warna tidak berubah antar layar:
  *
- * - **hijau (emerald)** — sudah berjalan atau sudah selesai: Disalurkan,
- *   Lunas, Disetujui, gadai Aktif / sudah dilepas.
+ * - **petrol (`success`)** — sudah berjalan atau sudah selesai: Disalurkan,
+ *   Lunas, Disetujui, gadai Aktif / sudah dilepas. Petrol sengaja terpisah
+ *   dari kuningan uang, jadi "lunas" tidak terbaca sebagai nominal.
  * - **kuning (amber)** — masih menunggu tindakan: Ditinjau (tiga ejaan tahap
  *   tinjauan dipetakan ke satu warna, bukan tiga), sedang dinilai, menunggu
  *   pelepasan.
@@ -32,8 +33,8 @@ import { diTahapTinjauan } from "@/lib/statusPinjaman";
  * statusnya tetap dibaca sebagai teks lencana, dan teks itu tidak pernah
  * berubah karena penambahan ini.
  */
-const PIL = "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold";
-const HIJAU = "border-emerald-200 bg-emerald-50 text-emerald-800";
+const PIL = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold";
+const HIJAU = "border-success-border bg-success-soft text-success-foreground";
 const KUNING = "border-amber-200 bg-amber-50 text-amber-900";
 const MERAH = "border-rose-200 bg-rose-50 text-rose-800";
 const ABU = "border-slate-200 bg-slate-100 text-slate-800";

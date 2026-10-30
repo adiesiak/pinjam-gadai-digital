@@ -55,7 +55,7 @@ export function SectionHeading({
     <div className="min-w-0">
       <div className={`flex items-center gap-2.5 ${tengah ? "justify-center" : ""}`}>
         <span
-          className={`font-mono text-[11px] font-semibold tracking-[0.18em] tabular-nums ${
+          className={`font-mono text-xs font-semibold tracking-[0.18em] tabular-nums ${
             gelap ? "text-[#d8c28c]" : "text-[#b99b62]"
           }`}
         >
@@ -66,7 +66,7 @@ export function SectionHeading({
           className={`h-px w-6 ${gelap ? "bg-[#d8c28c]/50" : "bg-[#b99b62]/50"}`}
         />
         <span
-          className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${
+          className={`text-xs font-semibold uppercase tracking-[0.18em] ${
             gelap ? "text-[#e6d3a5]" : "text-[#9c7b3a]"
           }`}
         >
