@@ -295,6 +295,10 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 ### I. Kosong, memuat, dan galat
 
 - Memuat: skeleton yang mengikuti bentuk akhir, bukan spinner penuh layar untuk data yang bisa ditampilkan bertahap.
+- Layar penuh hanya untuk boot pertama dan gerbang sesi (`LoadingScreen`). Perpindahan rute memakai bilah tipis `RouteLoading`, bukan splash brankas.
+- Splash memakai kertas hangat `#f8f6f1`, tinta `#0f3d3a`, garis `#e3ddd0`, dan label `#6f6858`; jangan memakai slate dingin lama.
+- Dial dan garis pindai bergerak satu kali. Hanya bilah proses yang berulang. Saat `prefers-reduced-motion`, semua kecuali denyut opasitas bilah dimatikan.
+- Setelah 8 detik, layar penuh wajib menampilkan “Masih menyiapkan. Koneksi mungkin lambat.” dan tombol “Muat ulang”. Jangan menahan pengguna tanpa jalan keluar.
 - Kosong: jelaskan mengapa kosong dan beri satu aksi berikutnya.
 - Galat: sebutkan sebab dan cara memulihkan, plus tombol coba lagi.
 - Jangan menampilkan `NaN`, `undefined`, `0` palsu, atau grafik kosong tanpa keterangan.
@@ -450,6 +454,7 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 
 ## 9. Catatan perubahan
 
+- 2026-10-30: layar pemuatan dirapikan menjadi “Brankas Tenang”: palet kertas hangat, dial dan scan satu kali, bilah rute terpisah, label kontekstual, serta fallback koneksi lambat setelah 8 detik.
 - 2026-10-30: override desain: menu peminjam menjadi lima dengan halaman Akun; token `success` memisahkan status dari uang; kaca dibatasi ke landing/auth; admin mendapat Dim/Padat; radius disederhanakan menjadi tiga peran; palet grafik kategorikal; microtype UI minimal 12px.
 - 2026-10-30: `DESIGN.md` diperbarui memakai UI/UX Pro Max. Antislop diganti; token, tipografi, gerak, aturan per peran, dan checklist dirapikan. Keputusan satu wajah terang tetap berlaku.
 - 2026-10-30: audit aksesibilitas landing, dashboard peminjam, dan ruang pendana. Target sentuh 44px, fokus keyboard, tautan lewati konten, batas input 3:1, serta uji `kontrasWarna` dan `targetSentuhUi` ditambahkan.

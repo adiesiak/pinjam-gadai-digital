@@ -17,7 +17,7 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   if (isLoading) {
-    return <LoadingScreen label="Menyiapkan sesi…" />;
+    return <LoadingScreen label="Memeriksa sesi…" />;
   }
 
   if (!isAuthenticated) {
@@ -47,7 +47,7 @@ export function RequirePendana({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated, user } = useAuth();
 
   if (isLoading) {
-    return <LoadingScreen label="Menyiapkan sesi…" />;
+    return <LoadingScreen label="Memeriksa sesi…" />;
   }
 
   if (!isAuthenticated) {
@@ -67,7 +67,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   if (isLoading) {
-    return <LoadingScreen label="Menyiapkan sesi…" />;
+    return <LoadingScreen label="Memeriksa sesi…" />;
   }
 
   if (!isAuthenticated) {

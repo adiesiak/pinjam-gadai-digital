@@ -5,7 +5,7 @@ import { BilahSinkron } from "@/components/BilahSinkron";
 import { GerbangVersiWajib } from "@/components/GerbangVersiWajib";
 import { PratinjauBanner } from "@/components/PratinjauBanner";
 import { ErrorPage } from "@/components/ErrorPage";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { RouteLoading } from "@/components/LoadingScreen";
 import { Snowfall } from "@/components/Snowfall";
 import { KarnivalConfetti } from "@/components/KarnivalConfetti";
 import {
@@ -140,12 +140,6 @@ const Qc = lazy(denganPercobaan(() => import("./pages/Qc.tsx")));
 const VlyToolbar = lazy(() =>
   import("../vly-toolbar-readonly.tsx").then((m) => ({ default: m.VlyToolbar })),
 );
-
-// Fallback pemuatan rute: layar bermerek PINDAI dengan logo brankas "pindai"
-// yang beranimasi dan interaktif (lihat components/LoadingScreen.tsx).
-function RouteLoading() {
-  return <LoadingScreen />;
-}
 
 /** Silent error boundary — if VlyToolbar crashes it renders nothing instead of
  *  crashing the whole app (e.g. hook errors in WebContainer environment). */

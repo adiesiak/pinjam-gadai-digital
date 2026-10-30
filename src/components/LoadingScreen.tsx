@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 /**
  * Layar pemuatan PINDAI — SATU versi.
  *
@@ -7,15 +9,25 @@
  * kelas `pb__*` yang sama, tidak ada lompatan tampilan saat React mengambil
  * alih. Bila salah satu diubah, ubah pasangannya di index.html juga.
  *
- * Brankas digambar TERTUTUP; yang bergerak hanya jarum dial, lingkaran cahaya,
- * garis pindai, dan bilah proses. Tidak ada uang yang keluar.
+ * Brankas digambar TERTUTUP. Jarum dial dan garis pindai bergerak SATU KALI
+ * saat masuk, lalu hanya bilah proses yang berulang. Halo tetap diam, jadi
+ * layar tidak terasa seperti mesin slot. Tidak ada uang yang keluar.
  *
  * Komponen ini murni visual: durasi tampil tidak pernah ditentukan di sini.
  * Ia hanya dilepas saat data/sesi benar-benar siap.
  */
-export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
+export function LoadingScreen({ label = "Menyiapkan ruang Anda…" }: { label?: string }) {
+  const [lambat, setLambat] = useState(false);
+
+  // Jangan biarkan layar penuh menjadi jalan buntu: setelah 8 detik, beri tahu
+  // bahwa koneksi mungkin lambat dan sediakan satu tindakan pemulihan.
+  useEffect(() => {
+    const id = window.setTimeout(() => setLambat(true), 8_000);
+    return () => window.clearTimeout(id);
+  }, []);
+
   return (
-    <div className="pb__boot">
+    <div className="pb__boot" aria-busy="true">
       <div className="pb__grup">
         <div className="pb__stage">
           <span className="pb__halo" aria-hidden="true" />
@@ -79,7 +91,40 @@ export function LoadingScreen({ label = "Memuat…" }: { label?: string }) {
         <p className="pb__label" role="status" aria-live="polite">
           {label}
         </p>
+        {lambat && (
+          <div className="mt-2 text-center">
+            <p className="text-xs leading-5 text-muted-foreground">
+              Masih menyiapkan. Koneksi mungkin lambat.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-2 inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              Muat ulang
+            </button>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Pemuatan perpindahan rute: bilah tipis di puncak halaman, bukan splash penuh.
+ * Rute chunk biasanya selesai di bawah 300 ms; layar penuh untuk setiap
+ * perpindahan membuat aplikasi terasa lebih lambat daripada kenyataannya.
+ * Splash brankas tetap dipakai untuk gerbang sesi dan akses.
+ */
+export function RouteLoading() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden bg-border"
+    >
+      <span className="sr-only">Membuka halaman…</span>
+      <span aria-hidden="true" className="route-progress block h-full w-1/3 bg-primary" />
     </div>
   );
 }

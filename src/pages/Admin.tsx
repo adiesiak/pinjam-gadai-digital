@@ -73,7 +73,7 @@ export default function Admin() {
     isLoading ||
     (isAuthenticated && (gate === undefined || adminExistsQ === undefined))
   ) {
-    return <LoadingScreen label="Memeriksa akses admin…" />;
+    return <LoadingScreen label="Memeriksa akses petugas…" />;
   }
 
   // Belum login → pertahankan tujuan menuju jalur admin tersembunyi.

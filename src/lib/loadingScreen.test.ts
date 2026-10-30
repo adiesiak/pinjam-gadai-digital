@@ -122,7 +122,8 @@ for (const [nilai, label] of [
   ["letter-spacing: 0.34em", "letter-spacing judul"],
   ["font-size: 1.125rem", "ukuran judul PINDAI"],
   ["width: 33%", "lebar bilah proses"],
-  ["pb-dial 5s", "durasi putaran jarum"],
+  ["pb-dial 1.2s", "durasi putaran jarum"],
+  ["pb-scan 1.1s", "durasi garis pindai"],
   ["pb-bar 1.5s", "durasi bilah proses"],
   ["translateX(200%)", "titik balik bilah proses di dalam jalurnya"],
   ["pb-bar-fade 1.8s", "denyut bilah saat gerak dikurangi"],
@@ -181,6 +182,18 @@ cek(
 
 cek(/role="status"/.test(html) && /aria-live="polite"/.test(html), "label status live ada di komponen");
 cek(html.includes("Memeriksa akses admin…"), "label yang diminta benar-benar tampil");
+cek(
+  komponen.includes("Menyiapkan ruang Anda…") && halaman.includes("Menyiapkan ruang Anda…"),
+  "label bawaan splash sama di komponen dan index.html",
+);
+cek(
+  komponen.includes("Masih menyiapkan. Koneksi mungkin lambat.") &&
+    komponen.includes("Muat ulang"),
+  "layar penuh punya jalan keluar saat koneksi lambat",
+);
+cek(komponen.includes("export function RouteLoading"), "perpindahan rute punya fallback sendiri");
+cek(komponen.includes("Membuka halaman…"), "fallback rute punya status untuk pembaca layar");
+cek(css.includes(".route-progress"), "bilah rute punya gaya di index.css");
 
 // Gaya lama tidak boleh tertinggal, dan stylesheet global tetap terpasang.
 cek(!komponen.includes("pindai-loader"), "komponen bersih dari gaya pindai-loader lama");
