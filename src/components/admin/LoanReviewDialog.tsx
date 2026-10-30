@@ -758,6 +758,16 @@ export function LoanReviewDialog({
               Pendana sekarang:{" "}
               <span className="font-medium">{row.pendanaNama ?? "belum ada"}</span>
             </p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Bila pendana sudah menempatkan dana lewat dompet aplikasi, pinjaman
+              dicatat sebagai pendanaan dompet. Bila dananya masuk di luar
+              aplikasi, pinjaman ditandai{" "}
+              <span className="font-medium text-slate-700">
+                dana di luar aplikasi
+              </span>{" "}
+              dan keuntungan pendana dibayar lewat antrean transfer, bukan dari
+              dompetnya.
+            </p>
 
             {diTahapTinjauan(row.status) && !nominalTerkunci(row.status) && (
               <div className="mt-3">

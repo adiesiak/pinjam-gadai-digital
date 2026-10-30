@@ -369,6 +369,13 @@ const schema = defineSchema(
       diputuskanPada: v.optional(v.number()),
       /** Terisi saat pinjaman didanai penuh dan dana bersih dicairkan. */
       didanaiPada: v.optional(v.number()),
+      /**
+       * Dana pendana masuk DI LUAR aplikasi: tidak ada baris alokasi di dompet
+       * pendana dan tidak ada jurnal pencairan, jadi hak pendananya dibayar
+       * lewat antrean transfer, bukan dari dompet. Diisi saat dana ditandai
+       * tersalurkan. Kosong/false berarti pendanaannya lewat dompet aplikasi.
+       */
+      pendanaanLuarAplikasi: v.optional(v.boolean()),
       /** Terisi saat kewajiban pokok + bunga (+ denda bila terlambat) dibayar penuh. */
       lunasPada: v.optional(v.number()),
       /** Denda keterlambatan rupiah bulat yang dibayar saat pelunasan. */

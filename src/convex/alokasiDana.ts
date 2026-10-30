@@ -574,7 +574,13 @@ async function selesaikanPendanaanPenuh(
     }
   }
 
-  await ctx.db.patch(loan._id, { status: "didanai", didanaiPada: now });
+  // Dana masuk lewat dompet aplikasi, jadi penanda "dana di luar aplikasi"
+  // dilepas bila pinjaman ini sebelumnya dicatat manual.
+  await ctx.db.patch(loan._id, {
+    status: "didanai",
+    didanaiPada: now,
+    pendanaanLuarAplikasi: undefined,
+  });
   const loanSetelah = await ctx.db.get(loan._id);
   if (loanSetelah !== null) await pastikanAngsuran(ctx, loanSetelah);
 }

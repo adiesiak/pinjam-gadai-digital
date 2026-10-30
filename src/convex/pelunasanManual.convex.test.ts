@@ -292,6 +292,11 @@ describe("pelunasan manual oleh admin", () => {
     expect(sesudah.loan?.status).toBe("lunas");
     expect(sesudah.loan?.remainingPrincipal).toBe(0);
     expect(sesudah.angsuran.every((row) => row.status === "lunas")).toBe(true);
+    // Pinjaman lama tanpa penanda tetap terbaca sebagai dana di luar aplikasi.
+    const daftar = await admin.sesi.query(api.penyediaDana.daftarPengajuan, {});
+    expect(
+      daftar.pinjaman.find((p) => p._id === loanId)?.pendanaanLuarAplikasi,
+    ).toBe(true);
     // Kas masuk dicatat, tetapi tidak ada pembayaran pendana yang dikarang.
     expect(sesudah.entries.length).toBeGreaterThan(0);
     expect(sesudah.entries.every((entry) => entry.jenis === "repayment")).toBe(true);
@@ -342,6 +347,68 @@ describe("pelunasan manual oleh admin", () => {
     expect(sesudah.angsuran).toHaveLength(3);
     expect(sesudah.angsuran.every((row) => row.status === "lunas")).toBe(true);
     expect(sesudah.entries.some((entry) => entry.jenis === "payout")).toBe(false);
+  });
+
+  it("mencatat sumber dana pendana saat dana ditandai tersalurkan", async () => {
+    const t = convexTest(schema, modules);
+    const { admin, peminjam, pendana } = await siapkanAdminDanNasabah(t);
+
+    // Pinjaman yang dananya masuk di luar aplikasi: tidak ada baris alokasi.
+    const manualId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: peminjam.userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Manual",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "disetujui",
+        nomorReferensi: "PGD-SUMBER-MANUAL",
+        tenorHari: 30,
+        pendanaId: pendana.userId,
+        pendanaNama: "Dana Manual",
+      }),
+    );
+    await admin.sesi.mutation(api.loans.danaiPinjaman, { loanId: manualId });
+    expect(
+      (await t.run((ctx) => ctx.db.get(manualId)))?.pendanaanLuarAplikasi,
+    ).toBe(true);
+
+    // Ruang pendana dan admin membaca penanda yang sama.
+    const daftar = await admin.sesi.query(api.penyediaDana.daftarPengajuan, {});
+    expect(
+      daftar.pinjaman.find((p) => p._id === manualId)?.pendanaanLuarAplikasi,
+    ).toBe(true);
+
+    // Pinjaman yang sudah punya posisi dompet tidak ditandai luar aplikasi.
+    const lewatDompetId = await t.run(async (ctx) => {
+      const loanId = await ctx.db.insert("loans", {
+        userId: peminjam.userId,
+        pokokPinjaman: 1_000_000,
+        tujuan: "Modal usaha",
+        namaLengkap: "Rani Dompet",
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+        status: "disetujui",
+        nomorReferensi: "PGD-SUMBER-DOMPET",
+        tenorHari: 30,
+        pendanaId: pendana.userId,
+        pendanaNama: "Dana Manual",
+      });
+      await ctx.db.insert("fundings", {
+        loanId,
+        danaId: pendana.userId,
+        jumlahAlokasi: 1_000_000,
+        imbalHasil: 235_000,
+        status: "dialokasikan",
+        nomorReferensi: "ALOK-SUMBER-DOMPET",
+      });
+      return loanId;
+    });
+    await admin.sesi.mutation(api.loans.danaiPinjaman, { loanId: lewatDompetId });
+    expect(
+      (await t.run((ctx) => ctx.db.get(lewatDompetId)))?.pendanaanLuarAplikasi,
+    ).toBeUndefined();
   });
 
   it("menolak tombol ubah status ke lunas selama tagihan masih terbuka", async () => {

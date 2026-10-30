@@ -248,6 +248,11 @@ export type BarisPinjaman = {
   jatuhTempoPada: number | null;
   /** Nama penyedia dana tunggal pinjaman ini — null bila belum didanai. */
   pendana: string | null;
+  /**
+   * Dana pendananya masuk di luar aplikasi, jadi tidak ada posisi dompet yang
+   * dibayar saat lunas dan keuntungannya dikirim lewat antrean transfer.
+   */
+  pendanaanLuarAplikasi: boolean;
   /** Imbal Hasil pendana TETAP = pokok × 30% (bukan bunga nasabah). */
   bunga: number;
   /** Pokok + Imbal Hasil tetap, sebelum porsi platform. */
@@ -952,6 +957,23 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
       return hasil;
     }
 
+    /**
+     * Pinjaman yang dananya pernah masuk lewat dompet aplikasi. Dipakai sebagai
+     * cadangan untuk pinjaman lama yang belum punya penanda
+     * `pendanaanLuarAplikasi`, supaya catatan "dana di luar aplikasi" tidak
+     * hilang hanya karena datanya lebih tua daripada kolomnya.
+     */
+    const idBerAlokasi = new Set(
+      (
+        cakupan === null
+          ? await ctx.db.query("fundings").collect()
+          : await ctx.db
+              .query("fundings")
+              .withIndex("by_dana", (q) => q.eq("danaId", cakupan.userId))
+              .collect()
+      ).map((f) => f.loanId),
+    );
+
     const pinjaman: BarisPinjaman[] = [];
     for (const loan of pinjamanMentah.slice(0, BATAS_BARIS)) {
       const bagi = bagiPendanaAman(loan);
@@ -987,6 +1009,9 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
           pelunasanPinjaman(loan, sekarang, cfg.persenDendaKeterlambatan)
             ?.jatuhTempoPada ?? null,
         pendana,
+        pendanaanLuarAplikasi:
+          loan.pendanaanLuarAplikasi ??
+          (loan.didanaiPada !== undefined && !idBerAlokasi.has(loan._id)),
         bunga: bagi.imbal,
         totalLunas: loan.pokokPinjaman + bagi.imbal,
         potonganAdmin: bagi.potonganAdmin,

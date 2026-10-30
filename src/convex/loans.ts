@@ -1794,6 +1794,11 @@ async function setLoanStatus(
   });
 
   const loanSetelah = (await ctx.db.get(loanId)) ?? loan;
+  // Sumber dana dicatat sekali di sini, saat status menjadi tersalurkan, agar
+  // pelunasan tidak menebak dari ada/tidaknya alokasi yang bisa berubah nanti.
+  if (loanSetelah.status === "didanai") {
+    await catatSumberDanaPendana(ctx, loanId);
+  }
   // Pencairan lewat jalur ubah status juga membuat jadwal angsuran — supaya
   // peminjam memegang tagihan yang sama dengan yang tampil di kontrak.
   await pastikanAngsuran(ctx, loanSetelah);
@@ -2006,6 +2011,30 @@ export const batalkanPengajuan = mutation({
 });
 
 /**
+ * Catat dari mana dana pendana masuk saat pinjaman ditandai tersalurkan.
+ *
+ * Dana bisa masuk lewat dompet aplikasi (ada baris `fundings` berstatus
+ * `dialokasikan`) atau sudah berpindah di luar aplikasi sebelum admin mencatat
+ * pinjamannya. Yang kedua tidak punya posisi alokasi, jadi ditandai
+ * `pendanaanLuarAplikasi` supaya pelunasan, laporan, dan ruang pendana tidak
+ * perlu menebak, dan tidak ada yang mengira dompet pendana akan dibayar
+ * otomatis saat pinjaman lunas.
+ */
+export async function catatSumberDanaPendana(
+  ctx: MutationCtx,
+  loanId: Id<"loans">,
+): Promise<void> {
+  const fundings = await ctx.db
+    .query("fundings")
+    .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+    .collect();
+  const lewatDompet = fundings.some((f) => f.status === "dialokasikan");
+  await ctx.db.patch(loanId, {
+    pendanaanLuarAplikasi: lewatDompet ? undefined : true,
+  });
+}
+
+/**
  * Tandai pinjaman tersalurkan setelah admin menetapkan pendananya.
  *
  * Dipakai tombol "Simpan pendana" di dialog review: memilih pendana pada
@@ -2071,6 +2100,7 @@ export const danaiPinjaman = mutation({
       status: "didanai",
       didanaiPada: Date.now(),
     });
+    await catatSumberDanaPendana(ctx, loanId);
     const loanSetelah = await ctx.db.get(loanId);
     await pastikanAngsuran(ctx, loanSetelah ?? loan);
     const admin = await ctx.db.get(adminId);

@@ -1428,6 +1428,11 @@ function DaftarPinjaman({
             </InfoKartu>
             <InfoKartu label="Pendana">
               {row.pendana === null ? "—" : namaTampil(row.pendana)}
+              {row.pendana !== null && row.pendanaanLuarAplikasi && (
+                <span className="mt-1 block text-xs font-normal text-slate-600">
+                  Dana di luar aplikasi · keuntungan lewat transfer
+                </span>
+              )}
             </InfoKartu>
             <InfoKartu label="Keuntungan pendana">
               {row.pendana === null ? "—" : rupiah(row.keuntunganPendana)}
@@ -1533,6 +1538,11 @@ function DaftarPinjaman({
                     <p className="mt-1 text-xs font-semibold text-emerald-700">
                       Untung {rupiah(row.keuntunganPendana)}
                     </p>
+                    {row.pendanaanLuarAplikasi && (
+                      <p className="mt-1 text-xs text-slate-600">
+                        Dana di luar aplikasi
+                      </p>
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {row.status !== "lunas" ? (
                         "transfer menunggu lunas"
