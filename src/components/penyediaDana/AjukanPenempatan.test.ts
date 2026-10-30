@@ -104,7 +104,7 @@ cek(
   "tiga status setoran diterjemahkan ke bahasa layar",
 );
 cek(
-  /isPendana\s*&&\s*<AjukanPenempatan/.test(halaman),
+  /isPendana\s*&&\s*\(\s*<BatasBagian[\s\S]{0,160}<AjukanPenempatan/.test(halaman),
   "kartu setoran hanya tampil untuk akun pemilik portofolio",
 );
 cek(

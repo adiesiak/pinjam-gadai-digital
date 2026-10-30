@@ -16,6 +16,15 @@ import type { GadaiDanaRow, PilihanPendanaGadai } from "./gadai/types";
 export type { GadaiDanaRow };
 
 export function GadaiDanaPanel({ pawns }: { pawns: GadaiDanaRow[] }) {
+  const relevan = pawns.filter((p) => p.status === "disetujui" || p.status === "aktif");
+  // Tidak ada posisi gadai yang bisa dicatat: jangan berlangganan daftar
+  // pendana sama sekali. Panel ini juga dirender di tab gadai yang kosong,
+  // jadi query di sini hanya akan menjadi langganan tanpa pembaca.
+  if (relevan.length === 0) return null;
+  return <IsiGadaiDana relevan={relevan} />;
+}
+
+function IsiGadaiDana({ relevan }: { relevan: GadaiDanaRow[] }) {
   const kandidat = useQuery(api.penyediaDana.kandidatPendana, {});
   const pilihan: PilihanPendanaGadai[] =
     kandidat?.rows.map((row) => ({
@@ -24,9 +33,6 @@ export function GadaiDanaPanel({ pawns }: { pawns: GadaiDanaRow[] }) {
       email: row.email,
       aksesAktif: row.aksesAktif,
     })) ?? [];
-
-  const relevan = pawns.filter((p) => p.status === "disetujui" || p.status === "aktif");
-  if (relevan.length === 0) return null;
 
   return (
     <section className="mt-8 space-y-4">

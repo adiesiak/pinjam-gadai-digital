@@ -39,8 +39,8 @@ ok(
   "tarif normal dibaca dari matriks, bukan angka yang ditulis ulang",
 );
 ok(
-  /Bunga adalah hak penyedia dana/.test(kode) &&
-    /menurunkan imbal hasil pendana/.test(kode),
+  /Hak pendana tetap dihitung dari tarif normal/.test(kode) &&
+    /bukan dipotong dari imbal hasil pendana/.test(kode),
   "peringatan imbal hasil pendana tetap tampil",
 );
 ok(

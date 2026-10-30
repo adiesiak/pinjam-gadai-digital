@@ -569,8 +569,8 @@ cek(
     "pemicu menu menyebut nama peminjam untuk pembaca layar",
   );
   cek(
-    cacah(kodeHalaman, /<DropdownMenuItem/g) === 4,
-    "Detail, Ubah, Catat untung, dan Batalkan catatan berada di dalam menu",
+    cacah(kodeHalaman, /<DropdownMenuItem/g) === 5,
+    "Detail, Ubah, Catat pelunasan, Catat untung, dan Batalkan catatan berada di dalam menu",
   );
   cek(
     kodeHalaman.includes("jumlahAksi === 1"),

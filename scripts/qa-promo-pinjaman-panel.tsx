@@ -26,12 +26,21 @@ type Baris = {
 let baris: Baris[] | undefined;
 const mutasi = async () => ({ id: "x" });
 
+// Query PERTAMA milik panel ini; query berikutnya berasal dari panel promo
+// bunga yang ikut dirender. Satu nilai untuk semua query membuat query kedua
+// menerima array promo lalu pecah saat membaca bidangnya.
+let panggilanQuery = 0;
 const convexReact = await import("convex/react");
 mock.module("convex/react", () => ({
   ...convexReact,
-  useQuery: () => baris,
+  useQuery: () => (panggilanQuery++ === 0 ? baris : undefined),
   useMutation: () => mutasi,
 }));
+
+function renderPanel() {
+  panggilanQuery = 0;
+  return renderToStaticMarkup(<PromoPinjamanPanel />);
+}
 
 const { PromoPinjamanPanel } = await import("@/components/admin/PromoPinjamanPanel");
 
@@ -53,17 +62,17 @@ function tidakAda(html: string, teks: string, label: string): void {
 
 // ===== Memuat =====
 baris = undefined;
-const memuat = renderToStaticMarkup(<PromoPinjamanPanel />);
+const memuat = renderPanel();
 ada(memuat, "Memuat promo", "keadaan memuat disebut");
 
 // ===== Kosong =====
 baris = [];
-const kosong = renderToStaticMarkup(<PromoPinjamanPanel />);
+const kosong = renderPanel();
 ada(kosong, "Belum ada promo.", "keadaan kosong menyebut keadaannya");
 ada(kosong, "Buat promo pertama", "keadaan kosong memberi satu tindakan");
 ada(
   kosong,
-  "Promo hanya mengganti teks kampanye",
+  "Kampanye teks hanya mengganti kalimat",
   "panel menyatakan promo tidak mengubah angka pinjaman",
 );
 tidakAda(kosong, "undefined", "keadaan kosong tanpa undefined");
@@ -100,7 +109,7 @@ baris = [
     diperbaruiOleh: "admin@pindai.test",
   },
 ];
-const isi = renderToStaticMarkup(<PromoPinjamanPanel />);
+const isi = renderPanel();
 ada(isi, "Tenor pilihan lebih panjang", "judul kampanye tampil");
 ada(isi, "Berjalan", "status berjalan dari server");
 ada(isi, "Nonaktif", "status nonaktif dari server");
