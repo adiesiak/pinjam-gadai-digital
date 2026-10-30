@@ -715,7 +715,7 @@ export const verifikasiBuktiAngsuran = mutation({
 export const catatPelunasanManualBulanan = mutation({
   args: {
     loanId: v.id("loans"),
-    referensiMutasi: v.string(),
+    referensiMutasi: v.optional(v.string()),
     jumlahMutasi: v.number(),
     tanggal: v.number(),
     catatan: v.optional(v.string()),
@@ -734,9 +734,11 @@ export const catatPelunasanManualBulanan = mutation({
       );
     }
 
-    const referensi = args.referensiMutasi.trim();
-    if (referensi.length < 4 || referensi.length > 120) {
-      throw new Error("Referensi mutasi bank wajib 4 sampai 120 karakter.");
+    // Nomor mutasi opsional: yang wajib adalah nominal yang sama persis dengan
+    // sisa tagihan pada tanggal terima.
+    const referensi = (args.referensiMutasi ?? "").trim();
+    if (referensi.length > 120) {
+      throw new Error("Referensi mutasi bank maksimal 120 karakter.");
     }
     if (!Number.isSafeInteger(args.jumlahMutasi) || args.jumlahMutasi <= 0) {
       throw new Error("Nominal mutasi bank wajib rupiah bulat positif.");
@@ -819,7 +821,7 @@ export const catatPelunasanManualBulanan = mutation({
       adminLabel,
       "pelunasan_angsuran_manual",
       loan.nomorReferensi,
-      `Mutasi ${referensi} sebesar ${formatRupiah(totalDue)} menutup ${belum.length} angsuran${catatan === "" ? "" : `; catatan: ${catatan}`}.`,
+      `${referensi === "" ? "Pelunasan tanpa nomor mutasi" : `Mutasi ${referensi}`} sebesar ${formatRupiah(totalDue)} menutup ${belum.length} angsuran${catatan === "" ? "" : `; catatan: ${catatan}`}.`,
     );
     return { ok: true as const, totalDue, semuaLunas: hasil.semuaLunas };
   },

@@ -79,6 +79,7 @@ import {
   DialogCatatKeuntungan,
   type TargetKeuntungan,
 } from "@/components/penyediaDana/DialogKeuntunganPendana";
+import { DialogCatatPelunasan } from "@/components/admin/CatatPelunasanDialog";
 import { KepalaFolio } from "@/components/penyediaDana/bagian-folio";
 import { FOLIO, nomorFolio } from "@/components/penyediaDana/folio";
 import { BatasBagian } from "@/components/penyediaDana/BatasBagian";
@@ -215,6 +216,7 @@ function AksiPinjaman({
   nama,
   onDetail,
   onUbah,
+  onCatatPelunasan,
   onCatatUntung,
   onBatalkanCatatan,
   penuh = false,
@@ -222,6 +224,8 @@ function AksiPinjaman({
   nama: string;
   onDetail: () => void;
   onUbah?: () => void;
+  /** Tutup pinjaman lewat jalur uang: nominal dihitung server. */
+  onCatatPelunasan?: () => void;
   onCatatUntung?: () => void;
   onBatalkanCatatan?: () => void;
   /** Kartu layar sempit: pemicu memenuhi lebar kartu. */
@@ -230,6 +234,7 @@ function AksiPinjaman({
   const jumlahAksi =
     1 +
     (onUbah === undefined ? 0 : 1) +
+    (onCatatPelunasan === undefined ? 0 : 1) +
     (onCatatUntung === undefined ? 0 : 1) +
     (onBatalkanCatatan === undefined ? 0 : 1);
 
@@ -275,6 +280,15 @@ function AksiPinjaman({
             Ubah data pinjaman
           </DropdownMenuItem>
         )}
+        {onCatatPelunasan !== undefined && (
+          <DropdownMenuItem onSelect={onCatatPelunasan} className="gap-2 py-2">
+            <HandCoins
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            Catat pelunasan
+          </DropdownMenuItem>
+        )}
         {(onCatatUntung !== undefined || onBatalkanCatatan !== undefined) && (
           <DropdownMenuSeparator />
         )}
@@ -315,6 +329,7 @@ function KartuPengajuan({
   status,
   onDetail,
   onUbah,
+  onCatatPelunasan,
   onCatatKeuntungan,
   onBatalkanKeuntungan,
   tombolRekening,
@@ -327,6 +342,8 @@ function KartuPengajuan({
   onDetail: () => void;
   /** Hanya diberikan untuk Super Admin — mengoreksi data pinjaman. */
   onUbah?: () => void;
+  /** Hanya diberikan untuk Super Admin — menutup pinjaman lewat jalur uang. */
+  onCatatPelunasan?: () => void;
   /** Hanya diberikan untuk Super Admin saat keuntungan belum dicatat. */
   onCatatKeuntungan?: () => void;
   /** Hanya diberikan untuk Super Admin saat catatan keuntungan masih berlaku. */
@@ -357,6 +374,7 @@ function KartuPengajuan({
           nama={nama}
           onDetail={onDetail}
           onUbah={onUbah}
+          onCatatPelunasan={onCatatPelunasan}
           onCatatUntung={onCatatKeuntungan}
           onBatalkanCatatan={onBatalkanKeuntungan}
           penuh
@@ -1263,6 +1281,7 @@ function DaftarPinjaman({
   sekarang,
   onDetail,
   onUbah,
+  onCatatPelunasan,
   onCatatKeuntungan,
   onBatalkanKeuntungan,
   namaTampil,
@@ -1276,6 +1295,12 @@ function DaftarPinjaman({
   onDetail: (row: BarisPinjaman) => void;
   /** Hanya diisi untuk Super Admin (koreksi data pinjaman). */
   onUbah?: (row: BarisPinjaman) => void;
+  /**
+   * Hanya diisi untuk Super Admin: menutup pinjaman berjalan lewat jalur yang
+   * menulis uang. Server tetap hanya membukanya untuk pinjaman berstatus
+   * Didanai, jadi tombolnya muncul pada baris yang memang bisa dilunasi.
+   */
+  onCatatPelunasan?: (row: BarisPinjaman) => void;
   /** Hanya diisi untuk Super Admin: catat keuntungan yang belum tercatat. */
   onCatatKeuntungan?: (row: BarisPinjaman) => void;
   /** Hanya diisi untuk Super Admin: batalkan catatan yang masih berlaku. */
@@ -1314,6 +1339,15 @@ function DaftarPinjaman({
       />
     ) : undefined;
 
+  /**
+   * Pemicu "Catat pelunasan" per baris — hanya untuk pinjaman yang masih
+   * berjalan, karena server menolak status lain.
+   */
+  const aksiPelunasan = (row: BarisPinjaman) =>
+    onCatatPelunasan !== undefined && row.status === "didanai"
+      ? () => onCatatPelunasan(row)
+      : undefined;
+
   const aksiKeuntungan = (row: BarisPinjaman) => {
     const aksi = aksiKeuntunganPinjaman({
       status: row.status,
@@ -1345,6 +1379,7 @@ function DaftarPinjaman({
             status={<StatusBadge status={row.status} kind="loan" />}
             onDetail={() => onDetail(row)}
             onUbah={onUbah === undefined ? undefined : () => onUbah(row)}
+            onCatatPelunasan={aksiPelunasan(row)}
             onCatatKeuntungan={aksiKeuntungan(row).catat}
             onBatalkanKeuntungan={aksiKeuntungan(row).batal}
             tombolRekening={tombolRekening(row)}
@@ -1515,6 +1550,7 @@ function DaftarPinjaman({
                     nama={namaTampil(row.namaLengkap)}
                     onDetail={() => onDetail(row)}
                     onUbah={onUbah === undefined ? undefined : () => onUbah(row)}
+                    onCatatPelunasan={aksiPelunasan(row)}
                     onCatatUntung={aksiKeuntungan(row).catat}
                     onBatalkanCatatan={aksiKeuntungan(row).batal}
                   />
@@ -1887,6 +1923,9 @@ function IsiRuang() {
   const [tabPilihan, setTabPilihan] = useState<string | null>(null);
   const [detail, setDetail] = useState<IsiDetail | null>(null);
   const [ubah, setUbah] = useState<BarisPinjaman | null>(null);
+  // Pelunasan penuh dari ruang ini: baris disimpan apa adanya supaya dialog
+  // selalu menunjuk pinjaman yang benar walau tab berpindah.
+  const [pelunasan, setPelunasan] = useState<BarisPinjaman | null>(null);
   // Pencatatan keuntungan pendana: target disimpan sebagai data ringkas supaya
   // dialog tetap memegang nominal yang dibaca saat tombolnya ditekan.
   const [catatKeuntungan, setCatatKeuntungan] =
@@ -2888,6 +2927,9 @@ function IsiRuang() {
                       onUbah={
                         role === "admin" ? (row) => setUbah(row) : undefined
                       }
+                      onCatatPelunasan={
+                        role === "admin" ? (row) => setPelunasan(row) : undefined
+                      }
                       // Pinjaman yang sudah cair: admin bisa langsung
                       // mengirim rekening cicilan ke peminjamnya tanpa
                       // mengetik nomor WhatsApp.
@@ -3296,6 +3338,19 @@ function IsiRuang() {
       {role === "admin" && (
         <DialogUbahPinjaman row={ubah} onClose={() => setUbah(null)} />
       )}
+
+      {/*
+       * Catat pelunasan langsung dari ruang pendana — jalur uang yang sama
+       * dengan Peninjauan Pengajuan: nominal dihitung server, jurnal dan hak
+       * penyedia dana ikut ditutup, dan nomor mutasi boleh dikosongkan.
+       */}
+      <DialogCatatPelunasan
+        open={role === "admin" && pelunasan !== null}
+        onClose={() => setPelunasan(null)}
+        loanId={pelunasan?._id ?? null}
+        nama={pelunasan === null ? undefined : tampilNama(pelunasan.namaLengkap)}
+        nomorReferensi={pelunasan?.nomorReferensi}
+      />
 
       {/*
        * Pencatatan keuntungan pendana — dibuka dari tab Lunas. Server tetap

@@ -3,7 +3,8 @@
  *
  * Yang dijaga:
  *  - "lunas" tidak bisa dicapai lewat ubah status biasa selama tagihan masih ada;
- *  - pelunasan harian dan bulanan wajib menyebut mutasi bank dengan nominal persis;
+ *  - pelunasan harian dan bulanan wajib menyebut nominal persis; nomor mutasi
+ *    bank bersifat opsional dan keduanya tetap mencatat uang yang sama;
  *  - jurnal ditulis, seluruh angsuran ditutup, dan posisi penyedia dana selesai;
  *  - nominal yang salah ditolak tanpa mengubah status atau jurnal.
  *
@@ -106,11 +107,19 @@ describe("pelunasan manual oleh admin", () => {
 
     await admin.sesi.mutation(api.perpanjanganPinjaman.catatPelunasanManual, {
       loanId,
-      referensiMutasi: "MUTASI-HARIAN-001",
       jumlahMutasi: info.totalDue,
       tanggal: Date.now(),
       catatan: "Setoran tunai di kantor",
     });
+
+    // Tanpa nomor mutasi pun jejak audit tetap menjelaskan asal uangnya.
+    const jejak = await t.run(async (ctx) =>
+      ctx.db
+        .query("auditLog")
+        .filter((q) => q.eq(q.field("aksi"), "pelunasan_manual_dicatat"))
+        .first(),
+    );
+    expect(jejak?.detail ?? "").toMatch(/tanpa nomor mutasi/i);
 
     const hasil = await t.run(async (ctx) => {
       const loan = await ctx.db.get(loanId);

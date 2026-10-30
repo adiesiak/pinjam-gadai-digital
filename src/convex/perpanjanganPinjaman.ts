@@ -359,12 +359,16 @@ export const infoPelunasanManual = query({
 
 /** Validasi masukan pencatatan pelunasan yang dipakai dua jalur di atas. */
 function periksaMasukanPelunasan(
-  args: { referensiMutasi: string; jumlahMutasi: number; tanggal: number },
+  referensiMasuk: string | undefined,
+  args: { jumlahMutasi: number; tanggal: number },
   loan: Doc<"loans">,
 ): string {
-  const referensi = args.referensiMutasi.trim();
-  if (referensi.length < 4 || referensi.length > 120) {
-    throw new Error("Referensi mutasi bank wajib 4 sampai 120 karakter.");
+  // Nomor mutasi bersifat opsional: admin boleh mencatat pelunasan langsung
+  // dari ruang pendana tanpa nomor. Yang tetap wajib adalah nominal yang sama
+  // persis dengan sisa tagihan — jurnal dan penutupan alokasi tetap berjalan.
+  const referensi = (referensiMasuk ?? "").trim();
+  if (referensi.length > 120) {
+    throw new Error("Referensi mutasi bank maksimal 120 karakter.");
   }
   if (!Number.isSafeInteger(args.jumlahMutasi) || args.jumlahMutasi <= 0) {
     throw new Error("Nominal mutasi bank wajib rupiah bulat positif.");
@@ -393,7 +397,7 @@ function periksaMasukanPelunasan(
 export const catatPelunasanManual = mutation({
   args: {
     loanId: v.id("loans"),
-    referensiMutasi: v.string(),
+    referensiMutasi: v.optional(v.string()),
     jumlahMutasi: v.number(),
     tanggal: v.number(),
     catatan: v.optional(v.string()),
@@ -411,7 +415,7 @@ export const catatPelunasanManual = mutation({
         "Pinjaman bulanan dilunasi lewat angsuran. Gunakan catat pelunasan angsuran agar setiap cicilan punya barisnya sendiri.",
       );
     }
-    const referensi = periksaMasukanPelunasan(args, loan);
+    const referensi = periksaMasukanPelunasan(args.referensiMutasi, args, loan);
     const catatan = (args.catatan ?? "").trim();
     if (catatan.length > 500) throw new Error("Catatan maksimal 500 karakter.");
 
@@ -451,7 +455,7 @@ export const catatPelunasanManual = mutation({
       adminLabel,
       "pelunasan_manual_dicatat",
       loan.nomorReferensi,
-      `Mutasi ${referensi} sebesar ${formatRupiah(rencana.totalDue)} dicatat sebagai pelunasan penuh${catatan === "" ? "" : `; catatan: ${catatan}`}.`,
+      `${referensi === "" ? "Pelunasan tanpa nomor mutasi" : `Mutasi ${referensi}`} sebesar ${formatRupiah(rencana.totalDue)} dicatat sebagai pelunasan penuh${catatan === "" ? "" : `; catatan: ${catatan}`}.`,
     );
     return { ok: true as const, totalDue: rencana.totalDue };
   },
@@ -571,7 +575,10 @@ async function catatPerpanjangan(
 type SumberPelunasan = {
   tanggal: number;
   asal: "bukti" | "mutasi";
-  /** Nomor bukti nasabah atau referensi mutasi bank. */
+  /**
+   * Nomor bukti nasabah atau referensi mutasi bank. Bisa kosong untuk
+   * pelunasan manual yang dicatat admin tanpa nomor mutasi.
+   */
   nomorReferensi: string;
   buktiPembayaranId?: Id<"_storage">;
   receiptId?: Id<"manualPaymentReceipts">;
@@ -793,7 +800,13 @@ async function catatPelunasanTotal(
     adminLabel,
     "loan_lunas",
     loan.nomorReferensi,
-    `${loan.namaLengkap}: pelunasan total ${formatRupiah(rencana.totalDue)} dicocokkan dari ${sumber.asal === "bukti" ? `bukti ${sumber.nomorReferensi}` : `mutasi bank ${sumber.nomorReferensi}`}; sisa pokok 0, alokasi penyedia dana ditutup.`,
+    `${loan.namaLengkap}: pelunasan total ${formatRupiah(rencana.totalDue)} dicocokkan dari ${
+      sumber.asal === "bukti"
+        ? `bukti ${sumber.nomorReferensi}`
+        : sumber.nomorReferensi === ""
+          ? "pencocokan admin tanpa nomor mutasi"
+          : `mutasi bank ${sumber.nomorReferensi}`
+    }; sisa pokok 0, alokasi penyedia dana ditutup.`,
   );
 
   // Tiket Doorprize Emas pada jalur pencocokan admin, dengan aturan yang sama
