@@ -1,5 +1,5 @@
 /**
- * Empat pertanyaan yang paling sering muncul sebelum orang membuat akun.
+ * Lima pertanyaan yang paling sering muncul sebelum orang membuat akun.
  *
  * Jawaban yang menyebut angka memakai tarif dari Pengaturan Parameter Bisnis
  * (`rincianPotonganDiMuka`), bukan persentase yang disalin ke JSX. Jawaban
@@ -34,6 +34,10 @@ function daftarTanya(tarif: TarifBiaya) {
     {
       q: "Bagaimana kalau saya terlambat membayar?",
       a: "Keterlambatan dihitung per hari dari pokok angsuran dan dibatasi pagu denda. Angka yang berlaku untuk pinjaman Anda tertulis di rincian pinjaman dan perjanjian. Bila Anda tidak mampu membayar, hubungi CS sebelum jatuh tempo; penanganannya mengikuti perjanjian, bukan denda tambahan di luar itu.",
+    },
+    {
+      q: "Apa yang terjadi kalau saya tidak bisa membayar?",
+      a: "Hubungi CS sebelum jatuh tempo. Penanganan mengikuti perjanjian, dan keterlambatan dihitung per hari dari pokok angsuran dengan pagu denda yang tertulis di rincian pinjaman. Jangan menunggu sampai lewat jatuh tempo.",
     },
     {
       q: "Siapa yang bisa melihat data saya?",

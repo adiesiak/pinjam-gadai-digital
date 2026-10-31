@@ -1,5 +1,5 @@
 /**
- * Uji render hero landing (`LandingHero`) dengan kartu 3D dan bubble emerald.
+ * Uji render hero landing (`LandingHero`) dengan kartu 3D dan kertas hangat.
  * Run: bun src/components/landing/LandingHero.render.test.tsx
  *
  * Yang dijaga (tanpa browser — render statis):
@@ -9,8 +9,8 @@
  *     blur dan tanpa panggung gelap.
  *  3. Konten tidak bergantung pada apa pun yang bisa gagal dimuat: judul, dua
  *     CTA, catatan mikro, dan poin kepercayaan semuanya ada di markup.
- *  4. Objek merek tetap ada (kartu contoh) berikut pernyataan bahwa nomornya
- *     contoh, bukan alat bayar.
+ *  4. Objek merek tetap ada (kartu contoh) berikut pernyataan bahwa itu
+ *     ilustrasi tampilan akun, bukan alat bayar.
  *  5. Penanda sesi mengikuti `sudahMasuk`, dan tidak ada "undefined" maupun
  *     "[object Object]" yang bocor ke markup.
  */
