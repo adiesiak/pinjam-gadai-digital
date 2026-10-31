@@ -1,1 +1,0 @@
-import{j as t}from"./framer-motion-lJ-Satfj.js";import{u as n,a}from"./index-C22EyS2K.js";import{P as u}from"./PromoPinjamanKartu-CLtN4Ada.js";function j({penempatan:r,onAjukan:i,className:m}){const o=n(a.promoPinjaman.promoAktif,{penempatan:r});return o==null||typeof o.judul!="string"?null:t.jsx(u,{promo:o,penempatan:r,onAjukan:i,className:m})}export{j as P};
