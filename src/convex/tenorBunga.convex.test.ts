@@ -6,7 +6,7 @@
  * menolak kombinasi nominal/tenor di luar matriks. Tes ini memastikan:
  *  - tenor 7/14/21/28 diterima pada setiap tier nominal;
  *  - snapshot bunga berasal dari matriks tier (26–40%), bukan angka global;
- *  - tenor 30 hari ditolak mutation.
+ *  - tenor 29–50 hari sah sebagai perpanjangan; tenor 51 hari ditolak.
  */
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
@@ -227,12 +227,20 @@ describe("matriks tenor & bunga harian", () => {
     ).rejects.toThrow(/minimal pokok 3\.000\.000/i);
   });
 
-  it("tenor 30 hari ditolak pada semua tier", async () => {
+  it("tenor 30 hari sah sebagai perpanjangan; 51 hari ditolak", async () => {
     const t = convexTest(schema, modules);
-    const sesi = await peminjamSiap(t, "tenor-tolak-tigapuluh@pindai.test");
+    const sesi = await peminjamSiap(t, "tenor-tigapuluh@pindai.test");
 
-    await expect(ajukan(t, sesi, 500_000, 30, "tolak-tigapuluh")).rejects.toThrow(
-      /tenor yang tersedia 7 \/ 14 \/ 21 \/ 28 hari/,
+    await ajukan(t, sesi, 500_000, 30, "tigapuluh");
+    const loan = await pinjamanTerakhir(t);
+    expect(loan?.tenorHari).toBe(30);
+    // Tier Rp500.000: 35% untuk 28 hari, ditambah 1,875% per hari ekstra.
+    expect(loan?.persenBunga).toBe(38.75);
+
+    const t2 = convexTest(schema, modules);
+    const sesi2 = await peminjamSiap(t2, "tenor-tolak-limapuluh-satu@pindai.test");
+    await expect(ajukan(t2, sesi2, 500_000, 51, "tolak-limapuluh-satu")).rejects.toThrow(
+      /7–50 hari/,
     );
   });
 });

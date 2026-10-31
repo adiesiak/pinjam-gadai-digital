@@ -10,7 +10,11 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
-import { hitungSimulasiBulanan } from "@/lib/bulanan";
+import {
+  hitungSimulasiBulanan,
+  TARIF_BULANAN_DEFAULT,
+  tarifBulananBawaanLama,
+} from "@/lib/bulanan";
 import { formatRupiah } from "@/lib/money";
 import { clampPlafon, PLAFON_BATAS } from "@/lib/plafon";
 import { formatWaktuWIB } from "@/lib/waktu";
@@ -304,6 +308,20 @@ export function SystemConfigPanel() {
   const qrisTersimpan = data.config.qrisImageId != null && data.qrisUrl !== null;
   const qrisPilihanBelumDisimpan =
     (form.qrisImageId ?? null) !== (data.config.qrisImageId ?? null);
+  // Konfigurasi lama yang belum pernah disimpan sejak tarif 3 bulan turun dari
+  // 20% ke 8% masih membawa angka warisan. Jangan ubah diam-diam: tampilkan
+  // selisihnya, lalu biarkan admin memuat bawaan dan menyimpan versi baru.
+  const tarifBawaanLama = tarifBulananBawaanLama(data.config);
+  const pulihkanTarifBawaan = () => {
+    setForm((sekarang) =>
+      sekarang === null ? sekarang : { ...sekarang, ...TARIF_BULANAN_DEFAULT },
+    );
+    setCatatanTarif(
+      "Pemulihan tarif bawaan: tenor 3 bulan 20% menjadi 8% per bulan (total 24%).",
+    );
+    setTab("finansial");
+    toast.info("Tarif bawaan dimuat. Periksa angkanya lalu simpan konfigurasi.");
+  };
   const pratinjauBulanan = (() => {
     try {
       return hitungSimulasiBulanan(1_000_000, 3, {
@@ -568,7 +586,7 @@ export function SystemConfigPanel() {
                     step={0.5}
                     suffix="%"
                     onChange={(v) => upd("persenBungaBulanan3", Number(v) || 0)}
-                    hint="Flat dari pokok penuh."
+                    hint="Flat dari pokok penuh. Bawaan 8%/bulan (total 24%)."
                     withHint
                   />
                   <SuffixInput
@@ -636,6 +654,33 @@ export function SystemConfigPanel() {
                     withHint
                   />
                 </div>
+
+                {tarifBawaanLama && (
+                  <div
+                    role="status"
+                    className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3"
+                  >
+                    <p className="text-xs font-semibold text-amber-950">
+                      Tarif bawaan lama terdeteksi
+                    </p>
+                    <p className="mt-1 text-[11px] leading-5 text-amber-950">
+                      Tenor 3 bulan masih tersimpan di 20%/bulan. Bawaan yang
+                      berlaku sekarang 8%/bulan (total 24%). Muat bawaan baru,
+                      lalu simpan agar pengajuan berikutnya memakai angka yang
+                      sudah disesuaikan.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 min-h-11 border-amber-300 text-amber-950 hover:bg-amber-100"
+                      disabled={busy}
+                      onClick={pulihkanTarifBawaan}
+                    >
+                      Muat tarif bawaan baru
+                    </Button>
+                  </div>
+                )}
 
                 {pratinjauBulanan !== null && (
                   <dl className="mt-3 grid gap-x-4 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[11px] sm:grid-cols-2">

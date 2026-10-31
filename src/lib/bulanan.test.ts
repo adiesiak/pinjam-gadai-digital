@@ -11,7 +11,9 @@ import {
   metodeBungaBulanan,
   persenBungaPerBulan,
   TENOR_BULANAN_OPTIONS,
+  TARIF_BULANAN_DEFAULT,
   tarifBulananAman,
+  tarifBulananBawaanLama,
 } from "./bulanan";
 import { percentOf } from "./money";
 
@@ -315,6 +317,30 @@ eq(percentOf(150_000, 20), 30_000, "20% dari 150rb = 30.000");
 eq(percentOf(1_000_000, 20), 200_000, "20% dari 1jt = 200.000");
 eq(percentOf(10, 20), 2, "20% dari Rp10 = Rp2");
 eq(percentOf(1, 20), 0, "20% dari Rp1 = Rp0,2 → dibulatkan ke 0");
+
+// ============================================================
+// 6b. Deteksi konfigurasi tarif bawaan lama untuk migrasi panel admin
+// ============================================================
+ok(
+  tarifBulananBawaanLama({
+    persenBungaBulanan1: 30,
+    persenBungaBulanan3: 20,
+    persenBungaBulanan6: 12,
+    persenBungaBulanan9: 10,
+    persenBungaBulanan12: 8,
+    persenBiayaLayananBulanan: 2,
+    persenBiayaAdminCicilanBulanan: 2,
+  }),
+  "profil tarif bawaan lama terdeteksi",
+);
+ok(
+  !tarifBulananBawaanLama(TARIF_BULANAN_DEFAULT),
+  "tarif bawaan baru tidak dianggap warisan",
+);
+ok(
+  !tarifBulananBawaanLama({ persenBungaBulanan3: 20, persenBungaBulanan6: 15 }),
+  "tarif yang sudah disesuaikan admin tidak ditimpa migrasi",
+);
 
 // ============================================================
 // 7. Validasi input

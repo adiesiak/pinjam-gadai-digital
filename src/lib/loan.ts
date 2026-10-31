@@ -102,8 +102,10 @@ export const PENGALI_TARIF_PERPANJANGAN = 1.5;
  * plafon khusus di atas batas bawaan Rp1 juta. Tanpa plafon khusus, plafon
  * nasabah sendiri (Rp500 ribu/Rp1 juta) yang menahan pokoknya lebih dulu.
  *
- * Tenor 30 hari bukan pilihan produk; tenor resmi 7, 14, 21, dan 28 hari.
- * Kombinasi di luar baris matriks ditolak server, bukan sekadar disembunyikan.
+ * Tenor standar yang ditawarkan adalah 7, 14, 21, dan 28 hari. Hari ke-29
+ * sampai ke-50 tetap SAH sebagai perpanjangan berbayar (lihat
+ * `TENOR_PERPANJANGAN`), sehingga tenor 30 hari diterima server dengan tarif
+ * perpanjangan — bukan tarif tenor 28 hari. Di atas 50 hari ditolak.
  */
 const MATRIKS_HARIAN: readonly {
   /** Batas bawah inklusif. */

@@ -277,6 +277,32 @@ const gambar = (terbuka: boolean, drawerTerbuka = false) =>
     "3g id tombol laci berbeda dari kolom tetap",
     sumber.includes('awalanId="tab"') && sumber.includes("${awalanId}-${value}"),
   );
+  cek(
+    "3h laci dibatasi lebar viewport dan bisa digulir",
+    sumber.includes("w-72 max-w-[85vw]") &&
+      sumber.includes("min-h-0 flex-1 overflow-y-auto") &&
+      sumber.includes("overscroll-contain"),
+  );
+  // Kepala panel: kelompok kiri boleh menyusut/truncate, kelompok aksi tidak.
+  // Tanpa pasangan ini, judul panjang dapat mendorong lonceng dan menu profil
+  // keluar layar 375px.
+  const kepala = readFileSync(
+    fileURLToPath(new URL("../../pages/admin/admin-shell.tsx", import.meta.url)),
+    "utf8",
+  );
+  cek(
+    "3i tombol menu kepala panel 44px dan hanya di layar kecil",
+    kepala.includes("flex size-11 shrink-0") && kepala.includes("lg:hidden"),
+  );
+  cek(
+    "3j breadcrumb boleh menyusut dan terpotong",
+    kepala.includes('className="min-w-0"') &&
+      kepala.includes("min-w-0 truncate text-sm font-semibold"),
+  );
+  cek(
+    "3k kelompok aksi kepala panel tidak menyusut",
+    kepala.includes('className="flex shrink-0 items-center gap-1.5 sm:gap-2"'),
+  );
 }
 
 // ===== 4. Gerak: transisi lebar 200ms, dan semuanya mati saat gerak diminta berhenti =====

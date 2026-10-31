@@ -179,6 +179,13 @@ export const BULANAN_PRICING = {
   maxProfitTotalPersen: 230,
 } as const;
 
+/**
+ * Tarif tenor 3 bulan pada konfigurasi bawaan lama (sebelum penyesuaian).
+ *
+ * Disimpan sebagai penanda migrasi saja: konfigurasi baru memakai 8%/bulan.
+ */
+export const PERSEN_BUNGA_BULANAN3_LAMA = 20;
+
 /** Tarif bulanan bawaan — sama dengan angka yang berlaku sebelum bisa diatur. */
 export const TARIF_BULANAN_DEFAULT: TarifBulanan = {
   persenBungaBulanan1: BULANAN_PRICING.bungaTenor1PersenPerBulan,
@@ -189,6 +196,31 @@ export const TARIF_BULANAN_DEFAULT: TarifBulanan = {
   persenBiayaLayananBulanan: BULANAN_PRICING.biayaLayananPersen,
   persenBiayaAdminCicilanBulanan: BULANAN_PRICING.biayaAdminCicilanPersen,
 };
+
+/**
+ * Apakah konfigurasi masih memakai profil tarif bawaan lama yang perlu
+ * dimigrasikan.
+ *
+ * Hanya profil yang SELURUH tarifnya sama dengan bawaan lama yang dianggap
+ * warisan. Tarif yang sudah disesuaikan admin — termasuk bila hanya tenor 3
+ * bulan yang diubah — tidak boleh ditimpa diam-diam oleh pemulihan bawaan.
+ */
+export function tarifBulananBawaanLama(
+  nilai?: Partial<TarifBulanan> | null,
+): boolean {
+  const tarif = tarifBulananAman(nilai);
+  return (
+    tarif.persenBungaBulanan3 === PERSEN_BUNGA_BULANAN3_LAMA &&
+    tarif.persenBungaBulanan1 === TARIF_BULANAN_DEFAULT.persenBungaBulanan1 &&
+    tarif.persenBungaBulanan6 === TARIF_BULANAN_DEFAULT.persenBungaBulanan6 &&
+    tarif.persenBungaBulanan9 === TARIF_BULANAN_DEFAULT.persenBungaBulanan9 &&
+    tarif.persenBungaBulanan12 === TARIF_BULANAN_DEFAULT.persenBungaBulanan12 &&
+    tarif.persenBiayaLayananBulanan ===
+      TARIF_BULANAN_DEFAULT.persenBiayaLayananBulanan &&
+    tarif.persenBiayaAdminCicilanBulanan ===
+      TARIF_BULANAN_DEFAULT.persenBiayaAdminCicilanBulanan
+  );
+}
 
 /** Batas pokok/harga untuk skema bulanan (di luar skema 1 jt/28 hari). */
 export const BULANAN_LIMITS = {
