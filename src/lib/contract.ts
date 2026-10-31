@@ -134,17 +134,17 @@ const LOGO_SHIELD_SVG = `<svg class="kop-logo" viewBox="0 0 32 32" role="img" ar
 </svg>`;
 
 /**
- * Stempel digital PINDAI berbentuk bulat dengan teks melingkar. Warna diambil
- * dari `currentColor` (`.stamp-bulat` → merah bata) supaya stempel terasa
- * seperti cap fisik namun tetap bersih saat dicetak.
+ * Stempel dokumen PINDAI: cap karet bulat datar dengan teks "PINDAI" tebal di
+ * tengah. Hanya teks itu yang dicetak — tanpa nama, tanggal, atau nomor.
+ *
+ * Warna diambil dari `currentColor` (`.stamp-bulat` → biru tinta) supaya cap
+ * tetap tajam di pratinjau, cetakan, dan PDF. Bentuknya sengaja sederhana:
+ * cincin luar tebal, cincin dalam tipis, dan teks tengah yang dominan.
  */
-const STAMP_BULAT_SVG = `<svg class="stamp-bulat" viewBox="0 0 120 120" role="img" aria-label="Stempel verifikasi ledger PINDAI" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-  <defs><path id="pindai-stamp-ring" d="M60,60 m-45,0 a45,45 0 1,1 90,0 a45,45 0 1,1 -90,0"/></defs>
-  <circle cx="60" cy="60" r="57" fill="none" stroke="currentColor" stroke-width="2"/>
-  <circle cx="60" cy="60" r="40" fill="none" stroke="currentColor" stroke-width="1"/>
-  <text><textPath href="#pindai-stamp-ring" xlink:href="#pindai-stamp-ring" startOffset="50%" text-anchor="middle">VERIFIED LEDGER · PINDAI DIGITAL STAMP</textPath></text>
-  <text class="kecil" x="60" y="57" text-anchor="middle">PINDAI</text>
-  <text class="kecil" x="60" y="69" text-anchor="middle">E-SIGN</text>
+const STAMP_BULAT_SVG = `<svg class="stamp-bulat" viewBox="0 0 120 120" role="img" aria-label="Stempel PINDAI" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="8"/>
+  <circle cx="60" cy="60" r="45" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="60" y="61" text-anchor="middle" dominant-baseline="middle">PINDAI</text>
 </svg>`;
 
 /** Blok tanda tangan Platform (Pihak Pertama) memakai stempel bulat PINDAI. */
