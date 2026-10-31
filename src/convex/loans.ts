@@ -72,6 +72,11 @@ import {
   catatMarginSpread,
 } from "./ledger";
 import { getConfig, audit, tarifDendaBerlaku } from "./system";
+import {
+  simpanPersetujuanGadai,
+  simpanPersetujuanPinjaman,
+  validasiDataTandaTangan,
+} from "./kontrakPersetujuan";
 import { requireGerbangLokasi } from "./lokasi";
 import { adalahAkunUji } from "./akunUjiInternal";
 import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
@@ -1303,6 +1308,9 @@ export const myContracts = query({
           tandaTanganPada: l.tandaTanganPada ?? null,
           persetujuanSyaratPada: l.persetujuanSyaratPada ?? null,
           persetujuanSyaratVersi: l.persetujuanSyaratVersi ?? null,
+          persetujuanMode: l.persetujuanMode ?? null,
+          ttdManualPada: l.ttdManualPada ?? null,
+          ttdManualOleh: l.ttdManualOleh ?? null,
           createdAt: l._creationTime,
           nik: l.nik ?? null,
           namaLengkap: l.namaLengkap,
@@ -1319,9 +1327,133 @@ export const myContracts = query({
           deskripsiBarang: p.deskripsiBarang,
           kategori: p.kategori,
           status: p.status,
+          namaLengkap: p.namaLengkap,
+          namaBank: p.namaBank ?? null,
+          nomorRekening: p.nomorRekening,
           nilaiTaksiran: p.nilaiTaksiran,
+          hargaPasar: p.hargaPasar ?? null,
+          kondisiFisik: p.kondisiFisik ?? null,
+          kodeRakVault: p.kodeRakVault ?? null,
+          pokokGadai: p.pokokGadai ?? null,
+          persenSewaModal: p.persenSewaModal ?? null,
+          tandaTanganDataUrl: p.tandaTanganPeminjam ?? null,
+          tandaTanganPada: p.tandaTanganPada ?? null,
+          persetujuanSyaratPada: p.persetujuanSyaratPada ?? null,
+          persetujuanSyaratVersi: p.persetujuanSyaratVersi ?? null,
+          persetujuanMode: p.persetujuanMode ?? null,
+          ttdManualPada: p.ttdManualPada ?? null,
+          ttdManualOleh: p.ttdManualOleh ?? null,
           createdAt: p._creationTime,
         })),
+    };
+  },
+});
+
+/**
+ * Persetujuan perjanjian oleh peminjam sendiri — dua jalur yang ditawarkan UI:
+ *
+ * - `elektronik`: memakai gambar dari kanvas (atau gambar KYC yang sudah ada),
+ *   lalu menerbitkan sidik jari kontrak.
+ * - `manual`: hanya mencatat persetujuan; gambar tanda tangan lama TIDAK
+ *   dipakai sebagai tanda tangan akad. Dokumen diunduh dan ditandatangani basah,
+ *   lalu admin mengunggah buktinya.
+ *
+ * Server tetap memeriksa kepemilikan, status, dan persetujuan ganda. Jalur ini
+ * memakai aturan yang sama dengan jalur admin (`kontrakPersetujuan.ts`).
+ */
+export const setujuiPerjanjianPinjaman = mutation({
+  args: {
+    loanId: v.id("loans"),
+    mode: v.union(v.literal("elektronik"), v.literal("manual")),
+    dataUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, { loanId, mode, dataUrl }) => {
+    const { userId, user } = await requirePeminjam(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null || loan.userId !== userId) {
+      throw new Error("Pengajuan pinjaman tidak ditemukan.");
+    }
+    if (loan.status === "ditolak" || loan.status === "dibatalkan") {
+      throw new Error("Pengajuan ini tidak dapat disetujui.");
+    }
+    if (mode === "elektronik" && dataUrl === undefined && !loan.tandaTanganPeminjam) {
+      throw new Error("Bubuhkan tanda tangan elektronik terlebih dahulu.");
+    }
+    if (mode === "manual" && dataUrl !== undefined) {
+      throw new Error("Jalur TTD manual tidak mengirim gambar tanda tangan.");
+    }
+    if (dataUrl !== undefined) validasiDataTandaTangan(dataUrl);
+    const hasil = await simpanPersetujuanPinjaman(ctx, loan, dataUrl, {
+      pakaiTandaTanganTersimpan: mode === "elektronik",
+      mode,
+    });
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "peminjam",
+      "kontrak_pinjaman_disetujui_peminjam",
+      loan.nomorReferensi,
+      hasil.digital !== null
+        ? `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani secara elektronik dari dashboard. Kode verifikasi ${hasil.digital.kode}, SHA-256 ${hasil.digital.hash}.`
+        : `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} untuk TTD manual dari dashboard.`,
+    );
+    return {
+      ok: true,
+      waktu: hasil.waktu,
+      versi: CONTRACT_TERMS_VERSION,
+      kode: hasil.digital?.kode ?? null,
+    };
+  },
+});
+
+/** Persetujuan akad gadai oleh peminjam sendiri; aturannya sama dengan pinjaman. */
+export const setujuiPerjanjianGadai = mutation({
+  args: {
+    pawnId: v.id("pawns"),
+    mode: v.union(v.literal("elektronik"), v.literal("manual")),
+    dataUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, { pawnId, mode, dataUrl }) => {
+    const { userId, user } = await requirePeminjam(ctx);
+    const pawn = await ctx.db.get(pawnId);
+    if (pawn === null || pawn.userId !== userId) {
+      throw new Error("Pengajuan gadai tidak ditemukan.");
+    }
+    if (pawn.status === "ditolak") {
+      throw new Error("Akad gadai yang ditolak tidak dapat disetujui.");
+    }
+    if (pawn.nilaiTaksiran === undefined) {
+      throw new Error("Akad gadai belum memiliki nilai taksiran.");
+    }
+    if (pawn.pokokGadai === undefined || pawn.persenSewaModal === undefined) {
+      throw new Error("Tetapkan pokok gadai dan sewa modal sebelum menyetujui akad.");
+    }
+    if (mode === "elektronik" && dataUrl === undefined && !pawn.tandaTanganPeminjam) {
+      throw new Error("Bubuhkan tanda tangan elektronik terlebih dahulu.");
+    }
+    if (mode === "manual" && dataUrl !== undefined) {
+      throw new Error("Jalur TTD manual tidak mengirim gambar tanda tangan.");
+    }
+    if (dataUrl !== undefined) validasiDataTandaTangan(dataUrl);
+    const hasil = await simpanPersetujuanGadai(ctx, pawn, dataUrl, {
+      pakaiTandaTanganTersimpan: mode === "elektronik",
+      mode,
+    });
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "peminjam",
+      "kontrak_gadai_disetujui_peminjam",
+      pawn.nomorReferensi,
+      hasil.digital !== null
+        ? `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani akad gadai secara elektronik dari dashboard. Kode verifikasi ${hasil.digital.kode}, SHA-256 ${hasil.digital.hash}.`
+        : `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} untuk TTD manual dari dashboard.`,
+    );
+    return {
+      ok: true,
+      waktu: hasil.waktu,
+      versi: CONTRACT_TERMS_VERSION,
+      kode: hasil.digital?.kode ?? null,
     };
   },
 });

@@ -20,6 +20,7 @@ import {
 } from "./ledger";
 import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
+import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
 import { namaHurufBesar, namaTampil } from "../lib/nama";
 import { CONTRACT_TERMS_VERSION } from "../lib/contract";
 import { bagiHasilPinjamanDari } from "../lib/bagiHasil";
@@ -55,7 +56,11 @@ import {
   MS_HARI,
 } from "../lib/analitikAdmin";
 import { statusKanonik } from "../lib/statusPinjaman";
-import { terbitkanKontrakGadai, terbitkanKontrakPinjaman } from "./kontrakDigital";
+import {
+  simpanPersetujuanGadai,
+  simpanPersetujuanPinjaman,
+  validasiDataTandaTangan,
+} from "./kontrakPersetujuan";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   kelompokkanJurnalYatim,
@@ -66,6 +71,17 @@ import {
 /** Gerbang admin — semua query/mutation di file ini dijaga. */
 async function requireAdmin(ctx: QueryCtx) {
   return requireAdminSession(ctx);
+}
+
+/** Tautan bukti TTD manual; null bila rahasia tautan belum disetel. */
+async function tautanKontrakManual(
+  id: Parameters<typeof tautanBerkas>[0],
+): Promise<string | null> {
+  try {
+    return await tautanBerkas(id);
+  } catch {
+    return null;
+  }
 }
 
 // ===== Plafon pinjaman per nasabah (lihat lib/plafon.ts) =====
@@ -765,10 +781,14 @@ export const adminOverview = query({
             tandaTanganPada: l.tandaTanganPada ?? null,
             persetujuanSyaratPada: l.persetujuanSyaratPada ?? null,
             persetujuanSyaratVersi: l.persetujuanSyaratVersi ?? null,
+            persetujuanMode: l.persetujuanMode ?? null,
             // Persetujuan saat MENGAJUKAN berbeda dari persetujuan perjanjian;
             // panel menampilkan keduanya agar tidak terkesan hilang.
             persetujuanPengajuanPada: l.persetujuanPengajuanPada ?? null,
             persetujuanPengajuanVersi: l.persetujuanPengajuanVersi ?? null,
+            ttdManualPada: l.ttdManualPada ?? null,
+            ttdManualOleh: l.ttdManualOleh ?? null,
+            ttdManualAda: l.ttdManualBerkasId !== undefined,
             jatuhTempoPada: pelunasan?.jatuhTempoPada ?? null,
             sisaHari: pelunasan?.sisaHari ?? null,
             hariTerlambat: pelunasan?.hariTerlambat ?? null,
@@ -815,6 +835,17 @@ export const adminOverview = query({
                 ? await namaPendanaAkun(p.pendanaId, p.pendanaNama ?? null)
                 : p.pendanaNama ?? null,
             dicairkanPada: p.dicairkanPada,
+            // Status perjanjian gadai ikut dikirim supaya antrean bisa menghitung
+            // "disetujui tetapi belum TTD" tanpa membuka setiap baris.
+            nomorWhatsApp: borrower?.nomorWhatsApp ?? null,
+            tandaTanganAda: p.tandaTanganPeminjam !== undefined,
+            tandaTanganPada: p.tandaTanganPada ?? null,
+            persetujuanSyaratPada: p.persetujuanSyaratPada ?? null,
+            persetujuanSyaratVersi: p.persetujuanSyaratVersi ?? null,
+            persetujuanMode: p.persetujuanMode ?? null,
+            ttdManualPada: p.ttdManualPada ?? null,
+            ttdManualOleh: p.ttdManualOleh ?? null,
+            ttdManualAda: p.ttdManualBerkasId !== undefined,
           };
         }),
     );
@@ -2160,6 +2191,10 @@ export const contractDetail = query({
           ? simulasiBulananPinjaman({ ...loan, tenorBulan: loan.tenorBulan })
           : null,
       quote: quotePinjaman(loan),
+      persetujuanMode: loan.persetujuanMode ?? null,
+      ttdManualPada: loan.ttdManualPada ?? null,
+      ttdManualOleh: loan.ttdManualOleh ?? null,
+      ttdManualUrl: await tautanKontrakManual(loan.ttdManualBerkasId),
     };
   },
 });
@@ -2190,6 +2225,10 @@ export const contractDetailPawn = query({
       ttdPada: pawn.tandaTanganPada ?? null,
       persetujuanPada: pawn.persetujuanSyaratPada ?? null,
       persetujuanVersi: pawn.persetujuanSyaratVersi ?? null,
+      persetujuanMode: pawn.persetujuanMode ?? null,
+      ttdManualPada: pawn.ttdManualPada ?? null,
+      ttdManualOleh: pawn.ttdManualOleh ?? null,
+      ttdManualUrl: await tautanKontrakManual(pawn.ttdManualBerkasId),
     };
   },
 });
@@ -2206,22 +2245,13 @@ export const contractData = query({
       ttdPada: loan.tandaTanganPada ?? null,
       persetujuanPada: loan.persetujuanSyaratPada ?? null,
       persetujuanVersi: loan.persetujuanSyaratVersi ?? null,
+      persetujuanMode: loan.persetujuanMode ?? null,
+      ttdManualPada: loan.ttdManualPada ?? null,
+      ttdManualOleh: loan.ttdManualOleh ?? null,
+      ttdManualUrl: await tautanKontrakManual(loan.ttdManualBerkasId),
     };
   },
 });
-
-function validasiDataTandaTangan(dataUrl: string) {
-  const prefix = "data:image/png;base64,";
-  if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(dataUrl)) {
-    throw new Error("Format tanda tangan tidak valid.");
-  }
-  if (dataUrl.length > 200_000) {
-    throw new Error("Data tanda tangan terlalu besar.");
-  }
-  if (dataUrl.length <= prefix.length + 16) {
-    throw new Error("Tanda tangan masih kosong.");
-  }
-}
 
 /**
  * Simpan persetujuan syarat Peminjam — admin memfasilitasi pengisian di hadapan
@@ -2238,52 +2268,29 @@ export const simpanTandaTangan = mutation({
   args: {
     loanId: v.id("loans"),
     dataUrl: v.optional(v.string()),
+    mode: v.optional(v.union(v.literal("elektronik"), v.literal("manual"))),
     persetujuanPeminjam: v.literal(true),
   },
-  handler: async (ctx, { loanId, dataUrl }) => {
+  handler: async (ctx, { loanId, dataUrl, mode }) => {
     const { userId, user } = await requireAdmin(ctx);
     if (dataUrl !== undefined) validasiDataTandaTangan(dataUrl);
+    if (mode === "manual" && dataUrl !== undefined) {
+      throw new Error("Jalur TTD manual tidak mengirim gambar tanda tangan.");
+    }
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Pengajuan pinjaman tidak ditemukan.");
     if (loan.status === "ditolak") {
       throw new Error("Kontrak pinjaman yang ditolak tidak dapat ditandatangani.");
     }
-    const sudahSetuju =
-      loan.persetujuanSyaratPada !== undefined &&
-      loan.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
-    const sudahTandaTangan = loan.tandaTanganPeminjam !== undefined;
-    if (sudahSetuju && sudahTandaTangan) {
-      throw new Error("Kontrak ini sudah disetujui dan ditandatangani.");
-    }
-    if (sudahSetuju && dataUrl === undefined) {
-      throw new Error(
-        "Persetujuan kontrak ini sudah dicatat. Bubuhkan tanda tangan untuk melengkapinya.",
-      );
-    }
-
-    const now = Date.now();
-    await ctx.db.patch(loanId, {
-      ...(dataUrl !== undefined
-        ? { tandaTanganPeminjam: dataUrl, tandaTanganPada: now }
-        : {}),
-      persetujuanSyaratPada: now,
-      persetujuanSyaratVersi: CONTRACT_TERMS_VERSION,
+    // Aturan persetujuan dipakai juga oleh jalur mandiri peminjam. Sidik jari
+    // terbit bila kontrak punya gambar tanda tangan — baik yang baru dibubuhkan
+    // sekarang maupun yang sudah tersimpan dari pengajuan. Persetujuan tanpa
+    // gambar tetap tercatat dan disiapkan untuk TTD manual.
+    const hasil = await simpanPersetujuanPinjaman(ctx, loan, dataUrl, {
+      ...(mode !== undefined ? { mode } : {}),
+      ...(mode === "manual" ? { pakaiTandaTanganTersimpan: false } : {}),
     });
-    // Sidik jari terbit bila kontrak memang punya gambar tanda tangan — baik
-    // yang baru dibubuhkan sekarang maupun yang sudah tersimpan dari pengajuan.
-    // Persetujuan tanpa gambar tetap tercatat, tetapi belum menjadi kontrak
-    // tertanda tangan dan disiapkan untuk TTD manual.
-    const tandaTangan = dataUrl ?? loan.tandaTanganPeminjam;
-    const waktuTandaTangan =
-      dataUrl !== undefined ? now : (loan.tandaTanganPada ?? now);
-    const digital =
-      tandaTangan !== undefined
-        ? await terbitkanKontrakPinjaman(
-            ctx,
-            { ...loan, tandaTanganPeminjam: tandaTangan, tandaTanganPada: waktuTandaTangan },
-            waktuTandaTangan,
-          )
-        : null;
+    const digital = hasil.digital;
     await audit(
       ctx,
       userId,
@@ -2296,7 +2303,7 @@ export const simpanTandaTangan = mutation({
     );
     return {
       ok: true,
-      waktu: now,
+      waktu: hasil.waktu,
       versi: CONTRACT_TERMS_VERSION,
       kode: digital?.kode ?? null,
     };
@@ -2312,11 +2319,15 @@ export const simpanTandaTanganGadai = mutation({
   args: {
     pawnId: v.id("pawns"),
     dataUrl: v.optional(v.string()),
+    mode: v.optional(v.union(v.literal("elektronik"), v.literal("manual"))),
     persetujuanPeminjam: v.literal(true),
   },
-  handler: async (ctx, { pawnId, dataUrl }) => {
+  handler: async (ctx, { pawnId, dataUrl, mode }) => {
     const { userId, user } = await requireAdmin(ctx);
     if (dataUrl !== undefined) validasiDataTandaTangan(dataUrl);
+    if (mode === "manual" && dataUrl !== undefined) {
+      throw new Error("Jalur TTD manual tidak mengirim gambar tanda tangan.");
+    }
     const pawn = await ctx.db.get(pawnId);
     if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
     if (pawn.status === "ditolak") {
@@ -2328,38 +2339,11 @@ export const simpanTandaTanganGadai = mutation({
     if (pawn.pokokGadai === undefined || pawn.persenSewaModal === undefined) {
       throw new Error("Tetapkan pokok gadai dan sewa modal sebelum meminta persetujuan.");
     }
-    const sudahSetuju =
-      pawn.persetujuanSyaratPada !== undefined &&
-      pawn.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
-    const sudahTandaTangan = pawn.tandaTanganPeminjam !== undefined;
-    if (sudahSetuju && sudahTandaTangan) {
-      throw new Error("Akad gadai ini sudah disetujui dan ditandatangani.");
-    }
-    if (sudahSetuju && dataUrl === undefined) {
-      throw new Error(
-        "Persetujuan akad gadai ini sudah dicatat. Bubuhkan tanda tangan untuk melengkapinya.",
-      );
-    }
-
-    const now = Date.now();
-    await ctx.db.patch(pawnId, {
-      ...(dataUrl !== undefined
-        ? { tandaTanganPeminjam: dataUrl, tandaTanganPada: now }
-        : {}),
-      persetujuanSyaratPada: now,
-      persetujuanSyaratVersi: CONTRACT_TERMS_VERSION,
+    const hasil = await simpanPersetujuanGadai(ctx, pawn, dataUrl, {
+      ...(mode !== undefined ? { mode } : {}),
+      ...(mode === "manual" ? { pakaiTandaTanganTersimpan: false } : {}),
     });
-    const tandaTangan = dataUrl ?? pawn.tandaTanganPeminjam;
-    const waktuTandaTangan =
-      dataUrl !== undefined ? now : (pawn.tandaTanganPada ?? now);
-    const digital =
-      tandaTangan !== undefined
-        ? await terbitkanKontrakGadai(
-            ctx,
-            { ...pawn, tandaTanganPeminjam: tandaTangan, tandaTanganPada: waktuTandaTangan },
-            waktuTandaTangan,
-          )
-        : null;
+    const digital = hasil.digital;
     await audit(
       ctx,
       userId,
@@ -2372,10 +2356,105 @@ export const simpanTandaTanganGadai = mutation({
     );
     return {
       ok: true,
-      waktu: now,
+      waktu: hasil.waktu,
       versi: CONTRACT_TERMS_VERSION,
       kode: digital?.kode ?? null,
     };
+  },
+});
+
+/** URL unggah bukti kontrak bertanda tangan manual — admin saja. */
+export const generateKontrakManualUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Terima berkas kontrak yang sudah ditandatangani manual.
+ *
+ * Berkasnya TIDAK diubah menjadi gambar tanda tangan elektronik: kolom
+ * `tandaTanganPeminjam` tetap kosong. Yang dicatat hanya bukti berkas, waktu,
+ * dan nama petugas penerima, sehingga status "TTD manual diterima" jujur dan
+ * dapat diaudit.
+ */
+export const lampirkanKontrakManualPinjaman = mutation({
+  args: { loanId: v.id("loans"), berkasId: v.id("_storage") },
+  handler: async (ctx, { loanId, berkasId }) => {
+    const { userId, user } = await requireAdmin(ctx);
+    const loan = await ctx.db.get(loanId);
+    if (loan === null) throw new Error("Pengajuan pinjaman tidak ditemukan.");
+    if (loan.status === "ditolak" || loan.status === "dibatalkan") {
+      throw new Error("Kontrak pengajuan ini tidak dapat dilampiri bukti TTD manual.");
+    }
+    if (loan.persetujuanSyaratPada === undefined) {
+      throw new Error("Setujui perjanjian terlebih dahulu sebelum mengunggah bukti TTD manual.");
+    }
+    await periksaBerkasIdentitasStorage(ctx, "Kontrak bertanda tangan", berkasId, {
+      bolehPdf: true,
+    });
+
+    const lama = loan.ttdManualBerkasId;
+    const now = Date.now();
+    await ctx.db.patch(loanId, {
+      ttdManualBerkasId: berkasId,
+      ttdManualPada: now,
+      ttdManualOleh: user.email ?? user.name ?? "admin",
+    });
+    if (lama !== undefined && lama !== berkasId) {
+      await ctx.storage.delete(lama);
+    }
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "kontrak_manual_pinjaman_diterima",
+      loan.nomorReferensi,
+      `Admin menerima berkas kontrak pinjaman yang ditandatangani manual (storage ${berkasId}).`,
+    );
+    return { ok: true, waktu: now, oleh: user.email ?? user.name ?? "admin" };
+  },
+});
+
+/** Bukti TTD manual untuk akad gadai; aturannya sama dengan pinjaman. */
+export const lampirkanKontrakManualGadai = mutation({
+  args: { pawnId: v.id("pawns"), berkasId: v.id("_storage") },
+  handler: async (ctx, { pawnId, berkasId }) => {
+    const { userId, user } = await requireAdmin(ctx);
+    const pawn = await ctx.db.get(pawnId);
+    if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
+    if (pawn.status === "ditolak") {
+      throw new Error("Akad gadai yang ditolak tidak dapat dilampiri bukti TTD manual.");
+    }
+    if (pawn.persetujuanSyaratPada === undefined) {
+      throw new Error("Setujui akad terlebih dahulu sebelum mengunggah bukti TTD manual.");
+    }
+    await periksaBerkasIdentitasStorage(ctx, "Akad bertanda tangan", berkasId, {
+      bolehPdf: true,
+    });
+
+    const lama = pawn.ttdManualBerkasId;
+    const now = Date.now();
+    await ctx.db.patch(pawnId, {
+      ttdManualBerkasId: berkasId,
+      ttdManualPada: now,
+      ttdManualOleh: user.email ?? user.name ?? "admin",
+    });
+    if (lama !== undefined && lama !== berkasId) {
+      await ctx.storage.delete(lama);
+    }
+    await audit(
+      ctx,
+      userId,
+      user.email ?? user.name ?? "admin",
+      "kontrak_manual_gadai_diterima",
+      pawn.nomorReferensi,
+      `Admin menerima berkas akad gadai yang ditandatangani manual (storage ${berkasId}).`,
+    );
+    return { ok: true, waktu: now, oleh: user.email ?? user.name ?? "admin" };
   },
 });
 

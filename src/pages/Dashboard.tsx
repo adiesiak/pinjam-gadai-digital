@@ -34,6 +34,7 @@ import { PersetujuanVerifikasiPembayaran } from "@/components/PersetujuanVerifik
 import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
 import { AngsuranSection, TagihanBerikutnyaRingkas } from "./dashboard/angsuran-views";
 import { CatatanPinjamanSection } from "./dashboard/history-views";
+import { MyContractsSection } from "./dashboard/contract-views";
 import { DaftarPengajuanSyariah } from "./dashboard/syariah-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
 import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
@@ -611,6 +612,23 @@ export default function Dashboard() {
                       onBukaForm={bukaSyariah}
                     />
                   </section>
+                  {role !== "dana" && (
+                    <section className="mt-8" aria-labelledby="judul-perjanjian">
+                      <h2
+                        id="judul-perjanjian"
+                        className="text-lg font-semibold text-navy"
+                      >
+                        Perjanjian
+                      </h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Setujui syarat, lalu pilih tanda tangan elektronik atau unduh dokumen
+                        untuk ditandatangani manual. Status bukti TTD manual diperbarui admin.
+                      </p>
+                      <div className="mt-3">
+                        <MyContractsSection />
+                      </div>
+                    </section>
+                  )}
                 </TabsContent>
 
                 {/* ===== TAB 4: FORM PENGAJUAN, satu halaman, tiga jenis =====

@@ -6,17 +6,20 @@ import { Loader2, PenLine } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import {
-  buildPinjamanContract,
-  CONTRACT_TERMS_VERSION,
-  nomorContract,
-} from "@/lib/contract";
+import { buildPinjamanContract, nomorContract } from "@/lib/contract";
 import { urlVerifikasi } from "@/lib/kontrakDigital";
+import {
+  bolehUnggahTtdManual,
+  labelStatusKontrak,
+  namaBerkasKontrak,
+  statusKontrak,
+} from "@/lib/kontrakStatus";
 import { formatRupiah } from "@/lib/money";
 import { namaHurufBesar } from "@/lib/nama";
 import { useQrDataUrl } from "@/hooks/use-qr";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
+import { ManualContractUpload } from "./ManualContractUpload";
 
 /** Widget perjanjian pinjaman dan interaksi tanda tangan yang tersimpan di aplikasi. */
 export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
@@ -42,7 +45,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
   }
 
   const tandaTanganPeminjam =
-    contractData.ttdPeminjam !== null
+    contractData.persetujuanMode !== "manual" && contractData.ttdPeminjam !== null
       ? {
           dataUrl: contractData.ttdPeminjam,
           tandaTanganPada: contractData.ttdPada,
@@ -50,11 +53,16 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
           persetujuanSyaratVersi: contractData.persetujuanVersi,
         }
       : undefined;
-  const sudahDisetujui =
-    contractData.persetujuanPada !== null &&
-    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION;
-  const signed =
-    sudahDisetujui && contractData.ttdPeminjam !== null && contractData.ttdPada !== null;
+  const status = statusKontrak({
+    persetujuanPada: contractData.persetujuanPada,
+    persetujuanVersi: contractData.persetujuanVersi,
+    persetujuanMode: contractData.persetujuanMode,
+    ttdDataUrl: contractData.ttdPeminjam,
+    ttdPada: contractData.ttdPada,
+    ttdManualPada: contractData.ttdManualPada,
+  });
+  const label = labelStatusKontrak(status);
+  const sudahDisetujui = status !== "belum" && status !== "versi_lama";
 
   const html = buildPinjamanContract(
     {
@@ -81,6 +89,10 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
       lokasi: detail.lokasiAjukan,
       timestampPada: tandaTanganPeminjam?.tandaTanganPada ?? detail._creationTime,
       ...(tandaTanganPeminjam ? { tandaTanganPeminjam } : {}),
+      persetujuanSyarat: {
+        pada: contractData.persetujuanPada,
+        versi: contractData.persetujuanVersi,
+      },
       ...(digital
         ? {
             verifikasi: {
@@ -113,18 +125,16 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
           <Badge
             variant="outline"
             className={
-              signed
+              label.nada === "selesai"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : sudahDisetujui
+                : label.nada === "info"
                   ? "border-sky-200 bg-sky-50 text-sky-800"
-                  : "text-muted-foreground"
+                  : label.nada === "peringatan"
+                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "text-muted-foreground"
             }
           >
-            {signed
-              ? "Perjanjian tertanda tangan"
-              : sudahDisetujui
-                ? "Disetujui · TTD manual"
-                : "Belum ditandatangani"}
+            {label.label}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
@@ -133,7 +143,7 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
           </span>
           <Button size="sm" className="gradient-primary rounded-full border-0" onClick={() => setOpen(true)}>
             <PenLine className="mr-1.5 size-4" />{" "}
-            {signed || sudahDisetujui ? "Lihat perjanjian" : "Lihat & tanda tangan"}
+            {sudahDisetujui ? "Lihat perjanjian" : "Lihat & tanda tangan"}
           </Button>
         </div>
       </div>
@@ -149,14 +159,38 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
         signedAt={contractData.ttdPada}
         consentAt={contractData.persetujuanPada}
         consentVersion={contractData.persetujuanVersi}
+        consentMode={contractData.persetujuanMode}
+        manualAt={contractData.ttdManualPada}
+        fileName={namaBerkasKontrak("pinjaman", detail.nomorReferensi)}
+        manualProof={
+          status === "elektronik" ? null : (
+          <ManualContractUpload
+            jenis="pinjaman"
+            id={loanId}
+            sudahAda={contractData.ttdManualPada !== null}
+            pada={contractData.ttdManualPada}
+            oleh={contractData.ttdManualOleh}
+            url={contractData.ttdManualUrl}
+            bolehUnggah={bolehUnggahTtdManual({
+              persetujuanPada: contractData.persetujuanPada,
+              persetujuanVersi: contractData.persetujuanVersi,
+              persetujuanMode: contractData.persetujuanMode,
+              ttdDataUrl: contractData.ttdPeminjam,
+              ttdPada: contractData.ttdPada,
+              ttdManualPada: contractData.ttdManualPada,
+            })}
+          />
+          )
+        }
         signingDisabledReason={
           detail.status === "ditolak"
             ? "Pengajuan berstatus ditolak. Penandatanganan perjanjian dinonaktifkan."
             : null
         }
-        onSign={async (dataUrl) => {
+        onSign={async ({ dataUrl, mode }) => {
           await save({
             loanId,
+            mode,
             ...(dataUrl !== null ? { dataUrl } : {}),
             persetujuanPeminjam: true,
           });

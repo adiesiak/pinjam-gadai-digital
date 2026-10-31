@@ -20,7 +20,26 @@
  * memakai satu sub-tab untuk ketiga ejaan tersimpannya.
  */
 import type { LoanRow, OpsiSubTab, PawnRow } from "@/components/admin/admin-shared";
+import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { diTahapTinjauan } from "@/lib/statusPinjaman";
+
+/** Perjanjian sudah disetujui tetapi belum punya bukti tanda tangan apa pun. */
+function ttdTertunda(row: {
+  persetujuanSyaratPada?: number | null;
+  persetujuanSyaratVersi?: string | null;
+  persetujuanMode?: "elektronik" | "manual" | null;
+  tandaTanganAda?: boolean;
+  ttdManualAda?: boolean;
+}): boolean {
+  const ttdElektronik =
+    row.persetujuanMode !== "manual" && row.tandaTanganAda === true;
+  return (
+    row.persetujuanSyaratPada != null &&
+    row.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION &&
+    !ttdElektronik &&
+    row.ttdManualAda !== true
+  );
+}
 
 /**
  * Sub-tab antrean pinjaman: memisahkan catatan yang masih perlu ditindak dari
@@ -45,6 +64,12 @@ export const SUB_TAB_PINJAMAN: readonly OpsiSubTab<LoanRow>[] = [
     label: "Disalurkan",
     hint: "Dana sudah ditandai tersalurkan dan pinjaman sedang berjalan — belum lunas.",
     cocok: (pinjaman) => pinjaman.status === "didanai",
+  },
+  {
+    id: "ttd-tertunda",
+    label: "TTD tertunda",
+    hint: "Perjanjian sudah disetujui, tetapi belum ada tanda tangan elektronik maupun bukti TTD manual.",
+    cocok: ttdTertunda,
   },
   {
     id: "ditolak",
@@ -88,6 +113,12 @@ export const SUB_TAB_GADAI: readonly OpsiSubTab<PawnRow>[] = [
     label: "Berjalan",
     hint: "Gadai aktif dan yang menunggu pembaruan status pelepasan barang.",
     cocok: (gadai) => gadai.status === "aktif" || gadai.status === "menunggu_pelepasan",
+  },
+  {
+    id: "ttd-tertunda",
+    label: "TTD tertunda",
+    hint: "Akad sudah disetujui, tetapi belum ada tanda tangan elektronik maupun bukti TTD manual.",
+    cocok: ttdTertunda,
   },
   {
     id: "ditolak",

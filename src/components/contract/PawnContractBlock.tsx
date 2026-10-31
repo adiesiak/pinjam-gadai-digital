@@ -6,12 +6,19 @@ import { Loader2, PenLine } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { buildGadaiContract, CONTRACT_TERMS_VERSION, nomorContract } from "@/lib/contract";
+import { buildGadaiContract, nomorContract } from "@/lib/contract";
 import { urlVerifikasi } from "@/lib/kontrakDigital";
+import {
+  bolehUnggahTtdManual,
+  labelStatusKontrak,
+  namaBerkasKontrak,
+  statusKontrak,
+} from "@/lib/kontrakStatus";
 import { namaHurufBesar } from "@/lib/nama";
 import { useQrDataUrl } from "@/hooks/use-qr";
 
 import { ContractSigningDialog } from "./ContractSigningDialog";
+import { ManualContractUpload } from "./ManualContractUpload";
 
 /** Widget perjanjian gadai, tersedia setelah angka dicatat di aplikasi. */
 export function PawnContractBlock({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef: string }) {
@@ -46,7 +53,7 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
     persetujuanVersi: detail.persetujuanVersi,
   };
   const tandaTanganPeminjam =
-    detail.ttdPeminjam !== null
+    detail.persetujuanMode !== "manual" && detail.ttdPeminjam !== null
       ? {
           dataUrl: detail.ttdPeminjam,
           tandaTanganPada: detail.ttdPada,
@@ -54,11 +61,16 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
           persetujuanSyaratVersi: detail.persetujuanVersi,
         }
       : undefined;
-  const sudahDisetujui =
-    contractData.persetujuanPada !== null &&
-    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION;
-  const signed =
-    sudahDisetujui && contractData.ttdPeminjam !== null && contractData.ttdPada !== null;
+  const status = statusKontrak({
+    persetujuanPada: contractData.persetujuanPada,
+    persetujuanVersi: contractData.persetujuanVersi,
+    persetujuanMode: detail.persetujuanMode,
+    ttdDataUrl: contractData.ttdPeminjam,
+    ttdPada: contractData.ttdPada,
+    ttdManualPada: detail.ttdManualPada,
+  });
+  const label = labelStatusKontrak(status);
+  const sudahDisetujui = status !== "belum" && status !== "versi_lama";
   const html = buildGadaiContract(
     {
       namaLengkap: detail.namaLengkap,
@@ -86,6 +98,10 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
       lokasi: null,
       timestampPada: tandaTanganPeminjam?.tandaTanganPada ?? detail._creationTime,
       ...(tandaTanganPeminjam ? { tandaTanganPeminjam } : {}),
+      persetujuanSyarat: {
+        pada: detail.persetujuanPada,
+        versi: detail.persetujuanVersi,
+      },
       ...(digital
         ? {
             verifikasi: {
@@ -115,18 +131,16 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
           <Badge
             variant="outline"
             className={
-              signed
+              label.nada === "selesai"
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : sudahDisetujui
+                : label.nada === "info"
                   ? "border-sky-200 bg-sky-50 text-sky-800"
-                  : "text-muted-foreground"
+                  : label.nada === "peringatan"
+                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "text-muted-foreground"
             }
           >
-            {signed
-              ? "Akad tertanda tangan"
-              : sudahDisetujui
-                ? "Disetujui · TTD manual"
-                : "Belum ditandatangani"}
+            {label.label}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
@@ -135,7 +149,7 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
           </span>
           <Button size="sm" className="gradient-primary rounded-full border-0" onClick={() => setOpen(true)}>
             <PenLine className="mr-1.5 size-4" />{" "}
-            {signed || sudahDisetujui ? "Lihat akad" : "Lihat & tanda tangan"}
+            {sudahDisetujui ? "Lihat akad" : "Lihat & tanda tangan"}
           </Button>
         </div>
       </div>
@@ -151,6 +165,29 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
         signedAt={contractData.ttdPada}
         consentAt={contractData.persetujuanPada}
         consentVersion={contractData.persetujuanVersi}
+        consentMode={detail.persetujuanMode}
+        manualAt={detail.ttdManualPada}
+        fileName={namaBerkasKontrak("gadai", detail.nomorReferensi)}
+        manualProof={
+          status === "elektronik" ? null : (
+          <ManualContractUpload
+            jenis="gadai"
+            id={pawnId}
+            sudahAda={detail.ttdManualPada !== null}
+            pada={detail.ttdManualPada}
+            oleh={detail.ttdManualOleh}
+            url={detail.ttdManualUrl}
+            bolehUnggah={bolehUnggahTtdManual({
+              persetujuanPada: contractData.persetujuanPada,
+              persetujuanVersi: contractData.persetujuanVersi,
+              persetujuanMode: detail.persetujuanMode,
+              ttdDataUrl: contractData.ttdPeminjam,
+              ttdPada: contractData.ttdPada,
+              ttdManualPada: detail.ttdManualPada,
+            })}
+          />
+          )
+        }
         signingDisabledReason={
           detail.status === "ditolak"
             ? "Pengajuan gadai berstatus ditolak. Penandatanganan akad dinonaktifkan."
@@ -158,9 +195,10 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
               ? "Masukkan pokok gadai dan persentase sewa modal terlebih dahulu agar rincian ledger dapat ditampilkan."
               : null
         }
-        onSign={async (dataUrl) => {
+        onSign={async ({ dataUrl, mode }) => {
           await save({
             pawnId,
+            mode,
             ...(dataUrl !== null ? { dataUrl } : {}),
             persetujuanPeminjam: true,
           });

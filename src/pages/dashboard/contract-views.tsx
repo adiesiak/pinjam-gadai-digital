@@ -1,76 +1,50 @@
-import { useQuery } from "convex/react";
-import { FileText, ScrollText } from "lucide-react";
-import { useMemo } from "react";
-import { toast } from "sonner";
+import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { FileDown, PenLine, ScrollText, ShieldCheck } from "lucide-react";
+import { useMemo, useState } from "react";
 
-import { ContractPrintButton } from "@/components/EContract";
-import { wrapContractHtml } from "@/components/contract/contract-doc";
+import { ContractSigningDialog } from "@/components/contract/ContractSigningDialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { MemuatBaris } from "@/components/ui/loading";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import { useQrDataUrl } from "@/hooks/use-qr";
 import {
   buildGadaiContract,
   buildPinjamanContract,
   judulContract,
   nomorContract,
 } from "@/lib/contract";
-import { useQrDataUrl } from "@/hooks/use-qr";
-import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
+import {
+  labelStatusKontrak,
+  namaBerkasKontrak,
+  statusKontrak,
+} from "@/lib/kontrakStatus";
 import { urlVerifikasi } from "@/lib/kontrakDigital";
 import { quotePinjaman, simulasiBulananPinjaman } from "@/lib/loan";
-import { lengkapiQrCetak } from "@/lib/qrDokumen";
 import { formatRupiah } from "@/lib/money";
 import { EmptyState } from "./empty-state";
 
-/** Tab 4 — catatan pengajuan dan lampiran aplikasi. */
-export function MyContractsSection({
-  contracts,
-}: {
-  contracts:
-    | {
-        pinjaman: Array<{
-          _id: Id<"loans">;
-          nomorReferensi: string;
-          pokokPinjaman: number;
-          tenorHari: number;
-          tenorBulan: number | null;
-          /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
-          persenBunga: number | null;
-          /** Centang cair ekspres; null = data lama (ekspres dipakai). */
-          cairEkspres: boolean | null;
-          /** Snapshot tarif potongan di muka; null = tarif bawaan. */
-          tarifBiaya: {
-            adminPersen: number;
-            asuransiPersen: number;
-            ekspres: { tier1: number; tier2: number; tier3: number };
-          } | null;
-          status: string;
-          tandaTanganAda: boolean;
-          tandaTanganDataUrl: string | null;
-          tandaTanganPada: number | null;
-          persetujuanSyaratPada: number | null;
-          persetujuanSyaratVersi: string | null;
-          createdAt: number;
-          nik: string | null;
-          namaLengkap: string;
-          namaBank: string | null;
-          nomorRekening: string;
-          lokasiAjukan: { lat: number; lng: number } | null;
-        }>;
-        gadai: Array<{
-          _id: Id<"pawns">;
-          nomorReferensi: string;
-          deskripsiBarang: string;
-          kategori: string;
-          status: string;
-          nilaiTaksiran?: number;
-          createdAt: number;
-        }>;
-      }
-    | undefined;
-}) {
+type Contracts = FunctionReturnType<typeof api.loans.myContracts>;
+type Pinjaman = Contracts["pinjaman"][number];
+type Gadai = Contracts["gadai"][number];
+
+function kelasLencana(nada: "selesai" | "info" | "peringatan" | "netral"): string {
+  if (nada === "selesai") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (nada === "info") return "border-sky-200 bg-sky-50 text-sky-800";
+  if (nada === "peringatan") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "text-muted-foreground";
+}
+
+/**
+ * Perjanjian milik peminjam, lengkap dengan dua jalur persetujuan.
+ *
+ * Jalur manual hanya mencatat persetujuan; gambar KYC lama tidak dipakai sebagai
+ * tanda tangan akad. Setelah admin menerima berkas basah, status berubah menjadi
+ * “TTD manual diterima” dan unduhan tetap tersedia.
+ */
+export function MyContractsSection() {
+  const contracts = useQuery(api.loans.myContracts);
   if (contracts === undefined) {
     return <MemuatBaris teks="Memuat perjanjian…" className="justify-center py-10" />;
   }
@@ -80,15 +54,17 @@ export function MyContractsSection({
       <EmptyState
         icon={ScrollText}
         title="Belum ada perjanjian"
-        body="Perjanjian pinjaman dan gadai tersimpan tampil di sini bersama status tanda tangannya."
+        body="Perjanjian pinjaman dan gadai yang sudah disetujui internal tampil di sini bersama status tanda tangannya."
       />
     );
   }
   return (
     <div className="space-y-6">
       {contracts.pinjaman.length > 0 && (
-        <section>
-          <h3 className="text-sm font-semibold">Perjanjian pinjaman</h3>
+        <section aria-labelledby="perjanjian-pinjaman">
+          <h3 id="perjanjian-pinjaman" className="text-sm font-semibold">
+            Perjanjian pinjaman
+          </h3>
           <ul className="mt-3 space-y-3">
             {contracts.pinjaman.map((c) => (
               <li key={c._id}>
@@ -99,24 +75,14 @@ export function MyContractsSection({
         </section>
       )}
       {contracts.gadai.length > 0 && (
-        <section>
-          <h3 className="text-sm font-semibold">Perjanjian gadai</h3>
+        <section aria-labelledby="perjanjian-gadai">
+          <h3 id="perjanjian-gadai" className="text-sm font-semibold">
+            Perjanjian gadai
+          </h3>
           <ul className="mt-3 space-y-3">
             {contracts.gadai.map((c) => (
-              <li
-                key={c._id}
-                className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{c.deskripsiBarang}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Catatan {c.nomorReferensi} · taksiran PINDAI{" "}
-                      {c.nilaiTaksiran !== undefined ? formatRupiah(c.nilaiTaksiran) : "—"}
-                    </p>
-                  </div>
-                  <PawnContractActions pawnId={c._id} pawnRef={c.nomorReferensi} />
-                </div>
+              <li key={c._id}>
+                <PawnContractCard c={c} />
               </li>
             ))}
           </ul>
@@ -126,50 +92,20 @@ export function MyContractsSection({
   );
 }
 
-function LoanContractCard({
-  c,
-}: {
-  c: {
-    _id: Id<"loans">;
-    nomorReferensi: string;
-    pokokPinjaman: number;
-    tenorHari: number;
-    /** Diisi (1/3/6 bln) bila pinjaman memakai skema bulanan. */
-    tenorBulan: number | null;
-    /** Bunga khusus nasabah (persen); null = default Pengaturan Sistem. */
-    persenBunga: number | null;
-    /** Centang cair ekspres; null = data lama (ekspres dipakai). */
-    cairEkspres: boolean | null;
-    /** Snapshot tarif potongan di muka; null = tarif bawaan. */
-    tarifBiaya: {
-      adminPersen: number;
-      asuransiPersen: number;
-      ekspres: { tier1: number; tier2: number; tier3: number };
-    } | null;
-    status: string;
-    tandaTanganAda: boolean;
-    tandaTanganDataUrl: string | null;
-    tandaTanganPada: number | null;
-    persetujuanSyaratPada: number | null;
-    persetujuanSyaratVersi: string | null;
-    createdAt: number;
-    nik: string | null;
-    namaLengkap: string;
-    namaBank: string | null;
-    nomorRekening: string;
-    lokasiAjukan: { lat: number; lng: number } | null;
-  };
-}) {
+function LoanContractCard({ c }: { c: Pinjaman }) {
+  const [open, setOpen] = useState(false);
+  const [alur, setAlur] = useState<"elektronik" | "manual">("elektronik");
+  const simpan = useMutation(api.loans.setujuiPerjanjianPinjaman);
   const ketentuan = useQuery(api.system.getKetentuanBiaya);
   const digital = useQuery(api.kontrakDigital.infoPinjaman, { loanId: c._id });
   const qr = useQrDataUrl(digital ? urlVerifikasi(digital.kode) : null);
+
   const q = quotePinjaman({
     pokokPinjaman: c.pokokPinjaman,
     persenBunga: c.persenBunga ?? undefined,
     cairEkspres: c.cairEkspres ?? undefined,
     tarifBiaya: c.tarifBiaya ?? undefined,
   });
-  // Ringkasan bulanan: data warisan di luar rentang skema dilewati dengan aman.
   const bulanan = useMemo(() => {
     if (c.tenorBulan === null) return null;
     try {
@@ -182,16 +118,23 @@ function LoanContractCard({
       return null;
     }
   }, [c.pokokPinjaman, c.tenorBulan, c.persenBunga]);
+
   const html = useMemo(
     () =>
       buildPinjamanContract(
-        { namaLengkap: c.namaLengkap, namaBank: c.namaBank, nomorRekening: c.nomorRekening, nik: c.nik, email: null },
+        {
+          namaLengkap: c.namaLengkap,
+          namaBank: c.namaBank,
+          nomorRekening: c.nomorRekening,
+          nik: c.nik,
+          email: null,
+        },
         q,
         {
           nomorReferensi: c.nomorReferensi,
           lokasi: c.lokasiAjukan,
           timestampPada: c.tandaTanganPada ?? c.createdAt,
-          ...(c.tandaTanganDataUrl
+          ...(c.persetujuanMode !== "manual" && c.tandaTanganDataUrl
             ? {
                 tandaTanganPeminjam: {
                   dataUrl: c.tandaTanganDataUrl,
@@ -201,6 +144,10 @@ function LoanContractCard({
                 },
               }
             : {}),
+          persetujuanSyarat: {
+            pada: c.persetujuanSyaratPada,
+            versi: c.persetujuanSyaratVersi,
+          },
           ...(digital
             ? {
                 verifikasi: {
@@ -220,169 +167,319 @@ function LoanContractCard({
     [c, q, bulanan, ketentuan?.persenDendaKeterlambatan, digital, qr],
   );
 
+  const status = statusKontrak({
+    persetujuanPada: c.persetujuanSyaratPada,
+    persetujuanVersi: c.persetujuanSyaratVersi,
+    persetujuanMode: c.persetujuanMode,
+    ttdDataUrl: c.tandaTanganDataUrl,
+    ttdPada: c.tandaTanganPada,
+    ttdManualPada: c.ttdManualPada,
+  });
+  const label = labelStatusKontrak(status);
+  const sudah = status !== "belum" && status !== "versi_lama";
+  const dibatalkan = c.status === "dibatalkan";
+
+  const buka = (jalur: "elektronik" | "manual") => {
+    setAlur(jalur);
+    setOpen(true);
+  };
+
   return (
-    <div className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">{judulContract("pinjaman")}</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            <span className="font-mono">{nomorContract("pinjaman", c.nomorReferensi)}</span> ·
-            pokok {formatRupiah(c.pokokPinjaman)} ·{" "}
-            {bulanan !== null ? (
+    <article className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold">{judulContract("pinjaman")}</p>
+            <Badge variant="outline" className={kelasLencana(label.nada)}>
+              {label.label}
+            </Badge>
+          </div>
+          <p className="mt-1 break-words text-xs text-muted-foreground">
+            <span className="font-mono">{nomorContract("pinjaman", c.nomorReferensi)}</span> · pokok{" "}
+            {formatRupiah(c.pokokPinjaman)}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {status === "manual"
+              ? "Persetujuan tercatat. Unduh perjanjian, tanda tangani basah, lalu admin mengunggah buktinya."
+              : status === "manual_diterima"
+                ? `Bukti TTD manual diterima${c.ttdManualPada === null ? "" : ` ${new Date(c.ttdManualPada).toLocaleString("id-ID")}`}${c.ttdManualOleh === null ? "" : ` oleh ${c.ttdManualOleh}`}.`
+                : status === "elektronik"
+                  ? "Perjanjian sudah ditandatangani secara elektronik dan tersimpan di ledger internal."
+                  : "Setujui syarat, lalu pilih tanda tangan elektronik atau TTD manual."}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {sudah ? (
+            status === "manual" ? (
               <>
-                dana bersih {formatRupiah(bulanan.danaDiterima)} · tenor {bulanan.tenorBulan} bulan ·
-                cicilan rata dari{" "}
-                {formatRupiah(bulanan.cicilanPerBulan)} ke {formatRupiah(bulanan.cicilanTerakhir)} · total{" "}
-                {formatRupiah(bulanan.totalPengembalian)}
+                <Button
+                  size="sm"
+                  className="min-h-11 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  onClick={() => buka("elektronik")}
+                >
+                  <PenLine className="mr-1.5 size-4" aria-hidden="true" />
+                  Tanda tangan elektronik
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 rounded-full"
+                  onClick={() => buka("manual")}
+                >
+                  <FileDown className="mr-1.5 size-4" aria-hidden="true" />
+                  Unduh untuk TTD manual
+                </Button>
               </>
             ) : (
-              <>
-                nilai bersih {formatRupiah(q.danaBersihDitransfer)} · total kewajiban{" "}
-                {formatRupiah(q.totalKewajibanPelunasan)} (tidak ditagihkan)
-              </>
-            )}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {c.lokasiAjukan
-              ? `Koordinat perangkat yang dikirim ${c.lokasiAjukan.lat.toFixed(4)}, ${c.lokasiAjukan.lng.toFixed(4)}`
-              : "Koordinat perangkat belum dicatat"}{" "}
-            · {c.tandaTanganAda ? "gambar tanda tangan tercatat" : "belum ada gambar yang tercatat"}
-          </p>
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <ContractPrintButton html={html} label="Cetak catatan" />
-          <ContractPreviewButton html={html} />
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-11 rounded-full"
+                onClick={() => buka(status === "manual_diterima" ? "manual" : "elektronik")}
+              >
+                <ShieldCheck className="mr-1.5 size-4" aria-hidden="true" />
+                Lihat perjanjian
+              </Button>
+            )
+          ) : (
+            <>
+              <Button
+                size="sm"
+                className="min-h-11 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={dibatalkan}
+                onClick={() => buka("elektronik")}
+              >
+                <PenLine className="mr-1.5 size-4" aria-hidden="true" />
+                Tanda tangan elektronik
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-11 rounded-full"
+                disabled={dibatalkan}
+                onClick={() => buka("manual")}
+              >
+                <FileDown className="mr-1.5 size-4" aria-hidden="true" />
+                Setujui & TTD manual
+              </Button>
+            </>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
 
-/** Buka pratinjau catatan HTML di tab baru — tanpa renderer PDF eksternal. */
-function ContractPreviewButton({ html }: { html: string }) {
-  const buka = async () => {
-    // Lengkapi QR yang belum sempat dibuat hook sebelum dokumen dibuka.
-    const dokumen = wrapContractHtml(await lengkapiQrCetak(html));
-    // Aplikasi Android: tampilkan lewat dialog cetak (sekaligus pratinjau).
-    if (cetakLewatAplikasi(dokumen)) return;
-    const w = window.open("", "_blank");
-    if (!w) {
-      toast.error("Popup diblokir browser. Izinkan popup untuk melihat dokumen.");
-      return;
-    }
-    w.document.write(dokumen);
-    w.document.close();
-  };
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="rounded-full"
-      onClick={() => void buka()}
-    >
-      <FileText className="mr-1.5 size-4" /> Lihat
-    </Button>
-  );
-}
-
-function PawnContractActions({ pawnId, pawnRef }: { pawnId: Id<"pawns">; pawnRef: string }) {
-  const detail = useQuery(api.loans.getMyPawn, { pawnId });
-  const digital = useQuery(api.kontrakDigital.infoGadai, { pawnId });
-  const qr = useQrDataUrl(digital ? urlVerifikasi(digital.kode) : null);
-  if (detail === undefined) {
-    // Rangka tombol, bukan spinner: tinggi dan lebarnya sama dengan deret aksi
-    // sungguhan, jadi baris tabel tidak bergeser saat data tiba.
-    return (
-      <div className="flex shrink-0 gap-2">
-        <span className="sr-only">Memuat aksi perjanjian…</span>
-        <Skeleton className="h-8 w-20 rounded-xl" />
-        <Skeleton className="h-8 w-20 rounded-xl" />
-      </div>
-    );
-  }
-  if (detail === null || detail.nilaiTaksiran === undefined) {
-    return <span className="text-xs text-muted-foreground">Menunggu catatan taksiran</span>;
-  }
-  const html = buildGadaiContractMilikSendiri(
-    detail,
-    digital
-      ? {
-          kode: digital.kode,
-          hash: digital.hash,
-          diterbitkanPada: digital.diterbitkanPada,
-          url: urlVerifikasi(digital.kode),
-          qrDataUrl: qr,
+      <ContractSigningDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={judulContract("pinjaman")}
+        reference={nomorContract("pinjaman", c.nomorReferensi)}
+        borrowerName={c.namaLengkap}
+        html={html}
+        signature={c.tandaTanganDataUrl}
+        signedAt={c.tandaTanganPada}
+        consentAt={c.persetujuanSyaratPada}
+        consentVersion={c.persetujuanSyaratVersi}
+        consentMode={c.persetujuanMode}
+        manualAt={c.ttdManualPada}
+        fileName={namaBerkasKontrak("pinjaman", c.nomorReferensi)}
+        mode="peminjam"
+        alurAwal={alur}
+        signingDisabledReason={
+          dibatalkan ? "Pengajuan dibatalkan. Perjanjian ini tidak dapat disetujui." : null
         }
-      : undefined,
-  );
-  return (
-    <div className="flex shrink-0 gap-2">
-      <ContractPrintButton html={html} label="Cetak catatan" />
-      <ContractPreviewButton html={html} />
-      <span className="sr-only">{pawnRef}</span>
-    </div>
+        onSign={async ({ dataUrl, mode }) => {
+          await simpan({
+            loanId: c._id,
+            mode,
+            ...(dataUrl !== null ? { dataUrl } : {}),
+          });
+        }}
+      />
+    </article>
   );
 }
 
-/** Rangkai catatan gadai dari data yang tersimpan untuk peminjam. */
-function buildGadaiContractMilikSendiri(
-  detail: {
-  nomorReferensi: string;
-  tandaTanganPeminjam?: string;
-  tandaTanganPada?: number;
-  persetujuanSyaratPada?: number;
-  persetujuanSyaratVersi?: string;
-  namaLengkap: string;
-  namaBank?: string | null;
-  nomorRekening: string;
-  deskripsiBarang: string;
-  kategori: string;
-  nilaiTaksiran?: number;
-  hargaPasar?: number;
-  kondisiFisik?: string;
-  kodeRakVault?: string;
-  _creationTime: number;
-  },
-  verifikasi?: {
-    kode: string;
-    hash: string;
-    diterbitkanPada: number;
-    url: string;
-    qrDataUrl: string | null;
-  },
-): string {
-  return buildGadaiContract(
-    {
-      namaLengkap: detail.namaLengkap,
-      namaBank: detail.namaBank ?? null,
-      nomorRekening: detail.nomorRekening,
-      nik: null,
-      email: null,
-    },
-    {
-      deskripsiBarang: detail.deskripsiBarang,
-      kategori: detail.kategori,
-      nilaiTaksiran: detail.nilaiTaksiran ?? 0,
-      hargaPasar: detail.hargaPasar ?? 0,
-      ltvPersen: 70,
-      kodeRakVault: detail.kodeRakVault ?? "—",
-      kondisiFisik: detail.kondisiFisik ?? "dinilai petugas",
-    },
-    {
-      nomorReferensi: detail.nomorReferensi,
-      lokasi: null,
-      timestampPada: detail.tandaTanganPada ?? detail._creationTime,
-      ...(detail.tandaTanganPeminjam
-        ? {
-            tandaTanganPeminjam: {
-              dataUrl: detail.tandaTanganPeminjam,
-              tandaTanganPada: detail.tandaTanganPada,
-              persetujuanSyaratPada: detail.persetujuanSyaratPada,
-              persetujuanSyaratVersi: detail.persetujuanSyaratVersi,
-            },
-          }
-        : {}),
-      ...(verifikasi ? { verifikasi } : {}),
-    },
+function PawnContractCard({ c }: { c: Gadai }) {
+  const [open, setOpen] = useState(false);
+  const [alur, setAlur] = useState<"elektronik" | "manual">("elektronik");
+  const simpan = useMutation(api.loans.setujuiPerjanjianGadai);
+  const digital = useQuery(api.kontrakDigital.infoGadai, { pawnId: c._id });
+  const qr = useQrDataUrl(digital ? urlVerifikasi(digital.kode) : null);
+
+  const html = useMemo(
+    () =>
+      buildGadaiContract(
+        {
+          namaLengkap: c.namaLengkap,
+          namaBank: c.namaBank,
+          nomorRekening: c.nomorRekening,
+          nik: null,
+          email: null,
+        },
+        {
+          deskripsiBarang: c.deskripsiBarang,
+          kategori: c.kategori,
+          nilaiTaksiran: c.nilaiTaksiran ?? 0,
+          hargaPasar: c.hargaPasar ?? 0,
+          ltvPersen: 70,
+          kodeRakVault: c.kodeRakVault ?? "—",
+          kondisiFisik: c.kondisiFisik ?? "dinilai petugas",
+        },
+        {
+          nomorReferensi: c.nomorReferensi,
+          lokasi: null,
+          timestampPada: c.tandaTanganPada ?? c.createdAt,
+          ...(c.persetujuanMode !== "manual" && c.tandaTanganDataUrl
+            ? {
+                tandaTanganPeminjam: {
+                  dataUrl: c.tandaTanganDataUrl,
+                  tandaTanganPada: c.tandaTanganPada,
+                  persetujuanSyaratPada: c.persetujuanSyaratPada,
+                  persetujuanSyaratVersi: c.persetujuanSyaratVersi,
+                },
+              }
+            : {}),
+          persetujuanSyarat: {
+            pada: c.persetujuanSyaratPada,
+            versi: c.persetujuanSyaratVersi,
+          },
+          ...(digital
+            ? {
+                verifikasi: {
+                  kode: digital.kode,
+                  hash: digital.hash,
+                  diterbitkanPada: digital.diterbitkanPada,
+                  url: urlVerifikasi(digital.kode),
+                  qrDataUrl: qr,
+                },
+              }
+            : {}),
+        },
+      ),
+    [c, digital, qr],
+  );
+
+  const status = statusKontrak({
+    persetujuanPada: c.persetujuanSyaratPada,
+    persetujuanVersi: c.persetujuanSyaratVersi,
+    persetujuanMode: c.persetujuanMode,
+    ttdDataUrl: c.tandaTanganDataUrl,
+    ttdPada: c.tandaTanganPada,
+    ttdManualPada: c.ttdManualPada,
+  });
+  const label = labelStatusKontrak(status);
+  const sudah = status !== "belum" && status !== "versi_lama";
+
+  const buka = (jalur: "elektronik" | "manual") => {
+    setAlur(jalur);
+    setOpen(true);
+  };
+
+  return (
+    <article className="card-lift rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold">{c.deskripsiBarang}</p>
+            <Badge variant="outline" className={kelasLencana(label.nada)}>
+              {label.label}
+            </Badge>
+          </div>
+          <p className="mt-1 break-words text-xs text-muted-foreground">
+            <span className="font-mono">{nomorContract("gadai", c.nomorReferensi)}</span> · taksiran{" "}
+            {formatRupiah(c.nilaiTaksiran ?? 0)}
+            {c.pokokGadai !== null ? ` · pokok ${formatRupiah(c.pokokGadai)}` : ""}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {status === "manual"
+              ? "Persetujuan tercatat. Unduh akad, tanda tangani basah, lalu admin mengunggah buktinya."
+              : status === "manual_diterima"
+                ? `Bukti TTD manual diterima${c.ttdManualPada === null ? "" : ` ${new Date(c.ttdManualPada).toLocaleString("id-ID")}`}${c.ttdManualOleh === null ? "" : ` oleh ${c.ttdManualOleh}`}.`
+                : status === "elektronik"
+                  ? "Akad sudah ditandatangani secara elektronik dan tersimpan di ledger internal."
+                  : "Setujui syarat, lalu pilih tanda tangan elektronik atau TTD manual."}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {sudah ? (
+            status === "manual" ? (
+              <>
+                <Button
+                  size="sm"
+                  className="min-h-11 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  onClick={() => buka("elektronik")}
+                >
+                  <PenLine className="mr-1.5 size-4" aria-hidden="true" />
+                  Tanda tangan elektronik
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 rounded-full"
+                  onClick={() => buka("manual")}
+                >
+                  <FileDown className="mr-1.5 size-4" aria-hidden="true" />
+                  Unduh untuk TTD manual
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-11 rounded-full"
+                onClick={() => buka(status === "manual_diterima" ? "manual" : "elektronik")}
+              >
+                <ShieldCheck className="mr-1.5 size-4" aria-hidden="true" />
+                Lihat akad
+              </Button>
+            )
+          ) : (
+            <>
+              <Button
+                size="sm"
+                className="min-h-11 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => buka("elektronik")}
+              >
+                <PenLine className="mr-1.5 size-4" aria-hidden="true" />
+                Tanda tangan elektronik
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-11 rounded-full"
+                onClick={() => buka("manual")}
+              >
+                <FileDown className="mr-1.5 size-4" aria-hidden="true" />
+                Setujui & TTD manual
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <ContractSigningDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={judulContract("gadai")}
+        reference={nomorContract("gadai", c.nomorReferensi)}
+        borrowerName={c.namaLengkap}
+        html={html}
+        signature={c.tandaTanganDataUrl}
+        signedAt={c.tandaTanganPada}
+        consentAt={c.persetujuanSyaratPada}
+        consentVersion={c.persetujuanSyaratVersi}
+        consentMode={c.persetujuanMode}
+        manualAt={c.ttdManualPada}
+        fileName={namaBerkasKontrak("gadai", c.nomorReferensi)}
+        mode="peminjam"
+        alurAwal={alur}
+        onSign={async ({ dataUrl, mode }) => {
+          await simpan({
+            pawnId: c._id,
+            mode,
+            ...(dataUrl !== null ? { dataUrl } : {}),
+          });
+        }}
+      />
+    </article>
   );
 }

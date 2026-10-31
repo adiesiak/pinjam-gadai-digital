@@ -33,6 +33,15 @@ export type ContractMeta = {
     persetujuanSyaratVersi?: string | null;
   };
   /**
+   * Bukti persetujuan syarat — tetap dicetak walau belum ada gambar tanda
+   * tangan. Persetujuan dan tanda tangan adalah dua hal terpisah, jadi dokumen
+   * untuk TTD manual tidak boleh tampak seperti belum disetujui sama sekali.
+   */
+  persetujuanSyarat?: {
+    pada?: number | null;
+    versi?: string | null;
+  };
+  /**
    * Sidik jari dokumen dari server (tabel `kontrakDigital`). Kosong berarti
    * kontrak belum/tidak memiliki kode verifikasi — mis. data lama yang
    * ditandatangani sebelum fitur ini ada.
@@ -105,6 +114,26 @@ function fmtKoordinat(lokasi?: { lat: number; lng: number } | null): string {
   return `${lokasi.lat.toFixed(5)}, ${lokasi.lng.toFixed(5)}`;
 }
 
+function fmtWaktu(ts: number): string {
+  return new Date(ts).toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/** Satu kalimat bukti persetujuan; kosong bila belum pernah disetujui. */
+function keteranganPersetujuan(meta: ContractMeta): string {
+  const persetujuan = meta.persetujuanSyarat;
+  if (persetujuan?.pada == null) return "";
+  return `Disetujui digital pada ${fmtWaktu(persetujuan.pada)} WIB untuk syarat versi ${
+    persetujuan.versi ?? CONTRACT_TERMS_VERSION
+  }.`;
+}
+
 function blokTandaTanganPeminjam(
   nama: string,
   peran: string,
@@ -114,11 +143,20 @@ function blokTandaTanganPeminjam(
   const tampilanTandaTangan = bukti
     ? `<img class="signature" src="${escapeHtml(bukti.dataUrl)}" alt="Gambar tanda tangan yang dicatat aplikasi"/>`
     : `<div class="signature-placeholder">Belum ada gambar tanda tangan yang dicatat</div>`;
+  const persetujuan = keteranganPersetujuan(meta);
+  const catatan = bukti
+    ? `${persetujuan ? `${persetujuan} ` : ""}Tanda tangan elektronik tercatat pada ${fmtWaktu(
+        bukti.tandaTanganPada ?? Date.now(),
+      )} WIB.`
+    : persetujuan
+      ? `${persetujuan} Kolom di atas disediakan untuk tanda tangan manual.`
+      : "Persetujuan syarat belum tercatat.";
 
   return `<div>
     <div class="ttd-slot">${tampilanTandaTangan}</div>
     <p class="garis">${escapeHtml(nama)}</p>
     <p>${escapeHtml(peran)}</p>
+    <p class="ttd-catatan">${escapeHtml(catatan)}</p>
   </div>`;
 }
 
@@ -367,7 +405,7 @@ export function buildPinjamanContract(
     <p>${pasalKewajiban}</p>
 
     <h2>Pasal 4 — Persetujuan dan Tanda Tangan</h2>
-    <p>Persetujuan dinyatakan dengan menandai checkbox dan membubuhkan tanda tangan pada kanvas, dan dicatat aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
+    <p>${keteranganPersetujuan(meta) || "Persetujuan dinyatakan dengan menandai checkbox pada aplikasi."} Tanda tangan dapat dibubuhkan pada kanvas elektronik atau pada dokumen cetak ini secara manual. Versi syarat yang berlaku: <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
 
     <h2>Pasal 5 — Data, Lokasi, dan Waktu</h2>
     <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong>${meta.lokasi ? ` dan koordinat perangkat yang dikirim <strong>${fmtKoordinat(meta.lokasi)}</strong>` : ""} ditampilkan sebagai metadata masukan pengajuan.</p>
@@ -454,7 +492,7 @@ export function buildGadaiContract(
     </ol>
 
     <h2>Pasal 4 — Persetujuan dan Tanda Tangan</h2>
-    <p>Persetujuan dinyatakan dengan menandai checkbox dan membubuhkan tanda tangan pada kanvas, dan dicatat aplikasi pada syarat versi <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
+    <p>${keteranganPersetujuan(meta) || "Persetujuan dinyatakan dengan menandai checkbox pada aplikasi."} Tanda tangan dapat dibubuhkan pada kanvas elektronik atau pada dokumen cetak ini secara manual. Versi syarat yang berlaku: <strong>${CONTRACT_TERMS_VERSION}</strong>.</p>
 
     <h2>Pasal 5 — Data, Lokasi, dan Waktu</h2>
     <p>Timestamp sistem <strong>${new Date(meta.timestampPada).toLocaleString("id-ID")}</strong> dan koordinat yang tampil pada aplikasi adalah metadata yang dicatat pada pengajuan.</p>

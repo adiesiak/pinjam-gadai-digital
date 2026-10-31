@@ -44,6 +44,7 @@ ol{padding-left:18px}
 .ttd-slot{display:grid;place-items:center;height:118px}
 .signature{display:block;object-fit:contain;max-width:100%;height:68px}
 .signature-placeholder{display:grid;place-items:center;width:100%;height:68px;border:1px dashed #a8b2bd;color:#64748b;font:11px ui-sans-serif,system-ui,sans-serif}
+.ttd-catatan{font:8px/1.5 Arial,Helvetica,sans-serif;color:#475569;margin:6px 0 0;max-width:200px}
 .stamp-bulat{width:108px;height:108px;color:#1d4ed8}
 .stamp-bulat text{font:900 25px Arial,Helvetica,sans-serif;fill:currentColor;letter-spacing:.02em}
 .footer-dok{display:flex;flex-direction:column;gap:6px;border-top:1px solid #e2e8f0;padding-top:14px;margin-top:28px;font:8px/1.6 Arial,Helvetica,sans-serif;color:#94a3b8}

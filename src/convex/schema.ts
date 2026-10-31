@@ -436,6 +436,20 @@ const schema = defineSchema(
       persetujuanSyaratPada: v.optional(v.number()),
       /** Versi syarat dan ketentuan yang disetujui. */
       persetujuanSyaratVersi: v.optional(v.string()),
+      /** Jalur persetujuan yang dipilih: elektronik atau manual. */
+      persetujuanMode: v.optional(
+        v.union(v.literal("elektronik"), v.literal("manual")),
+      ),
+      /**
+       * Bukti kontrak yang sudah ditandatangani manual. Berkasnya disimpan di
+       * Convex storage; baris pinjaman hanya memegang id + jejak waktu/petugas.
+       * Tanda tangan elektronik tidak diisi palsu saat bukti ini diunggah.
+       */
+      ttdManualBerkasId: v.optional(v.id("_storage")),
+      /** Waktu admin menerima berkas kontrak bertanda tangan manual. */
+      ttdManualPada: v.optional(v.number()),
+      /** Nama petugas yang menerima berkas TTD manual (snapshot audit). */
+      ttdManualOleh: v.optional(v.string()),
       /**
        * Waktu Peminjam mencentang persetujuan Syarat & Ketentuan saat MENGIRIM
        * pengajuan — sebelum admin memfasilitasi tanda tangan akad. Berbeda dari
@@ -1574,6 +1588,16 @@ const schema = defineSchema(
       persetujuanSyaratPada: v.optional(v.number()),
       /** Versi syarat dan ketentuan yang disetujui. */
       persetujuanSyaratVersi: v.optional(v.string()),
+      /** Jalur persetujuan yang dipilih: elektronik atau manual. */
+      persetujuanMode: v.optional(
+        v.union(v.literal("elektronik"), v.literal("manual")),
+      ),
+      /** Bukti akad yang sudah ditandatangani manual (Convex storage). */
+      ttdManualBerkasId: v.optional(v.id("_storage")),
+      /** Waktu admin menerima berkas akad bertanda tangan manual. */
+      ttdManualPada: v.optional(v.number()),
+      /** Nama petugas yang menerima berkas TTD manual (snapshot audit). */
+      ttdManualOleh: v.optional(v.string()),
       /** Penanda klaim peminjam lama — lihat catatan pada tabel `loans`. */
       klaimDariUserId: v.optional(v.id("users")),
       /** Waktu kepemilikan baris ini berpindah karena klaim peminjam lama. */

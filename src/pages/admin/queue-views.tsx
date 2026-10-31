@@ -2,6 +2,7 @@ import { ClipboardList, Package, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { GadaiDanaPanel } from "@/components/GadaiDanaPanel";
+import { PengingatTtd } from "@/components/admin/PengingatTtd";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CatatPengajuanManualButton } from "@/components/admin/CatatPengajuanManual";
 import {
@@ -116,6 +117,17 @@ export function LoanQueueSection({
         {ringkasJumlah(filteredLoans.length, loans.length)}
         {search.trim() !== "" || aktif.id !== SUB_TAB_PINJAMAN[0].id ? " · filter aktif" : ""}
       </p>
+      {aktif.id === "ttd-tertunda" && (
+        <PengingatTtd
+          jenis="pinjaman"
+          baris={filteredLoans.map((l) => ({
+            id: l._id,
+            nama: namaHurufBesar(l.namaLengkap),
+            nomorReferensi: l.nomorReferensi,
+            nomorWhatsApp: l.nomorWhatsApp,
+          }))}
+        />
+      )}
       {filteredLoans.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
           {search.trim()
@@ -236,6 +248,17 @@ export function PawnQueueSection({
             {ringkasJumlah(filteredPawns.length, pawns.length)}
             {search.trim() !== "" || aktif.id !== SUB_TAB_GADAI[0].id ? " · filter aktif" : ""}
           </p>
+          {aktif.id === "ttd-tertunda" && (
+            <PengingatTtd
+              jenis="gadai"
+              baris={filteredPawns.map((p) => ({
+                id: p._id,
+                nama: namaHurufBesar(p.namaLengkap),
+                nomorReferensi: p.nomorReferensi,
+                nomorWhatsApp: p.nomorWhatsApp ?? null,
+              }))}
+            />
+          )}
           {filteredPawns.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-center text-sm text-muted-foreground">
               {search.trim()

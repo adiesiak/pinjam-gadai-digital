@@ -76,8 +76,13 @@ export type LoanRow = {
   tandaTanganPada?: number | null;
   persetujuanSyaratPada?: number | null;
   persetujuanSyaratVersi?: string | null;
+  persetujuanMode?: "elektronik" | "manual" | null;
   persetujuanPengajuanPada?: number | null;
   persetujuanPengajuanVersi?: string | null;
+  /** Bukti kontrak bertanda tangan manual yang sudah diterima admin. */
+  ttdManualAda?: boolean;
+  ttdManualPada?: number | null;
+  ttdManualOleh?: string | null;
   jatuhTempoPada: number | null;
   sisaHari: number | null;
   hariTerlambat: number | null;
@@ -110,6 +115,17 @@ export type PawnRow = {
   persenSewaModal?: number;
   sisaPokok?: number;
   dicairkanPada?: number;
+  /** Nomor WhatsApp pemohon dari akun/KYC — dipakai pengingat TTD. */
+  nomorWhatsApp?: string | null;
+  /** Status perjanjian gadai, dibaca dari `admin.adminOverview`. */
+  tandaTanganAda?: boolean;
+  tandaTanganPada?: number | null;
+  persetujuanSyaratPada?: number | null;
+  persetujuanSyaratVersi?: string | null;
+  persetujuanMode?: "elektronik" | "manual" | null;
+  ttdManualAda?: boolean;
+  ttdManualPada?: number | null;
+  ttdManualOleh?: string | null;
 };
 
 /** Ringkasan pengajuan Kredit Barang (Skema C) untuk penghitung tab admin. */

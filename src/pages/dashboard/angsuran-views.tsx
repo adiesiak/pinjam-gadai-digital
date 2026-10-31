@@ -627,7 +627,8 @@ function KuitansiDialog({ data, onClose }: { data: Kuitansi | null; onClose: () 
               )}
               <ContractPrintButton
                 html={htmlKuitansi(data.grup, baris)}
-                label="Cetak kuitansi"
+                label="Unduh kuitansi"
+                fileName={`Kuitansi-${data.grup.nomorReferensi}-${baris.nomor}.pdf`}
               />
             </div>
           </>

@@ -934,6 +934,10 @@ export function LoanReviewDialog({
     </div>
   );
 
+  // Persetujuan manual tidak memakai gambar KYC lama sebagai tanda tangan akad.
+  const ttdElektronik =
+    row.persetujuanMode !== "manual" && row.tandaTanganAda === true;
+
   // ── Tab 3: Perjanjian & WhatsApp ───────────────────────────────────────
   const tabPerjanjian = (
     <div className="space-y-3">
@@ -958,11 +962,18 @@ export function LoanReviewDialog({
           {[
             {
               label: "Tanda tangan peminjam",
-              value: row.tandaTanganAda === true ? "Ada" : "Belum ada",
+              value:
+                row.ttdManualAda === true
+                  ? "TTD manual"
+                  : ttdElektronik
+                    ? "Elektronik"
+                    : "Belum ada",
               detail:
-                row.tandaTanganAda === true && row.tandaTanganPada != null
-                  ? `Dicatat ${formatDate(row.tandaTanganPada)}`
-                  : "Belum ada gambar tanda tangan tersimpan",
+                row.ttdManualAda === true && row.ttdManualPada != null
+                  ? `Bukti diterima ${formatDate(row.ttdManualPada)}${row.ttdManualOleh ? ` oleh ${row.ttdManualOleh}` : ""}`
+                  : ttdElektronik && row.tandaTanganPada != null
+                    ? `Dicatat ${formatDate(row.tandaTanganPada)}`
+                    : "Belum ada gambar tanda tangan tersimpan",
               icon: FileCheck,
             },
             {
@@ -986,9 +997,11 @@ export function LoanReviewDialog({
                 row.persetujuanSyaratPada == null
                   ? "Perjanjian belum disetujui peminjam"
                   : row.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION
-                    ? row.tandaTanganAda === true
-                      ? `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)}`
-                      : `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)} · TTD manual belum dicatat`
+                    ? row.ttdManualAda === true
+                      ? `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)} · TTD manual diterima`
+                      : ttdElektronik
+                        ? `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)}`
+                        : `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)} · TTD manual belum dicatat`
                     : `Disetujui pada syarat ${row.persetujuanSyaratVersi ?? "lama"} — perlu tanda tangan ulang`,
               icon: ShieldCheck,
             },
@@ -1012,10 +1025,16 @@ export function LoanReviewDialog({
             tetapi checkbox syarat perjanjian baru tercatat saat peminjam membuka menu
             Perjanjian di dashboard — atau lewat widget kontrak di bawah ini.
           </p>
-        ) : row.tandaTanganAda !== true ? (
+        ) : row.ttdManualAda === true ? (
+          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900">
+            Bukti TTD manual sudah diterima dan tercatat. Berkas dapat dibuka kembali dari
+            widget kontrak di bawah untuk arsip.
+          </p>
+        ) : !ttdElektronik ? (
           <p className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">
             Persetujuan sudah tercatat tanpa gambar tanda tangan. Buka widget kontrak untuk
-            mencetak / menyimpan PDF, lalu lengkapi tanda tangan manual bila diperlukan.
+            mengunduh PDF, lalu unggah kembali berkas yang sudah ditandatangani basah sebagai
+            bukti TTD manual.
           </p>
         ) : null}
       </div>
