@@ -161,6 +161,18 @@ ok(
   ),
   "sumber: efek terikat pada perubahan activeTab",
 );
+ada(sumber, "const LABEL_PENDEK", "sumber: label tab bawah punya versi pendek");
+ada(sumber, "min-w-0 flex-1", "sumber: lima tab bawah boleh menyusut rata");
+ada(
+  sumber,
+  'absolute right-1 top-1',
+  "sumber: lencana tidak memakan lebar label tab",
+);
+ok(
+  !/className="[^"]*-mx-3/.test(sumber) &&
+    !/className="[^"]*sm:-mx-6/.test(sumber),
+  "sumber: strip bawah tidak memakai margin negatif di luar main",
+);
 
 // ===== 3. Isi chip tidak dikorbankan demi satu baris =====
 {

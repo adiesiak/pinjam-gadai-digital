@@ -57,6 +57,16 @@ export type GrupNavData = {
 /** Item menu yang sudah dilengkapi nama grupnya, untuk pencarian. */
 type ItemRata = ItemNav & { grup: string };
 
+/**
+ * Label pendek khusus bilah bawah. Nama lengkap tetap ada di `aria-label`,
+ * chip modul, dan kartu judul; lima tab 320px tidak cukup untuk kata panjang
+ * seperti "Operasional" tanpa memotong teks.
+ */
+const LABEL_PENDEK: Record<string, string> = {
+  operasional: "Operasi",
+  pemantauan: "Pantau",
+};
+
 /** Ikon tab bawah per id grup — satu ikon untuk masing-masing lima kategori. */
 const IKON_GRUP: Record<string, ComponentType<{ className?: string }>> = {
   "hari-ini": LayoutDashboard,
@@ -199,7 +209,10 @@ export function AdminNav({
       {/* Strip chip: modul milik tab yang sedang aktif, satu baris yang digeser
           mendatar. Chip aktif selalu digulirkan ke dalam pandangan, dan pintu
           "Cari…" duduk tetap di kanan agar pencarian tidak pernah jauh. */}
-      <div className="animate-masuk sticky top-14 z-30 -mx-3 border-y border-border bg-card sm:-mx-6 sm:top-16 lg:hidden">
+      {/* Bilah ini hidup di luar `<main>` yang berpadding, jadi jangan memakai
+          margin negatif: `-mx-3` dulu membuatnya 24px lebih lebar dari viewport
+          dan mendorong halaman 320px ke samping. */}
+      <div className="animate-masuk sticky top-14 z-30 border-y border-border bg-card sm:top-16 lg:hidden">
         <div className="flex items-center gap-2 px-3 py-1.5 sm:px-6 sm:py-2">
           <div
             role="group"
@@ -270,20 +283,27 @@ export function AdminNav({
                   if (!aktif) onPilih(grupNav.default);
                 }}
                 className={cn(
-                  "m-1 flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[10px] font-semibold transition-colors sm:m-1.5 sm:px-1 sm:text-[11px]",
+                  "relative m-1 flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[10px] font-semibold transition-colors sm:m-1.5 sm:px-1 sm:text-[11px]",
                   aktif
                     ? "gradient-primary text-white"
                     : "text-slate-500 hover:bg-slate-50 hover:text-navy",
                 )}
               >
                 <Icon className="size-4" aria-hidden />
-                <span className="flex items-center gap-1">
-                  {grupNav.label}
-                  {/* Lencana disembunyikan saat tab aktif: chip di atasnya sudah
-                      menampilkan rincian per modul, dan lencana kuning di atas
-                      latar gradien sulit dibaca. */}
-                  {!aktif && <LencanaTab badge={lencana} />}
+                <span className="flex max-w-full min-w-0 items-center justify-center">
+                  <span className="truncate">
+                    {LABEL_PENDEK[grupNav.id] ?? grupNav.label}
+                  </span>
                 </span>
+                {/* Lencana diposisikan absolut agar tidak memakan lebar label.
+                    Lencana disembunyikan saat tab aktif: chip di atasnya sudah
+                    menampilkan rincian per modul, dan lencana kuning di atas
+                    latar gradien sulit dibaca. */}
+                {!aktif && lencana !== null && lencana !== "OK" && (
+                  <span className="absolute right-1 top-1">
+                    <LencanaTab badge={lencana} />
+                  </span>
+                )}
               </button>
             );
           })}
