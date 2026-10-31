@@ -49,25 +49,25 @@ export function PilihanProduk({
     <div className={cn("grid gap-3 md:grid-cols-2", className)}>
       <article
         className={cn(
-          "flex h-full flex-col rounded-kartu border border-emerald-200 bg-white p-4 sm:p-5",
+          "flex h-full flex-col rounded-kartu border border-primary/20 bg-card p-4 sm:p-5",
           onPilih !== undefined &&
             aktif === "konvensional" &&
-            "border-emerald-700 ring-2 ring-emerald-700/15",
+            "border-primary ring-2 ring-primary/15",
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-secondary text-primary">
             <Wallet className="size-4" aria-hidden />
           </span>
-          <h3 className="text-base font-semibold text-navy">
+          <h3 className="text-base font-semibold text-foreground">
             Pembiayaan konvensional
           </h3>
         </div>
-        <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
+        <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
           Bunga flat dan biaya di muka yang tertera sebelum akad.
         </p>
         {ringkas ? (
-          <p className="mt-2 text-xs leading-5 text-slate-500">
+          <p className="mt-2 text-sm leading-5 text-muted-foreground">
             Harian 7/14/21/28 hari atau cicilan 1/3/6/9/12 bulan.
           </p>
         ) : (
@@ -75,11 +75,11 @@ export function PilihanProduk({
             {SOROTAN_KONVENSIONAL.map((baris) => (
               <li
                 key={baris}
-                className="flex items-start gap-2 text-xs leading-5 text-slate-700"
+                className="flex items-start gap-2 text-sm leading-5 text-foreground"
               >
                 <span
                   aria-hidden
-                  className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-700"
+                  className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary"
                 />
                 {baris}
               </li>
@@ -89,7 +89,7 @@ export function PilihanProduk({
         {onPilih === undefined ? (
           <Link
             to="/pinjaman/konvensional"
-            className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-emerald-800 hover:text-emerald-900 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Lihat produk konvensional
             <ArrowRight className="size-4" aria-hidden />
@@ -99,7 +99,7 @@ export function PilihanProduk({
             type="button"
             aria-pressed={aktif === "konvensional"}
             onClick={() => onPilih("konvensional")}
-            className="mt-4 inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg text-sm font-semibold text-emerald-800 hover:text-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg text-sm font-semibold text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {aktif === "konvensional" ? "Jalur konvensional dipilih" : "Pilih konvensional"}
             <ArrowRight className="size-4" aria-hidden />
@@ -109,25 +109,25 @@ export function PilihanProduk({
 
       <article
         className={cn(
-          "flex h-full flex-col rounded-kartu border border-[#c9a86a]/50 bg-[#fbf7ec] p-4 sm:p-5",
+          "flex h-full flex-col rounded-kartu border border-gold/45 bg-gold/5 p-4 sm:p-5",
           onPilih !== undefined &&
             aktif === "syariah" &&
-            "border-amber-700 ring-2 ring-amber-700/20",
+            "border-gold ring-2 ring-gold/20",
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-amber-100 text-amber-900">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-gold/15 text-gold-foreground">
             <HandCoins className="size-4" aria-hidden />
           </span>
-          <h3 className="text-base font-semibold text-navy">
+          <h3 className="text-base font-semibold text-foreground">
             Pembiayaan syariah
           </h3>
         </div>
-        <p className="mt-2 flex-1 text-sm leading-6 text-slate-700">
+        <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
           Dua akad dengan margin dan ujrah yang disepakati.
         </p>
         {ringkas ? (
-          <p className="mt-2 text-xs leading-5 text-slate-600">
+          <p className="mt-2 text-sm leading-5 text-muted-foreground">
             Murabahah dan Rahn.
           </p>
         ) : (
@@ -135,11 +135,11 @@ export function PilihanProduk({
             {AKAD_SYARIAH.map((akad) => (
               <li
                 key={akad.judul}
-                className="flex items-start gap-2 text-xs leading-5 text-slate-700"
+                className="flex items-start gap-2 text-sm leading-5 text-foreground"
               >
-                <akad.ikon className="mt-0.5 size-3.5 shrink-0 text-amber-800" aria-hidden />
+                <akad.ikon className="mt-0.5 size-4 shrink-0 text-gold-foreground" aria-hidden />
                 <span>
-                  <strong className="font-semibold text-slate-900">
+                  <strong className="font-semibold text-foreground">
                     {akad.judul}
                   </strong>
                   {": "}
@@ -152,7 +152,7 @@ export function PilihanProduk({
         {onPilih === undefined ? (
           <Link
             to="/pinjaman/syariah"
-            className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-amber-900 hover:text-amber-950 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-gold-foreground hover:text-gold-foreground/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Baca akad syariah
             <ArrowRight className="size-4" aria-hidden />
@@ -162,15 +162,15 @@ export function PilihanProduk({
             type="button"
             aria-pressed={aktif === "syariah"}
             onClick={() => onPilih("syariah")}
-            className="mt-4 inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg text-sm font-semibold text-amber-900 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-4 inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg text-sm font-semibold text-gold-foreground hover:text-gold-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {aktif === "syariah" ? "Jalur syariah dipilih" : "Pilih syariah"}
             <ArrowRight className="size-4" aria-hidden />
           </button>
         )}
         {!ringkas && onPilih === undefined && (
-          <p className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-amber-900/80">
-            <Info className="mt-0.5 size-3 shrink-0" aria-hidden />
+          <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-gold-foreground">
+            <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
             Pengajuan akad syariah dibuka dari dashboard setelah Anda masuk.
           </p>
         )}

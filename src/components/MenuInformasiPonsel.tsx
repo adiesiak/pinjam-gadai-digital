@@ -9,6 +9,8 @@ export type TautanMenuPonsel = {
   label: string;
   /** Halaman yang sedang dibuka: ditandai `aria-current="page"`. */
   aktif?: boolean;
+  /** Judul kelompok; dirender sekali saat nilainya berubah. */
+  grup?: string;
 };
 
 export interface MenuInformasiPonselProps {
@@ -79,19 +81,26 @@ export function MenuInformasiPonsel({
           aria-label="Menu informasi"
           className={kelasPanel}
         >
-          {tautan.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              onClick={tutup}
-              aria-current={item.aktif ? "page" : undefined}
-              className={cn(
-                kelasTautan,
-                item.aktif === true ? kelasTautanAktif : undefined,
-              )}
-            >
-              {item.label}
-            </Link>
+          {tautan.map((item, i) => (
+            <div key={item.href}>
+              {item.grup !== undefined && item.grup !== tautan[i - 1]?.grup ? (
+                <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground first:pt-1">
+                  {item.grup}
+                </p>
+              ) : null}
+              <Link
+                to={item.href}
+                onClick={tutup}
+                aria-current={item.aktif ? "page" : undefined}
+                className={cn(
+                  "block",
+                  kelasTautan,
+                  item.aktif === true ? kelasTautanAktif : undefined,
+                )}
+              >
+                {item.label}
+              </Link>
+            </div>
           ))}
         </nav>
       )}

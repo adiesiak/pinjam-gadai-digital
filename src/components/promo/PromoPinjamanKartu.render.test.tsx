@@ -57,7 +57,11 @@ ada(beranda, "Ajukan pinjaman tenor 28 hari", "deskripsi kampanye");
 ada(beranda, "Promo Oktober", "label kecil");
 ada(beranda, formatPeriodePromo(promo.mulai, promo.selesai), "masa berlaku");
 ada(beranda, 'id="promo-pinjaman-beranda"', "id judul unik per penempatan");
-ada(beranda, 'href="/auth?returnTo=/dashboard"', "CTA beranda menuju pendaftaran");
+ada(
+  beranda,
+  'href="/auth?returnTo=%2Fdashboard%3Ftab%3Dform"',
+  "CTA beranda menuju formulir setelah pendaftaran",
+);
 tidakAda(beranda, 'href="/promo"', "CTA publik tidak menuju /promo yang khusus admin");
 
 const dashboard = gambar("dashboard");

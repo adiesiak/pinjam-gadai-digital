@@ -199,8 +199,8 @@ ok(
 
 // ── 5. Penanda sesi & kebersihan markup ──
 ok(
-  render(false).includes("Akun PINDAI"),
-  'belum masuk → penanda "Akun PINDAI"',
+  render(false).includes("Ilustrasi tampilan akun"),
+  'belum masuk → penanda "Ilustrasi tampilan akun"',
 );
 ok(render(true).includes("Sesi aktif"), 'sudah masuk → penanda "Sesi aktif"');
 ok(!html.includes("[object Object]"), 'tanpa "[object Object]"');

@@ -88,9 +88,10 @@ export function PasangAplikasi() {
               terpasang; bila belum, panduan untuk perangkat ini terbuka dan
               tinggal diikuti.
             </p>
-            <p className="mt-3 max-w-xl text-xs leading-5 text-slate-500">
-              Aplikasi berjalan dari peramban, tanpa berkas unduhan. PINDAI
-              belum ada di Play Store maupun App Store.
+            <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+              Versi web bisa dipasang langsung dari peramban. APK Android
+              tersedia untuk perangkat yang tidak menampilkan tawaran
+              pemasangan. PINDAI belum ada di Play Store maupun App Store.
             </p>
           </div>
 
@@ -116,8 +117,8 @@ export function PasangAplikasi() {
               >
                 Unduh APK Android (pasang manual)
               </a>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                Untuk Android yang tidak menampilkan tawaran pemasangan.
+              <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                Khusus Android yang tidak menampilkan tawaran pemasangan.
                 Izinkan “instal dari sumber ini” saat diminta.
               </p>
             </div>

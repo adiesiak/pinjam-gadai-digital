@@ -2,30 +2,33 @@ import {
   ArrowRight,
   BadgeCheck,
   Calculator,
+  ChevronDown,
   FileText,
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { SkipLink } from "@/components/SkipLink";
 import { VaultLogo } from "@/components/VaultLogo";
 import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
-import { PilihanProdukSection } from "@/components/landing/PilihanProduk";
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
-import { BannerPromoGambar } from "@/components/promo/BannerPromoGambar";
-import { PromoBungaAktif } from "@/components/promo/PromoBungaAktif";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
-import { BiayaBerlaku } from "@/components/landing/BiayaBerlaku";
-import { BandingProduk } from "@/components/landing/BandingProduk";
+import { ProdukBeranda } from "@/components/landing/ProdukBeranda";
 import { CtaLengket } from "@/components/landing/CtaLengket";
 import { DokumenPerlindungan } from "@/components/landing/DokumenPerlindungan";
 import { FaqBeranda } from "@/components/landing/FaqBeranda";
@@ -55,15 +58,48 @@ const HREF_LAYANAN = [
 
 /** Menu ponsel: satu daftar untuk tombol pemicu di header. */
 const TAUTAN_MENU = [
-  { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
-  { href: "/layanan/gadai", label: "Gadai" },
-  { href: "/layanan/kredit-barang", label: "Kredit barang" },
-  { href: "/ppob", label: "Pulsa & PPOB" },
+  { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai", grup: "Produk" },
+  { href: "/layanan/gadai", label: "Gadai", grup: "Produk" },
+  { href: "/layanan/kredit-barang", label: "Kredit barang", grup: "Produk" },
+  { href: "/ppob", label: "Pulsa & PPOB", grup: "Produk" },
+  {
+    href: "/pinjaman/syariah",
+    label: "Akad syariah",
+    grup: "Produk",
+  },
+  { href: "/biaya", label: "Biaya", grup: "Panduan" },
+  { href: "/cara-kerja", label: "Cara kerja", grup: "Panduan" },
+  { href: "/keamanan", label: "Keamanan", grup: "Panduan" },
+  { href: "/faq", label: "FAQ", grup: "Panduan" },
+  { href: "/aplikasi", label: "Aplikasi Android", grup: "Lainnya" },
+] as const;
+
+/** Tautan desktop: lima tujuan, produk masuk ke dropdown. */
+const TAUTAN_NAV = [
   { href: "/biaya", label: "Biaya" },
   { href: "/cara-kerja", label: "Cara kerja" },
   { href: "/keamanan", label: "Keamanan" },
   { href: "/faq", label: "FAQ" },
-  { href: "/aplikasi", label: "Aplikasi Android" },
+] as const;
+
+const PRODUK_NAV = [
+  {
+    href: "/layanan/pinjaman-tunai",
+    label: "Pinjaman tunai",
+    isi: "Skema harian atau cicilan bulanan.",
+  },
+  { href: "/layanan/gadai", label: "Gadai", isi: "Taksiran barang dan sewa modal." },
+  {
+    href: "/layanan/kredit-barang",
+    label: "Kredit barang",
+    isi: "Cicilan untuk barang yang dipilih.",
+  },
+  { href: "/ppob", label: "Pulsa & PPOB", isi: "Pulsa, data, dan tagihan." },
+  {
+    href: "/pinjaman/syariah",
+    label: "Akad syariah",
+    isi: "Murabahah dan rahn tanpa bunga.",
+  },
 ] as const;
 
 const HREF_PANDUAN = [
@@ -124,6 +160,7 @@ function DemoPengajuanTerlihat({ tarif }: { tarif: TarifBiaya }) {
 export default function LandingHome() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   /**
    * Teks beranda dari CMS. Selama query belum termuat (atau server belum punya
    * baris CMS), bawaan dari `lib/landing-cms` yang dirender — halaman tidak
@@ -203,22 +240,23 @@ export default function LandingHome() {
     window.addEventListener("keydown", bukaAdmin);
     return () => window.removeEventListener("keydown", bukaAdmin);
   }, [navigate]);
+  const formHref = `/auth?returnTo=${encodeURIComponent("/dashboard?tab=form")}`;
   const accountHref =
     isAuthenticated && user?.role === "admin"
       ? ADMIN_ROUTE
       : isAuthenticated
         ? "/dashboard"
-        : "/auth";
+        : formHref;
   // Tamu melihat aksi yang sebenarnya mereka tuju; satu klik langsung ke
-  // halaman masuk dengan tujuan yang sudah terisi.
+  // halaman masuk dengan tujuan formulir yang sudah terisi.
   const accountLabel = isAuthenticated ? "Buka dashboard" : "Ajukan pinjaman";
 
   return (
     // Ruang bawah ekstra di ponsel: bilah aksi lengket tidak boleh menutupi
     // baris terakhir footer.
-    <div className="min-h-screen w-full overflow-x-hidden bg-background pb-24 text-foreground sm:pb-0">
+    <div className="min-h-screen w-full overflow-x-hidden scroll-pb-28 bg-background pb-24 text-foreground sm:scroll-pb-0 sm:pb-0">
       <SkipLink />
-      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-border bg-background">
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             to="/"
@@ -233,35 +271,56 @@ export default function LandingHome() {
           </Link>
           <nav
             aria-label="Navigasi utama"
-            className="hidden items-center gap-2.5 whitespace-nowrap text-[13px] text-slate-600 lg:flex xl:gap-5 xl:text-sm [&_a]:inline-flex [&_a]:min-h-11 [&_a]:items-center [&_a]:rounded-sm [&_a]:px-1 [&_a]:focus-visible:outline-none [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-ring [&_a]:focus-visible:ring-offset-2"
+            className="hidden items-center gap-1 whitespace-nowrap text-sm text-muted-foreground lg:flex"
           >
-            <Link className="hover:text-primary" to="/layanan/pinjaman-tunai">
-              Pinjaman tunai
-            </Link>
-            <Link className="hover:text-primary" to="/layanan/gadai">
-              Gadai
-            </Link>
-            <Link className="hover:text-primary" to="/layanan/kredit-barang">
-              Kredit barang
-            </Link>
-            <Link className="hover:text-primary" to="/ppob">
-              Pulsa & PPOB
-            </Link>
-            <Link className="hover:text-primary" to="/biaya">
-              Biaya
-            </Link>
-            <Link className="hover:text-primary" to="/cara-kerja">
-              Cara kerja
-            </Link>
-            <Link className="hover:text-primary" to="/keamanan">
-              Keamanan
-            </Link>
-            <Link className="hover:text-primary" to="/faq">
-              FAQ
-            </Link>
-            <Link className="hover:text-primary" to="/aplikasi">
-              Aplikasi
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={`inline-flex min-h-11 items-center gap-1 rounded-sm px-2.5 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    pathname.startsWith("/layanan") ||
+                    pathname.startsWith("/pinjaman") ||
+                    pathname === "/ppob"
+                      ? "text-primary"
+                      : ""
+                  }`}
+                >
+                  Produk
+                  <ChevronDown className="size-4" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" sideOffset={8} className="w-72 p-2">
+                {PRODUK_NAV.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link
+                      to={item.href}
+                      aria-current={pathname === item.href ? "page" : undefined}
+                      className="flex min-h-11 flex-col items-start gap-0.5 rounded-lg px-3 py-2.5"
+                    >
+                      <span className="text-sm font-semibold text-foreground">
+                        {item.label}
+                      </span>
+                      <span className="text-xs leading-5 text-muted-foreground">
+                        {item.isi}
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {TAUTAN_NAV.map((item) => (
+              <Link
+                key={item.href}
+                to={item.href}
+                aria-current={pathname === item.href ? "page" : undefined}
+                className={`inline-flex min-h-11 items-center rounded-sm px-2.5 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  pathname === item.href ? "text-primary" : ""
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
           <div className="flex items-center gap-2">
             {showAdminShortcut && (
@@ -276,8 +335,8 @@ export default function LandingHome() {
             )}
             <MenuInformasiPonsel
               tautan={TAUTAN_MENU}
-              kelasTombol="flex size-11 items-center justify-center rounded-lg border border-border text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
+              kelasTombol="flex size-11 items-center justify-center rounded-lg border border-border text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-64 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
               kelasTautan="rounded-lg px-3 py-3 hover:bg-muted"
             />
             {isLoading ? (
@@ -319,100 +378,37 @@ export default function LandingHome() {
           sudahMasuk={isAuthenticated}
         />
 
-        {/* Gambar kampanye dari admin. Komponennya sendiri yang menyembunyikan
-            diri bila tidak ada promo berjalan, jadi tidak ada ruang kosong. */}
-        <BannerPromoGambar penempatan="beranda" />
-
-        {/* Dua jalur produk dipisah sebelum pengunjung masuk ke formulir:
-            konvensional dan syariah punya aturan serta kalkulator sendiri. */}
-        <PilihanProdukSection />
-
-        {/* Dua banner kampanye berbagi satu kolom dan satu jarak: kalau hanya
-            salah satu yang terbit, tidak ada celah ganda yang tersisa. */}
-        <div className="mx-auto mt-8 w-full max-w-6xl space-y-3 px-4 sm:px-6">
-          <PromoPinjamanAktif penempatan="beranda" />
-          <PromoBungaAktif
-            onAjukan={() => navigate("/dashboard?tab=form")}
-            labelAksi="Ajukan pinjaman"
+        {/* Satu slot kampanye: banner gambar dan promo bunga tidak lagi
+            ditumpuk di atas kalkulator. Komponennya menyembunyikan diri bila
+            tidak ada kampanye berjalan. */}
+        <div className="mx-auto mt-6 w-full max-w-6xl px-4 sm:px-6">
+          <PromoPinjamanAktif
+            penempatan="beranda"
+            onAjukan={() => navigate(formHref)}
+            className="mt-0"
           />
         </div>
+
+        {/* Produk, jalur akad, dan banding dibaca sebagai satu keputusan. */}
+        <ProdukBeranda
+          eyebrow={konten.layananEyebrow}
+          judul={konten.layananJudul}
+          layanan={layanan}
+          sorotan={SOROTAN_LAYANAN}
+          tarif={tarif}
+          ctaLayanan={konten.layananCta}
+        />
 
         {/* Kalkulator memakai mesin harga yang sama dengan `/biaya`, jadi
             angka di beranda tidak bisa berbeda dari formulir pengajuan. */}
         <KalkulatorBeranda
           judul={konten.kalkulatorJudul}
           deskripsi={konten.kalkulatorDeskripsi}
+          tarif={tarif}
           tarifBulanan={tarifBulanan}
+          accountHref={accountHref}
+          accountLabel={accountLabel}
         />
-
-        <section
-          aria-labelledby="layanan-title"
-          className="border-t border-border bg-muted"
-        >
-          <div className="mx-auto max-w-6xl px-4 pb-14 pt-10 sm:px-6 sm:pb-18 sm:pt-12">
-            <JudulBagian
-              id="layanan-title"
-              label={konten.layananEyebrow}
-              judul={konten.layananJudul}
-              className="max-w-2xl border-t-0 pt-0"
-            />
-            <div className="mt-8 grid gap-4 md:grid-cols-3 md:gap-5">
-              {layanan.map((item, i) => {
-                // Angka utama tiap kartu datang dari konstanta mesin, sehingga
-                // tiga kartu tidak lagi tampak seragam tanpa isi.
-                const sorotan = SOROTAN_LAYANAN[i];
-                return (
-                  <article
-                    key={item.href}
-                    className="group flex h-full flex-col overflow-hidden rounded-kartu border border-border bg-card transition-colors hover:border-primary/35"
-                  >
-                    {/* Kepala kartu memuat nama produk dan angka mesin: itu
-                        dua hal yang dicari orang lebih dulu, jadi keduanya
-                        dinaikkan di atas daftar penjelasan. */}
-                    <div className="border-b border-border px-5 pb-4 pt-5">
-                      <h3 className="font-judul text-xl leading-snug text-foreground">
-                        {item.judul}
-                      </h3>
-                      <p className="mt-3 flex items-baseline gap-2">
-                        <span className="font-judul text-[2.6rem] leading-none tabular-nums text-foreground">
-                          {sorotan.angka}
-                        </span>
-                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
-                          {sorotan.satuan}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex flex-1 flex-col px-5 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                        {sorotan.label}
-                      </p>
-                      <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
-                        {item.ringkasan}
-                      </p>
-                      <p className="mt-4 border-t border-border pt-3 text-xs font-medium text-muted-foreground">
-                        {item.detail}
-                      </p>
-                    </div>
-                    <Link
-                      className="flex min-h-12 items-center justify-between border-t border-border px-5 text-sm font-semibold text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                      to={item.href}
-                    >
-                      {konten.layananCta}
-                      <ArrowRight
-                        className="size-4 transition-transform group-hover:translate-x-0.5"
-                        aria-hidden="true"
-                      />
-                    </Link>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <BiayaBerlaku tarif={tarif} />
-
-        <BandingProduk tarif={tarif} />
 
         <DemoPengajuanTerlihat tarif={tarif} />
 
@@ -434,48 +430,44 @@ export default function LandingHome() {
 
         <section
           aria-labelledby="panduan-title"
-          className="pindai-bawah-lipatan mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-18"
+          className="pindai-bawah-lipatan border-t border-border bg-background"
         >
-          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-14">
-            <div>
+          <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+            <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2">
               <JudulBagian
                 id="panduan-title"
                 label={konten.panduanEyebrow}
                 judul={konten.panduanJudul}
                 deskripsi={konten.panduanDeskripsi}
+                className="max-w-2xl border-t-0 pt-0"
               />
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Button
-                  asChild
-                  className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <Link to="/biaya">{konten.panduanCtaKalkulator}</Link>
-                </Button>
-                <Button asChild variant="outline" className="min-h-11">
-                  <Link to="/syarat-ketentuan">{konten.panduanCtaSyarat}</Link>
-                </Button>
-              </div>
+              <Link
+                to="/syarat-ketentuan"
+                className="mb-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {konten.panduanCtaSyarat}
+              </Link>
             </div>
-            <ul className="divide-y divide-border overflow-hidden rounded-kartu border border-border bg-card">
+            <ul className="mt-5 grid gap-3 md:grid-cols-3">
               {panduan.map(({ href, ikon: Icon, judul, isi }) => (
                 <li key={href}>
                   <Link
                     to={href}
-                    className="group flex min-h-24 items-start gap-4 px-4 py-4 transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-5"
+                    className="group flex min-h-24 items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/35 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+                    <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
                       <Icon className="size-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold">
                         {judul}
                       </span>
-                      <span className="mt-1 block text-sm leading-6 text-slate-600">
+                      <span className="mt-1 block text-sm leading-5 text-muted-foreground">
                         {isi}
                       </span>
                     </span>
                     <ArrowRight
-                      className="mt-2.5 size-4 shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5"
+                      className="mt-2.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
                       aria-hidden="true"
                     />
                   </Link>
@@ -527,7 +519,7 @@ export default function LandingHome() {
                 Angkanya dulu,
                 <br className="hidden sm:block" /> keputusannya kemudian.
               </h2>
-              <p className="mt-4 flex max-w-xl items-start gap-2.5 text-sm leading-6 text-slate-700">
+              <p className="mt-4 flex max-w-xl items-start gap-2.5 text-sm leading-6 text-foreground">
                 <BadgeCheck
                   className="mt-0.5 size-4 shrink-0 text-primary"
                   aria-hidden="true"
@@ -535,7 +527,8 @@ export default function LandingHome() {
                 <span>
                   Semua angka pada kalkulator adalah ilustrasi dari aturan yang
                   tercantum. Persetujuan dan perpindahan dana tidak dilakukan
-                  otomatis oleh aplikasi.
+                  otomatis oleh aplikasi. Pinjaman adalah kewajiban; pastikan
+                  kemampuan bayar sebelum mengajukan.
                 </span>
               </p>
             </div>
@@ -544,25 +537,20 @@ export default function LandingHome() {
               <p className="text-sm font-semibold text-foreground">
                 Mulai dari hitungan Anda.
               </p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">
+              <p className="mt-1 text-sm leading-5 text-muted-foreground">
                 Nominal dan tenor bisa diubah kapan saja sebelum dikirim.
               </p>
-              <div className="mt-4 grid gap-2">
-                <Button
-                  asChild
-                  className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <Link to={accountHref}>{accountLabel}</Link>
-                </Button>
-                <Button asChild variant="outline" className="min-h-11">
-                  <Link to="/biaya">Hitung biaya dulu</Link>
-                </Button>
-              </div>
-              <Link
-                to="/faq"
-                className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              <Button
+                asChild
+                className="mt-4 min-h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                Baca pertanyaan umum
+                <Link to={accountHref}>{accountLabel}</Link>
+              </Button>
+              <Link
+                to="/biaya"
+                className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Lihat rincian biaya
               </Link>
             </div>
           </div>

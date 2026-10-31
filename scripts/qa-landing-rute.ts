@@ -107,7 +107,11 @@ for (const role of ["peminjam", "dana"]) {
 // 3. Belum masuk: halaman masuk.
 {
   const markup = render({ isAuthenticated: false, user: undefined });
-  ada(markup, 'href="/auth"', "tamu diarahkan ke halaman masuk");
+  ada(
+    markup,
+    'href="/auth?returnTo=%2Fdashboard%3Ftab%3Dform"',
+    "tamu diarahkan ke halaman masuk dengan tujuan formulir",
+  );
   tidakAda(markup, ADMIN_ROUTE, "tamu tidak diberi rute panel admin");
 }
 
@@ -192,7 +196,11 @@ for (const role of ["peminjam", "dana"]) {
   const denganPromo = render({ isAuthenticated: false, user: undefined });
   ada(denganPromo, "Kampanye dari panel admin", "beranda menampilkan kampanye aktif");
   ada(denganPromo, "Promo uji beranda", "label kampanye ikut tampil");
-  ada(denganPromo, 'href="/auth?returnTo=/dashboard"', "CTA kampanye menuju pendaftaran");
+  ada(
+    denganPromo,
+    'href="/auth?returnTo=%2Fdashboard%3Ftab%3Dform"',
+    "CTA kampanye menuju formulir",
+  );
   promoUji = undefined;
 }
 

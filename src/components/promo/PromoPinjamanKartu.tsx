@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 // /promo dijaga `RequireAdmin`, jadi CTA publik tidak boleh mengarah ke sana.
 const TAUTAN: Record<PenempatanPromo, string | null> = {
-  beranda: "/auth?returnTo=/dashboard",
+  beranda: `/auth?returnTo=${encodeURIComponent("/dashboard?tab=form")}`,
   // Pembaca halaman /promo adalah admin, jadi aksinya menuju pengatur kampanye.
   promo: `${ADMIN_ROUTE}?tab=promo`,
   dashboard: null,

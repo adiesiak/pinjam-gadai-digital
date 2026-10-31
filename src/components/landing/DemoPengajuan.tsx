@@ -256,13 +256,18 @@ export function DemoPengajuan({
   const kurangiGerak = useReducedMotion() ?? false;
   const [aktif, setAktif] = useState(0);
   const [jalan, setJalan] = useState(!kurangiGerak);
+  /** Demo hanya berjalan saat kartunya terlihat di layar. */
+  const [terlihat, setTerlihat] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
+  const wadahDemo = useRef<HTMLElement>(null);
   /** 0–1: seberapa jauh layar sekarang sudah tampil. */
   const [progres, setProgres] = useState(0);
   /** Salinan progres untuk efek: melanjutkan jeda tanpa mengulang dari nol. */
   const progresRef = useRef(0);
 
   const langkah = LANGKAH_DEMO[aktif];
-  const berjalan = jalan && !kurangiGerak;
+  const berjalan = jalan && !kurangiGerak && terlihat;
 
   // Jam demo: satu layar berganti setelah DEMO_JEDA_MS. Efek diulang setiap
   // langkah berganti, jadi hitungannya selalu mulai dari nol.
@@ -291,6 +296,19 @@ export function DemoPengajuan({
     return () => document.removeEventListener("visibilitychange", saatSembunyi);
   }, []);
 
+  // Saat pengunjung menggulir ke bagian lain, demo berhenti. Ketika kembali,
+  // ia melanjutkan hanya bila pengunjung belum menekan Jeda.
+  useEffect(() => {
+    const el = wadahDemo.current;
+    if (el === null || typeof IntersectionObserver === "undefined") return;
+    const pengamat = new IntersectionObserver(
+      ([entri]) => setTerlihat(entri?.isIntersecting ?? false),
+      { threshold: 0.2 },
+    );
+    pengamat.observe(el);
+    return () => pengamat.disconnect();
+  }, []);
+
   const pilih = (i: number) => {
     progresRef.current = 0;
     setAktif(i);
@@ -299,6 +317,7 @@ export function DemoPengajuan({
 
   return (
     <section
+      ref={wadahDemo}
       id="demo-pengajuan"
       aria-labelledby="demo-pengajuan-judul"
       className="border-t border-border bg-background"
@@ -354,24 +373,37 @@ export function DemoPengajuan({
                 );
               })}
             </ol>
-            <p className="mt-3 hidden text-xs leading-5 text-slate-500 lg:block">
+            <p className="mt-1 text-xs leading-5 text-muted-foreground lg:hidden">
+              Geser untuk melihat langkah lain.
+            </p>
+            <p className="mt-3 hidden text-xs leading-5 text-muted-foreground lg:block">
               Gerak dimatikan otomatis bila perangkat meminta gerak dikurangi.
             </p>
           </div>
 
           <div className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card">
             <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-2.5">
-              <span className="flex gap-1.5" aria-hidden="true">
-                <span className="size-2 rounded-full bg-border" />
-                <span className="size-2 rounded-full bg-border" />
-                <span className="size-2 rounded-full bg-border" />
-              </span>
-              <span className="ml-1 truncate rounded-full border border-border bg-card px-2.5 py-1 font-mono text-xs text-slate-500">
-                pindai.biz.id/pengajuan
-              </span>
-              <span className="ml-auto shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-secondary-foreground">
+              <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-secondary-foreground">
                 Contoh layar
               </span>
+              <span className="truncate text-xs text-muted-foreground">
+                Langkah {langkah.nomor} dari {LANGKAH_DEMO[LANGKAH_DEMO.length - 1].nomor}
+              </span>
+              {kurangiGerak ? null : (
+                <button
+                  type="button"
+                  onClick={() => setJalan((n) => !n)}
+                  aria-label={berjalan ? "Jeda demo" : "Putar demo"}
+                  className="ml-auto flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {berjalan ? (
+                    <Pause className="size-3.5" aria-hidden="true" />
+                  ) : (
+                    <Play className="size-3.5" aria-hidden="true" />
+                  )}
+                  {berjalan ? "Jeda" : "Putar"}
+                </button>
+              )}
             </div>
 
             <div
@@ -408,40 +440,23 @@ export function DemoPengajuan({
                 </span>
               )}
 
-              <div className="mt-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                    Langkah {langkah.nomor} dari {LANGKAH_DEMO[LANGKAH_DEMO.length - 1].nomor}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">
-                    {langkah.judul}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
-                    {langkah.ringkas}
-                  </p>
-                </div>
-                {kurangiGerak ? null : (
-                  <button
-                    type="button"
-                    onClick={() => setJalan((n) => !n)}
-                    aria-label={berjalan ? "Jeda demo" : "Putar demo"}
-                    className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {berjalan ? (
-                      <Pause className="size-3.5" aria-hidden="true" />
-                    ) : (
-                      <Play className="size-3.5" aria-hidden="true" />
-                    )}
-                    {berjalan ? "Jeda" : "Putar"}
-                  </button>
-                )}
+              <div className="mt-3 min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                  Langkah {langkah.nomor} dari {LANGKAH_DEMO[LANGKAH_DEMO.length - 1].nomor}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {langkah.judul}
+                </p>
+                <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                  {langkah.ringkas}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        <p className="mt-4 text-xs leading-5 text-slate-600">
-          Demo animasi dari alur sebenarnya, bukan rekaman layar. Angka dihitung
+        <p className="mt-4 text-sm leading-5 text-muted-foreground">
+          Animasi dari alur sebenarnya, bukan rekaman layar. Angka dihitung
           mesin yang sama dengan kalkulator biaya; pencairan dana dan pembayaran
           tetap berlangsung di luar aplikasi.
         </p>

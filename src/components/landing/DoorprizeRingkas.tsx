@@ -59,9 +59,9 @@ export function DoorprizeRingkas({
         <div className="min-w-0">
           <JudulBagian
             id="doorprize-ringkas-judul"
-            label="Doorprize triwulanan"
+            label="Program apresiasi triwulanan"
             judul={judulDoorprizeKuartal(kuartal)}
-            deskripsi="Tiket terkumpul otomatis selama kuartal berjalan, lalu diundi pada akhir kuartal. Tiket kuartal berikutnya mulai dari nol."
+            deskripsi="Tiket terkumpul otomatis selama kuartal berjalan, lalu diundi pada akhir kuartal. Tiket kuartal berikutnya mulai dari nol. Tiket tidak menambah biaya, tidak menjadi syarat pengajuan, dan tidak mengubah kewajiban Anda."
             className="border-t-0 pt-0"
             deskripsiClassName="max-w-2xl"
           />
@@ -103,7 +103,7 @@ export function DoorprizeRingkas({
           </Link>
           <Link
             to="/pemenang"
-            className="mt-2 block text-xs font-medium text-slate-600 underline underline-offset-4 hover:text-slate-900 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Lihat pemenang kuartal sebelumnya
           </Link>

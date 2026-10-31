@@ -14,8 +14,8 @@
  * tidak lebih besar dari plafon — lihat lib/plafon.ts.
  */
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Calculator } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -67,9 +67,15 @@ function rupiahToSlider(r: Rupiah, min: number, max: number, steps: number): num
  */
 export function LiveCalculator({
   tarifBulanan,
+  accountHref = "/auth",
+  accountLabel = "Buat akun untuk mengajukan",
 }: {
   tarifBulanan?: Partial<TarifBulanan> | null;
+  /** Tujuan CTA; landing mengisi formulir setelah sesi dibuat. */
+  accountHref?: string;
+  accountLabel?: string;
 }) {
+  const idBantuan = useId();
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const bulanan = skema === "bulanan";
   /** Cincin fokus yang sama untuk semua kontrol native di kalkulator. */
@@ -120,21 +126,12 @@ export function LiveCalculator({
   };
 
   return (
-    <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-7">
-      <div className="-mx-5 -mt-5 mb-5 border-b border-slate-200 bg-slate-50/80 px-5 py-5 sm:-mx-7 sm:-mt-7 sm:mb-6 sm:px-7">
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-          <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary sm:tracking-[0.16em]"><Calculator className="size-3.5" /> Kalkulator interaktif</span>
-          <span className="rounded-full border border-primary/15 bg-white px-2.5 py-1 text-xs font-medium text-primary">Hasil langsung</span>
-        </div>
-        <h3 className="mt-2 text-lg font-semibold text-slate-900">Kalkulator pinjaman</h3>
-        <p className="mt-1 text-xs leading-5 text-slate-500">Ubah nominal dan tenor untuk melihat perhitungan sebelum masuk.</p>
-      </div>
-
-      {/* Dua skema harga: harian (1 jt / 28 hari) atau bulanan (1–6 bulan). */}
+    <div className="overflow-hidden rounded-2xl border border-border bg-card p-4 sm:p-6">
+      {/* Dua skema harga: harian (s.d. 1 jt / 28 hari) atau bulanan. */}
       <div
         role="group"
         aria-label="Skema pinjaman"
-        className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1"
+        className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted p-1"
       >
         {([
           ["harian", "Harian · s.d. 1 jt"],
@@ -151,23 +148,34 @@ export function LiveCalculator({
               <motion.span
                 aria-hidden="true"
                 layoutId="calc-skema"
-                className="absolute inset-0 rounded-lg bg-white shadow-sm"
+                className="absolute inset-0 rounded-lg bg-card shadow-sm"
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
               />
             )}
-            <span className={`relative ${skema === nilai ? "text-primary" : "text-slate-500 hover:text-slate-800"}`}>
+            <span className={`relative ${skema === nilai ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
               {label}
             </span>
           </button>
         ))}
       </div>
 
+      <p className="mt-2 text-sm leading-5 text-muted-foreground">
+        Untuk akad syariah,{" "}
+        <Link
+          to="/pinjaman/syariah"
+          className="inline-flex min-h-11 items-center font-semibold text-gold-foreground underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          lihat simulasi murabahah dan rahn
+        </Link>
+        .
+      </p>
+
       <div className="mt-5">
         <div className="flex items-baseline justify-between">
-          <label htmlFor="calc-nominal" className="text-sm font-medium text-slate-700">
+          <label htmlFor="calc-nominal" className="text-sm font-medium text-foreground">
             Pokok pinjaman
           </label>
-          <span className="text-sm font-semibold tabular-nums text-slate-900">
+          <span className="text-sm font-semibold tabular-nums text-foreground">
             {formatRupiah(amount)}
           </span>
         </div>
@@ -180,8 +188,13 @@ export function LiveCalculator({
           onChange={(e) =>
             pilihNominal(sliderToRupiah(Number(e.target.value), min, max, steps, stepBulat))
           }
-          className="mt-3 w-full accent-primary"
+          aria-valuetext={formatRupiah(amount)}
+          aria-describedby={idBantuan}
+          className={`mt-3 w-full accent-primary ${kelasFokus}`}
         />
+        <p id={idBantuan} className="mt-1 text-sm leading-5 text-muted-foreground">
+          Batas {formatRupiah(min)} sampai {formatRupiah(max)}. Geser atau pilih nominal cepat.
+        </p>
         <div
           role="group"
           aria-label="Nominal cepat"
@@ -195,8 +208,8 @@ export function LiveCalculator({
               aria-pressed={amount === q}
               className={`min-h-11 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${kelasFokus} ${
                 amount === q
-                  ? "bg-primary text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               {formatRupiah(q).replace("Rp ", "")}
@@ -206,7 +219,7 @@ export function LiveCalculator({
       </div>
 
       <div className="mt-5">
-        <p className="text-sm font-medium text-slate-700">Tenor</p>
+        <p className="text-sm font-medium text-foreground">Tenor</p>
         <div role="group" aria-label="Pilih tenor" className="mt-2 grid grid-cols-3 gap-2">
           {bulanan
             ? TENOR_BULANAN_OPTIONS.map((t) => (
@@ -218,7 +231,7 @@ export function LiveCalculator({
                   className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${kelasFokus} ${
                     tenorBulan === t
                       ? "border-primary text-primary"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   {tenorBulan === t && (
@@ -241,11 +254,11 @@ export function LiveCalculator({
                     onClick={() => setTenor(t)}
                     disabled={!aktif}
                     aria-pressed={dipilih}
-                    className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300 ${kelasFokus} ${
+                    className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground/45 ${kelasFokus} ${
                       dipilih
                         ? "border-primary text-primary"
                         : aktif
-                          ? "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          ? "border-border text-muted-foreground hover:bg-muted"
                           : ""
                     }`}
                   >
@@ -262,17 +275,17 @@ export function LiveCalculator({
               })}
         </div>
         {!bulanan && (
-          <p className="mt-2 text-xs leading-5 text-slate-500">
-            Bunga <strong className="font-semibold text-slate-800">{tarifHarian}%</strong> untuk
+          <p className="mt-2 text-sm leading-5 text-muted-foreground">
+            Bunga <strong className="font-semibold text-foreground">{tarifHarian}%</strong> untuk
             tenor {tenorHarian} hari. Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari.
           </p>
         )}
       </div>
 
       <div aria-hidden="true" className="mt-6 flex items-center gap-2.5">
-        <span className="size-2 rounded-full bg-slate-200" />
-        <span className="h-px flex-1 border-t border-dashed border-slate-300" />
-        <span className="size-2 rounded-full bg-slate-200" />
+        <span className="size-2 rounded-full bg-border" />
+        <span className="h-px flex-1 border-t border-dashed border-border" />
+        <span className="size-2 rounded-full bg-border" />
       </div>
       <dl className="mt-5 space-y-2.5 text-sm sm:space-y-2">
         {(
@@ -316,18 +329,18 @@ export function LiveCalculator({
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
           <div key={term} className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-            <dt className={strong ? "font-medium text-slate-900" : "text-slate-500"}>{term}</dt>
+            <dt className={strong ? "font-medium text-foreground" : "text-muted-foreground"}>{term}</dt>
             <dd
               className={`tabular-nums sm:text-right ${
-                strong ? "font-semibold text-slate-900" : "font-medium text-slate-700"
+                strong ? "font-semibold text-foreground" : "font-medium text-foreground"
               }`}
             >
               {value}
             </dd>
           </div>
         ))}
-        <div className="flex items-baseline justify-between gap-3 border-t border-slate-200 pt-2.5 sm:gap-4">
-          <dt className="font-semibold text-slate-900">Total pelunasan</dt>
+        <div className="flex items-baseline justify-between gap-3 border-t border-border pt-2.5 sm:gap-4">
+          <dt className="font-semibold text-foreground">Total pelunasan</dt>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.dd
               key={totalPelunasan}
@@ -335,7 +348,7 @@ export function LiveCalculator({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22, ease: EASE_OUT }}
-              className="text-base font-semibold tabular-nums text-slate-900"
+              className="text-base font-semibold tabular-nums text-foreground"
             >
               {formatRupiah(totalPelunasan)}
             </motion.dd>
@@ -343,14 +356,19 @@ export function LiveCalculator({
         </div>
       </dl>
 
-      <p className="mt-4 text-xs leading-5 text-slate-500">
-        Ini perhitungan aplikasi, bukan persetujuan pinjaman. Skema bulanan menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan sekaligus saat jatuh tempo. Perpindahan dana ditangani di luar aplikasi.
+      <p className="mt-4 text-sm leading-5 text-muted-foreground">
+        Ini perhitungan aplikasi, bukan persetujuan pinjaman. Skema bulanan
+        menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan
+        sekaligus saat jatuh tempo. Perpindahan dana ditangani di luar aplikasi.
       </p>
 
-      <Button asChild className="animate-sheen mt-5 h-11 w-full bg-primary text-white transition-transform hover:-translate-y-0.5 hover:bg-primary/90">
-        <Link to="/auth">
-          Buat akun untuk mengajukan
-          <ArrowRight className="ml-1.5 size-4" />
+      <Button
+        asChild
+        className="mt-5 h-11 w-full rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+      >
+        <Link to={accountHref}>
+          {accountLabel}
+          <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />
         </Link>
       </Button>
     </div>

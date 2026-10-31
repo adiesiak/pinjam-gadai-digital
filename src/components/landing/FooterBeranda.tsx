@@ -1,20 +1,18 @@
 /**
  * Footer beranda.
  *
- * Footer lama hanya satu baris tautan yang mengalir bersama deskripsi singkat,
- * tanpa pengelompokan dan tanpa kanal bantuan yang terlihat sebagai kanal.
- * Di bagian paling bawah halaman itulah pengunjung memutuskan apakah situs ini
- * bisa dipercaya, jadi di sini tautan dikelompokkan menurut tujuan (produk dan
- * panduan), dan WhatsApp CS tampil sebagai kartu, bukan tautan kecil di antara
- * tautan lain.
+ * Tautan dikelompokkan menurut tujuan, bukan ditempatkan di satu baris
+ * tambahan yang membuat footer terlalu tinggi. WhatsApp CS tetap tampil sebagai
+ * kartu karena di bagian paling bawah halaman itulah pengunjung memutuskan
+ * apakah situs ini bisa dipercaya.
  *
  * Semua tujuan di bawah adalah rute yang benar-benar terdaftar di `main.tsx`.
  * Teks deskripsi tetap datang dari CMS supaya admin bisa menggantinya.
  */
 
-import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { Link } from "react-router";
 
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { VaultLogo } from "@/components/VaultLogo";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
@@ -36,7 +34,7 @@ const PANDUAN: readonly Tautan[] = [
   { href: "/faq", label: "Pertanyaan umum" },
 ];
 
-const AKSES: readonly Tautan[] = [
+const BANTUAN: readonly Tautan[] = [
   { href: "/aplikasi", label: "Aplikasi Android" },
   { href: "/akses-bersama", label: "Ruang pendana" },
   { href: "/syarat-ketentuan", label: "Syarat & ketentuan" },
@@ -55,12 +53,12 @@ function KolomTautan({
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
         {judul}
       </p>
-      <ul className="mt-3">
+      <ul className="mt-2">
         {tautan.map((item) => (
           <li key={item.href}>
             <Link
               to={item.href}
-              className="flex min-h-11 items-center text-sm text-slate-600 hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-11 items-center text-sm text-muted-foreground hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {item.label}
             </Link>
@@ -75,7 +73,7 @@ export function FooterBeranda({ deskripsi }: { deskripsi: string }) {
   return (
     <footer className="border-t border-border bg-background">
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pb-12 sm:pt-14">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr] lg:gap-12">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_0.9fr_0.9fr_1.1fr] lg:gap-10">
           <div className="sm:col-span-2 lg:col-span-1">
             <Link
               to="/"
@@ -87,11 +85,9 @@ export function FooterBeranda({ deskripsi }: { deskripsi: string }) {
                 PINDAI
               </span>
             </Link>
-            <p className="mt-3 max-w-sm text-sm leading-6 text-slate-600">
+            <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
               {deskripsi}
             </p>
-            {/* Nomor CS dibaca dari `lib/kontak`, bukan disalin di sini, supaya
-                tidak ada nomor lama yang tertinggal di halaman. */}
             <a
               href={urlChatCs(
                 "Halo PINDAI, saya ingin bertanya tentang layanan.",
@@ -107,7 +103,7 @@ export function FooterBeranda({ deskripsi }: { deskripsi: string }) {
                 <span className="block text-sm font-semibold text-foreground">
                   Chat CS di WhatsApp
                 </span>
-                <span className="block text-xs leading-5 text-slate-600">
+                <span className="block text-xs leading-5 text-muted-foreground">
                   Kanal bantuan resmi PINDAI
                 </span>
               </span>
@@ -116,28 +112,14 @@ export function FooterBeranda({ deskripsi }: { deskripsi: string }) {
 
           <KolomTautan judul="Produk" tautan={PRODUK} />
           <KolomTautan judul="Panduan" tautan={PANDUAN} />
+          <KolomTautan judul="Bantuan & legal" tautan={BANTUAN} />
         </div>
 
-        <nav
-          aria-label="Tautan lain"
-          className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border pt-4"
-        >
-          {AKSES.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              className="flex min-h-11 items-center text-sm text-slate-600 hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="mt-6 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-          <p className="max-w-2xl text-xs leading-5 text-slate-500">
+        <div className="mt-8 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+          <p className="max-w-2xl text-xs leading-5 text-muted-foreground">
             {PENAFIAN_PINDAI}
           </p>
-          <p className="shrink-0 text-xs leading-5 text-slate-500 sm:text-right">
+          <p className="shrink-0 text-xs leading-5 text-muted-foreground sm:text-right">
             {HAK_CIPTA_PINDAI}
             <br />
             Ketentuan {CONTRACT_TERMS_VERSION}

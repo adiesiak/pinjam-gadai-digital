@@ -129,8 +129,8 @@ export const KONTEN_LANDING_DEFAULT: KontenLanding = {
   heroCtaSekunder: "Lihat kalkulator",
   heroMikro:
     "Ilustrasi dari aturan yang berlaku, bukan persetujuan pinjaman dan bukan bukti transfer.",
-  layananEyebrow: "Tiga jenis catatan",
-  layananJudul: "Pilih layanan untuk ditinjau",
+  layananEyebrow: "Produk",
+  layananJudul: "Pilih kebutuhan, lalu jalur akadnya.",
   layananCta: "Lihat rincian",
   layanan: [
     {

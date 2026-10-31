@@ -19,8 +19,8 @@ import {
 
 import { JudulBagian } from "./JudulBagian";
 
-export function BiayaBerlaku({ tarif }: { tarif: TarifBiaya }) {
-  const baris = [
+function barisTarif(tarif: TarifBiaya) {
+  return [
     {
       label: "Biaya admin",
       nilai: `${persenTeks(tarif.adminPersen)} dari pokok`,
@@ -44,6 +44,83 @@ export function BiayaBerlaku({ tarif }: { tarif: TarifBiaya }) {
         "Sekali per pinjaman harian, hanya bila Anda memilih cair ekspres.",
     },
   ];
+}
+
+function DaftarTarif({
+  tarif,
+  sempit = false,
+}: {
+  tarif: TarifBiaya;
+  sempit?: boolean;
+}) {
+  const baris = barisTarif(tarif);
+
+  return (
+    <dl className="divide-y divide-border px-5">
+      {baris.map((item) => (
+        <div
+          key={item.label}
+          className={
+            sempit
+              ? "grid gap-1.5 py-4"
+              : "grid gap-1.5 py-4 sm:grid-cols-[1fr_auto] sm:items-baseline sm:gap-x-6"
+          }
+        >
+          <dt className="text-sm font-medium text-foreground">{item.label}</dt>
+          <dd className={sempit ? undefined : "sm:text-right"}>
+            <span className="block text-lg font-semibold leading-none tabular-nums text-primary">
+              {item.nilai}
+            </span>
+            <span
+              className={
+                sempit
+                  ? "mt-1.5 block text-sm leading-5 text-muted-foreground"
+                  : "mt-1.5 block text-sm leading-5 text-muted-foreground sm:max-w-[17rem]"
+              }
+            >
+              {item.keterangan}
+            </span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+export function BiayaBerlaku({
+  tarif,
+  ringkas = false,
+}: {
+  tarif: TarifBiaya;
+  /** Kartu kecil di samping kalkulator, tanpa kepala bagian. */
+  ringkas?: boolean;
+}) {
+  if (ringkas) {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="flex items-baseline justify-between gap-4 border-b border-border px-5 py-3">
+          <h3
+            id="biaya-title"
+            className="text-sm font-semibold text-foreground"
+          >
+            Tarif yang berlaku
+          </h3>
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+            Hari ini
+          </span>
+        </div>
+        <DaftarTarif tarif={tarif} sempit />
+        <div className="border-t border-border px-5 py-3">
+          <Link
+            to="/biaya"
+            className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Hitung dengan nominal Anda
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <section
@@ -64,33 +141,11 @@ export function BiayaBerlaku({ tarif }: { tarif: TarifBiaya }) {
             <Link to="/biaya">Hitung dengan nominal Anda</Link>
           </Button>
         </div>
-        {/* Plakat tarif: label di kiri, nilai di kanan, keterangan di bawah
-            nilai. Bentuknya seperti kartu tarif resmi, bukan daftar polos, dan
-            tetap satu kolom saat layar sempit. */}
-        <div className="rounded-kartu border border-border bg-card">
+        <div className="rounded-2xl border border-border bg-card">
           <p className="border-b border-border px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
             Tarif yang berlaku
           </p>
-          <dl className="divide-y divide-border px-5">
-            {baris.map((item) => (
-              <div
-                key={item.label}
-                className="grid gap-1.5 py-4 sm:grid-cols-[1fr_auto] sm:items-baseline sm:gap-x-6"
-              >
-                <dt className="text-sm font-medium text-foreground">
-                  {item.label}
-                </dt>
-                <dd className="sm:text-right">
-                  <span className="block font-judul text-xl leading-none tabular-nums text-primary">
-                    {item.nilai}
-                  </span>
-                  <span className="mt-1.5 block text-xs leading-5 text-slate-500 sm:max-w-[16rem]">
-                    {item.keterangan}
-                  </span>
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <DaftarTarif tarif={tarif} />
         </div>
       </div>
     </section>

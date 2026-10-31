@@ -253,6 +253,19 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 - Kartu daftar memakai garis rambut dan latar putih, bukan bayangan besar.
 - Kartu yang bisa diklik harus punya keadaan hover, fokus, dan tekan yang jelas, serta target sentuh penuh.
 
+### D.1 Landasan beranda
+
+- Urutan beranda dibaca sebagai satu dokumen: hero, produk dan banding, kalkulator dan tarif, demo dan dokumen, pertanyaan umum, program apresiasi, aplikasi, penutup. Jangan menambah bagian baru tanpa menghapus atau menggabungkan bagian yang menjawab pertanyaan yang sama.
+- Header desktop hanya lima tujuan: Produk (dropdown), Biaya, Cara kerja, Keamanan, FAQ. Menu ponsel memakai kelompok Produk, Panduan, dan Lainnya. Aplikasi dan ruang pendana tinggal di footer.
+- Satu slot promo di atas kalkulator. Banner gambar, promo pinjaman, dan promo bunga tidak ditumpuk dalam satu layar.
+- Satu aksi utama per viewport. CTA tamu menuju `/auth?returnTo=%2Fdashboard%3Ftab%3Dform`, bukan halaman masuk tanpa tujuan. Label tombol dan tujuan sesudah masuk harus sama.
+- Produk memakai tiga kartu kebutuhan, lalu strip dua jalur akad, lalu tabel banding tiga baris. Jangan memisahkan taksonomi jalur dan layanan ke dua bagian yang berjauhan.
+- Kalkulator dan tarif berlaku berbagi satu band. Kalkulator memakai token permukaan, `rounded-2xl`, dan `aria-valuetext` berupa rupiah pada slider nominal.
+- Demo berhenti saat keluar layar, tombol Jeda ada di kepala kartu, dan bingkai layar memakai identitas PINDAI, bukan tiruan jendela peramban.
+- Teks isi minimal 14px. 12px hanya untuk label, metadata, dan cap. Jangan memakai 12px untuk paragraf atau daftar dokumen.
+- CTA lengket ponsel hanya muncul setelah hero lewat dan hilang saat penutup masuk. Beri `scroll-padding-bottom` agar kontrol terakhir tidak tertutup.
+- Status dan uang tetap dipisah: petrol untuk status positif, kuningan untuk nilai uang. Produk konvensional memakai petrol; syariah memakai kuningan.
+
 ### E. Tabel dan angka
 
 - Angka uang memakai `formatRupiah` dan `tabular-nums`.
@@ -456,6 +469,7 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 
 - 2026-10-30: layar pemuatan dirapikan menjadi “Brankas Tenang”: palet kertas hangat, dial dan scan satu kali, bilah rute terpisah, label kontekstual, serta fallback koneksi lambat setelah 8 detik.
 - 2026-10-30: override desain: menu peminjam menjadi lima dengan halaman Akun; token `success` memisahkan status dari uang; kaca dibatasi ke landing/auth; admin mendapat Dim/Padat; radius disederhanakan menjadi tiga peran; palet grafik kategorikal; microtype UI minimal 12px.
+- 2026-10-30: beranda dirampingkan: header lima tujuan dengan dropdown produk, satu slot promo, produk dan banding menyatu, kalkulator dan tarif satu band, demo berhenti di luar layar, dokumen tanpa langkah ganda, pendana menjadi strip, CTA tamu langsung ke formulir, dan CTA lengket mengikuti posisi gulir.
 - 2026-10-30: `DESIGN.md` diperbarui memakai UI/UX Pro Max. Antislop diganti; token, tipografi, gerak, aturan per peran, dan checklist dirapikan. Keputusan satu wajah terang tetap berlaku.
 - 2026-10-30: audit aksesibilitas landing, dashboard peminjam, dan ruang pendana. Target sentuh 44px, fokus keyboard, tautan lewati konten, batas input 3:1, serta uji `kontrasWarna` dan `targetSentuhUi` ditambahkan.
 - 2026-10-12: seluruh halaman memakai satu wajah terang; preset gelap `obsidian` dicabut; kartu hero landing ikut cerah.

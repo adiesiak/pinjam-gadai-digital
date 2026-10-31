@@ -58,7 +58,14 @@ ok(
   "hanya satu tombol yang dirender",
 );
 ada("belum ada di Play Store maupun App Store", "status toko ditulis apa adanya");
-ada("tanpa berkas unduhan", "bagian menjelaskan aplikasi dari peramban");
+ada(
+  "Versi web bisa dipasang langsung dari peramban",
+  "bagian membedakan pemasangan web dari APK",
+);
+ada(
+  "APK Android tersedia",
+  "bagian menyebut APK sebagai jalur terpisah",
+);
 
 ok(
   !markup.includes("play.google") &&

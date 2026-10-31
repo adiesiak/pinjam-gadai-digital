@@ -8,12 +8,14 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { urlChatCs } from "@/lib/kontak";
 import type { TarifBiaya } from "@/lib/loan";
 import { rincianPotonganDiMuka } from "@/lib/tarifBiayaTeks";
 
@@ -31,7 +33,7 @@ function daftarTanya(tarif: TarifBiaya) {
     },
     {
       q: "Bagaimana kalau saya terlambat membayar?",
-      a: "Keterlambatan dihitung per hari dari pokok angsuran dan dibatasi pagu denda. Angka yang berlaku untuk pinjaman Anda tertulis di rincian pinjaman dan perjanjian.",
+      a: "Keterlambatan dihitung per hari dari pokok angsuran dan dibatasi pagu denda. Angka yang berlaku untuk pinjaman Anda tertulis di rincian pinjaman dan perjanjian. Bila Anda tidak mampu membayar, hubungi CS sebelum jatuh tempo; penanganannya mengikuti perjanjian, bukan denda tambahan di luar itu.",
     },
     {
       q: "Siapa yang bisa melihat data saya?",
@@ -75,22 +77,35 @@ export function FaqBeranda({
           </Link>
         </div>
 
-        <Accordion
-          type="single"
-          collapsible
-          className="rounded-kartu border border-border bg-card px-5"
-        >
-          {daftar.map((item, i) => (
-            <AccordionItem key={item.q} value={`faq-${i}`}>
-              <AccordionTrigger className="min-h-14 text-sm font-semibold text-slate-900">
-                {item.q}
-              </AccordionTrigger>
-              <AccordionContent className="text-sm leading-6 text-slate-600">
-                {item.a}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        <div>
+          <Accordion
+            type="single"
+            collapsible
+            className="rounded-kartu border border-border bg-card px-5"
+          >
+            {daftar.map((item, i) => (
+              <AccordionItem key={item.q} value={`faq-${i}`}>
+                <AccordionTrigger className="min-h-14 text-sm font-semibold text-foreground">
+                  {item.q}
+                </AccordionTrigger>
+                <AccordionContent className="text-sm leading-6 text-muted-foreground">
+                  {item.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          <a
+            href={urlChatCs(
+              "Halo PINDAI, saya belum menemukan jawaban di pertanyaan umum.",
+            )}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <IkonWhatsapp className="size-4" aria-hidden="true" />
+            Belum terjawab? Chat CS
+          </a>
+        </div>
       </div>
     </section>
   );
