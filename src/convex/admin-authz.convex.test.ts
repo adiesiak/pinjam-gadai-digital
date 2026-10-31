@@ -396,6 +396,113 @@ describe("persetujuan dan tanda tangan akad Peminjam", () => {
     ).toBe(1);
   });
 
+  it("mencatat persetujuan tanpa tanda tangan lalu melengkapinya kemudian", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: borrowerId } = await buatPengguna(t, "Peminjam TTD manual", {
+      email: "peminjam-ttd-manual@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin, userId: adminId, authSessionId } = await buatPengguna(
+      t,
+      "Admin TTD manual",
+      { email: "admin-ttd-manual@pindai.test", role: "admin" },
+    );
+    await aktifkanTotpUntukSesi(t, adminId, authSessionId);
+    const loanId = await t.run((ctx) =>
+      ctx.db.insert("loans", {
+        userId: borrowerId,
+        pokokPinjaman: 500_000,
+        tujuan: "pendidikan",
+        namaLengkap: "Peminjam TTD manual",
+        nomorRekening: "12345678",
+        status: "disetujui",
+        nomorReferensi: "LON-TTD-MANUAL",
+        tenorHari: 30,
+      }),
+    );
+    const pawnId = await t.run((ctx) =>
+      ctx.db.insert("pawns", {
+        userId: borrowerId,
+        deskripsiBarang: "Cincin emas",
+        kategori: "perhiasan",
+        alamatPenilaian: "Jakarta",
+        namaLengkap: "Peminjam TTD manual",
+        nomorRekening: "12345678",
+        status: "disetujui",
+        nomorReferensi: "PAW-TTD-MANUAL",
+        nilaiTaksiran: 2_000_000,
+        hargaPasar: 2_500_000,
+        pokokGadai: 1_200_000,
+        persenSewaModal: 5,
+      }),
+    );
+
+    // Pinjaman: persetujuan dulu, gambar tanda tangan menyusul.
+    await expect(
+      admin.mutation(api.admin.simpanTandaTangan, {
+        loanId,
+        persetujuanPeminjam: true,
+      }),
+    ).resolves.toMatchObject({ ok: true, versi: CONTRACT_TERMS_VERSION, kode: null });
+    const disetujui = await admin.query(api.admin.contractData, { loanId });
+    expect(disetujui).toMatchObject({
+      ttdPeminjam: null,
+      ttdPada: null,
+      persetujuanVersi: CONTRACT_TERMS_VERSION,
+    });
+    expect(disetujui?.persetujuanPada).toBeTypeOf("number");
+    await expect(
+      admin.query(api.kontrakDigital.infoPinjaman, { loanId }),
+    ).resolves.toBeNull();
+    await expect(
+      admin.mutation(api.admin.simpanTandaTangan, {
+        loanId,
+        persetujuanPeminjam: true,
+      }),
+    ).rejects.toThrow(/sudah dicatat/i);
+
+    await expect(
+      admin.mutation(api.admin.simpanTandaTangan, {
+        loanId,
+        dataUrl: tandaTanganValid,
+        persetujuanPeminjam: true,
+      }),
+    ).resolves.toMatchObject({ ok: true, versi: CONTRACT_TERMS_VERSION });
+    await expect(admin.query(api.admin.contractData, { loanId })).resolves.toMatchObject({
+      ttdPeminjam: tandaTanganValid,
+      persetujuanVersi: CONTRACT_TERMS_VERSION,
+    });
+    await expect(
+      admin.query(api.kontrakDigital.infoPinjaman, { loanId }),
+    ).resolves.not.toBeNull();
+
+    // Gadai memakai aturan yang sama: setujui tanpa tanda tangan, lengkapi nanti.
+    await expect(
+      admin.mutation(api.admin.simpanTandaTanganGadai, {
+        pawnId,
+        persetujuanPeminjam: true,
+      }),
+    ).resolves.toMatchObject({ ok: true, versi: CONTRACT_TERMS_VERSION, kode: null });
+    await expect(admin.query(api.admin.contractDetailPawn, { pawnId })).resolves.toMatchObject({
+      ttdPeminjam: null,
+      ttdPada: null,
+      persetujuanVersi: CONTRACT_TERMS_VERSION,
+    });
+    await expect(admin.query(api.kontrakDigital.infoGadai, { pawnId })).resolves.toBeNull();
+    await expect(
+      admin.mutation(api.admin.simpanTandaTanganGadai, {
+        pawnId,
+        dataUrl: tandaTanganValid,
+        persetujuanPeminjam: true,
+      }),
+    ).resolves.toMatchObject({ ok: true, versi: CONTRACT_TERMS_VERSION });
+    await expect(admin.query(api.admin.contractDetailPawn, { pawnId })).resolves.toMatchObject({
+      ttdPeminjam: tandaTanganValid,
+      persetujuanVersi: CONTRACT_TERMS_VERSION,
+    });
+    await expect(admin.query(api.kontrakDigital.infoGadai, { pawnId })).resolves.not.toBeNull();
+  });
+
   it("menolak tanda tangan pinjaman yang ditolak dan mencatat akad gadai yang sudah lengkap", async () => {
     const t = convexTest(schema, modules);
     const { userId: borrowerId, sesi: peminjam } = await buatPengguna(

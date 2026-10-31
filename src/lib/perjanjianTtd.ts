@@ -5,8 +5,9 @@
  *
  * Modal ini sengaja mengisi kotak persetujuan SECARA OTOMATIS (saat dibuka dan
  * saat tanda tangan dibubuhkan), jadi yang tersisa untuk dijaga hanyalah satu
- * hal: kapan tombol [Setujui & Tandatangani Perjanjian] boleh ditekan. Aturan
- * itu di sini, bukan tersebar di dalam JSX.
+ * hal: kapan tombol [Setujui Perjanjian] boleh ditekan. Aturan itu di sini,
+ * bukan tersebar di dalam JSX. Tanda tangan elektronik bersifat opsional karena
+ * dokumen juga disiapkan untuk ditandatangani manual setelah diunduh.
  *
  * Kotak persetujuan tetap berupa kotak centang biasa: pengisian otomatis adalah
  * kenyamanan, bukan pencabutan kendali — peminjam masih bisa membatalkannya
@@ -44,16 +45,15 @@ export function tandaTanganSiap(
 }
 
 /**
- * Tombol kirim aktif. Karena persetujuan terisi otomatis saat modal dibuka,
- * kombinasi "persetujuan tercentang + tanda tangan siap" membuat SATU klik pada
- * tombol langsung menyelesaikan pencatatan ke Convex (`simpanTandaTangan`).
- * `busy` tetap mengunci tombol selama mutasi berjalan supaya tidak terkirim dua
- * kali.
+ * Tombol kirim aktif. Persetujuan terisi otomatis saat modal dibuka, sehingga
+ * satu klik pada tombol langsung mencatat persetujuan ke Convex
+ * (`simpanTandaTangan`). Tanda tangan elektronik TIDAK wajib: perjanjian dapat
+ * disetujui lebih dulu, diunduh, lalu ditandatangani manual. `busy` tetap
+ * mengunci tombol selama mutasi berjalan supaya tidak terkirim dua kali.
  */
 export function bolehKirimPerjanjian(args: {
   busy: boolean;
   consentChecked: boolean;
-  siap: boolean;
 }): boolean {
-  return !args.busy && args.consentChecked && args.siap;
+  return !args.busy && args.consentChecked;
 }

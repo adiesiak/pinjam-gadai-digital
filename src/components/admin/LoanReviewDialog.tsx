@@ -984,9 +984,11 @@ export function LoanReviewDialog({
                     : "Versi lama",
               detail:
                 row.persetujuanSyaratPada == null
-                  ? "Perjanjian belum ditandatangani peminjam"
+                  ? "Perjanjian belum disetujui peminjam"
                   : row.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION
-                    ? `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)}`
+                    ? row.tandaTanganAda === true
+                      ? `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)}`
+                      : `Syarat ${row.persetujuanSyaratVersi} · ${formatDate(row.persetujuanSyaratPada)} · TTD manual belum dicatat`
                     : `Disetujui pada syarat ${row.persetujuanSyaratVersi ?? "lama"} — perlu tanda tangan ulang`,
               icon: ShieldCheck,
             },
@@ -1004,13 +1006,18 @@ export function LoanReviewDialog({
             </div>
           ))}
         </div>
-        {row.persetujuanSyaratPada == null && (
+        {row.persetujuanSyaratPada == null ? (
           <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-            Perjanjian ini belum ditandatangani peminjam. Pencairan tetap bisa berjalan,
-            tetapi tanda tangan dan checkbox syarat perjanjian baru tercatat saat peminjam
-            membuka menu Perjanjian di dashboard — atau lewat widget kontrak di bawah ini.
+            Perjanjian ini belum disetujui peminjam. Pencairan tetap bisa berjalan,
+            tetapi checkbox syarat perjanjian baru tercatat saat peminjam membuka menu
+            Perjanjian di dashboard — atau lewat widget kontrak di bawah ini.
           </p>
-        )}
+        ) : row.tandaTanganAda !== true ? (
+          <p className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">
+            Persetujuan sudah tercatat tanpa gambar tanda tangan. Buka widget kontrak untuk
+            mencetak / menyimpan PDF, lalu lengkapi tanda tangan manual bila diperlukan.
+          </p>
+        ) : null}
       </div>
 
       {/* Pratinjau WhatsApp */}

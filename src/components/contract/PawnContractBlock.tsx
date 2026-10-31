@@ -54,10 +54,11 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
           persetujuanSyaratVersi: detail.persetujuanVersi,
         }
       : undefined;
+  const sudahDisetujui =
+    contractData.persetujuanPada !== null &&
+    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION;
   const signed =
-    tandaTanganPeminjam !== undefined &&
-    tandaTanganPeminjam.persetujuanSyaratPada !== null &&
-    tandaTanganPeminjam.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
+    sudahDisetujui && contractData.ttdPeminjam !== null && contractData.ttdPada !== null;
   const html = buildGadaiContract(
     {
       namaLengkap: detail.namaLengkap,
@@ -113,9 +114,19 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
           </div>
           <Badge
             variant="outline"
-            className={signed ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "text-muted-foreground"}
+            className={
+              signed
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : sudahDisetujui
+                  ? "border-sky-200 bg-sky-50 text-sky-800"
+                  : "text-muted-foreground"
+            }
           >
-            {signed ? "Akad tertanda tangan" : "Belum ditandatangani"}
+            {signed
+              ? "Akad tertanda tangan"
+              : sudahDisetujui
+                ? "Disetujui · TTD manual"
+                : "Belum ditandatangani"}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
@@ -123,7 +134,8 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
             {nomorContract("gadai", pawnRef)} · nilai taksiran pada ledger
           </span>
           <Button size="sm" className="gradient-primary rounded-full border-0" onClick={() => setOpen(true)}>
-            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat akad" : "Lihat & tanda tangan"}
+            <PenLine className="mr-1.5 size-4" />{" "}
+            {signed || sudahDisetujui ? "Lihat akad" : "Lihat & tanda tangan"}
           </Button>
         </div>
       </div>
@@ -147,7 +159,11 @@ Perjanjian gadai tersedia setelah nilai taksiran dimasukkan ke aplikasi.
               : null
         }
         onSign={async (dataUrl) => {
-          await save({ pawnId, dataUrl, persetujuanPeminjam: true });
+          await save({
+            pawnId,
+            ...(dataUrl !== null ? { dataUrl } : {}),
+            persetujuanPeminjam: true,
+          });
         }}
       />
     </>

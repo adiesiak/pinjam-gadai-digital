@@ -2224,69 +2224,99 @@ function validasiDataTandaTangan(dataUrl: string) {
 }
 
 /**
- * Simpan persetujuan syarat dan tanda tangan Peminjam sekaligus — admin
- * memfasilitasi pengisian di hadapan Peminjam; sistem tidak memverifikasi
- * identitas fisik orang yang menggunakan kanvas.
+ * Simpan persetujuan syarat Peminjam — admin memfasilitasi pengisian di hadapan
+ * Peminjam; sistem tidak memverifikasi identitas fisik orang yang menggunakan
+ * kanvas.
+ *
+ * `dataUrl` opsional: persetujuan boleh dicatat tanpa gambar tanda tangan
+ * elektronik karena dokumen disiapkan untuk ditandatangani manual setelah
+ * diunduh. Bila `dataUrl` dikirim, sidik jari kontrak diterbitkan dalam
+ * transaksi yang sama supaya tidak ada kontrak tertanda tangan tanpa kode
+ * verifikasi.
  */
 export const simpanTandaTangan = mutation({
   args: {
     loanId: v.id("loans"),
-    dataUrl: v.string(),
+    dataUrl: v.optional(v.string()),
     persetujuanPeminjam: v.literal(true),
   },
   handler: async (ctx, { loanId, dataUrl }) => {
     const { userId, user } = await requireAdmin(ctx);
-    validasiDataTandaTangan(dataUrl);
+    if (dataUrl !== undefined) validasiDataTandaTangan(dataUrl);
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Pengajuan pinjaman tidak ditemukan.");
     if (loan.status === "ditolak") {
       throw new Error("Kontrak pinjaman yang ditolak tidak dapat ditandatangani.");
     }
-    if (
-      loan.tandaTanganPeminjam !== undefined &&
+    const sudahSetuju =
       loan.persetujuanSyaratPada !== undefined &&
-      loan.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION
-    ) {
+      loan.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
+    const sudahTandaTangan = loan.tandaTanganPeminjam !== undefined;
+    if (sudahSetuju && sudahTandaTangan) {
       throw new Error("Kontrak ini sudah disetujui dan ditandatangani.");
+    }
+    if (sudahSetuju && dataUrl === undefined) {
+      throw new Error(
+        "Persetujuan kontrak ini sudah dicatat. Bubuhkan tanda tangan untuk melengkapinya.",
+      );
     }
 
     const now = Date.now();
     await ctx.db.patch(loanId, {
-      tandaTanganPeminjam: dataUrl,
-      tandaTanganPada: now,
+      ...(dataUrl !== undefined
+        ? { tandaTanganPeminjam: dataUrl, tandaTanganPada: now }
+        : {}),
       persetujuanSyaratPada: now,
       persetujuanSyaratVersi: CONTRACT_TERMS_VERSION,
     });
-    // Sidik jari dokumen dibuat dari data yang BARU SAJA ditandatangani, dalam
-    // transaksi yang sama — tidak ada dokumen tertanda tangan tanpa kode
-    // verifikasi karena kegagalan di tengah jalan.
-    const digital = await terbitkanKontrakPinjaman(
-      ctx,
-      { ...loan, tandaTanganPada: now },
-      now,
-    );
+    // Sidik jari terbit bila kontrak memang punya gambar tanda tangan — baik
+    // yang baru dibubuhkan sekarang maupun yang sudah tersimpan dari pengajuan.
+    // Persetujuan tanpa gambar tetap tercatat, tetapi belum menjadi kontrak
+    // tertanda tangan dan disiapkan untuk TTD manual.
+    const tandaTangan = dataUrl ?? loan.tandaTanganPeminjam;
+    const waktuTandaTangan =
+      dataUrl !== undefined ? now : (loan.tandaTanganPada ?? now);
+    const digital =
+      tandaTangan !== undefined
+        ? await terbitkanKontrakPinjaman(
+            ctx,
+            { ...loan, tandaTanganPeminjam: tandaTangan, tandaTanganPada: waktuTandaTangan },
+            waktuTandaTangan,
+          )
+        : null;
     await audit(
       ctx,
       userId,
       user.email ?? user.name ?? "admin",
       "kontrak_pinjaman_disetujui",
       loan.nomorReferensi,
-      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin. Kode verifikasi ${digital.kode}, SHA-256 ${digital.hash}.`,
+      digital !== null
+        ? `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin. Kode verifikasi ${digital.kode}, SHA-256 ${digital.hash}.`
+        : `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} tanpa gambar tanda tangan elektronik; dokumen disiapkan untuk tanda tangan manual.`,
     );
-    return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION, kode: digital.kode };
+    return {
+      ok: true,
+      waktu: now,
+      versi: CONTRACT_TERMS_VERSION,
+      kode: digital?.kode ?? null,
+    };
   },
 });
 
-/** Simpan persetujuan dan tanda tangan Peminjam pada akad gadai secara atomik. */
+/**
+ * Simpan persetujuan dan (bila ada) tanda tangan Peminjam pada akad gadai.
+ * Tanda tangan elektronik opsional agar akad dapat disetujui lebih dulu, lalu
+ * diunduh dan ditandatangani manual.
+ */
 export const simpanTandaTanganGadai = mutation({
   args: {
     pawnId: v.id("pawns"),
-    dataUrl: v.string(),
+    dataUrl: v.optional(v.string()),
     persetujuanPeminjam: v.literal(true),
   },
   handler: async (ctx, { pawnId, dataUrl }) => {
     const { userId, user } = await requireAdmin(ctx);
-    validasiDataTandaTangan(dataUrl);
+    if (dataUrl !== undefined) validasiDataTandaTangan(dataUrl);
     const pawn = await ctx.db.get(pawnId);
     if (pawn === null) throw new Error("Pengajuan gadai tidak ditemukan.");
     if (pawn.status === "ditolak") {
@@ -2298,35 +2328,54 @@ export const simpanTandaTanganGadai = mutation({
     if (pawn.pokokGadai === undefined || pawn.persenSewaModal === undefined) {
       throw new Error("Tetapkan pokok gadai dan sewa modal sebelum meminta persetujuan.");
     }
-    if (
-      pawn.tandaTanganPeminjam !== undefined &&
+    const sudahSetuju =
       pawn.persetujuanSyaratPada !== undefined &&
-      pawn.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION
-    ) {
+      pawn.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
+    const sudahTandaTangan = pawn.tandaTanganPeminjam !== undefined;
+    if (sudahSetuju && sudahTandaTangan) {
       throw new Error("Akad gadai ini sudah disetujui dan ditandatangani.");
+    }
+    if (sudahSetuju && dataUrl === undefined) {
+      throw new Error(
+        "Persetujuan akad gadai ini sudah dicatat. Bubuhkan tanda tangan untuk melengkapinya.",
+      );
     }
 
     const now = Date.now();
     await ctx.db.patch(pawnId, {
-      tandaTanganPeminjam: dataUrl,
-      tandaTanganPada: now,
+      ...(dataUrl !== undefined
+        ? { tandaTanganPeminjam: dataUrl, tandaTanganPada: now }
+        : {}),
       persetujuanSyaratPada: now,
       persetujuanSyaratVersi: CONTRACT_TERMS_VERSION,
     });
-    const digital = await terbitkanKontrakGadai(
-      ctx,
-      { ...pawn, tandaTanganPada: now },
-      now,
-    );
+    const tandaTangan = dataUrl ?? pawn.tandaTanganPeminjam;
+    const waktuTandaTangan =
+      dataUrl !== undefined ? now : (pawn.tandaTanganPada ?? now);
+    const digital =
+      tandaTangan !== undefined
+        ? await terbitkanKontrakGadai(
+            ctx,
+            { ...pawn, tandaTanganPeminjam: tandaTangan, tandaTanganPada: waktuTandaTangan },
+            waktuTandaTangan,
+          )
+        : null;
     await audit(
       ctx,
       userId,
       user.email ?? user.name ?? "admin",
       "kontrak_gadai_disetujui",
       pawn.nomorReferensi,
-      `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin. Kode verifikasi ${digital.kode}, SHA-256 ${digital.hash}.`,
+      digital !== null
+        ? `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} dan menandatangani melalui alur yang difasilitasi admin. Kode verifikasi ${digital.kode}, SHA-256 ${digital.hash}.`
+        : `Peminjam menyetujui syarat ${CONTRACT_TERMS_VERSION} tanpa gambar tanda tangan elektronik; dokumen disiapkan untuk tanda tangan manual.`,
     );
-    return { ok: true, waktu: now, versi: CONTRACT_TERMS_VERSION, kode: digital.kode };
+    return {
+      ok: true,
+      waktu: now,
+      versi: CONTRACT_TERMS_VERSION,
+      kode: digital?.kode ?? null,
+    };
   },
 });
 

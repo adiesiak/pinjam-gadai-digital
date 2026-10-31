@@ -50,10 +50,11 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
           persetujuanSyaratVersi: contractData.persetujuanVersi,
         }
       : undefined;
+  const sudahDisetujui =
+    contractData.persetujuanPada !== null &&
+    contractData.persetujuanVersi === CONTRACT_TERMS_VERSION;
   const signed =
-    tandaTanganPeminjam !== undefined &&
-    tandaTanganPeminjam.persetujuanSyaratPada !== null &&
-    tandaTanganPeminjam.persetujuanSyaratVersi === CONTRACT_TERMS_VERSION;
+    sudahDisetujui && contractData.ttdPeminjam !== null && contractData.ttdPada !== null;
 
   const html = buildPinjamanContract(
     {
@@ -111,9 +112,19 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
           </div>
           <Badge
             variant="outline"
-            className={signed ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "text-muted-foreground"}
+            className={
+              signed
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : sudahDisetujui
+                  ? "border-sky-200 bg-sky-50 text-sky-800"
+                  : "text-muted-foreground"
+            }
           >
-            {signed ? "Perjanjian tertanda tangan" : "Belum ditandatangani"}
+            {signed
+              ? "Perjanjian tertanda tangan"
+              : sudahDisetujui
+                ? "Disetujui · TTD manual"
+                : "Belum ditandatangani"}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
@@ -121,7 +132,8 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
             {nomorContract("pinjaman", detail.nomorReferensi)} · Pokok {formatRupiah(detail.pokokPinjaman)}
           </span>
           <Button size="sm" className="gradient-primary rounded-full border-0" onClick={() => setOpen(true)}>
-            <PenLine className="mr-1.5 size-4" /> {signed ? "Lihat perjanjian" : "Lihat & tanda tangan"}
+            <PenLine className="mr-1.5 size-4" />{" "}
+            {signed || sudahDisetujui ? "Lihat perjanjian" : "Lihat & tanda tangan"}
           </Button>
         </div>
       </div>
@@ -143,7 +155,11 @@ export function LoanContractBlock({ loanId }: { loanId: Id<"loans"> }) {
             : null
         }
         onSign={async (dataUrl) => {
-          await save({ loanId, dataUrl, persetujuanPeminjam: true });
+          await save({
+            loanId,
+            ...(dataUrl !== null ? { dataUrl } : {}),
+            persetujuanPeminjam: true,
+          });
         }}
       />
     </>

@@ -36,7 +36,8 @@ type Props = {
   consentAt: number | null;
   consentVersion: string | null;
   signingDisabledReason?: string | null;
-  onSign: (dataUrl: string) => Promise<void>;
+  /** `null` = hanya mencatat persetujuan; tanda tangan disiapkan manual. */
+  onSign: (dataUrl: string | null) => Promise<void>;
 };
 
 /** Dialog pencatatan checkbox dan gambar tanda tangan pada ledger internal. */
@@ -70,8 +71,8 @@ export function ContractSigningDialog({
     setPrevOpen(open);
     if (open) {
       // Persetujuan diisi otomatis saat modal dibuka: peminjam tidak perlu
-      // mencentang manual lebih dulu, dan tombol tanda tangan langsung siap
-      // begitu ada goresan. Kotak ini TETAP bisa dimatikan sendiri sebelum
+      // mencentang manual lebih dulu, dan tombol persetujuan langsung siap
+      // walau kanvas kosong. Kotak ini TETAP bisa dimatikan sendiri sebelum
       // menekan tombol, jadi menarik persetujuan masih mungkin.
       setConsentChecked(true);
       setHasSignature(false);
@@ -79,15 +80,19 @@ export function ContractSigningDialog({
     }
   }
 
-  const fullySigned =
-    signature !== null &&
-    signedAt !== null &&
-    consentAt !== null &&
-    consentVersion === CONTRACT_TERMS_VERSION;
+  const sudahDisetujui =
+    consentAt !== null && consentVersion === CONTRACT_TERMS_VERSION;
+  const tandaTanganTercatat = signature !== null && signedAt !== null;
+  const fullySigned = sudahDisetujui && tandaTanganTercatat;
+  /** Persetujuan sudah tercatat, gambar tanda tangan belum — siap TTD manual. */
+  const menungguTandaTangan = sudahDisetujui && !tandaTanganTercatat;
 
   // Ada goresan baru di kanvas, atau gambar tanda tangan lama yang sudah
   // termuat — lihat `tandaTanganSiap()` di `@/lib/perjanjianTtd`.
   const siapTandaTangan = tandaTanganSiap(hasSignature, signature);
+  const bolehSimpan =
+    bolehKirimPerjanjian({ busy, consentChecked }) &&
+    (!menungguTandaTangan || siapTandaTangan);
 
   // Pratinjau di dalam dialog juga memakai QR yang sudah lengkap. Tanpa ini,
   // iframe bisa menampilkan kotak "QR" kosong saat pembuatan QR belum selesai.
@@ -169,9 +174,12 @@ export function ContractSigningDialog({
         : signature !== null
           ? signature
           : null;
-    if (dataUrl === null) {
+    // Persetujuan tanpa tanda tangan tetap sah untuk alur TTD manual. Namun
+    // saat persetujuan SUDAH tersimpan, tombol ini hanya untuk melengkapi
+    // gambar tanda tangan, jadi kanvas kosong tidak boleh mengirim ulang.
+    if (dataUrl === null && menungguTandaTangan) {
       setHasSignature(false);
-      setError("Tanda tangan Peminjam masih kosong.");
+      setError("Bubuhkan tanda tangan terlebih dahulu, atau tutup dialog dan gunakan dokumen untuk TTD manual.");
       return;
     }
 
@@ -179,8 +187,14 @@ export function ContractSigningDialog({
     setError(null);
     try {
       await onSign(dataUrl);
-      toast.success("Catatan persetujuan aplikasi dan gambar tanda tangan tersimpan.");
-      onOpenChange(false);
+      toast.success(
+        dataUrl === null
+          ? "Persetujuan perjanjian tersimpan. Dokumen dapat diunduh untuk tanda tangan manual."
+          : "Catatan persetujuan aplikasi dan gambar tanda tangan tersimpan.",
+      );
+      // Tanpa tanda tangan, dialog tetap terbuka agar tombol unduh/cetak untuk
+      // TTD manual langsung terlihat. Setelah ada gambar, alur selesai dan tutup.
+      if (dataUrl !== null) onOpenChange(false);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Gagal menyimpan akad.";
       setError(message);
@@ -198,8 +212,16 @@ export function ContractSigningDialog({
         <DialogHeader className="shrink-0 border-b border-slate-200 px-5 py-5 pr-12 text-left sm:px-6">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-primary/25 bg-primary/5 text-primary">
-              {fullySigned ? <BadgeCheck className="size-3.5" /> : <PenLine className="size-3.5" />}
-              {fullySigned ? "Perjanjian tersimpan" : "Tanda tangan"}
+              {fullySigned || menungguTandaTangan ? (
+                <BadgeCheck className="size-3.5" />
+              ) : (
+                <PenLine className="size-3.5" />
+              )}
+              {fullySigned
+                ? "Perjanjian tersimpan"
+                : menungguTandaTangan
+                  ? "Perjanjian disetujui"
+                  : "Tanda tangan"}
             </Badge>
             <span className="text-xs tabular-nums text-muted-foreground">Syarat {CONTRACT_TERMS_VERSION}</span>
           </div>
@@ -217,7 +239,7 @@ export function ContractSigningDialog({
               <div>
                 <h3 className="text-sm font-semibold text-navy">Perjanjian dan rincian pengajuan</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Tinjau nama, angka, dan ketentuan sebelum peminjam menandatangani.
+                  Tinjau nama, angka, dan ketentuan sebelum peminjam menyetujui perjanjian.
                 </p>
               </div>
               <ContractPrintButton html={html} label="Cetak / simpan PDF" />
@@ -259,6 +281,27 @@ export function ContractSigningDialog({
             </div>
           ) : (
             <>
+              {menungguTandaTangan && (
+                <section className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/70 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="flex items-center gap-2 text-sm font-semibold text-sky-950">
+                        <BadgeCheck className="size-4" /> Persetujuan perjanjian tersimpan
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-sky-900">
+                        Versi tampilan {consentVersion} · {new Date(consentAt).toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                    <Badge className="bg-sky-700 text-white hover:bg-sky-700">Disetujui</Badge>
+                  </div>
+                  <p className="text-xs leading-5 text-sky-900">
+                    Gambar tanda tangan belum dicatat. Unduh dokumen untuk ditandatangani manual,
+                    atau bubuhkan tanda tangan elektronik di kanvas bawah ini.
+                  </p>
+                  <ContractPrintButton html={html} label="Unduh / cetak untuk TTD manual" />
+                </section>
+              )}
+
               <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4">
                 <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-700" />
                 <p className="text-xs leading-5 text-amber-900">
@@ -278,8 +321,8 @@ export function ContractSigningDialog({
                     Gambar tanda tangan pada pengajuan
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Area ini menyimpan goresan sebagai gambar pada pengajuan. Kotak persetujuan
-                    tercentang otomatis begitu peminjam mulai menggambar di sini.
+                    Tanda tangan elektronik opsional. Gambar yang dibubuhkan di sini disimpan pada
+                    pengajuan; jika dikosongkan, dokumen tetap dapat diunduh untuk TTD manual.
                   </p>
                 </div>
                 <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -328,7 +371,7 @@ export function ContractSigningDialog({
                     Saya telah membaca dan menyetujui isi perjanjian ini
                     (versi {CONTRACT_TERMS_VERSION}).
                   </span>{" "}
-                  Penandatanganan ini dicatat pada perjanjian. Kotak ini terisi otomatis saat
+                  Persetujuan ini dicatat pada perjanjian. Kotak ini terisi otomatis saat
                   perjanjian dibuka dan saat tanda tangan dibubuhkan — peminjam masih bisa
                   membatalkannya sendiri sebelum menekan tombol kirim.
                 </span>
@@ -343,19 +386,24 @@ export function ContractSigningDialog({
           )}
         </div>
 
-        {/* Sticky action bar: Batal selalu tersedia; tindakan utama hanya aktif
-            bila perjanjian belum ditandatangani dan penandatanganan dibuka. */}
+        {/* Sticky action bar: Batal selalu tersedia; persetujuan bisa disimpan
+            tanpa tanda tangan, sedangkan setelah disetujui tombol hanya aktif
+            untuk melengkapi gambar tanda tangan. */}
         <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 bg-slate-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p className="text-xs text-muted-foreground">
             {fullySigned
               ? "Perjanjian ini sudah ditandatangani dan tercatat di ledger internal."
               : signingDisabledReason !== null
                 ? "Penandatanganan perjanjian dinonaktifkan untuk pengajuan ini."
-                : siapTandaTangan && consentChecked
-                  ? "Persetujuan dan tanda tangan siap disimpan pada perjanjian."
-                  : siapTandaTangan
+                : menungguTandaTangan
+                  ? siapTandaTangan
+                    ? "Tanda tangan siap disimpan untuk melengkapi persetujuan yang sudah tercatat."
+                    : "Persetujuan sudah tersimpan. Unduh dokumen untuk TTD manual atau bubuhkan tanda tangan di kanvas."
+                  : !consentChecked
                     ? "Persetujuan belum dicentang; centang kembali untuk menyimpan."
-                    : "Bubuhkan tanda tangan pada kanvas untuk mengaktifkan tombol kirim."}
+                    : siapTandaTangan
+                      ? "Persetujuan dan tanda tangan siap disimpan pada perjanjian."
+                      : "Persetujuan dapat disimpan tanpa tanda tangan; dokumen tetap dapat diunduh untuk TTD manual."}
           </p>
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -374,15 +422,17 @@ export function ContractSigningDialog({
                 // Persetujuan terisi otomatis saat modal dibuka, jadi satu klik di
                 // sini langsung menyelesaikan pencatatan ke Convex.
                 className={KELAS_TOMBOL_SETUJU_PERJANJIAN}
-                disabled={!bolehKirimPerjanjian({
-                  busy,
-                  consentChecked,
-                  siap: siapTandaTangan,
-                })}
+                disabled={!bolehSimpan}
                 onClick={() => void submit()}
               >
                 {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
-                {busy ? "Menyimpan…" : "Setujui & Tandatangani Perjanjian"}
+                {busy
+                  ? "Menyimpan…"
+                  : menungguTandaTangan
+                    ? "Simpan Tanda Tangan"
+                    : siapTandaTangan
+                      ? "Setujui & Tandatangani Perjanjian"
+                      : "Setujui Perjanjian"}
               </Button>
             )}
           </div>

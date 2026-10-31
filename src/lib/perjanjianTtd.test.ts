@@ -5,9 +5,8 @@
  *
  * Dua bagian:
  *  1. **Aturan murni** — kapan tanda tangan dianggap siap dan kapan tombol kirim
- *     boleh ditekan. Termasuk kasus yang paling mudah rusak: gambar tanda tangan
- *     yang sudah termuat dari perjanjian ini harus membuat tombol aktif TANPA
- *     syarat rintangan tambahan.
+ *     boleh ditekan. Persetujuan harus bisa dicatat TANPA gambar tanda tangan
+ *     untuk alur TTD manual; gambar lama yang sudah termuat tetap dikenali.
  *  2. **Perkabelan di komponen** — karena keadaan persetujuan diisi otomatis di
  *     dalam efek React (tidak bisa dirender tanpa DOM/kanvas), sumber dialognya
  *     dibaca sebagai teks dan diperiksa: pengisian otomatis saat modal dibuka,
@@ -51,19 +50,15 @@ ok(
 ok(tandaTanganSiap(true, GAMBAR_LAMA) === true, "goresan baru + gambar lama: tetap siap");
 
 ok(
-  bolehKirimPerjanjian({ busy: false, consentChecked: true, siap: true }) === true,
-  "persetujuan otomatis + tanda tangan siap: satu klik boleh mengirim",
+  bolehKirimPerjanjian({ busy: false, consentChecked: true }) === true,
+  "persetujuan tercentang: boleh dikirim walau belum ada tanda tangan",
 );
 ok(
-  bolehKirimPerjanjian({ busy: false, consentChecked: false, siap: true }) === false,
+  bolehKirimPerjanjian({ busy: false, consentChecked: false }) === false,
   "persetujuan dibatalkan sendiri: tombol terkunci lagi",
 );
 ok(
-  bolehKirimPerjanjian({ busy: false, consentChecked: true, siap: false }) === false,
-  "belum ada tanda tangan sama sekali: tombol belum aktif",
-);
-ok(
-  bolehKirimPerjanjian({ busy: true, consentChecked: true, siap: true }) === false,
+  bolehKirimPerjanjian({ busy: true, consentChecked: true }) === false,
   "mutasi berjalan: tombol terkunci (tidak terkirim dua kali)",
 );
 
@@ -123,13 +118,23 @@ ada(
 
 // Tombol: memakai aturan murni, bukan syarat goresan baru.
 ada(dialog, "className={KELAS_TOMBOL_SETUJU_PERJANJIAN}", "tombol memakai kelas bersama");
-ada(dialog, "disabled={!bolehKirimPerjanjian({", "tombol memakai aturan bersama");
-ada(dialog, "siap: siapTandaTangan", "tombol memakai kesiapan tanda tangan bersama");
+ada(dialog, "bolehKirimPerjanjian({ busy, consentChecked })", "tombol memakai aturan bersama");
+ada(
+  dialog,
+  "(!menungguTandaTangan || siapTandaTangan)",
+  "tombol hanya menuntut gambar saat melengkapi persetujuan yang sudah tersimpan",
+);
 ada(dialog, "tandaTanganSiap(hasSignature, signature)", "kesiapan tanda tangan memasukkan gambar lama");
+ada(dialog, "Setujui Perjanjian", "tombol menawarkan persetujuan tanpa tanda tangan");
+ada(
+  dialog,
+  "dokumen tetap dapat diunduh untuk TTD manual",
+  "dialog menjelaskan alur unduh untuk tanda tangan manual",
+);
 tidakAda(
   dialog,
-  "disabled={busy || !consentChecked || !hasSignature}",
-  "tombol tidak lagi menuntut goresan baru bila gambar lama sudah ada",
+  "Bubuhkan tanda tangan pada kanvas untuk mengaktifkan tombol kirim.",
+  "tanda tangan tidak lagi menjadi syarat tombol persetujuan",
 );
 
 if (failed > 0) {
