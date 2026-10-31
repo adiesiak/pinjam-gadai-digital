@@ -64,7 +64,7 @@ export function MenuInformasiPonsel({
   }, [terbuka]);
 
   return (
-    <div ref={wadah} className="relative lg:hidden">
+    <div ref={wadah} className="relative shrink-0 lg:hidden">
       <button
         type="button"
         onClick={() => setTerbuka((sebelumnya) => !sebelumnya)}
@@ -79,7 +79,10 @@ export function MenuInformasiPonsel({
         <nav
           id={idPanel}
           aria-label="Menu informasi"
-          className={kelasPanel}
+          className={cn(
+            kelasPanel,
+            "max-h-[calc(100dvh-5.5rem)] overflow-y-auto overscroll-contain",
+          )}
         >
           {tautan.map((item, i) => (
             <div key={item.href}>

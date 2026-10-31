@@ -333,12 +333,6 @@ export default function LandingHome() {
                 <ShieldCheck className="size-5" aria-hidden="true" />
               </Link>
             )}
-            <MenuInformasiPonsel
-              tautan={TAUTAN_MENU}
-              kelasTombol="flex size-11 items-center justify-center rounded-lg border border-border text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-64 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
-              kelasTautan="rounded-lg px-3 py-3 hover:bg-muted"
-            />
             {isLoading ? (
               <Button
                 disabled
@@ -355,6 +349,15 @@ export default function LandingHome() {
                 <Link to={accountHref}>{accountLabel}</Link>
               </Button>
             )}
+            {/* Menu ponsel diletakkan paling kanan supaya panelnya tumbuh ke kiri
+                dari tepi layar, bukan dari tombol yang masih punya tombol aksi
+                di sebelah kanan. Tanpa ini, panel 16rem terpotong di layar 375px. */}
+            <MenuInformasiPonsel
+              tautan={TAUTAN_MENU}
+              kelasTombol="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-64 max-w-[calc(100vw-2rem)] gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
+              kelasTautan="rounded-lg px-3 py-3 hover:bg-muted"
+            />
           </div>
         </div>
       </header>

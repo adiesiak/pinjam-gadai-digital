@@ -168,19 +168,20 @@ function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="min-h-11">
+            <Link to="/">Beranda</Link>
+          </Button>
+          {/* Menu ponsel paling kanan agar panelnya muat di layar 375px. */}
           <MenuInformasiPonsel
             tautan={TAUTAN_MENU.map((tautan) => ({
               ...tautan,
               aktif: aktif(tautan.href),
             }))}
-            kelasTombol="flex size-11 items-center justify-center rounded-lg border border-slate-200 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800"
-            kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg"
+            kelasTombol="flex size-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800"
+            kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] gap-1 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg"
             kelasTautan="rounded-lg px-3 py-3 hover:bg-slate-50"
             kelasTautanAktif="bg-emerald-50 font-semibold text-emerald-900"
           />
-          <Button asChild variant="outline" className="min-h-11">
-            <Link to="/">Beranda</Link>
-          </Button>
         </div>
       </div>
     </header>

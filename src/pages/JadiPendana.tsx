@@ -418,6 +418,10 @@ function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="min-h-11">
+            <Link to="/penyedia-dana">Kembali ke ruang pendana</Link>
+          </Button>
+          {/* Menu ponsel paling kanan agar panelnya muat di layar 375px. */}
           <MenuInformasiPonsel
             tautan={[
               { href: "/penyedia-dana", label: "Ruang pendana" },
@@ -428,13 +432,10 @@ function Header() {
               { href: "/faq", label: "FAQ" },
               { href: "/aplikasi", label: "Aplikasi Android" },
             ]}
-            kelasTombol="flex size-11 items-center justify-center rounded-lg border border-border text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
+            kelasTombol="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
             kelasTautan="rounded-lg px-3 py-3 hover:bg-muted"
           />
-          <Button asChild variant="outline" className="min-h-11">
-            <Link to="/penyedia-dana">Kembali ke ruang pendana</Link>
-          </Button>
         </div>
       </div>
     </header>

@@ -222,17 +222,18 @@ export function UnduhAplikasiView({
           </nav>
 
           <div className="flex items-center gap-2">
-            <MenuInformasiPonsel
-              tautan={TAUTAN_MENU}
-              kelasTombol="flex size-11 items-center justify-center rounded-lg border border-[#d5e1d8] text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
-              kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 gap-1 rounded-xl border border-[#d5e1d8] bg-[#fbfcfa] p-2 text-sm shadow-lg"
-              kelasTautan="rounded-lg px-3 py-3 hover:bg-[#edf4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
-              kelasTautanAktif="font-semibold text-[#065f46]"
-            />
-
             <Button asChild variant="outline" className="min-h-11">
               <Link to="/auth">Masuk</Link>
             </Button>
+
+            {/* Menu ponsel paling kanan agar panelnya muat di layar 375px. */}
+            <MenuInformasiPonsel
+              tautan={TAUTAN_MENU}
+              kelasTombol="flex size-11 shrink-0 items-center justify-center rounded-lg border border-[#d5e1d8] text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+              kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] gap-1 rounded-xl border border-[#d5e1d8] bg-[#fbfcfa] p-2 text-sm shadow-lg"
+              kelasTautan="rounded-lg px-3 py-3 hover:bg-[#edf4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]"
+              kelasTautanAktif="font-semibold text-[#065f46]"
+            />
           </div>
         </div>
       </header>
