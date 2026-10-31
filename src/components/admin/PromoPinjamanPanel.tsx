@@ -62,7 +62,7 @@ type Draf = {
 const STATUS: Record<StatusPromo, { label: string; kelas: string }> = {
   berjalan: {
     label: "Berjalan",
-    kelas: "border-emerald-700/30 bg-emerald-700/10 text-emerald-800",
+    kelas: "border-success-border bg-success-soft text-success-foreground",
   },
   dijadwalkan: {
     label: "Dijadwalkan",

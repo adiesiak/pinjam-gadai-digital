@@ -396,7 +396,7 @@ export function LandingCmsPanel() {
             </Button>
             <Button
               size="sm"
-              className="min-h-11 bg-[#064E3B] text-white hover:bg-[#021E17]"
+              className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={busy || !draft}
               onClick={simpan}
             >

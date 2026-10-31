@@ -78,7 +78,7 @@ type Draf = {
 const STATUS: Record<StatusBannerPromo, { label: string; kelas: string }> = {
   berjalan: {
     label: "Berjalan",
-    kelas: "border-emerald-700/30 bg-emerald-700/10 text-emerald-800",
+    kelas: "border-success-border bg-success-soft text-success-foreground",
   },
   dijadwalkan: {
     label: "Dijadwalkan",
@@ -317,7 +317,7 @@ export function BannerPromoPanel() {
         <Button
           type="button"
           size="sm"
-          className="min-h-11 bg-[#064E3B] text-white hover:bg-[#021E17]"
+          className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={bukaBaru}
         >
           <Plus className="mr-1.5 size-4" /> Banner baru
@@ -584,13 +584,13 @@ export function BannerPromoPanel() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="tanpa-promo">
-                    Tanpa ikatan — ikut jadwal banner
+                    Tanpa ikatan, ikut jadwal banner
                   </SelectItem>
                   {draf.promoBungaId !== "" &&
                     promo !== undefined &&
                     !promo.some((row) => row._id === draf.promoBungaId) && (
                       <SelectItem value={draf.promoBungaId}>
-                        Promo tidak ditemukan — pilih ulang
+                        Promo tidak ditemukan, pilih ulang
                       </SelectItem>
                     )}
                   {(promo ?? []).map((row) => (
@@ -783,7 +783,7 @@ export function BannerPromoPanel() {
             </Button>
             <Button
               type="button"
-              className="min-h-11 bg-[#064E3B] text-white hover:bg-[#021E17]"
+              className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={busy !== null}
               onClick={() => void simpanIsi()}
             >

@@ -253,7 +253,7 @@ export function BackupPanel() {
     setBusy("pdf");
     try {
       const log = auditData.auditTerbaru;
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Audit Trail PINDAI</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#1c1a15}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e3ddd0;padding:6px 8px;text-align:left}</style></head><body><h1>Audit Trail — Pinjam Gadai Digital</h1><p>Dicetak: ${formatWaktuWIB(Date.now())} WIB</p><table><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>${log
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Audit Trail PINDAI</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#1c1a15}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e3ddd0;padding:6px 8px;text-align:left}</style></head><body><h1>Audit Trail | Pinjam Gadai Digital</h1><p>Dicetak: ${formatWaktuWIB(Date.now())} WIB</p><table><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>${log
         .map((a) => `<tr><td>${escapeHtml(`${formatWaktuWIB(a.waktu)} WIB`)}</td><td>${escapeHtml(a.aktorLabel)}</td><td>${escapeHtml(a.aksi)}</td><td>${escapeHtml(a.target ?? "-")}</td><td>${escapeHtml(a.detail ?? "-")}</td></tr>`)
         .join("")}</table></body></html>`;
       // Aplikasi Android: window.open diblokir, jadi dialog cetak Android dipakai.
@@ -286,7 +286,7 @@ export function BackupPanel() {
               : "Unduh snapshot database (.JSON)"}
           </Button>
           <Button variant="outline" className="w-full justify-start" disabled={busy !== null} onClick={unduhCsv}>
-            {busy === "csv" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-emerald-600" />}
+            {busy === "csv" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <FileDown className="mr-2 size-4 text-success-foreground" />}
             Ekspor ledger & mutasi (.CSV)
           </Button>
           <Button variant="outline" className="w-full justify-start" disabled={busy !== null || !auditData} onClick={unduhAuditPdf}>
@@ -295,12 +295,12 @@ export function BackupPanel() {
           </Button>
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          Snapshot memuat SELURUH data pinjaman: pinjaman, gadai, kredit barang, pembayaran cicilan gadai/kredit, pendanaan, setoran/penarikan, transfer pendana, bukti pembayaran, log WA, jejak lokasi, pengingat, peringatan lokasi, pengumuman, ledger, audit, dan seluruh baris pengguna (data dirinya) apa adanya — plus daftar dokumen (KTP, selfie, slip gaji, foto barang, bukti setoran/pembayaran, QRIS) beserta tautan unduhnya. <strong>Berisi data pribadi — simpan sebagai rahasia.</strong> Semua unduhan tercatat di audit trail.
+          Snapshot memuat SELURUH data pinjaman: pinjaman, gadai, kredit barang, pembayaran cicilan gadai/kredit, pendanaan, setoran/penarikan, transfer pendana, bukti pembayaran, log WA, jejak lokasi, pengingat, peringatan lokasi, pengumuman, ledger, audit, dan seluruh baris pengguna (data dirinya) apa adanya, plus daftar dokumen (KTP, selfie, slip gaji, foto barang, bukti setoran/pembayaran, QRIS) beserta tautan unduhnya. <strong>Berisi data pribadi — simpan sebagai rahasia.</strong> Semua unduhan tercatat di audit trail.
         </p>
       </div>
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
         <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-          <Lock className="size-4 text-emerald-600" /> Proteksi Data
+          <Lock className="size-4 text-success-foreground" /> Proteksi Data
         </p>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-sm font-medium">Watermark otomatis KTP</p>
@@ -314,7 +314,7 @@ export function BackupPanel() {
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-sm font-medium">Backup terakhir</p>
-          <p className="mt-1 text-xs leading-5 text-emerald-700">
+          <p className="mt-1 text-xs leading-5 text-success-foreground">
             {backupTerakhir === undefined
               ? "Memuat catatan backup…"
               : backupTerakhir === null
@@ -332,7 +332,7 @@ export function BackupPanel() {
             Terbitkan kode acak permanen untuk akun yang memiliki pengajuan kas, gadai, atau kredit. Proses bertahap dan hanya mengisi kode yang belum ada.
           </p>
           {kodePeminjamDiterbitkan !== null && (
-            <p className="mt-2 text-xs font-medium text-emerald-700" aria-live="polite">
+            <p className="mt-2 text-xs font-medium text-success-foreground" aria-live="polite">
               {busy === "kode-peminjam" ? "Sedang memproses" : "Terakhir selesai"}: {kodePeminjamDiterbitkan} kode diterbitkan.
             </p>
           )}
@@ -342,7 +342,7 @@ export function BackupPanel() {
             disabled={busy !== null}
             onClick={() => void migrasiKodePeminjam()}
           >
-            {busy === "kode-peminjam" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Lock className="mr-2 size-4 text-emerald-600" />}
+            {busy === "kode-peminjam" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Lock className="mr-2 size-4 text-success-foreground" />}
             {busy === "kode-peminjam" ? "Memproses kode lama…" : "Backfill kode peminjam lama"}
           </Button>
         </div>
@@ -355,7 +355,7 @@ export function BackupPanel() {
             tidak diketahui, jadi tidak boleh dikarang.
           </p>
           {metadataBerkasDilengkapi !== null && (
-            <p className="mt-2 text-xs font-medium text-emerald-700" aria-live="polite">
+            <p className="mt-2 text-xs font-medium text-success-foreground" aria-live="polite">
               {busy === "berkas-kyc" ? "Sedang memproses" : "Terakhir selesai"}:{" "}
               {metadataBerkasDilengkapi} baris dilengkapi.
             </p>
@@ -369,7 +369,7 @@ export function BackupPanel() {
             {busy === "berkas-kyc" ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
-              <Lock className="mr-2 size-4 text-emerald-600" />
+              <Lock className="mr-2 size-4 text-success-foreground" />
             )}
             {busy === "berkas-kyc" ? "Memproses metadata…" : "Lengkapi metadata berkas KYC"}
           </Button>

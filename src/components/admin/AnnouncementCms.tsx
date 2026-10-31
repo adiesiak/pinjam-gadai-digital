@@ -4,6 +4,7 @@ import { ArrowLeftRight, Check, Loader2, MessageSquare, Type, Wifi } from "lucid
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -152,6 +153,8 @@ export function AnnouncementCms() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Partial<PayloadCms> | null>(null);
   const [tab, setTab] = useState("tab-1");
+  const [konfirmasiReset, setKonfirmasiReset] = useState(false);
+  const [konfirmasiBersih, setKonfirmasiBersih] = useState(false);
 
   const ds = <K extends keyof PayloadCms>(key: K, fb: string): string => {
     const nilai = draft?.[key];
@@ -196,6 +199,7 @@ export function AnnouncementCms() {
     try {
       await reset({});
       setDraft(null);
+      setKonfirmasiReset(false);
       toast.success("Semua teks kembali ke default bawaan.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal reset.");
@@ -210,9 +214,11 @@ export function AnnouncementCms() {
       const hasil = await bersihkan({});
       if (hasil.diganti.length === 0) {
         toast.success("Tidak ada teks lama yang perlu dibersihkan.");
+        setKonfirmasiBersih(false);
         return;
       }
       setDraft(null);
+      setKonfirmasiBersih(false);
       toast.success(`Teks lama dikembalikan ke default baru: ${hasil.diganti.join(", ")}.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal membersihkan teks lama.");
@@ -419,16 +425,25 @@ export function AnnouncementCms() {
             {!draft ? "Tidak ada perubahan yang ditahan." : "Ada perubahan yang belum tersimpan."}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" disabled={busy} onClick={kembalikanDefault}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => setKonfirmasiReset(true)}
+            >
               <ArrowLeftRight className="mr-1.5 size-3.5" />
               Reset ke Default
             </Button>
-            <Button variant="outline" size="sm" disabled={busy} onClick={bersihkanTeksLama}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => setKonfirmasiBersih(true)}
+            >
               Bersihkan Teks Lama
             </Button>
             <Button
               size="sm"
-              className="bg-[#064E3B] text-white hover:bg-[#021E17]"
               disabled={busy || !draft}
               onClick={simpan}
             >
@@ -442,6 +457,30 @@ export function AnnouncementCms() {
           </div>
         </div>
       </div>
+
+      <KonfirmasiAksi
+        open={konfirmasiReset}
+        onOpenChange={(terbuka) => {
+          if (!terbuka && !busy) setKonfirmasiReset(false);
+        }}
+        judul="Reset semua pengumuman ke default?"
+        deskripsi="Seluruh teks bar, popup, dan widget yang tersimpan akan diganti dengan teks bawaan. Perubahan yang belum disimpan juga hilang."
+        labelKonfirmasi="Reset ke default"
+        busy={busy}
+        onConfirm={() => void kembalikanDefault()}
+      />
+
+      <KonfirmasiAksi
+        open={konfirmasiBersih}
+        onOpenChange={(terbuka) => {
+          if (!terbuka && !busy) setKonfirmasiBersih(false);
+        }}
+        judul="Bersihkan teks lama?"
+        deskripsi="Teks lama yang masih memakai susunan default sebelumnya akan diganti dengan default baru. Teks yang sudah disunting manual tidak diubah."
+        labelKonfirmasi="Bersihkan teks lama"
+        busy={busy}
+        onConfirm={() => void bersihkanTeksLama()}
+      />
     </div>
   );
 }
@@ -512,7 +551,7 @@ function SitePreview({
         <div className="right-4 bottom-4 animate-float rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
           <p className="font-semibold text-navy">{values.floatJudul}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{values.floatIsi}</p>
-          <span className="mt-2 inline-block rounded-lg bg-emerald-800 px-3 py-1 text-xs font-medium text-white">
+          <span className="mt-2 inline-block rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
             {values.floatCta}
           </span>
           <span className="mt-1 inline-flex h-6 w-6 rotate-45 cursor-pointer rounded-full border border-slate-300" />

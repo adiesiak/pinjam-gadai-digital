@@ -149,7 +149,7 @@ export function AturPlafonDialog({
                 <span
                   className={
                     sumberSekarang === kunci
-                      ? "rounded-md border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-emerald-800"
+                      ? "rounded-md border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-primary"
                       : "rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-slate-500"
                   }
                 >
@@ -170,13 +170,13 @@ export function AturPlafonDialog({
           <label
             htmlFor={`${id}-global`}
             className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
-              pakaiGlobal ? "border-emerald-300 bg-emerald-50/70" : "border-slate-200 bg-white"
+              pakaiGlobal ? "border-primary/40 bg-primary/5" : "border-border bg-card"
             }`}
           >
             <RadioGroupItem id={`${id}-global`} value="global" className="mt-0.5" />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-semibold text-navy">
-                <Globe className="size-3.5 text-emerald-700" /> Ikut Parameter Global System
+                <Globe className="size-3.5 text-primary" /> Ikut Parameter Global System
               </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                 Plafon {formatRupiah(global.plafon)}. Override khusus nasabah ini dihapus.
@@ -187,13 +187,13 @@ export function AturPlafonDialog({
           <label
             htmlFor={`${id}-khusus`}
             className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
-              !pakaiGlobal ? "border-emerald-300 bg-emerald-50/70" : "border-slate-200 bg-white"
+              !pakaiGlobal ? "border-primary/40 bg-primary/5" : "border-border bg-card"
             }`}
           >
             <RadioGroupItem id={`${id}-khusus`} value="khusus" className="mt-0.5" />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-semibold text-navy">
-                <UserCog className="size-3.5 text-emerald-700" /> Atur Khusus Nasabah Ini
+                <UserCog className="size-3.5 text-primary" /> Atur Khusus Nasabah Ini
               </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                 Override berlaku untuk pengajuan berikutnya; pinjaman yang sudah cair tetap memakai
@@ -262,7 +262,7 @@ export function AturPlafonDialog({
           className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4"
         >
           <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            <Calculator className="size-3.5 text-emerald-700" /> Kalkulasi real-time
+            <Calculator className="size-3.5 text-primary" /> Kalkulasi real-time
           </p>
           <dl className="mt-2 grid grid-cols-3 gap-2 text-center">
             <div className="rounded-lg bg-amber-50 px-2 py-2">
@@ -326,7 +326,7 @@ export function AturPlafonDialog({
           <Button
             type="button"
             disabled={busy || !adaPerubahan}
-            className="rounded-xl bg-emerald-700 text-white hover:bg-emerald-800"
+            className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() =>
               onSimpan({
                 pakaiGlobal,

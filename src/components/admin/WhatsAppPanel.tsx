@@ -54,7 +54,7 @@ import {
  * kertas hangat + kuningan (DESIGN.md), dial ENERGY 1 / RHYTHM 2 / MOTION 1.
  *
  * Alasan keputusan tampilan, satu baris masing-masing:
- * - Warna: emerald-800/emerald-50 dan slate adalah token preset `tinta` yang
+ * - Warna: primary, success, dan slate adalah token preset `tinta` yang
  *   sudah dipakai panel admin ini (kuningan di atas kertas hangat), bukan warna
  *   baru yang ditempel di atas sistem yang ada.
  * - Bentuk pil hanya untuk chip placeholder, supaya baris chip terbaca sebagai
@@ -121,7 +121,7 @@ export function EditorTemplateWa({
           className={
             dipakaiBawaan
               ? "bg-slate-100 text-slate-600 hover:bg-slate-100"
-              : "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+              : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/5"
           }
         >
           {dipakaiBawaan ? "Memakai bawaan" : "Diubah"}
@@ -143,11 +143,11 @@ export function EditorTemplateWa({
                 title={KETERANGAN_PLACEHOLDER_WA[nama]}
                 onClick={() => sisip(nama)}
                 disabled={sibuk}
-                className={`inline-flex min-h-11 items-center rounded-full border px-3 text-[11px] font-medium tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 text-[11px] font-medium tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 ${
                   wajib && !terpakai
                     ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
                     : terpakai
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                      ? "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
                       : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
                 }`}
               >
@@ -224,7 +224,7 @@ export function EditorTemplateWa({
           </span>
         </div>
         <div className="mt-2 flex justify-end">
-          <span className="max-w-[92%] rounded-lg bg-emerald-800 px-3 py-2 text-xs leading-5 text-white shadow-sm">
+          <span className="max-w-[92%] rounded-lg bg-primary px-3 py-2 text-xs leading-5 text-primary-foreground shadow-sm">
             <span className="block whitespace-pre-line break-words">
               {pratinjau.isi}
             </span>
@@ -277,9 +277,9 @@ export function ManajemenTemplateWa({
               type="button"
               aria-pressed={aktif}
               onClick={() => onPilihJenis(jenis)}
-              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 focus-visible:outline-none ${
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
                 aktif
-                  ? "border-emerald-700 bg-emerald-800 text-white"
+                  ? "border-primary bg-primary text-primary-foreground"
                   : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
               }`}
             >
@@ -288,7 +288,7 @@ export function ManajemenTemplateWa({
                 <span
                   aria-label="diubah"
                   className={`inline-block size-1.5 rounded-full ${
-                    aktif ? "bg-white" : "bg-emerald-600"
+                    aktif ? "bg-white" : "bg-primary"
                   }`}
                 />
               )}
@@ -337,7 +337,7 @@ function semuaTemplateSah(nilai: Readonly<Record<string, string>>): boolean {
  * seperti `gagal` — tetapi juga tidak boleh tampak sukses sebelum ada jawaban.
  */
 function kelasStatusLog(status: string): string {
-  if (status === "terkirim") return "bg-emerald-100 text-emerald-800 hover:bg-emerald-100";
+  if (status === "terkirim") return "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft";
   if (status === "mengirim") return "bg-amber-100 text-amber-800 hover:bg-amber-100";
   return "bg-red-100 text-red-700 hover:bg-red-100";
 }
@@ -481,7 +481,7 @@ export function WhatsAppPanel() {
         <div className="flex items-center gap-2">
           {status && (
             <p
-              className={`rounded-lg px-3 py-1 text-xs font-medium ${status.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}
+              className={`rounded-lg px-3 py-1 text-xs font-medium ${status.ok ? "border border-success-border bg-success-soft text-success-foreground" : "bg-red-50 text-red-700"}`}
             >
               {status.text}
             </p>
@@ -792,7 +792,7 @@ export function WhatsAppPanel() {
             <div className="flex items-center gap-2">
               {aktif ? (
                 <>
-                  <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="inline-flex h-2 w-2 rounded-full bg-success" />
                   Gateway aktif · pengiriman pesan dibuka
                 </>
               ) : (
@@ -825,7 +825,7 @@ export function WhatsAppPanel() {
             </Button>
             <Button
               size="sm"
-              className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={
                 busy !== null ||
                 !apiUrl ||

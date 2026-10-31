@@ -62,7 +62,7 @@ type Nada = "tenang" | "perhatian" | "siap";
 const NADA: Record<Nada, string> = {
   tenang: "border-slate-200 bg-slate-50/70 text-slate-700",
   perhatian: "border-amber-300/70 bg-amber-50 text-amber-900",
-  siap: "border-emerald-700/25 bg-emerald-700/[0.05] text-emerald-900",
+  siap: "border-success-border bg-success-soft text-success-foreground",
 };
 
 /** Satu baris fakta: label kecil di atas, nilai tebal di bawah. */

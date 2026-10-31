@@ -94,7 +94,7 @@ export function NasabahDetailDialog({
                     ? "border-destructive/30 bg-destructive/10 text-destructive"
                     : detail.risiko.gradeEfektif === "C"
                       ? "border-amber-200 bg-amber-50 text-amber-700"
-                      : "border-emerald-200 bg-emerald-100 text-emerald-700"
+                      : "border-success-border bg-success-soft text-success-foreground"
                 }
               >
                 Risiko {detail.profilRisiko.kategori} · grade {detail.risiko.gradeEfektif} ·{" "}
@@ -225,7 +225,7 @@ export function NasabahDetailDialog({
                     <Badge
                       className={
                         detail.profil?.adaFotoKtp
-                          ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+                          ? "border-success-border bg-success-soft text-success-foreground"
                           : "border-amber-200 bg-amber-100 text-amber-800"
                       }
                     >
@@ -258,7 +258,7 @@ export function NasabahDetailDialog({
                           ? "border-destructive/30 bg-destructive/10 text-destructive"
                           : detail.risiko.gradeEfektif === "C"
                             ? "border-amber-200 bg-amber-50 text-amber-700"
-                            : "border-emerald-200 bg-emerald-100 text-emerald-700"
+                            : "border-success-border bg-success-soft text-success-foreground"
                       }`}
                       aria-label={`Grade risiko ${detail.risiko.gradeEfektif}`}
                     >
@@ -315,7 +315,7 @@ export function NasabahDetailDialog({
                     <Kartu
                       label="Plafon tersedia"
                       nilai={formatRupiah(detail.plafon.tersedia)}
-                      nada="text-emerald-700"
+                      nada="text-success-foreground"
                     />
                   </dl>
                   <p className="text-[11px] leading-4 text-muted-foreground">
@@ -482,7 +482,7 @@ function KartuKolom({
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-3">
       <div className="flex items-start gap-2">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/5 text-primary">
           {icon}
         </span>
         <div className="min-w-0">

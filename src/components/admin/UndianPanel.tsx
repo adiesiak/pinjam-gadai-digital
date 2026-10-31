@@ -211,7 +211,7 @@ export function UndianPanel() {
             <span
               className={
                 bisaTekanUndi
-                  ? "inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800"
+                  ? "inline-flex items-center gap-1.5 rounded-lg border border-success-border bg-success-soft px-2.5 py-1 text-[11px] font-semibold text-success-foreground"
                   : "inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
               }
             >
@@ -247,7 +247,7 @@ export function UndianPanel() {
                       ? `Pengundian dibuka pada ${ringkasan?.labelTanggalUndian}.`
                       : "Pilih satu pemenang acak dari tiket aktif kuartal ini."
                 }
-                className="gap-1.5 bg-emerald-800 text-white hover:bg-emerald-900 disabled:bg-slate-200 disabled:text-slate-500"
+                className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-slate-200 disabled:text-slate-500"
               >
                 <Trophy className="size-3.5" aria-hidden /> Acak pemenang
               </Button>
@@ -318,7 +318,7 @@ export function UndianPanel() {
                   {hadiah === undefined ? "—" : formatRupiah(hadiah.nilaiPerkiraan)}
                 </span>
                 {hadiah !== undefined && (
-                  <span className="ml-1.5 text-[11px] text-emerald-800">
+                  <span className="ml-1.5 text-[11px] text-success-foreground">
                     di bawah {formatRupiah(BATAS_NILAI_HADIAH_DOORPRIZE)}
                   </span>
                 )}
@@ -386,16 +386,16 @@ export function UndianPanel() {
       </section>
 
       {ringkasan?.pemenang && (
-        <section className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-900">
+        <section className="rounded-xl border border-success-border bg-success-soft px-3 py-3 text-xs leading-5 text-success-foreground">
           <p>
             Pemenang {ringkasan.labelPeriode}: <strong>{ringkasan.pemenang.nama}</strong> (
-            {ringkasan.pemenang.peran}) — {ringkasan.pemenang.hadiah}, diundi{" "}
+            {ringkasan.pemenang.peran}): {ringkasan.pemenang.hadiah}, diundi{" "}
             {tanggal(ringkasan.pemenang.diundiPada)} dari {ringkasan.pemenang.jumlahTiket}{" "}
             tiket.
           </p>
 
           {ringkasan.pemenang.hadiahDiserahkanPada !== null ? (
-            <p className="mt-2 border-t border-emerald-200 pt-2 text-emerald-800">
+            <p className="mt-2 border-t border-success-border pt-2 text-success-foreground">
               Hadiah dicatat diserahkan{" "}
               {tanggal(ringkasan.pemenang.hadiahDiserahkanPada)}
               {ringkasan.pemenang.catatanPenyerahan === null
@@ -403,8 +403,8 @@ export function UndianPanel() {
                 : ` — ${ringkasan.pemenang.catatanPenyerahan}.`}
             </p>
           ) : (
-            <div className="mt-2 border-t border-emerald-200 pt-2">
-              <Label htmlFor="catatan-serah" className="text-[11px] text-emerald-900">
+            <div className="mt-2 border-t border-success-border pt-2">
+              <Label htmlFor="catatan-serah" className="text-[11px] text-success-foreground">
                 Catatan penyerahan (opsional)
               </Label>
               <div className="mt-1 flex flex-wrap gap-2">
@@ -419,7 +419,7 @@ export function UndianPanel() {
                 <Button
                   type="button"
                   size="sm"
-                  className="gap-1.5 bg-emerald-800 text-white hover:bg-emerald-900"
+                  className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled={menyimpanSerah}
                   onClick={() => void simpanPenyerahan()}
                 >
@@ -431,7 +431,7 @@ export function UndianPanel() {
                   Catat diserahkan
                 </Button>
               </div>
-              <p className="mt-1 text-[10px] leading-4 text-emerald-800">
+              <p className="mt-1 text-[10px] leading-4 text-success-foreground">
                 Tanggal dicatat sekali dan tidak bisa ditimpa — bukti kapan hadiah benar-benar
                 sampai. Hadiah undian tetap objek pajak penerima; simpan bukti penyerahan untuk
                 pelaporan.
@@ -538,7 +538,7 @@ export function UndianPanel() {
                       }}
                       className={
                         dipilih
-                          ? "rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-left"
+                          ? "rounded-xl border border-primary bg-primary/5 px-3 py-2 text-left"
                           : "rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition-colors hover:border-amber-300 hover:bg-amber-50/40"
                       }
                     >
@@ -632,7 +632,7 @@ export function UndianPanel() {
             <p
               className={
                 hadiahValid
-                  ? "text-[11px] leading-5 text-emerald-800"
+                  ? "text-[11px] leading-5 text-success-foreground"
                   : "text-[11px] leading-5 text-amber-800"
               }
             >
@@ -668,7 +668,7 @@ export function UndianPanel() {
               type="button"
               onClick={() => void simpan()}
               disabled={menyimpanHadiah || !hadiahValid}
-              className="gap-1.5 bg-emerald-800 text-white hover:bg-emerald-900 disabled:bg-slate-200 disabled:text-slate-500"
+              className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-slate-200 disabled:text-slate-500"
             >
               {menyimpanHadiah ? (
                 <Loader2 className="size-3.5 animate-spin" aria-hidden />

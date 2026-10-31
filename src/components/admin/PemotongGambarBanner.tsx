@@ -261,7 +261,7 @@ export function PemotongGambarBanner({
     <Dialog open={terbuka && berkas !== null} onOpenChange={(buka) => !buka && !sibuk && onTutup()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Atur potongan gambar — {label}</DialogTitle>
+          <DialogTitle>Atur potongan gambar: {label}</DialogTitle>
           <DialogDescription>
             Geser gambar untuk memilih bagian tengah, lalu atur zoom. Hasilnya
             disimpan {ukuran.lebar} × {ukuran.tinggi} px dan dikompres otomatis
@@ -335,7 +335,7 @@ export function PemotongGambarBanner({
           </Button>
           <Button
             type="button"
-            className="min-h-11 bg-[#064E3B] text-white hover:bg-[#021E17]"
+            className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={gambar === null || sibuk}
             onClick={() => void gunakan()}
           >

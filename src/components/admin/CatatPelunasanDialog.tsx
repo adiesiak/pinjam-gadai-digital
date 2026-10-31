@@ -256,7 +256,7 @@ function IsiCatatPelunasan({
             <Button
               disabled={busy}
               onClick={() => void kirim()}
-              className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Simpan pelunasan

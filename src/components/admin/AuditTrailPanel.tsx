@@ -46,7 +46,7 @@ import { PanelMemuat } from "./admin-shared";
 
 /** Penampilan satu nada timeline: kelas titik, ikon, dan labelnya. */
 const GAYA_NADA: Record<NadaTimeline, { kelas: string; Icon: ComponentType<{ className?: string }>; label: string }> = {
-  sukses: { kelas: "bg-emerald-100 text-emerald-700", Icon: CheckCircle2, label: "Berhasil" },
+  sukses: { kelas: "border border-success-border bg-success-soft text-success-foreground", Icon: CheckCircle2, label: "Berhasil" },
   pending: { kelas: "bg-amber-100 text-amber-700", Icon: Clock, label: "Menunggu" },
   kritis: { kelas: "bg-red-100 text-red-700", Icon: TriangleAlert, label: "Kritis" },
 };
@@ -381,7 +381,7 @@ export function AuditTrailPanel() {
                 </span>
               );
             })}
-            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+            <Badge className="border-success-border bg-success-soft text-success-foreground hover:bg-success-soft">
               {timelineTampil.length} dari {data.auditTerbaru.length} entri terbaru
             </Badge>
           </div>

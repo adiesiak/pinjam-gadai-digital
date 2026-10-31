@@ -95,7 +95,7 @@ const FILTER_STATUS: Array<{ nilai: "semua" | StatusPesananPpob; label: string }
 const KELAS_NADA: Record<string, string> = {
   menunggu: "border-amber-200 bg-amber-50 text-amber-800",
   proses: "border-sky-200 bg-sky-50 text-sky-800",
-  sukses: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  sukses: "border-success-border bg-success-soft text-success-foreground",
   gagal: "border-red-200 bg-red-50 text-red-700",
 };
 
@@ -139,7 +139,7 @@ function KartuAngka({
       <p
         className={cn(
           "mt-2 text-xl font-semibold tabular-nums",
-          nada === "emas" ? "text-amber-700" : nada === "hijau" ? "text-emerald-700" : "text-navy",
+          nada === "emas" ? "text-amber-700" : nada === "hijau" ? "text-success-foreground" : "text-navy",
         )}
       >
         {nilai}
@@ -375,7 +375,7 @@ function DialogVerifikasi({
           <Button
             onClick={() => void kirim()}
             disabled={sibuk || !cocok || referensi.trim().length < 4}
-            className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {sibuk ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
             Verifikasi pembayaran
@@ -540,11 +540,11 @@ export function PpobPanel() {
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
                 pengaturan?.aktif
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  ? "border-success-border bg-success-soft text-success-foreground"
                   : "border-slate-200 bg-slate-50 text-slate-600",
               )}
             >
-              <span className={cn("size-1.5 rounded-full", pengaturan?.aktif ? "bg-emerald-500" : "bg-slate-400")} />
+              <span className={cn("size-1.5 rounded-full", pengaturan?.aktif ? "bg-success" : "bg-slate-400")} />
               {pengaturan?.aktif ? "Etalase dibuka" : "Etalase ditutup"}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
@@ -640,7 +640,7 @@ export function PpobPanel() {
             className={cn(
               "inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors",
               tab === nilai
-                ? "bg-[#064E3B] text-white"
+                ? "bg-primary text-primary-foreground"
                 : "text-slate-600 hover:bg-slate-100 hover:text-navy",
             )}
           >
@@ -662,7 +662,7 @@ export function PpobPanel() {
                 className={cn(
                   "shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors",
                   statusFilter === item.nilai
-                    ? "border-[#064E3B] bg-[#064E3B] text-white"
+                    ? "border-primary bg-primary text-primary-foreground"
                     : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
                 )}
               >
@@ -740,7 +740,7 @@ export function PpobPanel() {
                         {status === "menunggu_bayar" ? (
                           <Button
                             size="sm"
-                            className="h-8 bg-[#064E3B] px-2.5 text-[11px] text-white hover:bg-[#021E17]"
+                            className="h-8 bg-primary px-2.5 text-[11px] text-primary-foreground hover:bg-primary/90"
                             onClick={() => setDialogVerifikasi(item)}
                           >
                             <Check className="mr-1 size-3.5" />
@@ -1229,7 +1229,7 @@ function PanelRekonsiliasi() {
               className={cn(
                 "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
                 terakhir.status === "cocok"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  ? "border-success-border bg-success-soft text-success-foreground"
                   : terakhir.status === "selisih"
                     ? "border-red-200 bg-red-50 text-red-700"
                     : "border-slate-200 bg-slate-50 text-slate-600",
@@ -1617,7 +1617,7 @@ function FormPengaturan({
             <Button
               onClick={() => void kirim()}
               disabled={sibuk}
-              className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {sibuk ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
               Simpan pengaturan
@@ -1637,7 +1637,7 @@ function FormPengaturan({
               <dd
                 className={cn(
                   "font-semibold",
-                  pengaturan.kredensialSiap ? "text-emerald-700" : "text-red-600",
+                  pengaturan.kredensialSiap ? "text-success-foreground" : "text-red-600",
                 )}
               >
                 {pengaturan.kredensialSiap ? "Terpasang" : "Belum diisi"}
@@ -1654,7 +1654,7 @@ function FormPengaturan({
               <dd
                 className={cn(
                   "font-semibold",
-                  pengaturan.webhookSiap ? "text-emerald-700" : "text-amber-700",
+                  pengaturan.webhookSiap ? "text-success-foreground" : "text-amber-700",
                 )}
               >
                 {pengaturan.webhookSiap ? "Siap" : "Rahasia belum diisi"}

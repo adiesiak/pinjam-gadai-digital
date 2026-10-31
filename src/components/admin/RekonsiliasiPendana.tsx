@@ -54,7 +54,7 @@ const LABEL_METRIK: Record<keyof MetrikPendana, string> = {
 const META_STATUS: Record<StatusRekonsiliasi, { label: string; className: string }> = {
   cocok: {
     label: "Cocok",
-    className: "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+    className: "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft",
   },
   selisih: {
     label: "Selisih",
@@ -210,7 +210,7 @@ export function RekonsiliasiPendana() {
     <section className="animate-masuk rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary/5 text-primary">
             <GitCompareArrows className="size-4" />
           </span>
           <div>
@@ -243,7 +243,7 @@ export function RekonsiliasiPendana() {
           <Badge
             className={
               semuaCocok
-                ? "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                ? "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft"
                 : "border-0 bg-amber-100 text-amber-800 hover:bg-amber-100"
             }
           >

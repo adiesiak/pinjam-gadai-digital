@@ -226,7 +226,7 @@ function IsiMasukSebagai({
         </Button>
         <Button
           type="button"
-          className="gap-2 rounded-xl bg-[#064E3B] text-white hover:bg-[#04361f]"
+          className="gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
           disabled={busy}
           onClick={() => void kirim()}
         >

@@ -383,7 +383,7 @@ function Bagian({
   return (
     <section className="space-y-4">
       <div className="space-y-1">
-        <p className="font-mono text-[11px] tracking-[0.18em] text-emerald-700">
+        <p className="font-mono text-[11px] tracking-[0.18em] text-primary">
           {nomor}
         </p>
         <h2 className="text-lg font-semibold tracking-tight text-slate-900">{judul}</h2>
@@ -398,7 +398,7 @@ function Bagian({
 const LABEL_GERBANG: Record<GerbangRute, { teks: string; kelas: string }> = {
   publik: {
     teks: "tanpa akun",
-    kelas: "border-emerald-700/25 bg-emerald-700/[0.06] text-emerald-800",
+    kelas: "border-success-border bg-success-soft text-success-foreground",
   },
   akun: {
     teks: "wajib akun",
@@ -443,7 +443,7 @@ export function PagePengembangan() {
     <div className="mx-auto max-w-5xl space-y-6 pb-24 sm:space-y-10">
       <header className="space-y-5 border-b border-slate-200 pb-6">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-emerald-700/25 bg-emerald-700/[0.06] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-800">
+          <span className="rounded-full border border-success-border bg-success-soft px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-success-foreground">
             Khusus admin
           </span>
           <span className="text-xs text-slate-500">
@@ -452,9 +452,9 @@ export function PagePengembangan() {
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
             Peta sistem &amp; logika bisnis PINDAI
-          </h1>
+          </h2>
           <p className="max-w-2xl text-sm leading-6 text-slate-600">
             Semua yang sudah berjalan hari ini: halaman yang bisa dibuka siapa
             saja, modul yang hanya untuk admin, aturan uang yang dipakai server,
@@ -510,7 +510,7 @@ export function PagePengembangan() {
           {TAB_PEMINJAM.map((tab, i) => (
             <div key={tab.judul} className="bg-white p-4">
               <p className="flex items-baseline gap-2">
-                <span className="font-mono text-[11px] text-emerald-700">
+                <span className="font-mono text-[11px] text-primary">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <span className="text-sm font-semibold text-slate-900">{tab.judul}</span>
@@ -581,7 +581,7 @@ export function PagePengembangan() {
           <ol className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
             {ALUR_PEMINJAM.map((langkah, i) => (
               <li key={langkah} className="flex gap-3">
-                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-emerald-700/30 font-mono text-[11px] text-emerald-800">
+                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/30 font-mono text-[11px] text-primary">
                   {i + 1}
                 </span>
                 <p className="text-sm leading-6 text-slate-600">{langkah}</p>
@@ -598,7 +598,7 @@ export function PagePengembangan() {
           <ol className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
             {ALUR_ADMIN.map((langkah, i) => (
               <li key={langkah} className="flex gap-3">
-                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-emerald-700/30 font-mono text-[11px] text-emerald-800">
+                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/30 font-mono text-[11px] text-primary">
                   {i + 1}
                 </span>
                 <p className="text-sm leading-6 text-slate-600">{langkah}</p>
@@ -621,7 +621,7 @@ export function PagePengembangan() {
             "Kalimat alur dan perilaku: sunting ALUR_PEMINJAM atau ALUR_ADMIN. Tes render menolak angka dan label yang tidak lagi cocok.",
           ].map((baris) => (
             <li key={baris} className="flex gap-2.5 text-sm leading-6 text-slate-600">
-              <ChevronRight className="mt-1 size-4 shrink-0 text-emerald-700" aria-hidden />
+              <ChevronRight className="mt-1 size-4 shrink-0 text-primary" aria-hidden />
               {baris}
             </li>
           ))}

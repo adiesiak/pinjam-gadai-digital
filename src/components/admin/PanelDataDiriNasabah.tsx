@@ -83,7 +83,7 @@ export function DataDiriRingkas({ data }: { data: DataDiriTampil }) {
             className={
               data.sumber === "nasabah"
                 ? "border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-100"
-                : "border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                : "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft"
             }
           >
             {data.sumber === "nasabah" ? "terakhir diubah nasabah" : "diisi admin"}
@@ -163,14 +163,14 @@ export function VerifikasiIdentitasRingkas({
     <div
       className={
         terverifikasi
-          ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5"
+          ? "rounded-xl border border-success-border bg-success-soft px-3 py-2.5"
           : "rounded-xl border border-red-200 bg-red-50 px-3 py-2.5"
       }
     >
       <p
         className={
           terverifikasi
-            ? "flex items-center gap-1.5 text-xs font-semibold text-emerald-800"
+            ? "flex items-center gap-1.5 text-xs font-semibold text-success-foreground"
             : "flex items-center gap-1.5 text-xs font-semibold text-red-800"
         }
       >

@@ -279,7 +279,7 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
                               className={
                                 baris.subsidi >= baris.paguSubsidi
                                   ? "h-full rounded-full bg-destructive"
-                                  : "h-full rounded-full bg-emerald-700"
+                                  : "h-full rounded-full bg-success"
                               }
                               style={{
                                 width: `${Math.min(

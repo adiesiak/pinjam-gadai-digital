@@ -1,4 +1,4 @@
-import { CheckCircle2, Database, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
 import { Id } from "@/convex/_generated/dataModel";
@@ -183,7 +183,7 @@ export function LencanaTab({ badge }: { badge: string | null }) {
   if (badge === null || badge === undefined || badge === "0") return null;
   const warna =
     badge === "OK"
-      ? "bg-emerald-100 text-emerald-700"
+      ? "border border-success-border bg-success-soft text-success-foreground"
       : badge === "!"
         ? "animate-pulse bg-red-100 text-red-700"
         : "bg-amber-100 text-amber-700";
@@ -227,6 +227,7 @@ export function SubTabFilter<T>({
             key={o.id}
             type="button"
             aria-pressed={dipilih}
+            aria-label={`${o.label}, ${baris.filter(o.cocok).length} baris`}
             title={o.hint}
             onClick={() => onPilih(o.id)}
             className={cn(
@@ -278,7 +279,7 @@ export function MetrikKartu({
     <div
       className={cn("min-w-0 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2", className)}
     >
-      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
         {label}
       </dt>
       <dd className="mt-0.5 break-words text-sm font-medium tabular-nums text-slate-900">
@@ -364,7 +365,7 @@ export function EmptyQueue({
               key={item}
               className="flex items-start gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs leading-5 text-slate-600"
             >
-              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
+              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />
               <span>{item}</span>
             </li>
           ))}
@@ -374,49 +375,3 @@ export function EmptyQueue({
   );
 }
 
-/** Kelas bersama satu lencana kesehatan sistem (statis, bukan berjalan). */
-const KELAS_KESEHATAN = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium";
-const KESEHATAN_BAIK = "border-emerald-200 bg-emerald-50 text-emerald-700";
-const KESEHATAN_PERHATIAN = "border-amber-200 bg-amber-50 text-amber-800";
-const KESEHATAN_DARURAT = "border-red-200 bg-red-50 text-red-700 font-semibold";
-
-/**
- * System Health Badges — pengganti running text (marquee) di kepala panel.
- *
- * Marquee lama memaksa admin menunggu teks berjalan untuk melihat status
- * keamanan; lencana statis di pojok kanan menampilkan ketiganya sekaligus dan
- * bisa dibaca kapan saja. Isinya tidak berubah: SSL, keseimbangan ledger,
- * kesiapan backup — plus peringatan merah bila kill switch sedang aktif.
- */
-export function SecurityBar({ seimbang, killSwitch }: { seimbang: boolean; killSwitch: boolean }) {
-  return (
-    <div className={`border-b ${killSwitch ? "border-red-200 bg-red-50/60" : "border-slate-200 bg-slate-50"}`}>
-      <div
-        role="status"
-        aria-label="Kesehatan sistem"
-        className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-end gap-1.5 px-3 py-1.5 sm:px-6"
-      >
-        <span className={`${KELAS_KESEHATAN} ${KESEHATAN_BAIK}`}>
-          <ShieldCheck className="size-3.5" aria-hidden="true" /> SSL Aktif
-        </span>
-        {seimbang ? (
-          <span className={`${KELAS_KESEHATAN} ${KESEHATAN_BAIK}`}>
-            <Lock className="size-3.5" aria-hidden="true" /> Ledger Seimbang
-          </span>
-        ) : (
-          <span className={`${KELAS_KESEHATAN} ${KESEHATAN_PERHATIAN}`}>
-            <ShieldAlert className="size-3.5" aria-hidden="true" /> Ledger menunggu transaksi
-          </span>
-        )}
-        <span className={`${KELAS_KESEHATAN} ${KESEHATAN_BAIK}`}>
-          <Database className="size-3.5" aria-hidden="true" /> Backup Siap
-        </span>
-        {killSwitch && (
-          <span className={`${KELAS_KESEHATAN} ${KESEHATAN_DARURAT}`}>
-            <ShieldAlert className="size-3.5 animate-pulse" aria-hidden="true" /> Kill switch aktif — pengajuan diblokir
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}

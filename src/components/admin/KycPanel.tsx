@@ -224,7 +224,7 @@ function Tanda({ nada, children }: { nada: "amber" | "merah" | "hijau" | "abu"; 
   const kelas = {
     amber: "bg-amber-50 text-amber-800",
     merah: "bg-red-50 text-red-700",
-    hijau: "bg-emerald-50 text-emerald-700",
+    hijau: "border border-success-border bg-success-soft text-success-foreground",
     abu: "bg-slate-100 text-slate-600",
   }[nada];
   return (
@@ -273,7 +273,7 @@ export function BarisKyc({
       className={cn(
         "flex w-full flex-col gap-1.5 rounded-xl border px-2.5 py-2 text-left transition-colors",
         aktif
-          ? "border-emerald-700 bg-emerald-50/60"
+          ? "border-primary bg-primary/5"
           : "border-slate-200 bg-white hover:bg-slate-50",
       )}
     >
@@ -466,7 +466,7 @@ function IsiDaftarKyc({
                 <ListFilter className="size-4" aria-hidden />
                 {saringanLanjutAktif && (
                   <span
-                    className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-700"
+                    className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary"
                     aria-hidden
                   />
                 )}
@@ -819,7 +819,7 @@ function KycKepalaRingkas({ detail }: { detail: DetailKycTampil }) {
 function KycPdpRingkas({ detail }: { detail: DetailKycTampil }) {
   if (detail.persetujuanAktif) {
     return (
-      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900">
+      <p className="rounded-xl border border-success-border bg-success-soft px-3 py-2 text-[11px] leading-5 text-success-foreground">
         Persetujuan pemrosesan data tercatat {waktu(detail.persetujuan?.pada ?? null)} (versi{" "}
         {detail.persetujuan?.versi ?? "—"}) oleh {detail.persetujuan?.olehLabel ?? "—"}.
       </p>
@@ -891,7 +891,7 @@ function KycOtpRingkas({ detail }: { detail: DetailKycTampil }) {
       <p
         className={
           detail.nomorWhatsAppTerbukti
-            ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-900"
+            ? "rounded-xl border border-success-border bg-success-soft px-3 py-2 text-[11px] leading-5 text-success-foreground"
             : "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900"
         }
       >
@@ -974,7 +974,7 @@ function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
       />
       {detail.kekurangan.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
-          <p className="font-semibold">Isian belum lengkap — tidak bisa diverifikasi:</p>
+          <p className="font-semibold">Isian belum lengkap, tidak bisa diverifikasi:</p>
           <ul className="mt-1 list-disc pl-4">
             {detail.kekurangan.map((item) => (
               <li key={item}>{item}</li>
@@ -1291,7 +1291,7 @@ const AKSI_UTAMA: Array<{
     ke: "VERIFIED",
     label: "Setujui Verifikasi KYC",
     kelas:
-      "bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-5 py-2 rounded-xl text-xs shadow-sm",
+      "bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 py-2 rounded-xl text-xs shadow-sm",
     ikon: CheckCircle2,
   },
 ];
@@ -1673,7 +1673,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
             <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center sm:p-8">
               <div className="relative flex size-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50">
                 <FileText className="size-6 text-slate-500" aria-hidden />
-                <span className="absolute -bottom-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full bg-emerald-800 text-white">
+                <span className="absolute -bottom-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <ShieldCheck className="size-3.5" aria-hidden />
                 </span>
               </div>
@@ -1733,7 +1733,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                         onClick={() => void salinKode(detail.kodePeminjam)}
                       >
                         {tersalin ? (
-                          <Check className="size-3.5 text-emerald-800" aria-hidden />
+                          <Check className="size-3.5 text-success-foreground" aria-hidden />
                         ) : (
                           <Copy className="size-3.5" aria-hidden />
                         )}

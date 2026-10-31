@@ -493,7 +493,7 @@ function KasusDialog({
         {/* --- Kontak tersamar + buka kontak --- */}
         <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
           <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-            <Lock className="size-4 text-emerald-600" /> Kontak & informasi finansial
+            <Lock className="size-4 text-success-foreground" /> Kontak & informasi finansial
           </p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <LabelNilai
@@ -663,7 +663,7 @@ function KasusDialog({
               </p>
             )}
             {periksaPesan !== null && periksaPesan.ok && (
-              <p className="mt-2 text-xs text-emerald-700">
+              <p className="mt-2 text-xs text-success-foreground">
                 Isi pesan lolos pemeriksaan: tanpa ancaman, intimidasi, penyebaran data, kontak
                 pihak lain, klaim hukum, atau janji menyesatkan.
               </p>
@@ -720,7 +720,7 @@ function KasusDialog({
         {/* --- Janji pembayaran --- */}
         <div className={KARTU}>
           <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-            <CheckCircle2 className="size-4 text-emerald-600" /> Janji pembayaran
+            <CheckCircle2 className="size-4 text-success-foreground" /> Janji pembayaran
           </p>
           {baris.janjiAktif !== null && (
             <CatatanJanjiAktif
@@ -984,7 +984,7 @@ function KasusDialog({
         {/* --- Penyelesaian --- */}
         <div className={KARTU}>
           <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-            <ShieldAlert className="size-4 text-emerald-600" /> Catat penyelesaian
+            <ShieldAlert className="size-4 text-success-foreground" /> Catat penyelesaian
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
@@ -1114,7 +1114,7 @@ function KasusDialog({
                     </li>
                   ))}
                   {r.penyelesaian.map((p) => (
-                    <li key={p._id} className="rounded-xl border border-emerald-100 bg-emerald-50/40 px-3 py-2">
+                    <li key={p._id} className="rounded-xl border border-success-border bg-success-soft px-3 py-2">
                       <p className="text-sm font-medium">
                         Penyelesaian: {p.jenis} · {formatRupiah(p.nominal)} dari kewajiban{" "}
                         {formatRupiah(p.totalKewajiban)}

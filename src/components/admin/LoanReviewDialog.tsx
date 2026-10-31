@@ -19,6 +19,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { EContractWidget } from "@/components/EContract";
+import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -114,6 +115,7 @@ export function LoanReviewDialog({
 
   /** Accordion Danger Zone di dasar modal (bukan destroy sampai dikonfirmasi). */
   const [bukaDanger, setBukaDanger] = useState(false);
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
   // Galat penghapusan dipisah dari `error` supaya pesannya tampil TEPAT di
   // samping tombol Hapus dan centang "Hapus menyeluruh" — bukan jauh di bagian
   // atas dialog tempat admin tidak melihatnya setelah menggulir ke bawah.
@@ -171,6 +173,8 @@ export function LoanReviewDialog({
     setErrorHapus(null);
     setLampiranTerbuka(false);
     setBukaRincian(false);
+    setBukaDanger(false);
+    setKonfirmasiHapus(false);
     setPelunasanTerbuka(false);
   }
 
@@ -231,17 +235,6 @@ export function LoanReviewDialog({
         : undefined;
 
   const runDelete = async () => {
-    // Konfirmasi tetap diminta supaya penghapusan tidak terjadi karena salah
-    // tekan; catatan alasan tidak diminta lagi.
-    if (
-      !window.confirm(
-        hapusMenyeluruh
-          ? `Hapus MENYELURUH pinjaman ${row.nomorReferensi}? Alokasi dana, catatan transfer, dan bukti bayar ikut dihapus. Jurnal ledger tetap utuh sebagai riwayat. Audit Trail tetap tersimpan.`
-          : `Hapus permanen pinjaman ${row.nomorReferensi}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak kecuali Anda mencentang "Hapus menyeluruh".`,
-      )
-    ) {
-      return;
-    }
     setBusy("delete");
     setErrorHapus(null);
     try {
@@ -254,9 +247,12 @@ export function LoanReviewDialog({
           ? "Pinjaman dan baris turunannya dihapus; jurnal ledger dipertahankan. Tercatat di Audit Trail."
           : "Data pinjaman dihapus dan tercatat di Audit Trail.",
       );
+      setKonfirmasiHapus(false);
       onClose();
     } catch (err) {
-      setErrorHapus(err instanceof Error ? err.message : "Gagal menghapus data pinjaman.");
+      const pesan = err instanceof Error ? err.message : "Gagal menghapus data pinjaman.";
+      setErrorHapus(pesan);
+      toast.error(pesan);
     } finally {
       setBusy(null);
     }
@@ -408,7 +404,7 @@ export function LoanReviewDialog({
           : "Ditinjau";
   const statusKelas =
     row.status === "lunas" || row.status === "didanai"
-      ? "border-emerald-200/80 bg-emerald-100 text-emerald-800"
+      ? "border-success-border bg-success-soft text-success-foreground"
       : row.status === "ditolak"
         ? "border-rose-200/80 bg-rose-100 text-rose-800"
         : "border-amber-200/80 bg-amber-100 text-amber-800";
@@ -418,7 +414,7 @@ export function LoanReviewDialog({
   // dokumen. `pr-14` menyisakan ruang untuk tombol tutup X.
   const header = (
     <div className="sticky top-0 z-20 flex items-center gap-4 border-b border-slate-200/60 bg-white px-5 py-5 pr-14">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#064E3B] text-sm font-bold tracking-tight text-emerald-50">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold tracking-tight text-primary-foreground">
         {String(row.pokokPinjaman).slice(0, 2)}
       </div>
       <div className="min-w-0 flex-1">
@@ -719,11 +715,11 @@ export function LoanReviewDialog({
         )}
 
         {row.status === "lunas" && (
-          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <div className="rounded-2xl border border-success-border bg-success-soft px-4 py-3 text-sm text-success-foreground">
             <p className="flex items-center gap-1.5">
               <CheckCircle2 className="size-4" /> Pinjaman ini sudah <strong>lunas</strong>
             </p>
-            <p className="mt-1 text-xs text-emerald-800">
+            <p className="mt-1 text-xs text-success-foreground">
               Status ditutup; perubahan tidak dapat diubah lagi.
             </p>
           </div>
@@ -741,7 +737,7 @@ export function LoanReviewDialog({
                 Pendana &amp; pencairan
               </p>
               {row.status === "disetujui" && (
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                <span className="rounded-full border border-success-border bg-success-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success-foreground">
                   Siap disalurkan
                 </span>
               )}
@@ -805,12 +801,12 @@ export function LoanReviewDialog({
             {bisaSalurkan && (
               <div className="mt-3 space-y-2">
                 {row.pendanaNama != null && row.pendanaNama !== "" && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-success-border bg-success-soft px-3 py-2.5">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-emerald-950">
+                      <p className="truncate text-sm font-semibold text-success-foreground">
                         {row.pendanaNama}
                       </p>
-                      <p className="text-[11px] text-emerald-800/80">
+                      <p className="text-[11px] text-success-foreground/80">
                         {row.status === "disetujui"
                           ? "Pendana sekarang · siap dicairkan"
                           : "Pendana sekarang"}
@@ -821,7 +817,7 @@ export function LoanReviewDialog({
                       size="sm"
                       disabled={busy !== null}
                       onClick={() => void pilihDanSalurkan(null)}
-                      className="h-9 gap-1.5 rounded-xl bg-emerald-800 px-3 text-xs font-semibold text-white hover:bg-emerald-900"
+                      className="h-9 gap-1.5 rounded-xl bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                     >
                       {busy === "pendana-sekarang" ? (
                         <Loader2 className="size-3.5 animate-spin" />
@@ -857,7 +853,7 @@ export function LoanReviewDialog({
                             type="button"
                             disabled={busy !== null}
                             onClick={() => void pilihDanSalurkan(r.userId)}
-                            className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition-colors duration-[var(--motion-fast)] hover:border-emerald-300 hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition-colors duration-[var(--motion-fast)] hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <span className="min-w-0">
                               <span className="block truncate text-xs font-semibold text-slate-900">
@@ -868,7 +864,7 @@ export function LoanReviewDialog({
                                 {r.aksesAktif ? "" : " · pendana lama"}
                               </span>
                             </span>
-                            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-emerald-800">
+                            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-success-foreground">
                               {busy === `pendana-${r.userId}` ? (
                                 <Loader2 className="size-3.5 animate-spin" />
                               ) : (
@@ -946,7 +942,7 @@ export function LoanReviewDialog({
         <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
           Status perjanjian
         </p>
-        <div className="mt-3 flex flex-wrap items-start gap-3 rounded-2xl border border-emerald-900/10 bg-white p-4">
+        <div className="mt-3 flex flex-wrap items-start gap-3 rounded-2xl border border-border bg-white p-4">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <FileText className="size-5" />
           </div>
@@ -1021,7 +1017,7 @@ export function LoanReviewDialog({
       {pratinjau !== undefined && pratinjau !== null && (
         <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
           <div className="flex items-center justify-between gap-2">
-            <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+            <p className="flex items-center gap-2 text-sm font-semibold text-success-foreground">
               <MessageCircle className="size-4" />
               Pratinjau pesan WhatsApp
             </p>
@@ -1031,7 +1027,7 @@ export function LoanReviewDialog({
           </div>
           {/* Gelembung bergaya chat: isi pesan apa adanya (font-mono + baris
               dipertahankan) supaya admin melihat persis yang diterima peminjam. */}
-          <div className="mt-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/80 p-4 font-mono text-xs leading-5 text-emerald-950">
+          <div className="mt-3 rounded-2xl border border-success-border/80 bg-success-soft p-4 font-mono text-xs leading-5 text-success-foreground">
             <p className="whitespace-pre-line">{pratinjau.isi}</p>
           </div>
         </div>
@@ -1131,7 +1127,7 @@ export function LoanReviewDialog({
             type="button"
             variant="destructive"
             disabled={busy !== null}
-            onClick={() => void runDelete()}
+            onClick={() => setKonfirmasiHapus(true)}
             className={`w-full sm:w-auto ${MICRO_TOMBOL}`}
           >
             {busy === "delete" ? (
@@ -1153,7 +1149,7 @@ export function LoanReviewDialog({
     <div className="sticky bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/60 bg-white p-4 shadow-lg">
       {row.status === "lunas" ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <CheckCircle2 className="size-4 text-emerald-600" />
+          <CheckCircle2 className="size-4 text-success-foreground" />
           Pinjaman ini sudah lunas — tidak ada tindakan yang tersedia.
         </div>
       ) : (
@@ -1185,7 +1181,7 @@ export function LoanReviewDialog({
                   }
                   void run("fund", () => fund({ loanId: row._id }));
                 }}
-                className={`rounded-xl bg-[#064E3B] px-5 text-sm font-semibold text-white hover:bg-[#021E17] ${MICRO_TOMBOL}`}
+                className={`rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 ${MICRO_TOMBOL}`}
               >
                 {busy === "fund" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 Tandai dana tersalurkan
@@ -1300,7 +1296,7 @@ export function LoanReviewDialog({
           </div>
         )}
         {dokumenQ !== null && dokumenQ !== undefined && dokumenQ.atmDititipkan && (
-          <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs leading-5 text-emerald-900">
+          <p className="mt-3 rounded-lg border border-success-border bg-success-soft px-3 py-2 text-xs leading-5 text-success-foreground">
             Kartu ATM dititipkan — nomor tanda terima{" "}
             <strong className="font-mono">{dokumenQ.nomorTandaTerimaAtm ?? "belum dicatat"}</strong>.
             PIN tidak diminta dan tidak disimpan.
@@ -1315,6 +1311,22 @@ export function LoanReviewDialog({
       loanId={row._id}
       nama={namaHurufBesar(row.namaLengkap)}
       nomorReferensi={row.nomorReferensi}
+    />
+
+    <KonfirmasiAksi
+      open={konfirmasiHapus}
+      onOpenChange={(terbuka) => {
+        if (!terbuka && busy === null) setKonfirmasiHapus(false);
+      }}
+      judul={`Hapus ${hapusMenyeluruh ? "menyeluruh " : ""}pinjaman ${row.nomorReferensi}?`}
+      deskripsi={
+        hapusMenyeluruh
+          ? "Alokasi dana, catatan transfer, dan bukti bayar ikut dihapus. Jurnal ledger dan Audit Trail tetap tersimpan."
+          : "Data dengan transaksi terkait akan ditolak. Centang Hapus menyeluruh bila server menolak karena dana sudah berpindah. Audit Trail tetap tersimpan."
+      }
+      labelKonfirmasi={hapusMenyeluruh ? "Hapus menyeluruh" : "Hapus pinjaman"}
+      busy={busy === "delete"}
+      onConfirm={() => void runDelete()}
     />
     </>
   );

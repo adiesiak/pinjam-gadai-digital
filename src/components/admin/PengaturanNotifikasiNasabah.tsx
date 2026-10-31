@@ -65,7 +65,7 @@ export function TombolNotifikasiTagihan({
       className={
         aktif
           ? `border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 ${className ?? ""}`
-          : `border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 ${className ?? ""}`
+          : `border-success-border bg-success-soft text-success-foreground hover:bg-success-soft ${className ?? ""}`
       }
     >
       {sibuk ? (
@@ -231,7 +231,7 @@ export function KartuNotifikasiNasabah({
                 <p
                   className={
                     efektif
-                      ? "text-[10px] font-medium text-emerald-700"
+                      ? "text-[10px] font-medium text-success-foreground"
                       : "text-[10px] font-medium text-amber-700"
                   }
                 >

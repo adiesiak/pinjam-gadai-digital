@@ -42,7 +42,7 @@ ok(
   "hanya ada satu pemicu menu",
 );
 ok(
-  kode.includes("h-9 gap-1.5 rounded-lg bg-emerald-700"),
+  kode.includes("h-9 gap-1.5 rounded-lg bg-primary"),
   "tombol Kelola memakai ukuran dan warna yang sama dengan Plafon Nasabah",
 );
 ok(

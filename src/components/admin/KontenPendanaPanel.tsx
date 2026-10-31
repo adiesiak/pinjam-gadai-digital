@@ -10,6 +10,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +57,7 @@ export function KontenPendanaPanel() {
   const [busy, setBusy] = useState(false);
   const [unggah, setUnggah] = useState(false);
   const [hapusBusy, setHapusBusy] = useState(false);
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
 
   if (publik === undefined) {
     return (
@@ -149,6 +151,7 @@ export function KontenPendanaPanel() {
     try {
       await hapus({});
       toast.success("Unduhan kembali ke proposal yang disusun aplikasi.");
+      setKonfirmasiHapus(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menghapus berkas.");
     } finally {
@@ -238,7 +241,7 @@ export function KontenPendanaPanel() {
                 size="sm"
                 className="min-h-11"
                 disabled={hapusBusy}
-                onClick={() => void hapusProposal()}
+                onClick={() => setKonfirmasiHapus(true)}
               >
                 {hapusBusy ? (
                   <Loader2 className="mr-1.5 size-3.5 animate-spin" />
@@ -564,7 +567,7 @@ export function KontenPendanaPanel() {
             </Button>
             <Button
               size="sm"
-              className="min-h-11 bg-[#064E3B] text-white hover:bg-[#021E17]"
+              className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={busy || !draft}
               onClick={simpanTeks}
             >
@@ -578,6 +581,18 @@ export function KontenPendanaPanel() {
           </div>
         </div>
       </div>
+
+      <KonfirmasiAksi
+        open={konfirmasiHapus}
+        onOpenChange={(terbuka) => {
+          if (!terbuka && !hapusBusy) setKonfirmasiHapus(false);
+        }}
+        judul="Hapus berkas proposal?"
+        deskripsi="Unduhan proposal kembali ke berkas yang disusun aplikasi. Berkas unggahan akan dihapus dan tidak bisa dikembalikan."
+        labelKonfirmasi="Hapus berkas"
+        busy={hapusBusy}
+        onConfirm={() => void hapusProposal()}
+      />
     </div>
   );
 }

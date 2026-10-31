@@ -29,7 +29,7 @@ const META_STATUS: Record<
   lulus: {
     label: "lulus",
     ikon: CheckCircle2,
-    kelas: "text-emerald-600",
+    kelas: "text-success-foreground",
   },
   gagal: {
     label: "GAGAL",
@@ -87,7 +87,7 @@ function Kepala({ hasil }: { hasil: HasilQc | null }) {
         ? "border-red-200 bg-red-50"
         : awas > 0
           ? "border-amber-200 bg-amber-50"
-          : "border-emerald-200 bg-emerald-50";
+          : "border-success-border bg-success-soft";
 
   return (
     <section className="animate-masuk space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-6">
@@ -109,13 +109,13 @@ function Kepala({ hasil }: { hasil: HasilQc | null }) {
           <span
             className={cn(
               "flex items-center gap-1.5 text-xs text-muted-foreground",
-              hasil !== null && "text-emerald-700",
+              hasil !== null && "text-success-foreground",
             )}
           >
             <span
               className={cn(
                 "size-1.5 rounded-full",
-                hasil === null ? "bg-slate-300" : "bg-emerald-500 animate-pulse",
+                hasil === null ? "bg-slate-300" : "bg-success animate-pulse",
               )}
               aria-hidden="true"
             />
@@ -152,7 +152,7 @@ function Kepala({ hasil }: { hasil: HasilQc | null }) {
             <div className="flex flex-wrap gap-2 text-xs tabular-nums">
               {(
                 [
-                  ["lulus", hasil.ringkasan.lulus, "text-emerald-700"],
+                  ["lulus", hasil.ringkasan.lulus, "text-success-foreground"],
                   ["gagal", hasil.ringkasan.gagal, "text-red-700"],
                   ["peringatan", hasil.ringkasan.awas, "text-amber-700"],
                   ["dilewati", hasil.ringkasan.lewat, "text-muted-foreground"],
@@ -191,7 +191,7 @@ function BarisCek({ c }: { c: HasilQc["cek"][number] }) {
               c.status === "gagal"
                 ? "bg-red-100 text-red-700"
                 : c.status === "lulus"
-                  ? "bg-emerald-100 text-emerald-700"
+                  ? "border border-success-border bg-success-soft text-success-foreground"
                   : c.status === "awas"
                     ? "bg-amber-100 text-amber-800"
                     : "bg-slate-100 text-slate-600",

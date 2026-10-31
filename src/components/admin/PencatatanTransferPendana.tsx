@@ -88,7 +88,7 @@ const META_STATUS: Record<
   },
   dicatat: {
     label: "Sudah Dicatat",
-    className: "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+    className: "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft",
   },
   dibatalkan: {
     label: "Catatan Dibatalkan",
@@ -170,7 +170,7 @@ export function PencatatanTransferPendana() {
     setBusy("batal");
     try {
       await batalkan({ loanId: targetBatal.loanId, alasan: alasan.trim() });
-      toast.success("Catatan transfer dibatalkan — riwayatnya tetap di Audit Trail.");
+      toast.success("Catatan transfer dibatalkan; riwayatnya tetap di Audit Trail.");
       setTargetBatal(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal membatalkan catatan.");
@@ -194,7 +194,7 @@ export function PencatatanTransferPendana() {
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary/5 text-primary">
             <Coins className="size-4" />
           </span>
           <div>
@@ -228,7 +228,7 @@ export function PencatatanTransferPendana() {
             <TriangleAlert className="mr-1 size-3" /> {ringkasan.jumlahBelumDicatat} belum dicatat
           </Badge>
         ) : (
-          <Badge className="border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+          <Badge className="border-success-border bg-success-soft text-success-foreground hover:bg-success-soft">
             <CheckCircle2 className="mr-1 size-3" /> semua tercatat
           </Badge>
         )}

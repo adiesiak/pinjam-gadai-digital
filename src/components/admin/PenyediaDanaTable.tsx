@@ -104,7 +104,7 @@ function labelPeran(r: BarisAkunTampil): { label: string; kelas: string } {
   }
   return {
     label: "Pendana",
-    kelas: "border-0 bg-emerald-50 text-emerald-800 hover:bg-emerald-50",
+    kelas: "border-primary/20 bg-primary/5 text-primary hover:bg-primary/5",
   };
 }
 
@@ -146,7 +146,7 @@ export function TabelAkunPendana({
     <section className={KARTU}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary/5 text-primary">
             <UserCheck className="size-4" />
           </span>
           <div>
@@ -258,7 +258,7 @@ export function TabelAkunPendana({
                         <TableRow key={r.userId}>
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+                              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/5 text-xs font-bold text-primary">
                                 {inisial(r.nama)}
                               </span>
                               <div className="min-w-0">
@@ -281,7 +281,7 @@ export function TabelAkunPendana({
                             <Badge
                               className={
                                 r.aksesAktif
-                                  ? "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                  ? "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft"
                                   : "border-0 bg-slate-100 text-slate-600 hover:bg-slate-100"
                               }
                             >
@@ -327,7 +327,7 @@ export function TabelAkunPendana({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/5 text-xs font-bold text-primary">
                             {inisial(r.nama)}
                           </span>
                           <div className="min-w-0">
@@ -353,7 +353,7 @@ export function TabelAkunPendana({
                           <Badge
                             className={
                               r.aksesAktif
-                                ? "mt-1 border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                                ? "mt-1 border-success-border bg-success-soft text-success-foreground hover:bg-success-soft"
                                 : "mt-1 border-0 bg-slate-100 text-slate-600 hover:bg-slate-100"
                             }
                           >
@@ -429,7 +429,7 @@ function MenuKelolaPendana({
           <Button
             type="button"
             size="sm"
-            className="min-h-9 gap-1.5 rounded-lg bg-emerald-700 px-2.5 text-xs text-white hover:bg-emerald-800 max-md:min-h-11"
+            className="min-h-9 gap-1.5 rounded-lg bg-primary px-2.5 text-xs text-primary-foreground hover:bg-primary/90 max-md:min-h-11"
             aria-label={`Kelola ${nama}`}
           >
             <MoreHorizontal className="size-4" aria-hidden="true" />

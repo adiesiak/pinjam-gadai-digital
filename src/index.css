@@ -2131,53 +2131,55 @@
 }
 
 /* ===== Tampilan panel admin: Dim & Padat =====
-   Atribut dipasang di `<html>` oleh `TampilanAdmin`, tetapi seluruh aturan di
-   sini dibatasi `.admin-shell` supaya ruang nasabah/pendana tidak ikut berubah.
+   Atribut dipasang di `<html>` oleh `TampilanAdmin`; aturan warna memakai
+   `[data-admin-aktif]` supaya dialog dan sheet yang diportal ke `body` ikut
+   berubah, sementara rute nasabah/pendana tidak tersentuh.
    `!important` dipakai karena panel admin memakai utilitas Tailwind langsung
    (`bg-white`, `text-slate-900`), bukan token semantik; tanpa itu mode dim akan
    kalah oleh satu kelas utilitas. Hanya warna dan padding yang disentuh. */
-:root[data-admin-tema="dim"] .admin-shell {
-  --background: #1d231f;
-  --foreground: #f3eee4;
-  --card: #272d28;
-  --card-foreground: #f3eee4;
-  --popover: #2b322c;
-  --popover-foreground: #f3eee4;
-  --secondary: #343b35;
-  --secondary-foreground: #f3eee4;
-  --muted: #2f3630;
-  --muted-foreground: #c9c2b3;
-  --border: #454d46;
-  --input: #8c978b;
+:root[data-admin-tema="dim"][data-admin-aktif] {
+  --background: #e8e1d3;
+  --foreground: #1c1a15;
+  --card: #f2ebdd;
+  --card-foreground: #1c1a15;
+  --popover: #f7f1e5;
+  --popover-foreground: #1c1a15;
+  --secondary: #ded5c4;
+  --secondary-foreground: #1c1a15;
+  --muted: #e2d9c8;
+  --muted-foreground: #5f584a;
+  --border: #cfc4b0;
+  --input: #8c8271;
   background-color: var(--background) !important;
   color: var(--foreground);
-  color-scheme: dark;
+  /* Dim menurunkan silau kertas, bukan mengaktifkan mode gelap. */
+  color-scheme: light;
 }
 
-:root[data-admin-tema="dim"] .admin-shell :is(.bg-white, .bg-slate-50, .bg-slate-100) {
+:root[data-admin-tema="dim"][data-admin-aktif] :is(.bg-white, .bg-slate-50, .bg-slate-100) {
   background-color: var(--card) !important;
 }
-:root[data-admin-tema="dim"] .admin-shell :is([class*="bg-white/"], [class*="bg-slate-50/"]) {
+:root[data-admin-tema="dim"][data-admin-aktif] :is([class*="bg-white/"], [class*="bg-slate-50/"]) {
   background-color: color-mix(in oklab, var(--card) 94%, transparent) !important;
 }
-:root[data-admin-tema="dim"] .admin-shell :is(.text-slate-900, .text-slate-800, .text-navy, .text-foreground) {
+:root[data-admin-tema="dim"][data-admin-aktif] :is(.text-slate-900, .text-slate-800, .text-navy, .text-foreground) {
   color: var(--foreground) !important;
 }
-:root[data-admin-tema="dim"] .admin-shell :is(.text-slate-700, .text-slate-600, .text-muted-foreground) {
+:root[data-admin-tema="dim"][data-admin-aktif] :is(.text-slate-700, .text-slate-600, .text-muted-foreground) {
   color: var(--muted-foreground) !important;
 }
-:root[data-admin-tema="dim"] .admin-shell :is(.text-slate-500, .text-slate-400) {
-  color: #b5ae9f !important;
+:root[data-admin-tema="dim"][data-admin-aktif] :is(.text-slate-500, .text-slate-400) {
+  color: #5f584a !important;
 }
-:root[data-admin-tema="dim"] .admin-shell :is(.border-slate-200, .border-slate-100, .border-border) {
+:root[data-admin-tema="dim"][data-admin-aktif] :is(.border-slate-200, .border-slate-100, .border-border) {
   border-color: var(--border) !important;
 }
-:root[data-admin-tema="dim"] .admin-shell :is(input, textarea, select)::placeholder {
-  color: #a9a293;
+:root[data-admin-tema="dim"][data-admin-aktif] :is(input, textarea, select)::placeholder {
+  color: #766d5d;
 }
-:root[data-admin-tema="dim"] .admin-shell .hover\:bg-slate-50:hover,
-:root[data-admin-tema="dim"] .admin-shell .hover\:bg-slate-100:hover {
-  background-color: #353d36 !important;
+:root[data-admin-tema="dim"][data-admin-aktif] .hover\:bg-slate-50:hover,
+:root[data-admin-tema="dim"][data-admin-aktif] .hover\:bg-slate-100:hover {
+  background-color: #dcd2c0 !important;
 }
 
 :root[data-admin-padat="padat"] .admin-shell main :is(.rounded-xl, .rounded-2xl):is(.p-4, .p-5, .p-6) {
@@ -2188,6 +2190,73 @@
 }
 :root[data-admin-padat="padat"] .admin-shell [data-slot="table-cell"] {
   padding-block: 0.4rem !important;
+}
+
+/* ===== Batas baca & sentuh panel admin =====
+   Aturan ini dipasang saat rute admin aktif (`data-admin-aktif`), bukan hanya
+   di `.admin-shell`, karena dialog dan sheet Radix diportal ke `body`. Dengan
+   begitu kontrol di dalam dialog ikut mendapat area sentuh yang sama.
+
+   Mikrotipe 9-11px tetap boleh ditulis di markup lama, tetapi di panel admin
+   dirender 12px. Ini menjaga label, badge, dan metadata tetap terbaca tanpa
+   menyunting ratusan kelas satu per satu. */
+:root[data-admin-aktif] :is(.text-\[9px\], .text-\[10px\], .text-\[11px\]) {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+/* Selector atribut dipakai agar `text-[10px]` tidak perlu di-escape di CSS. */
+:root[data-admin-aktif] [class*="text-[9px]"],
+:root[data-admin-aktif] [class*="text-[10px]"],
+:root[data-admin-aktif] [class*="text-[11px]"] {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+/* `slate-400` hanya 2,5:1 di atas kertas; jangan dipakai untuk teks yang harus
+   dibaca. Ikon dekoratif ikut sedikit lebih tegas, tidak masalah. */
+:root[data-admin-aktif] .text-slate-400 {
+  color: var(--color-slate-500);
+}
+:root[data-admin-tema="dim"][data-admin-aktif] .text-slate-400 {
+  color: var(--muted-foreground);
+}
+
+/* Permukaan kerja admin solid, termasuk dialog dan sheet yang diportal ke body. */
+:root[data-admin-aktif] .glass-modal,
+:root[data-admin-aktif] .glass-dock {
+  background-color: var(--card);
+  backdrop-filter: none;
+}
+
+@media (max-width: 767px), (pointer: coarse) {
+  :root[data-admin-aktif] :is(button, [role="button"], [data-slot="button"]) {
+    min-height: 2.75rem;
+  }
+  :root[data-admin-aktif]
+    :is(button, [role="button"], [data-slot="button"]):is(
+      .size-7,
+      .size-8,
+      .size-9,
+      .size-10,
+      .h-7,
+      .h-8,
+      .h-9,
+      .h-10
+    ) {
+    min-width: 2.75rem;
+  }
+  :root[data-admin-aktif]
+    :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+      select,
+      textarea
+    ) {
+    min-height: 2.75rem;
+  }
+  :root[data-admin-aktif] a:is(.h-7, .h-8, .h-9, .h-10) {
+    min-height: 2.75rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

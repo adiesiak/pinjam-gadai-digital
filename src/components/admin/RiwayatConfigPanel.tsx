@@ -89,7 +89,7 @@ export function RiwayatConfigPanel() {
       </p>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
         Setiap penyimpanan membuat versi baru. Rollback menyalin nilai versi lama
-        menjadi versi <b>baru</b> — riwayat lama tidak pernah dihapus, dan
+        menjadi versi <b>baru</b>; riwayat lama tidak pernah dihapus, dan
         pengajuan yang sudah tercatat tetap memakai angka saat diajukan.
       </p>
 

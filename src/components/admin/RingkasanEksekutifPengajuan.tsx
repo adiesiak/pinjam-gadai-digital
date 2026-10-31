@@ -36,7 +36,7 @@ import type { GradeRisiko } from "@/lib/risikoNasabah";
 
 /** Bingkai kotak ringkas — satu permukaan kaca untuk ketiganya. */
 const KOTAK =
-  "flex min-w-0 flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/85 p-4 shadow-xs backdrop-blur-md";
+  "flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-xs";
 
 /** Judul kotak: ikon + label huruf besar, sama di ketiga kotak. */
 function JudulKotak({
@@ -51,7 +51,7 @@ function JudulKotak({
 }) {
   return (
     <div className="flex items-start gap-2">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/5 text-primary">
         <Ikon className="size-4" aria-hidden="true" />
       </span>
       <div className="min-w-0">
@@ -74,14 +74,14 @@ export function BarisRingkas({
 }: {
   label: string;
   nilai: string;
-  /** `biasa` abu, `penting` navy tebal, `potongan` amber, `berhasil` emerald. */
+  /** `biasa` abu, `penting` navy tebal, `potongan` amber, `berhasil` petrol. */
   nada?: "biasa" | "penting" | "potongan" | "berhasil";
 }) {
   const kelasNilai =
     nada === "potongan"
       ? "text-amber-700"
       : nada === "berhasil"
-        ? "text-emerald-700"
+        ? "text-success-foreground"
         : "text-navy";
   // Angka uang adalah isi utama kotak ini: 16px tebal, sedangkan keterangan
   // pendukung (tenor, bank, rekening) tetap kecil supaya tidak bersaing.
@@ -293,7 +293,7 @@ export function KotakAksiAdmin({
           type="button"
           disabled={busy !== null || !bolehSetujui}
           onClick={onSetujui}
-          className="w-full justify-center gap-2 rounded-xl bg-[#064E3B] text-sm font-semibold text-white hover:bg-[#021E17]"
+          className="w-full justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90"
         >
           {busy === "setuju" ? <Loader2 className="size-4 animate-spin" /> : null}
           {labelSetujui}
@@ -313,7 +313,7 @@ export function KotakAksiAdmin({
           variant="outline"
           disabled={busy !== null || !bolehKirimWa}
           onClick={onKirimWa}
-          className="w-full justify-center gap-2 rounded-xl border-emerald-200 text-sm font-medium text-emerald-800 hover:bg-emerald-50"
+          className="w-full justify-center gap-2 rounded-xl border-primary/20 text-sm font-medium text-primary hover:bg-primary/5"
         >
           {busy === "wa" ? <Loader2 className="size-4 animate-spin" /> : null}
           <MessageCircle className="size-4" aria-hidden="true" />

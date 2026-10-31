@@ -54,7 +54,7 @@ import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 const KARTU = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6";
 
 /** Tombol aksi utama dengan aksen Deep Emerald. */
-const TOMBOL_EMERALD = "gap-2 rounded-xl bg-[#064E3B] text-white hover:bg-[#04361f]";
+const TOMBOL_EMERALD = "gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90";
 
 function tanggalRingkas(ms: number | null): string {
   if (ms === null) return "—";
@@ -114,7 +114,7 @@ function KartuBuatPendana() {
   return (
     <form onSubmit={kirim} className={KARTU}>
       <header className="flex items-center gap-2">
-        <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+        <span className="flex size-9 items-center justify-center rounded-xl bg-primary/5 text-primary">
           <UserPlus className="size-4" />
         </span>
         <div>
@@ -230,7 +230,7 @@ function KartuBeriAkses() {
   return (
     <form onSubmit={kirim} className={KARTU}>
       <header className="flex items-center gap-2">
-        <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+        <span className="flex size-9 items-center justify-center rounded-xl bg-primary/5 text-primary">
           <MailPlus className="size-4" />
         </span>
         <div>
@@ -328,7 +328,7 @@ function KartuKodeBersama() {
     <section className={KARTU}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary/5 text-primary">
             <KeyRound className="size-4" />
           </span>
           <div>
@@ -362,7 +362,7 @@ function KartuKodeBersama() {
           <Badge
             className={
               status.aktif
-                ? "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                ? "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft"
                 : "border-0 bg-slate-100 text-slate-600 hover:bg-slate-100"
             }
           >
@@ -468,7 +468,7 @@ function TabAkunAkses() {
 export function AksesPenyediaDanaPanel() {
   return (
     <Tabs defaultValue="akun" className="flex flex-col gap-4">
-      <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm [--primary:#064E3B]">
+      <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-sm">
         <TabsTrigger value="akun" className="gap-2 text-xs sm:text-sm">
           <Users className="size-3.5" /> Manajemen Akun &amp; Hak Akses
         </TabsTrigger>

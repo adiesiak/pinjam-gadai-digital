@@ -53,7 +53,7 @@ const tanpaPilih = () => {};
   const html = renderToStaticMarkup(<KartuFeedLokasi r={baris()} onPilih={tanpaPilih} />);
   ada(html, "RANI PUSPITA", "nama tampil huruf besar");
   ada(html, "Aman", "lencana status aman tampil");
-  ada(html, "bg-emerald-100", "warna lencana aman");
+  ada(html, "bg-success-soft", "warna lencana aman");
   ada(html, "PGD-20261001-AB12", "kode referensi tampil");
   ada(html, "12.3 km dari titik acuan", "jarak tampil satu desimal");
   ada(html, "Langsung", "status langsung tampil");

@@ -61,7 +61,7 @@ function labelStatusKirim(status: string): string {
 }
 
 function warnaStatusKirim(status: string): string {
-  if (status === "terkirim") return "text-emerald-700";
+  if (status === "terkirim") return "text-success-foreground";
   if (status === "gagal") return "text-rose-600";
   return "text-amber-700";
 }
@@ -158,7 +158,7 @@ export function BagianKirimRincian({
             type="button"
             size="sm"
             variant="outline"
-            className="h-11 gap-1.5 border-emerald-200 bg-emerald-50 px-2.5 text-xs text-emerald-800 hover:bg-emerald-100 sm:h-9"
+            className="h-11 gap-1.5 border-success-border bg-success-soft px-2.5 text-xs text-success-foreground hover:bg-success-soft sm:h-9"
             disabled={!whatsappAda || adaPekerjaan}
             aria-busy={sibuk === "whatsapp"}
             aria-label="Kirim rincian pinjaman lewat WhatsApp"
@@ -200,7 +200,7 @@ export function BagianKirimRincian({
           </Button>
         </div>
         {kabar !== null && (
-          <span role="status" className="text-[11px] leading-4 text-emerald-700">
+          <span role="status" className="text-[11px] leading-4 text-success-foreground">
             {kabar}
           </span>
         )}
@@ -220,7 +220,7 @@ export function BagianKirimRincian({
           type="button"
           size="sm"
           variant="outline"
-          className="h-11 border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 sm:h-9"
+          className="h-11 border-success-border bg-success-soft text-success-foreground hover:bg-success-soft sm:h-9"
           disabled={!whatsappAda || adaPekerjaan}
           aria-busy={sibuk === "whatsapp"}
           onClick={() => onKirim("whatsapp")}

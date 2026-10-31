@@ -547,14 +547,14 @@ export function LiveLocationMap() {
           />
           {data === undefined && (
             <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs text-muted-foreground shadow-sm">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground shadow-sm">
                 <Loader2 className="size-4 animate-spin" /> Memuat titik lokasi…
               </span>
             </div>
           )}
 
           {/* Floating Map Legend */}
-          <div className="absolute right-3 top-3 z-20 rounded-xl bg-white/90 p-3 text-xs shadow-md backdrop-blur-md">
+          <div className="absolute right-3 top-3 z-20 rounded-xl border border-border bg-card p-3 text-xs shadow-md">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Legenda penanda
             </p>
@@ -646,7 +646,7 @@ function FilterChip({
       variant={selected ? "default" : "outline"}
       size="sm"
       className={`rounded-full px-3 text-[11px] font-medium ${
-        selected ? "bg-[#064E3B] text-white hover:bg-[#021E17]" : "border-slate-200 text-slate-600 hover:bg-slate-100"
+        selected ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border-border text-slate-600 hover:bg-slate-100"
       }`}
       onClick={onClick}
     >

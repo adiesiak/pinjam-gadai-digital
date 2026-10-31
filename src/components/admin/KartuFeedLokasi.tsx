@@ -47,7 +47,7 @@ function statusLokasi(r: {
 }): { label: string; kelas: string } {
   if (r.mismatch) return { label: "Di Luar Ambang Jarak", kelas: "bg-red-100 text-red-700" };
   if (r.tanda.length > 0) return { label: "Pola Ditandai", kelas: "bg-amber-100 text-amber-800" };
-  return { label: "Aman", kelas: "bg-emerald-100 text-emerald-800" };
+  return { label: "Aman", kelas: "border border-success-border bg-success-soft text-success-foreground" };
 }
 
 export function KartuFeedLokasi({
@@ -88,7 +88,7 @@ export function KartuFeedLokasi({
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
               langsung
-                ? "bg-emerald-50 text-emerald-800"
+                ? "border border-success-border bg-success-soft text-success-foreground"
                 : "bg-slate-100 text-slate-600"
             }`}
           >

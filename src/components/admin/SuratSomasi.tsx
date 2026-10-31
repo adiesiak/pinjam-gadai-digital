@@ -115,7 +115,7 @@ function labelStatusKirim(status: string): string {
 }
 
 function warnaStatusKirim(status: string): string {
-  if (status === "terkirim") return "text-emerald-700";
+  if (status === "terkirim") return "text-success-foreground";
   if (status === "gagal") return "text-rose-600";
   return "text-amber-700";
 }
@@ -193,7 +193,7 @@ export function BagianSuratSomasi({
               : `${terbit.nomorSurat} · diterbitkan ${formatTanggalWIB(terbit.pada)} oleh ${terbit.olehLabel}.`}
           </p>
           {diserahkan && terbit !== null && (
-            <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+            <p className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-success-foreground">
               <Check className="size-3" aria-hidden="true" />
               Diserahkan {formatTanggalWIB(terbit.diserahkanPada ?? 0)} melalui{" "}
               {labelKanal(terbit.diserahkanMelalui)}
@@ -275,7 +275,7 @@ export function BagianSuratSomasi({
           variant="outline"
           size="sm"
           className={tombolKecil(
-            "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
+            "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft",
           )}
           disabled={!bisaKirimWa || adaPekerjaan}
           aria-busy={sibuk === "whatsapp"}
@@ -384,7 +384,7 @@ export function BagianSuratSomasi({
       )}
 
       {kabar !== null && (
-        <p role="status" className="mt-2 text-xs leading-5 text-emerald-700">
+        <p role="status" className="mt-2 text-xs leading-5 text-success-foreground">
           {kabar}
         </p>
       )}
@@ -426,7 +426,7 @@ export function BagianSuratSomasi({
       {terbuka && (
         <article className="mt-3 max-h-[60vh] overflow-y-auto rounded-lg border border-slate-300 bg-[#fffdf7] px-5 py-6 text-slate-900 shadow-sm sm:px-8">
           <header className="border-b border-slate-300 pb-3">
-            <p className="text-xs font-bold tracking-[0.18em] text-emerald-800">
+            <p className="text-xs font-bold tracking-[0.18em] text-success-foreground">
               {surat.identitas.namaBadan}
             </p>
             <h3 className="mt-1 font-serif text-lg font-semibold">Surat Somasi</h3>

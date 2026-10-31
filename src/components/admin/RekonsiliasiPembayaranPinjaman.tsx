@@ -172,7 +172,7 @@ function KartuPembayaran({ row }: { row: Baris }) {
             href={row.buktiUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 font-medium text-emerald-800 underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-1.5 font-medium text-success-foreground underline-offset-4 hover:underline"
           >
             <FileSearch className="size-3.5" aria-hidden /> Buka bukti transfer
             <ExternalLink className="size-3" aria-hidden />
@@ -286,18 +286,18 @@ export function RekonsiliasiPembayaranPinjaman() {
 
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-success-border bg-success-soft p-4">
         <div>
-          <p className="text-sm font-semibold text-emerald-950">
+          <p className="text-sm font-semibold text-success-foreground">
             Antrean pembayaran pinjaman
           </p>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-emerald-900">
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-success-foreground">
             {data.jumlah} bukti menunggu. Bukti bunga saja, cicil pokok, dan pelunasan
             total dicocokkan dengan snapshot server sebelum sisa pokok, tier bunga,
             bunga periode berikut, dan jatuh tempo berubah.
           </p>
         </div>
-        <span className="rounded-full border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold tabular-nums text-emerald-900">
+        <span className="rounded-full border border-success-border bg-white px-2.5 py-1 text-xs font-semibold tabular-nums text-success-foreground">
           {data.jumlah} bukti
         </span>
       </div>

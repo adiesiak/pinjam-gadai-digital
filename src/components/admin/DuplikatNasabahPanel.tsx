@@ -66,9 +66,9 @@ export function DuplikatNasabahPanel() {
 
   if (data.kelompok.length === 0) {
     return (
-      <section className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
-        <ShieldCheck className="size-4 shrink-0 text-emerald-600" />
-        <p className="text-xs leading-5 text-emerald-900">
+      <section className="flex items-center gap-3 rounded-2xl border border-success-border bg-success-soft px-4 py-3">
+        <ShieldCheck className="size-4 shrink-0 text-success-foreground" />
+        <p className="text-xs leading-5 text-success-foreground">
           Tidak ada nasabah kembar terdeteksi dari NIK maupun nomor WhatsApp pada{" "}
           <strong>{data.totalProfil}</strong> data diri.
         </p>
@@ -124,7 +124,7 @@ export function DuplikatNasabahPanel() {
           <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
             {data.kelompok.length} kelompok berbagi NIK atau nomor WhatsApp. Pilih satu akun utama
             per kelompok, centang akun duplikat yang riwayatnya ingin dipindahkan, lalu gabungkan.
-            Riwayat keuangan tidak dihapus — hanya berpindah pemilik.
+            Riwayat keuangan tidak dihapus, hanya berpindah pemilik.
           </p>
         </div>
       </div>
@@ -209,7 +209,7 @@ export function DuplikatNasabahPanel() {
                               {r.nama}
                             </span>
                             {jadiUtama ? (
-                              <Badge className="border-emerald-200 bg-emerald-100 text-emerald-700">
+                              <Badge className="border-success-border bg-success-soft text-success-foreground">
                                 akun utama
                               </Badge>
                             ) : null}

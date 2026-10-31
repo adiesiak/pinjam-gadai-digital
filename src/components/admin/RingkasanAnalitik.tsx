@@ -257,7 +257,7 @@ function KartuGrafik({
   return (
     <section className="animate-masuk flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
       <div className="flex items-start gap-2.5">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-900">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary">
           <Icon className="size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -326,7 +326,7 @@ export function RingkasanAnalitikView({
           Icon={ChartLine}
         >
           <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+            <Badge className="border-success-border bg-success-soft text-success-foreground hover:bg-success-soft">
               Pencairan {rupiahRingkas(total.pencairan)}
             </Badge>
             <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">
@@ -404,7 +404,7 @@ export function RingkasanAnalitikView({
         </div>
 
         {risiko.length === 0 ? (
-          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900">
+          <p className="mt-3 rounded-xl border border-success-border bg-success-soft px-4 py-3 text-xs text-success-foreground">
             Tidak ada sinyal risiko yang aktif saat ini — lokasi, jatuh tempo, dan kemampuan bayar
             pengajuan baru semuanya dalam batas.
           </p>

@@ -3,6 +3,7 @@ import { Loader2, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SkeletonBarisDaftar } from "@/components/ui/loading";
@@ -34,17 +35,23 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
   const cabutPerangkat = useMutation(api.security.cabutPerangkatPercaya);
   const lupakanPerangkat = useMutation(api.security.lupakanPerangkatPercaya);
   const [busyPerangkat, setBusyPerangkat] = useState<string | null>(null);
+  const [targetCabut, setTargetCabut] = useState<{
+    id: Id<"trustedDevices">;
+    perangkat: string;
+  } | null>(null);
   const [saringLog, setSaringLog] = useState<"semua" | "berhasil" | "perhatian">(
     "semua",
   );
   // Token perangkat ini (bila ada) — hanya untuk tombol "Lupakan perangkat ini".
   const tokenLokal = ambilTokenPerangkat();
 
-  const cabut = async (id: Id<"trustedDevices">, perangkat: string) => {
-    setBusyPerangkat(id);
+  const cabut = async () => {
+    if (targetCabut === null) return;
+    setBusyPerangkat(targetCabut.id);
     try {
-      await cabutPerangkat({ id });
-      toast.success(`Perangkat "${perangkat}" dicabut.`);
+      await cabutPerangkat({ id: targetCabut.id });
+      toast.success(`Perangkat "${targetCabut.perangkat}" dicabut.`);
+      setTargetCabut(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal mencabut perangkat.");
     } finally {
@@ -116,7 +123,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
             </p>
           </div>
           {totpStatus?.aktif ? (
-            <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+            <Badge className="border-success-border bg-success-soft text-success-foreground hover:bg-success-soft">
               <ShieldCheck className="mr-1 size-3.5" /> 2FA Aktif
             </Badge>
           ) : (
@@ -179,7 +186,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
                   variant="outline"
                   className="text-destructive hover:text-destructive"
                   disabled={busyPerangkat === d._id}
-                  onClick={() => void cabut(d._id, d.perangkat)}
+                  onClick={() => setTargetCabut({ id: d._id, perangkat: d.perangkat })}
                 >
                   {busyPerangkat === d._id ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -215,7 +222,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
                     IP {s.ip} · mulai {formatDate(s.waktuMulai)}
                   </p>
                 </div>
-                <Badge className="border-0 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                <Badge className="border-success-border bg-success-soft text-success-foreground hover:bg-success-soft">
                   Aktif
                 </Badge>
               </li>
@@ -362,6 +369,23 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
           </>
         )}
       </section>
+
+      <KonfirmasiAksi
+        open={targetCabut !== null}
+        onOpenChange={(terbuka) => {
+          if (!terbuka && busyPerangkat === null) setTargetCabut(null);
+        }}
+        judul="Cabut perangkat tepercaya?"
+        deskripsi={
+          <>
+            Perangkat <strong className="text-navy">{targetCabut?.perangkat}</strong> tidak
+            lagi melewati verifikasi TOTP. Sesi aktif tetap berjalan sampai pengguna keluar.
+          </>
+        }
+        labelKonfirmasi="Cabut perangkat"
+        busy={busyPerangkat !== null}
+        onConfirm={() => void cabut()}
+      />
     </div>
   );
 }
@@ -370,7 +394,7 @@ export function LoginSecurityPanel({ onOpenSetup }: { onOpenSetup: () => void })
 function LencanaStatusLogin({ status }: { status: string }) {
   const kelas =
     status === "berhasil"
-      ? "bg-emerald-100 text-emerald-700"
+      ? "border border-success-border bg-success-soft text-success-foreground"
       : status === "diblokir"
         ? "bg-red-100 text-red-700"
         : status === "dipertanyakan"

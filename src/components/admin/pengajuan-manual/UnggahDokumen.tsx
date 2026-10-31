@@ -178,7 +178,7 @@ export function UnggahDokumen({
           <Button
             type="button"
             size="sm"
-            className="h-8 gap-1 rounded-xl bg-emerald-800 px-2.5 font-semibold text-white hover:bg-emerald-900"
+            className="h-8 gap-1 rounded-xl bg-primary px-2.5 font-semibold text-primary-foreground hover:bg-primary/90"
             disabled={disabled || busy}
             onClick={onMintaKamera}
           >

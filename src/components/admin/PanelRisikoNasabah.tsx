@@ -70,9 +70,9 @@ export function LencanaGrade({
 }) {
   const kelas =
     grade === "A"
-      ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+      ? "border-success-border bg-success-soft text-success-foreground"
       : grade === "B"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        ? "border-success-border bg-success-soft text-success-foreground"
         : grade === "C"
           ? "border-amber-200 bg-amber-50 text-amber-700"
           : "border-destructive/30 bg-destructive/10 text-destructive";

@@ -214,7 +214,7 @@ export function PanelBiKesehatan() {
 
       <section className="animate-masuk rounded-2xl border border-slate-200 bg-white p-5">
         <p className="flex items-center gap-2 text-sm font-semibold text-navy">
-          <Activity className="size-4 text-emerald-600" /> Kesehatan sistem
+          <Activity className="size-4 text-success-foreground" /> Kesehatan sistem
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Setiap angka menyebut sumber dan jendela waktunya. Ringkasan ledger tidak diulang di
@@ -232,7 +232,7 @@ export function PanelBiKesehatan() {
                 className={
                   kesehatan.konfigurasi.killSwitch
                     ? "rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700"
-                    : "rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
+                    : "rounded-full border border-success-border bg-success-soft px-3 py-1 text-xs font-medium text-success-foreground"
                 }
               >
                 Kill switch: {kesehatan.konfigurasi.killSwitch ? "AKTIF" : "nonaktif"}
@@ -274,7 +274,7 @@ export function PanelBiKesehatan() {
                 ))}
               </div>
             ) : (
-              <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900">
+              <p className="mt-4 rounded-xl border border-success-border bg-success-soft px-3 py-2 text-xs leading-5 text-success-foreground">
                 Tidak ada peringatan otomatis: jurnal seimbang, tidak ada kegagalan
                 WhatsApp dalam 24 jam, dan semua cron berdenyut sesuai jadwal.
               </p>

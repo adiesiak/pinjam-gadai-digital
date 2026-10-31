@@ -223,7 +223,7 @@ const gambar = (terbuka: boolean, drawerTerbuka = false) =>
     semuaModul.every(
       (modul) =>
         html.includes(`id="tab-ikon-${modul}"`) &&
-        html.includes(`aria-label="${(LABEL[modul] ?? modul).replace("&", "&amp;")}"`),
+        html.includes(`aria-label="${(LABEL[modul] ?? modul).replace("&", "&amp;")}`),
     ),
   );
   cek(

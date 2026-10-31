@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { EContractWidget } from "@/components/EContract";
+import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,6 +54,7 @@ export function PawnReviewDialog({
   // Konfirmasi khusus: gadai yang sudah berpindah dana (pencairan/persetujuan/
   // cicilan/jurnal) hanya boleh dihapus bila admin menyatakannya sadar.
   const [hapusMenyeluruh, setHapusMenyeluruh] = useState(false);
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Galat penghapusan dipisah supaya pesannya tampil di samping tombol Hapus.
@@ -70,17 +72,6 @@ export function PawnReviewDialog({
       : null;
 
   const runDelete = async () => {
-    // Catatan alasan tidak diminta lagi; konfirmasi tetap ada supaya
-    // penghapusan tidak terjadi karena salah tekan.
-    if (
-      !window.confirm(
-        hapusMenyeluruh
-          ? `Hapus MENYELURUH gadai ${row.nomorReferensi}? Cicilan yang tercatat ikut dihapus. Jurnal ledger tetap utuh sebagai riwayat. Audit Trail tetap tersimpan.`
-          : `Hapus permanen gadai ${row.nomorReferensi}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak kecuali Anda mencentang "Hapus menyeluruh".`,
-      )
-    ) {
-      return;
-    }
     setBusy("delete");
     setErrorHapus(null);
     try {
@@ -93,9 +84,12 @@ export function PawnReviewDialog({
           ? "Gadai dan cicilan terkait dihapus; jurnal ledger dipertahankan. Tercatat di Audit Trail."
           : "Data gadai dihapus dan tercatat di Audit Trail.",
       );
+      setKonfirmasiHapus(false);
       onClose();
     } catch (err) {
-      setErrorHapus(err instanceof Error ? err.message : "Gagal menghapus data gadai.");
+      const pesan = err instanceof Error ? err.message : "Gagal menghapus data gadai.";
+      setErrorHapus(pesan);
+      toast.error(pesan);
     } finally {
       setBusy(null);
     }
@@ -116,7 +110,8 @@ export function PawnReviewDialog({
   };
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <>
+      <Sheet open onOpenChange={(open) => !open && onClose()}>
       {/* Perbandingan bukti ↔ keputusan tetap 50/50, tetapi di dalam ruang kerja
           lebar — bukan modal 5xl yang menggulir sendiri. Antrean gadai di
           belakangnya masih terlihat di tepi kiri layar. */}
@@ -142,7 +137,7 @@ export function PawnReviewDialog({
           <div className="space-y-3">
             <section className="rounded-2xl border border-slate-200 bg-white p-3">
               <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <ShieldCheck className="size-3.5 text-emerald-700" aria-hidden /> Barang jaminan
+                <ShieldCheck className="size-3.5 text-success-foreground" aria-hidden /> Barang jaminan
               </p>
               <dl className="mt-2 divide-y divide-slate-100">
                 {([
@@ -363,7 +358,11 @@ export function PawnReviewDialog({
                   {errorHapus}
                 </p>
               )}
-              <Button variant="destructive" disabled={busy !== null} onClick={() => void runDelete()}>
+              <Button
+                variant="destructive"
+                disabled={busy !== null}
+                onClick={() => setKonfirmasiHapus(true)}
+              >
                 {busy === "delete" ? (
                   <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
@@ -375,6 +374,23 @@ export function PawnReviewDialog({
           </div>
         </div>
       </SheetContent>
-    </Sheet>
+      </Sheet>
+
+      <KonfirmasiAksi
+        open={konfirmasiHapus}
+        onOpenChange={(terbuka) => {
+          if (!terbuka && busy === null) setKonfirmasiHapus(false);
+        }}
+        judul={`Hapus ${hapusMenyeluruh ? "menyeluruh " : ""}gadai ${row.nomorReferensi}?`}
+        deskripsi={
+          hapusMenyeluruh
+            ? "Cicilan yang tercatat ikut dihapus. Jurnal ledger dan Audit Trail tetap tersimpan. Barang di rak penitipan tetap tidak bisa dihapus sampai dilepas lewat alur gadai."
+            : "Data dengan transaksi terkait akan ditolak. Centang Hapus menyeluruh bila server menolak karena dana sudah berpindah. Audit Trail tetap tersimpan."
+        }
+        labelKonfirmasi={hapusMenyeluruh ? "Hapus gadai & cicilan" : "Hapus gadai"}
+        busy={busy === "delete"}
+        onConfirm={() => void runDelete()}
+      />
+    </>
   );
 }

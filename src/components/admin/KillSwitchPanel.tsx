@@ -203,7 +203,7 @@ export function KillSwitchPanel() {
             className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
               aktif
                 ? "border-red-200 bg-red-100 text-red-800"
-                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-success-border bg-success-soft text-success-foreground"
             }`}
           >
             {aktif ? (
@@ -226,7 +226,7 @@ export function KillSwitchPanel() {
               variant="outline"
               disabled={busy || status === undefined}
               onClick={() => void jalankan(false)}
-              className="rounded-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              className="rounded-full border-success-border text-success-foreground hover:bg-success-soft"
             >
               {busy ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
               Matikan kill switch
@@ -258,7 +258,7 @@ export function KillSwitchPanel() {
             Pencatatan pengajuan manual oleh admin.
           </li>
           <li className="flex gap-2">
-            <span aria-hidden="true" className="mt-2 size-1 shrink-0 rounded-full bg-emerald-600" />
+            <span aria-hidden="true" className="mt-2 size-1 shrink-0 rounded-full bg-success" />
             Pembacaan data, audit trail, dan backup tetap berjalan seperti biasa.
           </li>
         </ul>

@@ -130,7 +130,7 @@ export function PanelSiklusPendana() {
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary">
             <CalendarClock className="size-4" />
           </span>
           <div>
@@ -263,7 +263,7 @@ export function PanelSiklusPendana() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="gap-1.5 rounded-xl border-emerald-300 text-emerald-900 hover:bg-emerald-50"
+                      className="gap-1.5 rounded-xl border-primary/30 text-primary hover:bg-primary/5"
                       disabled={!row.bisaPutar || busyPutar !== null}
                       aria-expanded={bukaPutar === row._id}
                       onClick={() =>
@@ -285,7 +285,7 @@ export function PanelSiklusPendana() {
                     className={
                       row.pilihanPendana === "putar_ulang"
                         ? "gap-1.5 rounded-xl bg-[#0F3D3A] text-white hover:bg-[#0b2d2b]"
-                        : "gap-1.5 rounded-xl bg-[#064E3B] text-white hover:bg-[#04361f]"
+                        : "gap-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
                     }
                     disabled={!row.jatuhTempo || busyId !== null}
                     onClick={() => void proses(row)}
@@ -350,7 +350,7 @@ export function PanelSiklusPendana() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="shrink-0 gap-1.5 rounded-lg border-emerald-300 text-emerald-900 hover:bg-emerald-50"
+                              className="shrink-0 gap-1.5 rounded-lg border-primary/30 text-primary hover:bg-primary/5"
                               disabled={busyPutar !== null}
                               onClick={() =>
                                 void salurkanPutaran(row, p)

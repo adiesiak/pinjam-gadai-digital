@@ -278,7 +278,7 @@ export function SystemConfigPanel() {
     setStatus(null);
     try {
       await fn();
-      setStatus({ text: `${label} saved.`, ok: true });
+      setStatus({ text: `${label} tersimpan.`, ok: true });
       toast.success(`${label} tersimpan.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Gagal ${label.toLowerCase()}.`);
@@ -351,7 +351,7 @@ export function SystemConfigPanel() {
         <div className="flex items-center gap-2">
           {status && (
             <p
-              className={`rounded-lg px-3 py-1 text-xs font-medium ${status.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}
+              className={`rounded-lg px-3 py-1 text-xs font-medium ${status.ok ? "border border-success-border bg-success-soft text-success-foreground" : "bg-red-50 text-red-700"}`}
             >
               {status.text}
             </p>
@@ -737,7 +737,7 @@ export function SystemConfigPanel() {
                 <div
                   className={`mt-3 rounded-lg border px-3 py-2 text-[11px] leading-5 ${
                     qrisTersimpan
-                      ? "border-emerald-200 bg-emerald-50/60 text-emerald-900"
+                      ? "border-success-border bg-success-soft text-success-foreground"
                       : "border-amber-200 bg-amber-50/70 text-amber-950"
                   }`}
                 >
@@ -1330,7 +1330,7 @@ export function SystemConfigPanel() {
             </Button>
             <Button
               size="sm"
-              className="bg-[#064E3B] text-white hover:bg-[#021E17]"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={busy}
               onClick={simpan}
             >

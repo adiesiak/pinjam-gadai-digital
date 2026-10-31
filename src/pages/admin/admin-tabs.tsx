@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { BatasModulAdmin } from "@/components/admin/BatasModulAdmin";
 import { CariCepatAdmin } from "@/components/admin/CariCepatAdmin";
 import {
   bacaSidebarTerbuka,
@@ -93,6 +94,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { SkeletonKartu } from "@/components/ui/loading";
 import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { bacaModulTerakhir, catatModulTerakhir } from "@/lib/admin-terakhir";
 import { cn } from "@/lib/utils";
 import { RingkasanAnalitik } from "@/components/admin/RingkasanAnalitik";
 import {
@@ -181,6 +183,7 @@ export function AdminTabs({
   // mendarat, jadi selalu mulai tertutup.
   const [sidebarTerbuka, setSidebarTerbuka] = useState<boolean>(() => bacaSidebarTerbuka());
   const [drawerTerbuka, setDrawerTerbuka] = useState(false);
+  const [terakhir, setTerakhir] = useState<NilaiModulAdmin[]>(() => bacaModulTerakhir());
   const layarLebar = useMediaQuery(KUERI_LAYAR_SIDEBAR);
 
   const ubahSidebar = useCallback((terbuka: boolean) => {
@@ -496,6 +499,7 @@ export function AdminTabs({
     // Mulai unduh potongan panelnya sekarang juga; kalau petugas sudah menyorot
     // tombolnya tadi, ini tidak melakukan apa-apa (modul sudah di jalan).
     muatModulAdmin(value);
+    setTerakhir(catatModulTerakhir(value));
     // `startTransition`: React menahan layar lama sebentar sampai potongan panel
     // baru siap, jadi perpindahan tab tidak berkedip ke kerangka kosong.
     startTransition(() => setActiveTab(value));
@@ -541,8 +545,17 @@ export function AdminTabs({
 
   // Judul tab peramban mengikuti modul yang sedang dibuka.
   useEffect(() => {
-    document.title = `${aktif?.label ?? "Admin"} — PINDAI`;
+    document.title = `${aktif?.label ?? "Admin"} | PINDAI`;
   }, [aktif?.label]);
+
+  // Penanda untuk aturan baca/sentuh admin di index.css. Dialog dan sheet Radix
+  // diportal ke body, jadi tidak bisa dijangkau selektor `.admin-shell` saja.
+  useEffect(() => {
+    document.documentElement.dataset.adminAktif = "1";
+    return () => {
+      delete document.documentElement.dataset.adminAktif;
+    };
+  }, []);
 
   /** Isi setiap menu — satu entri per nilai tab. */
   // `Record<NilaiModulAdmin, ReactNode>` yang ekshaustif: menambah nilai modul
@@ -649,6 +662,7 @@ export function AdminTabs({
       <SidebarAdmin
         menu={menu}
         activeTab={activeTab}
+        terakhir={terakhir}
         onPilih={pilihMenu}
         terbuka={sidebarTerbuka}
         onToggle={ubahSidebar}
@@ -664,8 +678,8 @@ export function AdminTabs({
       })}
 
       {/* Layar kecil: bilah bawah + strip chip modul + sheet pencarian.
-          Menggantikan `<select>` 17 opsi yang menyembunyikan isi tiap menu. */}
-      <AdminNav menu={menu} activeTab={activeTab} onPilih={pilihMenu} />
+          Menggantikan `<select>` lama yang menyembunyikan isi tiap menu. */}
+      <AdminNav menu={menu} activeTab={activeTab} terakhir={terakhir} onPilih={pilihMenu} />
       <CariCepatAdmin
         menu={menu}
         onPilihModul={pilihMenu}
@@ -688,12 +702,15 @@ export function AdminTabs({
         <div
           className={cn("min-w-0", aktif?.value === "kyc" ? "space-y-2" : "space-y-4 sm:space-y-5")}
         >
+          {/* H1 tetap ada untuk pembaca layar dan struktur dokumen, meskipun
+              label visualnya sudah ditampilkan di sidebar dan breadcrumb. */}
+          <h1 className="sr-only">{aktif?.label ?? "Panel admin"}</h1>
           {/* Kartu judul modul DIHILANGKAN pada Ringkasan dan pada Verifikasi KYC:
               label menu di sidebar sudah berbunyi sama, dan di KYC kartunya
               digantikan baris ringkas + cacah antrean di dalam panelnya. */}
           {aktif && aktif.value !== "hari-ini" && aktif.value !== "kyc" && (
             <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary">
                 <aktif.Icon className="size-4" />
               </span>
               <div className="min-w-0">
@@ -727,8 +744,9 @@ export function AdminTabs({
             {/* Satu langganan `adminOverview` untuk semua modul di bawah: query
                 termahal panel ini tidak diulang setiap kali tab berganti. */}
             <PenyediaOverviewAdmin overview={overview}>
-              <Suspense
-                fallback={
+              <BatasModulAdmin nama={aktif?.label ?? "Panel admin"}>
+                <Suspense
+                  fallback={
                   // Kerangka ringan, bukan layar kosong: tinggi dan lebarnya
                   // kira-kira sama dengan kartu panel, jadi tata letak tidak
                   // melompat saat potongannya selesai diunduh.
@@ -737,10 +755,11 @@ export function AdminTabs({
                     <SkeletonKartu className="h-24 rounded-2xl p-4" />
                     <SkeletonKartu className="h-40 rounded-2xl p-4" />
                   </div>
-                }
-              >
-                {panel[activeTab]}
-              </Suspense>
+                  }
+                >
+                  {panel[activeTab]}
+                </Suspense>
+              </BatasModulAdmin>
             </PenyediaOverviewAdmin>
           </div>
         </div>

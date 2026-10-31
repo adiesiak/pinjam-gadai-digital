@@ -110,14 +110,14 @@ export function PencarianCepat({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="pl-9 pr-10"
+        className="pl-9 pr-12"
       />
       {value !== "" && (
         <button
           type="button"
           onClick={() => onChange("")}
           aria-label="Hapus pencarian"
-          className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="absolute right-0.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <X className="size-4" aria-hidden="true" />
         </button>
@@ -148,7 +148,7 @@ export function TombolAksiAntrean({
       aria-label={ariaLabel ?? label}
       className={
         utama
-          ? "h-8 gap-1 rounded-lg bg-emerald-700 px-3 text-xs font-semibold text-white hover:bg-emerald-800"
+          ? "h-8 gap-1 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
           : "h-8 gap-1 rounded-lg px-3 text-xs font-semibold"
       }
     >

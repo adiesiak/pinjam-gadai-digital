@@ -67,7 +67,7 @@ const TONE = {
   amber: "border-amber-100 bg-amber-50 text-amber-700",
   red: "border-red-100 bg-red-50 text-red-700",
   sky: "border-sky-100 bg-sky-50 text-sky-700",
-  mint: "border-emerald-100 bg-emerald-50 text-emerald-700",
+  mint: "border-success-border bg-success-soft text-success-foreground",
 } as const;
 
 type Tone = keyof typeof TONE;

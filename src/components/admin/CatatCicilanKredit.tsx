@@ -201,7 +201,7 @@ export function CatatCicilanKredit({
         type="button"
         disabled={busy}
         onClick={() => void kirim()}
-        className="mt-2 w-full gap-1.5 rounded-xl bg-emerald-700 text-white hover:bg-emerald-800 sm:w-auto"
+        className="mt-2 w-full gap-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <ReceiptText className="size-4" />}
         Catat cicilan

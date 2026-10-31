@@ -79,7 +79,7 @@ const META_STATUS: Record<
   },
   dicatat: {
     label: "Sudah Dicatat",
-    className: "border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+    className: "border-success-border bg-success-soft text-success-foreground hover:bg-success-soft",
   },
   dibatalkan: {
     label: "Dibatalkan",
@@ -209,7 +209,7 @@ export function PencatatanTransferGadai() {
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary/5 text-primary">
             <Coins className="size-4" />
           </span>
           <div>
@@ -244,7 +244,7 @@ export function PencatatanTransferGadai() {
             {ringkasan.jumlahBelumDicatat} belum dicatat
           </Badge>
         ) : (
-          <Badge className="border-0 bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+          <Badge className="border-success-border bg-success-soft text-success-foreground hover:bg-success-soft">
             <CheckCircle2 className="mr-1 size-3" /> semua tercatat
           </Badge>
         )}
@@ -401,7 +401,7 @@ export function PencatatanTransferGadai() {
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
         <p className="text-xs text-muted-foreground">
           Angka di atas mengikuti {pembayaranDibaca} pembayaran gadai terbaru
-          {adaLebihBanyak ? " — masih ada pembayaran yang lebih lama." : "."}
+          {adaLebihBanyak ? " Masih ada pembayaran yang lebih lama." : "."}
         </p>
         {adaLebihBanyak && (
           <Button

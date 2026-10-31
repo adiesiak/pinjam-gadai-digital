@@ -13,6 +13,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { FunctionReturnType } from "convex/server";
 
+import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -62,6 +63,7 @@ export function KreditReviewDialog({
   const [error, setError] = useState<string | null>(null);
   const [hapusMenyeluruh, setHapusMenyeluruh] = useState(false);
   const [bukaHapus, setBukaHapus] = useState(false);
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
 
   // Baris lain = keadaan bersih. Disesuaikan saat render, bukan lewat effect,
   // supaya pesan galat baris sebelumnya tidak terbawa ke pengajuan berikutnya.
@@ -73,6 +75,7 @@ export function KreditReviewDialog({
     setError(null);
     setHapusMenyeluruh(false);
     setBukaHapus(false);
+    setKonfirmasiHapus(false);
   }
 
   if (row === null) return null;
@@ -95,15 +98,6 @@ export function KreditReviewDialog({
   };
 
   const jalankanHapus = async () => {
-    if (
-      !window.confirm(
-        hapusMenyeluruh
-          ? `Hapus MENYELURUH kredit ${row.nomorReferensi}? Alokasi dana dan cicilan yang tercatat ikut dihapus. Jurnal ledger tetap utuh sebagai riwayat. Audit Trail tetap tersimpan.`
-          : `Hapus permanen kredit ${row.nomorReferensi}? Audit Trail tetap tersimpan. Data dengan transaksi terkait akan ditolak kecuali Anda mencentang "Hapus menyeluruh".`,
-      )
-    ) {
-      return;
-    }
     setBusy("delete");
     setError(null);
     try {
@@ -116,22 +110,26 @@ export function KreditReviewDialog({
           ? "Kredit dan baris turunannya dihapus; jurnal ledger dipertahankan."
           : "Data kredit dihapus dan tercatat di Audit Trail.",
       );
+      setKonfirmasiHapus(false);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal menghapus data kredit.");
+      const pesan = err instanceof Error ? err.message : "Gagal menghapus data kredit.";
+      setError(pesan);
+      toast.error(pesan);
     } finally {
       setBusy(null);
     }
   };
 
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
+    <>
+      <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
         className="w-full gap-0 overflow-y-auto border-l border-slate-200 bg-white p-0 shadow-2xl sm:w-[92vw] sm:max-w-[1100px] xl:w-[78vw] xl:max-w-[1240px]"
       >
         <div className="sticky top-0 z-20 flex items-start gap-3 border-b border-slate-200/70 bg-white px-5 py-4 pr-14">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#064E3B] text-sm font-bold text-emerald-50">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
             {row.tenorBulan}
           </span>
           <div className="min-w-0 flex-1">
@@ -300,7 +298,7 @@ export function KreditReviewDialog({
                   type="button"
                   disabled={busy !== null}
                   onClick={() => void run("setujui", () => setujui({ kreditId: row._id }))}
-                  className="gap-1.5 rounded-xl bg-emerald-700 text-white hover:bg-emerald-800"
+                  className="gap-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {busy === "setujui" ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -330,7 +328,7 @@ export function KreditReviewDialog({
                   type="button"
                   disabled={busy !== null}
                   onClick={() => void run("danai", () => danai({ kreditId: row._id }))}
-                  className="gap-1.5 rounded-xl bg-emerald-700 text-white hover:bg-emerald-800"
+                  className="gap-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {busy === "danai" ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -366,7 +364,7 @@ export function KreditReviewDialog({
                           return (
                             <tr
                               key={j.bulan}
-                              className={berikut ? "bg-emerald-50/60" : undefined}
+                              className={berikut ? "bg-primary/5" : undefined}
                             >
                               <td className="px-3 py-1.5 tabular-nums text-slate-700">
                                 {j.bulan}/{row.totalBulan}
@@ -384,7 +382,7 @@ export function KreditReviewDialog({
                                 <span
                                   className={
                                     lunas
-                                      ? "font-semibold text-emerald-700"
+                                      ? "font-semibold text-success-foreground"
                                       : berikut
                                         ? "font-semibold text-amber-700"
                                         : "text-slate-500"
@@ -452,7 +450,7 @@ export function KreditReviewDialog({
                   type="button"
                   variant="destructive"
                   disabled={busy !== null}
-                  onClick={() => void jalankanHapus()}
+                  onClick={() => setKonfirmasiHapus(true)}
                   className="w-full gap-1.5 rounded-xl sm:w-auto"
                 >
                   {busy === "delete" ? (
@@ -467,6 +465,23 @@ export function KreditReviewDialog({
           </div>
         </div>
       </SheetContent>
-    </Sheet>
+      </Sheet>
+
+      <KonfirmasiAksi
+        open={konfirmasiHapus}
+        onOpenChange={(terbuka) => {
+          if (!terbuka && busy === null) setKonfirmasiHapus(false);
+        }}
+        judul={`Hapus ${hapusMenyeluruh ? "menyeluruh " : ""}kredit ${row.nomorReferensi}?`}
+        deskripsi={
+          hapusMenyeluruh
+            ? "Alokasi dana dan cicilan yang tercatat ikut dihapus. Jurnal ledger dan Audit Trail tetap tersimpan."
+            : "Data dengan transaksi terkait akan ditolak. Centang Hapus menyeluruh bila server menolak karena alokasi dana sudah ada. Audit Trail tetap tersimpan."
+        }
+        labelKonfirmasi={hapusMenyeluruh ? "Hapus menyeluruh" : "Hapus kredit"}
+        busy={busy === "delete"}
+        onConfirm={() => void jalankanHapus()}
+      />
+    </>
   );
 }

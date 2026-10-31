@@ -24,6 +24,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +90,11 @@ export function KalenderKasPanel() {
   const [nominalBiaya, setNominalBiaya] = useState("");
   const [tanggalBiaya, setTanggalBiaya] = useState("1");
   const [menambahBiaya, setMenambahBiaya] = useState(false);
+  const [targetHapus, setTargetHapus] = useState<{
+    id: Id<"biayaOperasional">;
+    judul: string;
+  } | null>(null);
+  const [busyHapus, setBusyHapus] = useState(false);
 
   if (data === undefined) {
     return (
@@ -160,12 +166,17 @@ export function KalenderKasPanel() {
     }
   };
 
-  const hapus = async (baris: (typeof data.biaya)[number]) => {
+  const hapus = async () => {
+    if (targetHapus === null) return;
+    setBusyHapus(true);
     try {
-      await hapusBiaya({ biayaId: baris.id as Id<"biayaOperasional"> });
+      await hapusBiaya({ biayaId: targetHapus.id });
       toast.success("Biaya dihapus.");
+      setTargetHapus(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Biaya gagal dihapus.");
+    } finally {
+      setBusyHapus(false);
     }
   };
 
@@ -601,7 +612,12 @@ export function KalenderKasPanel() {
                   size="sm"
                   variant="ghost"
                   className="text-rose-700 hover:bg-rose-50"
-                  onClick={() => void hapus(baris)}
+                  onClick={() =>
+                    setTargetHapus({
+                      id: baris.id as Id<"biayaOperasional">,
+                      judul: baris.judul,
+                    })
+                  }
                   aria-label={`Hapus ${baris.judul}`}
                 >
                   <Trash2 className="size-3.5" aria-hidden="true" />
@@ -611,6 +627,23 @@ export function KalenderKasPanel() {
           </ul>
         )}
       </div>
+
+      <KonfirmasiAksi
+        open={targetHapus !== null}
+        onOpenChange={(terbuka) => {
+          if (!terbuka && !busyHapus) setTargetHapus(null);
+        }}
+        judul="Hapus biaya operasional?"
+        deskripsi={
+          <>
+            Biaya <strong className="text-navy">{targetHapus?.judul}</strong> akan
+            dihapus dari proyeksi kas. Tindakan ini tidak bisa dibatalkan.
+          </>
+        }
+        labelKonfirmasi="Hapus biaya"
+        busy={busyHapus}
+        onConfirm={() => void hapus()}
+      />
     </section>
   );
 }

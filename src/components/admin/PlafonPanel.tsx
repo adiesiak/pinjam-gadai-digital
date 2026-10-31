@@ -98,7 +98,7 @@ function inisial(nama: string): string {
 /** Nada warna lencana grade risiko — A/B aman, C sedang, D/E/tinggi merah. */
 function nadaGrade(grade: string, dinilai: boolean): string {
   if (!dinilai) return "border-slate-200 bg-slate-100 text-slate-600";
-  if (grade === "A" || grade === "B") return "border-emerald-200 bg-emerald-100 text-emerald-800";
+  if (grade === "A" || grade === "B") return "border-success-border bg-success-soft text-success-foreground";
   if (grade === "C") return "border-amber-200 bg-amber-100 text-amber-800";
   return "border-red-200 bg-red-100 text-red-700";
 }
@@ -108,7 +108,7 @@ function BarPlafon({ terpakai, efektif }: { terpakai: number; efektif: number })
   const rasio = efektif > 0 ? Math.min(1, terpakai / efektif) : 0;
   const persen = Math.round(rasio * 100);
   const nada =
-    rasio >= AMBANG_HAMPIR_PENUH ? "bg-red-500" : rasio >= 0.5 ? "bg-amber-500" : "bg-emerald-600";
+    rasio >= AMBANG_HAMPIR_PENUH ? "bg-red-500" : rasio >= 0.5 ? "bg-amber-500" : "bg-success";
   return (
     <div className="min-w-0">
       <div
@@ -154,8 +154,8 @@ function LencanaSumber({ pribadi, efektif, global }: { pribadi: number | null; e
     sumber === "override"
       ? "border-amber-300 bg-amber-50 text-amber-800"
       : sumber === "progresif"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-        : "border-slate-200 bg-slate-50 text-slate-600";
+        ? "border-success-border bg-success-soft text-success-foreground"
+        : "border-border bg-slate-50 text-slate-600";
   return (
     <Badge className={kelas} title="Urutan: override admin › plafon progresif › default global">
       {LABEL_SUMBER_PLAFON[sumber]}
@@ -205,7 +205,7 @@ function MenuKelolaNasabah({
           type="button"
           size="sm"
           className={cn(
-            "h-9 gap-1.5 rounded-lg bg-emerald-700 px-2.5 text-xs text-white hover:bg-emerald-800",
+            "h-9 gap-1.5 rounded-lg bg-primary px-2.5 text-xs text-primary-foreground hover:bg-primary/90",
             className,
           )}
           aria-label={`Kelola ${nama}`}
@@ -589,7 +589,7 @@ export function PlafonPanel() {
                                   : "Belum ada riwayat"}
                               </Badge>
                               <Badge
-                                className="border-emerald-200 bg-emerald-50 text-emerald-800"
+                                className="border-success-border bg-success-soft text-success-foreground"
                                 title="Skor perilaku bayar internal, dipakai menaikkan plafon otomatis. Bukan skor kredit pihak ketiga."
                               >
                                 Perilaku {r.skorPerilaku}/100

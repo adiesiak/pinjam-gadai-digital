@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 
 const KELAS_STATUS: Record<StatusKlaimReferral, string> = {
   menunggu_lunas: "border-amber-200 bg-amber-50 text-amber-800",
-  hadiah_diberikan: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  hadiah_diberikan: "border-success-border bg-success-soft text-success-foreground",
   batal: "border-slate-200 bg-slate-100 text-slate-600",
 };
 
@@ -109,10 +109,10 @@ export function ReferralPanel({ className }: { className?: string }) {
               {data.peringkat.map((orang) => (
                 <span
                   key={orang.id}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] text-emerald-900"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success-soft px-2.5 py-1 text-[11px] text-success-foreground"
                 >
                   <strong className="font-semibold">{orang.nama}</strong>
-                  <span className="text-emerald-700">
+                  <span className="text-success-foreground">
                     {orang.berhasil}/{orang.jumlah}
                   </span>
                 </span>

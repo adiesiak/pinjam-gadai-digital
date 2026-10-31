@@ -43,7 +43,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 backdrop-blur-md">
+    <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Data pengajuan peminjam
       </p>
@@ -118,7 +118,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
               ),
             )}
           </div>
-          <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
+          <div className="rounded-2xl border border-border bg-card px-4 py-3">
             <p className="flex items-center gap-1.5 text-xs font-medium">
               <MapPin className="size-3.5 text-primary" /> Koordinat perangkat yang dicatat saat pengajuan
             </p>
@@ -155,7 +155,7 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
                   )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-emerald-600"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 hover:bg-primary/90"
                 >
                   <Send className="size-4" /> Tinjau draf WA
                 </a>
@@ -208,7 +208,7 @@ function RingkasPengajuan({ loanId }: { loanId: Id<"loans"> }) {
     ],
   ];
   return (
-    <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
+    <div className="rounded-2xl border border-border bg-card px-4 py-3">
       <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Detail pengajuan (master)
       </p>
@@ -236,7 +236,7 @@ function RiwayatLokasiMini({ userId }: { userId: Id<"users"> }) {
     );
   }
   return (
-    <div className="rounded-2xl border border-emerald-900/10 bg-white/90 px-4 py-3 backdrop-blur-sm">
+    <div className="rounded-2xl border border-border bg-card px-4 py-3">
       <p className="text-xs font-medium">Koordinat perangkat yang tercatat ({riwayat.length})</p>
       <ul className="mt-1.5 space-y-1">
         {riwayat.map((t) => (

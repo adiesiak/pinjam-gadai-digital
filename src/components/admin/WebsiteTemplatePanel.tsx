@@ -227,7 +227,7 @@ export function WebsiteTemplatePanel() {
                       </p>
                     </div>
                     {dipilih && (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800">
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success-border bg-success-soft px-2 py-1 text-[10px] font-semibold text-success-foreground">
                         <Check className="size-3" /> Aktif
                       </span>
                     )}
@@ -310,7 +310,7 @@ export function WebsiteTemplatePanel() {
                       {item.nama}
                     </h4>
                     {dipilih && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-success-border bg-success-soft px-2 py-1 text-[10px] font-semibold text-success-foreground">
                         <Check className="size-3" /> Aktif
                       </span>
                     )}

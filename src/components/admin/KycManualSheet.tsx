@@ -342,7 +342,7 @@ export function KycManualSheet({
                             <StatusKycBadge status={item.statusKyc} />
                           )}
                           {terverifikasi ? null : (
-                            <span className="text-[11px] font-medium text-emerald-800">Pilih</span>
+                            <span className="text-[11px] font-medium text-primary">Pilih</span>
                           )}
                         </span>
                       </button>
@@ -584,7 +584,7 @@ export function KycManualSheet({
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3">
               <p className="flex items-center gap-1.5 text-[11px] text-slate-600">
-                <CheckCircle2 className="size-3.5 text-emerald-700" aria-hidden />
+                <CheckCircle2 className="size-3.5 text-success-foreground" aria-hidden />
                 Status akhir: {LABEL_STATUS_KYC.VERIFIED} (manual)
               </p>
               <div className="flex items-center gap-2">

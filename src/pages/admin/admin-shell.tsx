@@ -159,30 +159,38 @@ export function StatusSistem({
 }) {
   const adaMasalah = killSwitch === true || seimbang === false;
   const belumTerbaca = killSwitch === undefined || seimbang === undefined;
-  const judul = adaMasalah ? "Status sistem: perlu diperiksa" : "Status sistem: normal";
+  const judul = belumTerbaca
+    ? "Status sistem: belum terbaca"
+    : adaMasalah
+      ? "Status sistem: perlu diperiksa"
+      : "Status sistem: normal";
 
-  const baris: Array<{ label: string; nilai: string; nada: "baik" | "perhatian" | "darurat" }> = [
+  const baris: Array<{
+    label: string;
+    nilai: string;
+    nada: "baik" | "perhatian" | "darurat" | "netral";
+  }> = [
     {
       label: "Pengajuan baru",
       nilai:
         killSwitch === undefined
           ? "Belum terbaca"
           : killSwitch
-            ? "Diblokir — kill switch aktif"
+            ? "Diblokir: kill switch aktif"
             : "Dibuka",
-      nada: killSwitch === true ? "darurat" : "baik",
+      nada: killSwitch === undefined ? "netral" : killSwitch ? "darurat" : "baik",
     },
     {
       label: "Catatan internal",
       nilai: seimbang === undefined ? "Belum terbaca" : seimbang ? "Seimbang" : "Menunggu transaksi",
-      nada: seimbang === false ? "perhatian" : "baik",
+      nada: seimbang === undefined ? "netral" : seimbang ? "baik" : "perhatian",
     },
   ];
   // Baris "cadangan data" dihapus bersama chip lamanya: tidak ada query yang
   // bisa membuktikan kesiapan backup dari sini, dan klaim "siap" tanpa dasar
   // justru membuat indikator ini tidak bisa dipercaya.
 
-  const nadaTitik = adaMasalah ? "bg-red-500" : belumTerbaca ? "bg-slate-400" : "bg-emerald-600";
+  const nadaTitik = adaMasalah ? "bg-red-500" : belumTerbaca ? "bg-slate-400" : "bg-success";
 
   return (
     <Popover>
@@ -209,7 +217,9 @@ export function StatusSistem({
                     ? "text-red-700"
                     : b.nada === "perhatian"
                       ? "text-amber-700"
-                      : "text-emerald-800"
+                      : b.nada === "netral"
+                        ? "text-slate-600"
+                        : "text-success-foreground"
                 }`}
               >
                 {b.nilai}
@@ -218,7 +228,7 @@ export function StatusSistem({
           ))}
         </ul>
         <p className="mt-2 border-t border-slate-100 pt-2 text-[11px] leading-4 text-muted-foreground">
-          Kill switch darurat sekarang diatur dari menu Keamanan &amp; Audit, bukan dari kepala panel.
+          Kill switch darurat sekarang diatur dari menu Kill Switch di grup Sistem, bukan dari kepala panel.
         </p>
       </PopoverContent>
     </Popover>
@@ -359,7 +369,7 @@ export function AdminHeader({
   menuPonsel: KendaliMenuPonsel;
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-border bg-card">
       <div className="flex min-h-14 w-full items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
@@ -435,7 +445,7 @@ export function AdminStats({
   const kartu = [
     {
       key: "berjalan",
-      label: `Sedang berjalan — ${NAMA_PRODUK[produk]}`,
+      label: `Sedang berjalan: ${NAMA_PRODUK[produk]}`,
       nilai: berjalan[produk],
       rupiah: true,
       Icon: CircleDollarSign,
@@ -443,7 +453,7 @@ export function AdminStats({
     },
     {
       key: "menunggu",
-      label: `Menunggu keputusan — ${NAMA_PRODUK[produk]}`,
+      label: `Menunggu keputusan: ${NAMA_PRODUK[produk]}`,
       nilai: menunggu[produk],
       rupiah: false,
       Icon: ClipboardList,
@@ -472,10 +482,10 @@ export function AdminStats({
             type="button"
             aria-pressed={produk === id}
             onClick={() => setProduk(id)}
-            className={`min-h-9 rounded-xl border px-3 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2 ${
+            className={`min-h-9 rounded-xl border px-3 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
               produk === id
-                ? "border-emerald-800 bg-emerald-800 text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-slate-600 hover:border-primary/40 hover:text-primary"
             }`}
           >
             {NAMA_PRODUK[id].split(" ")[0]}

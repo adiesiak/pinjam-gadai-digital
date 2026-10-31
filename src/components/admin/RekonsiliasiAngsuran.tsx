@@ -159,7 +159,7 @@ function PanelVerifikasiBukti({ row, onClose }: { row: Baris; onClose: () => voi
                   href={row.buktiUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 font-medium text-emerald-800 underline-offset-4 hover:underline"
+                  className="inline-flex items-center gap-1.5 font-medium text-success-foreground underline-offset-4 hover:underline"
                 >
                   <FileSearch className="size-3.5" aria-hidden /> Buka bukti transfer
                   <ExternalLink className="size-3" aria-hidden />
@@ -176,7 +176,7 @@ function PanelVerifikasiBukti({ row, onClose }: { row: Baris; onClose: () => voi
             <p
               className={`rounded-xl border px-3 py-2 text-xs leading-5 ${
                 row.saran.selisih === 0
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  ? "border-success-border bg-success-soft text-success-foreground"
                   : "border-amber-200 bg-amber-50 text-amber-900"
               }`}
             >
@@ -267,7 +267,7 @@ function PanelVerifikasiBukti({ row, onClose }: { row: Baris; onClose: () => voi
             type="button"
             disabled={busy || row.kandidat.length === 0}
             onClick={() => void kirim("terima")}
-            className="w-full gap-1.5 bg-emerald-800 text-white hover:bg-emerald-900"
+            className="w-full gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Check className="size-4" aria-hidden /> Verifikasi &amp; Tandai Lunas
           </Button>
@@ -325,7 +325,7 @@ function BarisAntrean({ row, onBuka }: { row: Baris; onBuka: () => void }) {
         </p>
         {row.saran !== null && (
           <p
-            className={`text-[11px] leading-4 ${cocok ? "text-emerald-800" : "text-amber-800"}`}
+            className={`text-[11px] leading-4 ${cocok ? "text-success-foreground" : "text-amber-800"}`}
           >
             {cocok ? "Nominal cocok" : `Selisih ${formatRupiah(row.saran.selisih)}`}
           </p>
@@ -340,7 +340,7 @@ function BarisAntrean({ row, onBuka }: { row: Baris; onBuka: () => void }) {
         onClick={onBuka}
         className={
           cocok
-            ? "gap-1.5 bg-emerald-800 text-white hover:bg-emerald-900"
+            ? "gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
             : "gap-1.5 justify-self-start md:justify-self-end"
         }
       >

@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 
+import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
 import { Badge } from "@/components/ui/badge";
 import { PengingatPembaruanPanel } from "@/components/admin/PengingatPembaruanPanel";
 import { KartuApkTerbit } from "@/components/admin/KartuApkTerbit";
@@ -292,10 +293,6 @@ export function AplikasiAndroidPanel() {
   };
 
   const kembalikanBawaan = async () => {
-    if (!konfirmasiReset) {
-      setKonfirmasiReset(true);
-      return;
-    }
     setBusy(true);
     try {
       const hasil = await reset({});
@@ -314,9 +311,10 @@ export function AplikasiAndroidPanel() {
   };
 
   return (
+    <>
     <div className="animate-masuk space-y-5">
       <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-900">
-        Perubahan di sini dibaca aplikasi Android <strong>setiap kali dibuka</strong> — tidak perlu
+        Perubahan di sini dibaca aplikasi Android <strong>setiap kali dibuka</strong>, tidak perlu
         build ulang untuk splash screen, logo di dalam aplikasi, nama, dan warna. Ikon di{" "}
         <strong>layar utama</strong> tetap milik APK (Android menyimpannya di dalam paket), jadi ia
         baru berubah saat APK berikutnya dibangun dengan berkas dari{" "}
@@ -347,14 +345,14 @@ export function AplikasiAndroidPanel() {
             versi {aktif.versi}
           </Badge>
           <Button
-            variant={konfirmasiReset ? "destructive" : "outline"}
+            variant="outline"
             size="sm"
             className="rounded-full"
             disabled={busy || baris === null}
-            onClick={() => void kembalikanBawaan()}
+            onClick={() => setKonfirmasiReset(true)}
           >
             <RotateCcw className="size-4" />
-            {konfirmasiReset ? "Klik lagi: ya, kembalikan" : "Kembalikan ke bawaan"}
+            Kembalikan ke bawaan
           </Button>
           <Button
             size="sm"
@@ -655,7 +653,7 @@ export function AplikasiAndroidPanel() {
           <p className="mt-1 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
             <CloudUpload className="mt-0.5 size-3.5 shrink-0" />
             <span>
-              <code className="font-mono">GET {"{CONVEX_SITE_URL}"}/api/aplikasi-android</code> —
+              <code className="font-mono">GET {"{CONVEX_SITE_URL}"}/api/aplikasi-android</code>,
               publik, tanpa autentikasi, tanpa data nasabah. Klien Convex bisa memakai query{" "}
               <code className="font-mono">androidApp.asetAktif</code> untuk data yang sama.
             </span>
@@ -666,5 +664,18 @@ export function AplikasiAndroidPanel() {
         </section>
       </div>
     </div>
+
+      <KonfirmasiAksi
+        open={konfirmasiReset}
+        onOpenChange={(terbuka) => {
+          if (!terbuka && !busy) setKonfirmasiReset(false);
+        }}
+        judul="Kembalikan pengaturan aplikasi ke bawaan?"
+        deskripsi="Splash, logo, nama, warna, dan berkas unggahan akan kembali ke bawaan. Berkas unggahan yang tersimpan ikut dihapus."
+        labelKonfirmasi="Kembalikan ke bawaan"
+        busy={busy}
+        onConfirm={() => void kembalikanBawaan()}
+      />
+    </>
   );
 }

@@ -250,7 +250,7 @@ function ItemIkon({
             onFocus={() => muatModulAdmin(value)}
             aria-current={aktif ? "page" : undefined}
             aria-controls={`panel-${value}`}
-            aria-label={label}
+            aria-label={`${label}${badge !== null && badge !== "0" && badge !== "OK" ? `, ${badge} menunggu` : ""}`}
             className={cn(
               "relative flex size-10 items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
               aktif ? KELAS_ITEM_AKTIF : KELAS_ITEM_IDLE,
@@ -293,16 +293,26 @@ function DaftarMenu({
   menu,
   activeTab,
   tertutup,
+  terakhir = [],
   onPilih,
   awalanId,
 }: {
   menu: readonly GrupSidebar[];
   activeTab: NilaiModulAdmin;
   tertutup: boolean;
+  /** Modul yang baru dibuka; ditampilkan hanya saat sidebar melebar. */
+  terakhir?: readonly NilaiModulAdmin[];
   onPilih: (value: NilaiModulAdmin) => void;
   /** Awalan id tombol: kolom tetap dan laci hidup bersamaan, id tidak boleh bentrok. */
   awalanId: string;
 }) {
+  const itemPerId = new Map(
+    menu.flatMap((grup) => grup.items.map((item) => [item.value, item] as const)),
+  );
+  const itemTerakhir = terakhir
+    .map((value) => itemPerId.get(value))
+    .filter((item): item is ItemSidebar => item !== undefined);
+
   if (tertutup) {
     return (
       <div className="flex flex-col items-center">
@@ -330,6 +340,36 @@ function DaftarMenu({
 
   return (
     <div className="flex flex-col gap-3">
+      {itemTerakhir.length > 0 && (
+        <section aria-label="Terakhir dibuka">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Terakhir dibuka
+          </p>
+          <div className="flex flex-col gap-1">
+            {itemTerakhir.map(({ value, label, hint, badge, Icon }) => {
+              const iniAktif = value === activeTab;
+              return (
+                <button
+                  key={`terakhir-${value}`}
+                  type="button"
+                  onClick={() => onPilih(value)}
+                  onPointerEnter={() => muatModulAdmin(value)}
+                  onFocus={() => muatModulAdmin(value)}
+                  title={hint}
+                  aria-current={iniAktif ? "page" : undefined}
+                  aria-label={`${label}${badge !== null && badge !== "0" && badge !== "OK" ? `, ${badge} menunggu` : ""}`}
+                  className={cn(KELAS_ITEM, iniAktif ? KELAS_ITEM_AKTIF : KELAS_ITEM_IDLE)}
+                >
+                  <Icon className="size-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate text-left leading-5">{label}</span>
+                  <LencanaTab badge={badge} />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {menu.map((grup) => (
         <section key={grup.judul} aria-label={grup.judul}>
           <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -349,6 +389,7 @@ function DaftarMenu({
                   onKeyDown={(e) => pindahFokus(e, grup.items, value, awalanId)}
                   title={hint}
                   aria-current={iniAktif ? "page" : undefined}
+                  aria-label={`${label}${badge !== null && badge !== "0" && badge !== "OK" ? `, ${badge} menunggu` : ""}`}
                   // Tombol menu dan panelnya saling menunjuk, jadi pembaca layar
                   // tahu tombol mana yang mengendalikan isi mana.
                   aria-controls={`panel-${value}`}
@@ -379,6 +420,7 @@ function DaftarMenu({
 export function SidebarAdmin({
   menu,
   activeTab,
+  terakhir = [],
   onPilih,
   terbuka,
   onToggle,
@@ -387,6 +429,7 @@ export function SidebarAdmin({
 }: {
   menu: readonly GrupSidebar[];
   activeTab: NilaiModulAdmin;
+  terakhir?: readonly NilaiModulAdmin[];
   onPilih: (value: NilaiModulAdmin) => void;
   terbuka: boolean;
   onToggle: (terbuka: boolean) => void;
@@ -398,7 +441,7 @@ export function SidebarAdmin({
       <nav
         aria-label="Navigasi panel admin"
         className={cn(
-          "sidebar-admin hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto lg:overscroll-contain lg:border-r lg:border-slate-200 lg:bg-white lg:py-3",
+          "sidebar-admin hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto lg:overscroll-contain lg:border-r lg:border-border lg:bg-card lg:py-3",
           terbuka ? KELAS_LEBAR_SIDEBAR.terbuka : KELAS_LEBAR_SIDEBAR.tertutup,
         )}
       >
@@ -407,6 +450,7 @@ export function SidebarAdmin({
           menu={menu}
           activeTab={activeTab}
           tertutup={!terbuka}
+          terakhir={terakhir}
           onPilih={onPilih}
           awalanId="tab"
         />
@@ -418,9 +462,9 @@ export function SidebarAdmin({
           id="menu-panel-admin"
           // `laci-admin` hanya jadi kait CSS: `prefers-reduced-motion` mematikan
           // animasi geser masuk bawaan Radix lewat kelas ini.
-          className="laci-admin w-72 max-w-[85vw] gap-0 border-r border-slate-200 p-0"
+          className="laci-admin w-72 max-w-[85vw] gap-0 border-r border-border p-0"
         >
-          <SheetHeader className="border-b border-slate-200 px-3 pt-3 pr-14 pb-0 text-left">
+          <SheetHeader className="border-b border-border px-3 pt-3 pr-14 pb-0 text-left">
             <SheetTitle className="sr-only">Menu panel admin</SheetTitle>
             <KepalaSidebar
               tertutup={false}
@@ -433,6 +477,7 @@ export function SidebarAdmin({
               menu={menu}
               activeTab={activeTab}
               tertutup={false}
+              terakhir={terakhir}
               onPilih={onPilih}
               awalanId="laci"
             />

@@ -312,7 +312,7 @@ export function PromoBungaPanel() {
             return (
               <li
                 key={template.id}
-                className="flex flex-col justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3 transition-colors hover:border-emerald-700/30 hover:bg-white"
+                className="flex flex-col justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3 transition-colors hover:border-primary/30 hover:bg-white"
               >
                 <div>
                   <div className="flex items-baseline justify-between gap-2">
@@ -521,13 +521,13 @@ export function PromoBungaPanel() {
                       className={cn(
                         "flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm",
                         dicentang
-                          ? "border-emerald-700/40 bg-emerald-700/5 text-emerald-900"
+                          ? "border-primary/40 bg-primary/5 text-primary"
                           : "border-slate-200 text-slate-700",
                       )}
                     >
                       <input
                         type="checkbox"
-                        className="size-4 accent-emerald-800"
+                        className="size-4 accent-primary"
                         checked={dicentang}
                         onChange={(e) => ubahTenor(tenor, e.target.checked)}
                       />

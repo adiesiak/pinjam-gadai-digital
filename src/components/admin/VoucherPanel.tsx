@@ -370,7 +370,7 @@ export function VoucherPanel() {
             onClick={() => setBagian(pilihan.nilai)}
             className={
               bagian === pilihan.nilai
-                ? "rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white"
+                ? "rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
                 : "rounded-lg px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
             }
           >
@@ -527,7 +527,7 @@ export function VoucherPanel() {
                         </span>
                       )}
                       {baris.sumber === "referral" && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-700/30 bg-emerald-700/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] font-semibold text-primary">
                           <BadgeCheck className="size-3" aria-hidden="true" />
                           Referral
                         </span>
@@ -669,7 +669,7 @@ export function VoucherPanel() {
                           <button
                             type="button"
                             disabled={sudah}
-                            className="w-full px-3 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none disabled:cursor-default disabled:bg-emerald-50/60"
+                            className="w-full px-3 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none disabled:cursor-default disabled:bg-primary/5"
                             onClick={() => tambahPenerima(nasabah)}
                           >
                             <span className="flex items-center justify-between gap-2">
@@ -677,7 +677,7 @@ export function VoucherPanel() {
                                 {nasabah.nama}
                               </span>
                               {sudah && (
-                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-primary">
                                   Terpilih
                                 </span>
                               )}
@@ -705,12 +705,12 @@ export function VoucherPanel() {
                   {draf.penerima.map((nasabah) => (
                     <li
                       key={nasabah.userId}
-                      className="inline-flex items-center gap-1 rounded-full border border-emerald-700/30 bg-emerald-700/5 py-0.5 pl-2.5 pr-1 text-xs text-emerald-900"
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 py-0.5 pl-2.5 pr-1 text-xs text-primary"
                     >
                       <span className="max-w-40 truncate">{nasabah.nama}</span>
                       <button
                         type="button"
-                        className="rounded-full p-0.5 hover:bg-emerald-700/10"
+                        className="rounded-full p-0.5 hover:bg-primary/10"
                         aria-label={`Keluarkan ${nasabah.nama} dari penerima`}
                         onClick={() => buangPenerima(nasabah.userId)}
                       >

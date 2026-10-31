@@ -110,7 +110,7 @@ export function TombolInfoTagihanWA({
         onClick={() => void bukaDraf()}
         disabled={sibuk}
         title="Membuat tautan cek status resmi, lalu membuka draf WhatsApp untuk ditinjau"
-        className="border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+        className="border-success-border bg-success-soft text-success-foreground hover:bg-success-soft"
       >
         {sibuk ? (
           <Loader2 className="mr-1.5 size-3.5 animate-spin" aria-hidden="true" />
@@ -120,7 +120,7 @@ export function TombolInfoTagihanWA({
         Kirim Info Tagihan &amp; Cek Status (WA)
       </Button>
       {kabar !== null && (
-        <span role="status" className="text-[11px] leading-4 text-emerald-700">
+        <span role="status" className="text-[11px] leading-4 text-success-foreground">
           {kabar}
         </span>
       )}

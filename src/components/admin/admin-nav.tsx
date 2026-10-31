@@ -80,19 +80,25 @@ function rata(menu: readonly GrupNavData[]): ItemRata[] {
 export function IsiCariMenu({
   menu,
   activeTab,
+  terakhir = [],
   onPilih,
 }: {
   menu: readonly GrupNavData[];
   activeTab: NilaiModulAdmin;
+  terakhir?: readonly NilaiModulAdmin[];
   onPilih: (value: NilaiModulAdmin) => void;
 }) {
   const [kueri, setKueri] = useState("");
   const hasil = saringModul(rata(menu), kueri);
+  const itemPerId = new Map(rata(menu).map((item) => [item.value, item] as const));
+  const itemTerakhir = terakhir
+    .map((value) => itemPerId.get(value))
+    .filter((item): item is ItemRata => item !== undefined);
 
   return (
     // `shouldFilter={false}`: penyaringan memakai `saringModul` yang sudah diuji
     // (cocok pada label, nama grup, dan hint), bukan pencocokan kabur cmdk.
-    <Command shouldFilter={false} className="bg-white">
+    <Command shouldFilter={false} className="bg-card">
       <CommandInput
         autoFocus
         value={kueri}
@@ -101,6 +107,28 @@ export function IsiCariMenu({
         placeholder="Cari menu, mis. keamanan, plafon, gadai…"
       />
       <CommandList className="max-h-[60dvh]">
+        {kueri.trim() === "" && itemTerakhir.length > 0 && (
+          <>
+            <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Terakhir dibuka
+            </p>
+            {itemTerakhir.map((item) => (
+              <CommandItem
+                key={`terakhir-${item.value}`}
+                value={`terakhir-${item.value}`}
+                onSelect={() => onPilih(item.value)}
+                className={cn("gap-2.5 px-3 py-2.5", item.value === activeTab && "text-primary")}
+              >
+                <item.Icon className="size-4 shrink-0" aria-hidden />
+                <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{item.grup}</span>
+              </CommandItem>
+            ))}
+            <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Semua menu
+            </p>
+          </>
+        )}
         {hasil.length === 0 ? (
           <p className="px-3 py-8 text-center text-sm text-muted-foreground">
             Tidak ada menu yang cocok dengan “{kueri.trim()}”.
@@ -132,10 +160,12 @@ export function IsiCariMenu({
 export function AdminNav({
   menu,
   activeTab,
+  terakhir = [],
   onPilih,
 }: {
   menu: readonly GrupNavData[];
   activeTab: NilaiModulAdmin;
+  terakhir?: readonly NilaiModulAdmin[];
   onPilih: (value: NilaiModulAdmin) => void;
 }) {
   const [cariTerbuka, setCariTerbuka] = useState(false);
@@ -169,7 +199,7 @@ export function AdminNav({
       {/* Strip chip: modul milik tab yang sedang aktif, satu baris yang digeser
           mendatar. Chip aktif selalu digulirkan ke dalam pandangan, dan pintu
           "Cari…" duduk tetap di kanan agar pencarian tidak pernah jauh. */}
-      <div className="animate-masuk sticky top-14 z-30 -mx-3 border-y border-slate-200 bg-white/95 backdrop-blur sm:-mx-6 sm:top-16 lg:hidden">
+      <div className="animate-masuk sticky top-14 z-30 -mx-3 border-y border-border bg-card sm:-mx-6 sm:top-16 lg:hidden">
         <div className="flex items-center gap-2 px-3 py-1.5 sm:px-6 sm:py-2">
           <div
             role="group"
@@ -184,6 +214,7 @@ export function AdminNav({
                   id={`chip-modul-${item.value}`}
                   type="button"
                   aria-pressed={aktif}
+                  aria-label={`${item.label}${item.badge !== null && item.badge !== "0" && item.badge !== "OK" ? `, ${item.badge} menunggu` : ""}`}
                   title={item.hint}
                   onClick={() => onPilih(item.value)}
                   onPointerEnter={() => muatModulAdmin(item.value)}
@@ -220,7 +251,7 @@ export function AdminNav({
           masuk navigasi, bukan penyaring satu daftar (lihat `SubTabFilter`). */}
       <nav
         aria-label="Menu operasi"
-        className="fixed bottom-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed bottom-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <div className="mx-auto flex w-full max-w-7xl items-stretch">
           {GRUP_NAV.map((grupNav) => {
@@ -232,6 +263,7 @@ export function AdminNav({
                 key={grupNav.id}
                 type="button"
                 aria-current={aktif ? "page" : undefined}
+                aria-label={`${grupNav.label}${lencana !== null && lencana !== "OK" ? `, ${lencana} perlu ditinjau` : ""}`}
                 // Tab yang sudah aktif tidak direset ke modul default — berpindah
                 // modul dilakukan lewat chip, agar tidak ada perpindahan diam-diam.
                 onClick={() => {
@@ -244,7 +276,7 @@ export function AdminNav({
                     : "text-slate-500 hover:bg-slate-50 hover:text-navy",
                 )}
               >
-                <Icon className="size-4" />
+                <Icon className="size-4" aria-hidden />
                 <span className="flex items-center gap-1">
                   {grupNav.label}
                   {/* Lencana disembunyikan saat tab aktif: chip di atasnya sudah
@@ -260,12 +292,13 @@ export function AdminNav({
 
       <Sheet open={cariTerbuka} onOpenChange={setCariTerbuka}>
         <SheetContent side="bottom" className="z-50 max-h-[85dvh] gap-0 rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)]">
-          <SheetHeader className="border-b border-slate-200 px-4 py-3 pr-12 text-left">
+          <SheetHeader className="border-b border-border px-4 py-3 pr-12 text-left">
             <SheetTitle className="text-sm text-navy">Cari menu</SheetTitle>
           </SheetHeader>
           <IsiCariMenu
             menu={menu}
             activeTab={activeTab}
+            terakhir={terakhir}
             onPilih={(nilai) => {
               onPilih(nilai);
               setCariTerbuka(false);

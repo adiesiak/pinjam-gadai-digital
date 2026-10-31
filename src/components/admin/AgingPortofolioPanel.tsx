@@ -193,7 +193,7 @@ export function AgingPortofolioPanel() {
                 </span>
                 <span className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100">
                   <span
-                    className="block h-full rounded-full bg-emerald-700"
+                    className="block h-full rounded-full bg-success"
                     style={{ width: `${Math.round(k.porsi * 100)}%` }}
                   />
                 </span>
