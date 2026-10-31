@@ -275,7 +275,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   useEffect(() => {
     // Tunggu profil akun ikut termuat: tujuan setelah masuk bergantung pada
     // perannya, dan pendana tidak boleh mendarat di dashboard peminjam.
-    if (authLoading || isLoading || !isAuthenticated) return;
+    //
+    // Jangan tunggu `isLoading` form: itu status tombol, bukan syarat sesi.
+    // Menunggunya membuat pengguna berputar di "Memverifikasi…" bila satu
+    // jalur lupa melepas state tersebut, padahal sesinya sudah sah.
+    if (authLoading || !isAuthenticated) return;
     // Masuk lewat Google juga meninggalkan jejak di `loginLogs` (IP, perangkat,
     // metode) seperti email/WhatsApp. Tanpa ini panel Login & Keamanan tidak
     // pernah melihat jalur Google, sehingga login dari IP baru pun tidak
@@ -293,7 +297,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       return;
     }
     navigate(redirect);
-  }, [authLoading, isLoading, isAuthenticated, navigate, redirect, recordLogin]);
+  }, [authLoading, isAuthenticated, navigate, redirect, recordLogin]);
 
   /**
    * Pengguna baru kembali dari Google dan sesinya BELUM ada.
@@ -522,8 +526,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     // maupun baru (`whatsapp-otp`). Keduanya memakai medan kode yang sama.
     if (typeof clientStep !== "object") return;
     setIsLoading(true);
-    const ip = await getClientIp();
     try {
+      const ip = await getClientIp();
       if ("nik" in clientStep) {
         // Provider ini hanya membuka sesi akun pemilik NIK; tidak ada akun baru
         // dan tidak ada pemindahan berkas (lihat `auth/nikOtp.ts`).
@@ -571,8 +575,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           ? PESAN_NIK_UMUM
           : "Kode verifikasi salah atau kedaluwarsa.",
       );
-      setIsLoading(false);
       setOtp("");
+    } finally {
+      // Lepas status tombol apa pun hasilnya. Redirect tidak lagi bergantung
+      // pada isLoading, tetapi kode yang salah tetap harus mengembalikan
+      // tombol agar pengguna bisa mencoba lagi.
+      setIsLoading(false);
     }
   };
 
@@ -813,6 +821,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       // konfigurasi deployment, dan pengunjung tidak bisa berbuat apa pun
       // dengan detail itu. Rinciannya tetap masuk konsol untuk penelusuran.
       setError("Gagal masuk sebagai tamu. Coba lagi sebentar lagi.");
+    } finally {
       setIsLoading(false);
     }
   };
