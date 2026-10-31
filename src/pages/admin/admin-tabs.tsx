@@ -105,7 +105,6 @@ import {
 } from "@/lib/admin-queue";
 import { MejaKerja } from "./meja-kerja";
 import { KonvensionalPanel } from "./konvensional-panel";
-import { PagePengembangan } from "./page-pengembangan";
 import {
   AdminStats,
   type AdminStatsData,
@@ -308,8 +307,8 @@ export function AdminTabs({
         },
         {
           value: "akses",
-          label: "Nasabah & Pendana",
-          hint: "Kelola hak akses dan posisi pendana, termasuk akses lihat saja.",
+          label: "Pendana",
+          hint: "Kelola akun, hak akses, dan posisi pendana, termasuk akses lihat saja.",
           badge: null,
           hitung: "tidak",
           Icon: Users,

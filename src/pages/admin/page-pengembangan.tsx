@@ -161,7 +161,7 @@ const MODUL_ADMIN: readonly Kelompok[] = [
       "Rekonsiliasi Angsuran",
       "Kalender Kas",
       "Plafon Nasabah",
-      "Nasabah & Pendana",
+      "Pendana",
     ],
   },
   {

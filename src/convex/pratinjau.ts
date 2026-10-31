@@ -722,7 +722,7 @@ export const akhiriPratinjauTersangkut = mutation({
     if (baris === null) return { ok: false, sudahSelesai: false, dicabut: 0 };
     if (baris.adminId !== adminId) {
       throw new Error(
-        "Pratinjau ini dimulai admin lain. Akhiri dari kartu Pratinjau Aktif di tab Nasabah & Pendana.",
+        "Pratinjau ini dimulai admin lain. Akhiri dari kartu Pratinjau Aktif di tab Pendana.",
       );
     }
     if (baris.selesai !== undefined) return { ok: true, sudahSelesai: true, dicabut: 0 };

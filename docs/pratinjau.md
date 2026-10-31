@@ -10,7 +10,7 @@ tiruan dan bukan ringkasan versi admin — peramban admin benar-benar memakai
 
 | POV | Pintu masuk |
 | --- | --- |
-| Pendana | Tab **Nasabah & Pendana → Manajemen Akun & Hak Akses**, kolom *Tindakan* pada baris akun → **Masuk sebagai** |
+| Pendana | Tab **Pendana → Manajemen Akun & Hak Akses**, kolom *Tindakan* pada baris akun → **Masuk sebagai** |
 | Peminjam | Tab **Plafon Nasabah**, tombol **Masuk sebagai** pada baris nasabah; juga dari dialog **Profil** nasabah |
 
 Setiap tombol membuka konfirmasi yang menyebut akun tujuan, ruang yang akan
@@ -84,7 +84,7 @@ memulai baris itu), mencabut sesi hasil pratinjau, mencatat
 - Paling banyak 3 pratinjau aktif per admin.
 - Awal dan akhir pratinjau masuk **Audit Trail** dengan nama admin sebagai
   aktornya (`pratinjau_mulai`, `pratinjau_selesai`, `pratinjau_diakhiri_admin`).
-- Kartu **Pratinjau Aktif** (tab Nasabah & Pendana) memperlihatkan pratinjau yang
+- Kartu **Pratinjau Aktif** (tab Pendana) memperlihatkan pratinjau yang
   masih hidup dan bisa **mengakhiri paksa** dari panel; itu mencabut sesi hasil
   pratinjau, sementara sesi sungguhan milik pemilik akun tidak tersentuh.
 - **Transaksi finansial ditolak** selama pratinjau (`requireBukanPratinjau`):
@@ -107,7 +107,7 @@ pengajuan yang dikirim sebelum pratinjau dimulai.
 
 Dua jalur memakai fungsi yang sama:
 
-- **Panel admin**: kartu **Pemulihan jejak pratinjau** di tab Nasabah & Pendana.
+- **Panel admin**: kartu **Pemulihan jejak pratinjau** di tab Pendana.
   Tombol *Periksa dampak* hanya menghitung; *Terapkan pemulihan* menulis dan
   tercatat sebagai `lokasi_pratinjau_pemulihan_dijalankan`. Hanya admin dengan
   TOTP terverifikasi yang bisa memakainya.

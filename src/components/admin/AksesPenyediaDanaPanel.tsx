@@ -33,7 +33,7 @@ import { PratinjauAktifPanel } from "./PratinjauAktifPanel";
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 
 /**
- * NASABAH & PENDANA — tiga tab utama, satu tempat.
+ * PENDANA — tiga tab utama, satu tempat.
  *
  * 1. Manajemen Akun & Hak Akses — buat pendana baru, beri akses per email,
  *    kelola kode akses bersama/tamu, daftar akun pendana & pemantau (beserta

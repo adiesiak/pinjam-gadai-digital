@@ -85,7 +85,7 @@ const LABEL: Record<string, string> = {
   rekonsiliasi: "Rekonsiliasi Angsuran",
   kalender: "Kalender Kas",
   plafon: "Plafon Nasabah",
-  akses: "Nasabah & Pendana",
+  akses: "Pendana",
   lokasi: "Peta lokasi",
   dpd: "Jatuh Tempo",
   lelang: "Kalkulator Lelang",

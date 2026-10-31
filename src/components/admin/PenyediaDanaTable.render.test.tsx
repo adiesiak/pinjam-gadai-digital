@@ -5,7 +5,7 @@
  * (tanpa DOM, tanpa browser): memastikan peran ([Pendana] / [Pengamat] /
  * warisan), lencana status, avatar inisial, dan sakelar akses tampil benar —
  * termasuk akun pemantau bersama yang sengaja TIDAK punya sakelar. Ini
- * satu-satunya "jendela" ke tampilan tab Nasabah & Pendana di lingkungan tanpa
+ * satu-satunya "jendela" ke tampilan tab Pendana di lingkungan tanpa
  * browser.
  */
 import { renderToStaticMarkup } from "react-dom/server";
