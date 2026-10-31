@@ -337,14 +337,14 @@ export default function LandingHome() {
               <Button
                 disabled
                 aria-busy="true"
-                className="min-h-11 bg-primary text-primary-foreground"
+                className="min-h-11 bg-primary px-3 text-xs text-primary-foreground sm:px-4 sm:text-sm"
               >
                 Memuat…
               </Button>
             ) : (
               <Button
                 asChild
-                className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
+                className="min-h-11 bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90 sm:px-4 sm:text-sm"
               >
                 <Link to={accountHref}>{accountLabel}</Link>
               </Button>
