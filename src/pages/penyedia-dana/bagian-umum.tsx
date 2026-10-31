@@ -262,7 +262,7 @@ export function CatatanTab({
 export function KeadaanKosongDaftar({ aktif, pesan }: { aktif: boolean; pesan: string }) {
   if (!aktif) return <KeadaanKosong pesan={pesan} />;
   return (
-    <KeadaanKosong pesan="Tidak ada pengajuan yang cocok dengan saringan nama / pendana di atas. Kosongkan saringan untuk menampilkan semuanya." />
+    <KeadaanKosong pesan="Tidak ada pengajuan yang cocok dengan saringan di atas. Kosongkan saringan untuk menampilkan semuanya." />
   );
 }
 
@@ -315,19 +315,43 @@ export function Tabel({ head, children }: { head: string[]; children: ReactNode 
 /**
  * Sel peminjam: nama, nomor referensi, dan kode pseudonim dalam satu kolom.
  * Digabung supaya tabel tidak perlu digeser mendatar di layar kerja.
+ *
+ * Untuk pembaca non-admin, `hanyaReferensi` menyembunyikan nama dan kode
+ * pseudonim: satu-satunya identitas yang terlihat adalah nomor referensi.
+ * Indikator kepercayaan tetap ditampilkan karena itu penilaian pinjaman, bukan
+ * identitas orang.
  */
 export function SelPeminjam({
   nama,
   kode,
   referensi,
   kepercayaan,
+  hanyaReferensi = false,
 }: {
   nama: string;
   kode: string | null;
   referensi: string;
   /** Hanya diisi untuk pengajuan pinjaman — indeks kepercayaan peminjam. */
   kepercayaan?: RingkasKepercayaan;
+  /** Non-admin hanya melihat nomor referensi, tanpa nama atau kode peminjam. */
+  hanyaReferensi?: boolean;
 }) {
+  if (hanyaReferensi) {
+    return (
+      <TableCell className="align-top">
+        <p className="break-all font-mono text-sm font-semibold text-slate-900">
+          {referensi}
+        </p>
+        {kepercayaan !== undefined && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <BadgeKepercayaan kepercayaan={kepercayaan} tanpaSkor />
+            <ChipSkorRisiko skor={kepercayaan.skor} />
+          </div>
+        )}
+      </TableCell>
+    );
+  }
+
   return (
     <TableCell className="align-top">
       <p className="font-medium uppercase text-slate-900">{nama}</p>

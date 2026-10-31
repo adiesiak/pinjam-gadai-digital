@@ -44,6 +44,7 @@ function render(props: {
   tampilkanPendana?: boolean;
   tampil?: number;
   total?: number;
+  hanyaReferensi?: boolean;
 }): string {
   return renderToStaticMarkup(
     <SaringanPengajuan
@@ -56,6 +57,7 @@ function render(props: {
       tampil={props.tampil ?? 13}
       total={props.total ?? 13}
       onReset={() => {}}
+      hanyaReferensi={props.hanyaReferensi === true}
     />,
   );
 }
@@ -108,6 +110,20 @@ const gadai = render({ tampilkanPendana: false });
 ok(!gadai.includes('aria-label="Pendana"'), "tab gadai tanpa pilihan pendana");
 ada(gadai, "Cari nama peminjam", "tab gadai tetap punya saringan nama");
 ada(gadai, "Menampilkan 13 dari 13 pengajuan pada tab ini", "tab gadai tetap menghitung jumlah");
+
+// ===== Pembaca non-admin: cari nomor referensi saja =====
+const referensiSaja = render({ hanyaReferensi: true });
+ada(referensiSaja, "Cari no. referensi", "label saringan non-admin menyebut nomor referensi");
+ada(
+  referensiSaja,
+  'placeholder="No. referensi pengajuan"',
+  "petunjuk saringan non-admin hanya nomor referensi",
+);
+ok(
+  !referensiSaja.includes("Cari nama peminjam"),
+  "saringan non-admin tidak menawarkan pencarian nama",
+);
+bersih(referensiSaja, "markup saringan non-admin");
 
 // ===== Penyamaran label pendana (ruang /penyedia-dana) =====
 // Label disamarkan, tetapi NILAI yang dipilih tetap nama asli supaya

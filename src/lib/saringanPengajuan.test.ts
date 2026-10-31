@@ -155,11 +155,31 @@ eq(
   "baris belum didanai tetap tampil tanpa saringan pendana",
 );
 
+// ===== Hanya nomor referensi (pembaca non-admin) =====
+
+eq(
+  saringPengajuan(BARIS, { cari: "fathur", pendana: "" }, { hanyaReferensi: true }).length,
+  0,
+  "hanyaReferensi: nama peminjam tidak lagi dicari",
+);
+eq(
+  nama(saringPengajuan(BARIS, { cari: "PWN-853F", pendana: "" }, { hanyaReferensi: true })).join("|"),
+  "FATHUR ROZI",
+  "hanyaReferensi: nomor referensi tetap dicari",
+);
+eq(
+  saringPengajuan(BARIS, { cari: "20260917-5919", pendana: "" }, { hanyaReferensi: true }).length,
+  0,
+  "hanyaReferensi: kode pseudonim tidak dicari",
+);
+
 // ===== saringNama =====
 
 eq(saringNama(BARIS, "fathur").length, 1, "saringNama menyaring nama");
 eq(saringNama(BARIS, "").length, 4, "saringNama tanpa kata kunci = semua");
 eq(saringNama(BARIS, "PWN-4896").length, 1, "saringNama lewat referensi");
+eq(saringNama(BARIS, "fathur", { hanyaReferensi: true }).length, 0, "saringNama hanyaReferensi: nama diabaikan");
+eq(saringNama(BARIS, "PWN-4896", { hanyaReferensi: true }).length, 1, "saringNama hanyaReferensi: referensi tetap dicari");
 
 // ===== adaFilter =====
 

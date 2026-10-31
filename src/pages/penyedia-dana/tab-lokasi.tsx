@@ -22,9 +22,12 @@ import { api } from "@/convex/_generated/api";
  */
 export function TabLokasi({
   namaTampil,
+  hanyaReferensi,
   sekarang,
 }: {
   namaTampil: (nama: string) => string;
+  /** Non-admin hanya melihat nomor referensi, tanpa nama/kode peminjam. */
+  hanyaReferensi: boolean;
   sekarang: number;
 }) {
   const titik = useQuery(api.penyediaDana.titikPeminjam, {});
@@ -72,6 +75,7 @@ export function TabLokasi({
         rows={titik.rows}
         vault={titik.vault}
         namaTampil={namaTampil}
+        hanyaReferensi={hanyaReferensi}
       />
 
       {titik.rows.length === 0 ? (
@@ -87,10 +91,20 @@ export function TabLokasi({
               >
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium uppercase text-slate-900">
-                      {namaTampil(r.namaLengkap)}
+                    <span
+                      className={
+                        hanyaReferensi
+                          ? "break-all font-mono text-sm font-semibold text-slate-900"
+                          : "font-medium uppercase text-slate-900"
+                      }
+                    >
+                      {hanyaReferensi
+                        ? r.nomorReferensi
+                        : namaTampil(r.namaLengkap)}
                     </span>
-                    <BadgePseudonim kode={r.kodePeminjam} />
+                    {!hanyaReferensi && (
+                      <BadgePseudonim kode={r.kodePeminjam} />
+                    )}
                     {r.posisi.tanda.length > 0 && (
                       <Badge className="border-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
                         pola koordinat ditandai
@@ -98,9 +112,11 @@ export function TabLokasi({
                     )}
                   </span>
                   <span className="mt-1 flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-slate-600">
-                      {r.nomorReferensi}
-                    </span>
+                    {!hanyaReferensi && (
+                      <span className="font-mono text-xs text-slate-600">
+                        {r.nomorReferensi}
+                      </span>
+                    )}
                     {r.kategori === "pinjaman" ? (
                       <StatusBadge status={r.status} kind="loan" />
                     ) : r.kategori === "gadai" ? (

@@ -324,6 +324,7 @@ function KartuPengajuan({
   nama,
   kode,
   nomorReferensi,
+  hanyaReferensi = false,
   status,
   onDetail,
   onUbah,
@@ -336,6 +337,8 @@ function KartuPengajuan({
   nama: string;
   kode: string | null;
   nomorReferensi: string;
+  /** Non-admin hanya melihat nomor referensi, tanpa nama atau kode peminjam. */
+  hanyaReferensi?: boolean;
   status: React.ReactNode;
   onDetail: () => void;
   /** Hanya diberikan untuk Super Admin — mengoreksi data pinjaman. */
@@ -354,22 +357,32 @@ function KartuPengajuan({
     <article className="rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-gold/50">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-semibold uppercase text-slate-900">
-            {nama}
+          <p
+            className={
+              hanyaReferensi
+                ? "break-all font-mono text-sm font-semibold text-slate-900"
+                : "truncate font-semibold uppercase text-slate-900"
+            }
+          >
+            {hanyaReferensi ? nomorReferensi : nama}
           </p>
-          <p className="mt-0.5 font-mono text-xs text-slate-600">
-            {nomorReferensi}
-          </p>
+          {!hanyaReferensi && (
+            <p className="mt-0.5 font-mono text-xs text-slate-600">
+              {nomorReferensi}
+            </p>
+          )}
         </div>
         <div className="shrink-0">{status}</div>
       </div>
-      <div className="mt-2">
-        <BadgePseudonim kode={kode} />
-      </div>
+      {!hanyaReferensi && (
+        <div className="mt-2">
+          <BadgePseudonim kode={kode} />
+        </div>
+      )}
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">{children}</dl>
       <div className="mt-4">
         <AksiPinjaman
-          nama={nama}
+          nama={hanyaReferensi ? nomorReferensi : nama}
           onDetail={onDetail}
           onUbah={onUbah}
           onCatatPelunasan={onCatatPelunasan}
@@ -493,12 +506,15 @@ function simulasiBulananBaris(
 function DetailPinjaman({
   row,
   namaTampil,
+  hanyaReferensi,
   sekarang,
   persenBungaDefault,
 }: {
   row: BarisPinjaman;
-  /** Penyamaran nama untuk ruang bersama (nama orang disamarkan). */
+  /** Penyamaran nama untuk nama pendana di ruang bersama. */
   namaTampil: (nama: string) => string;
+  /** Non-admin hanya melihat nomor referensi, tanpa nama/kode peminjam. */
+  hanyaReferensi: boolean;
   /** Jam berjalan halaman — dipakai untuk hitung hari jatuh tempo. */
   sekarang: number;
   /** Tarif cadangan untuk pinjaman lama yang belum menyimpan snapshot bunga. */
@@ -536,19 +552,24 @@ function DetailPinjaman({
       <div className="grid gap-3 sm:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-            <UserRound className="size-3.5" aria-hidden /> Identitas
+            <UserRound className="size-3.5" aria-hidden />{" "}
+            {hanyaReferensi ? "Referensi" : "Identitas"}
           </p>
           <dl className="mt-1.5">
-            <BarisDetail
-              label="Nama lengkap"
-              nilai={
-                <span className="uppercase">{namaTampil(row.namaLengkap)}</span>
-              }
-            />
-            <BarisDetail
-              label="Kode peminjam"
-              nilai={row.kodePeminjam ?? "belum terbit"}
-            />
+            {!hanyaReferensi && (
+              <>
+                <BarisDetail
+                  label="Nama lengkap"
+                  nilai={
+                    <span className="uppercase">{namaTampil(row.namaLengkap)}</span>
+                  }
+                />
+                <BarisDetail
+                  label="Kode peminjam"
+                  nilai={row.kodePeminjam ?? "belum terbit"}
+                />
+              </>
+            )}
             <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
             <BarisDetail
               label="Skema"
@@ -724,20 +745,27 @@ function DetailPinjaman({
 function DetailGadai({
   row,
   namaTampil,
+  hanyaReferensi,
 }: {
   row: BarisGadai;
   namaTampil: (nama: string) => string;
+  /** Non-admin hanya melihat nomor referensi, tanpa nama/kode peminjam. */
+  hanyaReferensi: boolean;
 }) {
   return (
     <>
-      <BarisDetail
-        label="Nama lengkap"
-        nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
-      />
-      <BarisDetail
-        label="Kode peminjam"
-        nilai={row.kodePeminjam ?? "belum terbit"}
-      />
+      {!hanyaReferensi && (
+        <>
+          <BarisDetail
+            label="Nama lengkap"
+            nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
+          />
+          <BarisDetail
+            label="Kode peminjam"
+            nilai={row.kodePeminjam ?? "belum terbit"}
+          />
+        </>
+      )}
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
       <BarisDetail label="Kategori" nilai={row.kategori} />
       <BarisDetail label="Barang" nilai={row.deskripsiBarang} />
@@ -813,9 +841,12 @@ function quoteKreditBaris(row: BarisKredit) {
 function DetailKredit({
   row,
   namaTampil,
+  hanyaReferensi,
 }: {
   row: BarisKredit;
   namaTampil: (nama: string) => string;
+  /** Non-admin hanya melihat nomor referensi, tanpa nama/kode peminjam. */
+  hanyaReferensi: boolean;
 }) {
   const quote = quoteKreditBaris(row);
   const jatuhTempo =
@@ -825,14 +856,18 @@ function DetailKredit({
 
   return (
     <>
-      <BarisDetail
-        label="Nama lengkap"
-        nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
-      />
-      <BarisDetail
-        label="Kode peminjam"
-        nilai={row.kodePeminjam ?? "belum terbit"}
-      />
+      {!hanyaReferensi && (
+        <>
+          <BarisDetail
+            label="Nama lengkap"
+            nilai={<span className="uppercase">{namaTampil(row.namaLengkap)}</span>}
+          />
+          <BarisDetail
+            label="Kode peminjam"
+            nilai={row.kodePeminjam ?? "belum terbit"}
+          />
+        </>
+      )}
       <BarisDetail label="No. referensi" nilai={row.nomorReferensi} />
       <BarisDetail
         label="Barang"
@@ -919,10 +954,11 @@ function DetailKredit({
  */
 function BagianLokasi({
   lokasi,
-  nama,
+  judul,
 }: {
   lokasi: LokasiTitik | null;
-  nama: string;
+  /** Nama atau nomor referensi yang dipakai sebagai judul peta. */
+  judul: string;
 }) {
   const sekarang = useJamBerjalan();
 
@@ -952,7 +988,7 @@ function BagianLokasi({
       </div>
       <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
         <iframe
-          title={`Peta lokasi terakhir ${nama}`}
+          title={`Peta lokasi terakhir ${judul}`}
           src={peta.embed}
           loading="lazy"
           className="h-52 w-full border-0"
@@ -1126,12 +1162,15 @@ function IsiDialog({
   detail,
   bolehBerkas,
   namaTampil,
+  hanyaReferensi,
   sekarang,
   persenBungaDefault,
 }: {
   detail: IsiDetail;
   bolehBerkas: boolean;
   namaTampil: (nama: string) => string;
+  /** Non-admin hanya melihat nomor referensi, tanpa nama/kode peminjam. */
+  hanyaReferensi: boolean;
   /** Jam berjalan halaman — diteruskan ke tampilan jatuh tempo. */
   sekarang: number;
   persenBungaDefault: number;
@@ -1143,20 +1182,33 @@ function IsiDialog({
           <DetailPinjaman
             row={detail.row}
             namaTampil={namaTampil}
+            hanyaReferensi={hanyaReferensi}
             sekarang={sekarang}
             persenBungaDefault={persenBungaDefault}
           />
         )}
         {detail.jenis === "gadai" && (
-          <DetailGadai row={detail.row} namaTampil={namaTampil} />
+          <DetailGadai
+            row={detail.row}
+            namaTampil={namaTampil}
+            hanyaReferensi={hanyaReferensi}
+          />
         )}
         {detail.jenis === "kredit" && (
-          <DetailKredit row={detail.row} namaTampil={namaTampil} />
+          <DetailKredit
+            row={detail.row}
+            namaTampil={namaTampil}
+            hanyaReferensi={hanyaReferensi}
+          />
         )}
       </div>
       <BagianLokasi
         lokasi={detail.row.lokasi}
-        nama={namaTampil(detail.row.namaLengkap)}
+        judul={
+          hanyaReferensi
+            ? detail.row.nomorReferensi
+            : namaTampil(detail.row.namaLengkap)
+        }
       />
       <BagianBerkas
         jenis={detail.jenis}
@@ -1283,6 +1335,7 @@ function DaftarPinjaman({
   onCatatKeuntungan,
   onBatalkanKeuntungan,
   namaTampil,
+  hanyaReferensi = false,
   persenBungaDefault,
   kirimRekening = false,
 }: {
@@ -1303,8 +1356,10 @@ function DaftarPinjaman({
   onCatatKeuntungan?: (row: BarisPinjaman) => void;
   /** Hanya diisi untuk Super Admin: batalkan catatan yang masih berlaku. */
   onBatalkanKeuntungan?: (row: BarisPinjaman) => void;
-  /** Penyamaran nama orang (peminjam & pendana) untuk ruang bersama. */
+  /** Penyamaran nama pendana untuk ruang bersama. */
   namaTampil: (nama: string) => string;
+  /** Non-admin hanya melihat nomor referensi, tanpa nama/kode peminjam. */
+  hanyaReferensi?: boolean;
   /**
    * Tampilkan tombol "Kirim rekening" per baris. Hanya untuk Super Admin dan
    * hanya pada pinjaman berjalan: nomor peminjam tidak pernah dikirim ke
@@ -1374,6 +1429,7 @@ function DaftarPinjaman({
             nama={namaTampil(row.namaLengkap)}
             kode={row.kodePeminjam}
             nomorReferensi={row.nomorReferensi}
+            hanyaReferensi={hanyaReferensi}
             status={<StatusBadge status={row.status} kind="loan" />}
             onDetail={() => onDetail(row)}
             onUbah={onUbah === undefined ? undefined : () => onUbah(row)}
@@ -1458,7 +1514,7 @@ function DaftarPinjaman({
       <div className="hidden lg:block">
         <Tabel
           head={[
-            "Peminjam",
+            hanyaReferensi ? "No. referensi" : "Peminjam",
             "Pengajuan & tenor",
             "Kewajiban & biaya",
             "Jatuh tempo",
@@ -1476,6 +1532,7 @@ function DaftarPinjaman({
                 kode={row.kodePeminjam}
                 referensi={row.nomorReferensi}
                 kepercayaan={row.kepercayaan}
+                hanyaReferensi={hanyaReferensi}
               />
               <TableCell className="align-top tabular-nums">
                 <p className="font-semibold text-slate-900">
@@ -1953,14 +2010,11 @@ function IsiRuang() {
   // admin (peran `dana`) atau admin sendiri. Sesi kode akses bersama tidak.
   const bolehBerkas = role === "dana" || role === "admin";
   /**
-   * Penyamaran nama di ruang bersama.
-   *
-   * Ruang ini dibaca banyak pihak (pendana dan tim pemantau berkode
-   * akses bersama), sehingga nama orang — peminjam maupun pendana —
-   * disamarkan di layar. Super Admin tidak disamarkan: ia memang perlu nama
-   * penuh untuk mengoreksi catatan lewat tombol Ubah. Nama SENDIRI juga
-   * dibiarkan terbaca supaya setiap pendana tetap menemukan kartunya —
-   * identitas kita sendiri tidak kita rahasiakan dari kita sendiri.
+   * Ruang ini dibaca banyak pihak (pendana dan tim pemantau berkode akses
+   * bersama). Untuk pembaca non-admin, identitas peminjam tidak ditampilkan
+   * sama sekali — hanya nomor referensi pengajuan. Nama pendana tetap disamarkan
+   * karena kolom "Pendana" masih perlu dibaca. Super Admin melihat nama lengkap
+   * agar dapat mengoreksi catatan lewat tombol Ubah.
    */
   const samar = role !== "admin";
   /**
@@ -2051,12 +2105,13 @@ function IsiRuang() {
     ...pinjamanBaru,
     ...kredit,
   ]);
-  const tampilBaru = saringPengajuan(pinjamanBaru, filter);
-  const tampilDidanai = saringPengajuan(pinjamanDidanai, filter);
-  const tampilLunas = saringPengajuan(pinjamanLunas, filter);
-  const tampilDitolak = saringPengajuan(pinjamanDitolak, filter);
-  const tampilGadai = saringNama(gadai, filter.cari);
-  const tampilKredit = saringPengajuan(kredit, filter);
+  const opsiSaring = { hanyaReferensi: samar };
+  const tampilBaru = saringPengajuan(pinjamanBaru, filter, opsiSaring);
+  const tampilDidanai = saringPengajuan(pinjamanDidanai, filter, opsiSaring);
+  const tampilLunas = saringPengajuan(pinjamanLunas, filter, opsiSaring);
+  const tampilDitolak = saringPengajuan(pinjamanDitolak, filter, opsiSaring);
+  const tampilGadai = saringNama(gadai, filter.cari, opsiSaring);
+  const tampilKredit = saringPengajuan(kredit, filter, opsiSaring);
   const saringanAktif = adaFilter(filter);
 
   /**
@@ -2855,6 +2910,7 @@ function IsiRuang() {
                   total={jumlahTab.total}
                   onReset={() => setFilter(FILTER_PENGAJUAN_KOSONG)}
                   namaTampil={tampilNama}
+                  hanyaReferensi={samar}
                 />
               )}
 
@@ -2874,6 +2930,7 @@ function IsiRuang() {
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
+                      hanyaReferensi={samar}
                       rows={tampilBaru}
                       sekarang={sekarang}
                       persenBungaDefault={data.ringkasan.persenBunga}
@@ -2906,6 +2963,7 @@ function IsiRuang() {
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
+                      hanyaReferensi={samar}
                       rows={tampilDidanai}
                       sekarang={sekarang}
                       persenBungaDefault={data.ringkasan.persenBunga}
@@ -2948,6 +3006,7 @@ function IsiRuang() {
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
+                      hanyaReferensi={samar}
                       rows={tampilLunas}
                       sekarang={sekarang}
                       persenBungaDefault={data.ringkasan.persenBunga}
@@ -2991,6 +3050,7 @@ function IsiRuang() {
                     </CatatanTab>
                     <DaftarPinjaman
                       namaTampil={tampilNama}
+                      hanyaReferensi={samar}
                       rows={tampilDitolak}
                       sekarang={sekarang}
                       persenBungaDefault={data.ringkasan.persenBunga}
@@ -3027,6 +3087,7 @@ function IsiRuang() {
                           nama={tampilNama(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
+                          hanyaReferensi={samar}
                           status={
                             <StatusBadge status={row.status} kind="pawn" />
                           }
@@ -3057,7 +3118,7 @@ function IsiRuang() {
                     <div className="hidden lg:block">
                       <Tabel
                         head={[
-                          "Peminjam",
+                          samar ? "No. referensi" : "Peminjam",
                           "Barang",
                           "Taksiran",
                           "Tanggal",
@@ -3072,6 +3133,7 @@ function IsiRuang() {
                               nama={tampilNama(row.namaLengkap)}
                               kode={row.kodePeminjam}
                               referensi={row.nomorReferensi}
+                              hanyaReferensi={samar}
                             />
                             <TableCell className="align-top">
                               <p className="text-slate-900">
@@ -3136,6 +3198,7 @@ function IsiRuang() {
                           nama={tampilNama(row.namaLengkap)}
                           kode={row.kodePeminjam}
                           nomorReferensi={row.nomorReferensi}
+                          hanyaReferensi={samar}
                           status={<BadgeKredit status={row.status} />}
                           onDetail={() => setDetail({ jenis: "kredit", row })}
                         >
@@ -3179,7 +3242,7 @@ function IsiRuang() {
                     <div className="hidden lg:block">
                       <Tabel
                         head={[
-                          "Peminjam",
+                          samar ? "No. referensi" : "Peminjam",
                           "Barang",
                           "Harga & tenor",
                           "Tanggal",
@@ -3195,6 +3258,7 @@ function IsiRuang() {
                               nama={tampilNama(row.namaLengkap)}
                               kode={row.kodePeminjam}
                               referensi={row.nomorReferensi}
+                              hanyaReferensi={samar}
                             />
                             <TableCell className="align-top">
                               <p className="text-slate-900">{row.namaBarang}</p>
@@ -3265,7 +3329,11 @@ function IsiRuang() {
               {/* ===== Titik terakhir yang terkirim ===== */}
               <TabsContent value="lokasi" className="mt-4 space-y-4">
                 <BatasBagian nama="peta lokasi">
-                  <TabLokasi namaTampil={tampilNama} sekarang={sekarang} />
+                  <TabLokasi
+                    namaTampil={tampilNama}
+                    hanyaReferensi={samar}
+                    sekarang={sekarang}
+                  />
                 </BatasBagian>
               </TabsContent>
             </Tabs>
@@ -3310,6 +3378,7 @@ function IsiRuang() {
                 detail={detail}
                 bolehBerkas={bolehBerkas}
                 namaTampil={tampilNama}
+                hanyaReferensi={samar}
                 sekarang={sekarang}
                 persenBungaDefault={
                   data?.ringkasan.persenBunga ?? PINDAI_PRICING.bungaPercent

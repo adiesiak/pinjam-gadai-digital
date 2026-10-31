@@ -17,8 +17,12 @@ import { ringkasJumlah } from "@/lib/saringanPengajuan";
 export const SEMUA_PENDANA = "__semua__";
 
 /**
- * Saringan di atas tabel pengajuan ruang pendana: cari nama peminjam
- * (nama, kode pseudonim, atau nomor referensi) dan pilih pendana.
+ * Saringan di atas tabel pengajuan ruang pendana: cari pengajuan (nama, kode
+ * pseudonim, atau nomor referensi) dan pilih pendana.
+ *
+ * Untuk pembaca non-admin, `hanyaReferensi` mengubah label menjadi pencarian
+ * nomor referensi saja, sejalan dengan kolom identitas yang tidak lagi
+ * menampilkan nama peminjam.
  *
  * Murni presentasional — seluruh penyaringan dikerjakan `@/lib/saringanPengajuan`,
  * jadi komponen ini hanya menampilkan keadaan dan meneruskan perubahan.
@@ -34,6 +38,7 @@ export function SaringanPengajuan({
   total,
   onReset,
   namaTampil,
+  hanyaReferensi = false,
 }: {
   cari: string;
   onCari: (nilai: string) => void;
@@ -51,6 +56,8 @@ export function SaringanPengajuan({
    * penyaringan data tetap tepat walau namanya tampil tersamar.
    */
   namaTampil?: (nama: string) => string;
+  /** Non-admin hanya mencari nomor referensi, tanpa nama/kode peminjam. */
+  hanyaReferensi?: boolean;
 }) {
   const aktif = cari.trim() !== "" || pendana !== "";
   const tampilNama = namaTampil ?? ((nama: string) => nama);
@@ -70,7 +77,7 @@ export function SaringanPengajuan({
             htmlFor="saring-nama"
             className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-600"
           >
-            Cari nama peminjam
+            {hanyaReferensi ? "Cari no. referensi" : "Cari nama peminjam"}
           </Label>
           <div className="relative mt-1.5">
             <Search
@@ -82,7 +89,11 @@ export function SaringanPengajuan({
               type="search"
               value={cari}
               onChange={(e) => onCari(e.target.value)}
-              placeholder="Nama, kode peminjam, atau no. referensi"
+              placeholder={
+                hanyaReferensi
+                  ? "No. referensi pengajuan"
+                  : "Nama, kode peminjam, atau no. referensi"
+              }
               className="pl-9"
             />
           </div>

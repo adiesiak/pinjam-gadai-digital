@@ -3,7 +3,8 @@
  *
  * Halaman /penyedia-dana punya dua saringan di atas tabel:
  *  1. `cari` — nama peminjam, kode pseudonim, atau nomor referensi (tanpa peduli
- *     huruf besar/kecil; spasi berlebih disamakan).
+ *     huruf besar/kecil; spasi berlebih disamakan). Untuk pembaca non-admin,
+ *     `hanyaReferensi` membatasi pencarian ke nomor referensi saja.
  *  2. `pendana` — nama penyedia dana pemilik pinjaman ("" = semua).
  *
  * Fungsi di sini tidak menyentuh DOM maupun Convex supaya bisa diuji langsung
@@ -31,6 +32,21 @@ type BarisBernama = {
 
 function normalisasi(teks: string): string {
   return teks.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Pilihan tampilan pembaca: non-admin tidak boleh mencari lewat nama. */
+export type OpsiSaringPengajuan = {
+  hanyaReferensi?: boolean;
+};
+
+/** Kolom teks yang boleh dicocokkan dengan kata kunci pencarian. */
+function kolomCari(
+  b: BarisBernama,
+  hanyaReferensi: boolean,
+): Array<string | null | undefined> {
+  return hanyaReferensi
+    ? [b.nomorReferensi]
+    : [b.namaLengkap, b.kodePeminjam, b.nomorReferensi];
 }
 
 /** Apakah `cari` kosong, atau cocok dengan salah satu nilai baris. */
@@ -66,18 +82,24 @@ export function daftarPendana(baris: Array<{ pendana?: string | null }>): string
 export function saringPengajuan<T extends BarisBernama>(
   baris: T[],
   filter: FilterPengajuan,
+  opsi: OpsiSaringPengajuan = {},
 ): T[] {
   const pendana = normalisasi(filter.pendana);
   return baris.filter((b) => {
-    if (!cocokCari(filter.cari, [b.namaLengkap, b.kodePeminjam, b.nomorReferensi])) return false;
+    if (!cocokCari(filter.cari, kolomCari(b, opsi.hanyaReferensi === true))) return false;
     if (pendana === "") return true;
     return b.pendana !== null && b.pendana !== undefined && normalisasi(b.pendana) === pendana;
   });
 }
 
 /** Saringan nama saja — untuk daftar yang tidak punya kolom pendana (gadai). */
-export function saringNama<T extends BarisBernama>(baris: T[], cari: string): T[] {
-  return baris.filter((b) => cocokCari(cari, [b.namaLengkap, b.kodePeminjam, b.nomorReferensi]));
+export function saringNama<T extends BarisBernama>(
+  baris: T[],
+  cari: string,
+  opsi: OpsiSaringPengajuan = {},
+): T[] {
+  const hanyaReferensi = opsi.hanyaReferensi === true;
+  return baris.filter((b) => cocokCari(cari, kolomCari(b, hanyaReferensi)));
 }
 
 /** Ada saringan aktif? Dipakai memutuskan pesan keadaan kosong. */

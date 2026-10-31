@@ -53,11 +53,14 @@ export function PetaLokasiPeminjam({
   rows,
   vault,
   namaTampil,
+  hanyaReferensi = false,
 }: {
   rows: TitikPeminjam[];
   vault: { lat: number; lng: number };
   /** Penyamaran nama peminjam pada tooltip peta (bawaan: HURUF BESAR penuh). */
   namaTampil?: (nama: string) => string;
+  /** Non-admin hanya melihat nomor referensi pada tooltip, tanpa nama. */
+  hanyaReferensi?: boolean;
 }) {
   const tampil = namaTampil ?? namaHurufBesar;
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -110,8 +113,8 @@ export function PetaLokasiPeminjam({
         const ditandai = r.posisi.tanda.length > 0;
         const warna = ditandai ? WARNA_DITANDAI : WARNA_NORMAL;
         const keterangan = [
-          `<strong>${tampil(r.namaLengkap)}</strong>`,
-          `${r.nomorReferensi} · ${r.kategori}`,
+          `<strong>${hanyaReferensi ? r.nomorReferensi : tampil(r.namaLengkap)}</strong>`,
+          hanyaReferensi ? r.kategori : `${r.nomorReferensi} · ${r.kategori}`,
           `titik terakhir: ${waktuRingkas(r.posisi.waktu)} (±${Math.round(r.posisi.akurasi)} m, ${r.posisi.sumber})`,
           ditandai ? `POLA KOORDINAT DICURIGAI (OTOMATIS): ${r.posisi.tanda.map(labelTandaLokasi).join(", ")}` : "",
         ]
