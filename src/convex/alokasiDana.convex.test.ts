@@ -389,7 +389,7 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       biayaLayananTotal: 20_000,
       totalPotonganDiMuka: 20_000,
       danaBersih: 980_000,
-      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_632_001 }],
+      jadwalPelunasan: [{ bulan: 3, hariKe: 90, total: 1_264_801 }],
       simulasiCicilanBulanan: expect.arrayContaining([
         expect.objectContaining({ bulan: 1 }),
       ]),

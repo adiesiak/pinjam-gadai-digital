@@ -102,7 +102,7 @@ melempar(
 
 // ── Marjin tenor ────────────────────────────────────────────────────────────
 sama("marjin total tenor 1", marjinTotalTenor(1), 30);
-sama("marjin total tenor 3", marjinTotalTenor(3), 60);
+sama("marjin total tenor 3", marjinTotalTenor(3), 24);
 sama("marjin total tenor 6", marjinTotalTenor(6), 72);
 
 // ── Minimum pokok ───────────────────────────────────────────────────────────

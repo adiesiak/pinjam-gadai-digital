@@ -300,9 +300,9 @@ export function simulasiKonvensionalProposal(): BarisSimulasiKonvensional[] {
 /** Bunga pinjaman bulanan per tenor, dalam persen. */
 export type TarifTenorBulanan = {
   tenor: number;
-  /** Bunga per bulan yang dipakai mesin kontrak (mis. 20 untuk tenor 3 bulan). */
+  /** Bunga per bulan yang dipakai mesin kontrak (mis. 8 untuk tenor 3 bulan). */
   perBulan: number;
-  /** Marjin total sepanjang tenor (mis. 60 untuk tenor 3 bulan). */
+  /** Marjin total sepanjang tenor (mis. 24 untuk tenor 3 bulan). */
   total: number;
 };
 
@@ -746,7 +746,7 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
     { teks: "Keuntungan pinjaman bulanan 1/3/6/9/12", gaya: "seksi" },
     { garis: true },
     {
-      teks: `Tabel ini memakai pokok ${rupiah(POKOK_CONTOH_BULANAN)}. Marjin tiap tenor berasal dari mesin yang sama dengan kontrak: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%, 9 bulan 90%, dan 12 bulan 96%. Marjin penuh itu dibagi 47 : 13, jadi kolom pendana adalah hak bersih atas marjin, sedangkan biaya layanan dan biaya admin tetap pos terpisah milik platform.`,
+      teks: `Tabel ini memakai pokok ${rupiah(POKOK_CONTOH_BULANAN)}. Marjin tiap tenor berasal dari mesin yang sama dengan kontrak: 1 bulan 30%, 3 bulan 24%, 6 bulan 72%, 9 bulan 90%, dan 12 bulan 96%. Marjin penuh itu dibagi 47 : 13, jadi kolom pendana adalah hak bersih atas marjin, sedangkan biaya layanan dan biaya admin tetap pos terpisah milik platform.`,
       gaya: "biasa",
     },
     {

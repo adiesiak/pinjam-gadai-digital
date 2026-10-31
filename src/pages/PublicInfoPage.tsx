@@ -729,10 +729,10 @@ export function PublicInfoPageView({
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {tarifBulanan.persenBungaBulanan1}%/{" "}
-                        {tarifBulanan.persenBungaBulanan3}%/{" "}
-                        {tarifBulanan.persenBungaBulanan6}/{" "}
-                        {tarifBulanan.persenBungaBulanan9}/{" "}
+                        {tarifBulanan.persenBungaBulanan1}% /{" "}
+                        {tarifBulanan.persenBungaBulanan3}% /{" "}
+                        {tarifBulanan.persenBungaBulanan6}% /{" "}
+                        {tarifBulanan.persenBungaBulanan9}% /{" "}
                         {tarifBulanan.persenBungaBulanan12}% per bulan dari pokok
                         penuh untuk tenor 1/3/6/9/12 bulan (tarif dasar; bunga
                         khusus akun dapat berbeda)

@@ -89,9 +89,9 @@ describe("contoh data pendana", () => {
     expect(rekap?.kredit).toMatchObject({
       jumlahAlokasi: 2,
       pokok: 9_000_000,
-      marginKontrak: 6_120_000,
-      imbalPendana: 6_120_000,
-      biayaPlatform: 482_400,
+      marginKontrak: 5_040_000,
+      imbalPendana: 5_040_000,
+      biayaPlatform: 460_800,
       cicilanDibayar: 4,
       cicilanTotal: 9,
     });
@@ -108,8 +108,8 @@ describe("contoh data pendana", () => {
       {
         nomorReferensi: "KRD-CONTOH-0001",
         pokok: 3_000_000,
-        marginKontrak: 1_800_000,
-        imbalPendana: 1_800_000,
+        marginKontrak: 720_000,
+        imbalPendana: 720_000,
       },
       {
         nomorReferensi: "KRD-CONTOH-0002",

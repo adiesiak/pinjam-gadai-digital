@@ -12,7 +12,8 @@
  *  - Sisa harga dibiayai penyedia dana = pokok dibiayai; skema bulanan memakai
  *    angsuran pokok tetap dan bunga flat dari pokok penuh (cicilan rata).
  *  - Imbal Hasil penyedia dana pada skema bulanan dihitung FLAT dari pokok penuh
- *    (30% tenor 1 bulan, 25% tenor 3 bulan, 20% tenor 6 bulan per bulan).
+ *    (mengikuti tarif tenor bawaan: 30% tenor 1 bulan, 8% tenor 3 bulan,
+ *    12% tenor 6 bulan per bulan).
  *    Skema DP + margin flat 12/24 bulan hanya untuk kontrak warisan (tidak
  *    ditawarkan lagi). Bagian penyedia dana proporsional dengan porsi pendanaannya.
  *  - Seluruh tenor resmi (1/3/6 bulan) memakai biaya admin 2% (platform 0%)

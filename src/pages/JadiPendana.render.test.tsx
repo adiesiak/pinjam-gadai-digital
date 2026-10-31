@@ -101,7 +101,7 @@ for (const baris of pembagianKonvensionalProposal()) {
   );
 }
 ada(html, "Rp 783.334", "hak pendana gadai tampil");
-ada(html, "Rp 4.700.000", "hak pendana kredit barang tampil");
+ada(html, "Rp 1.880.000", "hak pendana kredit barang tampil");
 ada(
   html,
   "Simulasi konvensional Rp 1 juta sampai Rp 10 juta",

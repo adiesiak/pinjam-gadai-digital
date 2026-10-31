@@ -98,22 +98,22 @@ const pendek = quoteKreditBarang({
   hargaBarang: 10_000_000,
   dpPersen: 0,
   tenorBulan: 3,
-  // Diabaikan skema bulanan — bunga mengikuti tenor (3–5 bln = 33%/bln).
+  // Diabaikan skema bulanan — bunga mengikuti tenor (3–5 bln = 8%/bln).
   marginPersenPerBulan: KREDIT_PRICING.marginMinPersenPerBulan,
 });
 eq(pendek.dp, 0, "tenor 3 bulan: DP 0 (skema bulanan)");
 eq(pendek.pokokDibiayai, 10_000_000, "tenor 3 bulan: pokok dibiayai = harga barang");
-eq(pendek.marginPerBulan, 2_000_000, "Imbal Hasil 20% dari 10jt = 2jt");
-eq(pendek.marginTotal, 6_000_000, "total Imbal Hasil flat 20% × 3 bulan = 6jt");
+eq(pendek.marginPerBulan, 800_000, "Imbal Hasil 8% dari 10jt = 800rb");
+eq(pendek.marginTotal, 2_400_000, "total Imbal Hasil flat 8% × 3 bulan = 2,4jt");
 eq(pendek.biayaAdmin, 200_000, "biaya admin 2% dari 10jt (dipotong di muka)");
 eq(pendek.biayaPlatform, 0, "biaya platform 0% (dihapus)");
 eq(pendek.biayaLayanan, 200_000, "total potongan di muka 2% dari 10jt");
-eq(pendek.cicilanPerBulan, 5_440_000, "cicilan 3 bulan pertama = pokok + Imbal Hasil + admin 2%");
-eq(pendek.cicilanTerakhir, 5_440_001, "cicilan terakhir menyerap sisa pokok (cicilan rata)");
-eq(pendek.biayaAdminCicilanTotal, 320_001, "biaya admin cicilan 2% × 3 bulan");
-eq(pendek.jadwal[0].biayaAdmin, 106_667, "biaya admin cicilan baris pertama (2% × 5.333.333)");
-eq(pendek.persenImbalHasil, 60, "Imbal Hasil 60% dari pokok penuh (3 bulan)");
-eq(pendek.persenImbalHasilTahunan, 240, "setara 240% per tahun (60% × 12/3)");
+eq(pendek.cicilanPerBulan, 4_216_000, "cicilan 3 bulan pertama = pokok + Imbal Hasil + admin 2%");
+eq(pendek.cicilanTerakhir, 4_216_001, "cicilan terakhir menyerap sisa pokok (cicilan rata)");
+eq(pendek.biayaAdminCicilanTotal, 248_001, "biaya admin cicilan 2% × 3 bulan");
+eq(pendek.jadwal[0].biayaAdmin, 82_667, "biaya admin cicilan baris pertama (2% × 4.133.333)");
+eq(pendek.persenImbalHasil, 24, "Imbal Hasil 24% dari pokok penuh (3 bulan)");
+eq(pendek.persenImbalHasilTahunan, 96, "setara 96% per tahun (24% × 12/3)");
 eq(
   pendek.jadwal.reduce((acc, row) => acc + row.pokok, 0),
   pendek.pokokDibiayai,
@@ -148,8 +148,8 @@ const dp20 = quoteKreditBarang({
 });
 eq(dp20.dp, 2_000_000, "DP 20% dari 10jt = 2jt");
 eq(dp20.pokokDibiayai, 8_000_000, "pokok dibiayai = harga − DP");
-eq(dp20.marginPerBulan, 1_600_000, "Imbal Hasil 20% dari pokok dibiayai 8jt");
-eq(dp20.marginTotal, 4_800_000, "total Imbal Hasil flat 3 bulan dari pokok dibiayai");
+eq(dp20.marginPerBulan, 640_000, "Imbal Hasil 8% dari pokok dibiayai 8jt");
+eq(dp20.marginTotal, 1_920_000, "total Imbal Hasil flat 3 bulan dari pokok dibiayai");
 eq(dp20.biayaAdmin, 160_000, "biaya admin 2% dari pokok dibiayai");
 eq(dp20.porsiDana, 8_000_000, "porsi pendana penuh = pokok dibiayai");
 eq(

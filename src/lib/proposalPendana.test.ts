@@ -335,20 +335,20 @@ ada(teks, "Keuntungan pinjaman bulanan 1/3/6/9/12", "bagian tenor bulanan ada");
         `setara per bulan tenor ${b.tenor}`,
       );
     }
-    // Bunga yang benar-benar dipakai kontrak: 30/20/12/10/8 per bulan,
-    // dan 30/60/72/90/96 total sepanjang tenor.
+    // Bunga yang benar-benar dipakai kontrak: 30/8/12/10/8 per bulan,
+    // dan 30/24/72/90/96 total sepanjang tenor.
     eq(
       tarifBulananProposal()
         .map((t) => t.perBulan)
         .join(","),
-      "30,20,12,10,8",
+      "30,8,12,10,8",
       "bunga per bulan tiap tenor",
     );
     eq(
       tarifBulananProposal()
         .map((t) => t.total)
         .join(","),
-      "30,60,72,90,96",
+      "30,24,72,90,96",
       "marjin total tiap tenor",
     );
   }
@@ -490,10 +490,10 @@ ada(teks, "Pembagian produk konvensional", "bagian konvensional ada");
   eq(produk[1]?.pendana, 783_334, "hak pendana gadai 47/60");
   eq(produk[1]?.platform, 216_666, "porsi platform gadai 13/60");
   eq(produk[1]?.diterima, 10_783_334, "diterima pendana gadai");
-  eq(produk[2]?.margin, 6_000_000, "marjin kredit 3 bulan 60%");
-  eq(produk[2]?.pendana, 4_700_000, "hak pendana kredit 47/60");
-  eq(produk[2]?.platform, 1_300_000, "porsi platform kredit 13/60");
-  eq(produk[2]?.diterima, 14_700_000, "diterima pendana kredit");
+  eq(produk[2]?.margin, 2_400_000, "marjin kredit 3 bulan 24%");
+  eq(produk[2]?.pendana, 1_880_000, "hak pendana kredit 47/60");
+  eq(produk[2]?.platform, 520_000, "porsi platform kredit 13/60");
+  eq(produk[2]?.diterima, 11_880_000, "diterima pendana kredit");
 
   const tabelProduk = dokumen.baris.find(
     (b) => "tabel" in b && b.tabel.kepala[0] === "Produk",
@@ -519,10 +519,10 @@ ada(teks, "Pembagian produk konvensional", "bagian konvensional ada");
   eq(simulasi[9]?.pokok, 10_000_000, "simulasi konvensional sampai sepuluh juta");
   eq(simulasi[0]?.harian, 235_000, "harian 1 juta");
   eq(simulasi[0]?.gadai, 78_334, "gadai 1 juta");
-  eq(simulasi[0]?.kredit, 470_000, "kredit 1 juta");
+  eq(simulasi[0]?.kredit, 188_000, "kredit 1 juta");
   eq(simulasi[9]?.harian, 2_350_000, "harian 10 juta");
   eq(simulasi[9]?.gadai, 783_334, "gadai 10 juta");
-  eq(simulasi[9]?.kredit, 4_700_000, "kredit 10 juta");
+  eq(simulasi[9]?.kredit, 1_880_000, "kredit 10 juta");
 
   const tabelSimulasi = dokumen.baris.find(
     (b) => "tabel" in b && b.tabel.kepala[0] === "Pokok konvensional",
@@ -538,7 +538,7 @@ ada(teks, "Pembagian produk konvensional", "bagian konvensional ada");
     if (barisSatu !== undefined) {
       eq(barisSatu[1], formatRupiahAman(235_000), "sel harian 1 juta");
       eq(barisSatu[2], formatRupiahAman(78_334), "sel gadai 1 juta");
-      eq(barisSatu[3], formatRupiahAman(470_000), "sel kredit 1 juta");
+      eq(barisSatu[3], formatRupiahAman(188_000), "sel kredit 1 juta");
     }
   }
 }

@@ -111,10 +111,10 @@ const totalBaris = bulanan.kelompok
   .flatMap((k) => k.baris)
   .find((b) => b.label.startsWith("Total yang dibayar selama"));
 eq(totalBaris?.tegas, true, "total cicilan dicetak tegas");
-// 1 jt tenor 3 bulan: bunga flat 20%/bulan = 600.000, ditambah biaya admin
-// cicilan 2% dari tiap cicilan (32.001), jadi 1.632.001.
+// 1 jt tenor 3 bulan: bunga flat 8%/bulan = 240.000, ditambah biaya admin
+// cicilan 2% dari tiap cicilan (24.801), jadi 1.264.801.
 ok(
-  totalBaris?.nilai === formatRupiah(1_632_001),
+  totalBaris?.nilai === formatRupiah(1_264_801),
   `total cicilan sama dengan jumlah jadwal (${totalBaris?.nilai})`,
 );
 

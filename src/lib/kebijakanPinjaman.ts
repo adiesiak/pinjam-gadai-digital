@@ -12,8 +12,8 @@
  *     pendana.
  *
  *  2. Marjin tenor bulanan adalah marjin TOTAL sepanjang tenor, bukan per
- *     bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%, 9 bulan 90%, 12 bulan 96%
- *     (12%/10%/8% per bulan untuk tenor 6/9/12). Nilainya dibaca dari tarif
+ *     bulan: 1 bulan 30%, 3 bulan 24%, 6 bulan 72%, 9 bulan 90%, 12 bulan 96%
+ *     (8%/12%/10%/8% per bulan untuk tenor 3/6/9/12). Nilainya dibaca dari tarif
  *     bawaan `lib/bulanan` supaya tidak ada angka kedua yang bisa berbeda.
  *     Tenor 3 bulan ke atas hanya untuk pokok mulai Rp3.000.000.
  *
@@ -24,8 +24,9 @@
  */
 /**
  * Marjin per bulan menurut kebijakan tenor. Marjin TOTAL satu tenor adalah
- * angka ini dikali jumlah bulan: 1 bulan 30%, 3 bulan 60%, 6 bulan 72%,
- * 9 bulan 90%, 12 bulan 96% — 12%/10%/8% per bulan untuk tenor 6/9/12.
+ * angka ini dikali jumlah bulan: 1 bulan 30%, 3 bulan 24%, 6 bulan 72%,
+ * 9 bulan 90%, 12 bulan 96% — 8%/12%/10%/8% per bulan untuk tenor 3/6/9/12.
+ * Tarif 3 bulan sengaja tidak lebih tinggi dari tenor 6/9/12.
  *
  * Angka ini adalah kebijakan produk. Tarif bawaan mesin bulanan
  * (`BULANAN_PRICING`) menyamakan nilainya, sehingga perhitungan, kontrak, dan
@@ -33,7 +34,7 @@
  */
 export const MARJIN_PER_BULAN: Readonly<Record<number, number>> = {
   1: 30,
-  3: 20,
+  3: 8,
   6: 12,
   9: 10,
   12: 8,
@@ -113,7 +114,7 @@ export function bagiMarginBagian(
   return bagiMargin(marginBagian);
 }
 
-/** Marjin total tenor bulanan menurut kebijakan (30%, 60%, 72%). */
+/** Marjin total tenor bulanan menurut kebijakan (30%, 24%, 72%). */
 export function marjinTotalTenor(tenorBulan: number): number {
   return (MARJIN_PER_BULAN[tenorBulan] ?? 0) * tenorBulan;
 }
