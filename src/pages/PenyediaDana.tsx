@@ -1997,7 +1997,7 @@ function IsiRuang() {
     useState<TargetKeuntungan | null>(null);
   const [batalKeuntungan, setBatalKeuntungan] =
     useState<TargetKeuntungan | null>(null);
-  // Saringan di atas tabel: nama peminjam + pendana.
+  // Saringan di atas tabel: nomor referensi (non-admin) atau nama (admin), plus pendana.
   const [filter, setFilter] = useState<FilterPengajuan>(
     FILTER_PENGAJUAN_KOSONG,
   );
@@ -2602,12 +2602,22 @@ function IsiRuang() {
                         className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5 text-xs"
                       >
                         <span className="flex min-w-0 flex-wrap items-center gap-2">
-                          <span className="truncate font-medium uppercase text-slate-900">
-                            {tampilNama(b.namaLengkap)}
+                          <span
+                            className={
+                              samar
+                                ? "break-all font-mono text-[11px] font-semibold text-slate-900"
+                                : "truncate font-medium uppercase text-slate-900"
+                            }
+                          >
+                            {samar
+                              ? b.nomorReferensi
+                              : tampilNama(b.namaLengkap)}
                           </span>
-                          <span className="font-mono text-[11px] text-slate-500">
-                            {b.nomorReferensi}
-                          </span>
+                          {!samar && (
+                            <span className="font-mono text-[11px] text-slate-500">
+                              {b.nomorReferensi}
+                            </span>
+                          )}
                         </span>
                         <span className="flex items-center gap-3">
                           <span className="font-semibold tabular-nums text-navy">
@@ -2891,9 +2901,10 @@ function IsiRuang() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Saringan di atas tabel data pinjaman — nama peminjam dan
-                  pendana. Disembunyikan di tab peta: daftarnya bukan
-                  pengajuan, dan tab gadai tidak punya kolom pendana. */}
+              {/* Saringan di atas tabel data pinjaman — nomor referensi (non-admin)
+                  atau nama (admin), plus pendana. Disembunyikan di tab peta:
+                  daftarnya bukan pengajuan, dan tab gadai tidak punya kolom
+                  pendana. */}
               {tab !== "lokasi" && (
                 <SaringanPengajuan
                   cari={filter.cari}
