@@ -438,6 +438,55 @@ describe("plafon pinjaman per nasabah", () => {
     );
   });
 
+  it("daftar plafon admin memotong eksposur syariah seperti kartu peminjam", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: peminjam, userId } = await siapkanPengguna(t, "rani syariah", {
+      email: "rani-plafon-syariah-daftar@pindai.test",
+      role: "peminjam",
+    });
+    const { sesi: admin, userId: adminId } = await siapkanPengguna(t, "admin syariah", {
+      email: "admin-plafon-syariah-daftar@pindai.test",
+      role: "admin",
+    });
+    await admin.mutation(api.admin.setPlafonPeminjam, { userId, plafon: 1_000_000 });
+
+    // Akad aktif Rp300.000 menahan plafon yang sama di kartu peminjam.
+    await t.run((ctx) =>
+      ctx.db.insert("akadSyariah", {
+        jenis: "qardh",
+        nomorReferensi: "SYR-DAFTAR-1",
+        pendanaId: adminId,
+        peminjamId: userId,
+        peminjamNama: "RANI SYARIAH",
+        pokok: 300_000,
+        tenorHari: 30,
+        totalKewajiban: 300_000,
+        pendanaTerima: 300_000,
+        nisbahPendana: 0,
+        nisbahPlatform: 0,
+        marginTotal: 0,
+        tiketDoorprize: 0,
+        status: "aktif",
+        jatuhTempoPada: Date.now() + 30 * 86_400_000,
+        dibuatPada: Date.now(),
+        dibuatOleh: adminId,
+      }),
+    );
+
+    const ringkas = await peminjam.query(api.nasabah.plafonRingkasSaya, {});
+    expect(ringkas?.tersedia).toBe(700_000);
+    expect((await peminjam.query(api.voucher.daftarVoucherSaya, {}))?.limit.tersedia).toBe(
+      700_000,
+    );
+
+    // Baris admin wajib memakai angka yang sama; sebelumnya hanya pinjaman
+    // biasa yang dipotong sehingga baris ini bisa berbunyi Rp1 juta.
+    const daftar = await admin.query(api.admin.daftarPlafonPeminjam, {});
+    const baris = daftar.rows.find((r) => r.userId === userId);
+    expect(baris?.plafonTerpakai).toBe(300_000);
+    expect(baris?.plafonTersedia).toBe(700_000);
+  });
+
   it("nama nasabah di panel plafon mengikuti catatan pinjaman (sama dengan ruang penyedia dana)", async () => {
     const t = convexTest(schema, modules);
     const { userId } = await siapkanPengguna(t, "nina akun", {

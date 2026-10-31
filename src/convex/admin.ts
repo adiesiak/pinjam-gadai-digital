@@ -104,6 +104,32 @@ export const daftarPlafonPeminjam = query({
 
     const loans = await ctx.db.query("loans").collect();
     const kredits = await ctx.db.query("kreditBarang").collect();
+    // Eksposur syariah ikut menahan plafon di kartu peminjam
+    // (`plafonDenganEksposurSyariah`). Daftar admin harus memakai aturan yang
+    // sama; tanpa itu baris admin bisa menampilkan sisa Rp1 juta padahal
+    // peminjam melihat Rp0 karena akad/pengajuan syariah masih berjalan.
+    const akadSyariah = await ctx.db.query("akadSyariah").collect();
+    const pengajuanSyariah = await ctx.db.query("pengajuanSyariah").collect();
+    const eksposurSyariahPerUser = new Map<
+      string,
+      Array<{ status: string; pokokPinjaman: number }>
+    >();
+    const tambahEksposur = (userId: string, pokok: number) => {
+      if (!Number.isSafeInteger(pokok) || pokok <= 0) return;
+      const rows = eksposurSyariahPerUser.get(userId) ?? [];
+      rows.push({ status: "didanai", pokokPinjaman: pokok });
+      eksposurSyariahPerUser.set(userId, rows);
+    };
+    for (const row of akadSyariah) {
+      if (row.status === "aktif" && row.peminjamId !== undefined) {
+        tambahEksposur(row.peminjamId, row.pokok);
+      }
+    }
+    for (const row of pengajuanSyariah) {
+      if (row.status === "disetujui" && row.akadNomor === undefined) {
+        tambahEksposur(row.userId, row.pokok);
+      }
+    }
     // Data diri disimpan satu baris per pengguna; dipakai untuk menandai kartu
     // nasabah yang sudah/belum dilengkapi tanpa membuka dialognya dulu.
     const profil = await ctx.db.query("nasabahProfil").collect();
@@ -266,7 +292,10 @@ export const daftarPlafonPeminjam = query({
       );
       // Maksimal/terpakai/tersedia dihitung di SERVER dari master + pinjaman
       // aktif, supaya panel dan validasi pengajuan tidak mungkin berbeda angka.
-      const ringkas = ringkasPlafon(plafonEfektifNilai, pinjamanUser);
+      const ringkas = ringkasPlafon(plafonEfektifNilai, [
+        ...pinjamanUser,
+        ...(eksposurSyariahPerUser.get(id) ?? []),
+      ]);
       // Keadaan pengingat tagihan dibaca di server supaya tombol cepat di tiap
       // baris tahu apakah ia akan mematikan atau menyalakan sesuatu. Aturan
       // kosong-berarti-aktif sama dengan pengirim pengingat (`_kanalAktif`).
