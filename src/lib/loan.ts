@@ -866,13 +866,13 @@ export function loanStatusMeta(status: LoanStatus): {
       return {
         label: "Disalurkan",
         description:
-          "Dana ditandai tersalurkan pada ledger internal. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah denda harian dari pokok, dibatasi 100% dari pokok.",
+          "Dana ditandai tersalurkan pada catatan PINDAI. Tombol pelunasan mencatat perubahan status dan seluruh kewajiban sekaligus. Keterlambatan menambah denda harian dari pokok, dibatasi 100% dari pokok.",
       };
     case "lunas":
       return {
         label: "Lunas",
         description:
-          "Status kewajiban ditandai selesai di ledger internal dan menjadi acuan penyelesaian kewajiban peminjam.",
+          "Status kewajiban ditandai selesai di catatan PINDAI dan menjadi acuan penyelesaian kewajiban peminjam.",
       };
   }
 }

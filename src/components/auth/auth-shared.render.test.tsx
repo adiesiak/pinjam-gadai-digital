@@ -139,7 +139,7 @@ function aturanAktif(css: string): string {
   ada(kepala, 'href="/"', "logo menuju beranda");
   ada(kepala, "vault-logo", "lambang brankas PINDAI dipakai, bukan blok huruf");
   ok(!kepala.includes(">P<"), "tidak ada blok huruf tunggal sebagai lambang");
-  ada(kepala, "Pencatatan ledger", "lencana fitur ledger tampil");
+  ada(kepala, "Catatan PINDAI", "lencana fitur catatan tampil");
   ada(kepala, "Pencatatan gadai", "lencana fitur gadai tampil");
   ada(kepala, "Jadwal angsuran", "lencana fitur angsuran tampil");
   ada(kepala, "grid-cols-3", "tiga lencana disusun simetris");

@@ -996,7 +996,7 @@ function KerangkaHalaman({
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 sm:text-base">
               {syariah
                 ? "Pinjaman syariah PINDAI memakai dua akad: Murabahah untuk kredit barang dan Rahn untuk gadai. Margin dan ujrah dibagi antara pendana dan pengelola sesuai nisbah di akad."
-                : "Pinjaman tunai harian 7, 14, 21, atau 28 hari dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan marjin pinjaman dibagi 47 : 13 — 78,33% untuk pendana, 21,67% untuk platform, terpisah dari biaya layanan."}
+                : "Pinjaman tunai harian 7–50 hari (pilihan cepat 7/14/21/28) dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan marjin pinjaman dibagi 47 : 13 — 78,33% untuk pendana, 21,67% untuk platform, terpisah dari biaya layanan."}
             </p>
 
             {syariah ? (

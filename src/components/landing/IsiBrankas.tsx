@@ -29,8 +29,8 @@ const ISI_BRANKAS: ReadonlyArray<{
     label: "Pinjaman harian",
     rak: "Laci 01",
     Icon: Banknote,
-    judul: "Skema harian (7 sampai 28 hari)",
-    isi: "Kewajiban dihitung sekali di akhir tenor: bunga flat 28–42% sesuai nominal dan tenor, potongan 2% di muka.",
+    judul: "Skema harian (7 sampai 50 hari)",
+    isi: "Kewajiban dihitung sekali di akhir tenor: bunga flat 28–42% untuk tenor acuan, potongan 2% di muka. Hari ke-29 dan seterusnya memakai tarif perpanjangan.",
     baris: [
       ["Nomor referensi", "PDI-••••-••"],
       ["Pokok perhitungan", "Rp 100 rb – Rp 1 jt"],

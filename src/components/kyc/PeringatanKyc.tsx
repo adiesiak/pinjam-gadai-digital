@@ -17,10 +17,11 @@
  * WA) supaya bagian yang bisa dipakai ulang hilang dari layar TANPA
  * menyembunyikan ruas yang datanya belum ada.
  *
- * Ketiganya bukan pengaman: pengaman sesungguhnya ada di server. Karena itu
- * `PeringatanKyc` sengaja tidak menyembunyikan formulir, hanya menonaktifkan
- * tombol kirim, dan pemakaian ulang hanya terjadi bila pemanggil memegang isian
- * KYC yang sah (`lib/kyc.identitasPengajuanDariKyc` / `identitasDasarKyc`).
+ * Ketiganya bukan pengaman: pengaman sesungguhnya ada di server. `PeringatanKyc`
+ * sendiri tidak menyembunyikan apa pun; pemanggil boleh memakainya sebagai
+ * gerbang awal sebelum formulir panjang. Pemakaian ulang data hanya terjadi
+ * bila pemanggil memegang isian KYC yang sah
+ * (`lib/kyc.identitasPengajuanDariKyc` / `identitasDasarKyc`).
  */
 import { BadgeCheck, ShieldAlert } from "lucide-react";
 

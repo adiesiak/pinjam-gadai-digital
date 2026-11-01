@@ -52,8 +52,8 @@ function render(produk: "konvensional" | "syariah"): string {
   ada(html, "Tarif harian per tier", "tabel tarif harian tampil");
   ada(html, "Tarif cicilan bulanan", "tabel tarif bulanan tampil");
   ada(html, "Cicilan bulanan", "skema bulanan disebut");
-  ada(html, "Rp 65.000", "contoh potongan platform dari mesin bagi hasil");
-  ada(html, "Rp 1.235.000", "contoh hak pendana dari mesin bagi hasil");
+  ada(html, "Rp 69.333", "contoh potongan platform dari mesin bagi hasil");
+  ada(html, "Rp 1.250.667", "contoh hak pendana dari mesin bagi hasil");
   ada(html, "PT Pindai Digital Solusindo", "nama entitas tercetak");
   ada(html, 'href="/pinjaman/syariah"', "tautan ke produk syariah");
   ada(html, 'href="/biaya"', "tautan ke halaman biaya");

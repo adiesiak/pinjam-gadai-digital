@@ -19,12 +19,22 @@
  *   yang sudah diketik di modul KYC tidak perlu terpampang utuh lagi di layar.
  */
 import { useMutation, useQuery } from "convex/react";
-import { BadgeCheck, Landmark, Loader2, MapPin, Send, ShieldCheck, Wallet } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Landmark,
+  Loader2,
+  MapPin,
+  Send,
+  ShieldCheck,
+  Wallet,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { GerbangTurnstile, turnstileDipasang } from "@/components/GerbangTurnstile";
 import { PemilihTanggalJatuhTempo } from "@/components/PemilihTanggalJatuhTempo";
+import { StatusKycBadge } from "@/components/StatusKycBadge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -46,7 +56,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useKirimSekali } from "@/hooks/use-cegah-tinggalkan";
 import { JebakanFormulir } from "@/components/JebakanFormulir";
 import { AKUN_UJI } from "@/lib/akunUji";
+import { penghasilanDariTeks } from "@/lib/dataDiri";
 import { kunciIdempotensiBaru } from "@/lib/gerbangKirim";
+import { isKycVerified, KETERANGAN_STATUS_KYC, type StatusKyc } from "@/lib/kycStatus";
 import { maskRekening } from "@/lib/kycTahapan";
 import {
   LATE_FEE_POLICY,
@@ -120,6 +132,105 @@ export function KartuRekeningTersimpan({
 }
 
 /**
+ * Gerbang KYC di tab pengajuan: pengguna melihat syaratnya sebelum mengisi
+ * formulir, bukan setelah menekan tombol kirim. Ini memakai status server yang
+ * sama dengan `KycSection`; tidak ada aturan verifikasi baru di sini.
+ */
+function GerbangKycAwal({
+  status,
+  onBukaKyc,
+}: {
+  status: StatusKyc;
+  onBukaKyc?: () => void;
+}) {
+  const menunggu = status === "PENDING_REVIEW";
+  return (
+    <section className="rounded-2xl border border-amber-300 bg-amber-50/70 p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-amber-800 shadow-sm">
+          <ShieldCheck className="size-4" aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold text-amber-950">
+              Verifikasi identitas dulu, lalu ajukan dalam satu halaman
+            </h2>
+            <StatusKycBadge status={status} />
+          </div>
+          <p className="mt-1 text-xs leading-5 text-amber-950/90">
+            Pengajuan pinjaman memerlukan KYC terverifikasi. Setelah selesai, Anda hanya mengisi
+            nominal, tanggal jatuh tempo, dan keperluan; data identitas dan rekening diambil dari
+            KYC yang sudah diperiksa petugas.
+          </p>
+          <p className="mt-2 rounded-lg border border-amber-200 bg-white/70 px-3 py-2 text-[11px] leading-5 text-amber-900">
+            {KETERANGAN_STATUS_KYC[status]}
+          </p>
+          {onBukaKyc !== undefined && (
+            <Button type="button" className="mt-3 min-h-11 gap-1.5" onClick={onBukaKyc}>
+              {menunggu ? "Lihat status verifikasi" : "Lanjutkan verifikasi"}
+              <ArrowRight className="size-4" aria-hidden />
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Jalur pengajuan cepat yang membaca KYC sendiri. Dipakai tab "Ajukan Pinjaman"
+ * supaya nasabah terverifikasi tidak perlu mencari formulir satu halaman di
+ * dalam halaman KYC; nasabah yang belum terverifikasi melihat gerbangnya lebih
+ * dulu. Di modul KYC, `KycSection` tetap memakai `PengajuanCepatSection`
+ * langsung karena datanya sudah ada di sana.
+ */
+export function PengajuanCepatDariKyc({
+  onBukaKyc,
+  onCreated,
+}: {
+  onBukaKyc?: () => void;
+  onCreated?: (nomorReferensi: string) => void;
+}) {
+  const data = useQuery(api.kyc.kycSaya, {});
+
+  if (data === undefined) {
+    return (
+      <div
+        role="status"
+        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-10 text-sm text-muted-foreground"
+      >
+        <Loader2 className="size-4 animate-spin" /> Memuat status verifikasi…
+      </div>
+    );
+  }
+
+  if (data === null || !isKycVerified(data.status)) {
+    return <GerbangKycAwal status={data?.status ?? "NOT_STARTED"} onBukaKyc={onBukaKyc} />;
+  }
+
+  return (
+    <PengajuanCepatSection
+      ktp={{
+        namaLengkap: data.isian.namaLengkap,
+        nik: data.isian.nik,
+        nomorWhatsApp: data.isian.nomorWhatsApp,
+        penghasilanBulanan: penghasilanDariTeks(data.isian.penghasilan),
+        sumberPenghasilan: data.isian.sumberPenghasilan,
+        namaBank: data.isian.namaBank,
+        nomorRekening: data.isian.nomorRekening,
+        dokKtpId: data.dokumen.ktpId,
+        dokSelfieKtpId: data.dokumen.selfieKtpId,
+        dokSlipGajiId: data.dokumen.buktiPenghasilanId,
+      }}
+      tandaTanganAda={data.tandaTangan !== null}
+      onLihatDataKyc={onBukaKyc}
+      onBukaKyc={onBukaKyc}
+      onCreated={onCreated}
+    />
+  );
+}
+
+/**
  * Formulir pengajuan cepat satu halaman untuk nasabah yang KYC-nya sudah
  * TERVERIFIKASI. Pemanggil (`KycSection`) hanya perlu mengirim data KYC
  * tersimpan; tidak ada mutasi baru yang diperkenalkan di sini.
@@ -128,6 +239,7 @@ export function PengajuanCepatSection({
   ktp,
   tandaTanganAda,
   onLihatDataKyc,
+  onBukaKyc,
   onCreated,
 }: {
   ktp: DataKycTerverifikasi;
@@ -138,6 +250,8 @@ export function PengajuanCepatSection({
   tandaTanganAda: boolean;
   /** Pindah ke tampilan data KYC lengkap (bila nasabah ingin mengubah sesuatu). */
   onLihatDataKyc?: () => void;
+  /** Pindah ke halaman Verifikasi KYC; dipakai bila tanda tangan belum ada. */
+  onBukaKyc?: () => void;
   onCreated?: (nomorReferensi: string) => void;
 }) {
   // SISA batas pinjaman dari server (`nasabah.plafonRingkasSaya`): plafon master
@@ -684,7 +798,7 @@ export function PengajuanCepatSection({
               <div>
                 <dt className="text-muted-foreground">Potongan di muka</dt>
                 <dd className="font-semibold tabular-nums">{formatRupiah(q.totalPotonganDiMuka)}</dd>
-                <dd className="text-[10px] leading-4 text-muted-foreground">
+                <dd className="text-[11px] leading-4 text-muted-foreground">
                   Admin {formatRupiah(q.biayaAdmin)}
                   {q.diskonAdmin > 0 && ` (dibebaskan ${formatRupiah(q.diskonAdmin)})`}
                   {q.biayaAsuransi > 0 && ` + asuransi ${formatRupiah(q.biayaAsuransi)}`}
@@ -781,13 +895,26 @@ export function PengajuanCepatSection({
         )}
 
         {!tandaTanganAda && (
-          <p
+          <div
             role="status"
             className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900"
           >
-            Tanda tangan belum tersimpan di KYC. Bubuhkan dulu di kartu “Tanda tangan peminjam” di
-            atas halaman ini, lalu kirim pengajuan.
-          </p>
+            <p>
+              Tanda tangan belum tersimpan di KYC. Buka halaman Verifikasi KYC, bubuhkan tanda
+              tangan sekali, lalu kembali ke sini.
+            </p>
+            {onBukaKyc !== undefined && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2 min-h-9 border-amber-300 bg-white text-amber-900"
+                onClick={onBukaKyc}
+              >
+                Buka Verifikasi KYC
+              </Button>
+            )}
+          </div>
         )}
 
         <GerbangTurnstile className="mt-4" onSiap={setTurnstileSiap} />

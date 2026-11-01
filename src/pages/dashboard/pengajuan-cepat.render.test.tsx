@@ -56,6 +56,18 @@ ok(maskRekening(NOMOR) !== NOMOR, "topeng benar-benar menyembunyikan sebagian di
 // ===== 2. Sumber komponen pengajuan cepat =====
 const cepat = baca("./pengajuan-cepat-views.tsx");
 ada(cepat, "export function PengajuanCepatSection", "komponen pengajuan cepat ada");
+ada(
+  cepat,
+  "export function PengajuanCepatDariKyc",
+  "pintu pengajuan cepat dari dashboard tersedia",
+);
+ada(cepat, "GerbangKycAwal", "pengguna belum terverifikasi melihat gerbang lebih dulu");
+const formPengajuan = baca("./form-pengajuan-views.tsx");
+ada(
+  formPengajuan,
+  "<PengajuanCepatDariKyc",
+  "tab Ajukan Pinjaman memakai jalur cepat, bukan formulir panjang",
+);
 
 // Empat isian yang diminta produk.
 ada(cepat, "Nominal pinjaman", "isian nominal ada");

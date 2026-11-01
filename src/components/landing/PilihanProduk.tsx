@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { JudulBagian } from "./JudulBagian";
 
 const SOROTAN_KONVENSIONAL = [
-  "Tenor harian 7, 14, 21, atau 28 hari",
+  "Tenor harian 7–50 hari",
   "Cicilan bulanan 1, 3, atau 6 bulan",
   "Biaya admin 2% dipotong di muka",
 ];
@@ -68,7 +68,7 @@ export function PilihanProduk({
         </p>
         {ringkas ? (
           <p className="mt-2 text-sm leading-5 text-muted-foreground">
-            Harian 7/14/21/28 hari atau cicilan 1/3/6/9/12 bulan.
+            Harian 7–50 hari atau cicilan 1/3/6/9/12 bulan.
           </p>
         ) : (
           <ul className="mt-3 space-y-1.5">

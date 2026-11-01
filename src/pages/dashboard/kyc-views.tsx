@@ -1454,6 +1454,26 @@ type DraftKyc = {
   berkas: Record<SlotBerkasUi, BerkasDraft | null>;
 };
 
+/**
+ * Pengingat perangkat sebelum wizard KYC. KTP dan selfie sengaja hanya lewat
+ * kamera live; karena itu nasabah diberi tahu lebih awal, bukan setelah tombol
+ * kamera ditekan di laptop yang tidak punya webcam.
+ */
+function PemberitahuanKameraKyc() {
+  return (
+    <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-950">
+      <p className="flex items-center gap-1.5 font-semibold">
+        <Camera className="size-3.5 shrink-0" aria-hidden /> Siapkan KTP dan kamera
+      </p>
+      <p className="mt-1">
+        Foto KTP dan selfie diambil langsung dari kamera, bukan dari galeri. Jika
+        perangkat ini tidak punya kamera atau izinnya diblokir, buka PINDAI di ponsel
+        sebelum memulai; progres yang sudah tersimpan tidak hilang.
+      </p>
+    </div>
+  );
+}
+
 export function KycSection({
   tahapPilihan: tahapPilihanAtas = null,
   onPilihTahap,
@@ -1726,6 +1746,7 @@ export function KycSection({
             dokSlipGajiId: dokumenTersimpan.buktiPenghasilanId,
           }}
           onLihatDataKyc={() => setBukaDataKyc(true)}
+          onBukaKyc={() => setBukaDataKyc(true)}
         />
       </div>
     );
@@ -2082,6 +2103,7 @@ export function KycSection({
   if (!data.adaBaris && data.status === "NOT_STARTED") {
     return (
       <section className="space-y-4">
+        <PemberitahuanKameraKyc />
         {/* Tanpa pil status di sini: modul KYC hanya dirender di dalam tab KYC,
             jadi pil yang mengajak pindah ke tab itu hanya mengulang kartu di
             bawahnya. Keadaan "belum dimulai" sudah dinamai kartunya sendiri. */}
@@ -2126,6 +2148,7 @@ export function KycSection({
 
   return (
     <section className="space-y-4 rounded-3xl bg-slate-50 p-3 sm:p-4">
+      {!isKycVerified(data.status) && <PemberitahuanKameraKyc />}
       <AutosaveKyc
         kunci={kunciAutosave}
         terkunci={terkunci}

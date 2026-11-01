@@ -87,7 +87,7 @@ cek(
   ada(html, "Murabahah", "akad Murabahah disebut");
   ada(html, "Rahn", "akad Rahn disebut");
   cek(!html.includes("Qardh"), "akad Qardh tidak lagi ditawarkan");
-  ada(html, "Harian 7/14/21/28 hari", "ringkasan tenor konvensional");
+  ada(html, "Harian 7–50 hari", "ringkasan tenor konvensional");
   ada(html, 'href="/pinjaman/konvensional"', "tautan produk konvensional");
   ada(html, 'href="/pinjaman/syariah"', "tautan produk syariah");
   cek(!html.includes("undefined"), "kartu produk tanpa nilai kosong");

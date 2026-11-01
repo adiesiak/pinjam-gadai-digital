@@ -158,6 +158,18 @@ ok(
 
 // Setiap halaman dashboard wajib punya barisnya di menu.
 const sumberDashboard = bacaSumber("pages/Dashboard.tsx");
+ok(
+  "dashboard default ke Ringkasan, bukan daftar catatan",
+  sumberDashboard.includes('tabDariUrl ?? "ringkasan"'),
+);
+ok(
+  "dashboard memakai gerbang lokasi mode baca-saja",
+  sumberDashboard.includes("blokir={false}"),
+);
+ok(
+  "helpdesk nasabah terpasang di halaman Akun",
+  sumberDashboard.includes("<HelpdeskSayaView"),
+);
 const nilaiTabDashboard = [...sumberDashboard.matchAll(/<TabsContent value="([a-z]+)"/g)].map(
   (cocok) => cocok[1],
 );

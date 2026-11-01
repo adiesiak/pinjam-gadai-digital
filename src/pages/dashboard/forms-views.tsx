@@ -1073,6 +1073,22 @@ export function LoanForm({
     }
   };
 
+  // Gerbang KYC di AWAL formulir panjang. Server tetap penentu, tetapi peminjam
+  // tidak perlu mengisi seluruh formulir hanya untuk menemukan tombol kirim
+  // yang terkunci. Formulir lengkap tetap tersedia setelah identitas selesai.
+  if (kycQuery !== undefined && !kycSiap) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <PeringatanKyc onBukaKyc={onBukaKyc} />
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Setelah identitas terverifikasi, formulir ini bisa diisi dan data KYC
+          yang sudah diperiksa dipakai ulang. Untuk pinjaman harian, jalur cepat
+          satu halaman tersedia lebih dulu.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <JebakanFormulir nilai={jebakan} onUbah={setJebakan} />
@@ -2210,6 +2226,20 @@ export function PawnForm({
       setSubmitting(false);
     }
   };
+
+  // Gerbang KYC di awal formulir gadai: sama dengan pinjaman, server tetap
+  // penentu, tetapi pengguna tidak perlu mengisi formulir yang pasti ditolak.
+  if (kycQuery !== undefined && !kycSiap) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <PeringatanKyc onBukaKyc={onBukaKyc} />
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Selesaikan verifikasi identitas lebih dulu. Setelah itu data pemohon
+          yang sudah diperiksa dipakai ulang di formulir gadai.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">

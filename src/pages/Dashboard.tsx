@@ -2,9 +2,11 @@ import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, ChevronDown, FilePlus2, HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { tabDariParams } from "@/lib/notifikasi";
 import { Button } from "@/components/ui/button";
 import { JENIS_PENGAJUAN_AWAL, type JenisPengajuan } from "@/lib/jenisPengajuan";
+import { urlChatCs } from "@/lib/kontak";
 import { formatRupiah } from "@/lib/money";
 
 import { LocationGate } from "@/components/LocationGate";
@@ -34,6 +36,7 @@ import { PersetujuanVerifikasiPembayaran } from "@/components/PersetujuanVerifik
 import { FormPengajuanSection } from "./dashboard/form-pengajuan-views";
 import { AngsuranSection, TagihanBerikutnyaRingkas } from "./dashboard/angsuran-views";
 import { CatatanPinjamanSection } from "./dashboard/history-views";
+import { HelpdeskSayaView } from "./dashboard/helpdesk-views";
 import { MyContractsSection } from "./dashboard/contract-views";
 import { DaftarPengajuanSyariah } from "./dashboard/syariah-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
@@ -147,12 +150,15 @@ export default function Dashboard() {
   // pengguna tetap terkunci di tab itu setelah ia berpindah sendiri.
   const [parameter, setParameter] = useSearchParams();
   const tabDariUrl = tabDariParams(parameter);
-  const [tabLokal, setTabLokal] = useState<string>(() => tabDariUrl ?? "pinjaman");
+  // Ringkasan adalah halaman pertama yang dilihat peminjam: tagihan terdekat
+  // dan langkah berikutnya harus tampil sebelum daftar catatan. Tautan
+  // `?tab=…` tetap menang supaya notifikasi bisa membuka halaman yang dimaksud.
+  const [tabLokal, setTabLokal] = useState<string>(() => tabDariUrl ?? "ringkasan");
   const activeTab = tabDariUrl ?? tabLokal;
   // Profil dan KYC berbagi satu halaman Akun. Nilai tab lama tetap diterima
   // agar tautan notifikasi `?tab=diri`/`?tab=kyc` membuka subbagian yang benar.
   const tabTampil = activeTab === "diri" || activeTab === "kyc" ? "akun" : activeTab;
-  const [bagianAkun, setBagianAkun] = useState<"diri" | "kyc">(
+  const [bagianAkun, setBagianAkun] = useState<"diri" | "kyc" | "bantuan">(
     activeTab === "kyc" ? "kyc" : "diri",
   );
   const gantiTab = (value: string) => {
@@ -175,7 +181,7 @@ export default function Dashboard() {
     if (activeTab === "diri" || activeTab === "kyc") setBagianAkun(activeTab);
   }, [activeTab]);
 
-  const pilihBagianAkun = (bagian: "diri" | "kyc") => {
+  const pilihBagianAkun = (bagian: "diri" | "kyc" | "bantuan") => {
     setBagianAkun(bagian);
     if (activeTab !== "akun") gantiTab("akun");
   };
@@ -446,7 +452,7 @@ export default function Dashboard() {
     // Gerbang lokasi wajib: Peminjam tidak bisa memakai dashboard tanpa GPS
     // aktif (heartbeat ke server). Admin dan penyedia dana dikecualikan, sama
     // seperti PERAN_WAJIB_LOKASI di convex/lokasi.ts (hanya peminjam/member).
-    <LocationGate aktif={role !== "admin" && role !== "dana"}>
+    <LocationGate aktif={role !== "admin" && role !== "dana"} blokir={false}>
       <div className="bg-ambient-glass flex min-h-screen flex-col overflow-x-clip text-slate-900">
         <SkipLink />
         {/* Bar pengumuman global dirender di main.tsx (AnnouncementBar). */}
@@ -666,6 +672,7 @@ export default function Dashboard() {
                       [
                         { value: "diri", label: "Profil & Rekening" },
                         { value: "kyc", label: "Verifikasi KYC" },
+                        { value: "bantuan", label: "Bantuan" },
                       ] as const
                     ).map((bagian) => (
                       <button
@@ -687,13 +694,39 @@ export default function Dashboard() {
                   <div className={bagianAkun === "kyc" ? "mt-6 max-w-3xl" : "mt-6"}>
                     {bagianAkun === "diri" ? (
                       <DataDiriSection />
-                    ) : (
+                    ) : bagianAkun === "kyc" ? (
                       /* Terpisah dari formulir pengajuan: menyimpan KYC tidak
                          membuat catatan pinjaman apa pun, dan status VERIFIED
                          bukan persetujuan pinjaman. Batas 48rem: sejak navigasi
                          tahap pindah ke sidebar, kolom isi KYC jadi lebih lebar
                          daripada formulirnya. */
                       <KycSection tahapPilihan={tahapKyc} onPilihTahap={setTahapKyc} />
+                    ) : (
+                      <section className="space-y-4">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                          <p className="text-sm font-semibold text-navy">Bantuan &amp; pengaduan</p>
+                          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
+                            Sampaikan nominal, status, atau prosedur yang tidak sesuai. Pengaduan
+                            tercatat di PINDAI dan balasan petugas muncul di daftar bawah. Untuk
+                            hal mendesak, gunakan WhatsApp CS.
+                          </p>
+                          <a
+                            href={urlChatCs("Halo PINDAI, saya butuh bantuan terkait akun saya.")}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
+                          >
+                            <IkonWhatsapp className="size-4 text-emerald-700" />
+                            Chat CS di WhatsApp
+                          </a>
+                        </div>
+                        <HelpdeskSayaView
+                          loans={(loans ?? []).map((loan) => ({
+                            _id: loan._id,
+                            nomorReferensi: loan.nomorReferensi,
+                          }))}
+                        />
+                      </section>
                     )}
                   </div>
                 </TabsContent>

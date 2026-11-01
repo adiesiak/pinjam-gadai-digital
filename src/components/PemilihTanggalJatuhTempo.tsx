@@ -63,11 +63,11 @@ function HariTenor({
         {total === null ? (
           // Ruang kosong yang sama tinggi, supaya angka tanggal tidak melompat
           // saat berpindah baris ke tanggal yang tidak sah.
-          <span aria-hidden className="mt-0.5 text-[8px] leading-[10px]">
+          <span aria-hidden className="mt-0.5 text-[10px] leading-[12px]">
             &nbsp;
           </span>
         ) : (
-          <span className="mt-0.5 text-[8px] font-medium tabular-nums opacity-80">
+          <span className="mt-0.5 text-[10px] font-medium tabular-nums opacity-80">
             {formatRupiahRingkas(total)}
           </span>
         )}

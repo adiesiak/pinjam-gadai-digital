@@ -5,7 +5,7 @@
  * sebesar ini membuat berkas halaman sulit dibaca, padahal batasnya jelas
  * (masukan nominal/tenor, hasil hitung, ajakan membuat akun).
  *
- * Skema harian: Rp 100 rb sampai 1 jt / maks 28 hari. Skema bulanan: sampai
+ * Skema harian: Rp 100 rb sampai 1 jt / tenor 7–50 hari. Skema bulanan: sampai
  * plafon tertinggi yang boleh disimpan admin (Rp 10 jt) dengan tenor
  * 1/3/6/9/12 bulan (DP 0%, potongan di muka 2% untuk semua tenor; bunga FLAT
  * dari pokok penuh mengikuti tarif akun, bawaan 30%/8%/12%/10%/8% per bulan
@@ -30,10 +30,10 @@ import {
   persenBungaHarian,
   PINDAI_PRICING,
   quoteLoanBunga,
-  sesuaikanTenorHarian,
+  TENOR_HARIAN_MAKS,
   TENOR_OPTIONS,
   tenorHarianDefault,
-  tenorHarianTersedia,
+  tenorHarianEfektif,
   type LoanQuote,
 } from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
@@ -84,9 +84,9 @@ export function LiveCalculator({
   const [amount, setAmount] = useState<Rupiah>(LOAN_LIMITS.maxPokok);
   const [tenor, setTenor] = useState<number>(tenorHarianDefault(LOAN_LIMITS.maxPokok));
   const [tenorBulan, setTenorBulan] = useState<number>(3);
-  // Tenor yang ditampilkan selalu tenor sah untuk nominal saat ini.
-  const tenorHarian = sesuaikanTenorHarian(amount, tenor);
-  const tenorHarianOpsi = tenorHarianTersedia(amount);
+  // Tenor yang ditampilkan selalu tenor sah untuk nominal saat ini. Tenor bebas
+  // 8–27 dan perpanjangan 29–50 dipertahankan, bukan digeser ke 7/14/21/28.
+  const tenorHarian = tenorHarianEfektif(amount, tenor);
   const tarifHarian = persenBungaHarian(amount, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
   const quote: LoanQuote = useMemo(
     () => quoteLoanBunga(amount, tarifHarian),
@@ -112,7 +112,7 @@ export function LiveCalculator({
 
   const pilihNominal = (nilai: number) => {
     setAmount(nilai);
-    setTenor((sebelumnya) => sesuaikanTenorHarian(nilai, sebelumnya));
+    setTenor((sebelumnya) => tenorHarianEfektif(nilai, sebelumnya));
   };
 
   const gantiSkema = (next: "harian" | "bulanan") => {
@@ -122,12 +122,12 @@ export function LiveCalculator({
         : Math.min(Math.max(amount, MIN_SLIDER), MAX_SLIDER);
     setSkema(next);
     setAmount(nilai);
-    if (next === "harian") setTenor(sesuaikanTenorHarian(nilai, tenor));
+    if (next === "harian") setTenor((sebelumnya) => tenorHarianEfektif(nilai, sebelumnya));
   };
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card p-4 sm:p-6">
-      {/* Dua skema harga: harian (s.d. 1 jt / 28 hari) atau bulanan. */}
+      {/* Dua skema harga: harian (s.d. 1 jt / 7–50 hari) atau bulanan. */}
       <div
         role="group"
         aria-label="Skema pinjaman"
@@ -245,21 +245,17 @@ export function LiveCalculator({
                 </button>
               ))
             : TENOR_OPTIONS.map((t) => {
-                const aktif = (tenorHarianOpsi as readonly number[]).includes(t);
                 const dipilih = tenorHarian === t;
                 return (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setTenor(t)}
-                    disabled={!aktif}
                     aria-pressed={dipilih}
-                    className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground/45 ${kelasFokus} ${
+                    className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${kelasFokus} ${
                       dipilih
                         ? "border-primary text-primary"
-                        : aktif
-                          ? "border-border text-muted-foreground hover:bg-muted"
-                          : ""
+                        : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     {dipilih && (
@@ -275,10 +271,39 @@ export function LiveCalculator({
               })}
         </div>
         {!bulanan && (
-          <p className="mt-2 text-sm leading-5 text-muted-foreground">
-            Bunga <strong className="font-semibold text-foreground">{tarifHarian}%</strong> untuk
-            tenor {tenorHarian} hari. Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari.
-          </p>
+          <>
+            <div className="mt-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="calc-tenor-bebas" className="text-xs font-medium text-foreground">
+                  Tanggal fleksibel
+                </label>
+                <span className="text-xs font-semibold tabular-nums text-foreground">
+                  {tenorHarian} hari
+                </span>
+              </div>
+              <input
+                id="calc-tenor-bebas"
+                type="range"
+                min={TENOR_OPTIONS[0]}
+                max={TENOR_HARIAN_MAKS}
+                step={1}
+                value={tenorHarian}
+                onChange={(e) => setTenor(Number(e.target.value))}
+                aria-valuetext={`${tenorHarian} hari`}
+                className={`mt-2 w-full accent-primary ${kelasFokus}`}
+              />
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Pilih {TENOR_OPTIONS[0]}–{TENOR_HARIAN_MAKS} hari. Semakin lama tenor, semakin besar
+                bunga; hari ke-29 dan seterusnya memakai tarif perpanjangan.
+              </p>
+            </div>
+            <p className="mt-2 text-sm leading-5 text-muted-foreground">
+              Bunga <strong className="font-semibold text-foreground">{tarifHarian}%</strong> flat
+              untuk tenor {tenorHarian} hari (bukan bunga per tahun). Nominal ini menerima tenor{" "}
+              {TENOR_OPTIONS[0]}–{TENOR_HARIAN_MAKS} hari. Promo yang berlaku diterapkan saat
+              pengajuan di aplikasi.
+            </p>
+          </>
         )}
       </div>
 
@@ -321,11 +346,19 @@ export function LiveCalculator({
               ] as Array<[string, string, boolean?]>)
             : ([
                 [
-                  `Bunga ${tarifHarian}% · tenor ${tenorHarian} hari`,
+                  `Bunga ${tarifHarian}% · tenor ${tenorHarian} hari (flat)`,
                   formatRupiah(quote.bunga),
                   false,
                 ],
-                ["Dana bersih (setelah seluruh potongan di muka)", formatRupiah(quote.danaBersihDitransfer), true],
+                ["Biaya admin (dipotong di muka)", formatRupiah(quote.biayaAdmin), false],
+                ["Cair ekspres (dipotong di muka)", formatRupiah(quote.biayaExpress), false],
+                ["Total potongan di muka", formatRupiah(quote.totalPotonganDiMuka), false],
+                ["Dana bersih diterima", formatRupiah(quote.danaBersihDitransfer), true],
+                [
+                  "Total biaya pinjaman (bunga + potongan)",
+                  formatRupiah((quote.bunga + quote.totalPotonganDiMuka) as Rupiah),
+                  false,
+                ],
               ] as Array<[string, string, boolean?]>)
         ).map(([term, value, strong]) => (
           <div key={term} className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">

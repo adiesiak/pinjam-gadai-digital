@@ -277,7 +277,7 @@ export function PaymentDueAlert({
       </div>
 
       <p className="mt-3 text-[11px] leading-5 text-muted-foreground">
-        Tanggal, status, dan nominal mengikuti pencatatan ledger internal PINDAI. Ini pengingat
+        Tanggal, status, dan nominal mengikuti catatan PINDAI. Ini pengingat
         internal — bukan tagihan, bukti transfer, atau kewajiban pembayaran aktual.
       </p>
     </section>

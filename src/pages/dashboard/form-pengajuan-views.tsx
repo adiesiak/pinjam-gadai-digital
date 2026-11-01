@@ -46,6 +46,7 @@ import {
 
 import { LoanForm, PawnForm } from "./forms-views";
 import { KreditBarangForm, KreditBarangSection } from "./kredit-views";
+import { PengajuanCepatDariKyc } from "./pengajuan-cepat-views";
 import { SyariahSection } from "./syariah-views";
 
 /** Ikon tiap jenis — dipetakan di sini supaya `lib/jenisPengajuan` tetap bebas React. */
@@ -193,6 +194,18 @@ export function FormPengajuanSection({
   // produk yang sudah ada, syariah memakai formulir akad sendiri. Sakelar ini
   // lokal karena hanya menyusun tampilan; server tetap memvalidasi semuanya.
   const [jalur, setJalur] = useState<"konvensional" | "syariah">(jalurAwal);
+  // Jalur pinjaman tunai dibuka dalam bentuk cepat. Formulir panjang tetap
+  // tersedia untuk pinjaman bulanan atau kebutuhan yang tidak tercakup empat
+  // isian cepat, tetapi bukan lagi halaman pertama yang harus dilewati.
+  const [modePinjaman, setModePinjaman] = useState<"cepat" | "lengkap">("cepat");
+  const pilihJalur = (baru: "konvensional" | "syariah") => {
+    setModePinjaman("cepat");
+    setJalur(baru);
+  };
+  const ubahJenis = (baru: JenisPengajuan) => {
+    setModePinjaman("cepat");
+    onUbahJenis(baru);
+  };
 
   return (
     <section className="min-w-0">
@@ -227,7 +240,7 @@ export function FormPengajuanSection({
           ringkas
           className="mt-3"
           aktif={jalur}
-          onPilih={setJalur}
+          onPilih={pilihJalur}
         />
       </div>
 
@@ -259,7 +272,7 @@ export function FormPengajuanSection({
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <PemilihJenisPengajuan
               nilai={aktif.id}
-              onUbah={onUbahJenis}
+              onUbah={ubahJenis}
               daftar={tersedia}
             />
           </div>
@@ -267,14 +280,38 @@ export function FormPengajuanSection({
           {/* `key` memaksa formulir lama dilepas saat jenis berganti: isian tidak
               berpindah ke formulir lain, dan animasi masuknya diputar ulang. */}
           <div key={aktif.id} className="mt-6 min-w-0 animate-masuk">
-            {aktif.id === "pinjaman" && (
-              <LoanForm
-                onBukaKyc={onBukaKyc}
-                onCreated={(ref) =>
-                  toast.success(`Catatan pengajuan tersimpan: referensi ${ref}.`)
-                }
-              />
-            )}
+            {aktif.id === "pinjaman" &&
+              (modePinjaman === "cepat" ? (
+                <div className="space-y-3">
+                  <PengajuanCepatDariKyc onBukaKyc={onBukaKyc} />
+                  <p className="text-center text-xs leading-5 text-muted-foreground">
+                    Butuh pinjaman bulanan atau jadwal khusus?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setModePinjaman("lengkap")}
+                      className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Buka formulir lengkap
+                    </button>
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setModePinjaman("cepat")}
+                    className="text-xs font-semibold text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    ← Kembali ke pengajuan cepat
+                  </button>
+                  <LoanForm
+                    onBukaKyc={onBukaKyc}
+                    onCreated={(ref) =>
+                      toast.success(`Catatan pengajuan tersimpan: referensi ${ref}.`)
+                    }
+                  />
+                </div>
+              ))}
             {aktif.id === "gadai" && (
               <PawnForm
                 onBukaKyc={onBukaKyc}

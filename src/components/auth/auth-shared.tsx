@@ -186,7 +186,7 @@ export function KepalaMerekAuth() {
 
 /** Tiga lencana fitur yang meyakinkan pengunjung sebelum mengisi formulir. */
 const LENCANA_FITUR: { label: string; ikon: LucideIcon }[] = [
-  { label: "Pencatatan ledger", ikon: BadgeCheck },
+  { label: "Catatan PINDAI", ikon: BadgeCheck },
   { label: "Pencatatan gadai", ikon: Vault },
   { label: "Jadwal angsuran", ikon: CalendarClock },
 ];

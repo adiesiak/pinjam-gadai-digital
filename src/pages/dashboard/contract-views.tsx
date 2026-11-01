@@ -205,7 +205,7 @@ function LoanContractCard({ c }: { c: Pinjaman }) {
               : status === "manual_diterima"
                 ? `Bukti TTD manual diterima${c.ttdManualPada === null ? "" : ` ${new Date(c.ttdManualPada).toLocaleString("id-ID")}`}${c.ttdManualOleh === null ? "" : ` oleh ${c.ttdManualOleh}`}.`
                 : status === "elektronik"
-                  ? "Perjanjian sudah ditandatangani secara elektronik dan tersimpan di ledger internal."
+                  ? "Perjanjian sudah ditandatangani secara elektronik dan tersimpan di catatan PINDAI."
                   : "Setujui syarat, lalu pilih tanda tangan elektronik atau TTD manual."}
           </p>
         </div>
@@ -396,7 +396,7 @@ function PawnContractCard({ c }: { c: Gadai }) {
               : status === "manual_diterima"
                 ? `Bukti TTD manual diterima${c.ttdManualPada === null ? "" : ` ${new Date(c.ttdManualPada).toLocaleString("id-ID")}`}${c.ttdManualOleh === null ? "" : ` oleh ${c.ttdManualOleh}`}.`
                 : status === "elektronik"
-                  ? "Akad sudah ditandatangani secara elektronik dan tersimpan di ledger internal."
+                  ? "Akad sudah ditandatangani secara elektronik dan tersimpan di catatan PINDAI."
                   : "Setujui syarat, lalu pilih tanda tangan elektronik atau TTD manual."}
           </p>
         </div>

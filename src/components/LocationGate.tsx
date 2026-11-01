@@ -57,11 +57,11 @@ const PERIKSA_LAYANAN_MS = 30_000;
 /**
  * Gerbang lokasi wajib Peminjam.
  *
- * Selama gerbang menyala (Pengaturan Sistem → lokasiWajib), dashboard Peminjam
- * TIDAK bisa dipakai tanpa titik GPS yang mengalir: perangkat mengirim
+ * Selama gerbang menyala (Pengaturan Sistem → lokasiWajib), perangkat mengirim
  * heartbeat tiap ±60 detik ke server, dan server menolak semua aksi finansial
  * bila titik terakhir kedaluwarsa. Jadi mematikan lokasi = tidak bisa
- * bertransaksi — bukan sekadar peringatan.
+ * bertransaksi — bukan sekadar peringatan. Dengan `blokir={false}`, data yang
+ * bersifat membaca tetap tampil dan pengguna hanya melihat peringatan.
  *
  * Dua jalur pemantauan:
  *  - Browser (`navigator.geolocation`): hanya mengalir selagi tab terbuka.
@@ -80,15 +80,23 @@ const PERIKSA_LAYANAN_MS = 30_000;
  * Batas yang ditampilkan jujur ke pengguna: browser tidak bisa memaksa tombol
  * GPS menyala dan tidak bisa melacak saat tab ditutup. Itu keterbatasan
  * platform, bukan pengaturan PINDAI.
+ *
+ * `blokir={false}` dipakai dashboard: data tagihan dan status tetap boleh
+ * dibaca tanpa lokasi, sedangkan pengajuan/pembayaran tetap ditolak server
+ * sampai syarat lokasi terpenuhi. Gerbang penuh hanya dipasang di layar yang
+ * memang tidak ada gunanya tanpa lokasi.
  */
 type StatusIzin = IzinLokasi;
 
 export function LocationGate({
   children,
   aktif = true,
+  blokir = true,
 }: {
   children: React.ReactNode;
   aktif?: boolean;
+  /** Bila false, tampilkan isi + peringatan alih-alih layar penuh. */
+  blokir?: boolean;
 }) {
   const status = useQuery(api.lokasi.statusSaya);
   const catat = useMutation(api.lokasi.catatLokasi);
@@ -508,6 +516,7 @@ export function LocationGate({
   if (!aktif) return <>{children}</>;
 
   if (status === undefined) {
+    if (!blokir) return <>{children}</>;
     return (
       <LayarPenuh>
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -521,6 +530,68 @@ export function LocationGate({
   // GPS admin tetap tidak perlu). Bilah pratinjau di atas layar sudah
   // menjelaskan bahwa sesi ini bukan sesi nasabah.
   if (status.pratinjau) return <>{children}</>;
+
+  // Dashboard memakai mode lunak: semua yang bersifat membaca tetap tampil.
+  // Pesan di bawah menjelaskan mengapa aksi finansial belum bisa dilakukan,
+  // tanpa menyembunyikan tagihan yang justru perlu dilihat peminjam.
+  if (!blokir) {
+    let pesanLunak: string | null = null;
+    if (status.wajibAplikasiNative) {
+      if (!perangkat.native) {
+        pesanLunak =
+          "Buka PINDAI dari aplikasi untuk mengajukan atau membayar. Anda tetap bisa membaca tagihan di sini.";
+      } else if (!status.perangkatTerdaftar) {
+        pesanLunak =
+          "Perangkat aplikasi sedang didaftarkan. Anda tetap bisa membaca tagihan di sini.";
+      } else if (status.sumber === "web") {
+        pesanLunak =
+          "Titik lokasi terakhir berasal dari browser. Buka aplikasi PINDAI untuk transaksi.";
+      }
+    }
+    if (pesanLunak === null && status.wajib !== false && izin !== "siap") {
+      pesanLunak = !didukung
+        ? "Perangkat atau browser ini tidak menyediakan lokasi. Anda tetap bisa membaca tagihan; pengajuan dan pembayaran memerlukan lokasi."
+        : izin === "palsu"
+          ? "Koordinat lokasi perlu diperiksa. Anda tetap bisa membaca tagihan; transaksi menunggu lokasi yang sah."
+          : izin === "ditolak"
+            ? "Izin lokasi belum diberikan. Anda tetap bisa membaca tagihan; pengajuan dan pembayaran memerlukan lokasi."
+            : izin === "memeriksa"
+              ? "Sedang memeriksa lokasi. Anda bisa membaca tagihan sekarang; transaksi menunggu titik lokasi."
+              : "GPS belum aktif. Anda tetap bisa membaca tagihan; pengajuan dan pembayaran memerlukan lokasi.";
+    }
+
+    return (
+      <>
+        {children}
+        {pesanLunak !== null && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed inset-x-3 bottom-24 z-40 mx-auto max-w-2xl rounded-2xl border border-amber-300 bg-amber-50/95 p-3 text-amber-950 shadow-lg backdrop-blur lg:bottom-6"
+          >
+            <div className="flex items-start gap-2.5">
+              <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold">Mode baca-saja · lokasi belum aktif</p>
+                <p className="mt-0.5 text-[11px] leading-5">{pesanLunak}</p>
+              </div>
+              {didukung && izin !== "siap" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-9 shrink-0 border-amber-300 bg-white text-amber-950 hover:bg-amber-100"
+                  onClick={() => cobaLagi()}
+                >
+                  Coba lagi
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   // Kebijakan "wajib aplikasi" diperiksa LEBIH DULU daripada gerbang lokasi:
   // server menolak transaksi berdasarkan kebijakan ini walau gerbang lokasi

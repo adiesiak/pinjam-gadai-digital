@@ -82,7 +82,7 @@ const STATUS_META: Record<string, { label: string; className: string; descriptio
     label: "Alokasi historis",
     className: "gradient-primary border-0 text-primary-foreground",
     description:
-      "Dana pembiayaan sudah tersalurkan. Kirim bukti transfer cicilan di bawah; admin mencocokkannya dengan mutasi bank lalu mencatatnya di ledger.",
+      "Dana pembiayaan sudah tersalurkan. Kirim bukti transfer cicilan di bawah; admin mencocokkannya dengan mutasi bank lalu mencatatnya di catatan PINDAI.",
   },
   lunas: {
     label: "Lunas",
@@ -252,6 +252,20 @@ export function KreditBarangForm({
       setSubmitting(false);
     }
   };
+
+  // Gerbang KYC di awal formulir kredit barang: server tetap penentu, tetapi
+  // pengguna tidak perlu mengisi data barang dan rekening hanya untuk ditolak.
+  if (kycQuery !== undefined && !kycSiap) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <PeringatanKyc onBukaKyc={onBukaKyc} />
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          Selesaikan verifikasi identitas lebih dulu. Setelah itu data pemohon
+          yang sudah diperiksa dipakai ulang di formulir kredit barang.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
