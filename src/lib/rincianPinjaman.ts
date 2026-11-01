@@ -397,7 +397,32 @@ export function namaBerkasRincian(dok: DokumenRincianPinjaman): string {
   return `PINDAI-Rincian-Pinjaman-${referensi === "" ? "pindai" : referensi}.pdf`;
 }
 
-/** Pesan WhatsApp: ringkas, karena rincian penuhnya ada di lampiran PDF. */
+/**
+ * Baris potongan di muka untuk pesan WhatsApp.
+ *
+ * Pesan WhatsApp harus tetap bisa dibaca sendiri walau gateway menolak
+ * lampiran PDF. Karena itu potongan dan dana bersih ditulis di badan pesan,
+ * bukan hanya disimpan di dokumen.
+ */
+function barisPotonganWhatsapp(dok: DokumenRincianPinjaman): string[] {
+  const dana = dok.kelompok.find((k) => k.judul === "Dana yang Anda terima");
+  if (dana === undefined) return [];
+  const potongan = dana.baris.filter(
+    (baris) => baris.nada === "potongan" && baris.nilai !== rp(0),
+  );
+  const bersih = dana.baris.find((baris) => baris.nada === "bersih");
+  if (potongan.length === 0 && bersih === undefined) return [];
+
+  const baris = ["", "Rincian potongan:"];
+  for (const item of potongan) baris.push(`- ${item.label}: ${item.nilai}`);
+  if (bersih !== undefined) baris.push(`${bersih.label}: ${bersih.nilai}`);
+  return baris;
+}
+
+/**
+ * Pesan WhatsApp: ringkas, tetapi memuat potongan di muka dan dana bersih.
+ * Bunga dan jadwal lengkap tetap ada di lampiran PDF.
+ */
 export function teksRincianWhatsapp(dok: DokumenRincianPinjaman): string {
   const baris: string[] = [
     `Halo ${dok.namaPeminjam}, berikut rincian pinjaman PINDAI ${dok.nomorReferensi}.`,
@@ -405,6 +430,7 @@ export function teksRincianWhatsapp(dok: DokumenRincianPinjaman): string {
     `Status: ${dok.statusLabel}`,
     `Pokok pinjaman: ${rp(dok.pokokPinjaman)}`,
     `Tenor: ${dok.tenorTeks}`,
+    ...barisPotonganWhatsapp(dok),
   ];
   if (dok.totalKewajiban !== null) {
     baris.push(
@@ -416,7 +442,7 @@ export function teksRincianWhatsapp(dok: DokumenRincianPinjaman): string {
   if (dok.jatuhTempoTeks !== null) baris.push(`Jatuh tempo: ${dok.jatuhTempoTeks}`);
   baris.push(
     "",
-    "Rincian lengkap (potongan di muka, bunga, dan jadwal bayar) kami lampirkan dalam berkas PDF.",
+    "Rincian lengkap (bunga dan jadwal bayar) kami lampirkan dalam berkas PDF.",
     "Simpan dokumen ini. PINDAI tidak pernah meminta kode OTP atau kata sandi lewat WhatsApp.",
   );
   return baris.join("\n");

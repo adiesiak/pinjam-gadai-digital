@@ -129,7 +129,23 @@ for (const teks of [
 
 // Nama peminjam di-escape sebelum masuk badan email.
 ok(htmlRincianEmail(bulanan).includes("Budi &lt;Peminjam&gt;"), "nama di-escape di HTML");
-ok(teksRincianWhatsapp(harian).includes("PNJ-2026-0012"), "pesan WA memuat nomor referensi");
+const waHarian = teksRincianWhatsapp(harian);
+ok(waHarian.includes("PNJ-2026-0012"), "pesan WA memuat nomor referensi");
+
+// Potongan di muka dan dana bersih harus terbaca di pesan WA, bukan hanya PDF.
+ok(waHarian.includes("Rincian potongan:"), "pesan WA memuat judul rincian potongan");
+const danaHarian = harian.kelompok.find((k) => k.judul === "Dana yang Anda terima");
+const potonganHarian =
+  danaHarian?.baris.filter((b) => b.nada === "potongan" && b.nilai !== formatRupiah(0)) ?? [];
+ok(potonganHarian.length > 0, "dokumen harian punya komponen potongan");
+for (const b of potonganHarian) {
+  ok(waHarian.includes(`- ${b.label}: ${b.nilai}`), `pesan WA memuat potongan ${b.label}`);
+}
+const bersihHarian = danaHarian?.baris.find((b) => b.nada === "bersih");
+ok(
+  bersihHarian !== undefined && waHarian.includes(`${bersihHarian.label}: ${bersihHarian.nilai}`),
+  "pesan WA memuat dana bersih ke rekening",
+);
 
 eq(namaBerkasRincian(bulanan), "PINDAI-Rincian-Pinjaman-PNJ-2026-0099.pdf", "nama berkas PDF");
 
