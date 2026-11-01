@@ -122,7 +122,7 @@ export type PilihanSiklus = "cairkan" | "putar_ulang";
 export function labelPilihanSiklus(
   pilihan: PilihanSiklus | undefined,
 ): string {
-  return pilihan === "putar_ulang" ? "Putar lagi 30 hari" : "Cairkan ke rekening";
+  return pilihan === "putar_ulang" ? "Putar lagi 30 hari" : "Cairkan ke dompet";
 }
 
 /**

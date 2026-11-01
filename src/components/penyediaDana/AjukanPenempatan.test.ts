@@ -104,8 +104,16 @@ cek(
   "tiga status setoran diterjemahkan ke bahasa layar",
 );
 cek(
-  /isPendana\s*&&\s*\(\s*<BatasBagian[\s\S]{0,160}<AjukanPenempatan/.test(halaman),
+  /isPendana\s*&&[\s\S]{0,500}<BatasBagian nama="pengajuan penempatan">[\s\S]{0,120}<AjukanPenempatan/.test(
+    halaman,
+  ),
   "kartu setoran hanya tampil untuk akun pemilik portofolio",
+);
+cek(
+  komponen.includes("statusPersetujuanRisiko") &&
+    komponen.includes("perluSetuju") &&
+    komponen.includes("bolehSetor"),
+  "tombol setoran menunggu persetujuan risiko akun",
 );
 cek(
   !komponen.includes("—"),

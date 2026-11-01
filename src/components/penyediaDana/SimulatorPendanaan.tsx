@@ -1,8 +1,8 @@
 /**
  * Simulator pendanaan untuk ruang pendana.
  *
- * Satu tempat untuk tiga jalur: konvensional (skema tetap 30% per siklus 30
- * hari), Murabahah, dan Rahn. Angka konvensional memakai
+ * Satu tempat untuk tiga jalur: konvensional (acuan marjin 30% untuk pinjaman
+ * harian), Murabahah, dan Rahn. Angka konvensional memakai
  * `lib/imbalPendana`, angka syariah memakai `lib/syariah/*`, jadi simulator
  * tidak punya rumus sendiri yang bisa menyimpang dari catatan portofolio.
  *
@@ -105,7 +105,8 @@ export function SimulatorPendanaan() {
               nilai={rupiah(perSiklus.keuntungan * siklus)}
             />
             <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
-              Jaminan fisik yang mengamankan dana: {syarat.ringkas.join(" · ")}.
+              Syarat underwriting yang diperiksa: {syarat.ringkas.join(" · ")}. Ini
+              indikasi kelayakan, bukan jaminan pembayaran atau jaminan pokok.
             </p>
           </>
         );
@@ -381,8 +382,9 @@ export function SimulatorPendanaan() {
             </>
           )}
           <p className="mt-2 text-[11px] leading-5 text-slate-500">
-            Estimasi, bukan jaminan. Imbal hasil baru menjadi uang Anda setelah
-            pinjaman lunas.
+            Estimasi, bukan jaminan. Imbal hasil dicairkan pada jatuh tempo siklus
+            30 hari; bila pinjaman belum lunas, kekurangan ditutup akun jaminan
+            platform — bukan LPS atau pihak ketiga.
           </p>
         </div>
       </div>

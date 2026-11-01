@@ -40,6 +40,7 @@ import { beriTiketPendanaan } from "./doorprize";
 import { buatSiklusUntukAlokasi, kewajibanSiklusAktif } from "./siklusPendana";
 import { potonganPutaran, sisaHariSiklus } from "../lib/siklusPendana";
 import { bagiMargin } from "../lib/kebijakanPinjaman";
+import { RISK_TEXT_VERSION } from "../lib/teksRisikoPendanaan";
 
 /** Rentang bisnis alokasi pendanaan per transaksi. */
 export const MIN_ALOKASI = 100_000;
@@ -312,6 +313,19 @@ export const requestDeposit = mutation({
     if (config?.manualDepositEnabled !== true) {
       throw new Error("Penerimaan setoran penyedia dana belum diaktifkan tim operasional.");
     }
+    // Setoran adalah langkah pertama yang mengikat uang. Persetujuan risiko
+    // versi yang berlaku harus sudah tercatat atas nama akun ini — bukan hanya
+    // ditampilkan di halaman. UI juga menggerbangi tombolnya, tetapi server
+    // tetap memeriksa supaya permintaan langsung tidak bisa melewatinya.
+    const persetujuan = await ctx.db
+      .query("persetujuanRisikoPendana")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    if (!persetujuan.some((baris) => baris.versiTeks === RISK_TEXT_VERSION)) {
+      throw new Error(
+        "Setujui pernyataan risiko pendanaan versi terbaru dulu sebelum mengirim setoran.",
+      );
+    }
     if (args.metodePembayaran === "qris" &&
       (!config.qrisImageId || !(await ctx.storage.getUrl(config.qrisImageId)))) {
       throw new Error("QRIS belum tersedia; pilih transfer atau hubungi admin.");
@@ -417,9 +431,13 @@ export const myWallet = query({
     const imbalHasilDiharapkan =
       active.reduce((acc, f) => acc + f.imbalHasil, 0) +
       kreditAktif.reduce((acc, f) => acc + f.imbalHasil, 0);
+    // Dana yang masih terikat siklus berjalan tidak boleh ditarik lebih awal.
+    const terkunci = await kewajibanSiklusAktif(ctx, userId);
 
     return {
       saldo,
+      terkunci,
+      bisaDitarik: Math.max(0, saldo - terkunci),
       posisiAlokasi: active.length + kreditAktif.length,
       danaBekerja,
       imbalHasilDiharapkan,
@@ -930,6 +948,9 @@ export const requestWithdrawal = mutation({
     rejectUnverifiedMoneyMovement();
     await requireWaOtpIfEnabled(ctx, userId);
 
+    if (!Number.isSafeInteger(args.jumlah) || args.jumlah <= 0) {
+      throw new Error("Jumlah penarikan harus rupiah bulat positif.");
+    }
     const bank = args.namaBank.trim();
     const rek = args.nomorRekening.trim().replace(/\s+/g, "");
     if (bank.length < 2) {

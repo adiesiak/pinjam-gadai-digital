@@ -82,8 +82,12 @@ export function KalkulatorImbalPendana({
             Estimasi pendanaan
           </h2>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-            Tenor pendana tetap {TENOR_PENDANA_HARI} hari dengan imbal hasil{" "}
-            {PERSEN_IMBAL_PENDANA}% flat, terpisah dari tenor pinjaman nasabah.
+            Tenor pendana tetap {TENOR_PENDANA_HARI} hari. Pinjaman harian atau
+            tenor di bawah {TENOR_PENDANA_HARI} hari memakai acuan marjin{" "}
+            {PERSEN_IMBAL_PENDANA}% flat; pinjaman bulanan, gadai, kredit barang,
+            dan syariah memakai 78,33% dari marjin aktual produknya. Angka di
+            bawah adalah contoh marjin {PERSEN_IMBAL_PENDANA}%, bukan janji untuk
+            semua produk.
           </p>
         </div>
       </div>
@@ -112,7 +116,7 @@ export function KalkulatorImbalPendana({
             />
           </div>
           <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
-            {LABEL_TENOR_PENDANA} · {LABEL_YIELD_PENDANA}
+            {LABEL_TENOR_PENDANA} · contoh {LABEL_YIELD_PENDANA}
           </p>
         </div>
 
@@ -153,8 +157,11 @@ export function KalkulatorImbalPendana({
       </div>
 
       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-        Estimasi, bukan jaminan. Imbal Hasil baru menjadi uang Anda saat pinjaman
-        lunas; perpanjangan atau cicil pokok nasabah tidak mengubah angkanya.
+        Estimasi, bukan jaminan. Imbal Hasil dicairkan pada akhir siklus{" "}
+        {TENOR_PENDANA_HARI} hari. Bila pinjaman belum lunas, kekurangan ditutup
+        dari akun cadangan platform — bukan LPS atau pihak ketiga — lalu pemulihan
+        berikutnya masuk ke akun jaminan itu. Perpanjangan atau cicil pokok
+        nasabah tidak mengubah angka contoh ini.
       </p>
     </section>
   );

@@ -86,7 +86,7 @@ ada(html, "Unduh proposal (PDF)", "tombol unduh di hero");
 ada(html, "Unduh proposal lengkap (PDF)", "tombol unduh di bagian proposal");
 ada(html, "Proposal pendanaan", "judul bagian proposal");
 ada(html, "TAM, SAM, dan SOM", "isi proposal menyebut analisis pasar");
-ada(html, "Satu pembagian untuk semua produk", "cakupan produk dinyatakan");
+ada(html, "Pembagian mengikuti jenis produk", "cakupan produk dinyatakan");
 ada(
   html,
   "Pembagian produk konvensional",

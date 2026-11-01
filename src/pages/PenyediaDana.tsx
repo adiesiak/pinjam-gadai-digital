@@ -56,6 +56,7 @@ import {
   CATATAN_INTERNAL_SINGKAT,
 } from "@/lib/teksRisikoPendanaan";
 import { AjukanPenempatan } from "@/components/penyediaDana/AjukanPenempatan";
+import { DompetPendana } from "@/components/penyediaDana/DompetPendana";
 import { BagianLaporan } from "@/pages/penyedia-dana/bagian-laporan";
 import { TabLokasi } from "@/pages/penyedia-dana/tab-lokasi";
 import { RekapPendanaUnduhan } from "@/components/penyediaDana/RekapPendanaUnduhan";
@@ -2400,13 +2401,12 @@ function IsiRuang() {
                   Tombol <strong>Detail</strong> membuka titik lokasi terakhir
                   peminjam
                   {bolehBerkas
-                    ? ", berkas pengajuan (KTP, selfie, slip, foto barang, tanda tangan),"
-                    : " — berkas identitas pemohon hanya dibuka untuk akun pendana beremail, bukan untuk sesi kode akses bersama."}{" "}
+                    ? ", dan foto barang jaminan bila ada."
+                    : " — foto barang jaminan hanya dibuka untuk akun pendana beremail, bukan untuk sesi kode akses bersama."}{" "}
                   NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim
-                  sebagai kolom terpisah
-                  {bolehBerkas
-                    ? " — NIK tetap terbaca pada gambar KTP yang Anda buka."
-                    : "."}{" "}
+                  sebagai kolom terpisah. Dokumen identitas (KTP, selfie, slip,
+                  tanda tangan) tidak dibagikan ke ruang pendana; peninjauannya
+                  dilakukan tim PINDAI yang berwenang.{" "}
                   {samar && (
                     <>
                       Nama orang (peminjam maupun pendana) ditampilkan tersamar
@@ -2646,9 +2646,14 @@ function IsiRuang() {
                 sendiri. Alur setoran manual sudah ada di server; kartu ini yang
                 membuatnya bisa dipakai tanpa menunggu admin mencatat manual. */}
             {isPendana && (
-              <BatasBagian nama="pengajuan penempatan">
-                <AjukanPenempatan />
-              </BatasBagian>
+              <>
+                <BatasBagian nama="dompet pendana">
+                  <DompetPendana />
+                </BatasBagian>
+                <BatasBagian nama="pengajuan penempatan">
+                  <AjukanPenempatan />
+                </BatasBagian>
+              </>
             )}
 
             {/* Kesehatan portofolio dulu, lalu penjelasan risikonya: keadaan dana
@@ -3376,10 +3381,11 @@ function IsiRuang() {
                 Catatan internal PINDAI — ruang lihat saja. Titik lokasi
                 terakhir peminjam selalu ditampilkan
                 {bolehBerkas
-                  ? "; berkas pengajuan ditampilkan untuk akun pendana beremail."
-                  : "; berkas pengajuan hanya dibuka untuk akun pendana beremail, bukan sesi kode akses bersama."}{" "}
+                  ? "; foto barang jaminan ditampilkan untuk akun pendana beremail."
+                  : "; foto barang jaminan hanya dibuka untuk akun pendana beremail, bukan sesi kode akses bersama."}{" "}
                 NIK, nomor rekening, nomor WhatsApp, dan alamat tidak dikirim
-                sebagai kolom terpisah.
+                sebagai kolom terpisah. Dokumen identitas tidak dibagikan ke
+                ruang pendana.
               </DialogDescription>
             </DialogHeader>
           </div>

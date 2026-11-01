@@ -105,8 +105,8 @@ eq(
 eq(labelStatusSiklus("dibatalkan"), "Dibatalkan", "label dibatalkan");
 
 // Pilihan saat jatuh tempo: bawaan cairkan bila pendana tidak memilih.
-eq(labelPilihanSiklus(undefined), "Cairkan ke rekening", "belum memilih = cairkan");
-eq(labelPilihanSiklus("cairkan"), "Cairkan ke rekening", "pilihan cairkan");
+eq(labelPilihanSiklus(undefined), "Cairkan ke dompet", "belum memilih = cairkan");
+eq(labelPilihanSiklus("cairkan"), "Cairkan ke dompet", "pilihan cairkan");
 eq(
   labelPilihanSiklus("putar_ulang"),
   "Putar lagi 30 hari",

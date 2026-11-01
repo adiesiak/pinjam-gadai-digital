@@ -135,9 +135,11 @@ export function RingkasanKeuntungan({
 
       <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
         Marjin pinjaman dibagi <strong>47 : 13</strong>, sehingga porsi pendana{" "}
-        <strong>78,33%</strong> dari marjin (marjin acuan 30% untuk siklus{" "}
-        <strong>30 hari</strong>); perpanjangan atau cicil pokok nasabah tidak mengubah angkanya.
-        Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas. Porsi
+        <strong>78,33%</strong> dari marjin. Pinjaman harian atau tenor di bawah{" "}
+        <strong>30 hari</strong> memakai acuan marjin 30%; produk bulanan, gadai, kredit
+        barang, dan syariah memakai marjin aktualnya. Perpanjangan atau cicil pokok
+        nasabah tidak mengubah angkanya. Angka <strong>perkiraan</strong> belum
+        dibukukan; pencairan siklus mengikuti jatuh tempo 30 hari. Porsi
         platform {formatRupiah(ringkasan.totalKeuntunganAdmin)} (dibukukan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminLunas)} · perkiraan{" "}
         {formatRupiah(ringkasan.totalKeuntunganAdminBelumLunas)}) diambil dari marjin pinjaman,

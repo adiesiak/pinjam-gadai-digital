@@ -59,7 +59,7 @@ for (const judul of [
   "Dibukukan (lunas) vs Perkiraan (belum lunas)",
   "Dana tersalurkan dan masih berjalan",
   "Tenor pendana 30 hari",
-  "Transfer keuntungan",
+  "Waktu pencairan siklus",
   "Cara membaca kolom dan baris total",
 ]) {
   ada(html, judul, `judul aturan "${judul}"`);
@@ -111,7 +111,8 @@ ada(html, "30 hari", "tenor acuan pendana disebut");
 ada(html, "bukan tenor pinjaman nasabah", "tenor pendana dipisahkan dari tenor nasabah");
 ada(html, "tidak mengubah nominal maupun status hak pendana", "keterpisahan dinyatakan");
 
-// 6. Transfer keuntungan.
+// 6. Waktu pencairan siklus dan batas jaminannya.
+ada(html, "jatuh tempo siklus 30 hari", "waktu pencairan siklus disebut");
 ada(html, "bukan bukti mutasi bank", "catatan transfer dibedakan dari bukti mutasi");
 
 // 7. Cara membaca tabel.

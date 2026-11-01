@@ -598,9 +598,10 @@ export function JadiPendanaView({
                 />
               </dl>
               <p className="mt-3 text-[11px] leading-5 text-slate-600">
-                Angka contoh, bukan janji. Hasil dibukukan setelah pinjaman
-                lunas, atau setiap pembayaran gadai diterima, lalu transfer
-                dicatat admin.
+                Angka contoh, bukan janji. Hasil siklus dicairkan pada jatuh
+                tempo {TENOR_PENDANA_HARI} hari. Bila pinjaman belum lunas,
+                kekurangan ditutup akun cadangan platform, bukan LPS atau pihak
+                ketiga, lalu pemulihannya masuk kembali ke akun itu.
               </p>
             </aside>
           </div>
@@ -728,13 +729,15 @@ export function JadiPendanaView({
                 id="judul-produk"
                 className="font-display text-3xl leading-tight tracking-tight text-navy sm:text-4xl"
               >
-                Satu pembagian untuk semua produk
+                Pembagian mengikuti jenis produk
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Marjin tiap produk dibagi 47 : 13: {persen} untuk platform dan
-                sisanya untuk pendana. Yang berbeda hanya cara marjin dihitung
-                dari pokok dan tenor; biaya layanan dan biaya admin berada di
-                luar pembagian ini.
+                Pinjaman harian atau tenor di bawah {TENOR_PENDANA_HARI} hari
+                memakai acuan marjin {PERSEN_IMBAL_PENDANA}% flat. Pinjaman
+                bulanan, gadai, kredit barang, dan syariah memakai 78,33% dari
+                marjin aktual produknya. Pada semua produk, {persen} dari marjin
+                menjadi porsi platform dan sisanya untuk pendana. Biaya layanan
+                dan biaya admin berada di luar pembagian ini.
               </p>
             </div>
             <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -783,8 +786,10 @@ export function JadiPendanaView({
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Pokok contoh {rupiah(POKOK_CONTOH_KONVENSIONAL)}. Harian memakai
-                skema acuan 30% flat; gadai memakai batas atas sewa modal 10%
-                per 30 hari; kredit barang memakai tenor 3 bulan dengan DP 20%.
+                skema acuan {PERSEN_IMBAL_PENDANA}% flat; gadai dan kredit barang
+                memakai 78,33% dari marjin aktualnya; gadai memakai batas atas
+                sewa modal 10% per 30 hari, kredit barang memakai tenor 3 bulan
+                dengan DP 20%.
                 Kolom diterima adalah pokok ditambah hak pendana. Pinjaman
                 bulanan tidak diulang di sini karena tarifnya berbeda per tenor
                 dan dibahas pada tabel berikutnya.

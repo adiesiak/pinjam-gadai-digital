@@ -21,6 +21,7 @@ import {
   Coins,
   Loader2,
   Receipt,
+  ShieldCheck,
   Upload,
   XCircle,
 } from "lucide-react";
@@ -119,6 +120,10 @@ function hariIni(): string {
 export function AjukanPenempatan({ className }: { className?: string }) {
   const instruksi = useQuery(api.system.getPaymentInstructions, {});
   const setoran = useQuery(api.alokasiDana.myDeposits, {});
+  const persetujuan = useQuery(
+    api.persetujuanRisiko.statusPersetujuanRisiko,
+    {},
+  );
   const mintaUrl = useMutation(api.alokasiDana.generateDepositUploadUrl);
   const kirimSetoran = useMutation(api.alokasiDana.requestDeposit);
 
@@ -131,6 +136,7 @@ export function AjukanPenempatan({ className }: { className?: string }) {
   const [mengirim, setMengirim] = useState(false);
 
   const aktif = instruksi?.setoranManualAktif === true;
+  const bolehSetor = persetujuan !== undefined && !persetujuan.perluSetuju;
   const nominal = Number(jumlah.replace(/\D/g, "")) || 0;
   const daftar = setoran ?? [];
   const menunggu = daftar.filter((d) => d.status === "menunggu_verifikasi").length;
@@ -145,6 +151,10 @@ export function AjukanPenempatan({ className }: { className?: string }) {
 
   async function kirim(acara: FormEvent<HTMLFormElement>) {
     acara.preventDefault();
+    if (!bolehSetor) {
+      toast.error("Setujui pernyataan risiko pendanaan dulu sebelum mengirim setoran.");
+      return;
+    }
     const galat = validasiSetoran({
       jumlah: nominal,
       referensi,
@@ -210,11 +220,26 @@ export function AjukanPenempatan({ className }: { className?: string }) {
               {menunggu} setoran sedang menunggu pencocokan admin.
             </p>
           )}
+          {persetujuan !== undefined && persetujuan.perluSetuju && (
+            <p className="mt-1.5 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs leading-5 text-amber-900">
+              <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                Setujui pernyataan risiko dulu sebelum mengirim setoran.{" "}
+                <a
+                  href="#persetujuan"
+                  className="font-semibold underline decoration-amber-400 underline-offset-2"
+                >
+                  Buka persetujuan risiko
+                </a>
+                .
+              </span>
+            </p>
+          )}
         </div>
         <Button
           type="button"
           onClick={() => setBuka(true)}
-          disabled={instruksi === undefined || !aktif}
+          disabled={instruksi === undefined || !aktif || !bolehSetor}
           className="h-9 shrink-0 gap-1.5 text-xs font-semibold"
         >
           <Upload className="size-3.5" aria-hidden="true" />
@@ -287,6 +312,11 @@ export function AjukanPenempatan({ className }: { className?: string }) {
                     {LABEL_STATUS[status]}
                   </span>
                 </span>
+                {d.catatanAdmin !== null && d.catatanAdmin.trim() !== "" && (
+                  <p className="basis-full text-[11px] leading-5 text-slate-600">
+                    Catatan admin: {d.catatanAdmin}
+                  </p>
+                )}
               </li>
             );
           })}

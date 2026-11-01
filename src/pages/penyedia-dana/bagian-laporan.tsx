@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { KontakLaporanWhatsapp } from "@/components/penyediaDana/KontakLaporanWhatsapp";
+import { LaporanTransferPendana } from "@/components/penyediaDana/LaporanTransferPendana";
 import { RekapTransferGadai } from "@/components/penyediaDana/RekapTransferGadai";
 import { api } from "@/convex/_generated/api";
 import { useBahasaLaporan } from "@/hooks/use-bahasa-laporan";
@@ -133,8 +134,35 @@ export function BagianLaporan() {
         bahasa={bahasaLaporan}
         onUbahBahasa={ubahBahasaLaporan}
       />
+      <BagianTransferTunai />
       <BagianTransferGadai />
     </>
+  );
+}
+
+/**
+ * Riwayat catatan transfer keuntungan pinjaman tunai. Query-nya sudah
+ * membatasi cakupan ke akun pendana yang sedang masuk, jadi komponen ini tidak
+ * pernah menerima posisi pendana lain.
+ */
+function BagianTransferTunai() {
+  const data = useQuery(api.penyediaDana.laporanTransferPendana, {});
+  if (data === undefined) {
+    return (
+      <p className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-6 text-xs text-muted-foreground">
+        Memuat riwayat transfer tunai...
+      </p>
+    );
+  }
+  return (
+    <LaporanTransferPendana
+      rows={data.rows}
+      belum={data.belum}
+      ringkasan={data.ringkasan}
+      idSaya={data.idSaya}
+      namaTampil={(nama) => nama}
+      terpotong={data.terpotong}
+    />
   );
 }
 

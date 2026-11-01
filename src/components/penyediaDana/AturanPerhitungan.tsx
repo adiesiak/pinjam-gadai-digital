@@ -74,8 +74,11 @@ export function AturanPerhitungan({
           <p>
             Setiap pinjaman yang Anda danai punya marjin (Imbal Hasil yang dibayar peminjam).
             Marjin itu dibagi <strong>47 : 13 dari 60</strong>: <strong>78,33%</strong> untuk
-            pendana dan <strong>21,67%</strong> untuk platform. Pada marjin acuan 30% flat untuk
-            siklus {TENOR_PENDANA_HARI} hari, porsi pendana setara 23,5% dari pokok.
+            pendana dan <strong>21,67%</strong> untuk platform. Pada pinjaman harian atau tenor
+            di bawah {TENOR_PENDANA_HARI} hari, acuan marjinnya <strong>30% flat</strong>; pada
+            pinjaman bulanan, gadai, kredit barang, dan syariah, marjin mengikuti tarif aktual
+            produk masing-masing. Contoh 30% di bawah adalah contoh, bukan janji untuk semua
+            produk.
           </p>
           <p className="mt-2">
             Contoh: pendanaan {formatRupiah(contohPokok)} dengan marjin 30% menghasilkan marjin{" "}
@@ -87,7 +90,7 @@ export function AturanPerhitungan({
           <p className="mt-2">
             Angkanya <strong>tidak berubah</strong> saat nasabah memperpanjang tenor, mengubah
             bunga, atau mencicil pokok. Hak pendana dicatat dari pokok pendanaan dan disimpan di
-            ledger terpisah dari kontrak nasabah.
+            catatan internal PINDAI yang terpisah dari kontrak nasabah.
           </p>
           <p className="mt-2">
             Karena modelnya <strong>satu pinjaman = satu pendana</strong>, seluruh Imbal Hasil satu
@@ -144,8 +147,8 @@ export function AturanPerhitungan({
       isi: (
         <>
           <p>
-            <strong>Dibukukan (lunas)</strong> berarti pinjamannya sudah lunas di ledger internal,
-            sehingga keuntungan pendana atas pinjaman itu sudah final dan menjadi haknya.
+            <strong>Dibukukan (lunas)</strong> berarti pinjamannya sudah lunas di catatan internal
+            PINDAI, sehingga keuntungan pendana atas pinjaman itu sudah final dan menjadi haknya.
           </p>
           <p className="mt-2">
             <strong>Perkiraan (belum lunas)</strong> berarti hitungan atas pinjaman yang masih
@@ -196,17 +199,20 @@ export function AturanPerhitungan({
     },
     {
       nomor: 6,
-      judul: "Transfer keuntungan",
+      judul: "Waktu pencairan siklus",
       isi: (
         <>
           <p>
-            Kewajiban transfer keuntungan baru muncul saat pinjamannya <strong>lunas</strong>,
-            sebelum itu tidak ada uang pendana yang bisa ditransfer. Catatan transfer dibuat oleh
-            admin dan menandai bahwa transfernya sudah dikerjakan.
+            Pokok dan Imbal Hasil dicairkan pada <strong>jatuh tempo siklus 30 hari</strong>,
+            bukan menunggu peminjam melunasi lebih awal. Bila peminjam belum membayar penuh pada
+            saat itu, kekurangan ditutup dari akun cadangan platform, lalu pemulihan berikutnya
+            masuk kembali ke akun cadangan itu.
           </p>
           <p className="mt-2">
-            Catatan itu <strong>bukan bukti mutasi bank</strong> dan bukan tanda terima. Angka di
-            halaman ini seluruhnya catatan internal PINDAI.
+            Akun cadangan platform di sini <strong>bukan jaminan LPS, bukan jaminan pihak
+            ketiga, dan bukan janji bahwa pokok selalu kembali</strong>. Bila pemulihan gagal,
+            kerugian tetap dapat terjadi. Catatan transfer adalah catatan internal PINDAI, bukan
+            bukti mutasi bank dan bukan tanda terima.
           </p>
         </>
       ),

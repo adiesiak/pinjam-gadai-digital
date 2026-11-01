@@ -63,13 +63,13 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
   ada(html, "Estimasi pendanaan", "judul kalkulator");
   ada(html, "Tenor pendana tetap 30 hari", "tenor tetap dinyatakan");
   ada(html, "30% flat", "yield flat dinyatakan");
-  ada(html, "30 Hari · 30% p.p.", "label tenor dan yield tampil");
+  ada(html, "30 Hari · contoh 30% p.p.", "label tenor dan yield tampil");
   ada(html, "Rp 300.000", "imbal hasil 30% dihitung");
   ada(html, "Rp 1.300.000", "total pengembalian 130%");
   ada(html, "Rp 65.000", "biaya platform 5% dari total kembali dihitung terpisah");
   ada(html, "Rp 1.235.000", "diterima bersih setelah biaya");
   ada(html, "Estimasi, bukan jaminan.", "sifat estimasi dinyatakan");
-  ada(html, "perpanjangan atau cicil pokok nasabah tidak mengubah", "keterpisahan dijelaskan");
+  ada(html, "Perpanjangan atau cicil pokok", "keterpisahan dijelaskan");
   tidakAda(html, "7 hari", "tenor nasabah tidak tampil");
   tidakAda(html, "14 hari", "tenor nasabah tidak tampil");
   tidakAda(html, "28 hari", "tenor nasabah tidak tampil");

@@ -41,7 +41,7 @@ export function KartuSiklusPendana() {
       toast.success(
         pilihan === "putar_ulang"
           ? "Siklus akan diputar lagi 30 hari saat jatuh tempo."
-          : "Siklus akan dicairkan ke dompet saat jatuh tempo.",
+          : "Siklus akan dicairkan ke dompet saat jatuh tempo. Tarik dananya lewat Dompet pendana.",
       );
     } catch (err) {
       toast.error(
@@ -175,7 +175,7 @@ export function KartuSiklusPendana() {
                       [
                         {
                           nilai: "cairkan" as const,
-                          label: "Cairkan ke rekening",
+                          label: "Cairkan ke dompet",
                           Ikon: Wallet,
                         },
                         {
@@ -221,7 +221,7 @@ export function KartuSiklusPendana() {
                       : "Sudah jatuh tempo. "}
                     {row.pilihanPendana === "putar_ulang"
                       ? "Pokok dan Imbal Hasil menjadi pokok siklus baru 30 hari."
-                      : "Pokok dan Imbal Hasil masuk dompet, lalu bisa Anda tarik."}
+                      : "Pokok dan Imbal Hasil masuk dompet, lalu bisa Anda tarik lewat Dompet pendana."}
                   </p>
                 </div>
               </article>

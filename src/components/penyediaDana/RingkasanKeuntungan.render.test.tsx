@@ -79,7 +79,7 @@ ok(
 // (`<strong>` di tengah kalimat termasuk markup — diperiksa apa adanya.)
 ada(
   html,
-  "Angka <strong>perkiraan</strong> baru menjadi uang pendana saat pinjamannya lunas.",
+  "Angka <strong>perkiraan</strong> belum",
   "catatan jujur tentang angka perkiraan",
 );
 ada(html, "Angka <strong>perkiraan</strong>", "kata \"perkiraan\" sendiri ditandai tegas");
