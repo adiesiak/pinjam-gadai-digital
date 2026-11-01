@@ -109,7 +109,7 @@ export const LABEL_KREDIT: Record<string, { label: string; kelas: string }> = {
     label: "Pendanaan tercatat penuh",
     kelas: "border-emerald-200 bg-emerald-50 text-emerald-800",
   },
-  lunas: { label: "Lunas (ledger)", kelas: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+  lunas: { label: "Lunas (catatan PINDAI)", kelas: "border-emerald-200 bg-emerald-50 text-emerald-800" },
 };
 
 /**

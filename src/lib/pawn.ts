@@ -66,21 +66,21 @@ export function pawnStatusMeta(status: PawnStatus): {
       };
     case "aktif":
       return {
-        label: "Aktif (ledger)",
+        label: "Aktif (catatan PINDAI)",
         description:
-          "Status gadai aktif tercatat pada ledger internal.",
+          "Status gadai aktif tercatat pada catatan internal PINDAI.",
       };
     case "menunggu_pelepasan":
       return {
         label: "Menunggu pembaruan status",
         description:
-          "Permintaan perubahan status tercatat pada ledger. Status ini bukan konfirmasi pengembalian barang secara fisik.",
+          "Permintaan perubahan status tercatat pada catatan PINDAI. Status ini bukan konfirmasi pengembalian barang secara fisik.",
       };
     case "lunas_dilepas":
       return {
-        label: "Lunas (ledger)",
+        label: "Lunas (catatan PINDAI)",
         description:
-          "Kewajiban ditandai lunas pada ledger internal.",
+          "Kewajiban ditandai lunas pada catatan internal PINDAI.",
       };
   }
 }

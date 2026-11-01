@@ -351,7 +351,11 @@ export function LiveCalculator({
                   false,
                 ],
                 ["Biaya admin (dipotong di muka)", formatRupiah(quote.biayaAdmin), false],
-                ["Cair ekspres (dipotong di muka)", formatRupiah(quote.biayaExpress), false],
+                [
+                  "Cair ekspres (bila dipilih, dipotong di muka)",
+                  formatRupiah(quote.biayaExpress),
+                  false,
+                ],
                 ["Total potongan di muka", formatRupiah(quote.totalPotonganDiMuka), false],
                 ["Dana bersih diterima", formatRupiah(quote.danaBersihDitransfer), true],
                 [

@@ -572,7 +572,7 @@ export function LocationGate({
             <div className="flex items-start gap-2.5">
               <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold">Mode baca-saja · lokasi belum aktif</p>
+                <p className="text-xs font-semibold">Mode baca-saja · transaksi tertahan</p>
                 <p className="mt-0.5 text-[11px] leading-5">{pesanLunak}</p>
               </div>
               {didukung && izin !== "siap" && (

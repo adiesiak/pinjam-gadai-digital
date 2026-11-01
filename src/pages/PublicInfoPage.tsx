@@ -728,6 +728,11 @@ export function PublicInfoPageView({
                         <span className="mt-1 block">
                           {formatRupiah(1_000_000)}: tenor 7/14/21/28 hari, bunga 28/30/31/32%.
                         </span>
+                        <span className="mt-1 block text-muted-foreground">
+                          Tenor harian bisa 7–50 hari. Angka di atas adalah tarif acuan
+                          7/14/21/28 hari; tenor 8–27 dan 29–50 hari dihitung dari acuan
+                          terdekat, dengan tarif perpanjangan untuk hari ke-29 ke atas.
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         {tarifBulanan.persenBungaBulanan1}% /{" "}
@@ -840,7 +845,7 @@ export function PublicInfoPageView({
                   dicantumkan.
                 </li>
                 <li>
-                  Status dan riwayat di ledger internal. Penitipan dan
+                  Status dan riwayat di catatan internal PINDAI. Penitipan dan
                   pemeriksaan barang tidak dilakukan aplikasi.
                 </li>
               </ul>

@@ -377,7 +377,7 @@ function KalkulatorKonvensional({
       <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Skema">
         {(
           [
-            { id: "harian", label: "Harian (7/14/21/28)" },
+            { id: "harian", label: "Harian (7–50 hari)" },
             { id: "bulanan", label: "Cicilan bulanan" },
           ] as const
         ).map((pilihan) => (

@@ -3009,7 +3009,7 @@ function IsiRuang() {
                   <>
                     <CatatanTab nada="emerald" label="Lunas">
                       Pinjaman pada tab ini sudah berstatus{" "}
-                      <strong>lunas</strong> pada ledger internal. Angka
+                      <strong>lunas</strong> pada catatan internal PINDAI. Angka
                       keuntungan pendana dan porsi platform di bawah adalah
                       hasil perhitungan atas kewajiban yang sudah terbayar
                       penuh: porsi platform dihitung dari marjin pinjaman,
@@ -3447,7 +3447,7 @@ function IsiRuang() {
           <p className="max-w-3xl text-xs leading-6">
             Angka di ruang ini adalah catatan internal PINDAI dan bukan bukti
             transaksi, jaminan pencairan, maupun penawaran. Status mengikuti
-            pencatatan ledger internal. Pokok dana maupun Imbal Hasil pendana
+            catatan internal PINDAI. Pokok dana maupun Imbal Hasil pendana
             tidak dijamin oleh LPS atau pihak lain, kecuali ada perjanjian
             tertulis yang menyatakannya.
           </p>
