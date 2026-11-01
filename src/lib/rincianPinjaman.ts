@@ -45,6 +45,11 @@ export type JadwalRincian = {
 export type DokumenRincianPinjaman = {
   nomorReferensi: string;
   namaPeminjam: string;
+  /**
+   * Rekening tujuan lengkap untuk pesan langsung ke peminjam. PDF dan email
+   * tetap memakai baris "Rekening tujuan" yang tersamar.
+   */
+  rekeningTujuanLengkap: string | null;
   statusLabel: string;
   skemaTeks: string;
   tenorTeks: string;
@@ -344,6 +349,7 @@ export function susunRincianPinjaman(
   return {
     nomorReferensi: loan.nomorReferensi,
     namaPeminjam: loan.namaLengkap,
+    rekeningTujuanLengkap: rekeningLengkap(loan),
     statusLabel: labelStatusPinjaman(loan.status),
     skemaTeks: bulanan ? "Bulanan" : "Harian",
     tenorTeks: bulanan ? `${tenorBulan} bulan` : `${loan.tenorHari} hari`,
@@ -371,6 +377,14 @@ function rekeningTujuan(loan: PinjamanUntukRincian): string | null {
   if (nomor === "") return null;
   const bank = loan.namaBank?.trim() ?? "";
   return bank === "" ? samarkanRekening(nomor) : `${bank} ${samarkanRekening(nomor)}`;
+}
+
+/** Rekening lengkap khusus pesan WhatsApp ke peminjam pemilik rekening. */
+function rekeningLengkap(loan: PinjamanUntukRincian): string | null {
+  const nomor = (loan.nomorRekening ?? "").replace(/\s+/g, "");
+  if (nomor === "" || nomor === "-" || nomor === "—") return null;
+  const bank = loan.namaBank?.trim() ?? "";
+  return bank === "" ? nomor : `${bank} ${nomor}`;
 }
 
 /**
@@ -430,6 +444,9 @@ export function teksRincianWhatsapp(dok: DokumenRincianPinjaman): string {
     `Status: ${dok.statusLabel}`,
     `Pokok pinjaman: ${rp(dok.pokokPinjaman)}`,
     `Tenor: ${dok.tenorTeks}`,
+    ...(dok.rekeningTujuanLengkap === null
+      ? []
+      : [`Rekening tujuan: ${dok.rekeningTujuanLengkap}`]),
     ...barisPotonganWhatsapp(dok),
   ];
   if (dok.totalKewajiban !== null) {
