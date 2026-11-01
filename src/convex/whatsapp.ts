@@ -421,6 +421,14 @@ export const _klaimPengingat = internalMutation({
     nomorTujuan: v.string(),
   },
   handler: async (ctx, args) => {
+    // Pembayaran bisa tercatat setelah daftar kandidat dibaca. Periksa status
+    // di transaksi klaim supaya pinjaman yang sudah lunas tidak mendapat klaim
+    // baru; pemeriksaan ini juga menutup pinjaman bulanan yang seharusnya
+    // ditangani pengingat angsuran.
+    const loan = await ctx.db.get(args.loanId);
+    if (loan === null || loan.status !== "didanai" || loan.tenorBulan != null) {
+      return { klaim: false as const, logId: null };
+    }
     const sejak = awalHariUtc(Date.now());
     const logs = await ctx.db
       .query("waLogs")
@@ -455,6 +463,26 @@ export const _selesaikanKlaimPengingat = internalMutation({
       isiPesan: args.isiPesan,
       status: args.status,
       respon: args.respon,
+    });
+  },
+});
+
+/**
+ * Batalkan klaim yang sudah dibuat tetapi batal dikirim karena status pinjaman
+ * berubah. Baris log tidak dihapus: admin perlu melihat bahwa pengingat memang
+ * pernah dipertimbangkan, sekaligus alasan pesan tidak berangkat.
+ */
+export const _batalkanKlaimPengingat = internalMutation({
+  args: { logId: v.id("waLogs"), alasan: v.string() },
+  handler: async (ctx, { logId, alasan }) => {
+    const row = await ctx.db.get(logId);
+    // Hanya klaim yang masih menggantung yang boleh diubah; hasil kirim yang
+    // sudah final tidak boleh ditimpa oleh pemeriksaan susulan.
+    if (row === null || row.status !== "mengirim") return;
+    await ctx.db.patch(logId, {
+      isiPesan: "(tidak dikirim)",
+      status: "dilewati",
+      respon: alasan,
     });
   },
 });
@@ -1232,7 +1260,12 @@ export const _pinjamanPengingat = internalQuery({
       .query("loans")
       .withIndex("by_status", (q) => q.eq("status", "didanai"))
       .take(BATAS_PENGINGAT_SEKALI_JALAN);
-    return loans.map((loan) => ({
+    // Pinjaman bulanan sudah punya pengingat per angsuran. Mengirimkan juga
+    // pengingat tingkat pinjaman membuat satu tagihan yang sama ditelepon dua
+    // kali, dengan tanggal dan nominal yang bisa berbeda.
+    return loans
+      .filter((loan) => loan.tenorBulan == null)
+      .map((loan) => ({
       loanId: loan._id,
       // Dipakai membaca pilihan kanal milik peminjam sebelum mengirim.
       userId: loan.userId,
@@ -1371,6 +1404,24 @@ export const jalankanPengingatJatuhTempo = internalAction({
             nomorTujuan: p.nomorWhatsApp,
           });
           if (!klaim.klaim) continue;
+          // Pemeriksaan TERAKHIR tepat sebelum fetch: pelunasan yang dicatat
+          // setelah klaim dibuat harus menghentikan pesan ini, bukan menunggu
+          // putaran cron berikutnya.
+          const cek = await ctx.runQuery(internal.whatsapp._loanForMessage, {
+            loanId: p.loanId,
+          });
+          if (cek === null || cek.status !== "didanai" || cek.tenorBulan != null) {
+            await ctx.runMutation(internal.whatsapp._batalkanKlaimPengingat, {
+              logId: klaim.logId,
+              alasan:
+                cek === null
+                  ? "Pinjaman tidak ditemukan saat pemeriksaan terakhir."
+                  : cek.status !== "didanai"
+                    ? `Status berubah menjadi ${cek.status} sebelum pesan dikirim.`
+                    : "Pinjaman bulanan ditangani pengingat angsuran.",
+            });
+            continue;
+          }
           const hasil = await kirimViaGateway(apiKey, settings, p.nomorWhatsApp, isi);
           await ctx.runMutation(internal.whatsapp._selesaikanKlaimPengingat, {
             logId: klaim.logId,

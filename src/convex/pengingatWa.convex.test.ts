@@ -91,6 +91,10 @@ async function seedPinjaman(
     /** Sisa hari ke jatuh tempo (tenor 30 hari). */
     sisaHari?: number;
     nomorWhatsApp?: string | null;
+    /** Terisi = skema bulanan; pengingat tingkat pinjaman harus melewatinya. */
+    tenorBulan?: number;
+    /** Waktu pendanaan eksplisit untuk skema bulanan. */
+    didanaiPada?: number;
   },
 ): Promise<Id<"loans">> {
   const now = Date.now();
@@ -106,9 +110,10 @@ async function seedPinjaman(
       status: opsi.status,
       nomorReferensi: `PGD-WA-${Math.round(now % 100000)}`,
       tenorHari: 30,
+      ...(opsi.tenorBulan === undefined ? {} : { tenorBulan: opsi.tenorBulan }),
       ...(opsi.nomorWhatsApp === null ? {} : { nomorWhatsApp: opsi.nomorWhatsApp ?? NOMOR_PEMINJAM }),
       ...(opsi.status === "didanai"
-        ? { didanaiPada: now - hari * 86_400_000 }
+        ? { didanaiPada: opsi.didanaiPada ?? now - hari * 86_400_000 }
         : {}),
     }),
   );
@@ -418,6 +423,97 @@ describe("pengingat WhatsApp otomatis", () => {
       gateway.pulihkan();
       vi.useRealTimers();
     }
+  });
+
+  it("pinjaman bulanan dilewati pengingat tingkat pinjaman", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.UTC(2026, 10, 1, 3, 0, 0));
+    const t = convexTest(schema, modules);
+    const DAY = 86_400_000;
+    const { userId } = await buatPengguna(t, "rani", {
+      email: "rani-bulanan@pindai.test",
+      role: "peminjam",
+    });
+    // Jatuh tempo pinjaman bulanan tiga hari lagi: tanpa penyaringan, pengingat
+    // tingkat pinjaman akan menganggapnya kandidat H-3 dan mengirim pesan kedua.
+    await seedPinjaman(t, {
+      userId,
+      status: "didanai",
+      sisaHari: 3,
+      tenorBulan: 3,
+      didanaiPada: Date.now() - (3 * 30 - 3) * DAY,
+    });
+    await seedGateway(t, { aktif: true });
+    const gateway = pasangGateway();
+    try {
+      const hasil = await t.action(internal.whatsapp.jalankanPengingatJatuhTempo, {});
+      expect(hasil.alasan).toBe("jalan");
+      expect(hasil.jumlahRencana).toBe(0);
+      expect(gateway.keluar).toHaveLength(0);
+      expect(await t.run((ctx) => ctx.db.query("waLogs").collect())).toHaveLength(0);
+    } finally {
+      gateway.pulihkan();
+      vi.useRealTimers();
+    }
+  });
+
+  it("klaim pengingat ditolak setelah pinjaman lunas atau berubah menjadi bulanan", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "rani", {
+      email: "rani-klaim-status@pindai.test",
+      role: "peminjam",
+    });
+    const lunas = await seedPinjaman(t, { userId, status: "didanai", sisaHari: 3 });
+    const bulanan = await seedPinjaman(t, {
+      userId,
+      status: "didanai",
+      sisaHari: 3,
+      tenorBulan: 3,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(lunas, { status: "lunas" });
+    });
+
+    const klaimLunas = await t.mutation(internal.whatsapp._klaimPengingat, {
+      loanId: lunas,
+      jenis: "pengingat_h3",
+      nomorTujuan: NOMOR_PEMINJAM,
+    });
+    const klaimBulanan = await t.mutation(internal.whatsapp._klaimPengingat, {
+      loanId: bulanan,
+      jenis: "pengingat_h3",
+      nomorTujuan: NOMOR_PEMINJAM,
+    });
+
+    expect(klaimLunas.klaim).toBe(false);
+    expect(klaimBulanan.klaim).toBe(false);
+    expect(await t.run((ctx) => ctx.db.query("waLogs").collect())).toHaveLength(0);
+  });
+
+  it("klaim yang batal karena status berubah ditutup sebagai dilewati", async () => {
+    const t = convexTest(schema, modules);
+    const { userId } = await buatPengguna(t, "rani", {
+      email: "rani-batal-klaim@pindai.test",
+      role: "peminjam",
+    });
+    const loanId = await seedPinjaman(t, { userId, status: "didanai", sisaHari: 3 });
+    const klaim = await t.mutation(internal.whatsapp._klaimPengingat, {
+      loanId,
+      jenis: "pengingat_h3",
+      nomorTujuan: NOMOR_PEMINJAM,
+    });
+    if (!klaim.klaim) throw new Error("klaim awal harus lolos");
+
+    await t.run((ctx) => ctx.db.patch(loanId, { status: "lunas" }));
+    await t.mutation(internal.whatsapp._batalkanKlaimPengingat, {
+      logId: klaim.logId,
+      alasan: "Status berubah menjadi lunas sebelum pesan dikirim.",
+    });
+
+    const log = await t.run((ctx) => ctx.db.get(klaim.logId));
+    expect(log?.status).toBe("dilewati");
+    expect(log?.respon).toContain("lunas");
+    expect(log?.isiPesan).toBe("(tidak dikirim)");
   });
 
   it("klaim pengingat hanya lolos sekali per pinjaman dan jenis dalam sehari", async () => {
