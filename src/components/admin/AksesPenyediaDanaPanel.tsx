@@ -8,6 +8,7 @@ import {
   Loader2,
   MailPlus,
   MessageCircle,
+  Receipt,
   ShieldX,
   UserPlus,
   Users,
@@ -31,9 +32,10 @@ import { PenyediaDanaTable } from "./PenyediaDanaTable";
 import { DataUjiPanel } from "./DataUjiPanel";
 import { PratinjauAktifPanel } from "./PratinjauAktifPanel";
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
+import { RekonsiliasiSetoranPendana } from "./RekonsiliasiSetoranPendana";
 
 /**
- * PENDANA — tiga tab utama, satu tempat.
+ * PENDANA — empat tab utama, satu tempat.
  *
  * 1. Manajemen Akun & Hak Akses — buat pendana baru, beri akses per email,
  *    kelola kode akses bersama/tamu, daftar akun pendana & pemantau (beserta
@@ -41,7 +43,9 @@ import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
  *    pratinjau yang sedang berjalan.
  * 2. Pencatatan Transfer Keuntungan — catat transfer keuntungan yang sudah
  *    dikirim di luar sistem (nominal dihitung server).
- * 3. Rekonsiliasi & Auditing Pendana — bandingkan posisi panel dengan rekap
+ * 3. Rekonsiliasi Setoran — cocokkan bukti transfer dengan mutasi bank tanpa
+ *    mengubah saldo atau status setoran.
+ * 4. Rekonsiliasi & Auditing Pendana — bandingkan posisi panel dengan rekap
  *    ruang pendana.
  *
  * Semua binding data Convex tetap: `aksesBersama.statusKodeBersama`,
@@ -475,6 +479,9 @@ export function AksesPenyediaDanaPanel() {
         <TabsTrigger value="transfer" className="gap-2 text-xs sm:text-sm">
           <Coins className="size-3.5" /> Pencatatan Transfer Keuntungan
         </TabsTrigger>
+        <TabsTrigger value="setoran" className="gap-2 text-xs sm:text-sm">
+          <Receipt className="size-3.5" /> Rekonsiliasi Setoran
+        </TabsTrigger>
         <TabsTrigger value="rekon" className="gap-2 text-xs sm:text-sm">
           <GitCompareArrows className="size-3.5" /> Rekonsiliasi &amp; Auditing Pendana
         </TabsTrigger>
@@ -488,6 +495,9 @@ export function AksesPenyediaDanaPanel() {
           <PencatatanTransferPendana />
           <PencatatanTransferGadai />
         </div>
+      </TabsContent>
+      <TabsContent value="setoran" className="mt-0">
+        <RekonsiliasiSetoranPendana />
       </TabsContent>
       <TabsContent value="rekon" className="mt-0">
         <RekonsiliasiPendana />

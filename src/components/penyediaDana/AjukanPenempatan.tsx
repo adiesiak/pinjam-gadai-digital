@@ -52,24 +52,29 @@ import { cn } from "@/lib/utils";
 
 type MetodeSetoran = "transfer" | "qris";
 type StatusSetoran = "menunggu_verifikasi" | "terverifikasi" | "ditolak";
+type StatusTampil = StatusSetoran | "dicocokkan";
 
 /** Batas ukuran bukti mengikuti yang diterima server. */
 const MAKS_BUKTI_BYTE = 5_000_000;
 
-const LABEL_STATUS: Record<StatusSetoran, string> = {
+const LABEL_STATUS: Record<StatusTampil, string> = {
   menunggu_verifikasi: "Menunggu pencocokan",
   terverifikasi: "Terverifikasi",
   ditolak: "Ditolak",
+  dicocokkan: "Bukti dicocokkan",
 };
 
-const KELAS_STATUS: Record<StatusSetoran, string> = {
+const KELAS_STATUS: Record<StatusTampil, string> = {
   menunggu_verifikasi: "border-amber-200 bg-amber-50 text-amber-900",
   terverifikasi: "border-emerald-200 bg-emerald-50 text-emerald-900",
   ditolak: "border-rose-200 bg-rose-50 text-rose-900",
+  dicocokkan: "border-sky-200 bg-sky-50 text-sky-900",
 };
 
-function ikonStatus(status: StatusSetoran) {
-  if (status === "terverifikasi") return <CheckCircle2 className="size-3.5" aria-hidden />;
+function ikonStatus(status: StatusTampil) {
+  if (status === "terverifikasi" || status === "dicocokkan") {
+    return <CheckCircle2 className="size-3.5" aria-hidden />;
+  }
   if (status === "ditolak") return <XCircle className="size-3.5" aria-hidden />;
   return <Clock className="size-3.5" aria-hidden />;
 }
@@ -182,7 +187,7 @@ export function AjukanPenempatan({ className }: { className?: string }) {
         tanggalTransfer: tanggalKeMs(tanggal),
         buktiPembayaranId,
       });
-      toast.success("Setoran dikirim. Admin mencocokkan mutasi sebelum dana masuk saldo pendana.");
+      toast.success("Setoran dikirim. Admin mencocokkan bukti; saldo belum bertambah sampai jalur pembayaran aktif.");
       setBuka(false);
       reset();
     } catch (error) {
@@ -211,9 +216,11 @@ export function AjukanPenempatan({ className }: { className?: string }) {
           </h2>
           <p className="mt-1 text-xs leading-6 text-slate-600">
             Setor dana, unggah bukti transfer, lalu admin mencocokkan mutasinya.
-            Setelah dana masuk saldo pendana, penempatan berjalan sebagai siklus 30 hari
-            dengan Imbal Hasil tetap. Pokok dan imbal baru bisa dicairkan pada
-            akhir siklus, walaupun peminjam melunasi lebih awal.
+            Pencocokan hanya menyimpan jejak bukti; saldo pendana belum bertambah
+            sampai jalur pembayaran aktif. Setelah dana dikreditkan, penempatan
+            berjalan sebagai siklus 30 hari dengan Imbal Hasil tetap. Pokok dan
+            imbal baru bisa dicairkan pada akhir siklus, walaupun peminjam
+            melunasi lebih awal.
           </p>
           {menunggu > 0 && (
             <p className="mt-1.5 text-xs font-medium text-amber-800">
@@ -282,7 +289,12 @@ export function AjukanPenempatan({ className }: { className?: string }) {
       {daftar.length > 0 && (
         <ul className="mt-4 divide-y divide-slate-200 border-t border-slate-200">
           {daftar.slice(0, 5).map((d) => {
-            const status = d.status as StatusSetoran;
+            const status: StatusTampil =
+              d.statusPencocokan === "ditolak"
+                ? "ditolak"
+                : d.statusPencocokan === "dicocokkan"
+                  ? "dicocokkan"
+                  : (d.status as StatusSetoran);
             return (
               <li
                 key={d._id}
@@ -312,6 +324,12 @@ export function AjukanPenempatan({ className }: { className?: string }) {
                     {LABEL_STATUS[status]}
                   </span>
                 </span>
+                {d.statusPencocokan === "dicocokkan" && (
+                  <p className="basis-full text-[11px] leading-5 text-slate-600">
+                    Bukti sudah dicocokkan. Saldo belum bertambah sampai jalur
+                    pembayaran aktif.
+                  </p>
+                )}
                 {d.catatanAdmin !== null && d.catatanAdmin.trim() !== "" && (
                   <p className="basis-full text-[11px] leading-5 text-slate-600">
                     Catatan admin: {d.catatanAdmin}
@@ -334,8 +352,9 @@ export function AjukanPenempatan({ className }: { className?: string }) {
           <DialogHeader>
             <DialogTitle>Ajukan setoran penempatan</DialogTitle>
             <DialogDescription>
-              Dana baru masuk saldo pendana setelah admin mencocokkan mutasi. Simpan
-              bukti transfer Anda; nomor referensi dipakai admin untuk mencocokkan.
+              Dana belum masuk saldo pendana. Admin mencocokkan bukti lebih dulu;
+              kredit saldo menunggu jalur pembayaran aktif. Simpan bukti transfer
+              Anda; nomor referensi dipakai admin untuk mencocokkan.
             </DialogDescription>
           </DialogHeader>
 
