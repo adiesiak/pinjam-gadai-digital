@@ -114,7 +114,7 @@ export function PanelSiklusPendana() {
         toast.success(
           hasil.kurang > 0
             ? `Siklus dicairkan. Jaminan platform menutup ${formatRupiah(hasil.kurang)}.`
-            : "Siklus dicairkan ke dompet pendana.",
+            : "Siklus dicairkan ke saldo pendana.",
         );
       }
     } catch (err) {

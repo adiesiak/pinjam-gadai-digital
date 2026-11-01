@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { CalendarClock, CircleCheck, Loader2, Lock, RotateCcw, Wallet } from "lucide-react";
+import { Banknote, CalendarClock, CircleCheck, Loader2, Lock, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -24,7 +24,7 @@ function tanggal(ms: number): string {
  * Ini yang menjawab pertanyaan "kapan uang saya cair?": pokok + Imbal Hasil
  * baru bisa dipakai setelah admin mencairkan siklus pada hari jatuh tempo,
  * walaupun pinjaman peminjam sudah lunas lebih awal. Pendana memilih lebih
- * dulu: dicairkan ke rekening, atau diputar lagi menjadi siklus 30 hari baru.
+ * dulu: dicairkan, atau diputar lagi menjadi siklus 30 hari baru.
  */
 export function KartuSiklusPendana() {
   const siklus = useQuery(api.siklusPendana.siklusSaya, {});
@@ -41,7 +41,7 @@ export function KartuSiklusPendana() {
       toast.success(
         pilihan === "putar_ulang"
           ? "Siklus akan diputar lagi 30 hari saat jatuh tempo."
-          : "Siklus akan dicairkan ke dompet saat jatuh tempo. Status saldo ada di Dompet pendana.",
+          : "Siklus akan dicairkan saat jatuh tempo.",
       );
     } catch (err) {
       toast.error(
@@ -103,8 +103,8 @@ export function KartuSiklusPendana() {
 
       {berjalan.length === 0 ? (
         <p className="pt-3 text-xs leading-5 text-muted-foreground">
-          Tidak ada siklus berjalan. Dana yang sudah dicairkan ada di dompet dan
-          bisa Anda tempatkan lagi kapan saja.
+          Tidak ada siklus berjalan. Dana yang sudah dicairkan bisa Anda
+          tempatkan lagi kapan saja.
         </p>
       ) : (
         <div className="space-y-3 pt-3">
@@ -175,8 +175,8 @@ export function KartuSiklusPendana() {
                       [
                         {
                           nilai: "cairkan" as const,
-                          label: "Cairkan ke dompet",
-                          Ikon: Wallet,
+                          label: "Cairkan",
+                          Ikon: Banknote,
                         },
                         {
                           nilai: "putar_ulang" as const,
@@ -186,7 +186,7 @@ export function KartuSiklusPendana() {
                       ] satisfies ReadonlyArray<{
                         nilai: PilihanSiklus;
                         label: string;
-                        Ikon: typeof Wallet;
+                        Ikon: typeof Banknote;
                       }>
                     ).map(({ nilai, label, Ikon }) => {
                       const aktif = (row.pilihanPendana ?? "cairkan") === nilai;
@@ -221,7 +221,7 @@ export function KartuSiklusPendana() {
                       : "Sudah jatuh tempo. "}
                     {row.pilihanPendana === "putar_ulang"
                       ? "Pokok dan Imbal Hasil menjadi pokok siklus baru 30 hari."
-                      : "Pokok dan Imbal Hasil masuk dompet. Status penarikan ada di Dompet pendana."}
+                      : "Pokok dan Imbal Hasil masuk saldo pendana."}
                   </p>
                 </div>
               </article>

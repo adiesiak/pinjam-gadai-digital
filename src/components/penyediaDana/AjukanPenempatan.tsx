@@ -6,7 +6,7 @@
  * layar yang memanggilnya: pendana hanya bisa menunggu admin mencatat
  * penempatan. Kartu ini menutup jalur itu tanpa membuat tabel baru.
  *
- * Uang TIDAK masuk dompet saat formulir dikirim. Setoran berstatus
+ * Uang TIDAK masuk saldo pendana saat formulir dikirim. Setoran berstatus
  * `menunggu_verifikasi` sampai admin mencocokkan mutasi bank; siklus 30 hari
  * baru lahir dari alokasi, bukan dari pengajuan ini. Karena itu kartu menulis
  * urutannya apa adanya, bukan menjanjikan saldo langsung bertambah.
@@ -182,7 +182,7 @@ export function AjukanPenempatan({ className }: { className?: string }) {
         tanggalTransfer: tanggalKeMs(tanggal),
         buktiPembayaranId,
       });
-      toast.success("Setoran dikirim. Admin mencocokkan mutasi sebelum dana masuk dompet.");
+      toast.success("Setoran dikirim. Admin mencocokkan mutasi sebelum dana masuk saldo pendana.");
       setBuka(false);
       reset();
     } catch (error) {
@@ -211,7 +211,7 @@ export function AjukanPenempatan({ className }: { className?: string }) {
           </h2>
           <p className="mt-1 text-xs leading-6 text-slate-600">
             Setor dana, unggah bukti transfer, lalu admin mencocokkan mutasinya.
-            Setelah dana masuk dompet, penempatan berjalan sebagai siklus 30 hari
+            Setelah dana masuk saldo pendana, penempatan berjalan sebagai siklus 30 hari
             dengan Imbal Hasil tetap. Pokok dan imbal baru bisa dicairkan pada
             akhir siklus, walaupun peminjam melunasi lebih awal.
           </p>
@@ -334,7 +334,7 @@ export function AjukanPenempatan({ className }: { className?: string }) {
           <DialogHeader>
             <DialogTitle>Ajukan setoran penempatan</DialogTitle>
             <DialogDescription>
-              Dana baru masuk dompet setelah admin mencocokkan mutasi. Simpan
+              Dana baru masuk saldo pendana setelah admin mencocokkan mutasi. Simpan
               bukti transfer Anda; nomor referensi dipakai admin untuk mencocokkan.
             </DialogDescription>
           </DialogHeader>
