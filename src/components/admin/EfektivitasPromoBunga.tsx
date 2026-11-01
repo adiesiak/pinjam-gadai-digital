@@ -68,8 +68,9 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
           Efektivitas promo
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600">
-          Pinjaman yang lahir saat promo berlaku dan subsidi bunga yang ditanggung
-          platform. Voucher potongan bunga dihitung terpisah, bukan bagian dari angka ini.
+          Pinjaman yang lahir saat promo berlaku dan subsidi promo yang ditanggung
+          platform, termasuk biaya admin yang dibebaskan. Voucher potongan bunga dihitung
+          terpisah, bukan bagian dari angka ini.
         </p>
       </div>
 
@@ -142,7 +143,9 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
                 baris: data.baris.map((baris) => ({
                   nama: baris.nama,
                   status: baris.status,
+                  jenis: baris.jenis,
                   persenBunga: baris.persenBunga,
+                  potonganPersen: baris.potonganPersen,
                   tenor: baris.tenor,
                   mulai: baris.mulai,
                   selesai: baris.selesai,
@@ -192,7 +195,7 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-xs font-semibold text-slate-800">Tren mingguan</p>
                 <p className="text-[10px] text-slate-500">
-                  Batang = subsidi bunga · angka di atas = jumlah pinjaman · minggu mulai
+                  Batang = subsidi promo · angka di atas = jumlah pinjaman · minggu mulai
                   Senin (WIB)
                 </p>
               </div>
@@ -247,7 +250,12 @@ export function EfektivitasPromoBunga({ className }: { className?: string }) {
                         <span className="font-medium text-slate-800">{baris.nama}</span>
                       </div>
                       <p className="mt-0.5 text-[11px] text-slate-500">
-                        {baris.persenBunga}% · tenor {baris.tenor.join(" / ")} hari ·{" "}
+                        {baris.jenis === "bebas_admin"
+                          ? "Bebas biaya admin"
+                          : baris.jenis === "potongan_bunga"
+                            ? `Potongan ${baris.potonganPersen ?? 0} poin`
+                            : `${baris.persenBunga}%`}{" "}
+                        · tenor {baris.tenor.join(" / ")} hari ·{" "}
                         {formatPeriodePromo(baris.mulai, baris.selesai)}
                       </p>
                       {baris.perkiraan && (

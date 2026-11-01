@@ -526,6 +526,7 @@ export function LoanForm({
     : pilihPromoBunga(promoBungaQuery ?? [], {
         tenor: tenorHarian,
         sekarang: Date.now(),
+        persenNormal: tarifNormalHarian,
       });
   const tarifHarian = bungaSetelahPromo(tarifNormalHarian, promoBunga);
   // ===== Voucher =====
@@ -546,6 +547,9 @@ export function LoanForm({
         row.jenis === "boost_plafon" ||
         row.jenis === "diskon_bunga" ||
         row.jenis === "tambah_tenor") &&
+      // Bebas admin sudah menutup seluruh biaya admin; voucher diskon admin
+      // tidak akan menambah manfaat dan server menolaknya.
+      !(promoBunga?.jenis === "bebas_admin" && row.jenis === "diskon_admin") &&
       (!bulanan || row.jenis === "boost_plafon"),
   );
   // Voucher tambah limit berlaku untuk kedua skema. Potongan bunga dan tambah
@@ -570,23 +574,30 @@ export function LoanForm({
   useEffect(() => {
     if (voucherDipilih === null) return;
     if (
-      bulanan &&
-      voucherDipilih.jenis !== "boost_plafon"
+      (!bulanan && promoBunga?.jenis === "bebas_admin") ||
+      (bulanan && voucherDipilih.jenis !== "boost_plafon")
     ) {
       setVoucherId(null);
     } else if (voucherDipilih.minPokok > pokok) setVoucherId(null);
-  }, [bulanan, pokok, voucherDipilih]);
+  }, [bulanan, pokok, promoBunga, voucherDipilih]);
   const adminPersen = tarifBiaya?.adminPersen ?? PINDAI_PRICING.adminFeePercent;
   // Potongan voucher dibatasi biaya admin yang benar-benar ada (fungsi yang
   // sama dengan mesin harga).
   const diskonVoucher =
-    !bulanan && voucherDipilih?.jenis === "diskon_admin"
-      ? diskonBiayaAdmin(voucherDipilih, Math.floor((pokok * adminPersen) / 100))
+    !bulanan &&
+    voucherDipilih?.jenis === "diskon_admin" &&
+    promoBunga?.jenis !== "bebas_admin"
+      ? diskonBiayaAdmin(voucherDipilih, percentOf(pokok, adminPersen))
       : 0;
+  const diskonAdminPromo =
+    !bulanan && promoBunga?.jenis === "bebas_admin"
+      ? percentOf(pokok, adminPersen)
+      : 0;
+  const diskonAdminTotal = Math.max(diskonVoucher, diskonAdminPromo);
   const q = quoteLoanBunga(pokok, bulanan ? tarifBulanan : tarifEfektif, {
     ekspres: !bulanan && cairEkspres,
     ...(tarifBiaya !== undefined ? { tarif: tarifBiaya } : {}),
-    ...(diskonVoucher > 0 ? { diskonAdmin: diskonVoucher } : {}),
+    ...(diskonAdminTotal > 0 ? { diskonAdmin: diskonAdminTotal } : {}),
   });
   const asuransiPersen = tarifBiaya?.asuransiPersen ?? 0;
   const ekspresTeks = tarifBiaya
@@ -1269,12 +1280,25 @@ export function LoanForm({
             {promoBunga !== null && (
               <div className="flex flex-col gap-1 bg-emerald-50 px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
                 <dt className="font-medium text-emerald-900">
-                  Promo bunga {promoBunga.persenBunga}% · tenor {tenorHarian} hari (normal{" "}
-                  {tarifNormalHarian}%) · berlaku{" "}
-                  {formatPeriodePromo(promoBunga.mulai, promoBunga.selesai)}
+                  {promoBunga.jenis === "bebas_admin"
+                    ? `Bebas biaya admin · tenor ${tenorHarian} hari · berlaku ${formatPeriodePromo(
+                        promoBunga.mulai,
+                        promoBunga.selesai,
+                      )}`
+                    : promoBunga.jenis === "potongan_bunga"
+                      ? `Potongan ${promoBunga.potonganPersen ?? 0} poin · tenor ${tenorHarian} hari (normal ${tarifNormalHarian}%) · berlaku ${formatPeriodePromo(
+                          promoBunga.mulai,
+                          promoBunga.selesai,
+                        )}`
+                      : `Promo bunga ${promoBunga.persenBunga}% · tenor ${tenorHarian} hari (normal ${tarifNormalHarian}%) · berlaku ${formatPeriodePromo(
+                          promoBunga.mulai,
+                          promoBunga.selesai,
+                        )}`}
                 </dt>
                 <dd className="font-semibold tabular-nums text-emerald-800">
-                  hemat {tarifNormalHarian - tarifHarian} poin
+                  {promoBunga.jenis === "bebas_admin"
+                    ? `hemat ${formatRupiah(diskonAdminPromo)}`
+                    : `hemat ${tarifNormalHarian - tarifHarian} poin`}
                 </dd>
               </div>
             )}
@@ -1292,8 +1316,11 @@ export function LoanForm({
             <div className="flex flex-col gap-1 bg-white px-3 py-2 text-sm sm:flex-row sm:items-baseline sm:justify-between">
               <dt className="font-medium text-slate-700">
                 Bunga {tarifEfektif}% · tenor {tenorHarian + tambahanTenorVoucher} hari
-                {promoBunga !== null && (
+                {promoBunga !== null && promoBunga.jenis !== "bebas_admin" && (
                   <span className="text-emerald-700"> (promo)</span>
+                )}
+                {promoBunga?.jenis === "bebas_admin" && (
+                  <span className="text-emerald-700"> (biaya admin Rp0)</span>
                 )}
                 {tambahanTenorVoucher > 0 && (
                   <span className="text-emerald-700">

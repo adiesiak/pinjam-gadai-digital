@@ -1,8 +1,8 @@
 /**
  * Template bunga promo yang siap dipakai admin.
  *
- * Satu template hanya mengisi empat hal: nama kampanye, bunga pengganti, tenor
- * yang mendapatkannya, dan rentang tanggal. Tidak ada efek tersembunyi — panel
+ * Satu template mengisi jenis manfaat, nama kampanye, angka bunga/potongan,
+ * tenor yang mendapatkannya, dan rentang tanggal. Tidak ada efek tersembunyi — panel
  * tetap membuka formulir yang bisa disunting, dan server tetap memeriksa isian
  * lewat `periksaIsiPromoBunga` sebelum menyimpan.
  *
@@ -10,10 +10,14 @@
  * WIB: kampanye "hari ini" harus berakhir pukul 23.59 WIB, bukan 23.59 UTC.
  * Murni tanpa React/Convex supaya bisa diuji pada tanggal mana pun.
  */
-import { TENOR_OPTIONS, type Tenor } from "./loan";
+import { TENOR_OPTIONS } from "./loan";
+import type { JenisPromoBunga } from "./promoBunga";
 import { OFFSET_WIB_MS } from "./waktu";
 
 const HARI_MS = 86_400_000;
+
+/** Tenor 7–30 hari untuk kampanye potongan bunga. */
+const TENOR_MAKS_30 = Array.from({ length: 24 }, (_, indeks) => 7 + indeks);
 
 export type RentangPromo = { mulai: number; selesai: number };
 
@@ -25,8 +29,12 @@ export type TemplatePromoBunga = {
   keterangan: string;
   /** Nama kampanye yang tersimpan pada pinjaman yang memakainya. */
   nama: string;
+  /** Kosong = bunga pengganti, untuk template lama. */
+  jenis?: JenisPromoBunga;
   persenBunga: number;
-  tenor: readonly Tenor[];
+  /** Poin potongan untuk template `potongan_bunga`. */
+  potonganPersen?: number;
+  tenor: readonly number[];
   rentang: (sekarang: number) => RentangPromo;
 };
 
@@ -125,6 +133,46 @@ export const TEMPLATE_PROMO_BUNGA: readonly TemplatePromoBunga[] = [
     tenor: [14, 21],
     rentang: rentangGajian,
   },
+  {
+    id: "tenor-10",
+    label: "Tenor 10 hari",
+    keterangan: "Bunga 20% untuk tenor 10 hari selama sepekan.",
+    nama: "Bunga 20% tenor 10 hari — sepekan",
+    jenis: "bunga_pengganti",
+    persenBunga: 20,
+    tenor: [10],
+    rentang: (sekarang) => ({
+      mulai: awalHariWIB(sekarang),
+      selesai: akhirHariWIB(sekarang + 6 * HARI_MS),
+    }),
+  },
+  {
+    id: "potongan-5",
+    label: "Potongan 5 poin",
+    keterangan: "Potongan 5 poin bunga untuk tenor 7–30 hari selama sepekan.",
+    nama: "Potongan 5 poin — tenor 7–30 hari",
+    jenis: "potongan_bunga",
+    persenBunga: 0,
+    potonganPersen: 5,
+    tenor: TENOR_MAKS_30,
+    rentang: (sekarang) => ({
+      mulai: awalHariWIB(sekarang),
+      selesai: akhirHariWIB(sekarang + 6 * HARI_MS),
+    }),
+  },
+  {
+    id: "bebas-admin",
+    label: "Bebas biaya admin",
+    keterangan: "Biaya admin Rp0 untuk tenor standar selama sepekan.",
+    nama: "Bebas biaya admin — tenor standar",
+    jenis: "bebas_admin",
+    persenBunga: 0,
+    tenor: TENOR_OPTIONS,
+    rentang: (sekarang) => ({
+      mulai: awalHariWIB(sekarang),
+      selesai: akhirHariWIB(sekarang + 6 * HARI_MS),
+    }),
+  },
 ] as const;
 
 /** Isian formulir promo dari satu template pada satu titik waktu. */
@@ -133,14 +181,20 @@ export function isiTemplatePromoBunga(
   sekarang: number,
 ): {
   nama: string;
+  jenis: JenisPromoBunga;
   persenBunga: number;
-  tenor: Tenor[];
+  potonganPersen?: number;
+  tenor: number[];
   mulai: number;
   selesai: number;
 } {
   return {
     nama: template.nama,
+    jenis: template.jenis ?? "bunga_pengganti",
     persenBunga: template.persenBunga,
+    ...(template.potonganPersen === undefined
+      ? {}
+      : { potonganPersen: template.potonganPersen }),
     tenor: [...template.tenor],
     ...template.rentang(sekarang),
   };

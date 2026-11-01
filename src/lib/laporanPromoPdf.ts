@@ -18,7 +18,9 @@ import { formatTanggalWIB, tanggalWIB } from "./waktu";
 export type BarisLaporanPromoPdf = {
   nama: string;
   status: StatusPromoBunga;
+  jenis?: "bunga_pengganti" | "potongan_bunga" | "bebas_admin";
   persenBunga: number;
+  potonganPersen?: number | null;
   tenor: readonly number[];
   mulai: number;
   selesai: number;
@@ -49,6 +51,14 @@ function labelStatus(status: StatusPromoBunga): string {
   return LABEL_STATUS[status] ?? status;
 }
 
+function labelManfaat(baris: BarisLaporanPromoPdf): string {
+  if (baris.jenis === "bebas_admin") return "Bebas biaya admin";
+  if (baris.jenis === "potongan_bunga") {
+    return `Potongan ${baris.potonganPersen ?? 0} poin`;
+  }
+  return `${baris.persenBunga}%`;
+}
+
 function teksPeriode(periode: DataLaporanPromoPdf["periode"]): string {
   if (periode?.dari !== undefined && periode.sampai !== undefined) {
     return `${formatTanggalWIB(periode.dari)} – ${formatTanggalWIB(periode.sampai)}`;
@@ -77,7 +87,7 @@ export function buatPdfLaporanPromo(laporan: DataLaporanPromoPdf): Uint8Array {
 
   const barisTabel: BarisTabelResmi[] = laporan.baris.map((baris) => ({
     sel: [
-      `${baris.nama} · ${labelStatus(baris.status)} · ${baris.persenBunga}%`,
+      `${baris.nama} · ${labelStatus(baris.status)} · ${labelManfaat(baris)}`,
       baris.tenor.join("/"),
       String(baris.pinjaman),
       formatRupiahAman(baris.pokok),
@@ -89,7 +99,7 @@ export function buatPdfLaporanPromo(laporan: DataLaporanPromoPdf): Uint8Array {
     {
       jenis: "banner",
       merek: "PINDAI",
-      subjudul: "Laporan Efektivitas Promo Bunga",
+      subjudul: "Laporan Efektivitas Promo Pinjaman",
       nomor,
       tanggal: `Tanggal: ${tanggal}`,
     },
@@ -101,7 +111,7 @@ export function buatPdfLaporanPromo(laporan: DataLaporanPromoPdf): Uint8Array {
           { label: "Pinjaman memakai promo", nilai: String(laporan.total.pinjaman) },
           { label: "Total pokok", nilai: formatRupiahAman(laporan.total.pokok) },
           {
-            label: "Subsidi bunga",
+            label: "Subsidi promo",
             nilai: formatRupiahAman(laporan.total.subsidi),
             nada: "bersih",
           },
@@ -143,7 +153,7 @@ export function buatPdfLaporanPromo(laporan: DataLaporanPromoPdf): Uint8Array {
         ]),
     {
       jenis: "callout",
-      label: "Total subsidi bunga platform",
+      label: "Total subsidi promo platform",
       nilai: formatRupiahAman(laporan.total.subsidi),
       catatan: `${laporan.total.pinjaman} pinjaman · rata-rata ${formatRupiahAman(rataRata)} per pinjaman.`,
     },
@@ -168,7 +178,7 @@ export function buatPdfLaporanPromo(laporan: DataLaporanPromoPdf): Uint8Array {
   }
 
   const catatan = [
-    "Subsidi bunga = selisih bunga normal dengan bunga promo yang benar-benar dipakai pinjaman, dalam rupiah.",
+    "Subsidi promo = selisih bunga normal dengan bunga promo, ditambah biaya admin yang dibebaskan kampanye bebas admin.",
     "Voucher potongan bunga dan voucher akad syariah dihitung terpisah, bukan bagian dari subsidi promo.",
     "Minggu dimulai Senin pukul 00.00 WIB dan berakhir Minggu pukul 23.59 WIB.",
   ];
@@ -192,7 +202,7 @@ export function buatPdfLaporanPromo(laporan: DataLaporanPromoPdf): Uint8Array {
   return susunPdfResmi({
     nomor,
     judul: "LAPORAN EFEKTIVITAS PROMO",
-    kaki: "PINDAI — Laporan internal efektivitas promo bunga",
+    kaki: "PINDAI — Laporan internal efektivitas promo pinjaman",
     blok,
   });
 }

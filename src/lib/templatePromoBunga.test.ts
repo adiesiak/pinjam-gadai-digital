@@ -123,11 +123,29 @@ eq(jamWIB(gajianFebruari.selesai), "23:59:59.999", "gajian berakhir 23.59.59.999
 const gajianAwalBulan = isiTemplatePromoBunga(cari("gajian"), wib(2026, 11, 2, 10));
 eq(tanggalWIB(gajianAwalBulan.mulai), "2026-11-25", "awal bulan menjadwalkan tanggal 25");
 
-// ===== Bunga template tetap di bawah batas promo =====
+// ===== Jenis template dan batas angkanya =====
 for (const template of TEMPLATE_PROMO_BUNGA) {
-  ok(template.persenBunga > 0 && template.persenBunga <= 25, `${template.id} bunga 1–25%`);
+  if (template.jenis === "bebas_admin") {
+    eq(template.persenBunga, 0, `${template.id} bebas admin tanpa bunga`);
+  } else if (template.jenis === "potongan_bunga") {
+    ok(
+      template.potonganPersen !== undefined &&
+        template.potonganPersen > 0 &&
+        template.potonganPersen <= 25,
+      `${template.id} potongan 1–25 poin`,
+    );
+  } else {
+    ok(template.persenBunga > 0 && template.persenBunga <= 25, `${template.id} bunga 1–25%`);
+  }
   ok(template.tenor.length > 0, `${template.id} punya tenor`);
 }
+
+// Template penawaran baru benar-benar mencakup tenor yang dijanjikan.
+eq(cari("tenor-10").tenor.join(","), "10", "template tenor 10 hanya tenor 10");
+eq(cari("potongan-5").tenor.length, 24, "potongan 5 mencakup tenor 7–30");
+eq(cari("potongan-5").tenor[0], 7, "potongan 5 mulai tenor 7");
+eq(cari("potongan-5").tenor[cari("potongan-5").tenor.length - 1], 30, "potongan 5 berakhir tenor 30");
+eq(cari("bebas-admin").jenis, "bebas_admin", "template bebas admin memakai jenis yang benar");
 
 const jumlah = lulus + gagal;
 console.log(`templatePromoBunga.test: ${lulus}/${jumlah} lulus`);

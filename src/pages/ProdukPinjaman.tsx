@@ -54,7 +54,7 @@ import {
   type TarifBiaya,
   type Tenor,
 } from "@/lib/loan";
-import { formatRupiahAman, kelompokkanDigit } from "@/lib/money";
+import { formatRupiahAman, kelompokkanDigit, percentOf } from "@/lib/money";
 import {
   bungaSetelahPromo,
   pilihPromoBunga,
@@ -136,7 +136,11 @@ function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) 
           <div className="grid grid-cols-3 gap-2 sm:contents">
             {TENOR_OPTIONS.map((tenor) => {
               const normal = persenBungaHarian(baris.pokok, tenor) ?? 0;
-              const promo = pilihPromoBunga(promos, { tenor, sekarang: Date.now() });
+              const promo = pilihPromoBunga(promos, {
+                tenor,
+                sekarang: Date.now(),
+                persenNormal: normal,
+              });
               return (
                 <p
                   key={tenor}
@@ -147,14 +151,16 @@ function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) 
                   </span>
                   <span
                     className={
-                      promo === null ? "font-semibold" : "font-semibold text-emerald-700"
+                      promo === null || promo.jenis === "bebas_admin"
+                        ? "font-semibold"
+                        : "font-semibold text-emerald-700"
                     }
                   >
                     {persen(bungaSetelahPromo(normal, promo))}
                   </span>
                   {promo !== null && (
                     <span className="block text-[10px] font-medium text-emerald-700">
-                      promo
+                      {promo.jenis === "bebas_admin" ? "bebas admin" : "promo"}
                     </span>
                   )}
                 </p>
@@ -166,7 +172,7 @@ function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) 
       {adaPromo && (
         <p className="py-2 text-[11px] leading-5 text-emerald-800">
           Angka hijau adalah bunga promo yang sedang berjalan; angka lain adalah tarif
-          normal.
+          normal. Label “bebas admin” berarti biaya admin di muka Rp0, bukan bunga 0%.
         </p>
       )}
     </div>
@@ -224,9 +230,21 @@ function KalkulatorKonvensional({
       if (skema === "harian") {
         const tenor = sesuaikanTenorHarian(nominal, tenorHari);
         const normal = persenBungaHarian(nominal, tenor) ?? 0;
-        const promo = pilihPromoBunga(promos, { tenor, sekarang: Date.now() });
+        const promo = pilihPromoBunga(promos, {
+          tenor,
+          sekarang: Date.now(),
+          persenNormal: normal,
+        });
         const bunga = bungaSetelahPromo(normal, promo);
-        const q = quoteLoanBunga(nominal, bunga, { ekspres, tarif: tarifBiaya });
+        const diskonAdminPromo =
+          promo?.jenis === "bebas_admin"
+            ? percentOf(nominal, tarifBiaya.adminPersen)
+            : 0;
+        const q = quoteLoanBunga(nominal, bunga, {
+          ekspres,
+          tarif: tarifBiaya,
+          ...(diskonAdminPromo > 0 ? { diskonAdmin: diskonAdminPromo } : {}),
+        });
         isi = (
           <>
             <div className="grid gap-2 sm:grid-cols-2">

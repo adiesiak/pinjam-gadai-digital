@@ -6,9 +6,10 @@
  *    sama dengan yang nanti dipakai server;
  *  - `daftar`/`simpan`/`setAktif`/`hapus` di balik gerbang Super Admin.
  *
- * Bunga promo MENGGANTIKAN tarif matriks tenor itu, bukan mengurangi persen
- * dari bunga. Tenor kampanye mengikuti tenor harian sah 7–50 hari, termasuk
- * hari yang dipilih nasabah lewat tanggal jatuh tempo seperti 10 atau 30 hari.
+ * Kampanye bisa mengganti bunga (`bunga_pengganti`), memotong poin dari bunga
+ * normal (`potongan_bunga`), atau membebaskan biaya admin (`bebas_admin`).
+ * Tenor kampanye mengikuti tenor harian sah 7–50 hari, termasuk hari yang
+ * dipilih nasabah lewat tanggal jatuh tempo seperti 10 atau 30 hari.
  * `promoBungaUntukPengajuan` dipanggil `loans.createLoanApplication` dan
  * hasilnya dibekukan pada pinjaman, jadi mengubah promo kemudian tidak pernah
  * menggeser kontrak yang sudah terbit.
@@ -487,7 +488,8 @@ export const efektivitas = query({
         pokok += loan.pokokPinjaman;
         // Kampanye bebas admin menyumbang biaya admin yang tidak ditagih.
         // Ini bukan voucher, jadi tidak masuk `subsidiVoucher`.
-        subsidi += Math.max(0, loan.promoDiskonAdmin ?? 0);
+        const subsidiAdmin = Math.max(0, loan.promoDiskonAdmin ?? 0);
+        subsidi += subsidiAdmin;
         // Subsidi voucher dihitung terpisah dari subsidi promo: keduanya
         // mengurangi pendapatan platform, tetapi hanya promo yang menjadi
         // tanggung jawab kampanye. Menjumlahkannya di satu kolom menyembunyikan
@@ -510,7 +512,7 @@ export const efektivitas = query({
         subsidi += subsidiPinjaman;
         kontribusiMinggu.push({
           waktu: loan.diajukanPada ?? loan._creationTime,
-          subsidi: subsidiPinjaman,
+          subsidi: subsidiPinjaman + subsidiAdmin,
         });
       }
 
@@ -521,7 +523,9 @@ export const efektivitas = query({
       baris.push({
         id: promo._id,
         nama: promo.nama,
+        jenis: promo.jenis ?? "bunga_pengganti",
         persenBunga: promo.persenBunga,
+        potonganPersen: promo.potonganPersen ?? null,
         tenor: promo.tenor,
         mulai: promo.mulai,
         selesai: promo.selesai,

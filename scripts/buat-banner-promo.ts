@@ -39,7 +39,7 @@ const PROMOS: Promo[] = [
     sealBottom: "TENOR 7 HARI",
     prioritas: 10,
     catatan:
-      "Siap dipasang. Buat Promo Bunga tenor 7 hari dengan bunga 15%, lalu tautkan ke banner ini.",
+      "Siap dipasang. Buat promo tenor 7 hari dengan bunga 15% di panel Promo Pinjaman, lalu tautkan ke banner ini.",
   },
   {
     id: "tenor-10-bunga-20",
@@ -54,22 +54,22 @@ const PROMOS: Promo[] = [
     sealBottom: "TENOR 10 HARI",
     prioritas: 11,
     catatan:
-      "Siap dipasang. Buat Promo Bunga tenor 10 hari dengan bunga 20%; tenor 10 ditambahkan lewat kolom tenor lain di panel Promo Bunga.",
+      "Siap dipasang. Buat promo tenor 10 hari dengan bunga 20% di panel Promo Pinjaman; tenor 10 ditambahkan lewat kolom tenor lain.",
   },
   {
     id: "potongan-5-semua-tenor",
-    nama: "Potongan 5% bunga · semua tenor maksimal 30 hari",
-    judul: "Potongan 5% bunga untuk semua tenor maksimal 30 hari",
-    headline: "POTONGAN 5%",
+    nama: "Potongan 5 poin bunga · semua tenor maksimal 30 hari",
+    judul: "Potongan 5 poin bunga untuk semua tenor maksimal 30 hari",
+    headline: "POTONGAN 5 POIN",
     subhead: "BUNGA SEMUA TENOR",
     detail:
-      "Berlaku untuk pinjaman dengan tenor maksimal 30 hari. Semakin cepat, semakin ringan.",
+      "Bunga normal dipotong 5 poin untuk pinjaman dengan tenor maksimal 30 hari. Semakin cepat, semakin ringan.",
     sealTop: "POTONGAN",
-    sealBig: "5%",
+    sealBig: "5 POIN",
     sealBottom: "TENOR MAKS. 30 HARI",
     prioritas: 12,
     catatan:
-      "Desain siap. Tenor 7–30 bisa ditambahkan lewat kolom tenor lain, tetapi model promo saat ini mengganti bunga, bukan memotong 5 poin dari bunga. Perlu aturan potongan per tenor atau voucher.",
+      "Siap dipasang. Buat promo jenis Potongan bunga 5 poin untuk tenor 7–30 hari lewat panel Promo Pinjaman; template Potongan 5 poin sudah menyiapkan tenor dan tanggalnya.",
   },
   {
     id: "bebas-biaya-admin",
@@ -85,7 +85,7 @@ const PROMOS: Promo[] = [
     prioritas: 13,
     ukuranSeal: 76,
     catatan:
-      "Desain siap, tetapi bebas biaya admin belum menjadi kampanye massal. Saat ini hanya voucher diskon admin per nasabah.",
+      "Siap dipasang. Buat promo jenis Bebas biaya admin untuk tenor yang diinginkan; biaya admin di muka menjadi Rp0 tanpa mengubah bunga.",
   },
 ];
 

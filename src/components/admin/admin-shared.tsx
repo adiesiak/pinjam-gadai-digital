@@ -29,6 +29,8 @@ export type LoanRow = {
   promoBungaPersenNormal?: number | null;
   /** Nama kampanye promo yang dibekukan pada pinjaman. */
   promoBungaNama?: string | null;
+  /** Pembebasan biaya admin dari promo bebas admin (rupiah). */
+  promoDiskonAdmin?: number | null;
   /** Centang cair ekspres peminjam; null/kosong = data lama (ekspres dipakai). */
   cairEkspres?: boolean | null;
   /** Snapshot tarif potongan di muka; null/kosong = tarif bawaan. */

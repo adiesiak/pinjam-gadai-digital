@@ -145,6 +145,20 @@ ok(
 );
 ok(periksaIsiPromoBunga({ ...sah, tenor: [7, 7] }).length > 0, "tenor ganda ditolak");
 ok(
+  periksaIsiPromoBunga({ ...sah, jenis: "potongan_bunga", persenBunga: 0, potonganPersen: 5 })
+    .length === 0,
+  "potongan 5 poin sah",
+);
+ok(
+  periksaIsiPromoBunga({ ...sah, jenis: "potongan_bunga", persenBunga: 0, potonganPersen: 0 })
+    .length > 0,
+  "potongan 0 ditolak",
+);
+ok(
+  periksaIsiPromoBunga({ ...sah, jenis: "bebas_admin", persenBunga: 0 }).length === 0,
+  "bebas admin sah tanpa bunga",
+);
+ok(
   periksaIsiPromoBunga({ ...sah, selesai: SEKARANG - HARI }).length > 0,
   "selesai sebelum mulai ditolak",
 );
@@ -160,9 +174,10 @@ const pratinjau = pratinjauPromoBunga([14, 7], 15, (tenor) => ({
 }));
 eq(pratinjau.length, 2, "dua tenor dipratinjau");
 eq(pratinjau[0].tenor, 7, "pratinjau diurut naik");
-eq(pratinjau[0].promo, 15, "bunga promo dibawa apa adanya");
+eq(pratinjau[0].promo.tier1, 15, "bunga promo dibawa apa adanya");
 eq(pratinjau[0].potonganTerbesar, 15, "potongan terbesar dari tier 1");
 eq(pratinjau[1].potonganTerbesar, 20, "tenor 14 memotong lebih besar");
+eq(pratinjau[0].promo.tier2, 15, "tier 2 memakai bunga promo yang sama");
 
 const pratinjauTanggal = pratinjauPromoBunga([10, 30], 20, (tenor) => ({
   tier1: tenor === 10 ? 32.14 : 41.5,
@@ -172,6 +187,38 @@ const pratinjauTanggal = pratinjauPromoBunga([10, 30], 20, (tenor) => ({
 eq(pratinjauTanggal.length, 2, "pratinjau tenor tanggal tetap tampil");
 eq(pratinjauTanggal[0].tenor, 10, "tenor 10 ikut dipratinjau");
 eq(pratinjauTanggal[0].potonganTerbesar, 12.14, "potongan tenor 10 dihitung dari normal");
+
+// ===== Jenis potongan dan bebas admin =====
+const potongan = {
+  jenis: "potongan_bunga" as const,
+  persenBunga: 0,
+  potonganPersen: 5,
+};
+eq(bungaSetelahPromo(30, potongan), 25, "potongan 5 poin dari bunga 30% menjadi 25%");
+eq(bungaSetelahPromo(26, potongan), 21, "potongan bekerja pada tier terendah");
+eq(bungaSetelahPromo(3, { ...potongan, potonganPersen: 5 }), 0, "bunga tidak pernah negatif");
+
+const bebasAdmin = { jenis: "bebas_admin" as const, persenBunga: 0 };
+eq(bungaSetelahPromo(30, bebasAdmin), 30, "bebas admin tidak mengubah bunga");
+eq(potonganPoinPersen(30, bebasAdmin), 0, "bebas admin bukan potongan bunga");
+
+const pilihAdmin = pilihPromoBunga(
+  [
+    promo({ _id: "admin", jenis: "bebas_admin", persenBunga: 0 }),
+    promo({ _id: "normal", jenis: "bunga_pengganti", persenBunga: 30 }),
+  ],
+  { tenor: 7, sekarang: SEKARANG, persenNormal: 30 },
+);
+eq(pilihAdmin?._id, "admin", "bebas admin menang bila bunga final sama");
+
+const pilihBunga = pilihPromoBunga(
+  [
+    promo({ _id: "admin", jenis: "bebas_admin", persenBunga: 0 }),
+    promo({ _id: "murah", jenis: "potongan_bunga", persenBunga: 0, potonganPersen: 8 }),
+  ],
+  { tenor: 7, sekarang: SEKARANG, persenNormal: 30 },
+);
+eq(pilihBunga?._id, "murah", "potongan 8 poin menang atas bebas admin");
 
 const jumlah = lulus + gagal;
 console.log(`promoBunga.test: ${lulus}/${jumlah} lulus`);

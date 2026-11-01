@@ -12,7 +12,7 @@
     "prioritas": 10,
     "desktop": "/banner-promo/tenor-7-bunga-15-desktop.png",
     "mobile": "/banner-promo/tenor-7-bunga-15-mobile.png",
-    "catatan": "Siap dipasang. Buat Promo Bunga tenor 7 hari dengan bunga 15%, lalu tautkan ke banner ini."
+    "catatan": "Siap dipasang. Buat promo tenor 7 hari dengan bunga 15% di panel Promo Pinjaman, lalu tautkan ke banner ini."
   },
   {
     "id": "tenor-10-bunga-20",
@@ -27,12 +27,12 @@
     "prioritas": 11,
     "desktop": "/banner-promo/tenor-10-bunga-20-desktop.png",
     "mobile": "/banner-promo/tenor-10-bunga-20-mobile.png",
-    "catatan": "Siap dipasang. Buat Promo Bunga tenor 10 hari dengan bunga 20%; tenor 10 ditambahkan lewat kolom tenor lain di panel Promo Bunga."
+    "catatan": "Siap dipasang. Buat promo tenor 10 hari dengan bunga 20% di panel Promo Pinjaman; tenor 10 ditambahkan lewat kolom tenor lain."
   },
   {
     "id": "potongan-5-semua-tenor",
-    "nama": "Potongan 5% bunga · semua tenor maksimal 30 hari",
-    "judul": "Potongan 5% bunga untuk semua tenor maksimal 30 hari",
+    "nama": "Potongan 5 poin bunga · semua tenor maksimal 30 hari",
+    "judul": "Potongan 5 poin bunga untuk semua tenor maksimal 30 hari",
     "tautan": "/pinjaman/konvensional",
     "penempatan": [
       "beranda",
@@ -42,7 +42,7 @@
     "prioritas": 12,
     "desktop": "/banner-promo/potongan-5-semua-tenor-desktop.png",
     "mobile": "/banner-promo/potongan-5-semua-tenor-mobile.png",
-    "catatan": "Desain siap. Tenor 7–30 bisa ditambahkan lewat kolom tenor lain, tetapi model promo saat ini mengganti bunga, bukan memotong 5 poin dari bunga. Perlu aturan potongan per tenor atau voucher."
+    "catatan": "Siap dipasang. Buat promo jenis Potongan bunga 5 poin untuk tenor 7–30 hari lewat panel Promo Pinjaman; template Potongan 5 poin sudah menyiapkan tenor dan tanggalnya."
   },
   {
     "id": "bebas-biaya-admin",
@@ -57,6 +57,6 @@
     "prioritas": 13,
     "desktop": "/banner-promo/bebas-biaya-admin-desktop.png",
     "mobile": "/banner-promo/bebas-biaya-admin-mobile.png",
-    "catatan": "Desain siap, tetapi bebas biaya admin belum menjadi kampanye massal. Saat ini hanya voucher diskon admin per nasabah."
+    "catatan": "Siap dipasang. Buat promo jenis Bebas biaya admin untuk tenor yang diinginkan; biaya admin di muka menjadi Rp0 tanpa mengubah bunga."
   }
 ]

@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import schema from "./schema";
+import { quotePinjaman } from "../lib/loan";
 import {
   seedKycTerverifikasi,
   simpanBerkasUji,
@@ -68,7 +69,9 @@ async function ajukanHarian(
 
 type JenisPromo = {
   nama?: string;
+  jenis?: "bunga_pengganti" | "potongan_bunga" | "bebas_admin";
   persenBunga: number;
+  potonganPersen?: number;
   tenor: number[];
   mulai?: number;
   selesai?: number;
@@ -78,7 +81,11 @@ type JenisPromo = {
 function isiPromo(promo: JenisPromo) {
   return {
     nama: promo.nama ?? "Bunga promo uji",
+    ...(promo.jenis === undefined ? {} : { jenis: promo.jenis }),
     persenBunga: promo.persenBunga,
+    ...(promo.potonganPersen === undefined
+      ? {}
+      : { potonganPersen: promo.potonganPersen }),
     tenor: promo.tenor,
     mulai: promo.mulai ?? Date.now() - HARI_MS,
     selesai: promo.selesai ?? Date.now() + 10 * HARI_MS,
@@ -230,6 +237,83 @@ describe("promo bunga harian", () => {
     expect(loan?.promoBungaId).toBe(promoId);
     expect(loan?.promoBungaPersenNormal).toBe(32.14);
     expect(loan?.persenBunga).toBe(20);
+  });
+
+  it("promo potongan bunga memotong tarif normal tenor itu", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-promo-potong", {
+      email: "admin-promo-potong@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "rani-potong",
+      "rani-potong@pindai.test",
+    );
+    const kyc = await unggahKyc(t);
+
+    const { id: promoId } = await buatPromo(admin, {
+      nama: "Potongan 5 poin tenor 7",
+      jenis: "potongan_bunga",
+      persenBunga: 0,
+      potonganPersen: 5,
+      tenor: [7],
+    });
+
+    const hasil = await ajukanHarian(peminjam, kyc, 7);
+    const loan = await t.run(async (ctx) => {
+      const rows = await ctx.db.query("loans").collect();
+      return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
+    });
+
+    expect(loan?.promoBungaId).toBe(promoId);
+    expect(loan?.promoBungaJenis).toBe("potongan_bunga");
+    expect(loan?.promoBungaPersenNormal).toBe(30);
+    expect(loan?.persenBunga).toBe(25);
+    expect(loan?.promoBungaPersen).toBe(25);
+    expect(loan?.promoBungaPotonganPersen).toBe(5);
+  });
+
+  it("promo bebas admin membebaskan biaya admin tanpa mengubah bunga", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-promo-admin", {
+      email: "admin-promo-admin@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "rani-admin",
+      "rani-admin@pindai.test",
+    );
+    const kyc = await unggahKyc(t);
+
+    const { id: promoId } = await buatPromo(admin, {
+      nama: "Bebas admin tenor 7",
+      jenis: "bebas_admin",
+      persenBunga: 0,
+      tenor: [7],
+    });
+
+    const hasil = await ajukanHarian(peminjam, kyc, 7);
+    const loan = await t.run(async (ctx) => {
+      const rows = await ctx.db.query("loans").collect();
+      return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
+    });
+
+    // Pokok Rp300.000: bunga tetap 30%, biaya admin 2% = Rp6.000 dibebaskan.
+    expect(loan?.promoBungaId).toBe(promoId);
+    expect(loan?.promoBungaJenis).toBe("bebas_admin");
+    expect(loan?.persenBunga).toBe(30);
+    expect(loan?.promoBungaPersenNormal).toBe(30);
+    expect(loan?.promoBungaPersen).toBe(30);
+    expect(loan?.promoDiskonAdmin).toBe(6_000);
+    // Requote dokumen/kontrak harus membaca pembebasan yang dibekukan, bukan
+    // hanya diskon voucher.
+    expect(quotePinjaman(loan!).diskonAdmin).toBe(6_000);
+
+    const laporan = await admin.query(api.promoBunga.efektivitas, {});
+    expect(laporan.baris[0]?.subsidi).toBe(6_000);
+    expect(laporan.tren[0]?.subsidi).toBe(6_000);
   });
 
   it("saat promo tumpang tindih, bunga terendah yang dipakai", async () => {

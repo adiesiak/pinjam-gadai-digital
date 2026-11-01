@@ -85,8 +85,8 @@ export type PromoBungaRingkas = {
 /**
  * Lantai bunga saat promo dan voucher potongan bertumpuk.
  *
- * Promo menggantikan tarif normal, lalu voucher memotong lagi dalam poin
- * persen. Tanpa lantai, dua subsidi bisa menumpuk sampai bunga mendekati nol —
+ * Promo bunga menghasilkan tarif setelah promo, lalu voucher memotong lagi
+ * dalam poin persen. Tanpa lantai, dua subsidi bisa menumpuk sampai bunga mendekati nol —
  * biaya yang tidak pernah terlihat di satu layar mana pun. Angka ini juga yang
  * membuat kombinasi "promo 15% + voucher 10 poin" tepat menyentuh batas.
  */
@@ -314,9 +314,10 @@ export function terapkanVoucherBunga(args: {
 /**
  * Daftar pesan kesalahan; kosong berarti isian siap disimpan.
  *
- * `persenMaks` 25% menjaga promo selalu lebih rendah dari bunga terendah
- * (26%). Tanpa batas ini admin bisa menyimpan "promo 40%" yang tidak memotong
- * apa pun, dan nasabah melihat janji yang tidak pernah berlaku.
+ * `persenMaks` 25 menjaga bunga pengganti maupun poin potongan selalu masuk
+ * akal terhadap bunga normal terendah (26%). Tanpa batas ini admin bisa
+ * menyimpan "promo 40%" yang tidak memotong apa pun, dan nasabah melihat janji
+ * yang tidak pernah berlaku.
  */
 export function periksaIsiPromoBunga(isi: {
   nama: string;

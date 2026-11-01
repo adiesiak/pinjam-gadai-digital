@@ -83,6 +83,8 @@ export type PinjamanUntukRincian = {
   cairEkspres?: boolean | null;
   /** Snapshot tarif potongan di muka; null/kosong = tarif bawaan. */
   tarifBiaya?: Partial<TarifBiaya> | null;
+  /** Pembebasan biaya admin dari promo bebas admin (rupiah). */
+  promoDiskonAdmin?: number | null;
   didanaiPada?: number | null;
   diajukanPada: number;
   tujuan?: string;
@@ -259,6 +261,9 @@ export function susunRincianPinjaman(
       ...(loan.tarifBiaya === null || loan.tarifBiaya === undefined
         ? {}
         : { tarifBiaya: loan.tarifBiaya }),
+      ...(loan.promoDiskonAdmin === null || loan.promoDiskonAdmin === undefined
+        ? {}
+        : { promoDiskonAdmin: loan.promoDiskonAdmin }),
     });
     const dana: BarisRincian[] = [
       { label: "Pokok pinjaman", nilai: rp(quote.pokok) },
@@ -276,6 +281,15 @@ export function susunRincianPinjaman(
         nilai: rp(quote.biayaAdmin),
         nada: "potongan",
       },
+      ...(quote.diskonAdmin > 0
+        ? [
+            {
+              label: "Biaya admin dibebaskan (promo/voucher)",
+              nilai: rp(quote.diskonAdmin),
+              nada: "bersih" as const,
+            },
+          ]
+        : []),
       {
         label: "Biaya platform (0%, dipotong di muka)",
         nilai: rp(quote.biayaPlatform),

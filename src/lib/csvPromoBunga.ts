@@ -14,7 +14,9 @@ export type BarisCsvPromo = {
   nama: string;
   /** Label status yang sudah manusiawi, mis. "Berjalan". */
   status: string;
+  jenis?: "bunga_pengganti" | "potongan_bunga" | "bebas_admin";
   persenBunga: number;
+  potonganPersen?: number | null;
   tenor: readonly number[];
   mulai: number;
   selesai: number;
@@ -26,7 +28,7 @@ export type BarisCsvPromo = {
 const HEADER = [
   "Promo",
   "Status",
-  "Bunga (%)",
+  "Manfaat",
   "Tenor (hari)",
   "Mulai",
   "Selesai",
@@ -34,6 +36,15 @@ const HEADER = [
   "Pokok (Rp)",
   "Subsidi (Rp)",
 ] as const;
+
+/** Label manfaat yang dibaca admin, bukan angka mentah yang bisa 0. */
+function labelManfaatPromo(row: BarisCsvPromo): string {
+  if (row.jenis === "bebas_admin") return "Bebas biaya admin";
+  if (row.jenis === "potongan_bunga") {
+    return `Potongan ${row.potonganPersen ?? 0} poin`;
+  }
+  return `${row.persenBunga}%`;
+}
 
 /** Satu sel CSV; hanya dikutip bila mengandung pemisah atau kutip. */
 export function selCsv(nilai: string | number): string {
@@ -49,7 +60,7 @@ export function csvEfektivitasPromo(baris: readonly BarisCsvPromo[]): string {
       [
         selCsv(row.nama),
         selCsv(row.status),
-        selCsv(row.persenBunga),
+        selCsv(labelManfaatPromo(row)),
         selCsv(row.tenor.join("/")),
         selCsv(tanggalWIB(row.mulai)),
         selCsv(tanggalWIB(row.selesai)),

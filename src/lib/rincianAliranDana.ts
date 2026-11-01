@@ -285,6 +285,8 @@ export function rincianPinjamanNyata(
     promoBungaPersenNormal?: number | null;
     /** Nama kampanye promo yang dibekukan saat pengajuan. */
     promoBungaNama?: string | null;
+    /** Pembebasan biaya admin dari kampanye bebas admin (rupiah). */
+    promoDiskonAdmin?: number | null;
   },
 ): RincianAliranDana {
   const pokok = pinjaman.pokokPinjaman;
@@ -319,8 +321,13 @@ export function rincianPinjamanNyata(
   // Pinjaman harian dikenai biaya pencairan ekspres bila peminjam mencentangnya;
   // skema bulanan tidak pernah. Dihitung dari mesin yang sama dengan pencairan.
   const biayaAsuransi = percentOf(pokok, tarif.asuransiPersen);
+  const biayaAdmin = percentOf(pokok, tarif.adminPersen);
+  const diskonAdmin = Math.min(
+    biayaAdmin,
+    Math.max(0, Math.floor(pinjaman.promoDiskonAdmin ?? 0)),
+  );
   const potonganDiMuka =
-    percentOf(pokok, tarif.adminPersen) +
+    biayaAdmin - diskonAdmin +
     biayaAsuransi +
     (pakaiEkspres ? biayaEkspres(pokok, tarif.ekspres) : 0);
   const bagi = bagiHasilPinjamanDari(pinjaman);

@@ -775,11 +775,12 @@ export const createLoanApplication = mutation({
       persenBungaSimpanan = persenBungaPerBulan(tenorBulanSim, tarifBulanan);
     }
 
-    // ===== Promo bunga (harian saja) =====
-    // Promo menurunkan BUNGA, bukan biaya admin, dan hanya berlaku pada skema
-    // harian: tarif bulanan sudah punya tabel tenor sendiri di Pengaturan.
-    // Bunga normal disimpan terpisah supaya rincian/kontrak bisa menyebut
-    // potongannya. Promo tidak pernah menaikkan bunga (dijaga `bungaSetelahPromo`).
+    // ===== Promo pinjaman (harian saja) =====
+    // Promo bisa mengganti bunga, memotong poin bunga, atau membebaskan biaya
+    // admin. Semua jenis hanya berlaku pada skema harian: tarif bulanan sudah
+    // punya tabel tenor sendiri di Pengaturan. Bunga normal disimpan terpisah
+    // supaya rincian/kontrak bisa menyebut potongannya. Promo tidak pernah
+    // menaikkan bunga (dijaga `bungaSetelahPromo`).
     const promoDipakai =
       tenorBulanSim === undefined
         ? await promoBungaUntukPengajuan(ctx, {
@@ -1035,23 +1036,30 @@ export const createLoanApplication = mutation({
       // setelahnya. Untuk tenor harian, nilai ini sudah dihitung dari matriks
       // di atas; untuk bulanan tetap memakai tarif akun per bulan.
       persenBunga: persenBungaSimpanan,
-      // Snapshot promo: disimpan bila ada kampanye, termasuk bebas admin yang
-      // tidak mengubah bunga. Pinjaman yang tersimpan tetap utuh walau promo
-      // dimatikan atau voucher dicabut kemudian.
-      ...(promoDipakai !== null
+      // Snapshot promo: disimpan bila ada kampanye ATAU voucher bunga menurunkan
+      // tarif. Kampanye bebas admin tetap disimpan walau bunganya tidak berubah.
+      // Pinjaman yang tersimpan tetap utuh walau promo dimatikan atau voucher
+      // dicabut kemudian.
+      ...(promoDipakai !== null || persenBungaSimpanan < persenBungaNormal
         ? {
-            promoBungaId: promoDipakai._id,
-            promoBungaNama: promoDipakai.nama,
-            promoBungaJenis: promoDipakai.jenis ?? "bunga_pengganti",
-            // Dibekukan terpisah: laporan subsidi promo memakai angka promo
-            // ini, bukan tarif akhir setelah voucher bunga.
-            promoBungaPersen: persenSetelahPromo,
-            promoBungaPersenNormal: persenBungaNormal,
-            ...(promoDipakai.jenis === "potongan_bunga" &&
-            promoDipakai.potonganPersen !== undefined
-              ? { promoBungaPotonganPersen: promoDipakai.potonganPersen }
+            ...(promoDipakai !== null
+              ? {
+                  promoBungaId: promoDipakai._id,
+                  promoBungaNama: promoDipakai.nama,
+                  promoBungaJenis: promoDipakai.jenis ?? "bunga_pengganti",
+                  // Dibekukan terpisah: laporan subsidi promo memakai angka
+                  // promo ini, bukan tarif akhir setelah voucher bunga.
+                  promoBungaPersen: persenSetelahPromo,
+                  ...(promoDipakai.jenis === "potongan_bunga" &&
+                  promoDipakai.potonganPersen !== undefined
+                    ? { promoBungaPotonganPersen: promoDipakai.potonganPersen }
+                    : {}),
+                  ...(diskonAdminPromo > 0
+                    ? { promoDiskonAdmin: diskonAdminPromo }
+                    : {}),
+                }
               : {}),
-            ...(diskonAdminPromo > 0 ? { promoDiskonAdmin: diskonAdminPromo } : {}),
+            promoBungaPersenNormal: persenBungaNormal,
           }
         : {}),
       // Snapshot TARIF bulanan lengkap: jadwal, kontrak, dan bagi hasil pinjaman
@@ -1333,6 +1341,7 @@ export const myContracts = query({
           persenBunga: l.persenBunga ?? null,
           cairEkspres: l.cairEkspres ?? null,
           tarifBiaya: l.tarifBiaya ?? null,
+          promoDiskonAdmin: l.promoDiskonAdmin ?? null,
           status: l.status,
           tandaTanganAda: l.tandaTanganPeminjam !== undefined,
           tandaTanganDataUrl: l.tandaTanganPeminjam ?? null,

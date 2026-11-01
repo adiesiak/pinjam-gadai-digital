@@ -105,6 +105,7 @@ function LoanContractCard({ c }: { c: Pinjaman }) {
     persenBunga: c.persenBunga ?? undefined,
     cairEkspres: c.cairEkspres ?? undefined,
     tarifBiaya: c.tarifBiaya ?? undefined,
+    promoDiskonAdmin: c.promoDiskonAdmin ?? undefined,
   });
   const bulanan = useMemo(() => {
     if (c.tenorBulan === null) return null;

@@ -21,11 +21,22 @@ import { cn } from "@/lib/utils";
 type PromoBungaTampil = {
   _id: string;
   nama: string;
+  jenis?: "bunga_pengganti" | "potongan_bunga" | "bebas_admin";
   persenBunga: number;
+  potonganPersen?: number;
   tenor: readonly number[];
   mulai: number;
   selesai: number;
 };
+
+/** Urutan tampil memakai bunga final pada tarif normal 30%; bebas admin di akhir. */
+function skorTampil(promo: PromoBungaTampil): number {
+  if (promo.jenis === "bebas_admin") return 30;
+  if (promo.jenis === "potongan_bunga") {
+    return Math.max(0, 30 - (promo.potonganPersen ?? 0));
+  }
+  return Math.min(30, promo.persenBunga);
+}
 
 /** Versi murni tanpa hook: dipakai banner dan bisa dirender di uji. */
 export function KartuPromoBunga({
@@ -44,7 +55,7 @@ export function KartuPromoBunga({
   // Bunga terendah dulu: itu yang paling menguntungkan nasabah. Bila angkanya
   // sama, masa berlaku lebih panjang yang ditampilkan lebih dulu.
   const urut = [...daftar].sort(
-    (a, b) => a.persenBunga - b.persenBunga || b.selesai - a.selesai,
+    (a, b) => skorTampil(a) - skorTampil(b) || b.selesai - a.selesai,
   );
   const tampil = urut.slice(0, 2);
 
@@ -80,8 +91,12 @@ export function KartuPromoBunga({
             className="rounded-xl border border-emerald-700/15 bg-white/85 px-3 py-2"
           >
             <p className="flex flex-wrap items-baseline gap-x-1.5">
-              <span className="text-2xl font-semibold tabular-nums text-emerald-900">
-                {promo.persenBunga}%
+              <span className="text-xl font-semibold tabular-nums text-emerald-900">
+                {promo.jenis === "bebas_admin"
+                  ? "Bebas biaya admin"
+                  : promo.jenis === "potongan_bunga"
+                    ? `Potongan ${promo.potonganPersen ?? 0} poin`
+                    : `${promo.persenBunga}%`}
               </span>
               <span className="text-xs text-slate-700">
                 untuk tenor {[...promo.tenor].sort((a, b) => a - b).join(" / ")} hari
@@ -95,8 +110,9 @@ export function KartuPromoBunga({
       </ul>
 
       <p className="mt-2 text-[11px] leading-4 text-slate-600">
-        Bunga promo menggantikan bunga normal tenor itu dan sudah dipakai otomatis di
-        formulir pengajuan — tidak perlu memasukkan kode apa pun.
+        Promo yang berlaku sudah dipakai otomatis di formulir pengajuan — tidak perlu
+        memasukkan kode apa pun. Bunga pengganti dan potongan bunga mengubah tarif;
+        bebas admin menghapus biaya admin di muka.
         {urut.length > tampil.length
           ? ` Ada ${urut.length - tampil.length} promo lain yang juga berjalan.`
           : ""}

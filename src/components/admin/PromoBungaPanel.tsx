@@ -178,10 +178,10 @@ export function PromoBungaPanel() {
   const pakaiTemplate = (template: TemplatePromoBunga) => {
     const isi = isiTemplatePromoBunga(template, waktuTemplate);
     setDraf({
-      jenis: "bunga_pengganti",
+      jenis: isi.jenis,
       nama: isi.nama,
       persenBunga: String(isi.persenBunga),
-      potonganPersen: "5",
+      potonganPersen: String(isi.potonganPersen ?? 5),
       tenor: [...isi.tenor],
       mulai: msKeTanggalInput(isi.mulai),
       selesai: msKeTanggalInput(isi.selesai),
@@ -355,8 +355,7 @@ export function PromoBungaPanel() {
             Tiga jenis kampanye: <strong>bunga pengganti</strong>,{" "}
             <strong>potongan bunga</strong>, dan <strong>bebas biaya admin</strong>. Satu
             pengajuan memakai satu kampanye terbaik yang aktif pada tenor dan tanggalnya.
-            Pinjaman yang sudah terbit tidak berubah saat promo dimatikan; hak pendana
-            tetap dihitung dari tarif normal.
+            Pinjaman yang sudah terbit tidak berubah saat promo dimatikan. Hak pendana tetap dihitung dari tarif normal, bukan dipotong dari imbal hasil pendana.
           </p>
         </div>
         <Button type="button" onClick={bukaBaru} className="gap-1.5">
@@ -391,7 +390,11 @@ export function PromoBungaPanel() {
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="text-sm font-semibold text-slate-900">{template.label}</p>
                     <span className="text-sm font-semibold tabular-nums text-emerald-800">
-                      {isi.persenBunga}%
+                      {isi.jenis === "bebas_admin"
+                        ? "Rp0 admin"
+                        : isi.jenis === "potongan_bunga"
+                          ? `−${isi.potonganPersen ?? 0} poin`
+                          : `${isi.persenBunga}%`}
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] leading-4 text-slate-600">
@@ -416,8 +419,8 @@ export function PromoBungaPanel() {
           })}
         </ul>
         <p className="mt-1 text-[11px] leading-4 text-slate-500">
-          Template mengisi nama, bunga, tenor, dan tanggal. Periksa angkanya lalu simpan;
-          semua kolom masih bisa disunting.
+          Template mengisi jenis manfaat, nama, tenor, dan tanggal. Periksa angkanya lalu
+          simpan; semua kolom masih bisa disunting.
         </p>
       </div>
 

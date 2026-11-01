@@ -49,12 +49,13 @@ const csv = csvEfektivitasPromo([
 ]);
 const baris = csv.trimEnd().split("\n");
 eq(baris.length, 2, "satu header dan satu baris data");
-ok(baris[0].startsWith("Promo,Status,Bunga (%)"), "header kolom dikenali");
+ok(baris[0].startsWith("Promo,Status,Manfaat"), "header kolom dikenali");
 ok(
   baris[1].includes('"Bunga 15% tenor 7, khusus"'),
   "nama promo dengan koma tetap satu sel",
 );
 ok(baris[1].includes("Berjalan"), "status ditulis sebagai label manusiawi");
+ok(baris[1].includes("15%"), "manfaat bunga pengganti tertulis");
 ok(baris[1].includes("2026-10-25"), "tanggal mulai memakai WIB");
 ok(baris[1].includes("2026-10-31"), "tanggal selesai memakai WIB");
 ok(baris[1].includes(",3000000,450000"), "pokok dan subsidi berupa digit mentah");

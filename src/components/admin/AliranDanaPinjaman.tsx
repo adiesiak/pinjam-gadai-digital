@@ -84,6 +84,7 @@ export function AliranDanaPinjaman({
   tarifBiaya = null,
   promoBungaPersenNormal = null,
   promoBungaNama = null,
+  promoDiskonAdmin = null,
   sudahLunas = false,
 }: {
   pokokPinjaman: number;
@@ -99,6 +100,8 @@ export function AliranDanaPinjaman({
   promoBungaPersenNormal?: number | null;
   /** Nama kampanye promo yang dibekukan pada pinjaman. */
   promoBungaNama?: string | null;
+  /** Pembebasan biaya admin dari promo bebas admin (rupiah). */
+  promoDiskonAdmin?: number | null;
   /** Pinjaman sudah dilunasi → angka ini yang dibukukan, bukan proyeksi. */
   sudahLunas?: boolean;
 }) {
@@ -110,6 +113,7 @@ export function AliranDanaPinjaman({
     tarifBiaya,
     promoBungaPersenNormal,
     promoBungaNama,
+    promoDiskonAdmin,
   });
   const skema =
     tenorBulan === null

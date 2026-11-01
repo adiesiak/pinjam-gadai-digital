@@ -58,7 +58,7 @@ import {
   tenorHarianDefault,
   tenorHarianEfektif,
 } from "@/lib/loan";
-import { formatRupiah } from "@/lib/money";
+import { formatRupiah, percentOf } from "@/lib/money";
 import { bungaSetelahPromo, pilihPromoBunga } from "@/lib/promoBunga";
 import { formatPeriodePromo } from "@/lib/promoPinjaman";
 import {
@@ -290,13 +290,22 @@ export function PengajuanCepatSection({
   const promoBunga = pilihPromoBunga(promoBungaQuery ?? [], {
     tenor,
     sekarang: Date.now(),
+    persenNormal: tarifNormalBunga,
   });
   const tarifBunga = bungaSetelahPromo(tarifNormalBunga, promoBunga);
   // Tarif potongan dari pengaturan admin — angka di layar = angka server.
   const tarifBiaya = ketentuanBiaya?.tarifBiaya;
+  const diskonAdminPromo =
+    promoBunga?.jenis === "bebas_admin"
+      ? percentOf(
+          pokokHitung,
+          tarifBiaya?.adminPersen ?? PINDAI_PRICING.adminFeePercent,
+        )
+      : 0;
   const q = quoteLoanBunga(pokokHitung, tarifBunga, {
     ekspres: cairEkspres,
     ...(tarifBiaya !== undefined ? { tarif: tarifBiaya } : {}),
+    ...(diskonAdminPromo > 0 ? { diskonAdmin: diskonAdminPromo } : {}),
   });
   const ekspresTeks = tarifBiaya
     ? tarifBiaya.ekspres.tier1 === tarifBiaya.ekspres.tier3
@@ -566,8 +575,12 @@ export function PengajuanCepatSection({
                 <>
                   {" "}
                   <span className="font-medium text-emerald-800">
-                    Promo bunga {promoBunga.persenBunga}% (normal {tarifNormalBunga}%) berlaku{" "}
-                    {formatPeriodePromo(promoBunga.mulai, promoBunga.selesai)}.
+                    {promoBunga.jenis === "bebas_admin"
+                      ? `Bebas biaya admin (bunga tetap ${tarifNormalBunga}%)`
+                      : promoBunga.jenis === "potongan_bunga"
+                        ? `Potongan ${promoBunga.potonganPersen ?? 0} poin (normal ${tarifNormalBunga}%)`
+                        : `Promo bunga ${promoBunga.persenBunga}% (normal ${tarifNormalBunga}%)`}{" "}
+                    berlaku {formatPeriodePromo(promoBunga.mulai, promoBunga.selesai)}.
                   </span>
                 </>
               )}
@@ -658,7 +671,13 @@ export function PengajuanCepatSection({
             <dl className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-[11px] leading-5 sm:grid-cols-4">
               <div>
                 <dt className="text-muted-foreground">
-                  Bunga {tarifBunga}%{promoBunga !== null ? " (promo)" : ""} · {tenor} hari
+                  Bunga {tarifBunga}%
+                  {promoBunga?.jenis === "bebas_admin"
+                    ? " (biaya admin Rp0)"
+                    : promoBunga !== null
+                      ? " (promo)"
+                      : ""}{" "}
+                  · {tenor} hari
                 </dt>
                 <dd className="font-semibold tabular-nums">{formatRupiah(q.bunga)}</dd>
               </div>
@@ -667,6 +686,7 @@ export function PengajuanCepatSection({
                 <dd className="font-semibold tabular-nums">{formatRupiah(q.totalPotonganDiMuka)}</dd>
                 <dd className="text-[10px] leading-4 text-muted-foreground">
                   Admin {formatRupiah(q.biayaAdmin)}
+                  {q.diskonAdmin > 0 && ` (dibebaskan ${formatRupiah(q.diskonAdmin)})`}
                   {q.biayaAsuransi > 0 && ` + asuransi ${formatRupiah(q.biayaAsuransi)}`}
                   {q.biayaPlatform > 0 && ` + platform ${formatRupiah(q.biayaPlatform)}`}
                   {q.biayaExpress > 0 && ` + ekspres ${formatRupiah(q.biayaExpress)}`}

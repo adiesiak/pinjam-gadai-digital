@@ -26,9 +26,9 @@
     <rect x="80" y="115" width="34" height="3" fill="#d8c28c"/>
     <text x="130" y="122">PROMO PINJAMAN HARIAN</text>
   </g>
-<text x="80" y="300" font-family="Bitstream Charter, Liberation Serif, serif" font-size="94" font-weight="700" fill="#f7f1e3">POTONGAN 5%</text>
+<text x="80" y="300" font-family="Bitstream Charter, Liberation Serif, serif" font-size="94" font-weight="700" fill="#f7f1e3">POTONGAN 5 POIN</text>
 <text x="80" y="382" font-family="Liberation Sans, Arial, sans-serif" font-size="46" font-weight="700" letter-spacing="2" fill="#d8c28c">BUNGA SEMUA TENOR</text>
-<text x="80" y="450" font-family="Liberation Sans, Arial, sans-serif" font-size="31" fill="#f7f1e3" fill-opacity="0.8"><tspan x="80" dy="0">Berlaku untuk pinjaman dengan</tspan><tspan x="80" dy="46">tenor maksimal 30 hari. Semakin</tspan><tspan x="80" dy="46">cepat, semakin ringan.</tspan></text>
+<text x="80" y="450" font-family="Liberation Sans, Arial, sans-serif" font-size="31" fill="#f7f1e3" fill-opacity="0.8"><tspan x="80" dy="0">Bunga normal dipotong 5 poin untuk</tspan><tspan x="80" dy="46">pinjaman dengan tenor maksimal 30</tspan><tspan x="80" dy="46">hari. Semakin cepat, semakin</tspan><tspan x="80" dy="46">ringan.</tspan></text>
 
   <g transform="translate(540 850)">
     <circle r="208" fill="#081f1e" fill-opacity="0.22"/>
@@ -36,7 +36,7 @@
     <circle r="174" fill="#081f1e" fill-opacity="0.58" stroke="#d8c28c" stroke-width="2"/>
     <circle r="152" fill="none" stroke="#d8c28c" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="3 8"/>
     <text y="-68.39999999999999" text-anchor="middle" font-family="Liberation Sans, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="3.5" fill="#d8c28c">POTONGAN</text>
-    <text y="23.04" text-anchor="middle" font-family="Bitstream Charter, Liberation Serif, serif" font-size="96" font-weight="700" fill="#f7f1e3">5%</text>
+    <text y="23.04" text-anchor="middle" font-family="Bitstream Charter, Liberation Serif, serif" font-size="96" font-weight="700" fill="#f7f1e3">5 POIN</text>
     <text y="83.6" text-anchor="middle" font-family="Liberation Sans, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#d8c28c">TENOR MAKS. 30 HARI</text>
   </g>
 <g>

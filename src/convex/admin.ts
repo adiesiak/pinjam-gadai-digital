@@ -770,6 +770,7 @@ export const adminOverview = query({
             // Tarif matriks asal pinjaman berpromo — dasar hak penyedia dana.
             promoBungaPersenNormal: l.promoBungaPersenNormal ?? null,
             promoBungaNama: l.promoBungaNama ?? null,
+            promoDiskonAdmin: l.promoDiskonAdmin ?? null,
             // Null = data lama yang dulu selalu dikenai biaya ekspres.
             cairEkspres: l.cairEkspres ?? null,
             tarifBiaya: l.tarifBiaya ?? null,
