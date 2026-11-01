@@ -137,13 +137,20 @@ ok(periksaIsiPromoBunga({ ...sah, persenBunga: 0 }).length > 0, "bunga 0% ditola
 ok(periksaIsiPromoBunga({ ...sah, persenBunga: 26 }).length > 0, "bunga 26% ditolak");
 ok(periksaIsiPromoBunga({ ...sah, persenBunga: 15.5 }).length > 0, "bunga desimal ditolak");
 ok(periksaIsiPromoBunga({ ...sah, tenor: [] }).length > 0, "tanpa tenor ditolak");
-ok(periksaIsiPromoBunga({ ...sah, tenor: [9] }).length > 0, "tenor asing ditolak");
+ok(periksaIsiPromoBunga({ ...sah, tenor: [6] }).length > 0, "tenor di bawah 7 ditolak");
+ok(periksaIsiPromoBunga({ ...sah, tenor: [51] }).length > 0, "tenor di atas 50 ditolak");
+ok(
+  periksaIsiPromoBunga({ ...sah, tenor: [10, 30] }).length === 0,
+  "tenor dari tanggal (10 dan 30 hari) diterima",
+);
 ok(periksaIsiPromoBunga({ ...sah, tenor: [7, 7] }).length > 0, "tenor ganda ditolak");
 ok(
   periksaIsiPromoBunga({ ...sah, selesai: SEKARANG - HARI }).length > 0,
   "selesai sebelum mulai ditolak",
 );
-ok(tenorPromoValid([7, 14, 21, 28]), "seluruh tenor sah diterima");
+ok(tenorPromoValid([7, 14, 21, 28]), "seluruh tenor standar diterima");
+ok(tenorPromoValid([7, 10, 30, 50]), "tenor dari tanggal diterima");
+ok(!tenorPromoValid([7, 51]), "tenor di atas batas harian ditolak");
 
 // ===== Pratinjau tier =====
 const pratinjau = pratinjauPromoBunga([14, 7], 15, (tenor) => ({
@@ -155,7 +162,16 @@ eq(pratinjau.length, 2, "dua tenor dipratinjau");
 eq(pratinjau[0].tenor, 7, "pratinjau diurut naik");
 eq(pratinjau[0].promo, 15, "bunga promo dibawa apa adanya");
 eq(pratinjau[0].potonganTerbesar, 15, "potongan terbesar dari tier 1");
-eq(pratinjau[1].potonganTerbesar, 20, "tenor 14 memeotong lebih besar");
+eq(pratinjau[1].potonganTerbesar, 20, "tenor 14 memotong lebih besar");
+
+const pratinjauTanggal = pratinjauPromoBunga([10, 30], 20, (tenor) => ({
+  tier1: tenor === 10 ? 32.14 : 41.5,
+  tier2: tenor === 10 ? 30.57 : 38.3,
+  tier3: tenor === 10 ? 28.86 : 32.14,
+}));
+eq(pratinjauTanggal.length, 2, "pratinjau tenor tanggal tetap tampil");
+eq(pratinjauTanggal[0].tenor, 10, "tenor 10 ikut dipratinjau");
+eq(pratinjauTanggal[0].potonganTerbesar, 12.14, "potongan tenor 10 dihitung dari normal");
 
 const jumlah = lulus + gagal;
 console.log(`promoBunga.test: ${lulus}/${jumlah} lulus`);

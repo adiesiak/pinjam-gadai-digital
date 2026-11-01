@@ -8,6 +8,10 @@
  * Pemilihan itu disengaja: admin menulis angka yang benar-benar dibaca nasabah,
  * tanpa perlu menghitung ulang potongan.
  *
+ * Tenor kampanye mengikuti tenor harian yang sah, 7–50 hari. Selain empat tenor
+ * standar (7/14/21/28), hari lain dipilih nasabah lewat tanggal jatuh tempo —
+ * mis. 10 hari — dan promo dicocokkan persis dengan tenor itu.
+ *
  * Yang TIDAK diatur di sini: bunga normal per tier (lib/loan.ts) dan tarif
  * bulanan. Promo hanya berlaku untuk skema harian; skema bulanan punya tarif
  * tenor sendiri di Pengaturan Parameter Bisnis.
@@ -15,7 +19,7 @@
  * Murni: tanpa React, Convex, atau jam perangkat. `sekarang` selalu dikirim
  * pemanggil supaya kelayakan bisa diuji.
  */
-import { TENOR_OPTIONS, type Tenor } from "./loan";
+import { TENOR_HARIAN_MAKS, TENOR_OPTIONS } from "./loan";
 import { formatRupiah } from "./money";
 import { formatPeriodePromo } from "./promoPinjaman";
 
@@ -25,7 +29,7 @@ export type PromoBungaRingkas = {
   nama: string;
   /** Bunga promo dalam persen dari pokok (mis. 15 → 15%). */
   persenBunga: number;
-  /** Tenor harian yang mendapat bunga promo ini. */
+  /** Tenor harian 7–50 yang mendapat bunga promo ini. */
   tenor: readonly number[];
   mulai: number;
   selesai: number;
@@ -109,7 +113,12 @@ export function promoBerlakuUntuk(
 export function tenorPromoValid(nilai: readonly number[]): boolean {
   return (
     nilai.length > 0 &&
-    nilai.every((tenor) => (TENOR_OPTIONS as readonly number[]).includes(tenor)) &&
+    nilai.every(
+      (tenor) =>
+        Number.isInteger(tenor) &&
+        tenor >= TENOR_OPTIONS[0] &&
+        tenor <= TENOR_HARIAN_MAKS,
+    ) &&
     new Set(nilai).size === nilai.length
   );
 }
@@ -256,7 +265,9 @@ export function periksaIsiPromoBunga(isi: {
   }
 
   if (!tenorPromoValid(isi.tenor)) {
-    pesan.push(`Pilih minimal satu tenor dari ${TENOR_OPTIONS.join(" / ")} hari.`);
+    pesan.push(
+      `Pilih minimal satu tenor ${TENOR_OPTIONS[0]}–${TENOR_HARIAN_MAKS} hari.`,
+    );
   }
 
   if (isi.paguSubsidi !== undefined && isi.paguSubsidi !== 0) {
@@ -285,7 +296,7 @@ export function periksaIsiPromoBunga(isi: {
  * persentase yang ia ketik.
  */
 export type BarisPratinjauPromo = {
-  tenor: Tenor;
+  tenor: number;
   /** Tarif normal tiap tier pokok (lihat MATRIKS_HARIAN). */
   normal: { tier1: number; tier2: number; tier3: number };
   /** Bunga promo yang akan dipakai; sama untuk semua tier. */
@@ -297,10 +308,15 @@ export type BarisPratinjauPromo = {
 export function pratinjauPromoBunga(
   tenor: readonly number[],
   persenPromo: number,
-  normalPerTenor: (tenor: Tenor) => { tier1: number; tier2: number; tier3: number },
+  normalPerTenor: (tenor: number) => { tier1: number; tier2: number; tier3: number },
 ): BarisPratinjauPromo[] {
   return [...tenor]
-    .filter((nilai): nilai is Tenor => (TENOR_OPTIONS as readonly number[]).includes(nilai))
+    .filter(
+      (nilai) =>
+        Number.isInteger(nilai) &&
+        nilai >= TENOR_OPTIONS[0] &&
+        nilai <= TENOR_HARIAN_MAKS,
+    )
     .sort((a, b) => a - b)
     .map((nilaiTenor) => {
       const normal = normalPerTenor(nilaiTenor);

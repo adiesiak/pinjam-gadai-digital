@@ -199,6 +199,39 @@ describe("promo bunga harian", () => {
     expect(loanKedua?.promoBungaId).toBeUndefined();
   });
 
+  it("promo tenor 10 hari dipakai otomatis saat tenor itu dipilih", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-promo-sepuluh", {
+      email: "admin-promo-sepuluh@pindai.test",
+      role: "admin",
+    });
+    const { sesi: peminjam } = await siapkanPeminjam(
+      t,
+      "rani-sepuluh",
+      "rani-sepuluh@pindai.test",
+    );
+    const kyc = await unggahKyc(t);
+
+    const { id: promoId } = await buatPromo(admin, {
+      nama: "Bunga 20 tenor 10",
+      persenBunga: 20,
+      tenor: [10],
+    });
+
+    const hasil = await ajukanHarian(peminjam, kyc, 10);
+    const loan = await t.run(async (ctx) => {
+      const rows = await ctx.db.query("loans").collect();
+      return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
+    });
+
+    // Tier 1 tenor 10 berada di antara 30% (7 hari) dan 35% (14 hari),
+    // yakni 32,14%; promo 20% menggantikannya dan dibekukan pada pinjaman.
+    expect(loan?.tenorHari).toBe(10);
+    expect(loan?.promoBungaId).toBe(promoId);
+    expect(loan?.promoBungaPersenNormal).toBe(32.14);
+    expect(loan?.persenBunga).toBe(20);
+  });
+
   it("saat promo tumpang tindih, bunga terendah yang dipakai", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPenggunaDasar(t, "admin-promo-tumpang", {

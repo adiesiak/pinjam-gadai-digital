@@ -8,6 +8,7 @@ import {
   Percent,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -37,7 +38,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { persenBungaHarian, TENOR_OPTIONS, type Tenor } from "@/lib/loan";
+import { persenBungaHarian, TENOR_HARIAN_MAKS, TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiahAman } from "@/lib/money";
 import {
   BATAS_PROMO_BUNGA,
@@ -66,7 +67,7 @@ type Draf = {
   id?: Id<"promoBunga">;
   nama: string;
   persenBunga: string;
-  tenor: Tenor[];
+  tenor: number[];
   mulai: string;
   selesai: string;
   aktif: boolean;
@@ -95,9 +96,7 @@ function drafDari(row: BarisPromo): Draf {
     id: row._id,
     nama: row.nama,
     persenBunga: String(row.persenBunga),
-    tenor: row.tenor.filter((nilai): nilai is Tenor =>
-      (TENOR_OPTIONS as readonly number[]).includes(nilai),
-    ),
+    tenor: [...row.tenor],
     mulai: msKeTanggalInput(row.mulai),
     selesai: msKeTanggalInput(row.selesai),
     aktif: row.aktif,
@@ -107,7 +106,7 @@ function drafDari(row: BarisPromo): Draf {
 }
 
 /** Tarif matriks tiap tier untuk satu tenor — dipakai pratinjau, bukan tebakan. */
-function normalPerTenor(tenor: Tenor): { tier1: number; tier2: number; tier3: number } {
+function normalPerTenor(tenor: number): { tier1: number; tier2: number; tier3: number } {
   return {
     tier1: persenBungaHarian(100_000, tenor) ?? 0,
     tier2: persenBungaHarian(500_000, tenor) ?? 0,
@@ -138,6 +137,7 @@ export function PromoBungaPanel() {
 
   const [terbuka, setTerbuka] = useState(false);
   const [draf, setDraf] = useState<Draf>(drafBaru);
+  const [tenorLain, setTenorLain] = useState("");
   const [pesan, setPesan] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
   const [dihapus, setDihapus] = useState<{ id: Id<"promoBunga">; nama: string } | null>(
@@ -149,6 +149,7 @@ export function PromoBungaPanel() {
 
   const bukaBaru = () => {
     setDraf(drafBaru());
+    setTenorLain("");
     setPesan(null);
     setTerbuka(true);
   };
@@ -163,7 +164,7 @@ export function PromoBungaPanel() {
     setDraf({
       nama: isi.nama,
       persenBunga: String(isi.persenBunga),
-      tenor: isi.tenor,
+      tenor: [...isi.tenor],
       mulai: msKeTanggalInput(isi.mulai),
       selesai: msKeTanggalInput(isi.selesai),
       aktif: true,
@@ -172,22 +173,60 @@ export function PromoBungaPanel() {
       bolehVoucher: true,
       paguSubsidi: "",
     });
+    setTenorLain("");
     setPesan(null);
     setTerbuka(true);
   };
 
   const bukaSunting = (row: BarisPromo) => {
     setDraf(drafDari(row));
+    setTenorLain("");
     setPesan(null);
     setTerbuka(true);
   };
 
-  const ubahTenor = (tenor: Tenor, dicentang: boolean) => {
+  const ubahTenor = (tenor: number, dicentang: boolean) => {
     setDraf((sebelumnya) => ({
       ...sebelumnya,
       tenor: dicentang
         ? [...sebelumnya.tenor, tenor].sort((a, b) => a - b)
         : sebelumnya.tenor.filter((nilai) => nilai !== tenor),
+    }));
+  };
+
+  /**
+   * Tenor di luar 7/14/21/28 dipilih lewat tanggal jatuh tempo nasabah.
+   * Panel menyimpan angka harinya, bukan tanggal, supaya promo tetap berlaku
+   * untuk setiap pengajuan yang jatuh pada tenor tersebut.
+   */
+  const tambahTenorLain = () => {
+    const nilai = Number(tenorLain);
+    if (
+      !Number.isInteger(nilai) ||
+      nilai < TENOR_OPTIONS[0] ||
+      nilai > TENOR_HARIAN_MAKS
+    ) {
+      setPesan(
+        `Tenor harus angka bulat ${TENOR_OPTIONS[0]}–${TENOR_HARIAN_MAKS} hari.`,
+      );
+      return;
+    }
+    if (draf.tenor.includes(nilai)) {
+      setPesan(`${nilai} hari sudah dipilih.`);
+      return;
+    }
+    setDraf((sebelumnya) => ({
+      ...sebelumnya,
+      tenor: [...sebelumnya.tenor, nilai].sort((a, b) => a - b),
+    }));
+    setTenorLain("");
+    setPesan(null);
+  };
+
+  const hapusTenor = (tenor: number) => {
+    setDraf((sebelumnya) => ({
+      ...sebelumnya,
+      tenor: sebelumnya.tenor.filter((nilai) => nilai !== tenor),
     }));
   };
 
@@ -512,6 +551,11 @@ export function PromoBungaPanel() {
 
             <fieldset>
               <legend className="text-sm font-medium">Tenor yang mendapat promo</legend>
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                Tenor harian berlaku {TENOR_OPTIONS[0]}–{TENOR_HARIAN_MAKS} hari. Selain
+                empat tenor standar, nasabah memilih hari lain lewat tanggal jatuh tempo;
+                promo dicocokkan persis dengan tenor itu.
+              </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {TENOR_OPTIONS.map((tenor) => {
                   const dicentang = draf.tenor.includes(tenor);
@@ -536,6 +580,68 @@ export function PromoBungaPanel() {
                   );
                 })}
               </div>
+
+              <div className="mt-3 flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <Label htmlFor="promo-bunga-tenor-lain" className="text-xs">
+                    Tenor lain ({TENOR_OPTIONS[0]}–{TENOR_HARIAN_MAKS} hari)
+                  </Label>
+                  <Input
+                    id="promo-bunga-tenor-lain"
+                    type="number"
+                    inputMode="numeric"
+                    min={TENOR_OPTIONS[0]}
+                    max={TENOR_HARIAN_MAKS}
+                    className="mt-1"
+                    placeholder="Contoh: 10"
+                    value={tenorLain}
+                    onChange={(e) => setTenorLain(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        tambahTenorLain();
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={tambahTenorLain}
+                  className="gap-1.5"
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                  Tambah
+                </Button>
+              </div>
+
+              {draf.tenor.some(
+                (tenor) => !(TENOR_OPTIONS as readonly number[]).includes(tenor),
+              ) && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {draf.tenor
+                    .filter(
+                      (tenor) => !(TENOR_OPTIONS as readonly number[]).includes(tenor),
+                    )
+                    .map((tenor) => (
+                      <button
+                        key={tenor}
+                        type="button"
+                        onClick={() => hapusTenor(tenor)}
+                        aria-label={`Hapus tenor ${tenor} hari`}
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                      >
+                        {tenor} hari
+                        <X className="size-3.5" aria-hidden="true" />
+                      </button>
+                    ))}
+                </div>
+              )}
+
+              <p className="mt-2 text-[11px] leading-4 text-slate-500">
+                Dipilih:{" "}
+                {draf.tenor.length === 0 ? "belum ada" : `${draf.tenor.join(", ")} hari`}.
+              </p>
             </fieldset>
 
             <div className="grid gap-3 sm:grid-cols-2">

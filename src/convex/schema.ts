@@ -3817,7 +3817,11 @@ const schema = defineSchema(
       nama: v.string(),
       /** Bunga promo persen dari pokok (1–25), menggantikan tarif matriks. */
       persenBunga: v.number(),
-      /** Tenor harian yang mendapat promo ini (subset 7/14/21/28). */
+      /**
+       * Tenor harian 7–50 yang mendapat promo ini. Empat tenor standar
+       * (7/14/21/28) ditampilkan sebagai pilihan cepat; hari lain — mis. 10 atau
+       * 30 — dipilih nasabah lewat tanggal jatuh tempo dan dicocokkan persis.
+       */
       tenor: v.array(v.number()),
       /** Awal hari pertama dan akhir hari terakhir (WIB), dalam milidetik. */
       mulai: v.number(),

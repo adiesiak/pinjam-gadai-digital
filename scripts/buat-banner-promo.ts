@@ -54,7 +54,7 @@ const PROMOS: Promo[] = [
     sealBottom: "TENOR 10 HARI",
     prioritas: 11,
     catatan:
-      "Desain siap, tetapi tenor 10 hari belum tersedia di pilihan tenor Promo Bunga (7/14/21/28). Jangan aktifkan sebelum mesin harga mendukung tenor ini.",
+      "Siap dipasang. Buat Promo Bunga tenor 10 hari dengan bunga 20%; tenor 10 ditambahkan lewat kolom tenor lain di panel Promo Bunga.",
   },
   {
     id: "potongan-5-semua-tenor",
@@ -69,7 +69,7 @@ const PROMOS: Promo[] = [
     sealBottom: "TENOR MAKS. 30 HARI",
     prioritas: 12,
     catatan:
-      "Desain siap, tetapi potongan 5% untuk semua tenor belum bisa diwakili satu promo bunga. Perlu aturan potongan per tenor atau voucher.",
+      "Desain siap. Tenor 7–30 bisa ditambahkan lewat kolom tenor lain, tetapi model promo saat ini mengganti bunga, bukan memotong 5 poin dari bunga. Perlu aturan potongan per tenor atau voucher.",
   },
   {
     id: "bebas-biaya-admin",

@@ -7,9 +7,11 @@
  *  - `daftar`/`simpan`/`setAktif`/`hapus` di balik gerbang Super Admin.
  *
  * Bunga promo MENGGANTIKAN tarif matriks tenor itu, bukan mengurangi persen
- * dari bunga. `promoBungaUntukPengajuan` dipanggil `loans.createLoanApplication`
- * dan hasilnya dibekukan pada pinjaman, jadi mengubah promo kemudian tidak
- * pernah menggeser kontrak yang sudah terbit.
+ * dari bunga. Tenor kampanye mengikuti tenor harian sah 7–50 hari, termasuk
+ * hari yang dipilih nasabah lewat tanggal jatuh tempo seperti 10 atau 30 hari.
+ * `promoBungaUntukPengajuan` dipanggil `loans.createLoanApplication` dan
+ * hasilnya dibekukan pada pinjaman, jadi mengubah promo kemudian tidak pernah
+ * menggeser kontrak yang sudah terbit.
  */
 import { v } from "convex/values";
 
