@@ -33,10 +33,9 @@ function tanggal(ms: number): string {
  *
  * Menjawab pertanyaan yang sebelumnya tidak terlihat di layar: berapa saldo
  * yang benar-benar ada di dompet, berapa yang masih terkunci siklus berjalan,
- * dan berapa yang bisa ditarik. Penarikan sendiri masih diproses tim
- * operasional karena jalur pembayaran belum dibuka; karena itu kartu ini
- * mengarahkan ke CS, bukan menampilkan tombol yang tidak bisa menyelesaikan
- * uangnya.
+ * dan berapa yang bisa ditarik. Penarikan sendiri belum bisa dieksekusi karena
+ * jalur pembayaran belum dibuka; karena itu kartu ini mengarahkan ke CS, bukan
+ * menampilkan tombol yang tidak bisa menyelesaikan uangnya.
  */
 export function DompetPendana({ className }: { className?: string }) {
   const dompet = useQuery(api.alokasiDana.myWallet, {});
@@ -58,9 +57,9 @@ export function DompetPendana({ className }: { className?: string }) {
 
   const daftar = penarikan ?? [];
   const bisaDitarik = dompet.bisaDitarik;
-  const pesanCs = `Halo PINDAI, saya ingin menarik saldo dompet pendana sebesar ${formatRupiah(
+  const pesanCs = `Halo PINDAI, saya ingin menanyakan penarikan saldo dompet pendana sebesar ${formatRupiah(
     bisaDitarik,
-  )}. Mohon informasi biaya dan langkahnya.`;
+  )}. Mohon informasi kapan pencairan bisa diproses.`;
 
   return (
     <section
@@ -103,8 +102,10 @@ export function DompetPendana({ className }: { className?: string }) {
         <p className="max-w-2xl text-xs leading-5 text-slate-600">
           <Lock className="mr-1 inline size-3.5 align-[-2px] text-slate-500" aria-hidden />
           Dana yang terkunci belum bisa ditarik sampai siklus 30 hari jatuh tempo.
-          Penarikan saldo diproses tim operasional dengan biaya pencairan{" "}
-          {BIAYA_PENCAIRAN_PERSEN}% dari nominal.
+          Penarikan saldo belum bisa diproses sampai jalur pembayaran aktif.
+          Catat kebutuhan lewat CS; biaya pencairan nanti {
+            BIAYA_PENCAIRAN_PERSEN
+          }% dari nominal.
         </p>
         {bisaDitarik > 0 && (
           <a
@@ -114,7 +115,7 @@ export function DompetPendana({ className }: { className?: string }) {
             className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-emerald-200 bg-white px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
           >
             <MessageCircle className="size-3.5" aria-hidden />
-            Ajukan lewat CS
+            Tanya CS soal penarikan
           </a>
         )}
       </div>
