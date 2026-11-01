@@ -205,15 +205,15 @@ ada(
 eq(tenorHarianDefault(250_000), 7, "di bawah Rp500.000: tenor bawaan 7 hari");
 eq(tenorHarianDefault(500_000), 14, "Rp500.000: tenor bawaan 14 hari");
 eq(tenorHarianDefault(1_000_000), 28, "Rp1 juta: tenor bawaan 28 hari");
-eq(persenBungaHarian(250_000, 7), 30, "Rp250.000/7 hari: bunga 30%");
-eq(persenBungaHarian(250_000, 14), 35, "Rp250.000/14 hari: bunga naik ke 35%");
-eq(persenBungaHarian(250_000, 28), 40, "Rp250.000/28 hari: bunga naik ke 40%");
-eq(persenBungaHarian(500_000, 7), 28, "Rp500.000/7 hari: bunga 28%");
-eq(persenBungaHarian(500_000, 14), 32, "Rp500.000/14 hari: bunga 32%");
-eq(persenBungaHarian(500_000, 28), 35, "Rp500.000/28 hari: bunga 35%");
-eq(persenBungaHarian(1_000_000, 7), 26, "Rp1 juta/7 hari: bunga 26%");
-eq(persenBungaHarian(1_000_000, 14), 28, "Rp1 juta/14 hari: bunga 28%");
-eq(persenBungaHarian(1_000_000, 28), 30, "Rp1 juta/28 hari: bunga 30%");
+eq(persenBungaHarian(250_000, 7), 32, "Rp250.000/7 hari: bunga 32%");
+eq(persenBungaHarian(250_000, 14), 37, "Rp250.000/14 hari: bunga naik ke 37%");
+eq(persenBungaHarian(250_000, 28), 42, "Rp250.000/28 hari: bunga naik ke 42%");
+eq(persenBungaHarian(500_000, 7), 30, "Rp500.000/7 hari: bunga 30%");
+eq(persenBungaHarian(500_000, 14), 34, "Rp500.000/14 hari: bunga 34%");
+eq(persenBungaHarian(500_000, 28), 37, "Rp500.000/28 hari: bunga 37%");
+eq(persenBungaHarian(1_000_000, 7), 28, "Rp1 juta/7 hari: bunga 28%");
+eq(persenBungaHarian(1_000_000, 14), 30, "Rp1 juta/14 hari: bunga 30%");
+eq(persenBungaHarian(1_000_000, 28), 32, "Rp1 juta/28 hari: bunga 32%");
 for (const [pokok, tenor] of [
   [250_000, 7],
   [250_000, 14],

@@ -2,14 +2,14 @@
  * Uji matriks tenor & bunga pinjaman harian (`src/lib/loan.ts`).
  * Run: bun src/lib/tenorHarian.test.ts
  *
- * Matriks yang dijaga:
- *  - di bawah Rp500.000: 7 hari 30%, 14 hari 35%, 21 hari 38%, 28 hari 40%;
- *  - Rp500.000 sampai di bawah Rp1.000.000: 7 hari 28%, 14 hari 32%,
- *    21 hari 34%, 28 hari 35%;
- *  - Rp1.000.000 ke atas (sampai plafon khusus Rp10 juta): 7 hari 26%,
- *    14 hari 28%, 21 hari 29%, 28 hari 30%.
+ * Matriks FINAL setelah penyesuaian +2 poin:
+ *  - di bawah Rp500.000: 7 hari 32%, 14 hari 37%, 21 hari 40%, 28 hari 42%;
+ *  - Rp500.000 sampai di bawah Rp1.000.000: 7 hari 30%, 14 hari 34%,
+ *    21 hari 36%, 28 hari 37%;
+ *  - Rp1.000.000 ke atas (sampai plafon khusus Rp10 juta): 7 hari 28%,
+ *    14 hari 30%, 21 hari 31%, 28 hari 32%.
  *
- * Tenor resmi 7/14/21/28 hari; tenor lain DITOLAK, bukan digeser diam-diam.
+ * Tenor 7–50 hari sah; 8–27 diinterpolasi dan 29–50 memakai tarif perpanjangan.
  */
 import type { Rupiah } from "@/lib/money";
 import {
@@ -60,31 +60,31 @@ eq(tenorHarianDefault(1_000_000), 28, "Rp1 juta bawaan 28 hari");
 eq(tenorHarianDefault(2_000_000), 28, "Rp2 juta (plafon khusus) bawaan 28 hari");
 
 // ===== Bunga per kombinasi =====
-eq(persenBungaHarian(250_000, 7), 30, "Rp250.000/7 hari = 30%");
-eq(persenBungaHarian(250_000, 14), 35, "Rp250.000/14 hari = 35%");
-eq(persenBungaHarian(250_000, 21), 38, "Rp250.000/21 hari = 38%");
-eq(persenBungaHarian(250_000, 28), 40, "Rp250.000/28 hari = 40%");
-eq(persenBungaHarian(500_000, 7), 28, "Rp500.000/7 hari = 28%");
-eq(persenBungaHarian(500_000, 14), 32, "Rp500.000/14 hari = 32%");
-eq(persenBungaHarian(500_000, 21), 34, "Rp500.000/21 hari = 34%");
-eq(persenBungaHarian(500_000, 28), 35, "Rp500.000/28 hari = 35%");
-eq(persenBungaHarian(999_999, 14), 32, "Rp999.999/14 hari = 32%");
-eq(persenBungaHarian(1_000_000, 7), 26, "Rp1 juta/7 hari = 26%");
-eq(persenBungaHarian(1_000_000, 14), 28, "Rp1 juta/14 hari = 28%");
-eq(persenBungaHarian(1_000_000, 21), 29, "Rp1 juta/21 hari = 29%");
-eq(persenBungaHarian(1_000_000, 28), 30, "Rp1 juta/28 hari = 30%");
+eq(persenBungaHarian(250_000, 7), 32, "Rp250.000/7 hari = 32%");
+eq(persenBungaHarian(250_000, 14), 37, "Rp250.000/14 hari = 37%");
+eq(persenBungaHarian(250_000, 21), 40, "Rp250.000/21 hari = 40%");
+eq(persenBungaHarian(250_000, 28), 42, "Rp250.000/28 hari = 42%");
+eq(persenBungaHarian(500_000, 7), 30, "Rp500.000/7 hari = 30%");
+eq(persenBungaHarian(500_000, 14), 34, "Rp500.000/14 hari = 34%");
+eq(persenBungaHarian(500_000, 21), 36, "Rp500.000/21 hari = 36%");
+eq(persenBungaHarian(500_000, 28), 37, "Rp500.000/28 hari = 37%");
+eq(persenBungaHarian(999_999, 14), 34, "Rp999.999/14 hari = 34%");
+eq(persenBungaHarian(1_000_000, 7), 28, "Rp1 juta/7 hari = 28%");
+eq(persenBungaHarian(1_000_000, 14), 30, "Rp1 juta/14 hari = 30%");
+eq(persenBungaHarian(1_000_000, 21), 31, "Rp1 juta/21 hari = 31%");
+eq(persenBungaHarian(1_000_000, 28), 32, "Rp1 juta/28 hari = 32%");
 // Tanggal bebas 8–27 hari: interpolasi antara dua acuan.
-eq(persenBungaHarian(1_000_000, 8), 26.29, "Rp1 juta/8 hari = 26,29%");
-eq(persenBungaHarian(1_000_000, 20), 28.86, "Rp1 juta/20 hari = 28,86%");
+eq(persenBungaHarian(1_000_000, 8), 28.29, "Rp1 juta/8 hari = 28,29%");
+eq(persenBungaHarian(1_000_000, 20), 30.86, "Rp1 juta/20 hari = 30,86%");
 eq(tenorHarianEfektif(1_000_000, 20), 20, "tanggal bebas dipertahankan");
 eq(tenorHarianEfektif(1_000_000, 35), 35, "tenor perpanjangan dibiarkan apa adanya");
 eq(tenorHarianEfektif(1_000_000, 51), 28, "di atas batas digeser ke 28 hari");
 // Perpanjangan 29–50 hari: tarif 28 hari + harga satu hari tenor 28 hari.
 // Hari perpanjangan dihargai 1,5 × harga satu hari tenor 28 hari.
-eq(persenBungaHarian(1_000_000, 29), 31.61, "Rp1 juta/29 hari = 31,61%");
-eq(persenBungaHarian(1_000_000, 30), 33.21, "Rp1 juta/30 hari = 33,21%");
-eq(persenBungaHarian(1_000_000, 35), 41.25, "Rp1 juta/35 hari = 41,25%");
-eq(persenBungaHarian(1_000_000, 50), 65.36, "Rp1 juta/50 hari = 65,36%");
+eq(persenBungaHarian(1_000_000, 29), 33.61, "Rp1 juta/29 hari = 33,61%");
+eq(persenBungaHarian(1_000_000, 30), 35.21, "Rp1 juta/30 hari = 35,21%");
+eq(persenBungaHarian(1_000_000, 35), 43.25, "Rp1 juta/35 hari = 43,25%");
+eq(persenBungaHarian(1_000_000, 50), 67.36, "Rp1 juta/50 hari = 67,36%");
 eq(persenBungaHarian(1_000_000, 51), null, "51 hari di atas batas");
 eq(persenBungaHarian(1_000_000, 6), null, "6 hari di bawah batas");
 // Semakin lama selalu semakin mahal — diuji untuk setiap hari 7–50.
@@ -96,9 +96,9 @@ for (let hari = 7; hari <= 50; hari += 1) {
   tarifSebelumnya = tarif;
 }
 ok(bungaMenaik, "bunga naik ketat untuk setiap hari 7–50");
-eq(persenBungaHarian(2_000_000, 7), 26, "Rp2 juta/7 hari = 26%");
-eq(persenBungaHarian(2_000_000, 14), 28, "Rp2 juta/14 hari = 28%");
-eq(persenBungaHarian(2_000_000, 28), 30, "Rp2 juta/28 hari = 30%");
+eq(persenBungaHarian(2_000_000, 7), 28, "Rp2 juta/7 hari = 28%");
+eq(persenBungaHarian(2_000_000, 14), 30, "Rp2 juta/14 hari = 30%");
+eq(persenBungaHarian(2_000_000, 28), 32, "Rp2 juta/28 hari = 32%");
 
 // ===== Penyesuaian tenor saat nominal berubah =====
 eq(sesuaikanTenorHarian(250_000, 7), 7, "tenor sah tidak diubah");
@@ -137,31 +137,31 @@ try {
 ok(tolakDiAtasBawaan, "tanpa plafon khusus, Rp2 juta tetap ditolak");
 
 // ===== Total pembayaran mengikuti tarif matriks =====
-eq(quoteLoanBunga(250_000, 30).totalKewajibanPelunasan, 325_000, "Rp250.000/7 hari = Rp325.000");
-eq(quoteLoanBunga(250_000, 35).totalKewajibanPelunasan, 337_500, "Rp250.000/14 hari = Rp337.500");
-eq(quoteLoanBunga(500_000, 32).totalKewajibanPelunasan, 660_000, "Rp500.000/14 hari = Rp660.000");
-eq(quoteLoanBunga(1_000_000, 30).totalKewajibanPelunasan, 1_300_000, "Rp1 juta/28 hari = Rp1.300.000");
-eq(quoteLoanBunga(1_000_000, 26).totalKewajibanPelunasan, 1_260_000, "Rp1 juta/7 hari = Rp1.260.000");
-eq(quoteLoanBunga(2_000_000, 30).totalKewajibanPelunasan, 2_600_000, "Rp2 juta/28 hari = Rp2.600.000");
+eq(quoteLoanBunga(250_000, 32).totalKewajibanPelunasan, 330_000, "Rp250.000/7 hari = Rp330.000");
+eq(quoteLoanBunga(250_000, 37).totalKewajibanPelunasan, 342_500, "Rp250.000/14 hari = Rp342.500");
+eq(quoteLoanBunga(500_000, 34).totalKewajibanPelunasan, 670_000, "Rp500.000/14 hari = Rp670.000");
+eq(quoteLoanBunga(1_000_000, 32).totalKewajibanPelunasan, 1_320_000, "Rp1 juta/28 hari = Rp1.320.000");
+eq(quoteLoanBunga(1_000_000, 28).totalKewajibanPelunasan, 1_280_000, "Rp1 juta/7 hari = Rp1.280.000");
+eq(quoteLoanBunga(2_000_000, 32).totalKewajibanPelunasan, 2_640_000, "Rp2 juta/28 hari = Rp2.640.000");
 eq(
   quoteLoanBunga(1_000_000, persenBungaHarian(1_000_000, 20) ?? 0).totalKewajibanPelunasan,
-  1_288_600,
-  "Rp1 juta/20 hari = Rp1.288.600",
+  1_308_600,
+  "Rp1 juta/20 hari = Rp1.308.600",
 );
 eq(
   quoteLoanBunga(1_000_000, persenBungaHarian(1_000_000, 30) ?? 0).totalKewajibanPelunasan,
-  1_332_100,
-  "Rp1 juta/30 hari = Rp1.332.100",
+  1_352_100,
+  "Rp1 juta/30 hari = Rp1.352.100",
 );
 eq(
   quoteLoanBunga(1_000_000, persenBungaHarian(1_000_000, 35) ?? 0).totalKewajibanPelunasan,
-  1_412_500,
-  "Rp1 juta/35 hari = Rp1.412.500",
+  1_432_500,
+  "Rp1 juta/35 hari = Rp1.432.500",
 );
 eq(
   quoteLoanBunga(1_000_000, persenBungaHarian(1_000_000, 50) ?? 0).totalKewajibanPelunasan,
-  1_653_600,
-  "Rp1 juta/50 hari = Rp1.653.600",
+  1_673_600,
+  "Rp1 juta/50 hari = Rp1.673.600",
 );
 
 console.log(`tenorHarian.test: ${passed} lulus, ${failed} gagal`);

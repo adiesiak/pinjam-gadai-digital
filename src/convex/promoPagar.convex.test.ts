@@ -12,8 +12,8 @@
  *     dan kampanye dimatikan otomatis SETELAH transaksi berhasil (bukan di dalam
  *     mutation yang melempar, karena patch itu akan ikut dibatalkan).
  *
- * Angka acuan: pokok Rp300.000 tenor 7 hari bertarif normal 30%, jadi promo 15%
- * menyubsidi 15% × Rp300.000 = Rp45.000 per pinjaman.
+ * Angka acuan: pokok Rp300.000 tenor 7 hari bertarif normal 32%, jadi promo 15%
+ * menyubsidi 17% × Rp300.000 = Rp51.000 per pinjaman.
  *
  * Menjalankan: bunx vitest run src/convex/promoPagar.convex.test.ts
  */
@@ -173,7 +173,7 @@ describe("pagar promo bunga", () => {
     const loan = rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
     expect(loan?.persenBunga).toBe(10);
     expect(loan?.promoBungaPersen).toBe(15);
-    expect(loan?.promoBungaPersenNormal).toBe(30);
+    expect(loan?.promoBungaPersenNormal).toBe(32);
     expect(loan?.voucherDiskonBunga).toBe(5);
   });
 
@@ -193,9 +193,9 @@ describe("pagar promo bunga", () => {
         "rani-pagu@pindai.test",
       );
       const kyc = await unggahKyc(t);
-      // Subsidi satu pinjaman tepat Rp45.000; pagu dibuat pas di angka itu supaya
+      // Subsidi satu pinjaman tepat Rp51.000; pagu dibuat pas di angka itu supaya
       // pengajuan pertama masih masuk dan pengajuan kedua sudah ditolak.
-      const { id: promoId } = await buatPromo(admin, { paguSubsidi: 45_000 });
+      const { id: promoId } = await buatPromo(admin, { paguSubsidi: 51_000 });
 
       await ajukanHarian(peminjam, kyc);
       await t.finishAllScheduledFunctions(vi.runAllTimers);
@@ -218,7 +218,7 @@ describe("pagar promo bunga", () => {
         const semua = await ctx.db.query("loans").collect();
         return semua.find((row) => row.nomorReferensi === kedua.nomorReferensi);
       });
-      expect(rows?.persenBunga).toBe(30);
+      expect(rows?.persenBunga).toBe(32);
       expect(rows?.promoBungaId).toBeUndefined();
       expect(await pinjamanPromo(t, promoId)).toHaveLength(1);
     } finally {
@@ -238,8 +238,8 @@ describe("pagar promo bunga", () => {
       "rani-pagu-tolak@pindai.test",
     );
     const kyc = await unggahKyc(t);
-    // Rp55.000: pinjaman pertama (Rp45.000 = 82% pagu) masih masuk dan memicu
-    // peringatan 80%, pinjaman kedua akan membuat total Rp90.000 — harus ditolak,
+    // Rp55.000: pinjaman pertama (Rp51.000 = 93% pagu) masih masuk dan memicu
+    // peringatan 80%, pinjaman kedua akan membuat total Rp102.000 — harus ditolak,
     // bukan dicatat lalu disesali.
     const { id: promoId } = await buatPromo(admin, { paguSubsidi: 55_000 });
 

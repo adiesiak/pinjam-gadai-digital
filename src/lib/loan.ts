@@ -88,7 +88,20 @@ export const TENOR_HARIAN_MAKS = TENOR_PERPANJANGAN.maks;
 export const PENGALI_TARIF_PERPANJANGAN = 1.5;
 
 /**
+ * Penyesuaian bunga harian yang berlaku untuk SEMUA tenor final — empat tenor
+ * standar, tenor bebas 8–27, dan perpanjangan 29–50. Ditambahkan setelah tarif
+ * dasar/interpolasi dihitung, sehingga setiap tenor naik tepat 2 poin persen.
+ *
+ * Angka ini bukan pengganti matriks: matriks di bawah tetap menjadi acuan
+ * struktur harga. Ubah konstanta ini bila kebijakan bunga berubah lagi.
+ */
+export const PENAMBAHAN_BUNGA_HARIAN_PERSEN = 2;
+
+/**
  * Matriks tenor & bunga pinjaman HARIAN.
+ *
+ * Angka di sini adalah tarif DASAR. Tarif final yang dipakai nasabah adalah
+ * angka dasar ditambah `PENAMBAHAN_BUNGA_HARIAN_PERSEN` (2 poin).
  *
  * Aturan produk yang dijaga di sini (berlaku sama di klien dan server):
  *  - Tier 1, pokok di bawah Rp500.000: 7 hari 30%, 14 hari 35%,
@@ -210,7 +223,9 @@ export function persenBungaHarian(pokok: number, tenor: number): number | null {
   const baris = barisMatriksHarian(pokok);
   if (baris === null) return null;
   const tarif = baris.tarif.find((barisTarif) => barisTarif.tenor === tenor);
-  if (tarif !== undefined) return tarif.persenBunga;
+  if (tarif !== undefined) {
+    return Math.round((tarif.persenBunga + PENAMBAHAN_BUNGA_HARIAN_PERSEN) * 100) / 100;
+  }
   if (tenor < TENOR_OPTIONS[0] || tenor > TENOR_PERPANJANGAN.maks) return null;
   const acuanAtas = baris.tarif[baris.tarif.length - 1];
   // Di atas tenor maksimum: tarif 28 hari ditambah harga satu hari tenor 28
@@ -219,7 +234,10 @@ export function persenBungaHarian(pokok: number, tenor: number): number | null {
     const hariEkstra = tenor - acuanAtas.tenor;
     const hargaHari =
       (acuanAtas.persenBunga / acuanAtas.tenor) * PENGALI_TARIF_PERPANJANGAN;
-    return Math.round((acuanAtas.persenBunga + hargaHari * hariEkstra) * 100) / 100;
+    return (
+      Math.round((acuanAtas.persenBunga + hargaHari * hariEkstra) * 100) / 100 +
+      PENAMBAHAN_BUNGA_HARIAN_PERSEN
+    );
   }
   // 8–27 hari (tanggal bebas): interpolasi linear antara dua acuan. Dengan
   // begitu semakin lama tenor, semakin besar bunga — tidak ada hari yang lebih
@@ -231,7 +249,7 @@ export function persenBungaHarian(pokok: number, tenor: number): number | null {
   const bunga =
     acuanBawah.persenBunga +
     (acuanDiAtas.persenBunga - acuanBawah.persenBunga) * porsi;
-  return Math.round(bunga * 100) / 100;
+  return Math.round(bunga * 100) / 100 + PENAMBAHAN_BUNGA_HARIAN_PERSEN;
 }
 
 /** Apakah pasangan nominal–tenor bisa dipakai pengajuan (termasuk perpanjangan). */

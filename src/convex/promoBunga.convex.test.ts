@@ -187,22 +187,22 @@ describe("promo bunga harian", () => {
       return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
     });
 
-    // Bunga tier 1 tenor 7 normal 30%; promo menggantikannya menjadi 15%.
+    // Bunga tier 1 tenor 7 normal 32%; promo menggantikannya menjadi 15%.
     expect(loan?.persenBunga).toBe(15);
     expect(loan?.promoBungaId).toBe(promoId);
     expect(loan?.promoBungaNama).toBe("Bunga 15 tenor 7");
-    expect(loan?.promoBungaPersenNormal).toBe(30);
+    expect(loan?.promoBungaPersenNormal).toBe(32);
     // Tarif promo dibekukan terpisah, supaya laporan subsidi tidak tertukar
     // dengan potongan voucher bunga yang mungkin dipakai bersamaan.
     expect(loan?.promoBungaPersen).toBe(15);
 
-    // Tenor 14 tidak termasuk promo, jadi tarif matriks berlaku (35%).
+    // Tenor 14 tidak termasuk promo, jadi tarif matriks berlaku (37%).
     const kedua = await ajukanHarian(peminjam, kyc, 14);
     const loanKedua = await t.run(async (ctx) => {
       const rows = await ctx.db.query("loans").collect();
       return rows.find((row) => row.nomorReferensi === kedua.nomorReferensi);
     });
-    expect(loanKedua?.persenBunga).toBe(35);
+    expect(loanKedua?.persenBunga).toBe(37);
     expect(loanKedua?.promoBungaId).toBeUndefined();
   });
 
@@ -231,11 +231,11 @@ describe("promo bunga harian", () => {
       return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
     });
 
-    // Tier 1 tenor 10 berada di antara 30% (7 hari) dan 35% (14 hari),
-    // yakni 32,14%; promo 20% menggantikannya dan dibekukan pada pinjaman.
+    // Tier 1 tenor 10 berada di antara 32% (7 hari) dan 37% (14 hari),
+    // yakni 34,14%; promo 20% menggantikannya dan dibekukan pada pinjaman.
     expect(loan?.tenorHari).toBe(10);
     expect(loan?.promoBungaId).toBe(promoId);
-    expect(loan?.promoBungaPersenNormal).toBe(32.14);
+    expect(loan?.promoBungaPersenNormal).toBe(34.14);
     expect(loan?.persenBunga).toBe(20);
   });
 
@@ -268,9 +268,9 @@ describe("promo bunga harian", () => {
 
     expect(loan?.promoBungaId).toBe(promoId);
     expect(loan?.promoBungaJenis).toBe("potongan_bunga");
-    expect(loan?.promoBungaPersenNormal).toBe(30);
-    expect(loan?.persenBunga).toBe(25);
-    expect(loan?.promoBungaPersen).toBe(25);
+    expect(loan?.promoBungaPersenNormal).toBe(32);
+    expect(loan?.persenBunga).toBe(27);
+    expect(loan?.promoBungaPersen).toBe(27);
     expect(loan?.promoBungaPotonganPersen).toBe(5);
   });
 
@@ -300,12 +300,12 @@ describe("promo bunga harian", () => {
       return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
     });
 
-    // Pokok Rp300.000: bunga tetap 30%, biaya admin 2% = Rp6.000 dibebaskan.
+    // Pokok Rp300.000: bunga tetap 32%, biaya admin 2% = Rp6.000 dibebaskan.
     expect(loan?.promoBungaId).toBe(promoId);
     expect(loan?.promoBungaJenis).toBe("bebas_admin");
-    expect(loan?.persenBunga).toBe(30);
-    expect(loan?.promoBungaPersenNormal).toBe(30);
-    expect(loan?.promoBungaPersen).toBe(30);
+    expect(loan?.persenBunga).toBe(32);
+    expect(loan?.promoBungaPersenNormal).toBe(32);
+    expect(loan?.promoBungaPersen).toBe(32);
     expect(loan?.promoDiskonAdmin).toBe(6_000);
     // Requote dokumen/kontrak harus membaca pembebasan yang dibekukan, bukan
     // hanya diskon voucher.
@@ -373,7 +373,7 @@ describe("promo bunga harian", () => {
     const loanPertama = loans.find((row) => row.nomorReferensi === pertama.nomorReferensi);
     const loanKedua = loans.find((row) => row.nomorReferensi === kedua.nomorReferensi);
     expect(loanPertama?.persenBunga).toBe(15);
-    expect(loanKedua?.persenBunga).toBe(30);
+    expect(loanKedua?.persenBunga).toBe(32);
     expect(loanKedua?.promoBungaId).toBeUndefined();
   });
 
@@ -404,15 +404,15 @@ describe("promo bunga harian", () => {
     const baris = laporan.baris[0];
     expect(baris.id).toBe(promoId);
     expect(baris.pinjaman).toBe(1);
-    // Pokok Rp300.000: normal 30% = Rp90.000, promo 15% = Rp45.000.
-    expect(baris.subsidi).toBe(45_000);
+    // Pokok Rp300.000: normal 32% = Rp96.000, promo 15% = Rp45.000.
+    expect(baris.subsidi).toBe(51_000);
     expect(baris.perkiraan).toBe(false);
-    expect(laporan.total.subsidi).toBe(45_000);
+    expect(laporan.total.subsidi).toBe(51_000);
     expect(laporan.total.pinjaman).toBe(1);
     expect(laporan.dibatasi).toBe(false);
     expect(laporan.tren).toHaveLength(1);
     expect(laporan.tren[0].pinjaman).toBe(1);
-    expect(laporan.tren[0].subsidi).toBe(45_000);
+    expect(laporan.tren[0].subsidi).toBe(51_000);
 
     // Saringan tanggal memakai waktu pengajuan pinjaman, bukan tanggal promo:
     // rentang yang belum berjalan tidak boleh meminjam angka kampanye lama.
@@ -434,7 +434,7 @@ describe("promo bunga harian", () => {
       sampai: Date.now() + HARI_MS,
     });
     expect(hariIni.total.pinjaman).toBe(1);
-    expect(hariIni.total.subsidi).toBe(45_000);
+    expect(hariIni.total.subsidi).toBe(51_000);
 
     await expect(peminjam.query(api.promoBunga.efektivitas, {})).rejects.toThrow(
       /Akses khusus Super Admin/,

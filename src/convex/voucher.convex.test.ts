@@ -337,10 +337,10 @@ describe("voucher nasabah dan limit pembiayaan", () => {
       return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
     });
 
-    // Tarif 7 hari untuk Rp300.000 adalah 30%; voucher 5 poin menurunkannya
-    // menjadi 25%, dan tarif normal tetap disimpan untuk hak pendana.
-    expect(loan?.persenBunga).toBe(25);
-    expect(loan?.promoBungaPersenNormal).toBe(30);
+    // Tarif 7 hari untuk Rp300.000 adalah 32%; voucher 5 poin menurunkannya
+    // menjadi 27%, dan tarif normal tetap disimpan untuk hak pendana.
+    expect(loan?.persenBunga).toBe(27);
+    expect(loan?.promoBungaPersenNormal).toBe(32);
     expect(loan?.voucherDiskonBunga).toBe(5);
     expect(loan?.voucherDiskon).toBe(0);
   });
@@ -373,9 +373,9 @@ describe("voucher nasabah dan limit pembiayaan", () => {
       return rows.find((row) => row.nomorReferensi === hasil.nomorReferensi);
     });
 
-    // Tenor tersimpan 7 + 7 hari, tetapi bunga tetap tarif 7 hari (30%).
+    // Tenor tersimpan 7 + 7 hari, tetapi bunga tetap tarif 7 hari (32%).
     expect(loan?.tenorHari).toBe(14);
-    expect(loan?.persenBunga).toBe(30);
+    expect(loan?.persenBunga).toBe(32);
     expect(loan?.voucherTambahTenor).toBe(7);
   });
 
