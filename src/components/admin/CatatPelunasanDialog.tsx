@@ -87,7 +87,16 @@ function IsiCatatPelunasan({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const keWaktu = (nilai: string) => new Date(`${nilai}T12:00:00+07:00`).getTime();
+  /**
+   * Input tanggal tidak membawa jam. Tengah hari WIB dipakai supaya tanggal
+   * tidak bergeser ke hari sebelumnya, lalu dipotong ke waktu sekarang untuk
+   * hari ini — tanpa itu, mencatat pelunasan pagi mengirim tanggal yang masih
+   * di masa depan dan ditolak server.
+   */
+  const keWaktu = (nilai: string) => {
+    const tengahHari = Date.parse(`${nilai}T12:00:00+07:00`);
+    return Number.isFinite(tengahHari) ? Math.min(tengahHari, Date.now()) : tengahHari;
+  };
   // Tanggal terima ikut dikirim, supaya denda dan total di dialog sama dengan
   // tanggal yang nanti dicatat server.
   const tanggalAcuan = keWaktu(tanggal);
