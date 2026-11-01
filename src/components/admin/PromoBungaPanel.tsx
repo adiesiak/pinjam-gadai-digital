@@ -28,6 +28,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -42,11 +49,13 @@ import { persenBungaHarian, TENOR_HARIAN_MAKS, TENOR_OPTIONS } from "@/lib/loan"
 import { formatRupiahAman } from "@/lib/money";
 import {
   BATAS_PROMO_BUNGA,
+  JENIS_PROMO_BUNGA,
   KELAS_STATUS_PROMO_BUNGA,
   LABEL_STATUS_PROMO_BUNGA,
   LANTAI_BUNGA_PROMO_PERSEN,
   periksaIsiPromoBunga,
   pratinjauPromoBunga,
+  type JenisPromoBunga,
   type StatusPromoBunga,
 } from "@/lib/promoBunga";
 import {
@@ -65,8 +74,10 @@ type BarisPromo = FunctionReturnType<typeof api.promoBunga.daftar>[number];
 
 type Draf = {
   id?: Id<"promoBunga">;
+  jenis: JenisPromoBunga;
   nama: string;
   persenBunga: string;
+  potonganPersen: string;
   tenor: number[];
   mulai: string;
   selesai: string;
@@ -80,8 +91,10 @@ type Draf = {
 function drafBaru(): Draf {
   const sekarang = Date.now();
   return {
+    jenis: "bunga_pengganti",
     nama: "",
     persenBunga: "15",
+    potonganPersen: "5",
     tenor: [7],
     mulai: msKeTanggalInput(sekarang),
     selesai: msKeTanggalInput(sekarang + 14 * 86_400_000),
@@ -94,8 +107,11 @@ function drafBaru(): Draf {
 function drafDari(row: BarisPromo): Draf {
   return {
     id: row._id,
+    jenis: row.jenis,
     nama: row.nama,
-    persenBunga: String(row.persenBunga),
+    persenBunga: row.persenBunga === 0 ? "" : String(row.persenBunga),
+    potonganPersen:
+      row.potonganPersen === undefined ? "5" : String(row.potonganPersen),
     tenor: [...row.tenor],
     mulai: msKeTanggalInput(row.mulai),
     selesai: msKeTanggalInput(row.selesai),
@@ -162,8 +178,10 @@ export function PromoBungaPanel() {
   const pakaiTemplate = (template: TemplatePromoBunga) => {
     const isi = isiTemplatePromoBunga(template, waktuTemplate);
     setDraf({
+      jenis: "bunga_pengganti",
       nama: isi.nama,
       persenBunga: String(isi.persenBunga),
+      potonganPersen: "5",
       tenor: [...isi.tenor],
       mulai: msKeTanggalInput(isi.mulai),
       selesai: msKeTanggalInput(isi.selesai),
@@ -238,6 +256,7 @@ export function PromoBungaPanel() {
       return;
     }
     const persenBunga = Number(draf.persenBunga);
+    const potonganPersen = Number(draf.potonganPersen);
     const paguTeks = draf.paguSubsidi.trim();
     const paguSubsidi =
       paguTeks === ""
@@ -248,8 +267,14 @@ export function PromoBungaPanel() {
       return;
     }
     const isi = {
+      jenis: draf.jenis,
       nama: draf.nama,
-      persenBunga,
+      // Bunga final hanya dipakai jenis pengganti; jenis lain menyimpan 0 agar
+      // laporan dan pemilihan tidak salah membaca angka yang tidak berlaku.
+      persenBunga:
+        draf.jenis === "bunga_pengganti" ? persenBunga : 0,
+      potonganPersen:
+        draf.jenis === "potongan_bunga" ? potonganPersen : undefined,
       tenor: draf.tenor,
       mulai,
       selesai,
@@ -300,9 +325,16 @@ export function PromoBungaPanel() {
   };
 
   const persenPratinjau = Number(draf.persenBunga);
+  const potonganPratinjau = Number(draf.potonganPersen);
   const pratinjau = pratinjauPromoBunga(
     draf.tenor,
-    Number.isFinite(persenPratinjau) ? persenPratinjau : 0,
+    {
+      jenis: draf.jenis,
+      persenBunga: Number.isFinite(persenPratinjau) ? persenPratinjau : 0,
+      potonganPersen: Number.isFinite(potonganPratinjau)
+        ? potonganPratinjau
+        : 0,
+    },
     normalPerTenor,
   );
   const urut = daftar === undefined ? [] : [...daftar].sort(
@@ -317,27 +349,29 @@ export function PromoBungaPanel() {
         <div className="max-w-2xl">
           <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
             <Percent className="size-4 text-primary" aria-hidden="true" />
-            Bunga promo
+            Promo pinjaman
           </h3>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Bunga promo <strong>menggantikan</strong> bunga normal tenor itu selama masa
-            berlaku — bukan potongan persen dari bunga. Pinjaman yang sudah terbit tidak
-            berubah saat promo dimatikan. Hak pendana tetap dihitung dari tarif normal,
-            jadi selisihnya ditanggung platform — bukan dipotong dari imbal hasil pendana.
+            Tiga jenis kampanye: <strong>bunga pengganti</strong>,{" "}
+            <strong>potongan bunga</strong>, dan <strong>bebas biaya admin</strong>. Satu
+            pengajuan memakai satu kampanye terbaik yang aktif pada tenor dan tanggalnya.
+            Pinjaman yang sudah terbit tidak berubah saat promo dimatikan; hak pendana
+            tetap dihitung dari tarif normal.
           </p>
         </div>
         <Button type="button" onClick={bukaBaru} className="gap-1.5">
           <Plus className="size-4" aria-hidden="true" />
-          Buat bunga promo
+          Buat promo
         </Button>
       </div>
 
       <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
         <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
         <span>
-          Selisih bunga promo ditanggung platform dari margin pengelola. Imbal hasil
-          penyedia dana tetap 30% per siklus 30 hari, tidak ikut turun saat promo dipakai.
-          Pastikan selisihnya masih menutup biaya sebelum dinyalakan.
+          Selisih bunga dan biaya admin yang dibebaskan ditanggung platform dari margin
+          pengelola. Imbal hasil penyedia dana tetap dihitung dari tarif normal, tidak
+          ikut turun saat promo dipakai. Pastikan totalnya masih menutup biaya sebelum
+          dinyalakan.
         </span>
       </p>
 
@@ -420,8 +454,12 @@ export function PromoBungaPanel() {
                     <p className="truncate text-sm font-semibold text-slate-900">{row.nama}</p>
                   </div>
                   <p className="mt-1 text-sm text-slate-700">
-                    <span className="text-lg font-semibold tabular-nums text-emerald-800">
-                      {row.persenBunga}%
+                    <span className="text-base font-semibold tabular-nums text-emerald-800">
+                      {row.jenis === "bebas_admin"
+                        ? "Bebas biaya admin"
+                        : row.jenis === "potongan_bunga"
+                          ? `Potongan ${row.potonganPersen ?? 0} poin`
+                          : `${row.persenBunga}%`}
                     </span>{" "}
                     untuk tenor {row.tenor.join(" / ")} hari{" "}
                     <span className="text-slate-400">·</span>{" "}
@@ -497,14 +535,41 @@ export function PromoBungaPanel() {
           className="w-full gap-0 overflow-y-auto border-l border-slate-200 bg-white px-4 pb-8 sm:w-[46vw] sm:max-w-none sm:px-6"
         >
           <SheetHeader className="px-0 pt-4 pb-2 pr-10">
-            <SheetTitle>{draf.id === undefined ? "Buat bunga promo" : "Sunting bunga promo"}</SheetTitle>
+            <SheetTitle>{draf.id === undefined ? "Buat promo pinjaman" : "Sunting promo pinjaman"}</SheetTitle>
             <SheetDescription>
-              Tentukan bunga pengganti, tenor yang mendapatkannya, dan rentang tanggal.
-              Formulir pengajuan membaca promo ini saat nasabah membuka halaman.
+              Pilih jenis manfaat, tenor yang mendapatkannya, dan rentang tanggal. Formulir
+              pengajuan membaca promo ini saat nasabah membuka halaman.
             </SheetDescription>
           </SheetHeader>
 
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="promo-bunga-jenis">Jenis promo</Label>
+              <Select
+                value={draf.jenis}
+                onValueChange={(nilai) =>
+                  setDraf((sebelumnya) => ({
+                    ...sebelumnya,
+                    jenis: nilai as JenisPromoBunga,
+                  }))
+                }
+              >
+                <SelectTrigger id="promo-bunga-jenis" className="mt-1 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {JENIS_PROMO_BUNGA.map((jenis) => (
+                    <SelectItem key={jenis.value} value={jenis.value}>
+                      {jenis.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                {JENIS_PROMO_BUNGA.find((jenis) => jenis.value === draf.jenis)?.keterangan}
+              </p>
+            </div>
+
             <div>
               <div className="flex items-baseline justify-between gap-2">
                 <Label htmlFor="promo-bunga-nama">Nama promo</Label>
@@ -525,29 +590,68 @@ export function PromoBungaPanel() {
               </p>
             </div>
 
-            <div>
-              <Label htmlFor="promo-bunga-persen">Bunga promo (%)</Label>
-              <div className="mt-1 flex items-center gap-2">
-                <Input
-                  id="promo-bunga-persen"
-                  inputMode="numeric"
-                  className="max-w-28 tabular-nums"
-                  value={draf.persenBunga}
-                  onChange={(e) =>
-                    setDraf((sebelumnya) => ({
-                      ...sebelumnya,
-                      persenBunga: e.target.value.replace(/\D/g, "").slice(0, 2),
-                    }))
-                  }
-                />
-                <span className="text-sm text-slate-500">% dari pokok (bukan potongan dari bunga)</span>
+            {draf.jenis === "bunga_pengganti" && (
+              <div>
+                <Label htmlFor="promo-bunga-persen">Bunga promo (%)</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <Input
+                    id="promo-bunga-persen"
+                    inputMode="numeric"
+                    className="max-w-28 tabular-nums"
+                    value={draf.persenBunga}
+                    onChange={(e) =>
+                      setDraf((sebelumnya) => ({
+                        ...sebelumnya,
+                        persenBunga: e.target.value.replace(/\D/g, "").slice(0, 2),
+                      }))
+                    }
+                  />
+                  <span className="text-sm text-slate-500">% dari pokok (bukan potongan)</span>
+                </div>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  Maksimal {BATAS_PROMO_BUNGA.persenMaks}% agar selalu di bawah bunga normal
+                  terendah (26%). Angka 15 berarti bunga pinjaman 15%, seperti tertulis di
+                  rincian dan kontrak.
+                </p>
               </div>
-              <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                Maksimal {BATAS_PROMO_BUNGA.persenMaks}% agar selalu di bawah bunga normal
-                terendah (26%). Angka 15 berarti bunga pinjaman 15%, seperti tertulis di
-                rincian dan kontrak.
-              </p>
-            </div>
+            )}
+
+            {draf.jenis === "potongan_bunga" && (
+              <div>
+                <Label htmlFor="promo-bunga-potongan">Potongan bunga (poin)</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <Input
+                    id="promo-bunga-potongan"
+                    inputMode="numeric"
+                    className="max-w-28 tabular-nums"
+                    value={draf.potonganPersen}
+                    onChange={(e) =>
+                      setDraf((sebelumnya) => ({
+                        ...sebelumnya,
+                        potonganPersen: e.target.value.replace(/\D/g, "").slice(0, 2),
+                      }))
+                    }
+                  />
+                  <span className="text-sm text-slate-500">poin dari bunga normal</span>
+                </div>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                  Contoh: bunga normal 30% dengan potongan 5 poin menjadi 25%. Maksimal{" "}
+                  {BATAS_PROMO_BUNGA.persenMaks} poin; hasilnya tidak pernah negatif.
+                </p>
+              </div>
+            )}
+
+            {draf.jenis === "bebas_admin" && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2.5">
+                <p className="text-sm font-medium text-emerald-900">
+                  Biaya admin menjadi Rp0
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-emerald-900/80">
+                  Bunga tetap mengikuti tarif normal tenor. Yang dibebaskan hanya biaya
+                  admin di muka; biaya asuransi dan ekspres tidak ikut dihapus.
+                </p>
+              </div>
+            )}
 
             <fieldset>
               <legend className="text-sm font-medium">Tenor yang mendapat promo</legend>
@@ -739,7 +843,7 @@ export function PromoBungaPanel() {
                       <tr>
                         <th className="px-2.5 py-2 font-semibold">Tenor</th>
                         <th className="px-2.5 py-2 font-semibold">Normal</th>
-                        <th className="px-2.5 py-2 font-semibold">Promo</th>
+                        <th className="px-2.5 py-2 font-semibold">Setelah promo</th>
                         <th className="px-2.5 py-2 font-semibold">Hemat</th>
                       </tr>
                     </thead>
@@ -753,12 +857,14 @@ export function PromoBungaPanel() {
                             {baris.normal.tier1}/{baris.normal.tier2}/{baris.normal.tier3}%
                           </td>
                           <td className="px-2.5 py-2 font-semibold tabular-nums text-emerald-800">
-                            {baris.promo}%
+                            {baris.promo.tier1}/{baris.promo.tier2}/{baris.promo.tier3}%
                           </td>
                           <td className="px-2.5 py-2 tabular-nums text-slate-700">
-                            {baris.potonganTerbesar > 0
-                              ? `s.d. ${baris.potonganTerbesar} poin`
-                              : "tidak memotong"}
+                            {draf.jenis === "bebas_admin"
+                              ? "biaya admin Rp0"
+                              : baris.potonganTerbesar > 0
+                                ? `s.d. ${baris.potonganTerbesar} poin`
+                                : "tidak memotong"}
                           </td>
                         </tr>
                       ))}
@@ -768,7 +874,8 @@ export function PromoBungaPanel() {
                     Normal = tarif matriks untuk pokok &lt;{formatRupiahAman(500_000)} /{" "}
                     {formatRupiahAman(500_000)}–&lt;{formatRupiahAman(1_000_000)} / ≥
                     {formatRupiahAman(1_000_000)}. Hemat dihitung dari tier yang paling
-                    terpotong.
+                    terpotong. Bebas admin tidak mengubah kolom bunga; manfaatnya ada di
+                    potongan biaya admin.
                   </p>
                 </div>
               )}

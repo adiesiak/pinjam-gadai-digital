@@ -1,12 +1,16 @@
 /**
- * Promo bunga pinjaman harian — aturan murni, dipakai server, panel admin, dan
+ * Promo pinjaman harian — aturan murni, dipakai server, panel admin, dan
  * formulir pengajuan.
  *
- * Modelnya satu kalimat: **bunga promo menggantikan bunga normal** untuk tenor
- * yang dipilih selama rentang tanggal kampanye. Jadi promo 15% pada tenor 7
- * hari berarti bunga pinjaman itu 15% dari pokok (bukan 30% dikurangi 15%).
- * Pemilihan itu disengaja: admin menulis angka yang benar-benar dibaca nasabah,
- * tanpa perlu menghitung ulang potongan.
+ * Tiga jenis kampanye, satu mekanisme pemilihan:
+ *  - `bunga_pengganti` menetapkan bunga final, mis. 15% pada tenor 7 hari;
+ *  - `potongan_bunga` memotong poin dari bunga normal, mis. 30% − 5 poin = 25%;
+ *  - `bebas_admin` meniadakan biaya admin di muka, tanpa mengubah bunga.
+ *
+ * Satu pengajuan memakai satu kampanye terbaik. Untuk kampanye bunga, yang
+ * menang adalah bunga final terendah; kampanye bebas admin menang bila tidak ada
+ * kampanye bunga yang lebih ringan. Dengan begitu empat penawaran tetap bisa
+ * dijalankan tanpa menumpuk subsidi yang tidak terlihat.
  *
  * Tenor kampanye mengikuti tenor harian yang sah, 7–50 hari. Selain empat tenor
  * standar (7/14/21/28), hari lain dipilih nasabah lewat tanggal jatuh tempo —
@@ -23,13 +27,48 @@ import { TENOR_HARIAN_MAKS, TENOR_OPTIONS } from "./loan";
 import { formatRupiah } from "./money";
 import { formatPeriodePromo } from "./promoPinjaman";
 
+/** Jenis kampanye. Baris lama tanpa `jenis` dibaca sebagai bunga pengganti. */
+export type JenisPromoBunga = "bunga_pengganti" | "potongan_bunga" | "bebas_admin";
+
+export const JENIS_PROMO_BUNGA: readonly {
+  value: JenisPromoBunga;
+  label: string;
+  keterangan: string;
+}[] = [
+  {
+    value: "bunga_pengganti",
+    label: "Bunga pengganti",
+    keterangan: "Bunga final yang menggantikan tarif tenor, mis. 15%.",
+  },
+  {
+    value: "potongan_bunga",
+    label: "Potongan bunga",
+    keterangan: "Memotong poin dari bunga normal, mis. 5 poin.",
+  },
+  {
+    value: "bebas_admin",
+    label: "Bebas biaya admin",
+    keterangan: "Biaya admin di muka menjadi Rp0; bunga tidak berubah.",
+  },
+] as const;
+
+export const JENIS_PROMO_BUNGA_DEFAULT: JenisPromoBunga = "bunga_pengganti";
+
 /** Satu promo seperti yang dibaca panel admin dan formulir. */
 export type PromoBungaRingkas = {
   _id: string;
   nama: string;
-  /** Bunga promo dalam persen dari pokok (mis. 15 → 15%). */
+  /** Jenis kampanye; kosong pada data lama = bunga pengganti. */
+  jenis?: JenisPromoBunga;
+  /**
+   * Bunga final untuk `bunga_pengganti`. Untuk jenis lain nilainya 0 dan tidak
+   * dipakai — `potongan_bunga` memakai `potonganPersen`, `bebas_admin` tidak
+   * mengubah bunga.
+   */
   persenBunga: number;
-  /** Tenor harian 7–50 yang mendapat bunga promo ini. */
+  /** Poin yang dipotong dari bunga normal untuk `potongan_bunga`. */
+  potonganPersen?: number;
+  /** Tenor harian 7–50 yang mendapat promo ini. */
   tenor: readonly number[];
   mulai: number;
   selesai: number;
@@ -123,26 +162,46 @@ export function tenorPromoValid(nilai: readonly number[]): boolean {
   );
 }
 
+/** Jenis kampanye dengan fallback aman untuk baris lama. */
+export function jenisPromoBunga(
+  promo: Pick<PromoBungaRingkas, "jenis">,
+): JenisPromoBunga {
+  return promo.jenis ?? JENIS_PROMO_BUNGA_DEFAULT;
+}
+
 /**
  * Promo yang dipakai bila beberapa promo berlaku untuk tenor yang sama.
  *
- * Yang dipilih adalah bunga TERENDAH — janji paling ringan menang, dan hasilnya
- * deterministik tanpa bergantung urutan penyimpanan. Bila bunganya sama, promo
- * dengan masa berlaku lebih panjang yang dipakai, supaya pilihan tidak berubah
- * hanya karena dua kampanye tumpang tindih.
+ * Yang dipilih adalah bunga final TERENDAH pada `persenNormal` — janji paling
+ * ringan menang, dan hasilnya deterministik tanpa bergantung urutan penyimpanan.
+ * Kampanye `bebas_admin` tidak mengubah bunga, jadi ia hanya menang bila tidak
+ * ada kampanye bunga yang lebih ringan. Bila bunganya sama, promo dengan masa
+ * berlaku lebih panjang yang dipakai, lalu bebas admin sebagai penentu terakhir
+ * karena manfaatnya tetap nyata walau tarifnya sama.
  */
 export function pilihPromoBunga(
   promos: readonly PromoBungaRingkas[],
-  opsi: { tenor: number; sekarang: number },
+  opsi: { tenor: number; sekarang: number; persenNormal?: number },
 ): PromoBungaRingkas | null {
+  const normal = Math.max(0, opsi.persenNormal ?? 30);
+  const prioritas = (promo: PromoBungaRingkas): number =>
+    jenisPromoBunga(promo) === "bebas_admin" ? 1 : 0;
   let terbaik: PromoBungaRingkas | null = null;
   for (const promo of promos) {
     if (!promoBerlakuUntuk(promo, opsi)) continue;
+    if (terbaik === null) {
+      terbaik = promo;
+      continue;
+    }
+    const bunga = bungaSetelahPromo(normal, promo);
+    const bungaTerbaik = bungaSetelahPromo(normal, terbaik);
     if (
-      terbaik === null ||
-      promo.persenBunga < terbaik.persenBunga ||
-      (promo.persenBunga === terbaik.persenBunga &&
-        promo.selesai - promo.mulai > terbaik.selesai - terbaik.mulai)
+      bunga < bungaTerbaik ||
+      (bunga === bungaTerbaik &&
+        promo.selesai - promo.mulai > terbaik.selesai - terbaik.mulai) ||
+      (bunga === bungaTerbaik &&
+        promo.selesai - promo.mulai === terbaik.selesai - terbaik.mulai &&
+        prioritas(promo) > prioritas(terbaik))
     ) {
       terbaik = promo;
     }
@@ -154,34 +213,55 @@ export function pilihPromoBunga(
  * Bunga yang benar-benar dipakai. Tidak pernah menaikkan bunga: promo yang
  * angkanya lebih tinggi dari tarif normal diabaikan mesin, walau lolos
  * penyimpanan (mis. matriks tenor berubah setelah promo dibuat).
+ *
+ * `potongan_bunga` memotong poin dari tarif normal; `bebas_admin` tidak pernah
+ * mengubah bunga. Keduanya dijepit di nol supaya tidak ada bunga negatif.
  */
 export function bungaSetelahPromo(
   persenNormal: number,
-  promo: Pick<PromoBungaRingkas, "persenBunga"> | null,
+  promo: Pick<PromoBungaRingkas, "jenis" | "persenBunga" | "potonganPersen"> | null,
 ): number {
   const normal = Math.max(0, persenNormal);
   if (promo === null) return normal;
-  return Math.min(normal, Math.max(0, promo.persenBunga));
+  switch (jenisPromoBunga(promo)) {
+    case "potongan_bunga":
+      return Math.max(0, Math.round((normal - Math.max(0, promo.potonganPersen ?? 0)) * 100) / 100);
+    case "bebas_admin":
+      return normal;
+    case "bunga_pengganti":
+      return Math.min(normal, Math.max(0, promo.persenBunga));
+  }
 }
 
 /** Selisih poin persen yang benar-benar dipotong; 0 bila tidak memotong. */
 export function potonganPoinPersen(
   persenNormal: number,
-  promo: Pick<PromoBungaRingkas, "persenBunga"> | null,
+  promo: Pick<PromoBungaRingkas, "jenis" | "persenBunga" | "potonganPersen"> | null,
 ): number {
   return Math.max(0, Math.round((persenNormal - bungaSetelahPromo(persenNormal, promo)) * 100) / 100);
 }
 
-/** Kalimat ringkas untuk lencana: "15% (normal 30%) · tenor 7 hari · 23–31 Oktober 2026". */
+/** Kalimat ringkas untuk lencana di panel dan formulir. */
 export function ringkasPromoBunga(
-  promo: Pick<PromoBungaRingkas, "persenBunga" | "tenor" | "mulai" | "selesai">,
+  promo: Pick<
+    PromoBungaRingkas,
+    "jenis" | "persenBunga" | "potonganPersen" | "tenor" | "mulai" | "selesai"
+  >,
   persenNormal: number,
 ): string {
   const tenor = [...promo.tenor].sort((a, b) => a - b).join("/");
-  return `${promo.persenBunga}% (normal ${persenNormal}%) · tenor ${tenor} hari · ${formatPeriodePromo(
-    promo.mulai,
-    promo.selesai,
-  )}`;
+  const periode = `${tenor} hari · ${formatPeriodePromo(promo.mulai, promo.selesai)}`;
+  switch (jenisPromoBunga(promo)) {
+    case "potongan_bunga":
+      return `Potongan ${promo.potonganPersen ?? 0} poin (bunga ${bungaSetelahPromo(
+        persenNormal,
+        promo,
+      )}% dari normal ${persenNormal}%) · tenor ${periode}`;
+    case "bebas_admin":
+      return `Bebas biaya admin (bunga tetap ${persenNormal}%) · tenor ${periode}`;
+    case "bunga_pengganti":
+      return `${promo.persenBunga}% (normal ${persenNormal}%) · tenor ${periode}`;
+  }
 }
 
 /**
@@ -240,7 +320,11 @@ export function terapkanVoucherBunga(args: {
  */
 export function periksaIsiPromoBunga(isi: {
   nama: string;
+  /** Kosong = bunga pengganti, agar pemanggil lama tetap sah. */
+  jenis?: JenisPromoBunga;
   persenBunga: number;
+  /** Poin potongan untuk `potongan_bunga`. */
+  potonganPersen?: number;
   tenor: readonly number[];
   mulai: number;
   selesai: number;
@@ -254,14 +338,22 @@ export function periksaIsiPromoBunga(isi: {
     pesan.push(`Nama promo maksimal ${BATAS_PROMO_BUNGA.nama} karakter.`);
   }
 
-  if (
-    !Number.isSafeInteger(isi.persenBunga) ||
-    isi.persenBunga <= 0 ||
-    isi.persenBunga > BATAS_PROMO_BUNGA.persenMaks
-  ) {
-    pesan.push(
-      `Bunga promo harus angka bulat 1–${BATAS_PROMO_BUNGA.persenMaks}% agar benar-benar di bawah bunga normal.`,
-    );
+  const jenis = isi.jenis ?? JENIS_PROMO_BUNGA_DEFAULT;
+  const angkaBerlaku =
+    jenis === "potongan_bunga" ? isi.potonganPersen : isi.persenBunga;
+  if (jenis !== "bebas_admin") {
+    if (
+      angkaBerlaku === undefined ||
+      !Number.isSafeInteger(angkaBerlaku) ||
+      angkaBerlaku <= 0 ||
+      angkaBerlaku > BATAS_PROMO_BUNGA.persenMaks
+    ) {
+      pesan.push(
+        jenis === "potongan_bunga"
+          ? `Potongan bunga harus angka bulat 1–${BATAS_PROMO_BUNGA.persenMaks} poin.`
+          : `Bunga promo harus angka bulat 1–${BATAS_PROMO_BUNGA.persenMaks}% agar benar-benar di bawah bunga normal.`,
+      );
+    }
   }
 
   if (!tenorPromoValid(isi.tenor)) {
@@ -299,17 +391,31 @@ export type BarisPratinjauPromo = {
   tenor: number;
   /** Tarif normal tiap tier pokok (lihat MATRIKS_HARIAN). */
   normal: { tier1: number; tier2: number; tier3: number };
-  /** Bunga promo yang akan dipakai; sama untuk semua tier. */
-  promo: number;
+  /** Bunga efektif setelah promo, per tier. Bebas admin = tarif normal. */
+  promo: { tier1: number; tier2: number; tier3: number };
   /** Potongan poin terbesar yang terjadi pada tenor ini. */
   potonganTerbesar: number;
 };
 
+export type KonfigurasiPromoBunga = Pick<
+  PromoBungaRingkas,
+  "jenis" | "persenBunga" | "potonganPersen"
+>;
+
+/**
+ * Pratinjau per tenor. Menerima angka lama (bunga pengganti) atau konfigurasi
+ * lengkap supaya panel bisa menampilkan hasil potongan dan bebas admin tanpa
+ * menduplikasi rumus.
+ */
 export function pratinjauPromoBunga(
   tenor: readonly number[],
-  persenPromo: number,
+  promo: number | KonfigurasiPromoBunga,
   normalPerTenor: (tenor: number) => { tier1: number; tier2: number; tier3: number },
 ): BarisPratinjauPromo[] {
+  const konfigurasi: KonfigurasiPromoBunga =
+    typeof promo === "number"
+      ? { jenis: "bunga_pengganti", persenBunga: promo }
+      : promo;
   return [...tenor]
     .filter(
       (nilai) =>
@@ -320,15 +426,20 @@ export function pratinjauPromoBunga(
     .sort((a, b) => a - b)
     .map((nilaiTenor) => {
       const normal = normalPerTenor(nilaiTenor);
+      const promoPerTier = {
+        tier1: bungaSetelahPromo(normal.tier1, konfigurasi),
+        tier2: bungaSetelahPromo(normal.tier2, konfigurasi),
+        tier3: bungaSetelahPromo(normal.tier3, konfigurasi),
+      };
       const potongan = [
-        potonganPoinPersen(normal.tier1, { persenBunga: persenPromo }),
-        potonganPoinPersen(normal.tier2, { persenBunga: persenPromo }),
-        potonganPoinPersen(normal.tier3, { persenBunga: persenPromo }),
+        potonganPoinPersen(normal.tier1, konfigurasi),
+        potonganPoinPersen(normal.tier2, konfigurasi),
+        potonganPoinPersen(normal.tier3, konfigurasi),
       ];
       return {
         tenor: nilaiTenor,
         normal,
-        promo: persenPromo,
+        promo: promoPerTier,
         potonganTerbesar: Math.max(...potongan),
       };
     });

@@ -743,7 +743,7 @@ export const createLoanApplication = mutation({
       voucherTerpilih?.voucher ?? null,
       quoteAwal.biayaAdmin,
     );
-    const quote =
+    let quote =
       diskonVoucher > 0
         ? quoteLoan(args.pokokPinjaman, {
             ekspres: cairEkspres,
@@ -785,21 +785,50 @@ export const createLoanApplication = mutation({
         ? await promoBungaUntukPengajuan(ctx, {
             tenor: args.tenorHari,
             sekarang: Date.now(),
+            persenNormal: persenBungaSimpanan,
           })
         : null;
     const persenBungaNormal = persenBungaSimpanan;
+    // Bunga setelah kampanye bunga, SEBELUM voucher potongan bunga. Angka ini
+    // yang dibekukan sebagai `promoBungaPersen`; voucher punya kolom sendiri.
+    let persenSetelahPromo = persenBungaNormal;
+    let diskonAdminPromo = 0;
     if (promoDipakai !== null) {
-      persenBungaSimpanan = bungaSetelahPromo(persenBungaNormal, promoDipakai);
+      persenSetelahPromo = bungaSetelahPromo(persenBungaNormal, promoDipakai);
+      persenBungaSimpanan = persenSetelahPromo;
+
+      // ===== Bebas biaya admin =====
+      // Kampanye ini mengubah potongan di muka, bukan bunga. Voucher diskon admin
+      // tidak boleh ikut dipakai: manfaatnya sudah penuh, dan memakainya akan
+      // menghanguskan voucher tanpa tambahan rupiah. Voucher bunga/tenor/limit
+      // tetap boleh karena tidak bertabrakan dengan pembebasan ini.
+      if (promoDipakai.jenis === "bebas_admin") {
+        if (voucherTerpilih?.voucher?.jenis === "diskon_admin") {
+          throw new Error(
+            `Biaya admin sudah bebas karena promo ${promoDipakai.nama}. Lepas voucher diskon admin agar tidak terpakai tanpa manfaat tambahan.`,
+          );
+        }
+        diskonAdminPromo = quoteAwal.biayaAdmin;
+        if (diskonAdminPromo > 0) {
+          quote = quoteLoan(args.pokokPinjaman, {
+            ekspres: cairEkspres,
+            tarif: tarifBiaya,
+            diskonAdmin: diskonAdminPromo,
+          });
+        }
+      }
 
       // Pagu subsidi kampanye diperiksa SEBELUM pengajuan ditulis. Kalau pagu
       // sudah habis, pengajuan ditolak dengan pesan yang bisa ditindaklanjuti —
       // bukan diam-diam memakai tarif normal, karena nasabah melihat angka promo
-      // di formulir dan berhak tahu angkanya berubah.
+      // di formulir dan berhak tahu angkanya berubah. Subsidi bebas admin ikut
+      // dihitung, karena itu uang platform yang benar-benar tidak ditagih.
       await pastikanPaguPromo(ctx, {
         promo: promoDipakai,
         subsidiBaru:
           percentOf(quote.pokok, persenBungaNormal) -
-          percentOf(quote.pokok, persenBungaSimpanan),
+          percentOf(quote.pokok, persenSetelahPromo) +
+          diskonAdminPromo,
       });
     }
 
@@ -1006,21 +1035,23 @@ export const createLoanApplication = mutation({
       // setelahnya. Untuk tenor harian, nilai ini sudah dihitung dari matriks
       // di atas; untuk bulanan tetap memakai tarif akun per bulan.
       persenBunga: persenBungaSimpanan,
-      // Snapshot tarif sebelum promo/voucher: hanya bila benar-benar ada
-      // potongan. Pinjaman yang tersimpan tetap utuh walau promo dimatikan
-      // atau voucher dicabut kemudian.
-      ...(persenBungaSimpanan < persenBungaNormal
+      // Snapshot promo: disimpan bila ada kampanye, termasuk bebas admin yang
+      // tidak mengubah bunga. Pinjaman yang tersimpan tetap utuh walau promo
+      // dimatikan atau voucher dicabut kemudian.
+      ...(promoDipakai !== null
         ? {
-            ...(promoDipakai !== null
-              ? {
-                  promoBungaId: promoDipakai._id,
-                  promoBungaNama: promoDipakai.nama,
-                  // Dibekukan terpisah: laporan subsidi promo memakai angka
-                  // promo ini, bukan tarif akhir setelah voucher bunga.
-                  promoBungaPersen: promoDipakai.persenBunga,
-                }
-              : {}),
+            promoBungaId: promoDipakai._id,
+            promoBungaNama: promoDipakai.nama,
+            promoBungaJenis: promoDipakai.jenis ?? "bunga_pengganti",
+            // Dibekukan terpisah: laporan subsidi promo memakai angka promo
+            // ini, bukan tarif akhir setelah voucher bunga.
+            promoBungaPersen: persenSetelahPromo,
             promoBungaPersenNormal: persenBungaNormal,
+            ...(promoDipakai.jenis === "potongan_bunga" &&
+            promoDipakai.potonganPersen !== undefined
+              ? { promoBungaPotonganPersen: promoDipakai.potonganPersen }
+              : {}),
+            ...(diskonAdminPromo > 0 ? { promoDiskonAdmin: diskonAdminPromo } : {}),
           }
         : {}),
       // Snapshot TARIF bulanan lengkap: jadwal, kontrak, dan bagi hasil pinjaman

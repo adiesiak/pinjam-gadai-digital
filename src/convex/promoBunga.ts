@@ -58,7 +58,9 @@ function ringkas(row: Doc<"promoBunga">): PromoBungaRingkas {
   return {
     _id: String(row._id),
     nama: row.nama,
+    jenis: row.jenis ?? "bunga_pengganti",
     persenBunga: row.persenBunga,
+    potonganPersen: row.potonganPersen,
     tenor: row.tenor,
     mulai: row.mulai,
     selesai: row.selesai,
@@ -89,7 +91,9 @@ export const berjalan = query({
       .map((row) => ({
         _id: String(row._id),
         nama: row.nama,
+        jenis: row.jenis ?? "bunga_pengganti",
         persenBunga: row.persenBunga,
+        potonganPersen: row.potonganPersen,
         tenor: row.tenor,
         mulai: row.mulai,
         selesai: row.selesai,
@@ -116,7 +120,9 @@ export const daftar = query({
     return rows.map((row) => ({
       _id: row._id,
       nama: row.nama,
+      jenis: row.jenis ?? "bunga_pengganti",
       persenBunga: row.persenBunga,
+      potonganPersen: row.potonganPersen,
       tenor: row.tenor,
       mulai: row.mulai,
       selesai: row.selesai,
@@ -136,7 +142,17 @@ export const simpan = mutation({
   args: {
     id: v.optional(v.id("promoBunga")),
     nama: v.string(),
+    /** Kosong = bunga pengganti, agar pemanggil lama tetap sah. */
+    jenis: v.optional(
+      v.union(
+        v.literal("bunga_pengganti"),
+        v.literal("potongan_bunga"),
+        v.literal("bebas_admin"),
+      ),
+    ),
     persenBunga: v.number(),
+    /** Poin potongan untuk `potongan_bunga`. */
+    potonganPersen: v.optional(v.number()),
     tenor: v.array(v.number()),
     mulai: v.number(),
     selesai: v.number(),
@@ -151,7 +167,11 @@ export const simpan = mutation({
     const olehLabel = user.email ?? user.name ?? "admin";
     const isi = {
       nama: args.nama.trim(),
-      persenBunga: args.persenBunga,
+      jenis: args.jenis ?? "bunga_pengganti",
+      persenBunga: args.jenis === "potongan_bunga" || args.jenis === "bebas_admin"
+        ? 0
+        : args.persenBunga,
+      potonganPersen: args.jenis === "potongan_bunga" ? args.potonganPersen : undefined,
       tenor: [...new Set(args.tenor)].sort((a, b) => a - b),
       mulai: args.mulai,
       selesai: args.selesai,
@@ -189,7 +209,13 @@ export const simpan = mutation({
       olehLabel,
       args.id === undefined ? "promo_bunga_dibuat" : "promo_bunga_diubah",
       id,
-      `${isi.nama} · ${isi.persenBunga}% · tenor ${isi.tenor.join("/")} · ${
+      `${isi.nama} · ${
+        isi.jenis === "potongan_bunga"
+          ? `potongan ${isi.potonganPersen} poin`
+          : isi.jenis === "bebas_admin"
+            ? "bebas biaya admin"
+            : `${isi.persenBunga}%`
+      } · tenor ${isi.tenor.join("/")} · ${
         isi.aktif ? "aktif" : "nonaktif"
       }${isi.paguSubsidi !== undefined ? ` · pagu ${formatRupiah(isi.paguSubsidi)}` : ""}${
         isi.bolehVoucher === false ? " · tanpa voucher bunga" : ""
@@ -261,7 +287,7 @@ export const hapus = mutation({
  */
 export async function promoBungaUntukPengajuan(
   ctx: QueryCtx,
-  args: { tenor: number; sekarang: number },
+  args: { tenor: number; sekarang: number; persenNormal?: number },
 ): Promise<Doc<"promoBunga"> | null> {
   const rows = await ctx.db
     .query("promoBunga")
@@ -270,7 +296,11 @@ export async function promoBungaUntukPengajuan(
 
   const terpilih = pilihPromoBunga(
     rows.map((row) => ringkas(row)),
-    { tenor: args.tenor, sekarang: args.sekarang },
+    {
+      tenor: args.tenor,
+      sekarang: args.sekarang,
+      ...(args.persenNormal === undefined ? {} : { persenNormal: args.persenNormal }),
+    },
   );
   if (terpilih === null) return null;
   return rows.find((row) => String(row._id) === terpilih._id) ?? null;
@@ -294,6 +324,10 @@ export async function subsidiTerpakaiPromo(
     .take(BATAS_HITUNG_SUBSIDI);
   let subsidi = 0;
   for (const loan of loans) {
+    // Pembebasan biaya admin adalah subsidi kampanye yang nyata, walau bunga
+    // pinjaman tidak berubah. Disimpan terpisah dari voucher agar laporan bisa
+    // memisahkan keduanya.
+    subsidi += Math.max(0, loan.promoDiskonAdmin ?? 0);
     const normal = loan.promoBungaPersenNormal;
     if (normal === undefined || normal <= 0) continue;
     const persen = loan.promoBungaPersen ?? promo.persenBunga;
@@ -451,6 +485,9 @@ export const efektivitas = query({
       let perkiraan = false;
       for (const loan of loans) {
         pokok += loan.pokokPinjaman;
+        // Kampanye bebas admin menyumbang biaya admin yang tidak ditagih.
+        // Ini bukan voucher, jadi tidak masuk `subsidiVoucher`.
+        subsidi += Math.max(0, loan.promoDiskonAdmin ?? 0);
         // Subsidi voucher dihitung terpisah dari subsidi promo: keduanya
         // mengurangi pendapatan platform, tetapi hanya promo yang menjadi
         // tanggung jawab kampanye. Menjumlahkannya di satu kolom menyembunyikan

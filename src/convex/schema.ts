@@ -315,14 +315,32 @@ const schema = defineSchema(
        */
       promoBungaId: v.optional(v.id("promoBunga")),
       promoBungaNama: v.optional(v.string()),
+      /** Jenis kampanye yang dipakai; kosong pada pinjaman lama. */
+      promoBungaJenis: v.optional(
+        v.union(
+          v.literal("bunga_pengganti"),
+          v.literal("potongan_bunga"),
+          v.literal("bebas_admin"),
+        ),
+      ),
       /**
        * Bunga promo yang benar-benar dipakai saat pengajuan (persen). Disimpan
        * terpisah dari `persenBunga` karena voucher potongan bunga bisa
        * menurunkannya lagi; laporan subsidi promo harus memakai angka promo
-       * itu, bukan tarif akhir setelah voucher.
+       * itu, bukan tarif akhir setelah voucher. Untuk `bebas_admin` angkanya
+       * sama dengan bunga normal.
        */
       promoBungaPersen: v.optional(v.number()),
       promoBungaPersenNormal: v.optional(v.number()),
+      /** Poin yang dipotong untuk kampanye `potongan_bunga`. */
+      promoBungaPotonganPersen: v.optional(v.number()),
+      /**
+       * Biaya admin yang dibebaskan kampanye `bebas_admin` (rupiah). Disimpan
+       * terpisah dari `voucherDiskon` supaya kontrak bisa membedakan subsidi
+       * kampanye dari voucher dan `quotePinjaman` bisa menghitung ulang dana
+       * bersih tanpa kehilangan pembebasan ini.
+       */
+      promoDiskonAdmin: v.optional(v.number()),
       /**
        * Snapshot TARIF skema bulanan yang berlaku saat pinjaman ini dibuat:
        * bunga tenor 1/3/6, biaya layanan di muka, dan biaya admin cicilan.
@@ -3815,8 +3833,25 @@ const schema = defineSchema(
     promoBunga: defineTable({
       /** Nama internal yang dibaca admin, mis. "Bunga 15% tenor 7 hari". */
       nama: v.string(),
-      /** Bunga promo persen dari pokok (1–25), menggantikan tarif matriks. */
+      /**
+       * Jenis kampanye. Kosong pada baris lama = bunga pengganti. Tiga jenis
+       * berbagi satu tabel supaya pemilihan, pagu, dan laporan memakai jalur
+       * yang sama.
+       */
+      jenis: v.optional(
+        v.union(
+          v.literal("bunga_pengganti"),
+          v.literal("potongan_bunga"),
+          v.literal("bebas_admin"),
+        ),
+      ),
+      /**
+       * Bunga final untuk `bunga_pengganti` (1–25% dari pokok). Untuk jenis
+       * lain nilainya 0 dan tidak dipakai.
+       */
       persenBunga: v.number(),
+      /** Poin potongan dari bunga normal untuk `potongan_bunga` (1–25). */
+      potonganPersen: v.optional(v.number()),
       /**
        * Tenor harian 7–50 yang mendapat promo ini. Empat tenor standar
        * (7/14/21/28) ditampilkan sebagai pilihan cepat; hari lain — mis. 10 atau

@@ -473,13 +473,18 @@ export function quotePinjaman(loan: {
   tarifBiaya?: Partial<TarifBiaya> | null;
   /** Potongan biaya admin dari voucher yang dibekukan pada pinjaman ini. */
   voucherDiskon?: number;
+  /** Pembebasan biaya admin dari kampanye `bebas_admin` (rupiah). */
+  promoDiskonAdmin?: number;
 }): LoanQuote {
   // Data lama tidak punya kolom ini dan dulu selalu dikenai biaya ekspres —
-  // `!== false` menjaga angka kontrak lama tetap sama.
+  // `!== false` menjaga angka kontrak lama tetap sama. Diskon voucher dan promo
+  // dijumlahkan; mesin quote menjepit totalnya ke biaya admin yang ada.
+  const diskonAdmin =
+    (loan.voucherDiskon ?? 0) + (loan.promoDiskonAdmin ?? 0);
   const opsi: OpsiQuote = {
     ekspres: loan.cairEkspres !== false,
     tarif: tarifBiayaAman(loan.tarifBiaya),
-    ...(loan.voucherDiskon !== undefined ? { diskonAdmin: loan.voucherDiskon } : {}),
+    ...(diskonAdmin > 0 ? { diskonAdmin } : {}),
   };
   return loan.persenBunga === undefined
     ? quoteLoan(loan.pokokPinjaman, opsi)
