@@ -133,6 +133,7 @@ ok(htmlRincianEmail(bulanan).includes("Budi &lt;Peminjam&gt;"), "nama di-escape 
 const waHarian = teksRincianWhatsapp(harian);
 ok(waHarian.includes("PNJ-2026-0012"), "pesan WA memuat nomor referensi");
 ok(waHarian.includes("Rekening tujuan: BCA 1234567890"), "pesan WA memuat rekening lengkap");
+ok(!waHarian.toLowerCase().includes("pdf"), "pesan WA tidak menjanjikan lampiran PDF");
 
 // Potongan di muka dan dana bersih harus terbaca di pesan WA, bukan hanya PDF.
 ok(waHarian.includes("Rincian potongan:"), "pesan WA memuat judul rincian potongan");

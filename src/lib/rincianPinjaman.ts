@@ -430,12 +430,14 @@ function barisPotonganWhatsapp(dok: DokumenRincianPinjaman): string[] {
   const baris = ["", "Rincian potongan:"];
   for (const item of potongan) baris.push(`- ${item.label}: ${item.nilai}`);
   if (bersih !== undefined) baris.push(`${bersih.label}: ${bersih.nilai}`);
+  baris.push("");
   return baris;
 }
 
 /**
- * Pesan WhatsApp: ringkas, tetapi memuat potongan di muka dan dana bersih.
- * Bunga dan jadwal lengkap tetap ada di lampiran PDF.
+ * Pesan WhatsApp: memuat potongan di muka dan dana bersih. Teks tidak
+ * menyebut lampiran PDF supaya peminjam tidak menunggu berkas yang mungkin
+ * ditolak gateway.
  */
 export function teksRincianWhatsapp(dok: DokumenRincianPinjaman): string {
   const baris: string[] = [
@@ -458,9 +460,7 @@ export function teksRincianWhatsapp(dok: DokumenRincianPinjaman): string {
   }
   if (dok.jatuhTempoTeks !== null) baris.push(`Jatuh tempo: ${dok.jatuhTempoTeks}`);
   baris.push(
-    "",
-    "Rincian lengkap (bunga dan jadwal bayar) kami lampirkan dalam berkas PDF.",
-    "Simpan dokumen ini. PINDAI tidak pernah meminta kode OTP atau kata sandi lewat WhatsApp.",
+    "Simpan pesan ini. PINDAI tidak pernah meminta kode OTP atau kata sandi lewat WhatsApp.",
   );
   return baris.join("\n");
 }
