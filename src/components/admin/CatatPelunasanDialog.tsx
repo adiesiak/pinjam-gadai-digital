@@ -83,6 +83,9 @@ function IsiCatatPelunasan({
   const [tanggal, setTanggal] = useState(() => tanggalWIB(Date.now()));
   // Batas tanggal dihitung sekali saat isi dipasang supaya `max` stabil.
   const [tanggalHariIni] = useState(() => tanggalWIB(Date.now()));
+  // Waktu acuan juga dikunci: kalau memakai Date.now() langsung di render,
+  // argumen query berubah terus dan dialog tidak pernah selesai menghitung.
+  const [waktuAcuan] = useState(() => Date.now());
   const [catatan, setCatatan] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -95,7 +98,7 @@ function IsiCatatPelunasan({
    */
   const keWaktu = (nilai: string) => {
     const tengahHari = Date.parse(`${nilai}T12:00:00+07:00`);
-    return Number.isFinite(tengahHari) ? Math.min(tengahHari, Date.now()) : tengahHari;
+    return Number.isFinite(tengahHari) ? Math.min(tengahHari, waktuAcuan) : tengahHari;
   };
   // Tanggal terima ikut dikirim, supaya denda dan total di dialog sama dengan
   // tanggal yang nanti dicatat server.
