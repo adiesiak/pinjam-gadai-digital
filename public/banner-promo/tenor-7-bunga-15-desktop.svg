@@ -14,9 +14,6 @@
     <pattern id="garis" width="44" height="44" patternUnits="userSpaceOnUse">
       <path d="M44 0H0V44" fill="none" stroke="#f7f1e3" stroke-opacity="0.035"/>
     </pattern>
-    <filter id="bayang" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.28"/>
-    </filter>
   </defs>
 
   <rect width="1600" height="600" fill="url(#latar)"/>
@@ -33,7 +30,7 @@
 <text x="96" y="292" font-family="Liberation Sans, Arial, sans-serif" font-size="38" font-weight="700" letter-spacing="2.2" fill="#d8c28c">TENOR 7 HARI</text>
 <text x="96" y="350" font-family="Liberation Sans, Arial, sans-serif" font-size="23" fill="#f7f1e3" fill-opacity="0.78"><tspan x="96" dy="0">Pinjaman harian PINDAI untuk kebutuhan mendesak. Ajukan</tspan><tspan x="96" dy="34">langsung dari aplikasi.</tspan></text>
 
-  <g transform="translate(1326 296)" filter="url(#bayang)">
+  <g transform="translate(1326 296)">
     <circle r="188" fill="#081f1e" fill-opacity="0.22"/>
     <circle r="170" fill="none" stroke="#d8c28c" stroke-opacity="0.45" stroke-width="1.5"/>
     <circle r="154" fill="#081f1e" fill-opacity="0.58" stroke="#d8c28c" stroke-width="2"/>

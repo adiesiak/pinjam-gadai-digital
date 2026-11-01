@@ -66,7 +66,7 @@ const PROMOS: Promo[] = [
       "Berlaku untuk pinjaman dengan tenor maksimal 30 hari. Semakin cepat, semakin ringan.",
     sealTop: "POTONGAN",
     sealBig: "5%",
-    sealBottom: "BUNGA",
+    sealBottom: "TENOR MAKS. 30 HARI",
     prioritas: 12,
     catatan:
       "Desain siap, tetapi potongan 5% untuk semua tenor belum bisa diwakili satu promo bunga. Perlu aturan potongan per tenor atau voucher.",
@@ -145,9 +145,6 @@ function defs(): string {
     <pattern id="garis" width="44" height="44" patternUnits="userSpaceOnUse">
       <path d="M44 0H0V44" fill="none" stroke="${WARNA.krem}" stroke-opacity="0.035"/>
     </pattern>
-    <filter id="bayang" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.28"/>
-    </filter>
   </defs>`;
 }
 
@@ -190,7 +187,7 @@ function segel(
 ): string {
   const besar = promo.ukuranSeal ?? 96;
   return `
-  <g transform="translate(${cx} ${cy})" filter="url(#bayang)">
+  <g transform="translate(${cx} ${cy})">
     <circle r="${r + 18}" fill="${WARNA.gelap}" fill-opacity="0.22"/>
     <circle r="${r}" fill="none" stroke="${WARNA.emas}" stroke-opacity="0.45" stroke-width="1.5"/>
     <circle r="${r - 16}" fill="${WARNA.gelap}" fill-opacity="0.58" stroke="${WARNA.emas}" stroke-width="2"/>
@@ -253,7 +250,7 @@ ${labelKecil(80, 130, "PROMO PINJAMAN HARIAN")}
 <text x="80" y="382" font-family="${SANS}" font-size="46" font-weight="700" letter-spacing="2" fill="${WARNA.emas}">${esc(p.subhead)}</text>
 <text x="80" y="450" font-family="${SANS}" font-size="31" fill="${WARNA.krem}" fill-opacity="0.8">${detailTeks(80, 450, p.detail, 34, 31, 46)}</text>
 ${segel(540, 850, 190, p)}
-<g filter="url(#bayang)">
+<g>
   <rect x="80" y="1120" width="452" height="86" rx="43" fill="${WARNA.emas}"/>
   <text x="306" y="1174" text-anchor="middle" font-family="${SANS}" font-size="24" font-weight="700" letter-spacing="1.6" fill="${WARNA.gelap}">AJUKAN SEKARANG</text>
 </g>
