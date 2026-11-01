@@ -1,1 +1,0 @@
-import{c as t}from"./index-Cx_J-S-G.js";const n=[["path",{d:"M4.929 4.929 19.07 19.071",key:"196cmz"}],["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}]],c=t("ban",n);function r(a){return a.status!=="lunas"||!a.adaPendana?null:a.transfer.status==="dicatat"?"batalkan":"catat"}const s={transfer_bank:"transfer bank",e_wallet:"e-wallet",tunai:"tunai"};export{c as B,s as L,r as a};

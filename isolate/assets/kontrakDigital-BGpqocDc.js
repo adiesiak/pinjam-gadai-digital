@@ -1,1 +1,0 @@
-import"./index-Cx_J-S-G.js";import{S as t}from"./tautanAplikasi-GIADVB_O.js";function n(i,r=t){return`${r.replace(/\/+$/,"")}/verifikasi-kontrak/${i}`}function o(i){return new Date(i).toLocaleString("id-ID",{timeZone:"Asia/Jakarta",day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",hour12:!1})}export{n as u,o as w};

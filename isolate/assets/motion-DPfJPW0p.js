@@ -1,1 +1,0 @@
-const o=[.22,1,.36,1],n={slow:.38},s={normal:.08},t={slow:{duration:n.slow,ease:o}},i={duration:.01},e={hidden:{opacity:0},show:{opacity:1}},a={normal:16},d={hidden:{},show:{transition:{staggerChildren:s.normal,delayChildren:.04}}},r={hidden:{opacity:0,y:a.normal},show:{opacity:1,y:0}};export{n as D,o as E,t as a,e as b,r as f,d as s,i as t};
