@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Eye, LayoutDashboard, LogOut, Megaphone, ShieldCheck } from "lucide-react";
+import { Check, ChevronDown, Eye, LayoutDashboard, LogOut, ShieldCheck } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -26,16 +26,17 @@ export function RoleDashboardMenu() {
    * tombol pulang ke ruang nasabah, dan sebaliknya — satu sakelar dua arah,
    * bukan daftar tautan tanpa penanda.
    */
-  const diAreaAdmin = pathname.startsWith(ADMIN_ROUTE);
+  // `/promo` tetap bagian ruang admin meskipun menu masuknya sekarang ada di
+  // panel admin: halaman itu dijaga RequireAdmin dan tidak boleh terbaca
+  // sebagai mode nasabah saat dibuka lewat tautan langsung.
+  const diAreaAdmin =
+    pathname.startsWith(ADMIN_ROUTE) || pathname.startsWith("/promo");
   const diRuangPendana = pathname.startsWith("/penyedia-dana");
-  const diPromo = pathname.startsWith("/promo");
   const labelMode = diAreaAdmin
     ? "Mode Admin"
     : diRuangPendana
       ? "Ruang Pendana"
-      : diPromo
-        ? "Editor Promo"
-        : "Mode Nasabah";
+      : "Mode Nasabah";
 
   const modeNasabah = {
     href: "/dashboard",
@@ -60,18 +61,6 @@ export function RoleDashboardMenu() {
     icon: Eye,
   };
 
-  /** Ruang pamer promosi singkat (title/subtitle/peringatan/cta/link).
-   *  Buka editor, lihat preview 2D canvas langsung, unduh PNG, dan bagikan
-   *  ke WhatsApp/Instagram lewat Web Share + deep-link fallback.
-   *  Hanya untuk akun admin — ini ruang internal brand, bukan fitur nasabah.
-   */
-  const ruangPromo = {
-    href: "/promo",
-    label: "Editor Promo",
-    description: "Susun kartu promosi & bagikan ke media sosial",
-    icon: Megaphone,
-  };
-
   /** Panel operasional tim — hanya untuk akun admin. */
   const modeAdmin = {
     href: ADMIN_ROUTE,
@@ -80,12 +69,11 @@ export function RoleDashboardMenu() {
     icon: ShieldCheck,
   };
 
-  // `/promo` hanya milik admin (rutenya dijaga `RequireAdmin`), jadi tautannya
-  // pun tidak ditawarkan ke peran lain — menu tidak boleh menawarkan pintu yang
-  // pasti memantul kembali ke dashboard.
+  // Editor Promo bukan lagi mode ruang kerja: pintunya ada di menu Konten
+  // panel admin. Menu ini tetap tidak menawarkan rute yang pasti memantul.
   const menuSpaces =
     role === "admin"
-      ? [modeAdmin, ruangPromo, ruangPenyediaDana, modeNasabah]
+      ? [modeAdmin, ruangPenyediaDana, modeNasabah]
       : role === "dana" || role === "pengamat"
         ? [ruangPenyediaDana, modeNasabah]
         : [modeNasabah];
@@ -122,8 +110,7 @@ export function RoleDashboardMenu() {
           const sedangDibuka =
             (href === ADMIN_ROUTE && diAreaAdmin) ||
             (href === "/penyedia-dana" && diRuangPendana) ||
-            (href === "/promo" && diPromo) ||
-            (href === "/dashboard" && !diAreaAdmin && !diRuangPendana && !diPromo);
+            (href === "/dashboard" && !diAreaAdmin && !diRuangPendana);
           return (
             <DropdownMenuItem key={href} asChild className="cursor-pointer px-3 py-2.5">
               <Link

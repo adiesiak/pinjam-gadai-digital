@@ -45,6 +45,9 @@ export const PanelPromo = lazy(() =>
     default: m.PromoPinjamanPanel,
   })),
 );
+export const PanelEditorPromo = lazy(() =>
+  import("@/pages/Promo").then((m) => ({ default: m.EditorPromoPanel })),
+);
 export const PanelVoucher = lazy(() =>
   import("@/components/admin/VoucherPanel").then((m) => ({
     default: m.VoucherPanel,
@@ -144,6 +147,7 @@ const PEMUAT: Partial<Record<NilaiModulAdmin, () => Promise<unknown>>> = {
   pendana: () => import("@/components/admin/KontenPendanaPanel"),
   pengumuman: () => import("@/components/admin/AnnouncementCms"),
   promo: () => import("@/components/admin/PromoPinjamanPanel"),
+  "editor-promo": () => import("@/pages/Promo"),
   voucher: () => import("@/components/admin/VoucherPanel"),
   whatsapp: () => import("@/components/admin/WhatsAppPanel"),
   config: () => import("@/components/admin/SystemConfigPanel"),

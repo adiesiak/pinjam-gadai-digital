@@ -397,8 +397,8 @@ eq(
 
 eq(
   NILAI_MODUL_ADMIN.length,
-  30,
-  "30 nilai modul yang ada (konvensional menggabungkan pinjaman, gadai, kredit; voucher, kalender kas, banner, dan PPOB)",
+  31,
+  "31 nilai modul yang ada (konvensional menggabungkan pinjaman, gadai, kredit; voucher, kalender kas, banner, PPOB, dan editor promo)",
 );
 eq(
   new Set(NILAI_MODUL_ADMIN).size,
@@ -423,13 +423,13 @@ eq(
 );
 eq(
   GRUP_NAV.map((g) => g.modul.length).join(","),
-  "1,10,3,9,7",
-  "jumlah modul tiap tab (1+10+3+9+7 = 30)",
+  "1,10,3,10,7",
+  "jumlah modul tiap tab (1+10+3+10+7 = 31)",
 );
 eq(
   GRUP_NAV.reduce((total, g) => total + g.modul.length, 0),
   NILAI_MODUL_ADMIN.length,
-  "GRUP_NAV memuat seluruh modul yang sudah ada (30)",
+  "GRUP_NAV memuat seluruh modul yang sudah ada (31)",
 );
 
 // Modul default tiap grup harus salah satu anggotanya.
@@ -467,6 +467,11 @@ eq(modulDariParameter("gadai"), "konvensional", "alias gadai → konvensional");
 eq(modulDariParameter("kredit"), "konvensional", "alias kredit → konvensional");
 eq(modulDariParameter(" Doorprize "), "undian", "alias tidak peduli spasi/huruf besar");
 eq(modulDariParameter("undian"), "undian", "nilai modul sah dibuka apa adanya");
+eq(
+  modulDariParameter("editor-promo"),
+  "editor-promo",
+  "tab Editor Promo bisa dibuka lewat ?tab=editor-promo",
+);
 eq(modulDariParameter("kyc"), "kyc", "modul lain tetap bisa ditautkan");
 eq(modulDariParameter("entah"), "hari-ini", "nilai asing jatuh ke meja kerja");
 eq(modulDariParameter(""), "hari-ini", "parameter kosong jatuh ke meja kerja");

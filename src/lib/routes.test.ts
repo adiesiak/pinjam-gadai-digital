@@ -69,7 +69,7 @@ ok(
 );
 
 // `/promo` adalah ruang internal brand: rutenya dijaga `RequireAdmin`, dan
-// menu peran lain tidak menawarkannya.
+// pintunya sekarang ada di menu Konten panel admin, bukan di menu ganti mode.
 const main = readFileSync(fileURLToPath(new URL("../main.tsx", import.meta.url)), "utf8");
 ok(
   main.includes("<RequireAdmin>") && main.includes("<Promo />"),
@@ -83,13 +83,20 @@ const menu = readFileSync(
   fileURLToPath(new URL("../components/RoleDashboardMenu.tsx", import.meta.url)),
   "utf8",
 );
-ok(
-  /role === "admin"\s*\?\s*\[modeAdmin, ruangPromo/.test(menu),
-  "menu hanya menawarkan /promo untuk admin",
+ok(!menu.includes("ruangPromo"), "Editor Promo tidak lagi di menu ganti mode");
+ok(!menu.includes('href: "/promo"'), "menu ganti mode tidak menautkan /promo");
+const adminTabs = readFileSync(
+  fileURLToPath(new URL("../pages/admin/admin-tabs.tsx", import.meta.url)),
+  "utf8",
 );
 ok(
-  !/\]\)?,\s*ruangPromo,/.test(menu) && !/menuSpaces = \[\s*\.\.\./.test(menu),
-  "menu tidak menempelkan /promo di luar cabang admin",
+  adminTabs.includes('value: "editor-promo"') &&
+    adminTabs.includes('label: "Editor Promo"'),
+  "Editor Promo tersedia di menu Konten panel admin",
+);
+ok(
+  adminTabs.includes('"editor-promo": <PanelEditorPromo />'),
+  "tab Editor Promo merender panelnya sendiri",
 );
 
 console.log(`routes: ${passed} lulus, ${failed} gagal`);

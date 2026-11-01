@@ -177,6 +177,7 @@ const MODUL_ADMIN: readonly Kelompok[] = [
       "Halaman Pendana",
       "Banner & Pengumuman",
       "Promo Pinjaman",
+      "Editor Promo",
       "Voucher Nasabah",
       "WhatsApp",
       "Aplikasi Android",

@@ -64,6 +64,7 @@ const LABEL: Record<string, string> = {
   pendana: "Halaman Pendana",
   pengumuman: "Banner & Pengumuman",
   promo: "Promo Pinjaman",
+  "editor-promo": "Editor Promo",
   whatsapp: "WhatsApp",
   aplikasi: "Aplikasi Android",
   config: "Parameter Bisnis",

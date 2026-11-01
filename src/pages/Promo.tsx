@@ -398,6 +398,7 @@ export function Promo({
   promoPinjaman = null,
   tarifBiaya = null,
   banner = null,
+  tertanam = false,
 }: {
   /** Kampanye pinjaman aktif; rute mengisinya lewat `PromoDenganKampanye`. */
   promoPinjaman?: DataPromoPinjaman | null;
@@ -411,6 +412,11 @@ export function Promo({
    * sehingga galeri tetap bisa dirender tanpa Convex di uji statis.
    */
   tarifBiaya?: Partial<TarifBiaya> | null;
+  /**
+   * Dipasang sebagai isi tab panel admin, bukan halaman utuh. Dalam keadaan
+   * ini komponen tidak boleh membuat landmark `<main id="konten">` kedua.
+   */
+  tertanam?: boolean;
 } = {}) {
   const reduce = useReducedMotion() ?? false;
   const [kategori, setKategori] = useState<string>("Semua");
@@ -454,12 +460,29 @@ export function Promo({
     setParams(q, { replace: true });
   };
 
+  // Halaman berdiri sendiri memakai `<main id="konten">`; saat tertanam di
+  // panel admin, pembungkusnya cukup `<div>` agar tidak ada landmark kedua.
+  const Tag = tertanam ? "div" : "main";
+  // Panel admin sudah punya h1 sendiri; judul halaman ini turun ke h2 saat
+  // tertanam supaya struktur dokumen tidak punya dua h1.
+  const Judul = tertanam ? "h2" : "h1";
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main
-        id="konten"
-        tabIndex={-1}
-        className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10"
+    <div
+      className={
+        tertanam
+          ? "text-foreground"
+          : "min-h-screen bg-background text-foreground"
+      }
+    >
+      <Tag
+        id={tertanam ? undefined : "konten"}
+        tabIndex={tertanam ? undefined : -1}
+        className={
+          tertanam
+            ? "w-full"
+            : "mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10"
+        }
       >
         {/* Header */}
         <motion.header
@@ -481,9 +504,9 @@ export function Promo({
               </motion.span>
               Brand asset center
             </p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <Judul className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Poster Promo
-            </h1>
+            </Judul>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               Materi kampanye PINDAI untuk berbagai kebutuhan.
             </p>
@@ -645,7 +668,7 @@ export function Promo({
           keamanan absolut. Angka biaya dan ketentuan mengikuti konfigurasi
           sistem.
         </motion.footer>
-      </main>
+      </Tag>
 
       {/* Pratinjau fullscreen — poster membesar halus, bilah alat menyusul. */}
       <Dialog
@@ -756,13 +779,18 @@ export function Promo({
  * Pintu rute /promo. `Promo` sendiri tetap bebas hook Convex agar galeri
  * posternya bisa dirender di uji; kampanye diambil di sini, sekali saja.
  */
-export function PromoDenganKampanye() {
+export function PromoDenganKampanye({
+  tertanam = false,
+}: {
+  tertanam?: boolean;
+} = {}) {
   const promo = useQuery(api.promoPinjaman.promoAktif, { penempatan: "promo" });
   const ketentuan = useQuery(api.system.getKetentuanBiaya, {});
   return (
     <Promo
       promoPinjaman={promo ?? null}
       tarifBiaya={ketentuan?.tarifBiaya ?? null}
+      tertanam={tertanam}
       banner={
         <BannerPromoGambar
           penempatan="promo"
@@ -771,4 +799,9 @@ export function PromoDenganKampanye() {
       }
     />
   );
+}
+
+/** Isi tab Editor Promo di panel admin. */
+export function EditorPromoPanel() {
+  return <PromoDenganKampanye tertanam />;
 }

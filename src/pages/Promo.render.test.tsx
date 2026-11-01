@@ -60,6 +60,19 @@ const html = renderToStaticMarkup(
   </MemoryRouter>,
 );
 
+// Saat dipasang sebagai tab panel admin, komponen ini tidak boleh membuat
+// landmark <main id="konten"> kedua di dalam <main> panel.
+const htmlTertanam = renderToStaticMarkup(
+  <MemoryRouter initialEntries={["/promo"]}>
+    <Promo tertanam />
+  </MemoryRouter>,
+);
+ok(
+  !htmlTertanam.includes('id="konten"') && !htmlTertanam.includes("<main"),
+  "mode tertanam tidak membuat landmark konten kedua",
+);
+ada(htmlTertanam, "Poster Promo", "isi promo tetap tampil saat tertanam");
+
 // ===== Header =====
 ada(html, "Brand asset center", "label halaman");
 ada(html, "Poster Promo", "judul halaman");
