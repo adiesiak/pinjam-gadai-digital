@@ -437,7 +437,7 @@ export function PlafonPanel() {
                 label="Rentang plafon"
                 nilai={`${formatRupiah(PLAFON_BATAS.min)} – ${formatRupiah(PLAFON_BATAS.maks)}`}
               />
-              <MetrikKartu label="Bunga tenor" nilai="26–40% harian" />
+              <MetrikKartu label="Bunga tenor" nilai="28–42% harian" />
             </dl>
             <details className="mt-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2">
               <summary className="cursor-pointer text-xs font-medium text-slate-600 hover:text-navy">
@@ -458,7 +458,7 @@ export function PlafonPanel() {
                   progresif; kredit barang memakai batas tersendiri.
                 </li>
                 <li>
-                  Bunga pinjaman selalu mengikuti tenor: harian 7/14/21/28 hari (26–40% sesuai nominal)
+                  Bunga pinjaman selalu mengikuti tenor: harian 7/14/21/28 hari (28–42% sesuai nominal)
                   dan bulanan 30/8/12/10/8% per bulan untuk tenor 1/3/6/9/12 bulan (marjin total
                   30/24/72/90/96%). Pinjaman yang sudah cair tetap memakai snapshot bunganya.
                 </li>

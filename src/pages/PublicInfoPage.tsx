@@ -719,14 +719,14 @@ export function PublicInfoPageView({
                       <td className="px-4 py-3">
                         <span className="block">
                           {formatRupiah(LOAN_LIMITS.minPokok)}–{formatRupiah(499_999)}: tenor
-                          7/14/21/28 hari, bunga 30/35/38/40%.
+                          7/14/21/28 hari, bunga 32/37/40/42%.
                         </span>
                         <span className="mt-1 block">
                           {formatRupiah(500_000)}–{formatRupiah(999_999)}: tenor 7/14/21/28 hari,
-                          bunga 28/32/35%.
+                          bunga 30/34/36/37%.
                         </span>
                         <span className="mt-1 block">
-                          {formatRupiah(1_000_000)}: tenor 7/14/21/28 hari, bunga 26/28/29/30%.
+                          {formatRupiah(1_000_000)}: tenor 7/14/21/28 hari, bunga 28/30/31/32%.
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -761,8 +761,8 @@ export function PublicInfoPageView({
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 Bunga harian mengikuti matriks nominal–tenor di atas dan
                 ditampilkan langsung oleh kalkulator. Perpanjangan tenor di
-                bawah {formatRupiah(500_000)} menaikkan bunga dari 30% ke
-                35–40%. Jadwal cicilan bulanan adalah ilustrasi, bukan catatan
+                bawah {formatRupiah(500_000)} menaikkan bunga dari 32% ke
+                37–42%. Jadwal cicilan bulanan adalah ilustrasi, bukan catatan
                 pembayaran angsuran. Tim PINDAI mencatat pelunasan penuh saat
                 kewajiban dinyatakan selesai. Denda pinjaman tunai{" "}
                 {dendaPerHari}% per hari dari pokok, maksimum {maksDenda}%.

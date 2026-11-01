@@ -6,11 +6,11 @@
  * berjalan. Modul ini menyiapkan angka contoh tanpa memakai data pendana
  * sungguhan:
  *
- *  - Pinjaman BERJALAN Rp2.000.000 (28 hari, bunga 30%) — didanai 12 hari lalu.
- *    Marjin Rp600.000 dibagi 47 : 13 menjadi pendana Rp470.000 dan platform
- *    Rp130.000. Di tabel ia muncul sebagai "Perkiraan (belum lunas)".
+ *  - Pinjaman BERJALAN Rp2.000.000 (28 hari, bunga 32%) — didanai 12 hari lalu.
+ *    Marjin Rp640.000 dibagi 47 : 13 menjadi pendana Rp501.334 dan platform
+ *    Rp138.666. Di tabel ia muncul sebagai "Perkiraan (belum lunas)".
  *  - Pinjaman LUNAS Rp1.000.000 — didanai 40 hari lalu dan lunas 12 hari lalu.
- *    Marjin Rp300.000 menjadi pendana Rp235.000 dan platform Rp65.000. Ini yang
+ *    Marjin Rp320.000 menjadi pendana Rp250.667 dan platform Rp69.333. Ini yang
  *    mengisi kolom "Dibukukan (lunas)"; transfer keuntungannya sengaja belum
  *    dicatat supaya saringan "Transfer tertunda" ada isinya.
  *  - Kredit barang 3 bulan Rp3.000.000 dan 6 bulan Rp6.000.000, keduanya sudah

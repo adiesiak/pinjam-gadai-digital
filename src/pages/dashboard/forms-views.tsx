@@ -1899,7 +1899,7 @@ export function LoanForm({
           <ul className="space-y-2 text-sm leading-6 text-slate-600">
             {[
               "PINDAI mencatat pengajuan, perhitungan, dan status — bukan memindahkan dana.",
-              "Bunga harian mengikuti matriks nominal–tenor (30–40%); bunga bulanan mengikuti tarif akun. Biaya dipotong di muka, dan setiap cicilan bulanan dikenai biaya admin cicilan 2%.",
+              "Bunga harian mengikuti matriks nominal–tenor (32–42%); bunga bulanan mengikuti tarif akun. Biaya dipotong di muka, dan setiap cicilan bulanan dikenai biaya admin cicilan 2%.",
               "Persetujuan pengajuan bukan jaminan pencairan; keputusan dibuat tim PINDAI dan tercatat pada audit trail.",
               "Data dan dokumen yang Anda kirim hanya dibuka oleh akun Anda dan tim PINDAI.",
             ].map((item) => (

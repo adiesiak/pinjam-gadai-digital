@@ -46,7 +46,7 @@ function daftarAtau(nilai: readonly number[]): string {
   return `${nilai.slice(0, -1).join(", ")}, atau ${nilai[nilai.length - 1]}`;
 }
 
-/** "30%, 35%, dan 40%" untuk satu tier pokok pada tenor resmi. */
+/** "32%, 37%, 40%, dan 42%" untuk satu tier pokok pada tenor resmi. */
 function tarifHarian(pokok: number): string {
   const tarif = TENOR_OPTIONS.flatMap((hari) => {
     const persen = persenBungaHarian(pokok, hari);

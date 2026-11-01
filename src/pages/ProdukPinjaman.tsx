@@ -74,7 +74,7 @@ const TENOR_BULANAN = [1, 3, 6] as const;
 const TENOR_RAHN = [30, 60, 90] as const;
 
 /** Contoh kebijakan di halaman ini dihitung mesin yang sama dengan akad. */
-const CONTOH_BAGI_HASIL = bagiHasilPinjaman(1_000_000, 30);
+const CONTOH_BAGI_HASIL = bagiHasilPinjaman(1_000_000, 32);
 
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
@@ -1069,7 +1069,7 @@ function KerangkaHalaman({
                     {
                       label: "Tenor harian",
                       nilai: "7 / 14 / 21 / 28 hari",
-                      detail: "Bunga flat 26% sampai 40% sesuai nominal.",
+                      detail: "Bunga flat 28% sampai 42% sesuai nominal.",
                     },
                     {
                       label: "Cicilan bulanan",
@@ -1181,7 +1181,7 @@ function KerangkaHalaman({
                       <BadgeCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
                       <span>
                         Contoh: pokok {rupiah(1_000_000)} tenor 28 hari, bunga
-                        30%, menghasilkan uang kembali {rupiah(1_300_000)}.
+                        32%, menghasilkan uang kembali {rupiah(1_320_000)}.
                         Marjin dibagi 78,33% untuk pendana: porsi platform{" "}
                         {rupiah(CONTOH_BAGI_HASIL.potonganAdmin)}, sehingga pendana
                         menerima {rupiah(CONTOH_BAGI_HASIL.pendanaTerima)}.

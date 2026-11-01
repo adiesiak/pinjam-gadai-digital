@@ -613,7 +613,7 @@ export function PromoBungaPanel() {
                 </div>
                 <p className="mt-1 text-[11px] leading-4 text-slate-500">
                   Maksimal {BATAS_PROMO_BUNGA.persenMaks}% agar selalu di bawah bunga normal
-                  terendah (26%). Angka 15 berarti bunga pinjaman 15%, seperti tertulis di
+                  terendah (28%). Angka 15 berarti bunga pinjaman 15%, seperti tertulis di
                   rincian dan kontrak.
                 </p>
               </div>
@@ -638,7 +638,7 @@ export function PromoBungaPanel() {
                   <span className="text-sm text-slate-500">poin dari bunga normal</span>
                 </div>
                 <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                  Contoh: bunga normal 30% dengan potongan 5 poin menjadi 25%. Maksimal{" "}
+                  Contoh: bunga normal 32% dengan potongan 5 poin menjadi 27%. Maksimal{" "}
                   {BATAS_PROMO_BUNGA.persenMaks} poin; hasilnya tidak pernah negatif.
                 </p>
               </div>

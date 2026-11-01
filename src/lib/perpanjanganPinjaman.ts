@@ -50,7 +50,7 @@ export type PinjamanPerpanjangan = {
 
 export type OpsiTenorPerpanjangan = {
   hari: number;
-  /** Persentase bunga periode baru, mis. 35 berarti 35% dari pokok. */
+  /** Persentase bunga periode baru, mis. 37 berarti 37% dari pokok. */
   persenBunga: number;
 };
 
@@ -232,7 +232,14 @@ export function hitungRencanaPembayaran({
   }
   validasiTenor(principalSesudah, hari);
 
-  const tierRate = persenBungaHarian(principalSesudah, hari);
+  // Perpanjangan dengan pokok yang sama mempertahankan tarif snapshot pinjaman:
+  // perubahan matriks setelah kontrak terbit tidak boleh menaikkan tagihan
+  // perpanjangan secara diam-diam. Bila cicilan pokok memindahkan pinjaman ke
+  // tier lain, tier baru dihitung dari matriks yang berlaku.
+  const tierRate =
+    principalSesudah === principalSebelum && loan.persenBunga !== undefined
+      ? loan.persenBunga
+      : persenBungaHarian(principalSesudah, hari);
   if (tierRate === null) {
     throw new Error("Tier bunga untuk sisa pokok dan tenor ini tidak tersedia.");
   }

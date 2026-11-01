@@ -753,7 +753,7 @@ export const createLoanApplication = mutation({
         : quoteAwal;
     // Matriks tenor harian ditegakkan di server, bukan hanya disembunyikan di
     // UI: tenor standar 7/14/21/28 hari, sedangkan 29–50 hari sah sebagai
-    // perpanjangan berbayar. Tarif mengikuti tier nominal (26–40%), dan tenor
+    // perpanjangan berbayar. Tarif mengikuti tier nominal (28–42%), dan tenor
     // di atas 50 hari ditolak.
     let persenBungaSimpanan: number;
     if (tenorBulanSim === undefined) {

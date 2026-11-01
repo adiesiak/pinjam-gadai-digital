@@ -25,7 +25,7 @@ export function DashboardFooter() {
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>
             Harian (7–50 hari; semakin lama tenor, semakin besar bunga): potongan
-            di muka {rincianPotonganDiMuka(tarif)}, bunga flat mulai 26% sesuai
+            di muka {rincianPotonganDiMuka(tarif)}, bunga flat mulai 28% sesuai
             nominal dan tenor.
           </li>
           <li>

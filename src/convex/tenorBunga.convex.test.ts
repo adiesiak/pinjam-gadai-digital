@@ -82,54 +82,54 @@ async function pinjamanTerakhir(t: Tx) {
 }
 
 describe("matriks tenor & bunga harian", () => {
-  it("Rp250.000 tenor 7 hari memakai bunga dasar 30%", async () => {
+  it("Rp250.000 tenor 7 hari memakai bunga dasar 32%", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-kecil@pindai.test");
     await ajukan(t, sesi, 250_000, 7, "kecil");
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(7);
-    expect(loan?.persenBunga).toBe(30);
+    expect(loan?.persenBunga).toBe(32);
   });
 
-  it("Rp250.000 tenor 28 hari memakai bunga 40%", async () => {
+  it("Rp250.000 tenor 28 hari memakai bunga 42%", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-kecil-panjang@pindai.test");
     await ajukan(t, sesi, 250_000, 28, "kecil-panjang");
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(28);
-    expect(loan?.persenBunga).toBe(40);
+    expect(loan?.persenBunga).toBe(42);
   });
 
-  it("Rp500.000 tenor 14 hari memakai bunga 32%", async () => {
+  it("Rp500.000 tenor 14 hari memakai bunga 34%", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-menengah@pindai.test");
     await ajukan(t, sesi, 500_000, 14, "menengah");
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(14);
-    expect(loan?.persenBunga).toBe(32);
+    expect(loan?.persenBunga).toBe(34);
   });
 
-  it("Rp500.000 tenor 7 hari memakai bunga 28%", async () => {
+  it("Rp500.000 tenor 7 hari memakai bunga 30%", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-menengah-pendek@pindai.test");
     await ajukan(t, sesi, 500_000, 7, "menengah-pendek");
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(7);
-    expect(loan?.persenBunga).toBe(28);
+    expect(loan?.persenBunga).toBe(30);
   });
 
-  it("Rp1 juta tenor 28 hari memakai bunga 30%", async () => {
+  it("Rp1 juta tenor 28 hari memakai bunga 32%", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-penuh@pindai.test", 1_000_000);
     await ajukan(t, sesi, 1_000_000, 28, "penuh");
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(28);
-    expect(loan?.persenBunga).toBe(30);
+    expect(loan?.persenBunga).toBe(32);
   });
 
   it("plafon khusus Rp2 juta membuka pokok harian Rp2 juta", async () => {
@@ -139,7 +139,7 @@ describe("matriks tenor & bunga harian", () => {
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.pokokPinjaman).toBe(2_000_000);
-    expect(loan?.persenBunga).toBe(30);
+    expect(loan?.persenBunga).toBe(32);
   });
 
   it("tanpa plafon khusus, pokok harian di atas Rp1 juta ditolak", async () => {
@@ -151,14 +151,14 @@ describe("matriks tenor & bunga harian", () => {
     );
   });
 
-  it("Rp1 juta tenor 14 hari memakai bunga 28%", async () => {
+  it("Rp1 juta tenor 14 hari memakai bunga 30%", async () => {
     const t = convexTest(schema, modules);
     const sesi = await peminjamSiap(t, "tenor-penuh-mid@pindai.test", 1_000_000);
     await ajukan(t, sesi, 1_000_000, 14, "penuh-mid");
 
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(14);
-    expect(loan?.persenBunga).toBe(28);
+    expect(loan?.persenBunga).toBe(30);
   });
 
   it("bunga khusus akun tidak menimpa tarif tenor", async () => {
@@ -174,7 +174,7 @@ describe("matriks tenor & bunga harian", () => {
     });
 
     await ajukan(t, sesi, 500_000, 14, "override-harian");
-    expect((await pinjamanTerakhir(t))?.persenBunga).toBe(32);
+    expect((await pinjamanTerakhir(t))?.persenBunga).toBe(34);
 
     // Skema bulanan memakai tarif tenor, bukan override akun. Tenor 1 bulan
     // dipakai di sini karena tenor 3/6 bulan punya minimum pokok Rp3.000.000.
@@ -234,8 +234,8 @@ describe("matriks tenor & bunga harian", () => {
     await ajukan(t, sesi, 500_000, 30, "tigapuluh");
     const loan = await pinjamanTerakhir(t);
     expect(loan?.tenorHari).toBe(30);
-    // Tier Rp500.000: 35% untuk 28 hari, ditambah 1,875% per hari ekstra.
-    expect(loan?.persenBunga).toBe(38.75);
+    // Tier Rp500.000: 37% untuk 28 hari, ditambah 1,875% per hari ekstra.
+    expect(loan?.persenBunga).toBe(40.75);
 
     const t2 = convexTest(schema, modules);
     const sesi2 = await peminjamSiap(t2, "tenor-tolak-limapuluh-satu@pindai.test");
@@ -264,7 +264,7 @@ describe("pilihan cair ekspres dari peminjam", () => {
     expect(detail?.quote.totalPotonganDiMuka).toBe(20_000);
     expect(detail?.quote.danaBersihDitransfer).toBe(980_000);
     // Bunga tetap ditagih penuh: pilihan ekspres tidak mengubah kewajiban.
-    expect(detail?.quote.totalKewajibanPelunasan).toBe(1_300_000);
+    expect(detail?.quote.totalKewajibanPelunasan).toBe(1_320_000);
   });
 
   it("dengan centang: biaya ekspres tetap dipotong seperti sebelumnya", async () => {

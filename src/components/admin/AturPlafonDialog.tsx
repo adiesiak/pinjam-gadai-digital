@@ -250,7 +250,7 @@ export function AturPlafonDialog({
           </div>
 
           <p className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] leading-5 text-muted-foreground">
-            Bunga pinjaman mengikuti tabel tenor website: harian 7/14/21/28 hari (26–40% sesuai
+            Bunga pinjaman mengikuti tabel tenor website: harian 7/14/21/28 hari (28–42% sesuai
             nominal) dan bulanan 30/8/12/10/8% per bulan untuk tenor 1/3/6/9/12 bulan (marjin total
             30/24/72/90/96%). Plafon hanya menentukan batas pokok, bukan tarifnya.
           </p>

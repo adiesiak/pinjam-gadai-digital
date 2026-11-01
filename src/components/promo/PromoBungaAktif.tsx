@@ -29,9 +29,9 @@ type PromoBungaTampil = {
   selesai: number;
 };
 
-/** Urutan tampil memakai bunga final pada tarif normal 30%; bebas admin di akhir. */
+/** Urutan tampil memakai bunga final pada tarif normal 32%; bebas admin di akhir. */
 function skorTampil(promo: PromoBungaTampil): number {
-  if (promo.jenis === "bebas_admin") return 30;
+  if (promo.jenis === "bebas_admin") return 32;
   if (promo.jenis === "potongan_bunga") {
     return Math.max(0, 30 - (promo.potonganPersen ?? 0));
   }

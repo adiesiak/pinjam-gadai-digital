@@ -26,9 +26,13 @@ export const PINDAI_PRICING = {
   upfrontDeductionPercent: 2,
   /** Net disbursement is 98% of principal. */
   netDisbursementPercent: 98,
-  /** Tarif bunga DASAR 30% dari pokok (dipakai tenor 7 hari & fallback). */
+  /**
+   * Tarif bunga DASAR 30% dari pokok. Matriks harian menambahkan
+   * `PENAMBAHAN_BUNGA_HARIAN_PERSEN` (2 poin), jadi tenor 7 hari tier 3 menjadi
+   * 32%; angka ini tetap dipakai sebagai fallback data lama.
+   */
   bungaPercent: 30,
-  /** Total kewajiban pada tarif dasar = 130% dari pokok. */
+  /** Total kewajiban pada tarif DASAR = 130% dari pokok. */
   totalRepaymentPercent: 130,
 } as const;
 
@@ -103,13 +107,13 @@ export const PENAMBAHAN_BUNGA_HARIAN_PERSEN = 2;
  * Angka di sini adalah tarif DASAR. Tarif final yang dipakai nasabah adalah
  * angka dasar ditambah `PENAMBAHAN_BUNGA_HARIAN_PERSEN` (2 poin).
  *
- * Aturan produk yang dijaga di sini (berlaku sama di klien dan server):
- *  - Tier 1, pokok di bawah Rp500.000: 7 hari 30%, 14 hari 35%,
- *    21 hari 38%, 28 hari 40%.
- *  - Tier 2, pokok Rp500.000 sampai di bawah Rp1.000.000: 7 hari 28%,
- *    14 hari 32%, 21 hari 34%, 28 hari 35%.
- *  - Tier 3, pokok Rp1.000.000 ke atas: 7 hari 26%, 14 hari 28%,
- *    21 hari 29%, 28 hari 30%.
+ * Tarif FINAL yang dijaga di sini (berlaku sama di klien dan server):
+ *  - Tier 1, pokok di bawah Rp500.000: 7 hari 32%, 14 hari 37%,
+ *    21 hari 40%, 28 hari 42%.
+ *  - Tier 2, pokok Rp500.000 sampai di bawah Rp1.000.000: 7 hari 30%,
+ *    14 hari 34%, 21 hari 36%, 28 hari 37%.
+ *  - Tier 3, pokok Rp1.000.000 ke atas: 7 hari 28%, 14 hari 30%,
+ *    21 hari 31%, 28 hari 32%.
  *
  * Tier teratas terbuka sampai `maxPokokPlafon` karena admin dapat memberi
  * plafon khusus di atas batas bawaan Rp1 juta. Tanpa plafon khusus, plafon
@@ -215,7 +219,8 @@ export function persenPerHariPerpanjangan(pokok: number): number | null {
  * Persentase bunga untuk kombinasi nominal & tenor; `null` bila tidak sah.
  *
  * Tenor 7/14/21/28 memakai matriks. Tenor 29–50 memakai tarif 28 hari ditambah
- * harga satu hari perpanjangan untuk setiap hari ekstra. Angkanya pecahan dua
+ * harga satu hari perpanjangan untuk setiap hari ekstra. Semua hasil sudah
+ * termasuk `PENAMBAHAN_BUNGA_HARIAN_PERSEN` (2 poin). Angkanya pecahan dua
  * desimal, tetapi rupiahnya tetap dihitung `percentOf` (HALF-UP) — tidak ada
  * pecahan rupiah yang tersimpan.
  */
@@ -374,9 +379,9 @@ export interface LoanQuote {
   totalPotonganDiMuka: Rupiah;
   /** Dana Bersih Ditransfer — pokok − seluruh potongan di muka */
   danaBersihDitransfer: Rupiah;
-  /** Bunga Pinjaman — 30% (hak finansial penyedia dana) */
+  /** Bunga Pinjaman — tarif tenor harian/bulanan yang berlaku pada pinjaman. */
   bunga: Rupiah;
-  /** Total Kewajiban Pelunasan — 130% */
+  /** Total Kewajiban Pelunasan — pokok + bunga (mis. 132% untuk harian 28 hari). */
   totalKewajibanPelunasan: Rupiah;
 }
 
@@ -461,7 +466,7 @@ export function quoteLoan(pokok: Rupiah, opsi: OpsiQuote = {}): LoanQuote {
   );
 }
 
-/** Quote skema harian dengan bunga khusus nasabah (persen, mis. 30 → 130%). */
+/** Quote skema harian dengan bunga khusus nasabah (persen, mis. 32 → 132%). */
 export function quoteLoanBunga(
   pokok: Rupiah,
   persenBunga: number,
@@ -592,7 +597,7 @@ export interface RepaymentQuote extends LoanQuote {
   hariTerlambat: number;
   /** Denda keterlambatan rupiah bulat (0 bila belum terlambat). */
   dendaTerlambat: Rupiah;
-  /** Total kewajiban 130% + denda — jumlah yang harus dibayar sekarang. */
+  /** Total kewajiban (pokok + bunga tenor) + denda — jumlah yang harus dibayar sekarang. */
   totalKewajibanDenganPenalti: Rupiah;
 }
 
@@ -650,8 +655,8 @@ export function calculateRepayment(
 
 /**
  * Ringkasan pelunasan satu pinjaman — SATU sumber kebenaran untuk kedua
- * skema: harian (130% flat) maupun bulanan (bunga flat dari pokok + biaya
- * dengan biaya dipotong di muka). Dipakai UI nasabah, portofolio penyedia dana,
+ * skema: harian (bunga flat sesuai tenor) maupun bulanan (bunga flat dari
+ * pokok + biaya dengan biaya dipotong di muka). Dipakai UI nasabah, portofolio penyedia dana,
  * panel admin, dan
  * pengingat WhatsApp agar angka yang dilihat semua pihak selalu sama.
  */

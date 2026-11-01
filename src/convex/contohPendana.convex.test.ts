@@ -50,19 +50,19 @@ describe("contoh data pendana", () => {
 
     const hasil = await t.mutation(internal.contohPendana.buat, BUAT);
 
-    // Pembagian marjin: Rp2.000.000 @30% → Rp600.000, dibagi 47 : 13.
+    // Pembagian marjin: Rp2.000.000 @32% → Rp640.000, dibagi 47 : 13.
     expect(hasil.pembagian.berjalan).toEqual({
       pokok: 2_000_000,
-      margin: 600_000,
-      pendana: 470_000,
-      platform: 130_000,
+      margin: 640_000,
+      pendana: 501_334,
+      platform: 138_666,
     });
-    // Rp1.000.000 @30% → Rp300.000; angka yang sama dengan contoh di aturan.
+    // Rp1.000.000 @32% → Rp320.000; angka yang sama dengan contoh di aturan.
     expect(hasil.pembagian.lunas).toEqual({
       pokok: 1_000_000,
-      margin: 300_000,
-      pendana: 235_000,
-      platform: 65_000,
+      margin: 320_000,
+      pendana: 250_667,
+      platform: 69_333,
     });
 
     // Ruang pendana (dibaca admin) melihat keduanya sebagai portofolio akun uji.
@@ -75,13 +75,13 @@ describe("contoh data pendana", () => {
       jumlahLunas: 1,
       totalDisalurkan: 3_000_000,
       saldoBerjalan: 2_000_000,
-      keuntunganPendana: 705_000,
-      keuntunganPendanaLunas: 235_000,
-      keuntunganPendanaBelumLunas: 470_000,
-      keuntunganAdmin: 195_000,
+      keuntunganPendana: 752_001,
+      keuntunganPendanaLunas: 250_667,
+      keuntunganPendanaBelumLunas: 501_334,
+      keuntunganAdmin: 207_999,
       transferTercatat: 0,
       transferBelumDicatat: 1,
-      keuntunganBelumDicatat: 235_000,
+      keuntunganBelumDicatat: 250_667,
     });
 
     // Kredit contoh masuk ke blok kredit pada baris rekap yang sama, dengan
@@ -128,14 +128,14 @@ describe("contoh data pendana", () => {
       status: "didanai",
       pokokPinjaman: 2_000_000,
       pendana: "PENDANA UJI COBA",
-      keuntunganPendana: 470_000,
-      keuntunganAdmin: 130_000,
+      keuntunganPendana: 501_334,
+      keuntunganAdmin: 138_666,
     });
     expect(lunas).toMatchObject({
       status: "lunas",
       pokokPinjaman: 1_000_000,
-      keuntunganPendana: 235_000,
-      keuntunganAdmin: 65_000,
+      keuntunganPendana: 250_667,
+      keuntunganAdmin: 69_333,
     });
 
     // Kredit contoh: tenor 3 dan 6 bulan, masing-masing sudah dicicil 2 kali.

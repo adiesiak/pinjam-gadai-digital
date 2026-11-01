@@ -111,7 +111,7 @@ describe("pencatatan pengajuan manual oleh admin", () => {
       penghasilanBulanan: 3_500_000,
       sumberPenghasilan: "Usaha warung",
       // Rp900.000/28 hari berada di Tier 2: bunga 35%.
-      persenBunga: 35,
+      persenBunga: 37,
     });
     // Baris baru tidak melewati keputusan: catatan review masih kosong.
     expect(loan?.catatanReview).toBeUndefined();

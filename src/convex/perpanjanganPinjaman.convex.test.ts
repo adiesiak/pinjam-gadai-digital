@@ -200,8 +200,8 @@ describe("pembayaran tingkat pinjaman", () => {
       return loan;
     });
     expect(setelahCicil?.remainingPrincipal).toBe(800_000);
-    expect(setelahCicil?.currentTierRate).toBe(35);
-    expect(setelahCicil?.nextInterestAmount).toBe(280_000);
+    expect(setelahCicil?.currentTierRate).toBe(37);
+    expect(setelahCicil?.nextInterestAmount).toBe(296_000);
     expect(setelahCicil?.bungaTerbayar).toBe(600_000);
     const ledger2 = await totalLedger(t);
     expect(
@@ -209,19 +209,19 @@ describe("pembayaran tingkat pinjaman", () => {
     ).toBeGreaterThan(0);
     expect(ledger2.debit).toBe(ledger2.kredit);
 
-    // Pelunasan total: sisa pokok Rp800.000 + bunga Rp280.000.
+    // Pelunasan total: sisa pokok Rp800.000 + bunga Rp296.000.
     const ketiga = await buatBukti(t, {
       ...data,
       paymentType: "pelunasan_total",
       tanggalTransfer: data.sekarang,
       nomorReferensi: "BUKTI-PERPANJANGAN-003",
     });
-    expect(ketiga.totalDue).toBe(1_080_000);
+    expect(ketiga.totalDue).toBe(1_096_000);
     await data.admin.mutation(api.perpanjanganPinjaman.verifikasiPembayaranPinjaman, {
       receiptId: ketiga.receiptId,
       keputusan: "terima",
       referensiMutasi: "MUTASI-PERPANJANGAN-003",
-      jumlahMutasi: 1_080_000,
+      jumlahMutasi: 1_096_000,
     });
 
     const akhir = await t.run(async (ctx) => {
@@ -256,7 +256,7 @@ describe("pembayaran tingkat pinjaman", () => {
     });
     expect(kuitansi).toHaveLength(3);
     expect(kuitansi[0].paymentType).toBe("pelunasan_total");
-    expect(kuitansi.map((row) => row.rencana.tierRate)).toEqual([30, 35, 30]);
+    expect(kuitansi.map((row) => row.rencana.tierRate)).toEqual([30, 37, 30]);
     expect(kuitansi[0].rencana.principalSesudah).toBe(0);
     expect(kuitansi[1].rencana.principalSesudah).toBe(800_000);
     expect(kuitansi[2].rencana.principalSesudah).toBe(1_000_000);

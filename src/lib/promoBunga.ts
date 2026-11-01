@@ -4,7 +4,7 @@
  *
  * Tiga jenis kampanye, satu mekanisme pemilihan:
  *  - `bunga_pengganti` menetapkan bunga final, mis. 15% pada tenor 7 hari;
- *  - `potongan_bunga` memotong poin dari bunga normal, mis. 30% − 5 poin = 25%;
+ *  - `potongan_bunga` memotong poin dari bunga normal, mis. 32% − 5 poin = 27%;
  *  - `bebas_admin` meniadakan biaya admin di muka, tanpa mengubah bunga.
  *
  * Satu pengajuan memakai satu kampanye terbaik. Untuk kampanye bunga, yang
@@ -97,7 +97,7 @@ export const BATAS_PROMO_BUNGA = {
   /** Pagu subsidi terkecil yang masuk akal untuk satu kampanye (rupiah). */
   paguMin: 10_000,
   /**
-   * Bunga terendah yang mungkin dipotong promo adalah 26% (tier pokok ≥Rp1
+   * Bunga terendah yang mungkin dipotong promo adalah 28% (tier pokok ≥Rp1
    * juta, tenor 7 hari). Angka promo di atas 25% karena itu tidak akan pernah
    * benar-benar memotong — ia hanya menampilkan janji yang tidak berlaku.
    */
@@ -315,7 +315,7 @@ export function terapkanVoucherBunga(args: {
  * Daftar pesan kesalahan; kosong berarti isian siap disimpan.
  *
  * `persenMaks` 25 menjaga bunga pengganti maupun poin potongan selalu masuk
- * akal terhadap bunga normal terendah (26%). Tanpa batas ini admin bisa
+ * akal terhadap bunga normal terendah (28%). Tanpa batas ini admin bisa
  * menyimpan "promo 40%" yang tidak memotong apa pun, dan nasabah melihat janji
  * yang tidak pernah berlaku.
  */
