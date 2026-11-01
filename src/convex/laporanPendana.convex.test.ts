@@ -97,6 +97,17 @@ async function seedGateway(
   );
 }
 
+/** Nyalakan laporan pelunasan otomatis; bawaannya mati (lihat system-config). */
+async function aktifkanLaporanOtomatis(t: KonteksUji): Promise<void> {
+  await t.run((ctx) =>
+    ctx.db.insert("systemConfig", {
+      slot: "global",
+      laporanPelunasanOtomatis: true,
+      diperbaruiPada: Date.now(),
+    }),
+  );
+}
+
 /** Satu pinjaman yang dimiliki pendana tertentu (aturan kanonik: `pendanaId`). */
 async function seedPinjaman(
   t: KonteksUji,
@@ -357,7 +368,7 @@ describe("laporan kinerja portofolio atas permintaan pendana", () => {
 });
 
 describe("laporan pelunasan otomatis", () => {
-  it("pinjaman yang ditandai lunas mengirim laporan ke pendananya, lalu berkasnya dibersihkan", async () => {
+  it("pinjaman yang ditandai lunas mengirim laporan teks ke pendananya", async () => {
     vi.useFakeTimers();
     const gateway = pasangGateway();
     try {
@@ -382,17 +393,21 @@ describe("laporan pelunasan otomatis", () => {
         pendanaId,
       });
       await seedGateway(t, { aktif: true });
+      await aktifkanLaporanOtomatis(t);
 
       await admin.sesi.mutation(api.loans.ubahStatusPinjaman, { loanId, status: "lunas" });
       // Pengiriman berjalan di penjadwal, bukan di dalam transaksi perubahan status.
       await t.finishAllScheduledFunctions(vi.runAllTimers);
 
-      const keluar = gateway.lampiran();
+      const keluar = gateway.keluar;
       expect(keluar).toHaveLength(1);
       expect(keluar[0].target).toBe(NOMOR_PENDANA);
-      expect(keluar[0].filename).toBe("PINDAI-Laporan-Pelunasan-pnd-laporan-lunas.pdf");
+      // Laporan pelunasan dikirim sebagai teks: tidak bergantung pada gateway
+      // yang mungkin tidak mengantarkan lampiran.
+      expect(keluar[0].filename).toBe("");
+      expect(keluar[0].url).toBe("");
       expect(keluar[0].message).toContain("PND-LAPORAN-LUNAS");
-      expect(keluar[0].message).toContain("tercatat lunas pada");
+      expect(keluar[0].message).toContain("tercatat LUNAS pada");
       // Keuntungan yang disebut di pesan = keuntungan yang tampil di ruang
       // pendana (satu sumber angka, bukan perhitungan kedua di laporan).
       const ruang = await sesiPendana.query(api.penyediaDana.daftarPengajuan, {});
@@ -411,7 +426,8 @@ describe("laporan pelunasan otomatis", () => {
       expect(logs[0].nomorTujuan).toBe(NOMOR_PENDANA);
       expect(logs[0].olehUserId).toBe(admin.userId);
 
-      // Retensi: berkas laporan tidak dibiarkan menganggur di penyimpanan.
+      // Laporan teks tidak menyimpan berkas, jadi tidak ada lampiran yang
+      // menganggur di penyimpanan.
       const berkas = await t.run((ctx) => ctx.db.system.query("_storage").collect());
       expect(berkas).toHaveLength(0);
     } finally {
@@ -444,11 +460,12 @@ describe("laporan pelunasan otomatis", () => {
         pendanaId: pendana.userId,
       });
       await seedGateway(t, { aktif: true });
+      await aktifkanLaporanOtomatis(t);
 
       await admin.sesi.mutation(api.loans.ubahStatusPinjaman, { loanId, status: "lunas" });
       await t.finishAllScheduledFunctions(vi.runAllTimers);
 
-      expect(gateway.lampiran()).toHaveLength(0);
+      expect(gateway.keluar).toHaveLength(0);
       const log = await t.run((ctx) =>
         ctx.db.query("waLogs").collect().then((rows) =>
           rows.find((r) => r.jenis === "laporan_pelunasan"),

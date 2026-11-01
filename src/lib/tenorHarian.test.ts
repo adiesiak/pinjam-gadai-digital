@@ -14,6 +14,8 @@
 import type { Rupiah } from "@/lib/money";
 import {
   LOAN_LIMITS,
+  PENAMBAHAN_BUNGA_HARIAN_PERSEN,
+  PENGALI_TARIF_PERPANJANGAN,
   persenBungaHarian,
   quoteLoanBunga,
   sesuaikanTenorHarian,
@@ -87,6 +89,55 @@ eq(persenBungaHarian(1_000_000, 35), 43.25, "Rp1 juta/35 hari = 43,25%");
 eq(persenBungaHarian(1_000_000, 50), 67.36, "Rp1 juta/50 hari = 67,36%");
 eq(persenBungaHarian(1_000_000, 51), null, "51 hari di atas batas");
 eq(persenBungaHarian(1_000_000, 6), null, "6 hari di bawah batas");
+// ===== Regresi penyesuaian +2 poin di SEMUA tenor & tier =====
+// Salinan matriks DASAR (sebelum penambahan 2 poin), sengaja ditulis ulang di
+// uji supaya cabang yang lupa ditambah langsung terlihat. Angka final harus
+// selalu tepat 2 poin di atas dasar, bukan hanya benar di tenor contoh.
+const DASAR_MATRIKS = [
+  { pokok: 250_000, tarif: [[7, 30], [14, 35], [21, 38], [28, 40]] },
+  { pokok: 500_000, tarif: [[7, 28], [14, 32], [21, 34], [28, 35]] },
+  { pokok: 1_000_000, tarif: [[7, 26], [14, 28], [21, 29], [28, 30]] },
+] as const;
+
+function tarifDasar(pokok: number, tenor: number): number | null {
+  const baris = DASAR_MATRIKS.find((b) => b.pokok === pokok);
+  if (baris === undefined || tenor < 7 || tenor > 50) return null;
+  const acuan28 = baris.tarif[baris.tarif.length - 1];
+  const tepat = baris.tarif.find(([hari]) => hari === tenor);
+  if (tepat !== undefined) return tepat[1];
+  if (tenor > 28) {
+    const hargaHari =
+      (acuan28[1] / acuan28[0]) * PENGALI_TARIF_PERPANJANGAN;
+    return Math.round((acuan28[1] + hargaHari * (tenor - 28)) * 100) / 100;
+  }
+  const bawah = baris.tarif.filter(([hari]) => hari < tenor).pop();
+  const atas = baris.tarif.find(([hari]) => hari > tenor);
+  if (bawah === undefined || atas === undefined) return null;
+  const porsi = (tenor - bawah[0]) / (atas[0] - bawah[0]);
+  return Math.round((bawah[1] + (atas[1] - bawah[1]) * porsi) * 100) / 100;
+}
+
+const selisihSalah: string[] = [];
+for (const { pokok } of DASAR_MATRIKS) {
+  for (let hari = 7; hari <= 50; hari += 1) {
+    const final = persenBungaHarian(pokok, hari);
+    const dasar = tarifDasar(pokok, hari);
+    const selisih = final === null || dasar === null ? null : final - dasar;
+    if (selisih === null || Math.abs(selisih - PENAMBAHAN_BUNGA_HARIAN_PERSEN) > 1e-9) {
+      selisihSalah.push(
+        `Rp${pokok}/${hari} hari: final ${final}, dasar ${dasar}, selisih ${selisih}`,
+      );
+    }
+  }
+}
+eq(PENAMBAHAN_BUNGA_HARIAN_PERSEN, 2, "konstanta penyesuaian adalah 2 poin");
+ok(
+  selisihSalah.length === 0,
+  `setiap tenor 7–50 di tiap tier tepat +2 poin${
+    selisihSalah.length > 0 ? ` (${selisihSalah.slice(0, 5).join("; ")})` : ""
+  }`,
+);
+
 // Semakin lama selalu semakin mahal — diuji untuk setiap hari 7–50.
 let bungaMenaik = true;
 let tarifSebelumnya = 0;
