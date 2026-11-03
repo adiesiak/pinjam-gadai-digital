@@ -127,13 +127,23 @@ function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) 
   ];
   return (
     <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+      {/* Empat tenor, empat kolom. Sebelumnya empat harga dipaksa ke tiga
+          kolom, sehingga tenor 28 hari selalu jatuh ke baris berikutnya. */}
+      <div className="hidden grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,5.5rem))] gap-2 border-b border-slate-200 py-2 text-xs font-semibold text-slate-500 sm:grid">
+        <span>Pokok</span>
+        {TENOR_OPTIONS.map((tenor) => (
+          <span key={tenor} className="text-right tabular-nums">
+            {tenor} hari
+          </span>
+        ))}
+      </div>
       {tier.map((baris) => (
         <div
           key={baris.label}
-          className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,7rem))] sm:items-center"
+          className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,5.5rem))] sm:items-center"
         >
           <p className="text-sm font-medium text-slate-800">{baris.label}</p>
-          <div className="grid grid-cols-3 gap-2 sm:contents">
+          <div className="grid grid-cols-2 gap-2 sm:contents">
             {TENOR_OPTIONS.map((tenor) => {
               const normal = persenBungaHarian(baris.pokok, tenor) ?? 0;
               const promo = pilihPromoBunga(promos, {
@@ -144,9 +154,10 @@ function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) 
               return (
                 <p
                   key={tenor}
+                  aria-label={`${tenor} hari: ${persen(bungaSetelahPromo(normal, promo))}`}
                   className="rounded-lg bg-slate-50 px-2 py-1.5 text-center text-xs tabular-nums text-slate-700 sm:bg-transparent sm:p-0 sm:text-right"
                 >
-                  <span className="block text-[10px] uppercase tracking-[0.1em] text-slate-500 sm:hidden">
+                  <span className="block text-xs text-slate-500 sm:hidden">
                     {tenor} hari
                   </span>
                   <span
@@ -159,7 +170,7 @@ function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) 
                     {persen(bungaSetelahPromo(normal, promo))}
                   </span>
                   {promo !== null && (
-                    <span className="block text-[10px] font-medium text-emerald-700">
+                    <span className="block text-xs font-medium text-emerald-700">
                       {promo.jenis === "bebas_admin" ? "bebas admin" : "promo"}
                     </span>
                   )}
@@ -170,7 +181,7 @@ function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) 
         </div>
       ))}
       {adaPromo && (
-        <p className="py-2 text-[11px] leading-5 text-emerald-800">
+        <p className="py-2 text-xs leading-5 text-emerald-800">
           Angka hijau adalah bunga promo yang sedang berjalan; angka lain adalah tarif
           normal. Label “bebas admin” berarti biaya admin di muka Rp0, bukan bunga 0%.
         </p>
@@ -397,7 +408,10 @@ function KalkulatorKonvensional({
         ))}
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
+      {/* Kalkulator ini hidup di kolom samping 26rem. Jangan memaksakan dua
+          kolom internal di sini: kolom hasil akan menyusut sampai label dan
+          nominal bertumpuk. Susun input lalu hasil secara vertikal. */}
+      <div className="mt-4 grid gap-4">
         <div>
           <label
             htmlFor="produk-nominal"

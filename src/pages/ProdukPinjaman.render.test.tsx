@@ -127,6 +127,31 @@ function render(produk: "konvensional" | "syariah"): string {
   );
 }
 
+// ===== 3b. Tata letak kalkulator konvensional dan tabel tarif =====
+// Dua bug tampilan yang pernah muncul di 1366px: empat tenor dipaksa ke tiga
+// kolom, dan kalkulator di kolom samping masih memakai dua kolom internal.
+{
+  const sumber = readFileSync("src/pages/ProdukPinjaman.tsx", "utf8");
+  ok(
+    sumber.includes("repeat(4,minmax(0,5.5rem))"),
+    "tabel tarif harian menyediakan empat kolom untuk empat tenor",
+  );
+  ok(
+    sumber.includes("grid grid-cols-2 gap-2 sm:contents"),
+    "nilai tenor di ponsel disusun dua kolom, bukan tiga",
+  );
+  ok(
+    !sumber.includes("grid grid-cols-3 gap-2 sm:contents"),
+    "tidak ada lagi empat harga yang dipaksa ke tiga kolom",
+  );
+  ok(
+    /<div className="mt-4 grid gap-4">\s*<div>\s*<label\s+htmlFor="produk-nominal"/.test(
+      sumber,
+    ),
+    "kalkulator konvensional menyusun input dan hasil secara vertikal",
+  );
+}
+
 // ===== 4. Banner bunga promo =====
 // Harga promo sudah tampil hijau di tabel; banner ini menyebut kampanyenya
 // secara utuh dan hanya untuk jalur konvensional.
