@@ -1853,6 +1853,8 @@ const schema = defineSchema(
       metodePembayaran: v.optional(
         v.union(v.literal("qris"), v.literal("transfer")),
       ),
+      /** Jalur penerimaan. Otomatis ditutup server; manual aktif lewat admin. */
+      jalur: v.optional(v.union(v.literal("manual"), v.literal("otomatis"))),
       tanggalTransfer: v.optional(v.number()),
       buktiPembayaranId: v.optional(v.id("_storage")),
       statusPencocokan: v.optional(
@@ -1862,6 +1864,10 @@ const schema = defineSchema(
       jumlahMutasi: v.optional(v.number()),
       dicocokkanPada: v.optional(v.number()),
       dicocokkanOleh: v.optional(v.id("users")),
+      /** Jejak saat saldo pendana benar-benar dikreditkan dari mutasi. */
+      dikreditkanPada: v.optional(v.number()),
+      dikreditkanOleh: v.optional(v.id("users")),
+      jurnalGroupId: v.optional(v.string()),
       nomorReferensi: v.string(),
     })
       .index("by_dana", ["danaId"])
@@ -2066,7 +2072,7 @@ const schema = defineSchema(
      */
     withdrawals: defineTable({
       danaId: v.id("users"),
-      /** Rupiah bulat — jumlah penarikan. */
+      /** Rupiah bulat — jumlah penarikan bruto. */
       jumlah: v.number(),
       /** Nama bank tujuan (mis. BCA). */
       namaBank: v.string(),
@@ -2077,8 +2083,19 @@ const schema = defineSchema(
         v.literal("diproses"),
         v.literal("ditolak"),
       ),
+      /** Jalur pembayaran. Otomatis ditutup; manual diproses admin. */
+      jalur: v.optional(v.union(v.literal("manual"), v.literal("otomatis"))),
+      /** Snapshot biaya 5% saat permintaan dibuat, bukan tarif saat diproses. */
+      biayaPencairan: v.optional(v.number()),
+      jumlahBersih: v.optional(v.number()),
       /** Wajib diisi admin saat menolak. */
       catatanAdmin: v.optional(v.string()),
+      /** Jejak transfer keluar manual yang dilakukan admin. */
+      referensiTransfer: v.optional(v.string()),
+      buktiTransferId: v.optional(v.id("_storage")),
+      diprosesPada: v.optional(v.number()),
+      diprosesOleh: v.optional(v.id("users")),
+      jurnalGroupId: v.optional(v.string()),
       nomorReferensi: v.string(),
     })
       .index("by_dana", ["danaId"])

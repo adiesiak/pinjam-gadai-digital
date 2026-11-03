@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import {
+  Banknote,
   Coins,
   Copy,
   GitCompareArrows,
@@ -33,9 +34,10 @@ import { DataUjiPanel } from "./DataUjiPanel";
 import { PratinjauAktifPanel } from "./PratinjauAktifPanel";
 import { RekonsiliasiPendana } from "./RekonsiliasiPendana";
 import { RekonsiliasiSetoranPendana } from "./RekonsiliasiSetoranPendana";
+import { PenarikanPendanaPanel } from "./PenarikanPendanaPanel";
 
 /**
- * PENDANA — empat tab utama, satu tempat.
+ * PENDANA — lima tab utama, satu tempat.
  *
  * 1. Manajemen Akun & Hak Akses — buat pendana baru, beri akses per email,
  *    kelola kode akses bersama/tamu, daftar akun pendana & pemantau (beserta
@@ -43,9 +45,11 @@ import { RekonsiliasiSetoranPendana } from "./RekonsiliasiSetoranPendana";
  *    pratinjau yang sedang berjalan.
  * 2. Pencatatan Transfer Keuntungan — catat transfer keuntungan yang sudah
  *    dikirim di luar sistem (nominal dihitung server).
- * 3. Rekonsiliasi Setoran — cocokkan bukti transfer dengan mutasi bank tanpa
- *    mengubah saldo atau status setoran.
- * 4. Rekonsiliasi & Auditing Pendana — bandingkan posisi panel dengan rekap
+ * 3. Rekonsiliasi Setoran — cocokkan bukti transfer dengan mutasi bank lalu
+ *    kreditkan saldo pendana dalam satu jurnal.
+ * 4. Penarikan Pendana — proses transfer keluar manual dengan referensi dan
+ *    bukti; jalur otomatis tetap ditutup.
+ * 5. Rekonsiliasi & Auditing Pendana — bandingkan posisi panel dengan rekap
  *    ruang pendana.
  *
  * Semua binding data Convex tetap: `aksesBersama.statusKodeBersama`,
@@ -482,6 +486,9 @@ export function AksesPenyediaDanaPanel() {
         <TabsTrigger value="setoran" className="gap-2 text-xs sm:text-sm">
           <Receipt className="size-3.5" /> Rekonsiliasi Setoran
         </TabsTrigger>
+        <TabsTrigger value="penarikan" className="gap-2 text-xs sm:text-sm">
+          <Banknote className="size-3.5" /> Penarikan Pendana
+        </TabsTrigger>
         <TabsTrigger value="rekon" className="gap-2 text-xs sm:text-sm">
           <GitCompareArrows className="size-3.5" /> Rekonsiliasi &amp; Auditing Pendana
         </TabsTrigger>
@@ -498,6 +505,9 @@ export function AksesPenyediaDanaPanel() {
       </TabsContent>
       <TabsContent value="setoran" className="mt-0">
         <RekonsiliasiSetoranPendana />
+      </TabsContent>
+      <TabsContent value="penarikan" className="mt-0">
+        <PenarikanPendanaPanel />
       </TabsContent>
       <TabsContent value="rekon" className="mt-0">
         <RekonsiliasiPendana />

@@ -144,7 +144,12 @@ export function AjukanPenempatan({ className }: { className?: string }) {
   const bolehSetor = persetujuan !== undefined && !persetujuan.perluSetuju;
   const nominal = Number(jumlah.replace(/\D/g, "")) || 0;
   const daftar = setoran ?? [];
-  const menunggu = daftar.filter((d) => d.status === "menunggu_verifikasi").length;
+  const menunggu = daftar.filter(
+    (d) =>
+      d.status === "menunggu_verifikasi" &&
+      d.statusPencocokan !== "ditolak" &&
+      d.statusPencocokan !== "dicocokkan",
+  ).length;
 
   const reset = () => {
     setJumlah("");
@@ -187,7 +192,7 @@ export function AjukanPenempatan({ className }: { className?: string }) {
         tanggalTransfer: tanggalKeMs(tanggal),
         buktiPembayaranId,
       });
-      toast.success("Setoran dikirim. Admin mencocokkan bukti; saldo belum bertambah sampai jalur pembayaran aktif.");
+      toast.success("Setoran dikirim. Admin mencocokkan mutasi lalu mengkreditkan saldo pendana.");
       setBuka(false);
       reset();
     } catch (error) {
@@ -216,11 +221,16 @@ export function AjukanPenempatan({ className }: { className?: string }) {
           </h2>
           <p className="mt-1 text-xs leading-6 text-slate-600">
             Setor dana, unggah bukti transfer, lalu admin mencocokkan mutasinya.
-            Pencocokan hanya menyimpan jejak bukti; saldo pendana belum bertambah
-            sampai jalur pembayaran aktif. Setelah dana dikreditkan, penempatan
-            berjalan sebagai siklus 30 hari dengan Imbal Hasil tetap. Pokok dan
-            imbal baru bisa dicairkan pada akhir siklus, walaupun peminjam
-            melunasi lebih awal.
+            Setelah mutasi cocok, saldo pendana dikreditkan. Alokasi ke pinjaman
+            mengikuti alur terpisah; siklus 30 hari baru lahir dari alokasi, bukan
+            dari pengajuan setoran ini.
+          </p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5 text-slate-500">
+            <span className="font-medium text-success-foreground">
+              Jalur manual aktif
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>Jalur otomatis dimatikan sementara</span>
           </p>
           {menunggu > 0 && (
             <p className="mt-1.5 text-xs font-medium text-amber-800">
@@ -290,11 +300,13 @@ export function AjukanPenempatan({ className }: { className?: string }) {
         <ul className="mt-4 divide-y divide-slate-200 border-t border-slate-200">
           {daftar.slice(0, 5).map((d) => {
             const status: StatusTampil =
-              d.statusPencocokan === "ditolak"
-                ? "ditolak"
-                : d.statusPencocokan === "dicocokkan"
-                  ? "dicocokkan"
-                  : (d.status as StatusSetoran);
+              d.status === "terverifikasi"
+                ? "terverifikasi"
+                : d.statusPencocokan === "ditolak"
+                  ? "ditolak"
+                  : d.statusPencocokan === "dicocokkan"
+                    ? "dicocokkan"
+                    : (d.status as StatusSetoran);
             return (
               <li
                 key={d._id}
@@ -324,12 +336,15 @@ export function AjukanPenempatan({ className }: { className?: string }) {
                     {LABEL_STATUS[status]}
                   </span>
                 </span>
-                {d.statusPencocokan === "dicocokkan" && (
+                {d.dikreditkanPada !== null ? (
                   <p className="basis-full text-[11px] leading-5 text-slate-600">
-                    Bukti sudah dicocokkan. Saldo belum bertambah sampai jalur
-                    pembayaran aktif.
+                    Saldo sudah dikreditkan setelah mutasi cocok.
                   </p>
-                )}
+                ) : d.statusPencocokan === "dicocokkan" ? (
+                  <p className="basis-full text-[11px] leading-5 text-slate-600">
+                    Bukti sudah dicocokkan dan menunggu kredit saldo.
+                  </p>
+                ) : null}
                 {d.catatanAdmin !== null && d.catatanAdmin.trim() !== "" && (
                   <p className="basis-full text-[11px] leading-5 text-slate-600">
                     Catatan admin: {d.catatanAdmin}
@@ -352,9 +367,9 @@ export function AjukanPenempatan({ className }: { className?: string }) {
           <DialogHeader>
             <DialogTitle>Ajukan setoran penempatan</DialogTitle>
             <DialogDescription>
-              Dana belum masuk saldo pendana. Admin mencocokkan bukti lebih dulu;
-              kredit saldo menunggu jalur pembayaran aktif. Simpan bukti transfer
-              Anda; nomor referensi dipakai admin untuk mencocokkan.
+              Kirim bukti transfer. Admin mencocokkan mutasi bank dan mengkreditkan
+              saldo pendana setelah nominal serta referensinya cocok. Jalur
+              otomatis dimatikan sementara. Simpan bukti transfer Anda.
             </DialogDescription>
           </DialogHeader>
 

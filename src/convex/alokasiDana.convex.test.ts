@@ -32,7 +32,7 @@ async function siapkanPengguna(
 }
 
 describe("alur penyedia dana — pinjaman tunai", () => {
-  it("menolak setoran, alokasi, pelunasan, dan penarikan tanpa mengubah ledger atau status", async () => {
+  it("menolak alokasi, pelunasan, dan gadai tanpa mengubah ledger atau status", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(
       t,
@@ -98,28 +98,10 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       "disetujui",
     );
 
-    // Penerimaan bukti deposit tetap tertutup sampai gerbang admin dibuka; semua perintah uang ditolak tanpa ledger.
-    const [depositId, withdrawalId, pawnId] = await t.run(async (ctx) => {
-      const danaId = (await ctx.db.query("users").collect()).find(
-        (user) => user.email === "dana-alur@pindai.test",
-      )?._id;
-      if (danaId === undefined) throw new Error("Akun dana uji tidak ditemukan.");
-      const depositId = await ctx.db.insert("deposits", {
-        danaId,
-        jumlah: 2_000_000,
-        referensiTransfer: "TRF-ALUR-001",
-        status: "menunggu_verifikasi",
-        nomorReferensi: "DEP-ALUR-001",
-      });
-      const withdrawalId = await ctx.db.insert("withdrawals", {
-        danaId,
-        jumlah: 500_000,
-        namaBank: "BCA",
-        nomorRekening: "1234567890",
-        status: "menunggu_proses",
-        nomorReferensi: "WDR-ALUR-001",
-      });
-      const pawnId = await ctx.db.insert("pawns", {
+    // Alokasi, pelunasan, dan gadai tetap ditutup paymentGuard. Jalur setoran
+    // dan penarikan manual diuji terpisah di bawah.
+    const pawnId = await t.run(async (ctx) =>
+      ctx.db.insert("pawns", {
         userId: peminjamId,
         deskripsiBarang: "Barang uji gadai",
         kategori: "Elektronik",
@@ -131,24 +113,11 @@ describe("alur penyedia dana — pinjaman tunai", () => {
         pokokGadai: 100_000,
         sisaPokok: 100_000,
         persenSewaModal: 5,
-      });
-      return [depositId, withdrawalId, pawnId] as const;
-    });
+      }),
+    );
     const ledgerCountBefore = await t.run(async (ctx) =>
       (await ctx.db.query("ledger_entries").collect()).length,
     );
-    await expect(
-      dana.mutation(api.alokasiDana.requestDeposit, {
-        jumlah: 2_000_000,
-        referensiTransfer: "TRF-ALUR-002",
-        metodePembayaran: "transfer",
-        tanggalTransfer: Date.now(),
-        buktiPembayaranId: await t.run((ctx) => ctx.storage.store(new Blob(["bukti"]))),
-      }),
-    ).rejects.toThrow("Penerimaan setoran penyedia dana belum diaktifkan tim operasional.");
-    await expect(
-      admin.mutation(api.admin.confirmDeposit, { depositId }),
-    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
     await expect(
       dana.mutation(api.alokasiDana.allocateFunding, {
         loanId,
@@ -157,16 +126,6 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
     await expect(
       peminjam.mutation(api.loans.repayLoan, { loanId }),
-    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
-    await expect(
-      dana.mutation(api.alokasiDana.requestWithdrawal, {
-        jumlah: 500_000,
-        namaBank: "BCA",
-        nomorRekening: "1234567890",
-      }),
-    ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
-    await expect(
-      admin.mutation(api.admin.processWithdrawal, { withdrawalId }),
     ).rejects.toThrow("penyedia pembayaran belum dipilih atau terintegrasi");
     await expect(
       peminjam.mutation(api.gadai.bayarGadai, {
@@ -190,15 +149,11 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     const ledgerCountAfter = await t.run(async (ctx) =>
       (await ctx.db.query("ledger_entries").collect()).length,
     );
-    const depositAfter = await t.run((ctx) => ctx.db.get(depositId));
-    const withdrawalAfter = await t.run((ctx) => ctx.db.get(withdrawalId));
     const pawnAfter = await t.run((ctx) => ctx.db.get(pawnId));
     const pawnPaymentsAfter = await t.run((ctx) =>
       ctx.db.query("pawnPayments").withIndex("by_pawn", (q) => q.eq("pawnId", pawnId)).collect(),
     );
     expect(ledgerCountAfter).toBe(ledgerCountBefore);
-    expect(depositAfter?.status).toBe("menunggu_verifikasi");
-    expect(withdrawalAfter?.status).toBe("menunggu_proses");
     expect(pawnAfter?.status).toBe("aktif");
     expect(pawnAfter?.sisaPokok).toBe(100_000);
     expect(pawnPaymentsAfter).toHaveLength(0);
@@ -210,6 +165,135 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     });
     expect(await admin.query(api.admin.ledgerSummary, {})).toMatchObject({
       entryCount: ledgerCountBefore,
+      seimbang: true,
+    });
+  });
+
+  it("mengkredit setoran manual dan memproses penarikan manual dengan jurnal seimbang", async () => {
+    const t = convexTest(schema, modules);
+    const { sesi: dana } = await siapkanPengguna(
+      t,
+      "dana-jalur-manual",
+      "dana-jalur-manual@pindai.test",
+      "dana",
+    );
+    const { sesi: admin } = await siapkanPengguna(
+      t,
+      "admin-jalur-manual",
+      "admin-jalur-manual@pindai.test",
+      "admin",
+    );
+    const buktiMasuk = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["bukti setoran"], { type: "image/png" })),
+    );
+    const depositId = await t.run(async (ctx) => {
+      const danaId = (await ctx.db.query("users").collect()).find(
+        (user) => user.email === "dana-jalur-manual@pindai.test",
+      )?._id;
+      if (danaId === undefined) throw new Error("Akun dana uji tidak ditemukan.");
+      return ctx.db.insert("deposits", {
+        danaId,
+        jumlah: 2_000_000,
+        referensiTransfer: "TRF-MANUAL-001",
+        status: "menunggu_verifikasi",
+        metodePembayaran: "transfer",
+        jalur: "manual",
+        buktiPembayaranId: buktiMasuk,
+        nomorReferensi: "DEP-MANUAL-001",
+      });
+    });
+
+    await admin.mutation(api.admin.matchDepositEvidence, {
+      depositId,
+      referensiMutasi: "MUTASI-MASUK-001",
+      jumlahMutasi: 2_000_000,
+    });
+    const deposit = await t.run((ctx) => ctx.db.get(depositId));
+    expect(deposit).toMatchObject({
+      status: "terverifikasi",
+      statusPencocokan: "dicocokkan",
+      referensiMutasi: "MUTASI-MASUK-001",
+      dikreditkanPada: expect.any(Number),
+      jurnalGroupId: expect.any(String),
+    });
+    expect(await dana.query(api.alokasiDana.myWallet, {})).toMatchObject({
+      saldo: 2_000_000,
+      terkunci: 0,
+      tertahanPenarikan: 0,
+      bisaDitarik: 2_000_000,
+    });
+
+    // Rute otomatis tetap tertutup dan tidak membuat baris baru.
+    const depositCount = await t.run(async (ctx) =>
+      (await ctx.db.query("deposits").collect()).length,
+    );
+    await expect(
+      dana.mutation(api.alokasiDana.requestDepositOtomatis, { jumlah: 1_000_000 }),
+    ).rejects.toThrow("Jalur otomatis dimatikan sementara");
+    await expect(
+      dana.mutation(api.alokasiDana.requestWithdrawalOtomatis, {
+        jumlah: 500_000,
+        namaBank: "BCA",
+        nomorRekening: "1234567890",
+      }),
+    ).rejects.toThrow("Jalur otomatis dimatikan sementara");
+    expect(
+      await t.run(async (ctx) => (await ctx.db.query("deposits").collect()).length),
+    ).toBe(depositCount);
+
+    await dana.mutation(api.alokasiDana.requestWithdrawal, {
+      jumlah: 500_000,
+      namaBank: "BCA",
+      nomorRekening: "1234567890",
+    });
+    const withdrawal = (await dana.query(api.alokasiDana.myWithdrawals, {}))[0];
+    expect(withdrawal).toMatchObject({
+      jumlah: 500_000,
+      biayaPencairan: 25_000,
+      jumlahBersih: 475_000,
+      status: "menunggu_proses",
+      jalur: "manual",
+    });
+    // Permintaan yang masih mengantre sudah mereservasi saldo.
+    expect(await dana.query(api.alokasiDana.myWallet, {})).toMatchObject({
+      saldo: 2_000_000,
+      tertahanPenarikan: 500_000,
+      bisaDitarik: 1_500_000,
+    });
+
+    const buktiKeluar = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["bukti transfer keluar"], { type: "image/png" })),
+    );
+    await admin.mutation(api.admin.processWithdrawal, {
+      withdrawalId: withdrawal._id,
+      referensiTransfer: "TRF-KELUAR-001",
+      buktiTransferId: buktiKeluar,
+    });
+    const withdrawalAfter = await t.run((ctx) => ctx.db.get(withdrawal._id));
+    expect(withdrawalAfter).toMatchObject({
+      status: "diproses",
+      referensiTransfer: "TRF-KELUAR-001",
+      diprosesPada: expect.any(Number),
+      jurnalGroupId: expect.any(String),
+    });
+    expect(await dana.query(api.alokasiDana.myWallet, {})).toMatchObject({
+      saldo: 1_500_000,
+      tertahanPenarikan: 0,
+      bisaDitarik: 1_500_000,
+    });
+
+    const ledger = await t.run((ctx) => ctx.db.query("ledger_entries").collect());
+    expect(ledger).toHaveLength(4);
+    expect(
+      ledger.filter((row) => row.akun === "platform:DANA_CLEARING"),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ jenis: "deposit", arah: "kredit", jumlah: 2_000_000 }),
+        expect.objectContaining({ jenis: "withdrawal", arah: "debit", jumlah: 500_000 }),
+      ]),
+    );
+    expect(await admin.query(api.admin.ledgerSummary, {})).toMatchObject({
+      entryCount: 4,
       seimbang: true,
     });
   });
@@ -252,6 +336,53 @@ describe("alur penyedia dana — pinjaman tunai", () => {
       dicocokkanOleh: expect.any(String),
     });
     expect(ledger).toHaveLength(0);
+  });
+
+  it("mengkredit setoran lama tanpa bukti hanya lewat referensi mutasi admin", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: danaId, sesi: dana } = await siapkanPengguna(
+      t,
+      "dana-setoran-lama",
+      "dana-setoran-lama@pindai.test",
+      "dana",
+    );
+    const { sesi: admin } = await siapkanPengguna(
+      t,
+      "admin-setoran-lama",
+      "admin-setoran-lama@pindai.test",
+      "admin",
+    );
+    const depositId = await t.run((ctx) =>
+      ctx.db.insert("deposits", {
+        danaId,
+        jumlah: 250_000,
+        referensiTransfer: "TRF-LAMA-001",
+        status: "menunggu_verifikasi",
+        nomorReferensi: "DEP-LAMA-001",
+      }),
+    );
+
+    await admin.mutation(api.admin.creditLegacyDeposit, {
+      depositId,
+      referensiMutasi: "MUTASI-LAMA-001",
+    });
+    expect(await dana.query(api.alokasiDana.myWallet, {})).toMatchObject({
+      saldo: 250_000,
+      bisaDitarik: 250_000,
+    });
+    const deposit = await t.run((ctx) => ctx.db.get(depositId));
+    expect(deposit).toMatchObject({
+      status: "terverifikasi",
+      statusPencocokan: "dicocokkan",
+      referensiMutasi: "MUTASI-LAMA-001",
+      dikreditkanPada: expect.any(Number),
+    });
+    const ledger = await t.run((ctx) => ctx.db.query("ledger_entries").collect());
+    expect(ledger).toHaveLength(2);
+    expect(await admin.query(api.admin.ledgerSummary, {})).toMatchObject({
+      entryCount: 2,
+      seimbang: true,
+    });
   });
 
   it("menghubungkan posisi pendana lintas model: penetapan pendana tampil di portofolio, penggantian memindahkannya", async () => {

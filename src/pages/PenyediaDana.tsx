@@ -56,6 +56,7 @@ import {
   CATATAN_INTERNAL_SINGKAT,
 } from "@/lib/teksRisikoPendanaan";
 import { AjukanPenempatan } from "@/components/penyediaDana/AjukanPenempatan";
+import { PenarikanSaldoPendana } from "@/components/penyediaDana/PenarikanSaldoPendana";
 import { BagianLaporan } from "@/pages/penyedia-dana/bagian-laporan";
 import { TabLokasi } from "@/pages/penyedia-dana/tab-lokasi";
 import { RekapPendanaUnduhan } from "@/components/penyediaDana/RekapPendanaUnduhan";
@@ -2647,6 +2648,12 @@ function IsiRuang() {
             {isPendana && (
               <BatasBagian nama="pengajuan penempatan">
                 <AjukanPenempatan />
+              </BatasBagian>
+            )}
+
+            {isPendana && (
+              <BatasBagian nama="penarikan saldo">
+                <PenarikanSaldoPendana />
               </BatasBagian>
             )}
 

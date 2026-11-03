@@ -19,6 +19,10 @@ import {
 import { formatRupiah, type Rupiah } from "../lib/money";
 import { kodeTanggalWIB } from "../lib/waktu";
 import { hitungBiayaPencairan } from "../lib/withdrawal";
+import {
+  JALUR_OTOMATIS_AKTIF,
+  PESAN_JALUR_OTOMATIS,
+} from "../lib/jalurPembayaran";
 import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import {
   PERSEN_IMBAL_PENDANA,
@@ -30,14 +34,14 @@ import {
   AKUN_PLATFORM_DIRECT_REVENUE,
   akunDompetDana,
   appendJournal,
-  danaWalletBalance,
 } from "./ledger";
 import { requireAdminSession, requireBukanPratinjau } from "./adminAuthz";
 import { audit, getConfig } from "./system";
 import { rejectUnverifiedMoneyMovement } from "./paymentGuard";
 import { pastikanAngsuran } from "./angsuranJadwal";
 import { beriTiketPendanaan } from "./doorprize";
-import { buatSiklusUntukAlokasi, kewajibanSiklusAktif } from "./siklusPendana";
+import { buatSiklusUntukAlokasi } from "./siklusPendana";
+import { rincianSaldoPendana } from "./saldoPendana";
 import { potonganPutaran, sisaHariSiklus } from "../lib/siklusPendana";
 import { bagiMargin } from "../lib/kebijakanPinjaman";
 import { RISK_TEXT_VERSION } from "../lib/teksRisikoPendanaan";
@@ -349,11 +353,28 @@ export const requestDeposit = mutation({
       jumlah: args.jumlah,
       referensiTransfer: ref,
       metodePembayaran: args.metodePembayaran,
+      jalur: "manual",
       tanggalTransfer: args.tanggalTransfer,
       buktiPembayaranId: args.buktiPembayaranId,
       status: "menunggu_verifikasi",
       nomorReferensi: referenceNumber("DEP"),
     });
+  },
+});
+
+/**
+ * Rute setoran otomatis. Sengaja fail-closed: tidak membuat setoran, tidak
+ * mengubah saldo, dan tidak menulis ledger sampai adapter penyedia terpasang.
+ */
+export const requestDepositOtomatis = mutation({
+  args: { jumlah: v.number() },
+  handler: async (ctx) => {
+    await requireBukanPratinjau(ctx);
+    await requireDana(ctx);
+    if (!JALUR_OTOMATIS_AKTIF) throw new Error(PESAN_JALUR_OTOMATIS);
+    throw new Error(
+      "Adapter penyedia pembayaran otomatis belum terpasang; setoran tidak dibuat.",
+    );
   },
 });
 
@@ -378,6 +399,7 @@ export const myDeposits = query({
         metodePembayaran: d.metodePembayaran ?? null,
         tanggalTransfer: d.tanggalTransfer ?? null,
         catatanAdmin: d.catatanAdmin ?? null,
+        dikreditkanPada: d.dikreditkanPada ?? null,
         nomorReferensi: d.nomorReferensi,
       }));
   },
@@ -391,7 +413,7 @@ export const myWallet = query({
   args: {},
   handler: async (ctx) => {
     const { userId } = await requireDana(ctx);
-    const saldo = await danaWalletBalance(ctx, userId);
+    const rincian = await rincianSaldoPendana(ctx, userId);
 
     const fundings = await ctx.db
       .query("fundings")
@@ -431,13 +453,8 @@ export const myWallet = query({
     const imbalHasilDiharapkan =
       active.reduce((acc, f) => acc + f.imbalHasil, 0) +
       kreditAktif.reduce((acc, f) => acc + f.imbalHasil, 0);
-    // Dana yang masih terikat siklus berjalan tidak boleh ditarik lebih awal.
-    const terkunci = await kewajibanSiklusAktif(ctx, userId);
-
     return {
-      saldo,
-      terkunci,
-      bisaDitarik: Math.max(0, saldo - terkunci),
+      ...rincian,
       posisiAlokasi: active.length + kreditAktif.length,
       danaBekerja,
       imbalHasilDiharapkan,
@@ -665,16 +682,19 @@ export const allocateFunding = mutation({
     // 3. Saldo dompet dari ledger — tidak boleh minus, dan dana yang masih
     //    terikat siklus berjalan tidak boleh ditempatkan dua kali menjadi
     //    siklus baru (satu rupiah tidak boleh punya dua hak imbal).
-    const saldo = await danaWalletBalance(ctx, userId);
-    const terkunci = await kewajibanSiklusAktif(ctx, userId);
-    const tersedia = saldo - terkunci;
-    if (tersedia < args.jumlah) {
+    const { saldo, terkunci, tertahanPenarikan, bisaDitarik } =
+      await rincianSaldoPendana(ctx, userId);
+    if (bisaDitarik < args.jumlah) {
       throw new Error(
         `Saldo tidak cukup. Saldo bisa ditempatkan: ${formatRupiah(
-          Math.max(0, tersedia),
+          bisaDitarik,
         )}, alokasi: ${formatRupiah(args.jumlah)}${
           terkunci > 0
             ? `. Saldo dompet ${formatRupiah(saldo)}, terkunci di siklus berjalan ${formatRupiah(terkunci)}`
+            : ""
+        }${
+          tertahanPenarikan > 0
+            ? `, tertahan untuk penarikan ${formatRupiah(tertahanPenarikan)}`
             : ""
         }.`,
       );
@@ -945,7 +965,6 @@ export const requestWithdrawal = mutation({
   returns: v.object({ nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     const { userId } = await requireDana(ctx);
-    rejectUnverifiedMoneyMovement();
     await requireWaOtpIfEnabled(ctx, userId);
 
     if (!Number.isSafeInteger(args.jumlah) || args.jumlah <= 0) {
@@ -960,23 +979,27 @@ export const requestWithdrawal = mutation({
       throw new Error("Nomor rekening harus 6–20 digit angka.");
     }
 
-    // Saldo dicek di sini untuk umpan balik cepat; pemotongan final terjadi
-    // saat admin memproses (jurnal) dan divalidasi ulang pada momen itu.
-    const saldo = await danaWalletBalance(ctx, userId);
-    // Dana yang masih terikat siklus 30 hari tidak boleh ditarik lebih awal.
-    const terkunci = await kewajibanSiklusAktif(ctx, userId);
-    const tersedia = saldo - terkunci;
-    if (args.jumlah > tersedia) {
+    // Saldo dicek di sini dan divalidasi ulang saat admin memproses. Penarikan
+    // yang masih mengantre ikut mengurangi `bisaDitarik`, sehingga satu rupiah
+    // tidak bisa dijanjikan keluar dua kali.
+    const { saldo, terkunci, tertahanPenarikan, bisaDitarik } =
+      await rincianSaldoPendana(ctx, userId);
+    if (args.jumlah > bisaDitarik) {
       throw new Error(
-        `Saldo yang bisa ditarik ${formatRupiah(Math.max(0, tersedia))}. ` +
+        `Saldo yang bisa ditarik ${formatRupiah(bisaDitarik)}. ` +
           `Saldo dompet ${formatRupiah(saldo)}${
             terkunci > 0
               ? `, terkunci di siklus berjalan ${formatRupiah(terkunci)}`
+              : ""
+          }${
+            tertahanPenarikan > 0
+              ? `, tertahan untuk penarikan ${formatRupiah(tertahanPenarikan)}`
               : ""
           }.`,
       );
     }
 
+    const biaya = hitungBiayaPencairan(args.jumlah);
     const nomorReferensi = referenceNumber("WDR");
     await ctx.db.insert("withdrawals", {
       danaId: userId,
@@ -984,9 +1007,31 @@ export const requestWithdrawal = mutation({
       namaBank: bank,
       nomorRekening: rek,
       status: "menunggu_proses",
+      jalur: "manual",
+      biayaPencairan: biaya.biayaPencairan,
+      jumlahBersih: biaya.jumlahBersih,
       nomorReferensi,
     });
     return { nomorReferensi };
+  },
+});
+
+/**
+ * Rute penarikan otomatis. Fail-closed: tidak membuat permintaan, tidak
+ * mengunci saldo, dan tidak menulis ledger sampai payout provider terpasang.
+ */
+export const requestWithdrawalOtomatis = mutation({
+  args: {
+    jumlah: v.number(),
+    namaBank: v.string(),
+    nomorRekening: v.string(),
+  },
+  handler: async (ctx) => {
+    await requireDana(ctx);
+    if (!JALUR_OTOMATIS_AKTIF) throw new Error(PESAN_JALUR_OTOMATIS);
+    throw new Error(
+      "Adapter payout otomatis belum terpasang; penarikan tidak dibuat.",
+    );
   },
 });
 
@@ -1017,17 +1062,27 @@ export const myWithdrawals = query({
       .collect();
     return rows
       .sort((a, b) => b._creationTime - a._creationTime)
-      .map((w) => ({
-        _id: w._id,
-        _creationTime: w._creationTime,
-        nomorReferensi: w.nomorReferensi,
-        jumlah: w.jumlah,
-        ...hitungBiayaPencairan(w.jumlah),
-        namaBank: w.namaBank,
-        nomorRekening: w.nomorRekening,
-        status: w.status,
-        catatanAdmin: w.catatanAdmin ?? null,
-      }));
+      .map((w) => {
+        const biaya = hitungBiayaPencairan(w.jumlah);
+        const biayaPencairan = w.biayaPencairan ?? biaya.biayaPencairan;
+        return {
+          _id: w._id,
+          _creationTime: w._creationTime,
+          nomorReferensi: w.nomorReferensi,
+          jumlah: w.jumlah,
+          /** Snapshot biaya saat permintaan; baris lama memakai tarif berlaku. */
+          jumlahBruto: w.jumlah,
+          biayaPencairan,
+          jumlahBersih: w.jumlahBersih ?? w.jumlah - biayaPencairan,
+          namaBank: w.namaBank,
+          nomorRekening: w.nomorRekening,
+          status: w.status,
+          jalur: w.jalur ?? "manual",
+          referensiTransfer: w.referensiTransfer ?? null,
+          diprosesPada: w.diprosesPada ?? null,
+          catatanAdmin: w.catatanAdmin ?? null,
+        };
+      });
   },
 });
 
@@ -1507,17 +1562,21 @@ export const alokasiKreditBarang = mutation({
       );
     }
 
-    const saldo = await danaWalletBalance(ctx, userId);
-    // Dana yang sudah terikat siklus 30 hari tidak boleh dipakai lagi di sini:
-    // satu rupiah hanya boleh menanggung satu penempatan.
-    const terkunci = await kewajibanSiklusAktif(ctx, userId);
-    if (saldo - terkunci < args.jumlah) {
+    const { saldo, terkunci, tertahanPenarikan, bisaDitarik } =
+      await rincianSaldoPendana(ctx, userId);
+    // Dana yang sudah terikat siklus 30 hari atau sudah dipesan untuk penarikan
+    // tidak boleh dipakai lagi di sini: satu rupiah satu penempatan.
+    if (bisaDitarik < args.jumlah) {
       throw new Error(
         `Saldo tidak cukup. Saldo bisa ditempatkan: ${formatRupiah(
-          Math.max(0, saldo - terkunci),
+          bisaDitarik,
         )}, alokasi: ${formatRupiah(args.jumlah)}${
           terkunci > 0
             ? `. Saldo dompet ${formatRupiah(saldo)}, terkunci di siklus berjalan ${formatRupiah(terkunci)}`
+            : ""
+        }${
+          tertahanPenarikan > 0
+            ? `, tertahan untuk penarikan ${formatRupiah(tertahanPenarikan)}`
             : ""
         }.`,
       );

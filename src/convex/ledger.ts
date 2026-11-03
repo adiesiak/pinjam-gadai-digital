@@ -7,6 +7,16 @@ import { formatRupiah } from "../lib/money";
 export const PREFIX_AKUN_DANA = "dana:WALLET:";
 
 /**
+ * Akun kliring khusus arus setoran/penarikan pendana.
+ *
+ * Bukan kas operasional dan bukan pendapatan: kredit mencatat dana masuk dari
+ * pendana, debit mencatat dana keluar. Saldo dompet pendana sendiri dihitung
+ * dari akun `dana:WALLET:<id>` (debit menambah, kredit mengurangi), sehingga
+ * jurnal setoran mendebit dompet dan jurnal penarikan mengkreditnya.
+ */
+export const AKUN_DANA_CLEARING = "platform:DANA_CLEARING";
+
+/**
  * Akun pendapatan margin platform dari selisih bunga nasabah dan hak pendana.
  *
  * Dipisah dari `platform:FEE` supaya biaya layanan tidak tercampur dengan

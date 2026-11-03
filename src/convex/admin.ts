@@ -13,11 +13,15 @@ import {
 import { hitungSimulasiBulanan, TENOR_BULANAN_OPTIONS } from "../lib/bulanan";
 import { tarifBulananDariConfig } from "../lib/system-config";
 import {
+  AKUN_DANA_CLEARING,
   AKUN_PLATFORM_DIRECT_REVENUE,
   AKUN_PLATFORM_SPREAD,
+  akunDompetDana,
   ledgerTotals,
   appendJournal,
 } from "./ledger";
+import { hitungBiayaPencairan } from "../lib/withdrawal";
+import { rincianSaldoPendana } from "./saldoPendana";
 import { JournalSpec } from "./ledger";
 import { formatRupiah } from "../lib/money";
 import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
@@ -1426,7 +1430,7 @@ export const adminLoanQuote = query({
   },
 });
 
-/** Antrean bukti setoran penyedia dana untuk pencocokan metadata saja. */
+/** Antrean bukti setoran penyedia dana yang siap dicocokkan dan dikreditkan. */
 export const pendingDepositEvidence = query({
   args: {},
   handler: async (ctx) => {
@@ -1455,7 +1459,7 @@ export const pendingDepositEvidence = query({
   },
 });
 
-/** Antrean setoran penyedia dana lama tanpa bukti unggahan. */
+/** Antrean setoran lama tanpa bukti unggahan; kredit lewat referensi mutasi. */
 export const pendingDeposits = query({
   args: {},
   handler: async (ctx) => {
@@ -1498,13 +1502,18 @@ export const pendingWithdrawals = query({
     const result = [];
     for (const w of rows.sort((a, b) => b._creationTime - a._creationTime)) {
       const akunDana = await ctx.db.get(w.danaId);
+      const biaya = hitungBiayaPencairan(w.jumlah);
+      const biayaPencairan = w.biayaPencairan ?? biaya.biayaPencairan;
       result.push({
         _id: w._id,
         _creationTime: w._creationTime,
         nomorReferensi: w.nomorReferensi,
         jumlah: w.jumlah,
+        biayaPencairan,
+        jumlahBersih: w.jumlahBersih ?? w.jumlah - biayaPencairan,
         namaBank: w.namaBank,
         nomorRekening: w.nomorRekening,
+        jalur: w.jalur ?? "manual",
         emailDana: akunDana?.email ?? null,
       });
     }
@@ -1512,15 +1521,95 @@ export const pendingWithdrawals = query({
   },
 });
 
-/**
- * Proses penarikan — jurnal seimbang: kredit dompet penyedia dana (saldo turun),
- * debit kas platform (uang keluar). Saldo divalidasi ulang saat eksekusi.
- */
-export const processWithdrawal = mutation({
-  args: { withdrawalId: v.id("withdrawals") },
+/** URL unggah bukti transfer keluar untuk pemrosesan penarikan manual. */
+export const generateWithdrawalProofUploadUrl = mutation({
+  args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    rejectUnverifiedMoneyMovement();
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Proses penarikan MANUAL — jurnal seimbang: debit saldo pendana sebesar
+ * nominal bruto, kredit kas platform sebesar nominal bersih, dan kredit
+ * pendapatan biaya pencairan. Referensi transfer keluar wajib diisi dan bukti
+ * transfer harus bisa dibuka; tanpa itu tidak ada klaim uang sudah keluar.
+ */
+export const processWithdrawal = mutation({
+  args: {
+    withdrawalId: v.id("withdrawals"),
+    referensiTransfer: v.string(),
+    buktiTransferId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const { userId: adminId, user: admin } = await requireAdmin(ctx);
+    const w = await ctx.db.get(args.withdrawalId);
+    if (w === null) throw new Error("Permintaan penarikan tidak ditemukan.");
+    if (w.status !== "menunggu_proses") {
+      throw new Error("Permintaan penarikan ini sudah diputuskan.");
+    }
+    if ((w.jalur ?? "manual") !== "manual") {
+      throw new Error("Permintaan ini memakai jalur otomatis; proses lewat adaptor payout.");
+    }
+    const referensi = args.referensiTransfer.trim();
+    if (referensi.length < 4 || referensi.length > 120) {
+      throw new Error("Referensi transfer keluar wajib 4–120 karakter.");
+    }
+    const buktiUrl = await ctx.storage.getUrl(args.buktiTransferId);
+    if (buktiUrl === null) {
+      throw new Error("Bukti transfer keluar tidak dapat dibuka.");
+    }
+
+    const saldo = await rincianSaldoPendana(ctx, w.danaId, {
+      kecualikanPenarikanId: w._id,
+    });
+    if (saldo.bisaDitarik < w.jumlah) {
+      throw new Error(
+        `Saldo pendana tidak cukup saat diproses. Tersedia ${formatRupiah(
+          saldo.bisaDitarik,
+        )}, diminta ${formatRupiah(w.jumlah)}.`,
+      );
+    }
+
+    const biaya = w.biayaPencairan ?? hitungBiayaPencairan(w.jumlah).biayaPencairan;
+    const jumlahBersih = w.jumlahBersih ?? w.jumlah - biaya;
+    if (
+      !Number.isSafeInteger(biaya) ||
+      !Number.isSafeInteger(jumlahBersih) ||
+      biaya < 0 ||
+      jumlahBersih <= 0 ||
+      biaya + jumlahBersih !== w.jumlah
+    ) {
+      throw new Error("Rincian biaya penarikan tidak valid; periksa data permintaan.");
+    }
+
+    const groupId = await appendJournal(ctx, {
+      jenis: "withdrawal",
+      keterangan: `Penarikan manual ${w.nomorReferensi} ke ${w.namaBank} ${w.nomorRekening} · ${referensi}`,
+      aktor: adminId,
+      lines: [
+        { akun: AKUN_DANA_CLEARING, arah: "debit", jumlah: w.jumlah },
+        { akun: akunDompetDana(w.danaId), arah: "kredit", jumlah: w.jumlah },
+      ],
+    });
+
+    await ctx.db.patch(w._id, {
+      status: "diproses",
+      referensiTransfer: referensi,
+      buktiTransferId: args.buktiTransferId,
+      diprosesPada: Date.now(),
+      diprosesOleh: adminId,
+      jurnalGroupId: groupId,
+    });
+    await audit(
+      ctx,
+      adminId,
+      admin.email ?? admin.name ?? "admin",
+      "penarikan_diproses",
+      w.nomorReferensi,
+      `${formatRupiah(w.jumlah)} bruto, biaya ${formatRupiah(biaya)}, bersih ${formatRupiah(jumlahBersih)}; ${referensi}.`,
+    );
   },
 });
 
@@ -1552,7 +1641,10 @@ export const rejectWithdrawal = mutation({
 });
 
 /**
- * Kompatibilitas API lama: sekarang hanya mencocokkan bukti, saldo tetap tidak berubah.
+ * Cocokkan bukti setoran MANUAL lalu kreditkan saldo pendana.
+ *
+ * Referensi mutasi dan nominal harus sama persis. Kredit dan perubahan status
+ * berada dalam satu mutation: bila jurnal gagal, setoran tetap di antrean.
  */
 export const matchDepositEvidence = mutation({
   args: {
@@ -1575,18 +1667,94 @@ export const matchDepositEvidence = mutation({
     if (!Number.isSafeInteger(args.jumlahMutasi) || args.jumlahMutasi !== deposit.jumlah) {
       throw new Error("Nominal mutasi wajib sama persis dengan nominal setoran.");
     }
+    const sekarang = Date.now();
+    const groupId = await appendJournal(ctx, {
+      jenis: "deposit",
+      keterangan: `Setoran manual ${deposit.nomorReferensi} diterima · ${reference}`,
+      aktor: userId,
+      lines: [
+        { akun: akunDompetDana(deposit.danaId), arah: "debit", jumlah: deposit.jumlah },
+        { akun: AKUN_DANA_CLEARING, arah: "kredit", jumlah: deposit.jumlah },
+      ],
+    });
     await ctx.db.patch(deposit._id, {
+      status: "terverifikasi",
       statusPencocokan: "dicocokkan",
       referensiMutasi: reference,
       jumlahMutasi: args.jumlahMutasi,
-      dicocokkanPada: Date.now(),
+      dicocokkanPada: sekarang,
       dicocokkanOleh: userId,
+      dikreditkanPada: sekarang,
+      dikreditkanOleh: userId,
+      jurnalGroupId: groupId,
     });
-    await audit(ctx, userId, admin.email ?? admin.name ?? "admin", "setoran_dana_dicocokkan", deposit.nomorReferensi, `${reference} · ${args.jumlahMutasi}; pencocokan metadata saja, saldo tidak berubah.`);
+    await audit(
+      ctx,
+      userId,
+      admin.email ?? admin.name ?? "admin",
+      "setoran_dana_dikreditkan",
+      deposit.nomorReferensi,
+      `${reference} · ${args.jumlahMutasi}; saldo pendana dikreditkan dan jurnal dicatat.`,
+    );
   },
 });
 
-/** Alias lama tetap tertutup: konfirmasi tidak boleh mengkreditkan saldo. */
+/** Kredit setoran lama yang tidak punya bukti unggahan (catatan admin). */
+export const creditLegacyDeposit = mutation({
+  args: {
+    depositId: v.id("deposits"),
+    referensiMutasi: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { userId, user: admin } = await requireAdmin(ctx);
+    const deposit = await ctx.db.get(args.depositId);
+    if (
+      deposit === null ||
+      deposit.status !== "menunggu_verifikasi" ||
+      deposit.statusPencocokan !== undefined
+    ) {
+      throw new Error("Setoran tidak ada di antrean kredit.");
+    }
+    if (deposit.buktiPembayaranId !== undefined) {
+      throw new Error("Setoran ini punya bukti unggahan; gunakan pencocokan bukti.");
+    }
+    const reference = args.referensiMutasi.trim();
+    if (reference.length < 4 || reference.length > 120) {
+      throw new Error("Referensi mutasi wajib 4–120 karakter.");
+    }
+    const sekarang = Date.now();
+    const groupId = await appendJournal(ctx, {
+      jenis: "deposit",
+      keterangan: `Setoran lama ${deposit.nomorReferensi} dikreditkan · ${reference}`,
+      aktor: userId,
+      lines: [
+        { akun: akunDompetDana(deposit.danaId), arah: "debit", jumlah: deposit.jumlah },
+        { akun: AKUN_DANA_CLEARING, arah: "kredit", jumlah: deposit.jumlah },
+      ],
+    });
+    await ctx.db.patch(deposit._id, {
+      status: "terverifikasi",
+      statusPencocokan: "dicocokkan",
+      referensiMutasi: reference,
+      jumlahMutasi: deposit.jumlah,
+      dicocokkanPada: sekarang,
+      dicocokkanOleh: userId,
+      dikreditkanPada: sekarang,
+      dikreditkanOleh: userId,
+      jurnalGroupId: groupId,
+    });
+    await audit(
+      ctx,
+      userId,
+      admin.email ?? admin.name ?? "admin",
+      "setoran_lama_dikreditkan",
+      deposit.nomorReferensi,
+      `${reference}; saldo pendana dikreditkan tanpa bukti unggahan.`,
+    );
+  },
+});
+
+/** Alias lama tetap tertutup; kredit hanya lewat pencocokan/kredit eksplisit. */
 export const confirmDeposit = mutation({
   args: { depositId: v.id("deposits") },
   handler: async (ctx) => {

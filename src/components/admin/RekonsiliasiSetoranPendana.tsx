@@ -43,9 +43,9 @@ function metodeLabel(metode: BarisSetoran["metodePembayaran"]): string {
 /**
  * Satu setoran yang menunggu keputusan admin.
  *
- * Pencocokan hanya menyimpan referensi dan nominal mutasi. Saldo pendana tidak
- * disentuh karena gerbang pembayaran masih tertutup; kartu ini tidak boleh
- * menampilkan tombol yang seolah-olah sudah mengkreditkan uang.
+ * Pencocokan menyimpan referensi dan nominal mutasi lalu mengkreditkan saldo
+ * pendana dalam satu mutation. Tombolnya sengaja butuh konfirmasi eksplisit:
+ * tindakan ini menulis jurnal dan tidak bisa dibatalkan dari layar ini.
  */
 function KartuSetoran({
   row,
@@ -55,12 +55,15 @@ function KartuSetoran({
   punyaBukti: boolean;
 }) {
   const cocokkan = useMutation(api.admin.matchDepositEvidence);
+  const kreditLama = useMutation(api.admin.creditLegacyDeposit);
   const tolak = useMutation(api.admin.rejectDeposit);
   const [referensi, setReferensi] = useState("");
+  const [referensiLama, setReferensiLama] = useState("");
   const [jumlah, setJumlah] = useState(String(row.jumlah));
+  const [setuju, setSetuju] = useState(false);
   const [alasan, setAlasan] = useState("");
   const [konfirmasiTolak, setKonfirmasiTolak] = useState(false);
-  const [busy, setBusy] = useState<"cocok" | "tolak" | null>(null);
+  const [busy, setBusy] = useState<"cocok" | "lama" | "tolak" | null>(null);
   const [galat, setGalat] = useState<string | null>(null);
 
   const simpanCocok = async (event: FormEvent) => {
@@ -76,6 +79,10 @@ function KartuSetoran({
       setGalat("Nominal mutasi harus sama persis dengan nominal setoran.");
       return;
     }
+    if (!setuju) {
+      setGalat("Centang konfirmasi bahwa mutasi bank sudah diperiksa.");
+      return;
+    }
     setBusy("cocok");
     try {
       await cocokkan({
@@ -84,10 +91,35 @@ function KartuSetoran({
         jumlahMutasi: nominal,
       });
       toast.success(
-        "Bukti setoran dicocokkan. Saldo belum berubah sampai jalur pembayaran aktif.",
+        "Setoran dicocokkan dan saldo pendana dikreditkan. Jurnal tercatat di Audit Trail.",
       );
     } catch (err) {
       setGalat(err instanceof Error ? err.message : "Bukti gagal dicocokkan.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const simpanKreditLama = async (event: FormEvent) => {
+    event.preventDefault();
+    setGalat(null);
+    const ref = referensiLama.trim();
+    if (ref.length < 4 || ref.length > 120) {
+      setGalat("Referensi mutasi wajib diisi 4 sampai 120 karakter.");
+      return;
+    }
+    if (!setuju) {
+      setGalat("Centang konfirmasi bahwa mutasi bank sudah diperiksa.");
+      return;
+    }
+    setBusy("lama");
+    try {
+      await kreditLama({ depositId: row._id, referensiMutasi: ref });
+      toast.success(
+        "Setoran lama dikreditkan. Saldo pendana dan jurnal sudah diperbarui.",
+      );
+    } catch (err) {
+      setGalat(err instanceof Error ? err.message : "Setoran gagal dikreditkan.");
     } finally {
       setBusy(null);
     }
@@ -190,19 +222,32 @@ function KartuSetoran({
               className="tabular-nums"
             />
           </div>
+          <label className="flex min-h-11 items-start gap-2 py-1 text-[11px] leading-5 text-slate-700 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={setuju}
+              onChange={(event) => setSetuju(event.target.checked)}
+              disabled={busy !== null}
+              className="mt-0.5 size-4 rounded border-slate-300 text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+            />
+            <span>
+              Saya sudah mencocokkan referensi dan nominal mutasi bank. Tindakan
+              ini mengkreditkan saldo pendana dan menulis jurnal.
+            </span>
+          </label>
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             <Button
               type="submit"
               size="sm"
               className="gap-1.5"
-              disabled={busy !== null || row.buktiUrl === null}
+              disabled={busy !== null || row.buktiUrl === null || !setuju}
             >
               {busy === "cocok" ? (
                 <Loader2 className="size-3.5 animate-spin" aria-hidden />
               ) : (
                 <Check className="size-3.5" aria-hidden />
               )}
-              Cocokkan bukti
+              Cocokkan &amp; kredit saldo
             </Button>
             {!konfirmasiTolak && (
               <Button
@@ -217,6 +262,56 @@ function KartuSetoran({
                 Tolak
               </Button>
             )}
+          </div>
+        </form>
+      )}
+
+      {!punyaBukti && (
+        <form
+          onSubmit={simpanKreditLama}
+          className="mt-3 grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 sm:grid-cols-[1fr_auto]"
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor={`ref-lama-${row._id}`} className="text-[11px] text-emerald-950">
+              Referensi mutasi bank
+            </Label>
+            <Input
+              id={`ref-lama-${row._id}`}
+              value={referensiLama}
+              onChange={(event) => setReferensiLama(event.target.value)}
+              placeholder="Nomor transaksi pada mutasi rekening"
+              maxLength={120}
+              disabled={busy !== null}
+              className="bg-white"
+            />
+            <label className="flex min-h-11 items-start gap-2 py-1 text-[11px] leading-5 text-emerald-950">
+              <input
+                type="checkbox"
+                checked={setuju}
+                onChange={(event) => setSetuju(event.target.checked)}
+                disabled={busy !== null}
+                className="mt-0.5 size-4 rounded border-slate-300 text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+              />
+              <span>
+                Mutasi sudah diperiksa. Kreditkan nominal setoran lama ini ke saldo
+                pendana.
+              </span>
+            </label>
+          </div>
+          <div className="flex items-end">
+            <Button
+              type="submit"
+              size="sm"
+              className="h-10 gap-1.5"
+              disabled={busy !== null || !setuju}
+            >
+              {busy === "lama" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Check className="size-3.5" aria-hidden />
+              )}
+              Kredit setoran lama
+            </Button>
           </div>
         </form>
       )}
@@ -285,8 +380,8 @@ function KartuSetoran({
  *
  * Dua sumber dipertahankan karena baris lama tidak punya bukti unggahan:
  * `pendingDepositEvidence` untuk bukti baru, `pendingDeposits` untuk warisan.
- * Keduanya hanya mengubah metadata keputusan; tidak ada jurnal atau saldo yang
- * bergerak di panel ini.
+ * Keduanya bisa dikreditkan manual; kartu bukti memakai referensi dan nominal
+ * mutasi, sedangkan baris lama memakai referensi mutasi tanpa file.
  */
 export function RekonsiliasiSetoranPendana() {
   const bukti = useQuery(api.admin.pendingDepositEvidence, {});
@@ -331,8 +426,8 @@ export function RekonsiliasiSetoranPendana() {
           <div>
             <h3 className="font-bold text-slate-900">Rekonsiliasi Setoran Pendana</h3>
             <p className="mt-0.5 max-w-2xl text-xs leading-5 text-muted-foreground">
-              Cocokkan bukti transfer dengan mutasi bank. Keputusan di sini hanya
-              metadata; saldo pendana tidak berubah sampai jalur pembayaran aktif.
+              Cocokkan bukti transfer dengan mutasi bank lalu kreditkan saldo
+              pendana. Setiap kredit menulis jurnal dan Audit Trail.
             </p>
           </div>
         </div>
@@ -344,8 +439,8 @@ export function RekonsiliasiSetoranPendana() {
       <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-900">
         <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         <p>
-          Pencocokan tidak mengkreditkan saldo. Jangan gunakan tombol ini sebagai
-          bukti uang sudah masuk ke PINDAI. Penolakan juga tidak mengembalikan dana.
+          Pencocokan mengkreditkan saldo dan menulis jurnal. Pastikan mutasi bank
+          benar sebelum mencentang konfirmasi. Penolakan tidak mengembalikan dana.
         </p>
       </div>
 
@@ -384,8 +479,8 @@ export function RekonsiliasiSetoranPendana() {
             <span className="text-[11px] text-muted-foreground">{tanpaBukti.length} baris</span>
           </div>
           <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-            Baris warisan ini tidak punya file bukti. Hanya penolakan yang tersedia;
-            jangan mencocokkan tanpa bukti yang bisa diperiksa.
+            Baris warisan ini tidak punya file bukti. Kredit hanya boleh dilakukan
+            setelah admin memeriksa mutasi bank dan mengisi referensinya.
           </p>
           <div className="mt-2 space-y-2.5">
             {tanpaBukti.map((row) => (
@@ -402,8 +497,8 @@ export function RekonsiliasiSetoranPendana() {
             title="Tidak ada setoran menunggu"
             deskripsi="Setoran pendana dengan bukti transfer akan muncul di sini untuk dicocokkan dengan mutasi bank."
             poin={[
-              "Periksa bukti dan referensi sebelum mengambil keputusan.",
-              "Pencocokan tidak memindahkan uang atau mengubah saldo.",
+              "Periksa bukti, referensi, dan nominal sebelum mengkreditkan.",
+              "Setiap kredit menulis jurnal dan tidak bisa dibatalkan dari layar ini.",
             ]}
           />
         </div>

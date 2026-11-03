@@ -1,8 +1,10 @@
 /**
- * Block financial mutations until a payment provider and a verifiable
- * settlement/payout process are selected, authorized, integrated, and tested.
- * The broad return type keeps existing mutation result types available to the
- * client while the runtime always fails closed here.
+ * Blokir mutasi keuangan yang belum punya jalur settlement terverifikasi.
+ *
+ * Setoran dan penarikan manual punya jalur admin sendiri (pencocokan mutasi dan
+ * bukti transfer keluar). Gerbang ini tetap menutup alokasi, pencairan,
+ * pembayaran, dan gadai sampai penyedia pembayaran serta proses settlement/
+ * payout terintegrasi dan diuji. Runtime selalu gagal tertutup.
  */
 export function rejectUnverifiedMoneyMovement(): void {
   throw new Error(

@@ -867,7 +867,7 @@ export function SystemConfigPanel() {
                   )}
                 </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  Instruksi hanya untuk pengiriman bukti. Bukti dan pencocokan manual tidak mengubah saldo, tagihan, atau status transaksi.
+                  Instruksi hanya untuk pengiriman bukti. Pencocokan manual yang disetujui admin mengkreditkan saldo pendana dan menulis jurnal; bukti saja tidak mengubah saldo.
                 </p>
               </div>
 
@@ -877,8 +877,9 @@ export function SystemConfigPanel() {
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
                   Saat aktif, pendana dapat mengajukan setoran dari ruang pendana.
-                  Setoran masuk antrean pencocokan mutasi; saldo tidak berubah
-                  sebelum admin mencocokkannya.
+                  Setoran masuk antrean; saldo dikreditkan setelah admin mencocokkan
+                  mutasi. Jalur otomatis tetap dimatikan sampai penyedia pembayaran
+                  dan payout terhubung; jangan mengaktifkannya hanya dari UI.
                 </p>
                 <div className="mt-3">
                   <SwitchRow
