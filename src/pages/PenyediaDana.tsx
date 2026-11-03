@@ -2643,8 +2643,8 @@ function IsiRuang() {
             )}
 
             {/* Satu-satunya jalan pendana menambah penempatan dari ruangnya
-                sendiri. Alur setoran manual sudah ada di server; kartu ini yang
-                membuatnya bisa dipakai tanpa menunggu admin mencatat manual. */}
+                sendiri. Pengajuan dan bukti dikirim dari sini; admin tetap
+                mencocokkan mutasi sebelum saldo dikreditkan. */}
             {isPendana && (
               <BatasBagian nama="pengajuan penempatan">
                 <AjukanPenempatan />

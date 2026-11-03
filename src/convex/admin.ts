@@ -1490,6 +1490,58 @@ export const pendingDeposits = query({
   },
 });
 
+/**
+ * Setoran lama yang sudah dicocokkan metadata sebelum jalur kredit ada, tetapi
+ * belum pernah mengubah saldo. Antrean ini membuat baris tersebut tidak
+ * menggantung selamanya di status "dicocokkan".
+ */
+export const pendingDepositCredits = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    // Pencocokan lama bisa meninggalkan status `terverifikasi` tanpa jurnal.
+    // Kedua status diperiksa supaya tidak ada baris yang menggantung.
+    const rows = [
+      ...(await ctx.db
+        .query("deposits")
+        .withIndex("by_status", (q) => q.eq("status", "menunggu_verifikasi"))
+        .collect()),
+      ...(await ctx.db
+        .query("deposits")
+        .withIndex("by_status", (q) => q.eq("status", "terverifikasi"))
+        .collect()),
+    ];
+    const result = [];
+    for (const d of rows
+      .filter(
+        (row) =>
+          row.statusPencocokan === "dicocokkan" &&
+          row.dikreditkanPada === undefined &&
+          row.jurnalGroupId === undefined,
+      )
+      .sort((a, b) => b._creationTime - a._creationTime)) {
+      const akunDana = await ctx.db.get(d.danaId);
+      const metadata = d.buktiPembayaranId
+        ? await ctx.storage.getMetadata(d.buktiPembayaranId)
+        : null;
+      result.push({
+        _id: d._id,
+        _creationTime: d._creationTime,
+        nomorReferensi: d.nomorReferensi,
+        jumlah: d.jumlah,
+        referensiTransfer: d.referensiTransfer,
+        referensiMutasi: d.referensiMutasi ?? null,
+        buktiUrl: d.buktiPembayaranId
+          ? await ctx.storage.getUrl(d.buktiPembayaranId)
+          : null,
+        fileContentType: metadata?.contentType ?? null,
+        emailDana: akunDana?.email ?? null,
+      });
+    }
+    return result;
+  },
+});
+
 /** Antrean penarikan penyedia dana menunggu diproses (untuk panel admin). */
 export const pendingWithdrawals = query({
   args: {},
@@ -1502,8 +1554,11 @@ export const pendingWithdrawals = query({
     const result = [];
     for (const w of rows.sort((a, b) => b._creationTime - a._creationTime)) {
       const akunDana = await ctx.db.get(w.danaId);
-      const biaya = hitungBiayaPencairan(w.jumlah);
-      const biayaPencairan = w.biayaPencairan ?? biaya.biayaPencairan;
+      const biayaPencairan =
+        w.biayaPencairan ??
+        (Number.isSafeInteger(w.jumlah) && w.jumlah > 0
+          ? hitungBiayaPencairan(w.jumlah).biayaPencairan
+          : 0);
       result.push({
         _id: w._id,
         _creationTime: w._creationTime,
@@ -1531,10 +1586,11 @@ export const generateWithdrawalProofUploadUrl = mutation({
 });
 
 /**
- * Proses penarikan MANUAL — jurnal seimbang: debit saldo pendana sebesar
- * nominal bruto, kredit kas platform sebesar nominal bersih, dan kredit
- * pendapatan biaya pencairan. Referensi transfer keluar wajib diisi dan bukti
- * transfer harus bisa dibuka; tanpa itu tidak ada klaim uang sudah keluar.
+ * Proses penarikan MANUAL — jurnal seimbang: debit akun kliring sebesar
+ * nominal bruto dan kredit saldo pendana sebesar nominal bruto. Biaya
+ * pencairan disimpan sebagai snapshot audit, bukan baris pendapatan terpisah.
+ * Referensi transfer keluar wajib diisi dan bukti transfer harus bisa dibuka;
+ * tanpa itu tidak ada klaim uang sudah keluar.
  */
 export const processWithdrawal = mutation({
   args: {
@@ -1551,6 +1607,9 @@ export const processWithdrawal = mutation({
     }
     if ((w.jalur ?? "manual") !== "manual") {
       throw new Error("Permintaan ini memakai jalur otomatis; proses lewat adaptor payout.");
+    }
+    if (!Number.isSafeInteger(w.jumlah) || w.jumlah <= 0) {
+      throw new Error("Nominal penarikan pada permintaan ini tidak valid.");
     }
     const referensi = args.referensiTransfer.trim();
     if (referensi.length < 4 || referensi.length > 120) {
@@ -1596,6 +1655,8 @@ export const processWithdrawal = mutation({
 
     await ctx.db.patch(w._id, {
       status: "diproses",
+      biayaPencairan: biaya,
+      jumlahBersih,
       referensiTransfer: referensi,
       buktiTransferId: args.buktiTransferId,
       diprosesPada: Date.now(),
@@ -1667,6 +1728,9 @@ export const matchDepositEvidence = mutation({
     if (!Number.isSafeInteger(args.jumlahMutasi) || args.jumlahMutasi !== deposit.jumlah) {
       throw new Error("Nominal mutasi wajib sama persis dengan nominal setoran.");
     }
+    if (!Number.isSafeInteger(deposit.jumlah) || deposit.jumlah <= 0) {
+      throw new Error("Nominal setoran pada baris ini tidak valid.");
+    }
     const sekarang = Date.now();
     const groupId = await appendJournal(ctx, {
       jenis: "deposit",
@@ -1722,6 +1786,9 @@ export const creditLegacyDeposit = mutation({
     if (reference.length < 4 || reference.length > 120) {
       throw new Error("Referensi mutasi wajib 4–120 karakter.");
     }
+    if (!Number.isSafeInteger(deposit.jumlah) || deposit.jumlah <= 0) {
+      throw new Error("Nominal setoran pada baris ini tidak valid.");
+    }
     const sekarang = Date.now();
     const groupId = await appendJournal(ctx, {
       jenis: "deposit",
@@ -1754,6 +1821,55 @@ export const creditLegacyDeposit = mutation({
   },
 });
 
+/**
+ * Kreditkan setoran yang sudah dicocokkan metadata pada versi lama, tanpa
+ * mencocokkan ulang. Hanya baris yang belum punya jurnal dan belum dikreditkan
+ * yang boleh lewat; mencegah kredit ganda saat admin menekan tombol dua kali.
+ */
+export const creditMatchedDeposit = mutation({
+  args: { depositId: v.id("deposits") },
+  handler: async (ctx, args) => {
+    const { userId, user: admin } = await requireAdmin(ctx);
+    const deposit = await ctx.db.get(args.depositId);
+    if (
+      deposit === null ||
+      deposit.status === "ditolak" ||
+      deposit.statusPencocokan !== "dicocokkan" ||
+      deposit.dikreditkanPada !== undefined ||
+      deposit.jurnalGroupId !== undefined
+    ) {
+      throw new Error("Setoran ini tidak menunggu kredit saldo.");
+    }
+    if (!Number.isSafeInteger(deposit.jumlah) || deposit.jumlah <= 0) {
+      throw new Error("Nominal setoran pada baris ini tidak valid.");
+    }
+    const sekarang = Date.now();
+    const groupId = await appendJournal(ctx, {
+      jenis: "deposit",
+      keterangan: `Setoran ${deposit.nomorReferensi} dikreditkan dari pencocokan lama · ${deposit.referensiMutasi ?? "tanpa referensi"}`,
+      aktor: userId,
+      lines: [
+        { akun: akunDompetDana(deposit.danaId), arah: "debit", jumlah: deposit.jumlah },
+        { akun: AKUN_DANA_CLEARING, arah: "kredit", jumlah: deposit.jumlah },
+      ],
+    });
+    await ctx.db.patch(deposit._id, {
+      status: "terverifikasi",
+      dikreditkanPada: sekarang,
+      dikreditkanOleh: userId,
+      jurnalGroupId: groupId,
+    });
+    await audit(
+      ctx,
+      userId,
+      admin.email ?? admin.name ?? "admin",
+      "setoran_dana_dikreditkan",
+      deposit.nomorReferensi,
+      "Pencocokan lama dikreditkan; jurnal dan saldo pendana diperbarui.",
+    );
+  },
+});
+
 /** Alias lama tetap tertutup; kredit hanya lewat pencocokan/kredit eksplisit. */
 export const confirmDeposit = mutation({
   args: { depositId: v.id("deposits") },
@@ -1782,7 +1898,7 @@ export const rejectDeposit = mutation({
       dicocokkanPada: Date.now(),
       dicocokkanOleh: adminId,
     });
-    await audit(ctx, adminId, admin.email ?? admin.name ?? "admin", "setoran_dana_ditolak", deposit.nomorReferensi, `${args.reason.trim()}; metadata saja, saldo dan status setoran tidak berubah.`);
+    await audit(ctx, adminId, admin.email ?? admin.name ?? "admin", "setoran_dana_ditolak", deposit.nomorReferensi, `${args.reason.trim()}; tanpa mengubah saldo atau jurnal.`);
   },
 });
 

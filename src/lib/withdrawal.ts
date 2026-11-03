@@ -1,6 +1,8 @@
 /**
- * Kalkulasi estimasi pencairan penyedia dana.
- * Nilai ini hanya pemodelan; tidak mengurangi saldo atau menjalankan transfer.
+ * Kalkulasi biaya pencairan penyedia dana (5%).
+ *
+ * Dipakai untuk snapshot saat permintaan dibuat dan validasi saat admin
+ * memproses transfer. Fungsi ini sendiri tidak menyentuh ledger atau bank.
  */
 import { percentOf, type Rupiah } from "./money";
 

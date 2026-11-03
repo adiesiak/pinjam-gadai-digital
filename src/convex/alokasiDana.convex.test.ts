@@ -385,6 +385,54 @@ describe("alur penyedia dana — pinjaman tunai", () => {
     });
   });
 
+  it("mengkredit setoran hasil pencocokan lama sekali saja", async () => {
+    const t = convexTest(schema, modules);
+    const { userId: danaId, sesi: dana } = await siapkanPengguna(
+      t,
+      "dana-cocok-lama",
+      "dana-cocok-lama@pindai.test",
+      "dana",
+    );
+    const { userId: adminId, sesi: admin } = await siapkanPengguna(
+      t,
+      "admin-cocok-lama",
+      "admin-cocok-lama@pindai.test",
+      "admin",
+    );
+    const depositId = await t.run((ctx) =>
+      ctx.db.insert("deposits", {
+        danaId,
+        jumlah: 300_000,
+        referensiTransfer: "TRF-COCOK-001",
+        status: "menunggu_verifikasi",
+        statusPencocokan: "dicocokkan",
+        referensiMutasi: "MUTASI-COCOK-001",
+        jumlahMutasi: 300_000,
+        dicocokkanPada: Date.now(),
+        dicocokkanOleh: adminId,
+        nomorReferensi: "DEP-COCOK-001",
+      }),
+    );
+
+    const antrean = await admin.query(api.admin.pendingDepositCredits, {});
+    expect(antrean).toEqual([
+      expect.objectContaining({ _id: depositId, jumlah: 300_000 }),
+    ]);
+    await admin.mutation(api.admin.creditMatchedDeposit, { depositId });
+    expect(await dana.query(api.alokasiDana.myWallet, {})).toMatchObject({
+      saldo: 300_000,
+      bisaDitarik: 300_000,
+    });
+    await expect(
+      admin.mutation(api.admin.creditMatchedDeposit, { depositId }),
+    ).rejects.toThrow("tidak menunggu kredit");
+    expect(await admin.query(api.admin.pendingDepositCredits, {})).toEqual([]);
+    expect(await admin.query(api.admin.ledgerSummary, {})).toMatchObject({
+      entryCount: 2,
+      seimbang: true,
+    });
+  });
+
   it("menghubungkan posisi pendana lintas model: penetapan pendana tampil di portofolio, penggantian memindahkannya", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(

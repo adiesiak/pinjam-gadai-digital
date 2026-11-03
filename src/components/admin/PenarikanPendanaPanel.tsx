@@ -3,7 +3,7 @@
  *
  * Admin baru boleh menandai diproses setelah transfer keluar benar-benar
  * dilakukan. Referensi dan bukti wajib; mutation server menulis jurnal debit
- * saldo pendana dan kredit kas platform dalam satu transaksi.
+ * akun kliring dan kredit saldo pendana dalam satu transaksi.
  */
 import { useMutation, useQuery } from "convex/react";
 import {
@@ -181,7 +181,7 @@ function KartuPenarikan({ row }: { row: BarisPenarikan }) {
               disabled={busy !== null}
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              JPG, PNG, WebP, atau PDF. Wajib sebelum status diproses.
+              JPG, PNG, WebP, atau PDF maksimal 5 MB. Wajib sebelum status diproses.
             </p>
           </div>
         </div>
@@ -214,7 +214,7 @@ function KartuPenarikan({ row }: { row: BarisPenarikan }) {
           <Button
             type="submit"
             size="sm"
-            className="h-10 gap-1.5"
+            className="h-11 gap-1.5"
             disabled={busy !== null || !setuju}
           >
             {busy === "proses" ? (
@@ -229,7 +229,7 @@ function KartuPenarikan({ row }: { row: BarisPenarikan }) {
               type="button"
               size="sm"
               variant="outline"
-              className="h-10 gap-1.5 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+              className="h-11 gap-1.5 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
               disabled={busy !== null}
               onClick={() => setKonfirmasiTolak(true)}
             >
@@ -262,7 +262,7 @@ function KartuPenarikan({ row }: { row: BarisPenarikan }) {
               type="submit"
               size="sm"
               variant="destructive"
-              className="h-10 gap-1.5"
+              className="h-11 gap-1.5"
               disabled={busy !== null}
             >
               {busy === "tolak" ? (
@@ -276,7 +276,7 @@ function KartuPenarikan({ row }: { row: BarisPenarikan }) {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-10"
+              className="h-11"
               disabled={busy !== null}
               onClick={() => setKonfirmasiTolak(false)}
             >
@@ -309,8 +309,8 @@ export function PenarikanPendanaPanel() {
             </h2>
             <p className="mt-1 text-xs leading-5 text-slate-600">
               Proses transfer keluar manual. Jangan tandai diproses sebelum dana
-              benar-benar dikirim; server menulis jurnal debit saldo pendana dan
-              kredit kas platform dalam satu transaksi.
+              benar-benar dikirim; server menulis jurnal debit akun kliring dan
+              kredit saldo pendana dalam satu transaksi.
             </p>
           </div>
         </div>

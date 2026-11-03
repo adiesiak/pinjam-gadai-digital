@@ -296,7 +296,7 @@ export const generateDepositUploadUrl = mutation({
   },
 });
 
-/** Ajukan setoran dana (penyedia dana) — menunggu pencocokan manual, tanpa kredit saldo. */
+/** Ajukan setoran dana (penyedia dana) — menunggu pencocokan manual sebelum saldo dikreditkan. */
 export const requestDeposit = mutation({
   args: {
     jumlah: v.number(),
@@ -1063,8 +1063,11 @@ export const myWithdrawals = query({
     return rows
       .sort((a, b) => b._creationTime - a._creationTime)
       .map((w) => {
-        const biaya = hitungBiayaPencairan(w.jumlah);
-        const biayaPencairan = w.biayaPencairan ?? biaya.biayaPencairan;
+        const biayaPencairan =
+          w.biayaPencairan ??
+          (Number.isSafeInteger(w.jumlah) && w.jumlah > 0
+            ? hitungBiayaPencairan(w.jumlah).biayaPencairan
+            : 0);
         return {
           _id: w._id,
           _creationTime: w._creationTime,

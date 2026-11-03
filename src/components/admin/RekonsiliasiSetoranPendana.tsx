@@ -34,6 +34,18 @@ type BarisSetoran = {
   fileContentType: string | null;
 };
 
+type BarisKredit = {
+  _id: Id<"deposits">;
+  _creationTime: number;
+  nomorReferensi: string;
+  jumlah: number;
+  referensiTransfer: string;
+  referensiMutasi: string | null;
+  buktiUrl: string | null;
+  fileContentType: string | null;
+  emailDana: string | null;
+};
+
 function metodeLabel(metode: BarisSetoran["metodePembayaran"]): string {
   if (metode === "qris") return "QRIS";
   if (metode === "transfer") return "Transfer bank";
@@ -239,7 +251,7 @@ function KartuSetoran({
             <Button
               type="submit"
               size="sm"
-              className="gap-1.5"
+              className="h-11 gap-1.5"
               disabled={busy !== null || row.buktiUrl === null || !setuju}
             >
               {busy === "cocok" ? (
@@ -302,7 +314,7 @@ function KartuSetoran({
             <Button
               type="submit"
               size="sm"
-              className="h-10 gap-1.5"
+              className="h-11 gap-1.5"
               disabled={busy !== null || !setuju}
             >
               {busy === "lama" ? (
@@ -375,6 +387,107 @@ function KartuSetoran({
   );
 }
 
+function KartuKreditSetoran({ row }: { row: BarisKredit }) {
+  const kredit = useMutation(api.admin.creditMatchedDeposit);
+  const [setuju, setSetuju] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [galat, setGalat] = useState<string | null>(null);
+
+  async function kirim(event: FormEvent) {
+    event.preventDefault();
+    setGalat(null);
+    if (!setuju) {
+      setGalat("Centang konfirmasi bahwa mutasi bank sudah diperiksa.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await kredit({ depositId: row._id });
+      toast.success(
+        `Setoran ${row.nomorReferensi} dikreditkan. Saldo pendana dan jurnal sudah diperbarui.`,
+      );
+    } catch (err) {
+      setGalat(err instanceof Error ? err.message : "Setoran gagal dikreditkan.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <article className="rounded-xl border border-emerald-200 bg-white p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">
+            {row.nomorReferensi}
+          </p>
+          <p className="mt-0.5 break-words text-sm font-semibold text-navy">
+            {row.emailDana ?? "Akun pendana"}
+          </p>
+          <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
+            Referensi transfer: {row.referensiTransfer} · mutasi{" "}
+            {row.referensiMutasi ?? "tidak tercatat"}
+          </p>
+        </div>
+        <p className="text-base font-bold tabular-nums text-navy">
+          {formatRupiah(row.jumlah)}
+        </p>
+      </div>
+
+      {row.buktiUrl !== null && (
+        <a
+          href={row.buktiUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-success-foreground underline-offset-4 hover:underline"
+        >
+          <FileSearch className="size-3.5" aria-hidden />
+          {row.fileContentType === "application/pdf"
+            ? "Buka bukti PDF"
+            : "Buka bukti transfer"}
+          <ExternalLink className="size-3" aria-hidden />
+        </a>
+      )}
+
+      <form onSubmit={kirim} className="mt-2 space-y-2">
+        <label className="flex min-h-11 items-start gap-2 py-1 text-[11px] leading-5 text-slate-700">
+          <input
+            type="checkbox"
+            checked={setuju}
+            onChange={(event) => setSetuju(event.target.checked)}
+            disabled={busy}
+            className="mt-0.5 size-4 rounded border-slate-300 text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+          />
+          <span>
+            Mutasi bank sudah diperiksa. Kreditkan nominal ini ke saldo pendana;
+            tindakan ini menulis jurnal dan tidak bisa diulang.
+          </span>
+        </label>
+        {galat !== null && (
+          <p
+            role="alert"
+            className="rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+          >
+            {galat}
+          </p>
+        )}
+        <Button
+          type="submit"
+          size="sm"
+          className="h-11 gap-1.5"
+          disabled={busy || !setuju}
+        >
+          {busy ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          ) : (
+            <Check className="size-3.5" aria-hidden />
+          )}
+          Kreditkan saldo
+        </Button>
+      </form>
+    </article>
+  );
+}
+
 /**
  * Antrean rekonsiliasi setoran pendana.
  *
@@ -386,8 +499,9 @@ function KartuSetoran({
 export function RekonsiliasiSetoranPendana() {
   const bukti = useQuery(api.admin.pendingDepositEvidence, {});
   const lama = useQuery(api.admin.pendingDeposits, {});
+  const siapKredit = useQuery(api.admin.pendingDepositCredits, {});
 
-  if (bukti === undefined || lama === undefined) {
+  if (bukti === undefined || lama === undefined || siapKredit === undefined) {
     return <PanelMemuat baris={3} />;
   }
 
@@ -414,7 +528,10 @@ export function RekonsiliasiSetoranPendana() {
     fileContentType: null,
   }));
   const semua = [...denganBukti, ...tanpaBukti];
-  const nilai = semua.reduce((total, row) => total + row.jumlah, 0);
+  const totalMenunggu = semua.length + siapKredit.length;
+  const nilai =
+    semua.reduce((total, row) => total + row.jumlah, 0) +
+    siapKredit.reduce((total, row) => total + row.jumlah, 0);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
@@ -432,7 +549,7 @@ export function RekonsiliasiSetoranPendana() {
           </div>
         </div>
         <Badge className="border-0 bg-amber-100 text-amber-900 hover:bg-amber-100">
-          {semua.length} menunggu
+          {totalMenunggu} menunggu
         </Badge>
       </header>
 
@@ -445,10 +562,30 @@ export function RekonsiliasiSetoranPendana() {
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <MetrikKartu label="Menunggu" nilai={semua.length} />
+        <MetrikKartu label="Menunggu" nilai={totalMenunggu} />
         <MetrikKartu label="Nilai setoran" nilai={formatRupiah(nilai)} />
         <MetrikKartu label="Dengan bukti" nilai={denganBukti.length} />
       </dl>
+
+      {siapKredit.length > 0 && (
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/30 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-900">
+              Sudah dicocokkan, belum dikreditkan
+            </h4>
+            <span className="text-[11px] text-emerald-900">{siapKredit.length} baris</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-5 text-emerald-950">
+            Baris ini berasal dari pencocokan lama yang hanya menyimpan metadata.
+            Kreditkan sekali setelah mutasi bank diperiksa; jangan mencocokkan ulang.
+          </p>
+          <div className="mt-2 space-y-2">
+            {siapKredit.map((row) => (
+              <KartuKreditSetoran key={row._id} row={row} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-4">
         <div className="flex items-center justify-between gap-2">
@@ -490,7 +627,7 @@ export function RekonsiliasiSetoranPendana() {
         </div>
       )}
 
-      {semua.length === 0 && (
+      {totalMenunggu === 0 && (
         <div className="mt-4">
           <EmptyQueue
             icon={Receipt}

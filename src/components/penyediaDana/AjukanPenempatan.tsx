@@ -2,9 +2,9 @@
  * Setoran penempatan dana dari ruang pendana.
  *
  * Server sudah punya jalurnya sejak lama (`alokasiDana.requestDeposit`,
- * `myDeposits`, antrean pencocokan di panel admin), tetapi tidak pernah ada
- * layar yang memanggilnya: pendana hanya bisa menunggu admin mencatat
- * penempatan. Kartu ini menutup jalur itu tanpa membuat tabel baru.
+ * `myDeposits`, antrean pencocokan di panel admin). Kartu ini menutup jalur
+ * pengiriman bukti dari sisi pendana; admin tetap mencocokkan mutasi sebelum
+ * saldo dikreditkan, tanpa membuat tabel baru.
  *
  * Uang TIDAK masuk saldo pendana saat formulir dikirim. Setoran berstatus
  * `menunggu_verifikasi` sampai admin mencocokkan mutasi bank; siklus 30 hari
@@ -226,8 +226,14 @@ export function AjukanPenempatan({ className }: { className?: string }) {
             dari pengajuan setoran ini.
           </p>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5 text-slate-500">
-            <span className="font-medium text-success-foreground">
-              Jalur manual aktif
+            <span
+              className={
+                aktif
+                  ? "font-medium text-success-foreground"
+                  : "font-medium text-amber-800"
+              }
+            >
+              {aktif ? "Jalur manual aktif" : "Jalur manual belum dibuka admin"}
             </span>
             <span aria-hidden="true">·</span>
             <span>Jalur otomatis dimatikan sementara</span>
