@@ -43,7 +43,7 @@ export function KalkulatorBeranda({
     <section
       id="kalkulator"
       aria-labelledby="kalkulator-judul"
-      className="pindai-bawah-lipatan border-y border-border bg-muted"
+      className="pindai-bawah-lipatan scroll-mt-20 border-y border-border bg-muted"
     >
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-18">
         <JudulBagian

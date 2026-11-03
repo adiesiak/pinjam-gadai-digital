@@ -130,8 +130,14 @@ export function LandingHero(props: LandingHeroProps) {
             <p className="mt-6 max-w-lg text-sm leading-5 text-slate-700">
               {props.mikro}
             </p>
+            <a
+              href="#kalkulator"
+              className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              Hitung dulu tanpa akun
+            </a>
 
-            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-5 text-sm font-medium text-slate-700">
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-5 text-sm font-medium text-slate-700">
               <span className="flex items-center gap-2">
                 <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
                 Rincian biaya terbuka

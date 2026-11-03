@@ -15,6 +15,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 
+import { KepercayaanBeranda } from "@/components/landing/KepercayaanBeranda";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { LiveCalculator } from "@/components/landing/LiveCalculator";
 import {
@@ -65,6 +66,9 @@ const hero = render(
   />,
 );
 periksaTarget(hero, "LandingHero");
+
+const kepercayaan = render(<KepercayaanBeranda />);
+periksaTarget(kepercayaan, "KepercayaanBeranda");
 
 const kalkulator = render(<LiveCalculator />);
 periksaTarget(kalkulator, "LiveCalculator");

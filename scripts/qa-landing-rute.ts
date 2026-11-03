@@ -209,8 +209,26 @@ for (const role of ["peminjam", "dana"]) {
 {
   const markup = render({ isAuthenticated: false, user: undefined });
   ada(markup, 'id="kalkulator"', "beranda memasang kalkulator interaktif");
+  ada(
+    markup,
+    'href="#kalkulator"',
+    "hero menautkan kalkulator tanpa akun",
+  );
   ada(markup, "Total pelunasan", "kalkulator menampilkan total pelunasan");
+  ada(markup, "Kepercayaan", "beranda menampilkan blok kepercayaan");
+  ada(
+    markup,
+    "Pinjaman didanai pendana yang tercatat",
+    "blok kepercayaan menyebut sumber pendanaan",
+  );
+  ada(
+    markup,
+    "Pencatatan, bukan bukti transfer",
+    "blok kepercayaan menyebut batas pencatatan",
+  );
+  ada(markup, 'href="/privasi"', "blok kepercayaan menautkan privasi");
   ada(markup, 'id="dokumen-judul"', "beranda menjelaskan alur & dokumen");
+  ada(markup, 'id="panduan-title"', "panduan tampil setelah dokumen");
   ada(markup, "Selfie sambil memegang KTP", "dokumen verifikasi disebut");
   ada(markup, 'id="faq-beranda-judul"', "pertanyaan umum tampil di beranda");
   ada(markup, 'id="banding-judul"', "tabel banding produk ada");
@@ -228,6 +246,20 @@ for (const role of ["peminjam", "dana"]) {
   ada(markup, "wa.me", "footer menyediakan kanal WhatsApp CS");
   ada(markup, 'aria-label="Aksi cepat"', "aksi lengket ponsel tersedia");
   ada(markup, "Ajukan pinjaman", "CTA tamu memakai kata ajukan");
+
+  const iDokumen = markup.indexOf('id="dokumen-judul"');
+  const iPanduan = markup.indexOf('id="panduan-title"');
+  const iFaq = markup.indexOf('id="faq-beranda-judul"');
+  const iPendana = markup.indexOf('id="pendana-judul"');
+  const iDoorprize = markup.indexOf('id="doorprize-ringkas-judul"');
+  cek(
+    "urutan dokumen → panduan → FAQ → pendana → doorprize",
+    iDokumen !== -1 &&
+      iPanduan > iDokumen &&
+      iFaq > iPanduan &&
+      iPendana > iFaq &&
+      iDoorprize > iPendana,
+  );
 }
 
 console.log(`qa-landing-rute: ${lulus} lulus, ${gagal} gagal`);

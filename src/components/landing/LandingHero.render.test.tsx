@@ -110,6 +110,11 @@ ok(html.includes("dalam Genggaman."), "baris kedua judul ada");
 ok(html.includes('href="/auth"'), "CTA utama menuju rute akun");
 ok(html.includes("Ajukan Sekarang"), "label CTA utama tampil");
 ok(html.includes("Pelajari Cara Kerja"), "CTA sekunder tampil");
+ok(
+  html.includes('href="#kalkulator"') &&
+    html.includes("Hitung dulu tanpa akun"),
+  "hero menautkan kalkulator tanpa akun",
+);
 // CTA sekunder dulu memanggil `window.location.assign`, sehingga halaman dimuat
 // ulang penuh dan tautannya tidak bisa dibuka di tab baru.
 ok(

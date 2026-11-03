@@ -1,5 +1,4 @@
 import {
-  ArrowRight,
   BadgeCheck,
   Calculator,
   ChevronDown,
@@ -32,7 +31,8 @@ import { CtaLengket } from "@/components/landing/CtaLengket";
 import { DokumenPerlindungan } from "@/components/landing/DokumenPerlindungan";
 import { FaqBeranda } from "@/components/landing/FaqBeranda";
 import { FooterBeranda } from "@/components/landing/FooterBeranda";
-import { JudulBagian } from "@/components/landing/JudulBagian";
+import { KepercayaanBeranda } from "@/components/landing/KepercayaanBeranda";
+import { PanduanBeranda } from "@/components/landing/PanduanBeranda";
 import { GelombangPattern } from "@/components/landing/KartuHeroPindai";
 import { KalkulatorBeranda } from "@/components/landing/KalkulatorBeranda";
 import { RuangPendanaBeranda } from "@/components/landing/RuangPendanaBeranda";
@@ -397,6 +397,8 @@ export default function LandingHome() {
           sudahMasuk={isAuthenticated}
         />
 
+        <KepercayaanBeranda />
+
         {/* Satu slot kampanye: banner gambar dan promo bunga tidak lagi
             ditumpuk di atas kalkulator. Komponennya menyembunyikan diri bila
             tidak ada kampanye berjalan. */}
@@ -436,67 +438,26 @@ export default function LandingHome() {
           deskripsi={konten.dokumenDeskripsi}
         />
 
+        <PanduanBeranda
+          eyebrow={konten.panduanEyebrow}
+          judul={konten.panduanJudul}
+          deskripsi={konten.panduanDeskripsi}
+          ctaSyarat={konten.panduanCtaSyarat}
+          panduan={panduan}
+        />
+
         <FaqBeranda
           judul={konten.faqJudul}
           deskripsi={konten.faqDeskripsi}
           tarif={tarif}
         />
 
+        <RuangPendanaBeranda />
+
         <DoorprizeRingkas
           accountHref={accountHref}
           sudahMasuk={isAuthenticated}
         />
-
-        <section
-          aria-labelledby="panduan-title"
-          className="pindai-bawah-lipatan border-t border-border bg-background"
-        >
-          <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-            <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2">
-              <JudulBagian
-                id="panduan-title"
-                label={konten.panduanEyebrow}
-                judul={konten.panduanJudul}
-                deskripsi={konten.panduanDeskripsi}
-                className="max-w-2xl border-t-0 pt-0"
-              />
-              <Link
-                to="/syarat-ketentuan"
-                className="mb-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {konten.panduanCtaSyarat}
-              </Link>
-            </div>
-            <ul className="mt-5 grid gap-3 md:grid-cols-3">
-              {panduan.map(({ href, ikon: Icon, judul, isi }) => (
-                <li key={href}>
-                  <Link
-                    to={href}
-                    className="group flex min-h-24 items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/35 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-                      <Icon className="size-4" aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">
-                        {judul}
-                      </span>
-                      <span className="mt-1 block text-sm leading-5 text-muted-foreground">
-                        {isi}
-                      </span>
-                    </span>
-                    <ArrowRight
-                      className="mt-2.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        <RuangPendanaBeranda />
 
         {/* Penutup: satu panel, bukan pita teks. Panel ini memakai motif ombak
             yang sama dengan hero sebagai penanda akhir halaman, dan catatan

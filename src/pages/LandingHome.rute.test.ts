@@ -51,6 +51,28 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
     "<PasangAplikasi",
     "beranda tidak memasang kartu pemasangan terpisah",
   );
+  ada(sumber, "<KepercayaanBeranda", "beranda menampilkan batas layanan");
+  ada(sumber, "<PanduanBeranda", "beranda memakai bagian panduan bersama");
+
+  const iHero = sumber.indexOf("<LandingHero");
+  const iKepercayaan = sumber.indexOf("<KepercayaanBeranda");
+  const iDokumen = sumber.indexOf("<DokumenPerlindungan");
+  const iPanduan = sumber.indexOf("<PanduanBeranda");
+  const iFaq = sumber.indexOf("<FaqBeranda");
+  const iDoorprize = sumber.indexOf("<DoorprizeRingkas");
+  cek(
+    "blok kepercayaan tepat setelah hero",
+    iHero !== -1 && iKepercayaan > iHero,
+  );
+  cek(
+    "panduan menyambung setelah dokumen",
+    iDokumen !== -1 && iPanduan > iDokumen,
+  );
+  cek("FAQ setelah panduan", iPanduan !== -1 && iFaq > iPanduan);
+  cek(
+    "doorprize tidak memotong alur panduan dan FAQ",
+    iDoorprize > iFaq,
+  );
   // CTA sekunder pernah memanggil `window.location.assign("/biaya")`, yang
   // memuat ulang seluruh halaman dan tidak bisa dibuka di tab baru.
   tidakAda(
