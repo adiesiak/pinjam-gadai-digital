@@ -89,9 +89,18 @@ const teksDari = (html: string) =>
 const bilahDari = (sumber: string) =>
   (sumber.split('aria-label="Menu operasi"')[1] ?? "").split("</nav>")[0];
 
-/** Lencana yang menempel pada satu tab bilah bawah (label + `<span>` lencana). */
+/**
+ * Lencana satu tab bilah bawah, dibaca dari nama aksesibelnya.
+ *
+ * Label visual kini dibungkus `<span className="truncate">`, jadi regex lama
+ * yang mencari `Label<span>` tidak lagi menemukan apa pun. `aria-label` adalah
+ * sumber yang lebih stabil sekaligus memastikan pembaca layar mendapat angka
+ * yang sama dengan lencana visual.
+ */
 const lencanaTab = (sumber: string, label: string) =>
-  new RegExp(`${label}<span[^>]*>([\\d!]+)<`).exec(sumber)?.[1];
+  new RegExp(
+    `aria-label="${label}(?:, ([\\d!]+) perlu ditinjau)?"`,
+  ).exec(sumber)?.[1];
 
 /**
  * Lencana yang menempel pada satu MODUL di sidebar (tombol `id="tab-..."`).

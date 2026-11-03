@@ -80,7 +80,7 @@ function rupiahRingkas(nilai: number): string {
 }
 
 /**
- * Grafik garis: pencairan (hijau penuh) vs pelunasan (garis putus-putus).
+ * Grafik garis: pencairan (garis penuh) vs pelunasan (garis putus-putus).
  * Keduanya memakai skala YANG SAMA — kalau tidak, dua garis dengan tinggi serupa
  * bisa mewakili angka yang jauh berbeda dan grafiknya jadi menyesatkan.
  */
@@ -114,11 +114,11 @@ export function GrafikTren({ tren }: { tren: readonly TitikTren[] }) {
               x2={LEBAR_GRAFIK}
               y1={y}
               y2={y}
-              stroke="#e2e8f0"
+              stroke="var(--border)"
               strokeWidth={1}
               strokeDasharray={i === tick.length - 1 ? undefined : "3 3"}
             />
-            <text x={PADAT_KIRI - 6} y={y + 3} textAnchor="end" fontSize={9} fill="#64748b">
+            <text x={PADAT_KIRI - 6} y={y + 3} textAnchor="end" fontSize={12} fill="var(--muted-foreground)">
               {tickRupiah(nilai)}
             </text>
           </g>
@@ -130,7 +130,7 @@ export function GrafikTren({ tren }: { tren: readonly TitikTren[] }) {
           <polyline
             points={atributPoints(garisPencairan)}
             fill="none"
-            stroke="#047857"
+            stroke="var(--chart-1)"
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -140,7 +140,7 @@ export function GrafikTren({ tren }: { tren: readonly TitikTren[] }) {
           <polyline
             points={atributPoints(garisPelunasan)}
             fill="none"
-            stroke="#64748b"
+            stroke="var(--chart-4)"
             strokeWidth={2}
             strokeDasharray="4 3"
             strokeLinejoin="round"
@@ -151,12 +151,12 @@ export function GrafikTren({ tren }: { tren: readonly TitikTren[] }) {
 
       {/* Label sumbu X: hanya ujung-ujungnya, supaya 30 label tidak bertumpuk. */}
       {pertama !== undefined && (
-        <text x={PADAT_KIRI} y={TINGGI_GRAFIK + 16} fontSize={9} fill="#64748b">
+        <text x={PADAT_KIRI} y={TINGGI_GRAFIK + 16} fontSize={12} fill="var(--muted-foreground)">
           {pertama.label}
         </text>
       )}
       {terakhir !== undefined && terakhir.label !== pertama?.label && (
-        <text x={LEBAR_GRAFIK} y={TINGGI_GRAFIK + 16} textAnchor="end" fontSize={9} fill="#64748b">
+        <text x={LEBAR_GRAFIK} y={TINGGI_GRAFIK + 16} textAnchor="end" fontSize={12} fill="var(--muted-foreground)">
           {terakhir.label}
         </text>
       )}
@@ -206,11 +206,11 @@ export function DonutStatus({ bagian }: { bagian: readonly BagianKomposisi[] }) 
         textAnchor="middle"
         fontSize={22}
         fontWeight={700}
-        fill="#0f172a"
+        fill="var(--navy)"
       >
         {total}
       </text>
-      <text x={PUSAT_DONUT} y={PUSAT_DONUT + 14} textAnchor="middle" fontSize={9} fill="#64748b">
+      <text x={PUSAT_DONUT} y={PUSAT_DONUT + 14} textAnchor="middle" fontSize={12} fill="var(--muted-foreground)">
         pinjaman
       </text>
     </svg>
@@ -262,7 +262,7 @@ function KartuGrafik({
         </span>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-navy">{judul}</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{keterangan}</p>
+          <p className="mt-0.5 text-xs leading-4 text-muted-foreground">{keterangan}</p>
         </div>
       </div>
       <div className="mt-3 min-w-0 flex-1">{children}</div>
@@ -332,10 +332,11 @@ export function RingkasanAnalitikView({
             <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">
               Pelunasan {rupiahRingkas(total.pelunasan)}
             </Badge>
-            <span className="text-[11px] text-muted-foreground">{tren.length} hari terakhir</span>
+            <span className="text-xs text-muted-foreground">{tren.length} hari terakhir</span>
           </div>
-          <p className="mb-1 text-[10px] text-muted-foreground">
-            — pencairan (hijau) · – – pelunasan (abu) · skala Y sama untuk keduanya
+          <p className="mb-1 text-xs text-muted-foreground">
+            Garis penuh: pencairan. Garis putus-putus: pelunasan. Skala Y sama
+            untuk keduanya.
           </p>
           <GrafikTren tren={tren} />
         </KartuGrafik>
@@ -353,7 +354,7 @@ export function RingkasanAnalitikView({
             <>
               <DonutStatus bagian={komposisi} />
               <LegendaKomposisi bagian={komposisi} total={totalStatus} />
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Total {totalStatus} pinjaman berjalan & ditinjau.
               </p>
             </>
@@ -370,7 +371,7 @@ export function RingkasanAnalitikView({
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-amber-900">Potensi risiko tinggi</p>
-              <p className="mt-0.5 text-[11px] leading-4 text-amber-800">
+              <p className="mt-0.5 text-xs leading-4 text-amber-800">
                 Diambil dari lokasi pinjaman aktif, keterlambatan jatuh tempo, dan pengajuan yang
                 pendapatannya di bawah ambang kewajaran.
               </p>
@@ -419,7 +420,7 @@ export function RingkasanAnalitikView({
                   <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-amber-900">
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        "rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
                         p.tingkat === "tinggi"
                           ? "bg-red-100 text-red-800"
                           : "bg-amber-100 text-amber-800",
@@ -428,11 +429,11 @@ export function RingkasanAnalitikView({
                       {p.tingkat}
                     </span>
                     {p.judul}
-                    <span className="tabular-nums text-[11px] font-medium text-amber-700">
+                    <span className="tabular-nums text-xs font-medium text-amber-700">
                       {p.nilai} kasus
                     </span>
                   </p>
-                  <p className="mt-1 text-[11px] leading-4 text-slate-600">{p.detail}</p>
+                  <p className="mt-1 text-xs leading-4 text-slate-600">{p.detail}</p>
                 </div>
                 <Button
                   type="button"
@@ -483,9 +484,6 @@ export function RingkasanAnalitik({
     analitikProp === undefined ? {} : "skip",
   );
   const analitik = analitikProp ?? dariServer;
-  // Jam klien dipakai untuk membulatkan hari; server sudah menyaring rentangnya,
-  // jadi selisih beberapa detik tidak mengubah titik mana pun.
-  const sekarang = Date.now();
 
   const metrik: MetrikRisiko =
     stats === undefined
@@ -510,6 +508,11 @@ export function RingkasanAnalitik({
       </div>
     );
   }
+
+  // Waktu acuan datang dari server yang juga menyusun rentang peristiwa.
+  // Jangan memakai jam peramban saat render: hasilnya tidak stabil dan bisa
+  // menggeser titik terakhir grafik beberapa jam dari data yang dikirim.
+  const sekarang = analitik.dihitungPada;
 
   return (
     <RingkasanAnalitikView

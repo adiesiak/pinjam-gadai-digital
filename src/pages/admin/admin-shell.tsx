@@ -370,7 +370,7 @@ export function AdminHeader({
 }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card">
-      <div className="flex min-h-14 w-full items-center justify-between gap-2 px-3 py-2 sm:min-h-16 sm:px-6">
+      <div className="flex min-h-14 w-full items-center justify-between gap-2 px-3 py-1.5 sm:min-h-16 sm:px-6 sm:py-2">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             type="button"
@@ -382,11 +382,16 @@ export function AdminHeader({
           >
             <Menu className="size-5" aria-hidden />
           </button>
-          <VaultLogo size={40} className="size-9 shrink-0 sm:size-10 lg:hidden" />
+          <VaultLogo
+            size={40}
+            className="hidden size-9 shrink-0 sm:block sm:size-10 lg:hidden"
+          />
           <nav aria-label="Breadcrumb" className="min-w-0">
-            <ol className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-              <li className="shrink-0">Panel admin</li>
-              <li aria-hidden className="shrink-0">
+            <ol className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              {/* Di ponsel, hanya modul aktif yang perlu tampil. Awalan
+                  "Panel admin /" memakan lebar yang dibutuhkan tombol kanan. */}
+              <li className="hidden shrink-0 sm:block">Panel admin</li>
+              <li aria-hidden className="hidden shrink-0 sm:block">
                 /
               </li>
               <li className="min-w-0 truncate text-sm font-semibold text-slate-900">{judul}</li>

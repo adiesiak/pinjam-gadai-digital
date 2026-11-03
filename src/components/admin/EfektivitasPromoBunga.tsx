@@ -378,10 +378,10 @@ export function GrafikTrenPromo({ tren }: { tren: readonly TrenMingguan[] }) {
               x2={LEBAR - KANAN}
               y1={y}
               y2={y}
-              stroke="#e2e8f0"
+              stroke="var(--border)"
               strokeDasharray={bagian === 0 ? undefined : "3 4"}
             />
-            <text x={KIRI - 6} y={y + 3} textAnchor="end" fontSize={9} fill="#64748b">
+            <text x={KIRI - 6} y={y + 3} textAnchor="end" fontSize={12} fill="var(--muted-foreground)">
               {ringkas(maks * bagian)}
             </text>
           </g>
@@ -400,7 +400,7 @@ export function GrafikTrenPromo({ tren }: { tren: readonly TrenMingguan[] }) {
               width={lebarBatang}
               height={Math.max(1, tinggi)}
               rx={3}
-              fill="#047857"
+              fill="var(--chart-1)"
               opacity={0.85}
             >
               <title>
@@ -411,8 +411,8 @@ export function GrafikTrenPromo({ tren }: { tren: readonly TrenMingguan[] }) {
               x={x + lebarBatang / 2}
               y={Math.max(ATAS - 6, y - 6)}
               textAnchor="middle"
-              fontSize={9}
-              fill="#0f172a"
+              fontSize={12}
+              fill="var(--navy)"
               fontWeight={600}
             >
               {baris.pinjaman}
@@ -421,8 +421,8 @@ export function GrafikTrenPromo({ tren }: { tren: readonly TrenMingguan[] }) {
               x={x + lebarBatang / 2}
               y={TINGGI - 8}
               textAnchor="middle"
-              fontSize={9}
-              fill="#64748b"
+              fontSize={12}
+              fill="var(--muted-foreground)"
             >
               {formatTanggalWIB(baris.mulai, { day: "numeric", month: "short" })}
             </text>

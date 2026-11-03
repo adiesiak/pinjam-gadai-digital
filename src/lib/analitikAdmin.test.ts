@@ -112,7 +112,10 @@ const SEKARANG = new Date(2026, 9, 15, 10, 0, 0).getTime();
   sama("total komposisi", totalKomposisi(bagian), 20);
   sama("persen lancar", persenBagian(bagian[0], 20), 60);
   sama("persen jatuh tempo", persenBagian(bagian[2], 20), 15);
-  cek("setiap segmen punya warna", bagian.every((b) => /^#[0-9a-f]{6}$/i.test(b.warna)));
+  cek(
+    "setiap segmen punya warna token",
+    bagian.every((b) => /^(#[0-9a-f]{6}|var\(--chart-[1-5]\))$/i.test(b.warna)),
+  );
 
   const kosong = komposisiStatusPinjaman({ lancar: 0, ditinjau: 0, jatuhTempo: 0 });
   sama("tanpa data totalnya 0", totalKomposisi(kosong), 0);

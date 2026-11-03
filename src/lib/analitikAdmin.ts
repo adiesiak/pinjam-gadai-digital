@@ -189,14 +189,14 @@ export const LABEL_KOMPOSISI: Record<KunciKomposisi, string> = {
 };
 
 /**
- * Warna segmen donut. Hijau untuk lancar, kuning untuk yang masih ditinjau,
- * merah untuk jatuh tempo — sama artinya dengan nada peringatan lain di modul
- * ini, jadi warna tidak pernah berarti lain di dua tempat.
+ * Token warna grafik dari tema aktif. Jangan menulis hex di sini: preset tema
+ * memetakan ulang skala yang sama, dan status tetap dibedakan oleh label teks
+ * pada legenda, bukan warna saja.
  */
 export const WARNA_KOMPOSISI: Record<KunciKomposisi, string> = {
-  lancar: "#047857",
-  ditinjau: "#f59e0b",
-  jatuhTempo: "#b91c1c",
+  lancar: "var(--chart-1)",
+  ditinjau: "var(--chart-2)",
+  jatuhTempo: "var(--chart-5)",
 };
 
 export type BagianKomposisi = {
