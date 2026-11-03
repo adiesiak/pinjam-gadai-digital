@@ -69,11 +69,12 @@ export function LandingHero(props: LandingHeroProps) {
 
             <h1
               id="hero-judul"
-              className="mt-6 text-[2.15rem] font-semibold leading-[1.08] tracking-[-0.035em] text-foreground min-[480px]:text-[2.7rem] sm:text-5xl lg:text-[3.4rem]"
+              className="mt-6 text-balance text-[2.15rem] font-semibold leading-[1.08] tracking-[-0.035em] text-foreground min-[480px]:text-[2.7rem] sm:text-5xl lg:text-[3.4rem]"
             >
-              {props.judul1}
-              <br />
-              <span className="font-display text-primary">{props.judul2}</span>
+              <span className="block">{props.judul1}</span>{" "}
+              <span className="block font-display text-primary">
+                {props.judul2}
+              </span>
             </h1>
 
             <p className="mt-6 max-w-lg text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">

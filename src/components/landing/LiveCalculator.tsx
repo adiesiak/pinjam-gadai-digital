@@ -1,7 +1,7 @@
 /**
  * Kalkulator pinjaman di halaman publik.
  *
- * Dipindah dari `pages/Landing.tsx` tanpa mengubah perilaku: satu komponen
+ * Dipindah dari `pages/Landing.tsx` dengan mesin harga yang sama: satu komponen
  * sebesar ini membuat berkas halaman sulit dibaca, padahal batasnya jelas
  * (masukan nominal/tenor, hasil hitung, ajakan membuat akun).
  *
@@ -13,9 +13,8 @@
  * pembayaran bulanan dikenai biaya admin cicilan 2%). Angka di bawah ini sengaja
  * tidak lebih besar dari plafon — lihat lib/plafon.ts.
  */
-import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -37,7 +36,6 @@ import {
   type LoanQuote,
 } from "@/lib/loan";
 import { formatRupiah, type Rupiah } from "@/lib/money";
-import { EASE_OUT } from "@/lib/motion";
 import { PLAFON_BATAS } from "@/lib/plafon";
 import { simpanSimulasiPengajuan } from "@/lib/simulasiPengajuan";
 
@@ -110,6 +108,23 @@ export function LiveCalculator({
   const stepBulat = bulanan ? 500_000 : 50_000;
   const cepat = bulanan ? QUICK_AMOUNTS_BULANAN : QUICK_AMOUNTS;
   const totalPelunasan = sim !== null ? sim.totalPengembalian : quote.totalKewajibanPelunasan;
+  // Simpan setiap perubahan, bukan hanya saat CTA kalkulator diklik. Dengan
+  // begitu tombol header dan CTA lengket juga membawa hitungan terakhir ke
+  // formulir. Efek pertama tidak menulis apa pun supaya nilai bawaan tidak
+  // dianggap pilihan pengunjung.
+  const awalSimulasi = useRef({ skema, amount, tenorHarian, tenorBulan });
+  const pernahBerubah = useRef(false);
+  useEffect(() => {
+    const awal = awalSimulasi.current;
+    const samaDenganAwal =
+      awal.skema === skema &&
+      awal.amount === amount &&
+      awal.tenorHarian === tenorHarian &&
+      awal.tenorBulan === tenorBulan;
+    if (!pernahBerubah.current && samaDenganAwal) return;
+    pernahBerubah.current = true;
+    simpanSimulasiPengajuan({ skema, pokok: amount, tenorHari: tenorHarian, tenorBulan });
+  }, [skema, amount, tenorHarian, tenorBulan]);
 
   const pilihNominal = (nilai: number) => {
     setAmount(nilai);
@@ -146,11 +161,9 @@ export function LiveCalculator({
             className={`relative min-h-11 rounded-lg px-2 py-2 text-center text-xs font-medium leading-4 transition-colors sm:px-3 ${kelasFokus}`}
           >
             {skema === nilai && (
-              <motion.span
+              <span
                 aria-hidden="true"
-                layoutId="calc-skema"
                 className="absolute inset-0 rounded-lg bg-card shadow-sm"
-                transition={{ type: "spring", stiffness: 380, damping: 32 }}
               />
             )}
             <span className={`relative ${skema === nilai ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -236,10 +249,9 @@ export function LiveCalculator({
                   }`}
                 >
                   {tenorBulan === t && (
-                    <motion.span
-                      layoutId="calc-tenor"
+                    <span
+                      aria-hidden="true"
                       className="absolute inset-0 rounded-lg bg-primary/10"
-                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
                     />
                   )}
                   <span className="relative">{t} bulan</span>
@@ -260,10 +272,9 @@ export function LiveCalculator({
                     }`}
                   >
                     {dipilih && (
-                      <motion.span
-                        layoutId="calc-tenor"
+                      <span
+                        aria-hidden="true"
                         className="absolute inset-0 rounded-lg bg-primary/10"
-                        transition={{ type: "spring", stiffness: 380, damping: 32 }}
                       />
                     )}
                     <span className="relative">{t} hari</span>
@@ -379,25 +390,22 @@ export function LiveCalculator({
         ))}
         <div className="flex items-baseline justify-between gap-3 border-t border-border pt-2.5 sm:gap-4">
           <dt className="font-semibold text-foreground">Total pelunasan</dt>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.dd
-              key={totalPelunasan}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: EASE_OUT }}
-              className="text-base font-semibold tabular-nums text-foreground"
-            >
-              {formatRupiah(totalPelunasan)}
-            </motion.dd>
-          </AnimatePresence>
+          <dd className="text-base font-semibold tabular-nums text-foreground">
+            {formatRupiah(totalPelunasan)}
+          </dd>
         </div>
       </dl>
+
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        Total pelunasan {formatRupiah(totalPelunasan)}
+      </p>
 
       <p className="mt-4 text-sm leading-5 text-muted-foreground">
         Ini perhitungan aplikasi, bukan persetujuan pinjaman. Skema bulanan
         menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan
         sekaligus saat jatuh tempo. Perpindahan dana ditangani di luar aplikasi.
+        Hitungan ini dibawa ke formulir setelah masuk; pengajuan pertama
+        memerlukan verifikasi identitas (KYC).
       </p>
 
       <Button

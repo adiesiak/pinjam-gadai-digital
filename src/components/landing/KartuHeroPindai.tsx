@@ -1,4 +1,3 @@
-import { useReducedMotion } from "framer-motion";
 import {
   useEffect,
   useId,
@@ -10,6 +9,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { DEMO_CARD_NUMBER } from "@/lib/demoCardNumber";
+import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 
 export const TILT_MAKSIMUM_DERAJAT = 12;
 const NOMOR_TAMPILAN = DEMO_CARD_NUMBER;
@@ -289,7 +289,7 @@ export interface KartuHeroPindaiProps {
 }
 
 export function PindaiCard3D({ className }: KartuHeroPindaiProps) {
-  const reduceMotion = useReducedMotion() === true;
+  const reduceMotion = usePrefersReducedMotion();
   const stageRef = useRef<HTMLDivElement | null>(null);
   const currentTiltRef = useRef({ x: 0, y: 0 });
   const [touchActive, setTouchActive] = useState(false);

@@ -18,9 +18,9 @@ import { JudulBagian } from "./JudulBagian";
 import { LiveCalculator } from "./LiveCalculator";
 
 const CATATAN = [
+  "Kalkulator ini untuk pinjaman tunai; gadai, kredit barang, dan syariah dihitung di halamannya.",
   "Nominal dan tenor diubah langsung; hasilnya ikut berubah.",
   "Potongan di muka memakai tarif yang berlaku hari ini.",
-  "Skema harian dan cicilan bulanan ada dalam satu tempat.",
 ] as const;
 
 export function KalkulatorBeranda({

@@ -118,6 +118,33 @@ for (const berkas of ["./PublicInfoPage.tsx", "./UnduhAplikasi.tsx"]) {
   tidakAda(sumber, "<details className", `${berkas} tidak memakai <details>`);
 }
 
+// Jalur awal landing tidak boleh menarik framer-motion hanya untuk animasi
+// dekoratif. Demo tetap boleh memakainya karena dimuat saat tombol diklik.
+{
+  const kalkulator = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/LiveCalculator.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  const kartu = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/KartuHeroPindai.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  tidakAda(
+    kalkulator,
+    'from "framer-motion"',
+    "kalkulator tidak membawa framer-motion ke bundle awal",
+  );
+  tidakAda(
+    kartu,
+    'from "framer-motion"',
+    "kartu hero tidak membawa framer-motion ke bundle awal",
+  );
+}
+
 // Komponen bersama: keadaan diumumkan, Escape menutup, dan klik di luar menutup.
 {
   const komponen = readFileSync(

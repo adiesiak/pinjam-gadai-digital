@@ -3,7 +3,12 @@
  * Run: bun src/lib/simulasiPengajuan.test.ts
  */
 import { LOAN_LIMITS } from "./loan";
-import { validasiSimulasiPengajuan } from "./simulasiPengajuan";
+import {
+  bacaSimulasiPengajuan,
+  hapusSimulasiPengajuan,
+  simpanSimulasiPengajuan,
+  validasiSimulasiPengajuan,
+} from "./simulasiPengajuan";
 
 let lulus = 0;
 let gagal = 0;
@@ -80,6 +85,22 @@ ok(
   }) === null,
   "pokok pecahan ditolak",
 );
+
+const peta = new Map<string, string>();
+const penyimpanan = {
+  getItem: (kunci: string) => peta.get(kunci) ?? null,
+  setItem: (kunci: string, nilai: string) => void peta.set(kunci, nilai),
+  removeItem: (kunci: string) => void peta.delete(kunci),
+} as unknown as Storage;
+if (harian !== null) {
+  simpanSimulasiPengajuan(harian, penyimpanan);
+  ok(
+    bacaSimulasiPengajuan(penyimpanan)?.pokok === harian.pokok,
+    "simulasi dapat disimpan dan dibaca kembali",
+  );
+  hapusSimulasiPengajuan(penyimpanan);
+  ok(bacaSimulasiPengajuan(penyimpanan) === null, "simulasi dapat dibersihkan");
+}
 
 console.log(`simulasiPengajuan: ${lulus} lulus, ${gagal} gagal`);
 if (gagal > 0) process.exit(1);

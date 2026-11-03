@@ -47,6 +47,10 @@ ok(
     html.includes("Ajukan pinjaman"),
   "CTA memakai tujuan dan label dari pemanggil",
 );
+ok(
+  html.includes('role="status"') && html.includes('aria-live="polite"'),
+  "perubahan total pelunasan diumumkan ke pembaca layar",
+);
 ok(!html.includes("animate-sheen"), "CTA tidak memakai kilau dekoratif");
 ok(
   !html.includes("rounded-[1.5rem]"),

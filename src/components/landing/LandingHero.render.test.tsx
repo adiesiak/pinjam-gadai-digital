@@ -102,6 +102,7 @@ ok(
 // ── 3. Konten & aksesibilitas utuh tanpa syarat apa pun ──
 ok(html.includes('aria-labelledby="hero-judul"'), "section menunjuk judulnya");
 ok(html.includes('id="hero-judul"'), "judul punya id untuk aria-labelledby");
+ok(!html.includes("<br"), "judul tidak memaksa baris dengan <br>");
 ok(
   html.includes("Solusi Finansial, Lebih Jelas"),
   "judul hero selalu ada di markup",
