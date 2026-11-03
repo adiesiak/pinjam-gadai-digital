@@ -66,8 +66,8 @@ const PpobPesanan = lazy(
 
 /**
  * Daftarkan service worker pemasangan (lihat `public/sw.js`). Tanpa cache:
- * hanya memenuhi syarat browser sebelum menawarkan "Pasang aplikasi".
- * Kegagalan pendaftaran diabaikan — tombol pasang tetap memberi panduan manual.
+ * hanya memenuhi syarat browser untuk pemasangan versi web.
+ * Kegagalan pendaftaran diabaikan — panduan di `/aplikasi` tetap tersedia.
  */
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

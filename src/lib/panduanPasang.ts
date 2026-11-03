@@ -1,7 +1,7 @@
 /**
  * Langkah memasang PINDAI ke layar utama — data murni, tanpa React/DOM.
  *
- * Kenapa dipisah: satu tombol "Pasang aplikasi" harus tahu perangkat apa yang
+ * Kenapa dipisah: panduan pemasangan harus tahu perangkat apa yang
  * sedang dipakai supaya panduan yang muncul tepat. Deteksi perangkat ditulis
  * sebagai fungsi murni yang menerima user agent + jumlah titik sentuh, jadi
  * bisa diuji tanpa browser.

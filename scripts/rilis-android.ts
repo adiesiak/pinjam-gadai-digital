@@ -207,7 +207,6 @@ function main(): void {
 
   for (const uji of [
     "src/lib/ikonAplikasi.test.ts",
-    "src/components/landing/PasangAplikasi.render.test.tsx",
     "src/pages/UnduhAplikasi.render.test.tsx",
   ]) {
     jalankan("bun", [uji], `Uji ${uji}`);

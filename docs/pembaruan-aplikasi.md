@@ -14,7 +14,7 @@ Tidak ada push notification: aplikasi belum punya kanal push
    aplikasi** dan mengisi `versionCode`, nama versi, tautan unduhan, catatan
    opsional.2. **Umumkan versi** menulis satu baris `pembaruanAplikasi`. Sejak itu pusat
    notifikasi setiap akun non-tamu menampilkan `PINDAI x.y.z sudah bisa
-dipasang` dengan tautan ke `/#pasang-aplikasi`. Centang **Wajib diperbarui**
+dipasang` dengan tautan ke `/aplikasi`. Centang **Wajib diperbarui**
    bila versi lama tidak boleh dipakai lagi (lihat bagian berikut).
 3. **Kirim ke N penerima** mengirim pesan WhatsApp bertahap (10 pesan per
    gelombang) sampai semua penerima yang belum menerima versi itu terkirim.

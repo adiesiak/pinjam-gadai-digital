@@ -115,15 +115,15 @@ for (const role of ["peminjam", "dana"]) {
   tidakAda(markup, ADMIN_ROUTE, "tamu tidak diberi rute panel admin");
 }
 
-// 4. Tombol pemasangan aplikasi ikut ter-render di beranda, tanpa tautan toko
-//    yang belum ada (Play Store/App Store belum punya listing).
+// 4. Bagian pemasangan tidak lagi ditempel di beranda. Pengunjung diarahkan
+//    ke halaman /aplikasi agar hanya ada satu jalur pemasangan.
 {
   const markup = render({ isAuthenticated: false, user: undefined });
-  ada(markup, "Pasang aplikasi", "beranda menampilkan satu tombol pasang");
-  ada(markup, 'href="/pindai.apk"', "beranda menautkan berkas APK");
-  cek(
-    "tombol pasang tidak diduplikasi per platform",
-    (markup.match(/Pasang aplikasi/g) ?? []).length === 1,
+  tidakAda(markup, "Pasang aplikasi", "beranda tidak menampilkan kartu pasang");
+  tidakAda(
+    markup,
+    'href="/pindai.apk"',
+    "beranda tidak menautkan berkas APK langsung",
   );
   tidakAda(markup, "play.google", "beranda tidak menautkan Play Store");
   tidakAda(markup, "apps.apple", "beranda tidak menautkan App Store");
@@ -157,12 +157,12 @@ for (const role of ["peminjam", "dana"]) {
   cmsUji = undefined;
 }
 
-// 6. Menu unduh aplikasi: halaman /aplikasi nyata dan bisa dijangkau dari
-//    navigasi beranda, bukan tautan mati.
+// 6. Menu aplikasi: satu tautan di navigasi beranda menuju halaman /aplikasi.
 {
   const markup = render({ isAuthenticated: false, user: undefined });
   ada(markup, 'href="/aplikasi"', "beranda menautkan halaman unduh aplikasi");
-  ada(markup, "Aplikasi Android", "menu menyebut aplikasi Android");
+  ada(markup, ">Aplikasi</a>", "menu atas menyebut Aplikasi");
+  ada(markup, "Aplikasi Android", "menu ponsel menyebut aplikasi Android");
 }
 
 // 7. Skema imbal hasil pendana tidak diumumkan di beranda. Angka itu hanya

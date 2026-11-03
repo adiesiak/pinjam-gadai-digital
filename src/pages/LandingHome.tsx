@@ -23,7 +23,6 @@ import {
 import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { SkipLink } from "@/components/SkipLink";
 import { VaultLogo } from "@/components/VaultLogo";
-import { PasangAplikasi } from "@/components/landing/PasangAplikasi";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
@@ -74,12 +73,13 @@ const TAUTAN_MENU = [
   { href: "/aplikasi", label: "Aplikasi Android", grup: "Lainnya" },
 ] as const;
 
-/** Tautan desktop: lima tujuan, produk masuk ke dropdown. */
+/** Tautan desktop: enam tujuan, produk masuk ke dropdown. */
 const TAUTAN_NAV = [
   { href: "/biaya", label: "Biaya" },
   { href: "/cara-kerja", label: "Cara kerja" },
   { href: "/keamanan", label: "Keamanan" },
   { href: "/faq", label: "FAQ" },
+  { href: "/aplikasi", label: "Aplikasi" },
 ] as const;
 
 const PRODUK_NAV = [
@@ -497,10 +497,6 @@ export default function LandingHome() {
         </section>
 
         <RuangPendanaBeranda />
-
-        <div className="pindai-bawah-lipatan">
-          <PasangAplikasi />
-        </div>
 
         {/* Penutup: satu panel, bukan pita teks. Panel ini memakai motif ombak
             yang sama dengan hero sebagai penanda akhir halaman, dan catatan

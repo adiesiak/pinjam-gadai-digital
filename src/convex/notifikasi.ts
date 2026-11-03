@@ -583,9 +583,9 @@ async function susunNotifikasi(
       judul: `PINDAI ${versiTerbaru.versiNama} sudah bisa dipasang`,
       ringkasan: `Versi baru diumumkan ${kalimatWaktu(versiTerbaru.diumumkanPada, sekarang)}.${
         catatan === "" ? "" : ` ${catatan}`
-      } Buka bagian pemasangan untuk mengunduh dan memasang.`,
+      } Buka halaman aplikasi untuk mengunduh dan memasang.`,
       waktu: versiTerbaru.diumumkanPada,
-      tautan: "/#pasang-aplikasi",
+      tautan: "/aplikasi",
       dibaca: false,
     });
   }

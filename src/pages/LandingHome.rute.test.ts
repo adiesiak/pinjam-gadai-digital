@@ -43,8 +43,13 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   );
   ada(
     sumber,
-    "<PasangAplikasi />",
-    "beranda memasang tombol pemasangan aplikasi",
+    'href: "/aplikasi"',
+    "beranda menautkan halaman aplikasi dari menu",
+  );
+  tidakAda(
+    sumber,
+    "<PasangAplikasi",
+    "beranda tidak memasang kartu pemasangan terpisah",
   );
   // CTA sekunder pernah memanggil `window.location.assign("/biaya")`, yang
   // memuat ulang seluruh halaman dan tidak bisa dibuka di tab baru.

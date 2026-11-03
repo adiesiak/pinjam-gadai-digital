@@ -3,7 +3,7 @@
 Pembungkus WebView untuk aplikasi web PINDAI. Satu Activity, tanpa Gradle dan
 tanpa AndroidX, sehingga build-nya hanya butuh JDK 17 + Android SDK
 build-tools 34. Hasil build dipasang di repo sebagai `public/pindai.apk` dan
-ditautkan dari tombol "Pasang aplikasi" di beranda.
+ditautkan dari halaman `/aplikasi`.
 
 ## Isi folder
 
