@@ -839,10 +839,14 @@ ok(
 // dihitung ulang, wizard melompat sendiri begitu tahap yang diisi jadi lengkap.
 {
   const modul = bacaSumber("pages/dashboard/kyc-views.tsx");
-  ada(modul, "tahapAwal.current === null", "tahap pembuka dihitung sekali lalu dikunci");
   ada(
     modul,
-    "const tahapAktif = tahapPilihan ?? tahapAwal.current;",
+    "if (tahapAwal === null) setTahapAwal(saranTahap);",
+    "tahap pembuka dihitung sekali lalu dikunci",
+  );
+  ada(
+    modul,
+    "const tahapAktif = tahapPilihan ?? tahapAwal ?? saranTahap;",
     "tahap aktif memakai pilihan yang sudah terkunci",
   );
   ok(

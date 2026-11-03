@@ -161,6 +161,10 @@ export default function Dashboard() {
   const [bagianAkun, setBagianAkun] = useState<"diri" | "kyc" | "bantuan">(
     activeTab === "kyc" ? "kyc" : "diri",
   );
+  // Tab lama `diri`/`kyc` menang atas pilihan submenu, tanpa perlu menyalin
+  // nilainya ke state lewat efek.
+  const bagianAkunTampil: "diri" | "kyc" | "bantuan" =
+    activeTab === "diri" || activeTab === "kyc" ? activeTab : bagianAkun;
   const gantiTab = (value: string) => {
     setTabLokal(value);
     // Simpan tab di URL tanpa menumpuk riwayat: muat ulang dan tautan yang
@@ -174,12 +178,6 @@ export default function Dashboard() {
       }
     }
   };
-
-  // Bila tab berpindah lewat tautan (mis. notifikasi KYC), subbagian Akun
-  // mengikuti nilai tab lama itu; klik submenu sendiri tidak mengubahnya.
-  useEffect(() => {
-    if (activeTab === "diri" || activeTab === "kyc") setBagianAkun(activeTab);
-  }, [activeTab]);
 
   const pilihBagianAkun = (bagian: "diri" | "kyc" | "bantuan") => {
     setBagianAkun(bagian);
@@ -678,10 +676,10 @@ export default function Dashboard() {
                       <button
                         key={bagian.value}
                         type="button"
-                        aria-pressed={bagianAkun === bagian.value}
+                        aria-pressed={bagianAkunTampil === bagian.value}
                         onClick={() => pilihBagianAkun(bagian.value)}
                         className={`min-h-11 rounded-full px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2 ${
-                          bagianAkun === bagian.value
+                          bagianAkunTampil === bagian.value
                             ? "bg-white text-emerald-900 shadow-sm"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
@@ -691,10 +689,10 @@ export default function Dashboard() {
                     ))}
                   </div>
 
-                  <div className={bagianAkun === "kyc" ? "mt-6 max-w-3xl" : "mt-6"}>
-                    {bagianAkun === "diri" ? (
+                  <div className={bagianAkunTampil === "kyc" ? "mt-6 max-w-3xl" : "mt-6"}>
+                    {bagianAkunTampil === "diri" ? (
                       <DataDiriSection />
-                    ) : bagianAkun === "kyc" ? (
+                    ) : bagianAkunTampil === "kyc" ? (
                       /* Terpisah dari formulir pengajuan: menyimpan KYC tidak
                          membuat catatan pinjaman apa pun, dan status VERIFIED
                          bukan persetujuan pinjaman. Batas 48rem: sejak navigasi

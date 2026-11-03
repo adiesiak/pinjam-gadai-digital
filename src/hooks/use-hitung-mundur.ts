@@ -21,18 +21,22 @@ export function useHitungMundur(
   useEffect(() => {
     if (mulaiPada === null) return;
     const batas = mulaiPada + detikTotal * 1000;
-    // Langsung sinkronkan sekali: perangkat bisa baru dibangunkan dari tidur.
-    setSekarang(Date.now());
-    if (Date.now() >= batas) return;
-    const id = setInterval(() => {
+    // Sinkronkan sekali lewat timeout 0: perangkat bisa baru dibangunkan dari
+    // tidur sehingga angka lama belum tentu benar, tetapi memperbarui state
+    // langsung di badan efek memicu render berantai.
+    const sinkron = window.setTimeout(() => setSekarang(Date.now()), 0);
+    const id = window.setInterval(() => {
       if (Date.now() >= batas) {
         setSekarang(batas);
-        clearInterval(id);
+        window.clearInterval(id);
         return;
       }
       setSekarang(Date.now());
     }, 1000);
-    return () => clearInterval(id);
+    return () => {
+      window.clearTimeout(sinkron);
+      window.clearInterval(id);
+    };
   }, [mulaiPada, detikTotal]);
 
   if (mulaiPada === null) return null;

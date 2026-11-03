@@ -29,7 +29,6 @@ import {
   internalMutation,
   mutation,
   query,
-  type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";

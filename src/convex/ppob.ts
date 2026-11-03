@@ -24,11 +24,9 @@ import {
   MAKS_PESANAN_PPOB_PER_PERANGKAT,
   MASA_BERLAKU_TAGIHAN_PPOB_MS,
   hargaJualDariModal,
-  hargaJualPascabayar,
   hashPerangkat,
   kategoriPascabayar,
   kategoriPpobAman,
-  labaPascabayar,
   labaPesanan,
   maskNomor,
   nomorTujuanBersih,
@@ -69,8 +67,7 @@ export const PPOB_SALDO_MINIMUM_BAWAAN = 100_000;
 /** Selisih rekonsiliasi di atas angka ini dianggap perlu diperiksa. */
 export const PPOB_AMBANG_REKONSILIASI = 10_000;
 
-const PROVIDER = ["digiflazz", "kustom"] as const;
-type Provider = (typeof PROVIDER)[number];
+type Provider = "digiflazz" | "kustom";
 
 /** Jenis alur kategori; dipakai normalisasi produk saat sinkron. */
 function jenisKategori(kategori: KategoriPpob): "prabayar" | "pascabayar" {

@@ -63,9 +63,11 @@ export function useDraftKyc({
    * dipasang ulang setiap ketikan (dan tidak menahan nilai lama).
    */
   const isianRef = useRef<IsianDraftKyc>(isian);
-  isianRef.current = isian;
   const aktifRef = useRef(aktif);
-  aktifRef.current = aktif;
+  useEffect(() => {
+    isianRef.current = isian;
+    aktifRef.current = aktif;
+  }, [isian, aktif]);
 
   const tulisSekarang = useCallback(
     (nilai: IsianDraftKyc) => {

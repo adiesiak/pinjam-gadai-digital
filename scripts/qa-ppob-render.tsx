@@ -47,6 +47,7 @@ mock.module("convex/react", () => ({
     ];
   },
   useMutation: () => async () => undefined,
+  useAction: () => async () => undefined,
 }));
 
 const { Ppob } = await import("../src/pages/Ppob");

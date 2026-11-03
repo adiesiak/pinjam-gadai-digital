@@ -145,7 +145,9 @@ export function UnggahDokumen({
    * setiap render) — kalau bukan, satu berkas bisa diunggah dua kali.
    */
   const pilihRef = useRef(pilih);
-  pilihRef.current = pilih;
+  useEffect(() => {
+    pilihRef.current = pilih;
+  });
   useEffect(() => {
     if (berkasKamera === null || berkasKamera === undefined) return;
     void pilihRef.current(berkasKamera).finally(() => onBerkasKameraDiproses?.());

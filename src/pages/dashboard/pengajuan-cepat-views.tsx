@@ -90,6 +90,9 @@ import {
 } from "@/lib/pengajuanCepat";
 import { kalimatBatasPlafon, type RingkasanPlafon } from "@/lib/plafon";
 
+/** Waktu acuan promo untuk halaman cepat; stabil selama halaman terbuka. */
+const WAKTU_MUAT_HALAMAN = Date.now();
+
 /** Data KYC terverifikasi dengan id dokumen yang sudah pasti (bukan string bebas). */
 export type DataKycTerverifikasi = Omit<
   KtpTerverifikasi,
@@ -403,7 +406,7 @@ export function PengajuanCepatSection({
   const promoBungaQuery = useQuery(api.promoBunga.berjalan, {});
   const promoBunga = pilihPromoBunga(promoBungaQuery ?? [], {
     tenor,
-    sekarang: Date.now(),
+    sekarang: WAKTU_MUAT_HALAMAN,
     persenNormal: tarifNormalBunga,
   });
   const tarifBunga = bungaSetelahPromo(tarifNormalBunga, promoBunga);

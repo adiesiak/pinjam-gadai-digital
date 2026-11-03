@@ -24,7 +24,6 @@ import {
   muatInfoUnduhan,
   statusVersi,
   ukuranTerbaca,
-  type InfoUnduhan,
 } from "@/lib/unduhAplikasi";
 import { UnduhAplikasiView } from "@/pages/UnduhAplikasi";
 import {

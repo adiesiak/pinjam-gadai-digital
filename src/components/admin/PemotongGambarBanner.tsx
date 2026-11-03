@@ -100,38 +100,63 @@ export function PemotongGambarBanner({
     fokusY: number;
   } | null>(null);
 
-  const [gambar, setGambar] = useState<HTMLImageElement | null>(null);
-  const [galat, setGalat] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [fokusX, setFokusX] = useState(0.5);
-  const [fokusY, setFokusY] = useState(0.5);
+  // Semua state memuat berkas asalnya. Nilai yang berasal dari berkas lain
+  // diabaikan saat render, jadi berkas baru otomatis mulai dari awal tanpa
+  // efek penyemai.
+  const [muatan, setMuatan] = useState<{
+    berkas: File;
+    gambar: HTMLImageElement;
+  } | null>(null);
+  const [galat, setGalat] = useState<{ berkas: File; pesan: string } | null>(null);
+  const [potongan, setPotongan] = useState<{
+    berkas: File;
+    zoom: number;
+    fokusX: number;
+    fokusY: number;
+  } | null>(null);
   const [sibukLokal, setSibukLokal] = useState(false);
+
+  const gambar = muatan !== null && muatan.berkas === berkas ? muatan.gambar : null;
+  const pesanGalat =
+    galat !== null && galat.berkas === berkas ? galat.pesan : null;
+  const potonganAktif =
+    berkas !== null && potongan?.berkas === berkas
+      ? potongan
+      : { zoom: 1, fokusX: 0.5, fokusY: 0.5 };
+  const zoom = potonganAktif.zoom;
+  const fokusX = potonganAktif.fokusX;
+  const fokusY = potonganAktif.fokusY;
+
+  /** Ubah bingkai; bila berkas berganti, nilai lain kembali ke awalnya. */
+  const aturPotongan = (perubahan: {
+    zoom?: number;
+    fokusX?: number;
+    fokusY?: number;
+  }) => {
+    if (berkas === null) return;
+    setPotongan((lama) => {
+      const dasar = lama?.berkas === berkas ? lama : { zoom: 1, fokusX: 0.5, fokusY: 0.5 };
+      return { berkas, ...dasar, ...perubahan };
+    });
+  };
 
   const rasio = RASIO_BANNER[varian];
   const ukuran = UKURAN_BANNER[varian];
   const label = varian === "desktop" ? "Desktop (8:3)" : "Ponsel (4:5)";
 
   useEffect(() => {
-    setZoom(1);
-    setFokusX(0.5);
-    setFokusY(0.5);
-    setGalat(null);
-    if (berkas === null) {
-      setGambar(null);
-      return;
-    }
-
+    if (berkas === null) return;
     const url = URL.createObjectURL(berkas);
     const img = new Image();
     let aktif = true;
     img.onload = () => {
       if (!aktif) return;
-      setGambar(img);
+      setMuatan({ berkas, gambar: img });
     };
     img.onerror = () => {
       if (!aktif) return;
-      setGambar(null);
-      setGalat("Berkas ini tidak bisa dibaca sebagai gambar.");
+      setMuatan(null);
+      setGalat({ berkas, pesan: "Berkas ini tidak bisa dibaca sebagai gambar." });
     };
     img.src = url;
     return () => {
@@ -203,12 +228,10 @@ export function PemotongGambarBanner({
     const deltaY =
       ((event.clientY - seretRef.current.y) / kotak.height) *
       (potongan.sh / gambar.naturalHeight);
-    setFokusX(
-      Math.min(1, Math.max(0, seretRef.current.fokusX - deltaX)),
-    );
-    setFokusY(
-      Math.min(1, Math.max(0, seretRef.current.fokusY - deltaY)),
-    );
+    aturPotongan({
+      fokusX: Math.min(1, Math.max(0, seretRef.current.fokusX - deltaX)),
+      fokusY: Math.min(1, Math.max(0, seretRef.current.fokusY - deltaY)),
+    });
   };
 
   const gunakan = async () => {
@@ -269,9 +292,9 @@ export function PemotongGambarBanner({
           </DialogDescription>
         </DialogHeader>
 
-        {galat !== null ? (
+        {pesanGalat !== null ? (
           <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-4 text-sm text-rose-800">
-            <ImageOff className="size-4" /> {galat}
+            <ImageOff className="size-4" /> {pesanGalat}
           </div>
         ) : (
           <div className="space-y-4">
@@ -307,7 +330,7 @@ export function PemotongGambarBanner({
                 max={3}
                 step={0.01}
                 value={[zoom]}
-                onValueChange={(nilai) => setZoom(nilai[0] ?? 1)}
+                onValueChange={(nilai) => aturPotongan({ zoom: nilai[0] ?? 1 })}
                 aria-label="Zoom gambar"
                 disabled={gambar === null}
               />

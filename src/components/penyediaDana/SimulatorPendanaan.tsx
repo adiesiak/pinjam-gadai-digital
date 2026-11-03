@@ -76,92 +76,113 @@ export function SimulatorPendanaan() {
   const pokokGadai = bacaNominal(pokokGadaiTeks);
   const margin = Number(marginTeks.replace(",", ".")) || 0;
 
-  let keuntungan: number | null = null;
-  let rincian: React.ReactNode = null;
+  type RincianSimulasi =
+    | {
+        jenis: "konvensional";
+        perSiklus: ReturnType<typeof bagiHasilPendana>;
+        syarat: readonly string[];
+      }
+    | { jenis: "murabahah"; hasil: ReturnType<typeof bagiHasilMurabahah> }
+    | { jenis: "rahn"; hasil: ReturnType<typeof bagiHasilRahn> };
 
+  let keuntungan: number | null = null;
+  let rincian: RincianSimulasi | null = null;
+
+  // Hitung dulu tanpa membuat JSX. JSX baru disusun setelah try/catch agar
+  // kegagalan satu rumus tidak meninggalkan pohon elemen setengah jadi.
   try {
-    if (akad === "konvensional") {
-      if (nominal > 0) {
-        const perSiklus = bagiHasilPendana(nominal);
-        keuntungan = perSiklus.keuntungan * siklus;
-        const syarat = syaratUnderwriting({ tenorBulan: 1, pokok: nominal });
-        rincian = (
-          <>
-            <Baris label="Marjin bruto per siklus 30 hari" nilai={rupiah(perSiklus.imbal)} />
-            <Baris
-              label={`Porsi pendana (${PERSEN_PORSI_PENDANA.toFixed(2)}%)`}
-              nilai={rupiah(perSiklus.keuntungan)}
-            />
-            <Baris
-              label={`Porsi platform (${PERSEN_PORSI_PLATFORM.toFixed(2)}%)`}
-              nilai={rupiah(perSiklus.potonganAdmin)}
-            />
-            <Baris
-              label="Diterima bersih per siklus"
-              nilai={rupiah(perSiklus.diterima)}
-            />
-            <Baris
-              label={`Keuntungan ${siklus} siklus`}
-              nilai={rupiah(perSiklus.keuntungan * siklus)}
-            />
-            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
-              Syarat underwriting yang diperiksa: {syarat.ringkas.join(" · ")}. Ini
-              indikasi kelayakan, bukan jaminan pembayaran atau jaminan pokok.
-            </p>
-          </>
-        );
-      }
-    } else if (akad === "murabahah") {
-      if (nominal > 0) {
-        const hargaJual = hargaJualMurabahah(nominal, margin);
-        const hasil = bagiHasilMurabahah({ hargaPokok: nominal, hargaJual });
-        keuntungan = hasil.nisbahPendana;
-        rincian = (
-          <>
-            <Baris label="Harga pokok" nilai={rupiah(hasil.hargaPokok)} />
-            <Baris label="Harga jual" nilai={rupiah(hasil.hargaJual)} />
-            <Baris label="Margin total" nilai={rupiah(hasil.marginTotal)} />
-            <Baris
-              label={`Nisbah pendana (${hasil.persenPendana}%)`}
-              nilai={rupiah(hasil.nisbahPendana)}
-            />
-            <Baris
-              label={`Ujrah pengelola (${hasil.persenPlatform}%)`}
-              nilai={rupiah(hasil.platformTerima)}
-            />
-          </>
-        );
-      }
-    } else if (akad === "rahn") {
-      if (taksiran > 0 && pokokGadai > 0 && pokokGadai <= taksiran) {
-        const hasil = bagiHasilRahn({
-          nilaiTaksiran: taksiran,
-          pokokGadai,
-          tenorHari: tenorRahn,
-        });
-        keuntungan = hasil.nisbahPendana;
-        rincian = (
-          <>
-            <Baris
-              label="Ujrah pemeliharaan per 30 hari"
-              nilai={rupiah(hasil.ujrahPerSiklus)}
-            />
-            <Baris label="Total ujrah" nilai={rupiah(hasil.ujrahTotal)} />
-            <Baris
-              label={`Nisbah pendana (${hasil.persenPendana}%)`}
-              nilai={rupiah(hasil.nisbahPendana)}
-            />
-            <Baris
-              label={`Ujrah pengelola (${hasil.persenPlatform}%)`}
-              nilai={rupiah(hasil.platformTerima)}
-            />
-          </>
-        );
-      }
+    if (akad === "konvensional" && nominal > 0) {
+      const perSiklus = bagiHasilPendana(nominal);
+      keuntungan = perSiklus.keuntungan * siklus;
+      const syarat = syaratUnderwriting({ tenorBulan: 1, pokok: nominal });
+      rincian = {
+        jenis: "konvensional",
+        perSiklus,
+        syarat: syarat.ringkas,
+      };
+    } else if (akad === "murabahah" && nominal > 0) {
+      const hargaJual = hargaJualMurabahah(nominal, margin);
+      const hasil = bagiHasilMurabahah({ hargaPokok: nominal, hargaJual });
+      keuntungan = hasil.nisbahPendana;
+      rincian = { jenis: "murabahah", hasil };
+    } else if (
+      akad === "rahn" &&
+      taksiran > 0 &&
+      pokokGadai > 0 &&
+      pokokGadai <= taksiran
+    ) {
+      const hasil = bagiHasilRahn({
+        nilaiTaksiran: taksiran,
+        pokokGadai,
+        tenorHari: tenorRahn,
+      });
+      keuntungan = hasil.nisbahPendana;
+      rincian = { jenis: "rahn", hasil };
     }
   } catch {
     keuntungan = null;
+    rincian = null;
   }
+
+  const rincianTampil: React.ReactNode =
+    rincian === null ? null : rincian.jenis === "konvensional" ? (
+      <>
+        <Baris
+          label="Marjin bruto per siklus 30 hari"
+          nilai={rupiah(rincian.perSiklus.imbal)}
+        />
+        <Baris
+          label={`Porsi pendana (${PERSEN_PORSI_PENDANA.toFixed(2)}%)`}
+          nilai={rupiah(rincian.perSiklus.keuntungan)}
+        />
+        <Baris
+          label={`Porsi platform (${PERSEN_PORSI_PLATFORM.toFixed(2)}%)`}
+          nilai={rupiah(rincian.perSiklus.potonganAdmin)}
+        />
+        <Baris
+          label="Diterima bersih per siklus"
+          nilai={rupiah(rincian.perSiklus.diterima)}
+        />
+        <Baris
+          label={`Keuntungan ${siklus} siklus`}
+          nilai={rupiah(rincian.perSiklus.keuntungan * siklus)}
+        />
+        <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+          Syarat underwriting yang diperiksa: {rincian.syarat.join(" · ")}. Ini
+          indikasi kelayakan, bukan jaminan pembayaran atau jaminan pokok.
+        </p>
+      </>
+    ) : rincian.jenis === "murabahah" ? (
+      <>
+        <Baris label="Harga pokok" nilai={rupiah(rincian.hasil.hargaPokok)} />
+        <Baris label="Harga jual" nilai={rupiah(rincian.hasil.hargaJual)} />
+        <Baris label="Margin total" nilai={rupiah(rincian.hasil.marginTotal)} />
+        <Baris
+          label={`Nisbah pendana (${rincian.hasil.persenPendana}%)`}
+          nilai={rupiah(rincian.hasil.nisbahPendana)}
+        />
+        <Baris
+          label={`Ujrah pengelola (${rincian.hasil.persenPlatform}%)`}
+          nilai={rupiah(rincian.hasil.platformTerima)}
+        />
+      </>
+    ) : (
+      <>
+        <Baris
+          label="Ujrah pemeliharaan per 30 hari"
+          nilai={rupiah(rincian.hasil.ujrahPerSiklus)}
+        />
+        <Baris label="Total ujrah" nilai={rupiah(rincian.hasil.ujrahTotal)} />
+        <Baris
+          label={`Nisbah pendana (${rincian.hasil.persenPendana}%)`}
+          nilai={rupiah(rincian.hasil.nisbahPendana)}
+        />
+        <Baris
+          label={`Ujrah pengelola (${rincian.hasil.persenPlatform}%)`}
+          nilai={rupiah(rincian.hasil.platformTerima)}
+        />
+      </>
+    );
 
   const nominalValid =
     akad === "rahn"
@@ -322,7 +343,7 @@ export function SimulatorPendanaan() {
                       </button>
                     ))}
                   </div>
-                  <p className="mt-1.5 text-[11px] leading-4 text-slate-500">
+                  <p className="mt-1.5 text-xs leading-4 text-slate-500">
                     Angka beberapa siklus mengasumsikan pokok yang sama
                     ditempatkan ulang setiap 30 hari.
                   </p>
@@ -352,7 +373,7 @@ export function SimulatorPendanaan() {
             </>
           )}
 
-          <p className="mt-2 text-[11px] leading-4 text-slate-500">
+          <p className="mt-2 text-xs leading-4 text-slate-500">
             {akad === "konvensional"
               ? `Porsi pendana ${PERSEN_PORSI_PENDANA.toFixed(2)}% dari marjin pinjaman, dibayar per siklus ${TENOR_PENDANA_HARI} hari.` 
               : akad === "murabahah"
@@ -372,16 +393,16 @@ export function SimulatorPendanaan() {
             </p>
           ) : (
             <>
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">
+              <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
                 Estimasi keuntungan bersih
               </p>
               <p className="mt-0.5 text-2xl font-semibold tabular-nums text-emerald-800">
                 {rupiah(keuntungan)}
               </p>
-              <dl className="mt-2">{rincian}</dl>
+              <dl className="mt-2">{rincianTampil}</dl>
             </>
           )}
-          <p className="mt-2 text-[11px] leading-5 text-slate-500">
+          <p className="mt-2 text-xs leading-5 text-slate-500">
             Estimasi, bukan jaminan. Imbal hasil dicairkan pada jatuh tempo siklus
             30 hari; bila pinjaman belum lunas, kekurangan ditutup akun jaminan
             platform — bukan LPS atau pihak ketiga.

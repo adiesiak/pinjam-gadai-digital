@@ -227,7 +227,6 @@ const syahril = {
   tenorHari: 30,
   didanaiPada: Date.UTC(2026, 8, 17, 13, 35),
 };
-const menit = 60_000;
 eq(
   pelunasanPinjaman(syahril, Date.UTC(2026, 9, 17, 16, 59), 1)?.hariTerlambat,
   0,

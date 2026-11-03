@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
-import { pilihPromoBunga, type PromoBungaRingkas } from "@/lib/promoBunga";
+import type { PromoBungaRingkas } from "@/lib/promoBunga";
 
 /**
  * Promo bunga yang sedang berlaku, dibaca dari server.
@@ -16,8 +16,3 @@ export function usePromoBungaAktif(): PromoBungaRingkas[] {
   return data ?? [];
 }
 
-/** Promo terbaik untuk satu tenor sekarang, atau null bila tidak ada. */
-export function usePromoBungaTenor(tenor: number): PromoBungaRingkas | null {
-  const daftar = usePromoBungaAktif();
-  return pilihPromoBunga(daftar, { tenor, sekarang: Date.now() });
-}

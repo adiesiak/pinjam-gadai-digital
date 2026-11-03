@@ -44,7 +44,6 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { useNilaiTertunda } from "@/hooks/use-validasi-tertunda";
 import { LOAN_LIMITS } from "@/lib/loan";
 import { kelompokkanDigit, formatRupiahAman } from "@/lib/money";

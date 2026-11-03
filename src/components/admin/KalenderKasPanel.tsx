@@ -21,7 +21,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { KonfirmasiAksi } from "@/components/admin/KonfirmasiAksi";
@@ -55,6 +55,151 @@ function teksRupiah(nilai: number): string {
   return nilai <= 0 ? "" : kelompokkanDigit(String(nilai));
 }
 
+type PengaturanKas = {
+  aktif: boolean;
+  saldoKas: number;
+  saldoMinimum: number;
+  hariPeringatan: number;
+  nomorWhatsApp?: string | null;
+  saldoDiperbaruiPada: number | null;
+};
+
+/**
+ * Kartu pengaturan peringatan kas. Nilai awalnya hanya dibaca saat komponen
+ * lahir; pemanggil memasang `key` dari versi server supaya simpan yang berhasil
+ * memasang ulang form dengan angka terbaru.
+ */
+function FormPengaturanKas({
+  pengaturan,
+  peringatanTerakhir,
+  simpanPengaturan,
+}: {
+  pengaturan: PengaturanKas;
+  peringatanTerakhir: { tanggalKritis: number; terkirim: boolean } | undefined;
+  simpanPengaturan: (nilai: {
+    aktif: boolean;
+    saldoKas: number;
+    saldoMinimum: number;
+    hariPeringatan: number;
+    nomorWhatsApp?: string;
+  }) => Promise<unknown>;
+}) {
+  const [aktif, setAktif] = useState(pengaturan.aktif);
+  const [saldoTeks, setSaldoTeks] = useState(() => teksRupiah(pengaturan.saldoKas));
+  const [minimumTeks, setMinimumTeks] = useState(() => teksRupiah(pengaturan.saldoMinimum));
+  const [hariPeringatan, setHariPeringatan] = useState(pengaturan.hariPeringatan);
+  const [nomor, setNomor] = useState(pengaturan.nomorWhatsApp ?? "");
+  const [menyimpan, setMenyimpan] = useState(false);
+
+  const simpan = async () => {
+    setMenyimpan(true);
+    try {
+      await simpanPengaturan({
+        aktif,
+        saldoKas: angkaDari(saldoTeks),
+        saldoMinimum: angkaDari(minimumTeks),
+        hariPeringatan,
+        nomorWhatsApp: nomor.trim() === "" ? undefined : nomor.trim(),
+      });
+      toast.success("Pengaturan peringatan kas disimpan.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Pengaturan gagal disimpan.");
+    } finally {
+      setMenyimpan(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="max-w-2xl">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-navy">
+            <BellRing className="size-4 text-primary" aria-hidden="true" />
+            Peringatan kas otomatis
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Cron harian 07.30 WIB memeriksa proyeksi dan mengirim WhatsApp bila saldo
+            diperkirakan turun di bawah ambang. Saldo lebih tua dari 3 hari tidak dipakai.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
+          <Switch checked={aktif} onCheckedChange={setAktif} aria-label="Aktifkan peringatan kas" />
+          {aktif ? "Aktif" : "Nonaktif"}
+        </label>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <Label htmlFor="kas-saldo">Saldo kas saat ini</Label>
+          <Input
+            id="kas-saldo"
+            inputMode="numeric"
+            className="mt-1 tabular-nums"
+            placeholder="0"
+            value={saldoTeks}
+            onChange={(e) => setSaldoTeks(kelompokkanDigit(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="kas-minimum">Saldo minimum</Label>
+          <Input
+            id="kas-minimum"
+            inputMode="numeric"
+            className="mt-1 tabular-nums"
+            placeholder="0"
+            value={minimumTeks}
+            onChange={(e) => setMinimumTeks(kelompokkanDigit(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="kas-hari">Rentang peringatan</Label>
+          <Select
+            value={String(hariPeringatan)}
+            onValueChange={(nilai) => setHariPeringatan(Number(nilai))}
+          >
+            <SelectTrigger id="kas-hari" className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PILIHAN_PERINGATAN.map((nilai) => (
+                <SelectItem key={nilai} value={String(nilai)}>
+                  {nilai} hari ke depan
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="kas-nomor">WhatsApp admin</Label>
+          <Input
+            id="kas-nomor"
+            inputMode="tel"
+            className="mt-1"
+            placeholder="+62 812 3456 7890"
+            value={nomor}
+            onChange={(e) => setNomor(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button type="button" onClick={simpan} disabled={menyimpan} className="gap-1.5">
+          <Save className="size-4" aria-hidden="true" />
+          {menyimpan ? "Menyimpan…" : "Simpan pengaturan"}
+        </Button>
+        <p className="text-[11px] text-slate-500">
+          {pengaturan.saldoDiperbaruiPada === null
+            ? "Saldo belum pernah disimpan."
+            : `Saldo diperbarui ${formatTanggalWIB(pengaturan.saldoDiperbaruiPada)}.`}
+          {peringatanTerakhir !== undefined
+            ? ` Peringatan terakhir ${formatTanggalWIB(peringatanTerakhir.tanggalKritis)}${peringatanTerakhir.terkirim ? ", WhatsApp terkirim." : ", WhatsApp tidak terkirim."}`
+            : ""}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function KalenderKasPanel() {
   const [hari, setHari] = useState<(typeof PILIHAN_HARI)[number]>(30);
   const [hanyaAktif, setHanyaAktif] = useState(false);
@@ -65,26 +210,9 @@ export function KalenderKasPanel() {
   const ubahBiaya = useMutation(api.kalenderKas.ubahBiaya);
   const hapusBiaya = useMutation(api.kalenderKas.hapusBiaya);
 
-  // Isian pengaturan disemai ulang hanya saat server menyimpan versi baru,
-  // sehingga mengetik tidak ditimpa oleh pembaruan query.
+  // Form pengaturan dipasang ulang (lewat `key`) hanya saat server menyimpan
+  // versi baru, sehingga mengetik tidak ditimpa oleh pembaruan query.
   const versi = data?.pengaturan.diperbaruiPada ?? null;
-  const [aktif, setAktif] = useState(false);
-  const [saldoTeks, setSaldoTeks] = useState("");
-  const [minimumTeks, setMinimumTeks] = useState("");
-  const [hariPeringatan, setHariPeringatan] = useState(7);
-  const [nomor, setNomor] = useState("");
-  const [menyimpan, setMenyimpan] = useState(false);
-
-  useEffect(() => {
-    if (data === undefined) return;
-    setAktif(data.pengaturan.aktif);
-    setSaldoTeks(teksRupiah(data.pengaturan.saldoKas));
-    setMinimumTeks(teksRupiah(data.pengaturan.saldoMinimum));
-    setHariPeringatan(data.pengaturan.hariPeringatan);
-    setNomor(data.pengaturan.nomorWhatsApp ?? "");
-    // `versi` sengaja jadi pemicu: nilainya berubah hanya setelah simpan.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [versi]);
 
   const [judulBiaya, setJudulBiaya] = useState("");
   const [nominalBiaya, setNominalBiaya] = useState("");
@@ -115,24 +243,6 @@ export function KalenderKasPanel() {
         ({ baris }) => baris.masuk !== 0 || baris.keluar !== 0,
       )
     : data.baris.map((baris, i) => ({ baris, saldo: saldo[i] }));
-
-  const simpan = async () => {
-    setMenyimpan(true);
-    try {
-      await simpanPengaturan({
-        aktif,
-        saldoKas: angkaDari(saldoTeks),
-        saldoMinimum: angkaDari(minimumTeks),
-        hariPeringatan,
-        nomorWhatsApp: nomor.trim() === "" ? undefined : nomor.trim(),
-      });
-      toast.success("Pengaturan peringatan kas disimpan.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Pengaturan gagal disimpan.");
-    } finally {
-      setMenyimpan(false);
-    }
-  };
 
   const tambah = async () => {
     setMenambahBiaya(true);
@@ -182,93 +292,12 @@ export function KalenderKasPanel() {
 
   return (
     <section className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="max-w-2xl">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-navy">
-              <BellRing className="size-4 text-primary" aria-hidden="true" />
-              Peringatan kas otomatis
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Cron harian 07.30 WIB memeriksa proyeksi dan mengirim WhatsApp bila saldo
-              diperkirakan turun di bawah ambang. Saldo lebih tua dari 3 hari tidak dipakai.
-            </p>
-          </div>
-          <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
-            <Switch checked={aktif} onCheckedChange={setAktif} aria-label="Aktifkan peringatan kas" />
-            {aktif ? "Aktif" : "Nonaktif"}
-          </label>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <Label htmlFor="kas-saldo">Saldo kas saat ini</Label>
-            <Input
-              id="kas-saldo"
-              inputMode="numeric"
-              className="mt-1 tabular-nums"
-              placeholder="0"
-              value={saldoTeks}
-              onChange={(e) => setSaldoTeks(kelompokkanDigit(e.target.value))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="kas-minimum">Saldo minimum</Label>
-            <Input
-              id="kas-minimum"
-              inputMode="numeric"
-              className="mt-1 tabular-nums"
-              placeholder="0"
-              value={minimumTeks}
-              onChange={(e) => setMinimumTeks(kelompokkanDigit(e.target.value))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="kas-hari">Rentang peringatan</Label>
-            <Select
-              value={String(hariPeringatan)}
-              onValueChange={(nilai) => setHariPeringatan(Number(nilai))}
-            >
-              <SelectTrigger id="kas-hari" className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PILIHAN_PERINGATAN.map((nilai) => (
-                  <SelectItem key={nilai} value={String(nilai)}>
-                    {nilai} hari ke depan
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="kas-nomor">WhatsApp admin</Label>
-            <Input
-              id="kas-nomor"
-              inputMode="tel"
-              className="mt-1"
-              placeholder="+62 812 3456 7890"
-              value={nomor}
-              onChange={(e) => setNomor(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Button type="button" onClick={simpan} disabled={menyimpan} className="gap-1.5">
-            <Save className="size-4" aria-hidden="true" />
-            {menyimpan ? "Menyimpan…" : "Simpan pengaturan"}
-          </Button>
-          <p className="text-[11px] text-slate-500">
-            {data.pengaturan.saldoDiperbaruiPada === null
-              ? "Saldo belum pernah disimpan."
-              : `Saldo diperbarui ${formatTanggalWIB(data.pengaturan.saldoDiperbaruiPada)}.`}
-            {data.peringatan[0] !== undefined
-              ? ` Peringatan terakhir ${formatTanggalWIB(data.peringatan[0].tanggalKritis)}${data.peringatan[0].terkirim ? ", WhatsApp terkirim." : ", WhatsApp tidak terkirim."}`
-              : ""}
-          </p>
-        </div>
-      </div>
+      <FormPengaturanKas
+        key={versi ?? "awal"}
+        pengaturan={data.pengaturan}
+        peringatanTerakhir={data.peringatan[0]}
+        simpanPengaturan={simpanPengaturan}
+      />
 
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

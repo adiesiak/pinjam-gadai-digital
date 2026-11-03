@@ -29,7 +29,7 @@ import {
   Wifi,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
@@ -62,7 +62,6 @@ import {
   NADA_STATUS_PPOB,
   idPerangkatPpob,
   kategoriPascabayar,
-  nomorTujuanBersih,
   nomorTujuanValid,
   type KategoriPpob,
   type StatusPesananPpob,
@@ -256,9 +255,11 @@ function DialogPesan({
   const pesanTagihan = useMutation(api.ppob.buatPesananPascabayar);
   const cekTagihan = useAction(api.ppobH2h.cekTagihanPpob);
   const navigate = useNavigate();
-  const [nomor, setNomor] = useState("");
-  const [nama, setNama] = useState("");
-  const [wa, setWa] = useState("");
+  // Dialog dipasang ulang per produk (lihat `key` di pemanggil), jadi isian
+  // awal cukup diambil sekali saat komponen lahir — tanpa efek penyemai.
+  const [nomor, setNomor] = useState(() => awal?.nomorTujuan ?? "");
+  const [nama, setNama] = useState(() => awal?.nama ?? "");
+  const [wa, setWa] = useState(() => awal?.whatsapp ?? "");
   const [setuju, setSetuju] = useState(false);
   const [sibuk, setSibuk] = useState(false);
   const [cekSibuk, setCekSibuk] = useState(false);
@@ -273,16 +274,6 @@ function DialogPesan({
     biayaAdmin: number;
     total: number;
   } | null>(null);
-
-  useEffect(() => {
-    if (produk === null) return;
-    setNomor(awal?.nomorTujuan ?? "");
-    setNama(awal?.nama ?? "");
-    setWa(awal?.whatsapp ?? "");
-    setSetuju(false);
-    setGalat(null);
-    setTagihan(null);
-  }, [produk, awal]);
 
   const pascabayar = produk !== null && kategoriPascabayar(produk.kategori);
   const nomorSah = produk !== null && nomorTujuanValid(produk.kategori, nomor);
@@ -847,7 +838,12 @@ export function Ppob() {
         <CekPesanan />
       </main>
       <FooterPpob />
-      <DialogPesan produk={dialog} awal={ulang} onClose={() => setDialog(null)} />
+      <DialogPesan
+        key={dialog?.kode ?? "tutup"}
+        produk={dialog}
+        awal={ulang}
+        onClose={() => setDialog(null)}
+      />
     </div>
   );
 }

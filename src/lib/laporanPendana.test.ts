@@ -16,7 +16,6 @@ import {
   namaBerkasPortofolio,
   namaBerkasRekapPendana,
   pesanPelunasan,
-  contohDataPelunasan,
   pesanPortofolio,
   pesanRekapPendana,
   proyeksiReturnTerdekat,

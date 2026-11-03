@@ -61,6 +61,9 @@ import { msKeTanggalInput, tanggalKeMsWIB } from "@/lib/promoPinjaman";
 import { unggahDokumen } from "@/lib/unggahDokumen";
 import { formatTanggalWIB } from "@/lib/waktu";
 
+/** Waktu acuan status banner; stabil selama panel terbuka. */
+const WAKTU_MUAT_PANEL = Date.now();
+
 type Baris = FunctionReturnType<typeof api.bannerPromo.daftar>[number];
 
 type Draf = {
@@ -342,7 +345,7 @@ export function BannerPromoPanel() {
               row.promoBungaId === null
                 ? null
                 : (promo?.find((p) => p._id === row.promoBungaId) ?? null);
-            const status = statusBannerPromo(row, Date.now(), {
+            const status = statusBannerPromo(row, WAKTU_MUAT_PANEL, {
               adaGambar: row.desktopUrl !== null || row.mobileUrl !== null,
               promoBerjalan:
                 row.promoBungaId === null ? undefined : promoRow?.berjalan === true,

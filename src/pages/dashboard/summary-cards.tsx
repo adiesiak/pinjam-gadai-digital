@@ -25,6 +25,12 @@ import { formatTanggalWIB } from "@/lib/waktu";
 
 import type { LoanScheduleRow } from "./shared";
 
+/**
+ * Waktu acuan kartu tagihan; stabil selama dashboard terbuka. Jangan membaca
+ * jam perangkat di dalam `useMemo`: hasilnya berubah tanpa dependency berubah.
+ */
+const WAKTU_MUAT_RINGKASAN = Date.now();
+
 /** Ringkasan jatuh tempo satu baris pinjaman, dihitung sekali per baris. */
 function ringkasBaris(l: LoanScheduleRow, sekarang: number) {
   return ringkasJatuhTempo(
@@ -161,7 +167,7 @@ function TagihanKartu({ schedule }: { schedule: LoanScheduleRow[] }) {
   // Satu perhitungan untuk baris terdekat: tanggal, kalimat hitung hari, dan
   // nadanya berasal dari sumber yang sama (`lib/jatuhTempo.ts`).
   const terdekat = useMemo(() => {
-    const sekarang = Date.now();
+    const sekarang = WAKTU_MUAT_RINGKASAN;
     let terpilih: { row: LoanScheduleRow; jt: ReturnType<typeof ringkasJatuhTempo> } | null = null;
     for (const row of aktif) {
       const jt = ringkasBaris(row, sekarang);

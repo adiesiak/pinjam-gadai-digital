@@ -104,6 +104,9 @@ import {
 } from "@/lib/pawn";
 import type { TarifBulanan } from "@/lib/bulanan";
 
+/** Waktu acuan promo untuk formulir; dibaca sekali, bukan saat render. */
+const WAKTU_MUAT_FORM = Date.now();
+
 /**
  * Ringkasan bulanan yang tidak melempar error saat input belum valid —
  * slider bergerak cepat, jadi nilai di luar rentang cukup tampil kosong.
@@ -540,7 +543,7 @@ export function LoanForm({
     ? null
     : pilihPromoBunga(promoBungaQuery ?? [], {
         tenor: tenorHarian,
-        sekarang: Date.now(),
+        sekarang: WAKTU_MUAT_FORM,
         persenNormal: tarifNormalHarian,
       });
   const tarifHarian = bungaSetelahPromo(tarifNormalHarian, promoBunga);
@@ -550,8 +553,17 @@ export function LoanForm({
   // menampilkan angkanya.
   const voucherQuery = useQuery(api.voucher.daftarVoucherSaya, {});
   const [voucherId, setVoucherId] = useState<string | null>(null);
-  const voucherDipilih =
+  const voucherMentah =
     voucherQuery?.daftar.find((row) => row._id === voucherId) ?? null;
+  // Voucher yang tidak lagi sah (skema berganti, nominal turun di bawah
+  // minimal, atau promo membebaskan biaya admin) diabaikan saat render — bukan
+  // dibersihkan lewat efek. Pilihannya juga tidak ikut terkirim ke server.
+  const voucherTidakSah =
+    voucherMentah !== null &&
+    ((!bulanan && promoBunga?.jenis === "bebas_admin") ||
+      (bulanan && voucherMentah.jenis !== "boost_plafon") ||
+      voucherMentah.minPokok > pokok);
+  const voucherDipilih = voucherTidakSah ? null : voucherMentah;
   // Hanya voucher konvensional yang ditawarkan di sini. Voucher ujrah/margin
   // milik akad syariah tidak boleh muncul lalu ditolak server saat dikirim;
   // skema bulanan juga hanya menerima voucher tambah limit.
@@ -583,18 +595,6 @@ export function LoanForm({
   // dihitung dengan pembulatan `percentOf` yang sama seperti mesin harga.
   const bungaSebelumVoucher =
     diskonBungaVoucher > 0 ? percentOf(pokok, tarifHarian) : 0;
-  // Pilihan yang tidak lagi sah dilepas, bukan dikirim lalu ditolak server:
-  // nominal turun di bawah minimal voucher, atau skema berganti ke bulanan saat
-  // voucher potongan biaya admin dipilih.
-  useEffect(() => {
-    if (voucherDipilih === null) return;
-    if (
-      (!bulanan && promoBunga?.jenis === "bebas_admin") ||
-      (bulanan && voucherDipilih.jenis !== "boost_plafon")
-    ) {
-      setVoucherId(null);
-    } else if (voucherDipilih.minPokok > pokok) setVoucherId(null);
-  }, [bulanan, pokok, promoBunga, voucherDipilih]);
   const adminPersen = tarifBiaya?.adminPersen ?? PINDAI_PRICING.adminFeePercent;
   // Potongan voucher dibatasi biaya admin yang benar-benar ada (fungsi yang
   // sama dengan mesin harga).
@@ -1035,7 +1035,9 @@ export function LoanForm({
         namaBank,
         nomorRekening,
         catatanPeminjam: catatanPeminjam.trim() ? catatanPeminjam : undefined,
-        ...(voucherId !== null ? { voucherId: voucherId as Id<"voucher"> } : {}),
+        ...(voucherDipilih !== null
+          ? { voucherId: voucherDipilih._id as Id<"voucher"> }
+          : {}),
         // Persetujuan Syarat & Ketentuan dicatat server bersama versinya.
         persetujuanSyarat: true,
         nik: identitasKyc === null ? nik.replace(/\s+/g, "") : identitasKyc.nik,
@@ -1231,7 +1233,7 @@ export function LoanForm({
           ) : (
             <>
               <Select
-                value={voucherId ?? "tanpa"}
+                value={voucherDipilih?._id ?? "tanpa"}
                 onValueChange={(nilai) => setVoucherId(nilai === "tanpa" ? null : nilai)}
                 disabled={submitting}
               >

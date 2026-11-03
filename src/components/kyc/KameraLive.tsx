@@ -92,6 +92,16 @@ export function KameraLive({
   const [jumlahKamera, setJumlahKamera] = useState(1);
   /** Dinaikkan tombol "Coba lagi": memaksa efek membuka ulang kamera. */
   const [percobaanKe, setPercobaanKe] = useState(0);
+  // Peramban tanpa akses kamera langsung: pesannya diturunkan saat render,
+  // bukan diset dari badan efek.
+  const kameraTidakDidukung =
+    typeof navigator === "undefined" ||
+    navigator.mediaDevices?.getUserMedia === undefined;
+  const galatTampil =
+    galat ??
+    (kameraTidakDidukung
+      ? "Peramban ini tidak menyediakan akses kamera langsung. Coba peramban lain (Chrome/Safari terbaru)."
+      : null);
 
   /** Hentikan seluruh track — dipanggil sebelum membuka arah baru & saat tutup. */
   const hentikan = useCallback(() => {
@@ -105,21 +115,11 @@ export function KameraLive({
   // Buka kamera saat modal tampil, tutup saat disembunyikan. `arah` sengaja
   // menjadi dependensi: beralih kamera = hentikan stream lama, buka yang baru.
   useEffect(() => {
-    if (!buka) {
-      hentikan();
-      return;
-    }
+    if (!buka) return;
     if (disabled) return;
-    if (typeof navigator === "undefined" || navigator.mediaDevices?.getUserMedia === undefined) {
-      setGalat(
-        "Peramban ini tidak menyediakan akses kamera langsung. Coba peramban lain (Chrome/Safari terbaru).",
-      );
-      return;
-    }
+    if (kameraTidakDidukung) return;
 
     let batal = false;
-    setGalat(null);
-    setSiap(false);
 
     const batasan: MediaStreamConstraints = {
       video: {
@@ -166,12 +166,22 @@ export function KameraLive({
 
     return () => {
       batal = true;
-      hentikan();
+      const stream = streamRef.current;
+      if (stream === null) return;
+      for (const track of stream.getTracks()) track.stop();
+      streamRef.current = null;
     };
-  }, [buka, arah, disabled, hentikan, percobaanKe]);
+  }, [buka, arah, disabled, percobaanKe, kameraTidakDidukung]);
 
   // Bersihkan saat komponen dilepas (mis. pengguna pindah tab).
   useEffect(() => hentikan, [hentikan]);
+
+  /** Tutup kamera sekaligus bersihkan kesiapan/kesalahan untuk pembukaan berikutnya. */
+  const tutup = () => {
+    hentikan();
+    setGalat(null);
+    onTutup();
+  };
 
   const ambilFoto = () => {
     const video = videoRef.current;
@@ -203,16 +213,20 @@ export function KameraLive({
     setHasilTerakhir(hasil);
     const nama = `${bingkai === "ktp" ? "ktp" : "selfie"}-live-${Date.now()}.jpg`;
     onAmbil(dataUrlKeFile(hasil.dataUrl, nama));
-    onTutup();
+    tutup();
   };
 
-  const beralihKamera = () => setArah((lama) => (lama === "depan" ? "belakang" : "depan"));
+  const beralihKamera = () => {
+    hentikan();
+    setGalat(null);
+    setArah((lama) => (lama === "depan" ? "belakang" : "depan"));
+  };
 
   return (
     <Dialog
       open={buka}
       onOpenChange={(terbuka) => {
-        if (!terbuka) onTutup();
+        if (!terbuka) tutup();
       }}
     >
       <DialogContent className="max-w-xl gap-3 rounded-2xl border-slate-200 p-4 sm:p-5">
@@ -254,16 +268,16 @@ export function KameraLive({
               </span>
             </div>
           </div>
-          {!siap && galat === null && (
+          {!siap && galatTampil === null && (
             <div className="absolute inset-0 flex items-center justify-center gap-2 text-[11px] text-slate-200">
               <Loader2 className="size-4 animate-spin" aria-hidden /> Menyalakan kamera…
             </div>
           )}
         </div>
 
-        {galat !== null && (
+        {galatTampil !== null && (
           <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-4 text-red-700">
-            {galat}
+            {galatTampil}
           </p>
         )}
 
@@ -271,7 +285,7 @@ export function KameraLive({
           <Button
             type="button"
             onClick={ambilFoto}
-            disabled={!siap || galat !== null || disabled}
+            disabled={!siap || galatTampil !== null || disabled}
             className="gap-1.5 rounded-xl bg-emerald-800 px-5 py-2.5 font-semibold text-white hover:bg-emerald-900"
           >
             <Camera className="size-4" aria-hidden /> Ambil Foto Live
@@ -291,16 +305,20 @@ export function KameraLive({
           <Button
             type="button"
             variant="ghost"
-            onClick={onTutup}
+            onClick={tutup}
             className="gap-1.5 rounded-xl text-slate-600"
           >
             <X className="size-4" aria-hidden /> Tutup
           </Button>
-          {!siap && galat !== null && (
+          {!siap && galatTampil !== null && (
             <Button
               type="button"
               variant="outline"
-              onClick={() => setPercobaanKe((lama) => lama + 1)}
+              onClick={() => {
+                hentikan();
+                setGalat(null);
+                setPercobaanKe((lama) => lama + 1);
+              }}
               className="gap-1.5 rounded-xl"
             >
               <RefreshCcw className="size-4" aria-hidden /> Coba lagi

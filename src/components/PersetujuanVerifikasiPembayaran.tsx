@@ -67,35 +67,41 @@ export function PersetujuanVerifikasiPembayaran({
     setTahap(null);
   };
 
-  useEffect(() => {
-    if (terbuka) return;
-    bersihkanMedia();
-    setStatus("persetujuan");
-    setKesalahan(null);
-  }, [terbuka]);
-
-  useEffect(() => () => {
-    abortRef.current?.abort();
+  /** Lepas URL sementara lama — dipakai saat media diganti atau dibuang. */
+  const lepasUrlMedia = () => {
     for (const url of urlRef.current) URL.revokeObjectURL(url);
-  }, []);
+    urlRef.current = [];
+    setMediaUrl({});
+  };
 
-  useEffect(() => {
-    if (media === null) {
-      setMediaUrl({});
-      return;
-    }
+  /** Pasang media hasil rekaman beserta URL unduhannya dalam satu langkah. */
+  const pasangMedia = (hasil: MediaVerifikasiPembayaran) => {
+    lepasUrlMedia();
     const url: Partial<Record<keyof MediaVerifikasiPembayaran, string>> = {};
-    for (const key of Object.keys(media) as (keyof MediaVerifikasiPembayaran)[]) {
-      url[key] = URL.createObjectURL(media[key]);
+    for (const key of Object.keys(hasil) as (keyof MediaVerifikasiPembayaran)[]) {
+      url[key] = URL.createObjectURL(hasil[key]);
     }
     urlRef.current.push(...Object.values(url));
     setMediaUrl(url);
-  }, [media]);
+    setMedia(hasil);
+  };
+
+  // Saat komponen dilepas (mis. detail tagihan ditutup), hentikan kamera dan
+  // lepas seluruh URL sementara. Tidak ada state yang diperbarui di sini.
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    const stream = videoRef.current?.srcObject;
+    if (stream instanceof MediaStream) {
+      for (const track of stream.getTracks()) track.stop();
+    }
+    for (const url of urlRef.current) URL.revokeObjectURL(url);
+  }, []);
 
   const mulai = async () => {
     if (!videoRef.current || status === "merekam") return;
     setStatus("merekam");
     setKesalahan(null);
+    lepasUrlMedia();
     setMedia(null);
     const aborter = new AbortController();
     abortRef.current = aborter;
@@ -121,7 +127,7 @@ export function PersetujuanVerifikasiPembayaran({
         lingkunganVideoByte: ringkasan.lingkunganVideoByte,
         akurasiMeter: hasilLokasi.accuracy,
       });
-      setMedia(hasilMedia);
+      pasangMedia(hasilMedia);
       setStatus("selesai");
     } catch (error) {
       if (aborter.signal.aborted) return;
@@ -160,6 +166,8 @@ export function PersetujuanVerifikasiPembayaran({
       onOpenChange={(open) => {
         if (!open) {
           bersihkanMedia();
+          setStatus("persetujuan");
+          setKesalahan(null);
           onTutup();
         }
       }}
@@ -274,7 +282,15 @@ export function PersetujuanVerifikasiPembayaran({
         )}
 
         <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={() => { bersihkanMedia(); onTutup(); }}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              bersihkanMedia();
+              setStatus("persetujuan");
+              setKesalahan(null);
+              onTutup();
+            }}
+          >
             {status === "merekam" ? <><X className="mr-1.5 size-4" aria-hidden="true" /> Batalkan</> : "Tidak sekarang"}
           </Button>
           {status === "persetujuan" && (

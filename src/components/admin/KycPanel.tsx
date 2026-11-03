@@ -27,6 +27,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+/** Waktu acuan umur tunggu; stabil selama daftar ditampilkan. */
+const WAKTU_MUAT_DAFTAR = Date.now();
+
 import {
   BandingkanBukti,
   BingkaiBukti,
@@ -344,7 +347,7 @@ export function BarisKyc({
           </Tanda>
         )}
         <span className="ml-auto shrink-0 whitespace-nowrap text-[10px] tabular-nums text-slate-600">
-          {lamaMenunggu(item.diajukanPada, Date.now())}
+          {lamaMenunggu(item.diajukanPada, WAKTU_MUAT_DAFTAR)}
         </span>
       </div>
     </button>
@@ -958,13 +961,6 @@ function KycDokumenRingkas({ detail }: { detail: DetailKycTampil }) {
     if (posisi >= 0) setPenampil(posisi);
   };
 
-  // Berpindah pengajuan mengembalikan alat bantu ke keadaan awal: daftar berkas
-  // dan mode tampilan milik pengajuan sebelumnya tidak boleh terbawa.
-  useEffect(() => {
-    setPenampil(null);
-    setBandingkan(false);
-  }, [detail.userId]);
-
   return (
     <div className="space-y-2">
       <JudulBagian
@@ -1199,7 +1195,7 @@ export function KycDetailRingkas({ detail }: { detail: DetailKycTampil }) {
       <KycPdpRingkas detail={detail} />
       <KycIdentitasRingkas detail={detail} />
       <KycOtpRingkas detail={detail} />
-      <KycDokumenRingkas detail={detail} />
+      <KycDokumenRingkas key={detail.userId} detail={detail} />
       <KycOcrRingkas detail={detail} />
       <KycKetidaksesuaianRingkas detail={detail} />
       <KycOtomatisRingkas detail={detail} />
@@ -1387,12 +1383,15 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
   // Bukti pengajuan TERLAMA dibuka sendiri supaya petugas tidak menatap layar
   // kosong. Berlaku juga saat pengajuan yang sedang dibuka keluar dari antrean
   // (baru saja diputuskan, atau tersaring keluar): pilihan tidak boleh mengunci
-  // panel pada baris yang tidak ada lagi di daftar.
-  useEffect(() => {
-    if (itemAntrean.length === 0) return;
-    if (dipilih !== null && itemAntrean.some((i) => i.userId === dipilih)) return;
+  // panel pada baris yang tidak ada lagi di daftar. Dikoreksi saat render — pola
+  // resmi React untuk menyesuaikan state dari data yang berubah — supaya catatan
+  // dan checklist ikut direset sebelum pengajuan lain digambar.
+  if (
+    itemAntrean.length > 0 &&
+    (dipilih === null || !itemAntrean.some((i) => i.userId === dipilih))
+  ) {
     pilihNasabah(itemAntrean[0].userId);
-  }, [dipilih, itemAntrean, pilihNasabah]);
+  }
 
   const pindahKe = useCallback(
     (selisih: number) => {
@@ -1811,7 +1810,7 @@ export function KycPanel({ dipilihAwal = null }: { dipilihAwal?: Id<"users"> | n
                   <TabsContent value="berkas" className="mt-0">
                     <div className="grid gap-3 @5xl:grid-cols-2">
                       <div className="min-w-0">
-                        <KycDokumenRingkas detail={detail} />
+                        <KycDokumenRingkas key={detail.userId} detail={detail} />
                       </div>
                       <aside className="min-w-0 space-y-3">
                         <KycOcrRingkas detail={detail} />

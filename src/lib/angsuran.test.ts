@@ -41,7 +41,6 @@ function ok(syarat: boolean, label: string) {
 
 const DAY = 86_400_000;
 const MULAI = Date.UTC(2026, 0, 10); // 10 Jan 2026
-const SEKARANG = MULAI + 10 * DAY;
 
 // ===== bulanan: jadwal sama dengan mesin pengajuan =====
 const bulanan = jadwalAngsuranPinjaman({

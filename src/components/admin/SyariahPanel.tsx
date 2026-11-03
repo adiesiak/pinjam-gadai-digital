@@ -54,6 +54,9 @@ import {
 } from "@/lib/syariah/pengajuan";
 import { cn } from "@/lib/utils";
 
+/** Waktu acuan sisa tenor; stabil selama panel terbuka. */
+const WAKTU_MUAT_PANEL = Date.now();
+
 type Saringan = "menunggu" | "semua" | "disetujui" | "ditolak";
 
 const SARINGAN: readonly { id: Saringan; label: string }[] = [
@@ -178,7 +181,7 @@ export function SyariahPanel() {
     return map;
   }, [data, marginBawaan]);
 
-  const sekarang = Date.now();
+  const sekarang = WAKTU_MUAT_PANEL;
 
   const baris = useMemo(() => {
     if (data === undefined) return [];

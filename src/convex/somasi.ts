@@ -72,8 +72,7 @@ const RETENSI_BERKAS_MS = 60 * 60 * 1000;
 /** Alasan gateway yang berarti lampiran ditolak SEBELUM pesan terkirim. */
 const ALASAN_TANPA_LAMPIRAN = "belum mendukung lampiran berkas";
 
-const KANAL = ["email", "whatsapp"] as const;
-type Kanal = (typeof KANAL)[number];
+type Kanal = "email" | "whatsapp";
 
 const PENYERAHAN = ["manual", "email", "whatsapp"] as const;
 

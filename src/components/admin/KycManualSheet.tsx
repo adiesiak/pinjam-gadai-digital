@@ -1,6 +1,6 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import { CheckCircle2, IdCard, ImageUp, Loader2, Search, ShieldCheck, UserCheck } from "lucide-react";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { StatusKycBadge } from "@/components/StatusKycBadge";
@@ -76,9 +76,12 @@ export function KycManualSheet({
   );
 
   const [dipilih, setDipilih] = useState<Id<"users"> | null>(koreksiId);
+  // Mode koreksi selalu mengunci satu nasabah; mode baru memakai pilihan dari
+  // daftar. Satu nilai turunan ini menggantikan efek penyelaras `dipilih`.
+  const dipilihAktif = modeKoreksi ? koreksiId : dipilih;
   const dataDiri = useQuery(
     api.admin.dataDiriNasabah,
-    dipilih === null ? "skip" : { userId: dipilih },
+    dipilihAktif === null ? "skip" : { userId: dipilihAktif },
   );
   // Rincian KYC dipakai HANYA untuk mengisi awal mode koreksi: di sana ada
   // sumber penghasilan dan NIK yang tersimpan di baris KYC, bukan di data diri.
@@ -92,75 +95,78 @@ export function KycManualSheet({
   const mintaUrl = useMutation(api.admin.generateDataDiriUploadUrl);
   const periksaIsi = useAction(api.berkasIdentitas.periksaIsiBerkasKyc);
 
-  const [form, setForm] = useState<DataDiriForm>(FORM_KOSONG);
-  const [sumberPenghasilan, setSumberPenghasilan] = useState("");
+  /**
+   * Isian yang sudah disentuh petugas untuk satu nasabah. Selama belum ada
+   * ketikan, tampilan memakai data tersimpan; begitu petugas mengetik, isian
+   * itulah yang menang sehingga query yang memperbarui tidak menimpanya.
+   */
+  const [isian, setIsian] = useState<{
+    untuk: Id<"users">;
+    form: DataDiriForm;
+    sumber: string;
+  } | null>(null);
   const [catatan, setCatatan] = useState("");
   const [setuju, setSetuju] = useState(false);
   const [foto, setFoto] = useState<DokumenTerunggah | null>(null);
-  const [terisiUntuk, setTerisiUntuk] = useState<Id<"users"> | null>(null);
   const [sudahCoba, setSudahCoba] = useState(false);
   const [busy, setBusy] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
 
+  const isianAwal = (): { form: DataDiriForm; sumber: string } => {
+    if (dipilihAktif === null) return { form: FORM_KOSONG, sumber: "" };
+    if (modeKoreksi) {
+      if (detail === undefined || detail === null) return { form: FORM_KOSONG, sumber: "" };
+      return {
+        form: {
+          namaLengkap: detail.namaLengkap ?? "",
+          nik: detail.nik ?? "",
+          nomorWhatsApp: detail.nomorWhatsApp ?? "",
+          alamat: detail.alamat ?? "",
+          pekerjaan: detail.pekerjaan ?? "",
+          penghasilan:
+            detail.penghasilanBulanan === null ? "" : String(detail.penghasilanBulanan),
+          namaBank: detail.namaBank ?? "",
+          nomorRekening: detail.nomorRekening ?? "",
+        },
+        sumber: detail.sumberPenghasilan ?? "",
+      };
+    }
+    if (dataDiri === undefined) return { form: FORM_KOSONG, sumber: "" };
+    return {
+      form: {
+        ...formDariTersimpan(dataDiri.data),
+        namaLengkap:
+          dataDiri.data.namaLengkap.trim() === "" ? dataDiri.nama : dataDiri.data.namaLengkap,
+      },
+      sumber: "",
+    };
+  };
+  const isianAktif = isian !== null && isian.untuk === dipilihAktif ? isian : null;
+  const awal = isianAktif ?? { untuk: dipilihAktif, ...isianAwal() };
+  const form = awal.form;
+  const sumberPenghasilan = awal.sumber;
+
+  /** Tulis isian petugas; nilai lain dipertahankan. */
+  const ubahIsian = (perubahan: { form?: DataDiriForm; sumber?: string }) => {
+    if (dipilihAktif === null) return;
+    setIsian({
+      untuk: dipilihAktif,
+      form: form,
+      sumber: sumberPenghasilan,
+      ...perubahan,
+    });
+  };
+
   const bersihkan = () => {
     setCari("");
     setDipilih(null);
-    setForm(FORM_KOSONG);
-    setSumberPenghasilan("");
+    setIsian(null);
     setCatatan("");
     setSetuju(false);
     setFoto(null);
-    setTerisiUntuk(null);
     setSudahCoba(false);
     setGalat(null);
   };
-
-  // Saat laci dibuka, pilih nasabah yang diminta (mode koreksi) atau kosongkan
-  // isian nasabah sebelumnya. Menutup laci selalu membersihkan: isian orang lain
-  // tidak boleh muncul pada pembukaan berikutnya.
-  useEffect(() => {
-    if (!open) {
-      bersihkan();
-      return;
-    }
-    if (koreksiId !== null && dipilih !== koreksiId) {
-      bersihkan();
-      setDipilih(koreksiId);
-    }
-  }, [open, koreksiId, dipilih]);
-
-  // Isian diambil dari data tersimpan supaya petugas tidak mengetik ulang.
-  // Dijalankan sekali per nasabah, bukan setiap query memperbarui: mengetik di
-  // tengah pemuatan tidak boleh ditimpa data lama.
-  useEffect(() => {
-    if (dipilih === null || terisiUntuk === dipilih) return;
-
-    if (modeKoreksi) {
-      if (detail === undefined || detail === null) return;
-      setForm({
-        namaLengkap: detail.namaLengkap ?? "",
-        nik: detail.nik ?? "",
-        nomorWhatsApp: detail.nomorWhatsApp ?? "",
-        alamat: detail.alamat ?? "",
-        pekerjaan: detail.pekerjaan ?? "",
-        penghasilan:
-          detail.penghasilanBulanan === null ? "" : String(detail.penghasilanBulanan),
-        namaBank: detail.namaBank ?? "",
-        nomorRekening: detail.nomorRekening ?? "",
-      });
-      setSumberPenghasilan(detail.sumberPenghasilan ?? "");
-      setTerisiUntuk(dipilih);
-      return;
-    }
-
-    if (dataDiri === undefined) return;
-    setForm({
-      ...formDariTersimpan(dataDiri.data),
-      namaLengkap:
-        dataDiri.data.namaLengkap.trim() === "" ? dataDiri.nama : dataDiri.data.namaLengkap,
-    });
-    setTerisiUntuk(dipilih);
-  }, [dipilih, dataDiri, detail, modeKoreksi, terisiUntuk]);
 
   const galatIsian = galatDataDiri(form);
   const galatTampil = sudahCoba ? galatIsian : {};
@@ -171,12 +177,10 @@ export function KycManualSheet({
     const item = hasil?.find((baris) => baris.userId === userId);
     if (item?.statusKyc === "VERIFIED") return;
     setDipilih(userId);
-    setForm(FORM_KOSONG);
-    setSumberPenghasilan("");
+    setIsian(null);
     setCatatan("");
     setSetuju(false);
     setFoto(null);
-    setTerisiUntuk(null);
     setSudahCoba(false);
     setGalat(null);
   };
@@ -188,7 +192,7 @@ export function KycManualSheet({
 
   const kirim = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (dipilih === null) return;
+    if (dipilihAktif === null) return;
     setSudahCoba(true);
     setGalat(null);
 
@@ -222,7 +226,7 @@ export function KycManualSheet({
     try {
       const nama = form.namaLengkap.trim();
       const isian = {
-        userId: dipilih,
+        userId: dipilihAktif,
         namaLengkap: form.namaLengkap,
         nik: form.nik,
         nomorWhatsApp: form.nomorWhatsApp,
@@ -243,7 +247,7 @@ export function KycManualSheet({
         await catat(isian);
         toast.success(`KYC ${nama} dicatat sebagai terverifikasi manual.`);
       }
-      onSelesai(dipilih);
+      onSelesai(dipilihAktif);
       tutup();
     } catch (err) {
       setGalat(err instanceof Error ? err.message : "KYC manual gagal disimpan.");
@@ -276,7 +280,7 @@ export function KycManualSheet({
           </SheetDescription>
         </SheetHeader>
 
-        {dipilih === null ? (
+        {dipilihAktif === null ? (
           <div className="space-y-3">
             <div className="relative">
               <Search
@@ -422,7 +426,7 @@ export function KycManualSheet({
                 <Input
                   id="kyc-manual-nama"
                   value={form.namaLengkap}
-                  onChange={(e) => setForm({ ...form, namaLengkap: e.target.value })}
+                  onChange={(e) => ubahIsian({ form: { ...form, namaLengkap: e.target.value } })}
                   className="h-9 text-sm"
                   autoComplete="name"
                   disabled={busy}
@@ -432,7 +436,7 @@ export function KycManualSheet({
                 <Input
                   id="kyc-manual-nik"
                   value={form.nik}
-                  onChange={(e) => setForm({ ...form, nik: e.target.value })}
+                  onChange={(e) => ubahIsian({ form: { ...form, nik: e.target.value } })}
                   className="h-9 text-sm tabular-nums"
                   inputMode="numeric"
                   autoComplete="off"
@@ -448,7 +452,7 @@ export function KycManualSheet({
                 <Input
                   id="kyc-manual-wa"
                   value={form.nomorWhatsApp}
-                  onChange={(e) => setForm({ ...form, nomorWhatsApp: e.target.value })}
+                  onChange={(e) => ubahIsian({ form: { ...form, nomorWhatsApp: e.target.value } })}
                   className="h-9 text-sm tabular-nums"
                   inputMode="tel"
                   autoComplete="tel"
@@ -463,7 +467,7 @@ export function KycManualSheet({
                 <Input
                   id="kyc-manual-penghasilan"
                   value={form.penghasilan}
-                  onChange={(e) => setForm({ ...form, penghasilan: e.target.value })}
+                  onChange={(e) => ubahIsian({ form: { ...form, penghasilan: e.target.value } })}
                   className="h-9 text-sm tabular-nums"
                   inputMode="numeric"
                   placeholder="Contoh: 5.000.000"
@@ -479,7 +483,7 @@ export function KycManualSheet({
                 <Textarea
                   id="kyc-manual-alamat"
                   value={form.alamat}
-                  onChange={(e) => setForm({ ...form, alamat: e.target.value })}
+                  onChange={(e) => ubahIsian({ form: { ...form, alamat: e.target.value } })}
                   rows={2}
                   className="text-sm"
                   disabled={busy}
@@ -489,7 +493,7 @@ export function KycManualSheet({
                 <Input
                   id="kyc-manual-kerja"
                   value={form.pekerjaan}
-                  onChange={(e) => setForm({ ...form, pekerjaan: e.target.value })}
+                  onChange={(e) => ubahIsian({ form: { ...form, pekerjaan: e.target.value } })}
                   className="h-9 text-sm"
                   disabled={busy}
                 />
@@ -506,7 +510,7 @@ export function KycManualSheet({
                 <Input
                   id="kyc-manual-sumber"
                   value={sumberPenghasilan}
-                  onChange={(e) => setSumberPenghasilan(e.target.value)}
+                  onChange={(e) => ubahIsian({ sumber: e.target.value })}
                   className="h-9 text-sm"
                   placeholder="Contoh: Gaji bulanan"
                   disabled={busy}
@@ -516,7 +520,7 @@ export function KycManualSheet({
                 <Input
                   id="kyc-manual-bank"
                   value={form.namaBank}
-                  onChange={(e) => setForm({ ...form, namaBank: e.target.value })}
+                  onChange={(e) => ubahIsian({ form: { ...form, namaBank: e.target.value } })}
                   className="h-9 text-sm"
                   disabled={busy}
                 />
@@ -529,7 +533,7 @@ export function KycManualSheet({
                 <Input
                   id="kyc-manual-rekening"
                   value={form.nomorRekening}
-                  onChange={(e) => setForm({ ...form, nomorRekening: e.target.value })}
+                  onChange={(e) => ubahIsian({ form: { ...form, nomorRekening: e.target.value } })}
                   className="h-9 text-sm tabular-nums"
                   inputMode="numeric"
                   disabled={busy}

@@ -13,7 +13,6 @@ import {
   MAKS_BANNER_BYTE,
   jenisGambarDariKepala,
   periksaIsiBannerPromo,
-  tautanBannerValid,
 } from "../lib/bannerPromo";
 import { requireAdminSession } from "./adminAuthz";
 import { audit } from "./system";

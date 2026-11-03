@@ -45,7 +45,6 @@ import {
   BULANAN_LIMITS,
   TARIF_BULANAN_DEFAULT,
   TENOR_BULANAN_OPTIONS,
-  persenBungaPerBulan,
   tarifBulananAman,
   type TarifBulanan,
 } from "@/lib/bulanan";

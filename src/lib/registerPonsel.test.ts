@@ -127,7 +127,7 @@ const PENANDA_KELAS = [
   "items-",
 ];
 
-const POLA_TOKEN_KELAS = /^!?[-a-zA-Z0-9:\[\]\/.%#(),=+'"]+$/;
+const POLA_TOKEN_KELAS = /^!?[-a-zA-Z0-9:[\]/.%#(),=+'"]+$/;
 
 function terlihatSepertiKelas(teks: string): boolean {
   if (teks.length < 10 || !teks.includes(" ")) return false;

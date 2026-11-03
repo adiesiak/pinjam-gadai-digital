@@ -9,21 +9,14 @@ import {
   CheckCircle2,
   CircleDashed,
   Clock3,
-  CreditCard,
-  HeartHandshake,
-  IdCard,
-  Info,
   Loader2,
   Lock,
-  MapPin,
   PencilLine,
   Phone,
   Play,
   Save,
   ShieldAlert,
   ShieldCheck,
-  Upload,
-  Wallet,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import SignaturePad from "signature_pad";
@@ -63,7 +56,6 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { InputOTP } from "@/components/ui/input-otp";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
@@ -119,13 +111,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useDraftKyc } from "@/hooks/useDraftKyc";
 import { useMobileLifecycle } from "@/hooks/useMobileLifecycle";
 import {
-  simpanStempelOtp,
   bacaStempelOtp,
-  hapusStempelOtp,
   keputusanTampilanOtp,
   sisaDetikDariServer,
   auditOtpEvent,
-  type OtpResumeData,
 } from "@/lib/otpResume";
 
 /**
@@ -1521,8 +1510,7 @@ export function KycSection({
   const [galat, setGalat] = useState<string | null>(null);
   const [kodeOtp, setKodeOtp] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
-  const [otpResumeStatus, setOtpResumeStatus] = useState<string | null>(null);
-  const [restoredNote, setRestoredNote] = useState<string | null>(null);
+
   /** Sisa detik sebelum tombol "Kirim kode" boleh ditekan lagi (30 detik). */
   const [detikUlangOtp, setDetikUlangOtp] = useState(0);
   /** Slot yang sedang dibuka di kamera live; `null` = tidak ada kamera aktif. */
@@ -1565,13 +1553,18 @@ export function KycSection({
   });
   const sudahCobaPulih = useRef(false);
   /** Tahap pembuka: diisi sekali saat data tiba, lalu tidak dihitung ulang. */
-  const tahapAwal = useRef<IdTahapKyc | null>(null);
+  const [tahapAwal, setTahapAwal] = useState<IdTahapKyc | null>(null);
 
   // Nilai terakhir pratinjau juga dipegang ref supaya URL objeknya bisa
   // dibersihkan saat komponen dilepas. Efek pembersih ini sengaja ditulis
   // SEBELUM cabang "sedang memuat" di bawah: kalau diletakkan sesudahnya,
   // jumlah hook berbeda antara render termuat dan belum termuat.
   const pratinjauRef = useRef<Partial<Record<SlotBerkasUi, PratinjauLokal>>>({});
+  // Ref hanya untuk pembersihan saat komponen dilepas; nilai terbarunya
+  // disalin dari state di efek, bukan dibaca saat render.
+  useEffect(() => {
+    pratinjauRef.current = pratinjau;
+  }, [pratinjau]);
   useEffect(() => {
     return () => {
       for (const item of Object.values(pratinjauRef.current)) {
@@ -1601,22 +1594,26 @@ export function KycSection({
     if (!lifecycle.isPageRestored) return;
 
     if (otpKeputusan.adaStempel) {
-      setOtpResumeStatus(
-        otpKeputusan.serverKetahuiMasihBerlaku
-          ? otpServerSisa !== null
-            ? `Kode OTP masih berlaku (sekitar ${otpServerSisa} detik lagi).`
-            : "Kode OTP masih berlaku (server belum menyatakan kedaluwarsa)."
-          : otpKeputusan.serverKetahuiExpired
-            ? "Kode OTP sudah kedaluwarsa. Silakan kirim kode baru."
-            : "Sesi OTP ditemukan; harap verifikasi ulang kode.",
-      );
       auditOtpEvent("OTP_SESSION_RESUMED", { adaStempel: true, tidakTahuExpiry: otpKeputusan.tidakTahuExpiry });
     } else {
       // Tidak ada sesi yang stempelnya tersimpan; halaman kembali ke kondisi
       // awal tanpa membuat sesi baru secara otomatis.
       auditOtpEvent("OTP_SESSION_RESUME_UNAVAILABLE", { adaStempel: false });
     }
-  }, [...lifecycleDeps, otpKeputusan, otpServerSisa]);
+  }, [lifecycle.isPageRestored, otpKeputusan.adaStempel, otpKeputusan.tidakTahuExpiry]);
+
+  // Pesan resume OTP diturunkan dari stempel + sisa waktu server, sehingga
+  // hitungannya ikut diperbarui tanpa state perantara.
+  const otpResumeStatus =
+    lifecycle.isPageRestored && otpKeputusan.adaStempel
+      ? otpKeputusan.serverKetahuiMasihBerlaku
+        ? otpServerSisa !== null
+          ? `Kode OTP masih berlaku (sekitar ${otpServerSisa} detik lagi).`
+          : "Kode OTP masih berlaku (server belum menyatakan kedaluwarsa)."
+        : otpKeputusan.serverKetahuiExpired
+          ? "Kode OTP sudah kedaluwarsa. Silakan kirim kode baru."
+          : "Sesi OTP ditemukan; harap verifikasi ulang kode."
+      : null;
 
   // --- Restore progres melihat dari server saat kembali ---
   // Progres sebenarnya selalu dibaca dari server (`data.isian` / `data.dokumen`).
@@ -1665,16 +1662,20 @@ export function KycSection({
       data?.dokumen.buktiPenghasilanId !== undefined &&
       data?.dokumen.buktiPenghasilanId !== "");
 
+  // Catatan pemulihan hanya berlaku selama halaman memang baru kembali dan
+  // server masih memiliki progres — diturunkan, bukan disalin ke state.
+  const restoredNote =
+    lifecycle.isPageRestored && adaProgresTersimpan
+      ? "Progress Anda berhasil dipulihkan."
+      : null;
+
   useEffect(() => {
     if (!lifecycle.isPageRestored) return;
     if (!adaProgresTersimpan) return;
 
-    setRestoredNote("Progress Anda berhasil dipulihkan.");
     auditOtpEvent("KYC_DRAFT_RESTORED", { adaProgres: true });
-    markRestored?.();    }, [
-      ...lifecycleDeps,
-      adaProgresTersimpan,
-    ]);
+    markRestored?.();
+  }, [...lifecycleDeps, adaProgresTersimpan]);
 
   // --- Pulihkan draft SEKALI, saat baris KYC dari server pertama diketahui ---
   // Dijalankan lewat efek (bukan saat render) supaya render ganda di mode ketat
@@ -1686,8 +1687,13 @@ export function KycSection({
     if (!data.persetujuanAktif) return;
     const hasil = pulihkanDraft(bersihkanIsian(data.isian));
     if (hasil.dipulihkan.length === 0) return;
-    setIsianDipulihkan(hasil.isian);
-    setKolomDipulihkan(hasil.dipulihkan);
+    // Pemulihan localStorage adalah sistem eksternal; hasilnya diterapkan
+    // setelah efek selesai supaya tidak memicu render berantai di commit yang
+    // sama. Tetap sekali per pemuatan halaman lewat `sudahCobaPulih`.
+    queueMicrotask(() => {
+      setIsianDipulihkan(hasil.isian);
+      setKolomDipulihkan(hasil.dipulihkan);
+    });
     auditOtpEvent("KYC_DRAFT_LOKAL_DIPULIHKAN", { jumlah: hasil.dipulihkan.length });
   }, [data, pulihkanDraft]);
 
@@ -1795,10 +1801,10 @@ export function KycSection({
   const terkunci = !dataPasti.persetujuanAktif;
   // Kalau dihitung ulang tiap render, wizard berpindah tahap sendiri begitu
   // tahap yang sedang diisi menjadi "lengkap" (mis. nomor WhatsApp selesai diketik).
-  if (tahapAwal.current === null) {
-    tahapAwal.current = tahapDisarankan(dataPasti.status, isian, berkasUntukStatus, opsi);
-  }
-  const tahapAktif = tahapPilihan ?? tahapAwal.current;
+  // Karena itu saran tahap disimpan sekali saat data tiba, lalu dipakai terus.
+  const saranTahap = tahapDisarankan(dataPasti.status, isian, berkasUntukStatus, opsi);
+  if (tahapAwal === null) setTahapAwal(saranTahap);
+  const tahapAktif = tahapPilihan ?? tahapAwal ?? saranTahap;
   const tahap = tahapKyc(tahapAktif);
   // Satu hitungan untuk nomor tahap, bilah kemajuan, dan bilah lekat di ponsel:
   // `progresStageKyc` menurunkan semuanya dari `statusPerTahap` yang sama.
@@ -1868,12 +1874,11 @@ export function KycSection({
    * dicabut supaya blob lama tidak menumpuk di memori tab.
    */
   const gantiPratinjau = (slot: SlotBerkasUi, nilai: PratinjauLokal | null) => {
-    const lama = pratinjauRef.current[slot];
+    const lama = pratinjau[slot];
     if (lama !== undefined && lama.url !== null) URL.revokeObjectURL(lama.url);
-    const berikutnya = { ...pratinjauRef.current };
+    const berikutnya = { ...pratinjau };
     if (nilai === null) delete berikutnya[slot];
     else berikutnya[slot] = nilai;
-    pratinjauRef.current = berikutnya;
     setPratinjau(berikutnya);
   };
 
@@ -2046,7 +2051,7 @@ export function KycSection({
     // memindahkan tahap dan tidak menambah notifikasi untuk hal yang sama.
     const berhasil = await simpanProgres({ diam: true });
     if (!berhasil) return;
-    const berikutnya = tahapBerikutStage(tahapPilihan ?? tahapAwal.current ?? "persetujuan");
+    const berikutnya = tahapBerikutStage(tahapPilihan ?? tahapAwal ?? "persetujuan");
     if (berikutnya !== null) menuju(berikutnya);
   };
 

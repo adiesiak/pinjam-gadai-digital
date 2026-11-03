@@ -25,6 +25,12 @@ import { formatTanggalWIB } from "@/lib/waktu";
 import { cn } from "@/lib/utils";
 
 /**
+ * Waktu muat dipakai untuk kalender tenor. Dibaca sekali di luar render supaya
+ * tanggal tidak berubah di tengah interaksi dan render tetap murni.
+ */
+const SEKARANG_MUAT = Date.now();
+
+/**
  * Satu sel kalender: tanggal dan perkiraan total bayar untuk tenor itu.
  *
  * Angka kecil di bawah tanggal memakai mesin harga yang sama dengan server,
@@ -111,7 +117,7 @@ export function PemilihTanggalJatuhTempo({
   tambahanHari?: number;
 }) {
   const [buka, setBuka] = useState(false);
-  const sekarang = Date.now();
+  const sekarang = SEKARANG_MUAT;
   const hariIni = hariIniLokal(sekarang);
   const { maks } = rentangTanggalTenor(sekarang);
   const dipilih = tanggalJatuhTempo(tenor, sekarang);

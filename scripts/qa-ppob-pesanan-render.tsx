@@ -57,6 +57,7 @@ let jawaban: Jawaban = {
 mock.module("convex/react", () => ({
   useQuery: () => jawaban,
   useMutation: () => async () => undefined,
+  useAction: () => async () => undefined,
 }));
 
 const { PpobPesanan } = await import("../src/pages/Ppob");

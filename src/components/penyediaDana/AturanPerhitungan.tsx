@@ -9,7 +9,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
-  PERSEN_IMBAL_PENDANA,
   TENOR_PENDANA_HARI,
   imbalPendana,
   totalPengembalianPendana,

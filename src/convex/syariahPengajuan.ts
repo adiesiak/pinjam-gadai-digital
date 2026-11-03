@@ -631,7 +631,6 @@ export const putuskan = mutation({
     // Murabahah atas barang katalog memakai harga SNAPSHOT saat pengajuan
     // dikirim: harga katalog bisa berubah sesudahnya, tetapi harga pokok barang
     // yang sudah disepakati tidak boleh ikut bergerak.
-    const cfg = await getConfig(ctx);
     const rencana = rencanaPengajuanSyariah(
       {
         jenis: row.jenis,
