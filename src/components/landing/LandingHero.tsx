@@ -2,7 +2,10 @@ import { ArrowRight, Calculator, Lock, ShieldCheck } from "lucide-react";
 import { Component, type ReactNode } from "react";
 import { Link } from "react-router";
 
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { Button } from "@/components/ui/button";
+import { NAMA_ENTITAS_PINDAI } from "@/lib/branding";
+import { urlChatCs } from "@/lib/kontak";
 import { GelombangPattern, PindaiCard3D } from "./KartuHeroPindai";
 
 export interface LandingHeroProps {
@@ -137,14 +140,34 @@ export function LandingHero(props: LandingHeroProps) {
                 <Lock className="size-4 text-primary" aria-hidden="true" />
                 Verifikasi OTP WhatsApp
               </span>
+              <a
+                href={urlChatCs(
+                  "Halo PINDAI, saya ingin bertanya tentang layanan.",
+                )}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-11 items-center gap-2 text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <IkonWhatsapp className="size-4" aria-hidden="true" />
+                Bantuan WhatsApp
+              </a>
             </div>
+            <p className="mt-2 text-xs leading-5 text-slate-600">
+              Platform pengajuan dan pencatatan pinjaman oleh{" "}
+              <span className="font-medium text-foreground">
+                {NAMA_ENTITAS_PINDAI}
+              </span>
+              .
+            </p>
           </div>
         </div>
 
         <div className="motion-fade relative mx-auto w-full max-w-[340px] lg:max-w-[420px]" style={{ animationDelay: "0.12s" }}>
           <PindaiCard3D />
           <p className="mt-2 text-center text-xs font-medium text-slate-700">
-            {props.sudahMasuk ? "Sesi aktif" : "Ilustrasi tampilan akun"}
+            {props.sudahMasuk
+              ? "Sesi aktif"
+              : "Ilustrasi tampilan akun, bukan produk kartu"}
           </p>
         </div>
       </div>

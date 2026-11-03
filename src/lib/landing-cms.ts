@@ -121,12 +121,12 @@ export const JUMLAH_PANDUAN = 3;
  * konten sendiri, jadi perlakukan sebagai copy publik, bukan placeholder.
  */
 export const KONTEN_LANDING_DEFAULT: KontenLanding = {
-  heroEyebrow: "Pinjaman tunai, gadai, dan cicilan barang",
+  heroEyebrow: "Pinjaman tunai, gadai, dan kredit barang",
   heroJudul1: "Ajukan pinjaman,",
   heroJudul2: "biayanya jelas di depan.",
   heroDeskripsi:
-    "PINDAI menghitung potongan, bunga, dan total kewajiban sebelum pengajuan dikirim. Pilih nominal dan tenor, lihat angkanya, lalu putuskan; pencairan dana ditangani tim PINDAI di luar aplikasi.",
-  heroCtaSekunder: "Lihat kalkulator",
+    "PINDAI membantu Anda menghitung potongan, bunga, dan total kewajiban sebelum pengajuan dikirim, lalu mencatat pengajuan dan statusnya. Pilih nominal dan tenor, lihat angkanya, lalu putuskan. Pencairan dana ditangani tim PINDAI di luar aplikasi.",
+  heroCtaSekunder: "Lihat rincian biaya",
   heroMikro:
     "Ilustrasi dari aturan yang berlaku, bukan persetujuan pinjaman dan bukan bukti transfer.",
   layananEyebrow: "Produk",
@@ -181,7 +181,7 @@ export const KONTEN_LANDING_DEFAULT: KontenLanding = {
   faqDeskripsi:
     "Empat jawaban singkat sebelum membuat akun. Pertanyaan lain ada di halaman pertanyaan umum.",
   footerDeskripsi:
-    "Aplikasi pencatatan pinjaman, gadai, dan kredit barang. Perpindahan dana serta penanganan barang berada di luar aplikasi.",
+    "Platform pengajuan dan pencatatan pinjaman, gadai, dan kredit barang. Perpindahan dana serta penanganan barang berada di luar aplikasi.",
 };
 
 /** Teks bersih: buang spasi tepi, potong batas, dan kosong → bawaan. */

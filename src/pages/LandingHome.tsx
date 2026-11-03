@@ -250,6 +250,14 @@ export default function LandingHome() {
   // Tamu melihat aksi yang sebenarnya mereka tuju; satu klik langsung ke
   // halaman masuk dengan tujuan formulir yang sudah terisi.
   const accountLabel = isAuthenticated ? "Buka dashboard" : "Ajukan pinjaman";
+  /**
+   * Pengguna lama butuh pintu "Masuk" yang tenang, bukan hanya CTA pengajuan.
+   * Di ponsel pintu itu masuk ke menu karena ruang header habis; di layar lebih
+   * lebar ia tampil sebagai tautan teks di samping CTA utama.
+   */
+  const tautanMenu = isAuthenticated
+    ? TAUTAN_MENU
+    : [{ href: "/auth", label: "Masuk", grup: "Akun" }, ...TAUTAN_MENU];
 
   return (
     // Ruang bawah ekstra di ponsel: bilah aksi lengket tidak boleh menutupi
@@ -323,6 +331,14 @@ export default function LandingHome() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
+            {!isLoading && !isAuthenticated && (
+              <Link
+                to="/auth"
+                className="hidden min-h-11 items-center rounded-sm px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:inline-flex"
+              >
+                Masuk
+              </Link>
+            )}
             {showAdminShortcut && (
               <Link
                 to={ADMIN_ROUTE}
@@ -353,7 +369,7 @@ export default function LandingHome() {
                 dari tepi layar, bukan dari tombol yang masih punya tombol aksi
                 di sebelah kanan. Tanpa ini, panel 16rem terpotong di layar 375px. */}
             <MenuInformasiPonsel
-              tautan={TAUTAN_MENU}
+              tautan={tautanMenu}
               kelasTombol="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-64 max-w-[calc(100vw-2rem)] gap-1 rounded-xl border border-border bg-background p-2 text-sm shadow-lg"
               kelasTautan="rounded-lg px-3 py-3 hover:bg-muted"

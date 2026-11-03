@@ -131,6 +131,15 @@ ok(
 );
 ok(html.includes("Rincian biaya terbuka"), "poin kepercayaan pertama ada");
 ok(html.includes("Verifikasi OTP WhatsApp"), "poin kepercayaan kedua ada");
+ok(html.includes("Bantuan WhatsApp"), "kanal bantuan tampil di hero");
+ok(
+  html.includes("Platform pengajuan dan pencatatan pinjaman"),
+  "posisi produk dijelaskan di hero",
+);
+ok(
+  html.includes("PT Pindai Digital Solusindo"),
+  "nama entitas tampil di hero",
+);
 
 // ── 4. Objek merek: kartu contoh ──
 ok(
@@ -201,6 +210,10 @@ ok(
 ok(
   render(false).includes("Ilustrasi tampilan akun"),
   'belum masuk → penanda "Ilustrasi tampilan akun"',
+);
+ok(
+  render(false).includes("bukan produk kartu"),
+  "penanda kartu menjelaskan bahwa itu bukan produk kartu",
 );
 ok(render(true).includes("Sesi aktif"), 'sudah masuk → penanda "Sesi aktif"');
 ok(!html.includes("[object Object]"), 'tanpa "[object Object]"');
