@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="600" viewBox="0 0 1600 600">
+
+  <defs>
+    <linearGradient id="latar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#145a54"/>
+      <stop offset="0.52" stop-color="#0f3d3a"/>
+      <stop offset="1" stop-color="#081f1e"/>
+    </linearGradient>
+    <radialGradient id="cahaya" cx="0.72" cy="0.2" r="0.7">
+      <stop offset="0" stop-color="#d8c28c" stop-opacity="0.22"/>
+      <stop offset="0.55" stop-color="#d8c28c" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#d8c28c" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="garis" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#f7f1e3" stroke-opacity="0.035"/>
+    </pattern>
+  </defs>
+
+  <rect width="1600" height="600" fill="url(#latar)"/>
+  <rect width="1600" height="600" fill="url(#garis)"/>
+  <rect width="1600" height="600" fill="url(#cahaya)"/>
+<path d="M0 492C270 442 518 540 824 480C1120 422 1340 392 1600 456V600H0Z" fill="#081f1e" fill-opacity="0.46"/>
+<path d="M96 72V410" stroke="#d8c28c" stroke-opacity="0.28" stroke-width="1"/>
+
+  <g font-family="Liberation Sans, Arial, sans-serif" font-size="17" font-weight="700" letter-spacing="4.5" fill="#d8c28c">
+    <rect x="96" y="91" width="34" height="3" fill="#d8c28c"/>
+    <text x="146" y="98">PROMO PINJAMAN HARIAN</text>
+  </g>
+<text x="96" y="224" font-family="Bitstream Charter, Liberation Serif, serif" font-size="102" font-weight="700" fill="#f7f1e3">BEBAS BIAYA</text>
+<text x="96" y="292" font-family="Liberation Sans, Arial, sans-serif" font-size="38" font-weight="700" letter-spacing="2.2" fill="#d8c28c">ADMIN PINJAMAN</text>
+<text x="96" y="350" font-family="Liberation Sans, Arial, sans-serif" font-size="23" fill="#f7f1e3" fill-opacity="0.78"><tspan x="96" dy="0">Tanpa potongan biaya admin di muka. Dana pinjaman lebih</tspan><tspan x="96" dy="34">utuh untuk kebutuhan Anda.</tspan></text>
+
+  <g transform="translate(1326 296)">
+    <circle r="188" fill="#081f1e" fill-opacity="0.22"/>
+    <circle r="170" fill="none" stroke="#d8c28c" stroke-opacity="0.45" stroke-width="1.5"/>
+    <circle r="154" fill="#081f1e" fill-opacity="0.58" stroke="#d8c28c" stroke-width="2"/>
+    <circle r="132" fill="none" stroke="#d8c28c" stroke-opacity="0.3" stroke-width="1" stroke-dasharray="3 8"/>
+    <text y="-61.199999999999996" text-anchor="middle" font-family="Liberation Sans, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="3.5" fill="#d8c28c">BIAYA ADMIN</text>
+    <text y="18.24" text-anchor="middle" font-family="Bitstream Charter, Liberation Serif, serif" font-size="76" font-weight="700" fill="#f7f1e3">Rp0</text>
+    <text y="74.8" text-anchor="middle" font-family="Liberation Sans, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#d8c28c">PROMO PINDAI</text>
+  </g>
+
+  <g transform="translate(96 490) scale(0.71875)">
+    <rect x="5" y="6" width="54" height="50" rx="12" fill="#0f3d3a" stroke="#b08d57" stroke-width="2"/>
+    <path d="M15 10h34" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2" stroke-linecap="round"/>
+    <rect x="11" y="12" width="42" height="38" rx="7" fill="#f7f1e3"/>
+    <rect x="14" y="15" width="36" height="32" rx="5" stroke="#d9d2c1" stroke-width="1.5"/>
+    <rect x="7" y="19" width="5" height="7" rx="2.5" fill="#d8c28c"/>
+    <rect x="7" y="36" width="5" height="7" rx="2.5" fill="#d8c28c"/>
+    <circle cx="31" cy="31" r="10" fill="#0f3d3a"/>
+    <circle cx="31" cy="31" r="7.2" stroke="#d8c28c" stroke-width="1.5"/>
+    <path d="M31 31l7-5M31 24v2M38 31h-2M31 38v-2M24 31h2" stroke="#f7f1e3" stroke-width="1.7" stroke-linecap="round"/>
+    <circle cx="31" cy="31" r="2.2" fill="#d8c28c"/>
+    <path d="M20 57h8M36 57h8" stroke="#081f1e" stroke-width="3" stroke-linecap="round"/>
+  </g>
+<text x="154" y="532" font-family="Bitstream Charter, Liberation Serif, serif" font-size="30" font-weight="700" letter-spacing="8" fill="#d8c28c">PINDAI</text>
+<text x="154" y="560" font-family="Liberation Sans, Arial, sans-serif" font-size="14" fill="#f7f1e3" fill-opacity="0.56">Pinjaman harian berbasis teknologi</text>
+<text x="1504" y="532" text-anchor="end" font-family="Liberation Sans, Arial, sans-serif" font-size="18" font-weight="700" fill="#f7f1e3">pindai.biz.id</text>
+<text x="1504" y="560" text-anchor="end" font-family="Liberation Sans, Arial, sans-serif" font-size="13" fill="#f7f1e3" fill-opacity="0.56">Syarat dan ketentuan berlaku.</text>
+</svg>

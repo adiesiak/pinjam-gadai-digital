@@ -1,0 +1,1 @@
+import{j as s}from"./framer-motion-Dq3cdBN3.js";import{Q as o}from"./index-AWYTT_RB.js";function r({className:t,...e}){return s.jsx("div",{"data-slot":"skeleton",className:o("animate-pulse rounded-md bg-slate-200/70",t),...e})}export{r as S};
