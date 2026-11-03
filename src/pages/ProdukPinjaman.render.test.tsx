@@ -59,6 +59,14 @@ function render(produk: "konvensional" | "syariah"): string {
   ada(html, 'href="/biaya"', "tautan ke halaman biaya");
   ada(html, "Hitung sebelum mengajukan", "kalkulator konvensional tampil");
   ada(html, "Dana diterima", "hasil kalkulator punya angka dana diterima");
+  ada(html, "Pertanyaan sebelum mengajukan", "FAQ kontekstual konvensional tampil");
+  ada(html, "support@pindai.biz.id", "email CS ada di footer produk");
+  ada(html, "Citra Kebun Mas", "alamat kantor ada di footer produk");
+  ada(html, "<table", "tarif harian memakai tabel semantik");
+  ada(html, 'scope="col"', "tabel punya header kolom");
+  ada(html, 'scope="row"', "tabel punya header baris");
+  ada(html, 'aria-live="polite"', "hasil kalkulator diumumkan ke pembaca layar");
+  tidakAda(html, "Angka hijau", "catatan promo tidak menyebut warna");
   bersih(html, "halaman konvensional");
 }
 
@@ -84,6 +92,8 @@ function render(produk: "konvensional" | "syariah"): string {
   );
   ada(html, "PT Pindai Digital Solusindo", "nama entitas tercetak");
   ada(html, 'href="/pinjaman/konvensional"', "tautan ke produk konvensional");
+  ada(html, "support@pindai.biz.id", "email CS ada di footer syariah");
+  ada(html, "Citra Kebun Mas", "alamat kantor ada di footer syariah");
   ada(html, "Rincian Murabahah", "kalkulator syariah tampil");
   ada(
     html,
@@ -106,16 +116,8 @@ function render(produk: "konvensional" | "syariah"): string {
 {
   const sumber = readFileSync("src/pages/ProdukPinjaman.tsx", "utf8");
   ok(
-    /\{syariah && \(\s*<div className="mt-8">\s*<KalkulatorSyariah \/>/.test(
-      sumber,
-    ),
+    /<div className="mt-8">\s*<KalkulatorSyariah \/>/.test(sumber),
     "kalkulator syariah dirender selebar konten di bawah kartu akad",
-  );
-  ok(
-    /\{!syariah && \(\s*<div className="lg:sticky lg:top-20">\s*<KalkulatorKonvensional/.test(
-      sumber,
-    ),
-    "kolom samping hanya dipakai kalkulator konvensional",
   );
   ok(
     sumber.includes('className="mt-5 grid gap-3 sm:grid-cols-2 md:gap-4"'),
@@ -128,21 +130,38 @@ function render(produk: "konvensional" | "syariah"): string {
 }
 
 // ===== 3b. Tata letak kalkulator konvensional dan tabel tarif =====
-// Dua bug tampilan yang pernah muncul di 1366px: empat tenor dipaksa ke tiga
-// kolom, dan kalkulator di kolom samping masih memakai dua kolom internal.
+// Kalkulator harus lebih dahulu di ponsel, tidak lengket di viewport pendek,
+// dan tabel tarif harus semantik serta tidak memotong tenor.
 {
   const sumber = readFileSync("src/pages/ProdukPinjaman.tsx", "utf8");
   ok(
-    sumber.includes("repeat(4,minmax(0,5.5rem))"),
-    "tabel tarif harian menyediakan empat kolom untuk empat tenor",
+    sumber.includes('className="order-1 lg:order-2"'),
+    "kalkulator tampil lebih dahulu di ponsel",
   );
   ok(
-    sumber.includes("grid grid-cols-2 gap-2 sm:contents"),
-    "nilai tenor di ponsel disusun dua kolom, bukan tiga",
+    sumber.includes('className="order-2 lg:order-1"'),
+    "tabel tarif mengikuti kalkulator di ponsel",
   );
   ok(
-    !sumber.includes("grid grid-cols-3 gap-2 sm:contents"),
-    "tidak ada lagi empat harga yang dipaksa ke tiga kolom",
+    sumber.includes(
+      'className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start"',
+    ),
+    "kolom samping hanya untuk kalkulator konvensional di desktop",
+  );
+  ok(
+    !sumber.includes("lg:sticky"),
+    "kalkulator tidak lagi lengket dan terpotong di viewport pendek",
+  );
+  ok(sumber.includes("<table"), "tarif harian memakai tabel semantik");
+  ok(sumber.includes('scope="col"'), "tabel punya header kolom");
+  ok(sumber.includes('scope="row"'), "tabel punya header baris");
+  ok(
+    sumber.includes("min-w-[32rem]"),
+    "tabel tarif tidak memaksa empat tenor ke kolom sempit",
+  );
+  ok(
+    sumber.includes("overflow-x-auto"),
+    "tabel lebar bisa digeser tanpa memotong halaman",
   );
   ok(
     /<div className="mt-4 grid gap-4">\s*<div>\s*<label\s+htmlFor="produk-nominal"/.test(
@@ -150,10 +169,29 @@ function render(produk: "konvensional" | "syariah"): string {
     ),
     "kalkulator konvensional menyusun input dan hasil secara vertikal",
   );
+  ok(
+    !sumber.includes("text-[11px]"),
+    "label kecil di halaman produk minimal 12px",
+  );
+  ok(
+    sumber.includes(
+      'mulaiHref={isAuthenticated ? "/dashboard?tab=form" : FORM_HREF}',
+    ),
+    "CTA tamu diarahkan ke formulir lewat auth",
+  );
+  ok(
+    !sumber.includes("Angka hijau") &&
+      !sumber.includes("biaya admin 2%") &&
+      !sumber.includes("47 : 13") &&
+      !sumber.includes("78,33") &&
+      !sumber.includes("21,67") &&
+      !sumber.includes("—"),
+    "tidak ada angka atau istilah promosi yang ditulis ulang di JSX",
+  );
 }
 
 // ===== 4. Banner bunga promo =====
-// Harga promo sudah tampil hijau di tabel; banner ini menyebut kampanyenya
+// Harga promo sudah ditandai di tabel; banner ini menyebut kampanyenya
 // secara utuh dan hanya untuk jalur konvensional.
 {
   const promos = [

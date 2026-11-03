@@ -29,6 +29,7 @@ const validInternalPaths = new Set([
   "/aplikasi",
   "/syarat-ketentuan",
   "/privasi",
+  "/pinjaman/konvensional",
   "/pinjaman/syariah",
   "/akses-bersama",
   "/pemenang",

@@ -31,6 +31,7 @@ const PRODUK: readonly Tautan[] = [
   { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
   { href: "/layanan/gadai", label: "Gadai" },
   { href: "/layanan/kredit-barang", label: "Kredit barang" },
+  { href: "/pinjaman/konvensional", label: "Pinjaman konvensional" },
   { href: "/pinjaman/syariah", label: "Akad syariah" },
 ];
 

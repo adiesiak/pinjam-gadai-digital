@@ -31,12 +31,9 @@ import { VaultLogo } from "@/components/VaultLogo";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { KartuPromoBunga } from "@/components/promo/PromoBungaAktif";
+import { FaqLayanan } from "@/components/informasi/FaqLayanan";
+import { FORM_HREF, InfoFooter } from "@/components/informasi/InfoShell";
 import { usePromoBungaAktif } from "@/hooks/use-promo-bunga";
-import {
-  HAK_CIPTA_PINDAI,
-  NAMA_ENTITAS_PINDAI,
-  PENAFIAN_PINDAI,
-} from "@/lib/branding";
 import {
   hitungSimulasiBulanan,
   persenBungaPerBulan,
@@ -44,6 +41,11 @@ import {
   type TarifBulanan,
 } from "@/lib/bulanan";
 import { bagiHasilPinjaman } from "@/lib/bagiHasil";
+import {
+  PERSEN_PORSI_PENDANA,
+  PERSEN_PORSI_PLATFORM,
+  PORSI_MARGIN,
+} from "@/lib/kebijakanPinjaman";
 import {
   LOAN_LIMITS,
   TENOR_OPTIONS,
@@ -55,6 +57,7 @@ import {
   type Tenor,
 } from "@/lib/loan";
 import { formatRupiahAman, kelompokkanDigit, percentOf } from "@/lib/money";
+import { persenTeks, rincianPotonganDiMuka } from "@/lib/tarifBiayaTeks";
 import {
   bungaSetelahPromo,
   pilihPromoBunga,
@@ -73,8 +76,29 @@ type JenisProduk = "konvensional" | "syariah";
 const TENOR_BULANAN = [1, 3, 6] as const;
 const TENOR_RAHN = [30, 60, 90] as const;
 
+/**
+ * Waktu muat halaman dipakai untuk memilih promo yang berlaku. Dibaca sekali
+ * di luar render supaya render tetap murni dan tabel/kalkulator memakai
+ * patokan waktu yang sama.
+ */
+const WAKTU_MUAT_HALAMAN = Date.now();
+
+/** Tier contoh untuk tabel tarif; dipakai juga oleh ringkasan di hero. */
+const TIER_HARIAN = [
+  { label: "Rp100.000 sampai Rp499.999", pokok: 300_000 },
+  { label: "Rp500.000 sampai Rp999.999", pokok: 700_000 },
+  { label: "Rp1.000.000 sampai Rp10.000.000", pokok: 1_000_000 },
+] as const;
+
+const BUNGA_HARIAN = TIER_HARIAN.flatMap(({ pokok }) =>
+  TENOR_OPTIONS.map((tenor) => persenBungaHarian(pokok, tenor) ?? 0),
+).filter((nilai) => nilai > 0);
+const BUNGA_HARIAN_MIN = Math.min(...BUNGA_HARIAN);
+const BUNGA_HARIAN_MAX = Math.max(...BUNGA_HARIAN);
+
 /** Contoh kebijakan di halaman ini dihitung mesin yang sama dengan akad. */
-const CONTOH_BAGI_HASIL = bagiHasilPinjaman(1_000_000, 32);
+const CONTOH_BUNGA = persenBungaHarian(1_000_000, 28) ?? 0;
+const CONTOH_BAGI_HASIL = bagiHasilPinjaman(1_000_000, CONTOH_BUNGA);
 
 function rupiah(nilai: number): string {
   return formatRupiahAman(nilai);
@@ -117,73 +141,93 @@ function BarisAngka({
 
 /** Tiga tier tarif harian, dari matriks mesin harga yang sama dengan server. */
 function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) {
-  // Promo bunga menggantikan tarif sel — tabel ini menampilkan angka yang
+  // Promo bunga menggantikan tarif sel: tabel ini menampilkan angka yang
   // benar-benar akan dipakai, bukan tarif normal yang sudah tidak berlaku.
   const adaPromo = promos.length > 0;
-  const tier = [
-    { label: "Rp100.000 sampai Rp499.999", pokok: 300_000 },
-    { label: "Rp500.000 sampai Rp999.999", pokok: 700_000 },
-    { label: "Rp1.000.000 sampai Rp10.000.000", pokok: 1_000_000 },
-  ];
   return (
-    <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
-      {/* Empat tenor, empat kolom. Sebelumnya empat harga dipaksa ke tiga
-          kolom, sehingga tenor 28 hari selalu jatuh ke baris berikutnya. */}
-      <div className="hidden grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,5.5rem))] gap-2 border-b border-slate-200 py-2 text-xs font-semibold text-slate-500 sm:grid">
-        <span>Pokok</span>
-        {TENOR_OPTIONS.map((tenor) => (
-          <span key={tenor} className="text-right tabular-nums">
-            {tenor} hari
-          </span>
-        ))}
-      </div>
-      {tier.map((baris) => (
-        <div
-          key={baris.label}
-          className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,5.5rem))] sm:items-center"
-        >
-          <p className="text-sm font-medium text-slate-800">{baris.label}</p>
-          <div className="grid grid-cols-2 gap-2 sm:contents">
-            {TENOR_OPTIONS.map((tenor) => {
-              const normal = persenBungaHarian(baris.pokok, tenor) ?? 0;
-              const promo = pilihPromoBunga(promos, {
-                tenor,
-                sekarang: Date.now(),
-                persenNormal: normal,
-              });
-              return (
-                <p
+    <div className="mt-4">
+      <div
+        className="overflow-x-auto rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        role="region"
+        aria-label="Tabel tarif harian"
+        tabIndex={0}
+      >
+        <table className="w-full min-w-[32rem] border-collapse text-sm">
+          <caption className="sr-only">
+            Tarif bunga harian menurut tier pokok dan tenor pinjaman
+          </caption>
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/80">
+              <th
+                scope="col"
+                className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500"
+              >
+                Pokok
+              </th>
+              {TENOR_OPTIONS.map((tenor) => (
+                <th
                   key={tenor}
-                  aria-label={`${tenor} hari: ${persen(bungaSetelahPromo(normal, promo))}`}
-                  className="rounded-lg bg-slate-50 px-2 py-1.5 text-center text-xs tabular-nums text-slate-700 sm:bg-transparent sm:p-0 sm:text-right"
+                  scope="col"
+                  className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold tabular-nums text-slate-500"
                 >
-                  <span className="block text-xs text-slate-500 sm:hidden">
-                    {tenor} hari
-                  </span>
-                  <span
-                    className={
-                      promo === null || promo.jenis === "bebas_admin"
-                        ? "font-semibold"
-                        : "font-semibold text-emerald-700"
-                    }
-                  >
-                    {persen(bungaSetelahPromo(normal, promo))}
-                  </span>
-                  {promo !== null && (
-                    <span className="block text-xs font-medium text-emerald-700">
-                      {promo.jenis === "bebas_admin" ? "bebas admin" : "promo"}
-                    </span>
-                  )}
-                </p>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+                  {tenor} hari
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {TIER_HARIAN.map((baris) => (
+              <tr key={baris.label}>
+                <th
+                  scope="row"
+                  className="px-3 py-3 text-left text-sm font-medium text-slate-800"
+                >
+                  {baris.label}
+                </th>
+                {TENOR_OPTIONS.map((tenor) => {
+                  const normal = persenBungaHarian(baris.pokok, tenor) ?? 0;
+                  const promo = pilihPromoBunga(promos, {
+                    tenor,
+                    sekarang: WAKTU_MUAT_HALAMAN,
+                    persenNormal: normal,
+                  });
+                  return (
+                    <td
+                      key={tenor}
+                      className="whitespace-nowrap px-3 py-3 text-right align-top tabular-nums text-slate-700"
+                    >
+                      <span
+                        className={
+                          promo === null || promo.jenis === "bebas_admin"
+                            ? "font-semibold"
+                            : "font-semibold text-emerald-700"
+                        }
+                      >
+                        {persen(bungaSetelahPromo(normal, promo))}
+                      </span>
+                      {promo !== null && (
+                        <span className="block text-xs font-medium text-emerald-700">
+                          {promo.jenis === "bebas_admin"
+                            ? "bebas admin"
+                            : "promo"}
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-slate-500 sm:hidden">
+        Geser tabel ke samping untuk melihat semua tenor.
+      </p>
       {adaPromo && (
-        <p className="py-2 text-xs leading-5 text-emerald-800">
-          Angka hijau adalah bunga promo yang sedang berjalan; angka lain adalah tarif
-          normal. Label “bebas admin” berarti biaya admin di muka Rp0, bukan bunga 0%.
+        <p className="mt-2 text-xs leading-5 text-slate-700">
+          Nilai berlabel “promo” memakai bunga promo yang sedang berjalan;
+          nilai tanpa label memakai tarif normal. Label “bebas admin” berarti
+          biaya admin di muka Rp0, bukan bunga 0%.
         </p>
       )}
     </div>
@@ -237,15 +281,14 @@ function KalkulatorKonvensional({
 
   let isi: React.ReactNode = null;
   if (dalamBatas) {
-    try {
-      if (skema === "harian") {
-        const tenor = sesuaikanTenorHarian(nominal, tenorHari);
-        const normal = persenBungaHarian(nominal, tenor) ?? 0;
-        const promo = pilihPromoBunga(promos, {
-          tenor,
-          sekarang: Date.now(),
-          persenNormal: normal,
-        });
+    if (skema === "harian") {
+      const tenor = sesuaikanTenorHarian(nominal, tenorHari);
+      const normal = persenBungaHarian(nominal, tenor) ?? 0;
+      const promo = pilihPromoBunga(promos, {
+        tenor,
+        sekarang: WAKTU_MUAT_HALAMAN,
+        persenNormal: normal,
+      });
         const bunga = bungaSetelahPromo(normal, promo);
         const diskonAdminPromo =
           promo?.jenis === "bebas_admin"
@@ -260,28 +303,28 @@ function KalkulatorKonvensional({
           <>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
-                <p className="text-[11px] font-medium text-emerald-800">
+                <p className="text-xs font-medium text-emerald-800">
                   Dana diterima
                 </p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-emerald-900">
                   {rupiah(q.danaBersihDitransfer)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-emerald-900/80">
+                <p className="mt-0.5 text-xs leading-4 text-emerald-900/80">
                   Pokok {rupiah(q.pokok)} dipotong biaya di muka{" "}
                   {rupiah(q.totalPotonganDiMuka)}
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                <p className="text-[11px] font-medium text-slate-600">
+                <p className="text-xs font-medium text-slate-600">
                   Total kembali
                 </p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-navy">
                   {rupiah(q.totalKewajibanPelunasan)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
+                <p className="mt-0.5 text-xs leading-4 text-slate-600">
                   {rupiah(q.pokok)} pokok + {rupiah(q.bunga)} bunga ({persen(bunga)}{" "}
                   untuk {tenor} hari
-                  {promo === null ? "" : ` · promo dari ${persen(normal)}`})
+                  {promo === null ? "" : `; promo dari ${persen(normal)}`})
                 </p>
               </div>
             </div>
@@ -311,25 +354,25 @@ function KalkulatorKonvensional({
           <>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5">
-                <p className="text-[11px] font-medium text-emerald-800">
+                <p className="text-xs font-medium text-emerald-800">
                   Dana diterima
                 </p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-emerald-900">
                   {rupiah(q.danaDiterima)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-emerald-900/80">
+                <p className="mt-0.5 text-xs leading-4 text-emerald-900/80">
                   Pokok {rupiah(nominal)} dipotong biaya layanan{" "}
                   {rupiah(q.potonganDiMuka)}
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                <p className="text-[11px] font-medium text-slate-600">
+                <p className="text-xs font-medium text-slate-600">
                   Cicilan per bulan
                 </p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-navy">
                   {rupiah(q.cicilanPerBulan)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
+                <p className="mt-0.5 text-xs leading-4 text-slate-600">
                   {tenorBulan} kali bayar, termasuk biaya admin cicilan{" "}
                   {persen(tarifBulanan.persenBiayaAdminCicilanBulanan)}
                 </p>
@@ -354,15 +397,6 @@ function KalkulatorKonvensional({
             </dl>
           </>
         );
-      }
-    } catch (error) {
-      isi = (
-        <p role="alert" className="text-xs leading-5 text-destructive">
-          {error instanceof Error
-            ? error.message
-            : "Nominal ini belum bisa dihitung."}
-        </p>
-      );
     }
   }
 
@@ -434,7 +468,7 @@ function KalkulatorKonvensional({
               className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-base font-semibold tabular-nums text-navy outline-none"
             />
           </div>
-          <p className="mt-1.5 text-[11px] leading-4 text-slate-500">
+          <p className="mt-1.5 text-xs leading-4 text-slate-500">
             {rupiah(LOAN_LIMITS.minPokok)} sampai{" "}
             {rupiah(LOAN_LIMITS.maxPokokPlafon)}. Batas per akun mengikuti
             plafon yang tersedia.
@@ -499,7 +533,10 @@ function KalkulatorKonvensional({
           )}
         </div>
 
-        <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4">
+        <div
+          className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4"
+          aria-live="polite"
+        >
           {dalamBatas ? (
             isi
           ) : (
@@ -508,7 +545,7 @@ function KalkulatorKonvensional({
               {rupiah(LOAN_LIMITS.maxPokokPlafon)} untuk melihat rincian.
             </p>
           )}
-          <p className="mt-3 text-[11px] leading-5 text-slate-500">
+          <p className="mt-3 text-xs leading-5 text-slate-500">
             Perhitungan memakai tarif yang berlaku saat halaman dibuka. Pinjaman
             yang sudah terbit memakai tarif yang dibekukan saat pengajuan.
           </p>
@@ -548,8 +585,7 @@ function KalkulatorSyariah() {
 
   let isi: React.ReactNode = null;
   let judul = "";
-  try {
-    if (akad === "murabahah") {
+  if (akad === "murabahah") {
       judul = "Murabahah";
       if (nilai < LOAN_LIMITS.minPokok) {
         isi = (
@@ -567,25 +603,25 @@ function KalkulatorSyariah() {
           <>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5">
-                <p className="text-[11px] font-medium text-amber-900">
+                <p className="text-xs font-medium text-amber-900">
                   Harga jual akhir
                 </p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-amber-950">
                   {rupiah(hasil.hargaJual)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-amber-900/80">
+                <p className="mt-0.5 text-xs leading-4 text-amber-900/80">
                   Harga pokok {rupiah(hasil.hargaPokok)} + margin{" "}
                   {rupiah(hasil.marginTotal)}
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                <p className="text-[11px] font-medium text-slate-600">
+                <p className="text-xs font-medium text-slate-600">
                   Nisbah pendana ({hasil.persenPendana}%)
                 </p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-navy">
                   {rupiah(hasil.pendanaTerima)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
+                <p className="mt-0.5 text-xs leading-4 text-slate-600">
                   Pokok kembali + {rupiah(hasil.nisbahPendana)} dari margin
                 </p>
               </div>
@@ -632,25 +668,25 @@ function KalkulatorSyariah() {
           <>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5">
-                <p className="text-[11px] font-medium text-amber-900">
+                <p className="text-xs font-medium text-amber-900">
                   Ujrah pemeliharaan
                 </p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-amber-950">
                   {rupiah(hasil.ujrahTotal)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-amber-900/80">
+                <p className="mt-0.5 text-xs leading-4 text-amber-900/80">
                   {persen(hasil.persenUjrahPer30Hari)} dari taksiran per 30 hari,{" "}
                   {hasil.jumlahSiklus} siklus
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                <p className="text-[11px] font-medium text-slate-600">
+                <p className="text-xs font-medium text-slate-600">
                   Nisbah pendana ({hasil.persenPendana}%)
                 </p>
                 <p className="mt-0.5 text-lg font-semibold tabular-nums text-navy">
                   {rupiah(hasil.pendanaTerima)}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
+                <p className="mt-0.5 text-xs leading-4 text-slate-600">
                   Pokok {rupiah(hasil.pokokGadai)} + ujrah{" "}
                   {rupiah(hasil.nisbahPendana)}
                 </p>
@@ -679,13 +715,6 @@ function KalkulatorSyariah() {
         );
       }
     }
-  } catch (error) {
-    isi = (
-      <p role="alert" className="text-xs leading-5 text-destructive">
-        {error instanceof Error ? error.message : "Angka belum bisa dihitung."}
-      </p>
-    );
-  }
 
   // ===== Simulasi voucher =====
   // Dasar potongan mengikuti akad yang sedang dihitung: margin Murabahah atau
@@ -874,7 +903,7 @@ function KalkulatorSyariah() {
                     }
                     className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-semibold tabular-nums text-navy focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-600/20"
                   />
-                  <p className="mt-1.5 text-[11px] leading-4 text-slate-500">
+                  <p className="mt-1.5 text-xs leading-4 text-slate-500">
                     Margin disepakati di akad dan tidak berubah selama tenor.
                   </p>
                 </div>
@@ -890,7 +919,7 @@ function KalkulatorSyariah() {
           {isi}
 
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-900">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-900">
               Simulasi voucher
             </p>
             <div
@@ -925,12 +954,12 @@ function KalkulatorSyariah() {
                 tebal
               />
             </dl>
-            <p className="mt-1.5 text-[11px] leading-5 text-amber-950/80">
+            <p className="mt-1.5 text-xs leading-5 text-amber-950/80">
               {kalimatVoucherSyariah(rincianVoucher)}
             </p>
           </div>
 
-          <p className="mt-3 text-[11px] leading-5 text-slate-500">
+          <p className="mt-3 text-xs leading-5 text-slate-500">
             Angka ini ilustrasi skema. Margin Murabahah dan taksiran Rahn
             ditetapkan petugas sebelum akad; pengajuan dikirim dari dashboard.
           </p>
@@ -947,6 +976,7 @@ function KerangkaHalaman({
   promos,
   akunHref,
   akunLabel,
+  mulaiHref,
   memuatAkun,
 }: {
   produk: JenisProduk;
@@ -956,9 +986,15 @@ function KerangkaHalaman({
   /** Tujuan tombol akun di kepala halaman. */
   akunHref: string;
   akunLabel: string;
+  /** Tujuan CTA pengajuan; tamu diarahkan ke formulir lewat auth. */
+  mulaiHref: string;
   memuatAkun: boolean;
 }) {
   const syariah = produk === "syariah";
+  const jalurSyariah = "/dashboard?tab=form&jalur=syariah";
+  const syariahHref = mulaiHref.startsWith("/dashboard")
+    ? jalurSyariah
+    : `/auth?returnTo=${encodeURIComponent(jalurSyariah)}`;
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
@@ -1010,7 +1046,7 @@ function KerangkaHalaman({
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 sm:text-base">
               {syariah
                 ? "Pinjaman syariah PINDAI memakai dua akad: Murabahah untuk kredit barang dan Rahn untuk gadai. Margin dan ujrah dibagi antara pendana dan pengelola sesuai nisbah di akad."
-                : "Pinjaman tunai harian 7–50 hari (pilihan cepat 7/14/21/28) dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat, biaya admin 2% dipotong di muka, dan marjin pinjaman dibagi 47 : 13 — 78,33% untuk pendana, 21,67% untuk platform, terpisah dari biaya layanan."}
+                : `Pinjaman tunai harian 7 sampai 28 hari, dapat diperpanjang sampai 50 hari, dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat. Potongan di muka: ${rincianPotonganDiMuka(tarifBiaya)}. Marjin pinjaman dibagi dengan porsi ${PORSI_MARGIN.pendanaPembilang} : ${PORSI_MARGIN.platformPembilang}, yaitu ${persenTeks(PERSEN_PORSI_PENDANA)} untuk pendana dan ${persenTeks(PERSEN_PORSI_PLATFORM)} untuk platform, terpisah dari biaya layanan.`}
             </p>
 
             {syariah ? (
@@ -1028,7 +1064,7 @@ function KerangkaHalaman({
                     asChild
                     className="min-h-11 bg-amber-800 text-white hover:bg-amber-900"
                   >
-                    <Link to="/dashboard?tab=form&jalur=syariah">
+                    <Link to={syariahHref}>
                       Ajukan akad syariah <ArrowRight className="size-4" aria-hidden />
                     </Link>
                   </Button>
@@ -1047,7 +1083,7 @@ function KerangkaHalaman({
                   asChild
                   className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  <Link to="/dashboard">
+                  <Link to={mulaiHref}>
                     Ajukan pinjaman <ArrowRight className="size-4" aria-hidden />
                   </Link>
                 </Button>
@@ -1082,18 +1118,18 @@ function KerangkaHalaman({
                 : [
                     {
                       label: "Tenor harian",
-                      nilai: "7 / 14 / 21 / 28 hari",
-                      detail: "Bunga flat 28% sampai 42% sesuai nominal.",
+                      nilai: `${TENOR_OPTIONS.join(" / ")} hari`,
+                      detail: `Bunga flat ${persen(BUNGA_HARIAN_MIN)} sampai ${persen(BUNGA_HARIAN_MAX)} sesuai nominal.`,
                     },
                     {
                       label: "Cicilan bulanan",
-                      nilai: "1 / 3 / 6 bulan",
-                      detail: "Bunga flat per bulan, admin cicilan 2%.",
+                      nilai: `${TENOR_BULANAN.join(" / ")} bulan`,
+                      detail: `Bunga flat per bulan, admin cicilan ${persenTeks(tarifBulanan.persenBiayaAdminCicilanBulanan)}.`,
                     },
                     {
                       label: "Biaya di muka",
-                      nilai: "Admin 2%",
-                      detail: "Ditambah biaya ekspres bila Anda memilihnya.",
+                      nilai: `Admin ${persenTeks(tarifBiaya.adminPersen)}`,
+                      detail: "Rincian lengkap ada di halaman Biaya.",
                     },
                   ]
               ).map((item) => (
@@ -1101,7 +1137,7 @@ function KerangkaHalaman({
                   key={item.label}
                   className="rounded-kartu border border-border bg-white p-4"
                 >
-                  <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     {item.label}
                   </dt>
                   <dd className="mt-1.5 font-display text-xl leading-tight text-navy">
@@ -1120,106 +1156,102 @@ function KerangkaHalaman({
           {/*
            * Syariah memakai kalkulator selebar konten, bukan kolom samping
            * 26rem: dua akad, dua kolom input, dan kartu hasil tidak muat di
-           * kolom sempit — angka rupiah saling menimpa saat dituang ke sana.
-           * Konvensional tetap memakai kolom samping yang lengket.
+           * kolom sempit. Konvensional memakai kolom samping di desktop, tetapi
+           * di ponsel kalkulator tampil lebih dahulu supaya pengunjung bisa
+           * menghitung sebelum membaca tabel yang panjang.
            */}
-          <div
-            className={
-              syariah
-                ? ""
-                : "grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start"
-            }
-          >
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-navy">
-                {syariah ? "Dua akad, satu aturan pembagian" : "Dua skema, satu mesin hitung"}
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                {syariah
-                  ? "Yang ada margin yang disepakati, ujrah pemeliharaan, dan nisbah bagi hasil. Tidak ada tambahan di luar akad."
-                  : "Skema harian dipakai untuk pinjaman di bawah plafon 1 juta selama 28 hari. Di atas itu, pengajuan memakai skema cicilan bulanan dengan persetujuan petugas."}
-              </p>
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-semibold tracking-tight text-navy">
+              {syariah
+                ? "Dua akad, satu aturan pembagian"
+                : "Dua skema, satu mesin hitung"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {syariah
+                ? "Yang ada margin yang disepakati, ujrah pemeliharaan, dan nisbah bagi hasil. Tidak ada tambahan di luar akad."
+                : "Harian untuk kebutuhan jangka pendek; cicilan bulanan untuk tenor lebih panjang. Kalkulator di bawah memakai tarif dan biaya yang sama dengan formulir pengajuan."}
+            </p>
+          </div>
 
-              {syariah ? (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 md:gap-4">
-                  {[
-                    {
-                      ikon: Package,
-                      judul: "Murabahah: kredit barang",
-                      isi: "PINDAI membeli barang yang Anda pilih, lalu menjualnya dengan harga jual yang disepakati. Margin total adalah harga jual dikurangi harga pokok; bagian pendana dan ujrah pengelola mengikuti nisbah di akad.",
-                    },
-                    {
-                      ikon: HandCoins,
-                      judul: "Rahn: gadai syariah",
-                      isi: "Barang jaminan ditaksir, lalu dana diserahkan dengan ujrah pemeliharaan. Ujrah 2% dari nilai taksiran per 30 hari. Pokok gadai kembali 100% ke pendana saat pelunasan.",
-                    },
-                  ].map((item) => (
-                    <article
-                      key={item.judul}
-                      className="rounded-kartu border border-border bg-white p-4"
-                    >
-                      <h3 className="flex items-center gap-2 text-sm font-semibold text-navy">
-                        <span className="flex size-8 items-center justify-center rounded-lg bg-amber-50 text-amber-900">
-                          <item.ikon className="size-4" aria-hidden />
-                        </span>
-                        {item.judul}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-slate-600">
-                        {item.isi}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <h3 className="mt-6 text-sm font-semibold text-slate-900">
-                    Tarif harian per tier
-                  </h3>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
-                    Persentase bunga flat dari pokok, bukan per bulan. Tenor
-                    menentukan persentase yang berlaku.
-                  </p>
-                  <TabelTarifHarian promos={promos} />
-
-                  <h3 className="mt-8 text-sm font-semibold text-slate-900">
-                    Tarif cicilan bulanan
-                  </h3>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
-                    Bunga flat dari pokok penuh setiap bulan, ditambah biaya
-                    admin cicilan yang dibayar bersama cicilan.
-                  </p>
-                  <TabelTarifBulanan tarif={tarifBulanan} />
-
-                  <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs leading-6 text-emerald-950">
-                    <p className="flex items-start gap-2">
-                      <BadgeCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-                      <span>
-                        Contoh: pokok {rupiah(1_000_000)} tenor 28 hari, bunga
-                        32%, menghasilkan uang kembali {rupiah(1_320_000)}.
-                        Marjin dibagi 78,33% untuk pendana: porsi platform{" "}
-                        {rupiah(CONTOH_BAGI_HASIL.potonganAdmin)}, sehingga pendana
-                        menerima {rupiah(CONTOH_BAGI_HASIL.pendanaTerima)}.
+          {syariah ? (
+            <>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 md:gap-4">
+                {[
+                  {
+                    ikon: Package,
+                    judul: "Murabahah: kredit barang",
+                    isi: "PINDAI membeli barang yang Anda pilih, lalu menjualnya dengan harga jual yang disepakati. Margin total adalah harga jual dikurangi harga pokok; bagian pendana dan ujrah pengelola mengikuti nisbah di akad.",
+                  },
+                  {
+                    ikon: HandCoins,
+                    judul: "Rahn: gadai syariah",
+                    isi: "Barang jaminan ditaksir, lalu dana diserahkan dengan ujrah pemeliharaan. Ujrah 2% dari nilai taksiran per 30 hari. Pokok gadai kembali 100% ke pendana saat pelunasan.",
+                  },
+                ].map((item) => (
+                  <article
+                    key={item.judul}
+                    className="rounded-kartu border border-border bg-white p-4"
+                  >
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-navy">
+                      <span className="flex size-8 items-center justify-center rounded-lg bg-amber-50 text-amber-900">
+                        <item.ikon className="size-4" aria-hidden />
                       </span>
+                      {item.judul}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      {item.isi}
                     </p>
-                  </div>
-                </>
-              )}
-            </div>
+                  </article>
+                ))}
+              </div>
+              <div className="mt-8">
+                <KalkulatorSyariah />
+              </div>
+            </>
+          ) : (
+            <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start">
+              <div className="order-2 lg:order-1">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Tarif harian per tier
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Persentase bunga flat dari pokok, bukan per bulan. Tenor
+                  menentukan persentase yang berlaku.
+                </p>
+                <TabelTarifHarian promos={promos} />
 
-            {!syariah && (
-              <div className="lg:sticky lg:top-20">
+                <h3 className="mt-8 text-sm font-semibold text-slate-900">
+                  Tarif cicilan bulanan
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Bunga flat dari pokok penuh setiap bulan, ditambah biaya
+                  admin cicilan yang dibayar bersama cicilan.
+                </p>
+                <TabelTarifBulanan tarif={tarifBulanan} />
+
+                <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs leading-6 text-emerald-950">
+                  <p className="flex items-start gap-2">
+                    <BadgeCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    <span>
+                      Contoh: pokok {rupiah(1_000_000)} tenor 28 hari, bunga{" "}
+                      {persen(CONTOH_BUNGA)}, menghasilkan uang kembali{" "}
+                      {rupiah(CONTOH_BAGI_HASIL.totalLunas)}. Marjin dibagi{" "}
+                      {persenTeks(PERSEN_PORSI_PENDANA)} untuk pendana: porsi
+                      platform {rupiah(CONTOH_BAGI_HASIL.potonganAdmin)},
+                      sehingga pendana menerima{" "}
+                      {rupiah(CONTOH_BAGI_HASIL.pendanaTerima)}.
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="order-1 lg:order-2">
                 <KalkulatorKonvensional
                   tarifBiaya={tarifBiaya}
                   tarifBulanan={tarifBulanan}
                   promos={promos}
                 />
               </div>
-            )}
-          </div>
-
-          {syariah && (
-            <div className="mt-8">
-              <KalkulatorSyariah />
             </div>
           )}
         </section>
@@ -1242,33 +1274,32 @@ function KerangkaHalaman({
             </Link>
           </div>
         </section>
+
+        {!syariah && (
+          <FaqLayanan
+            id="faq-produk-konvensional"
+            judul="Pertanyaan sebelum mengajukan"
+            deskripsi="Hal yang paling dekat dengan keputusan pinjaman konvensional."
+            daftar={[
+            {
+              q: "Apakah bunga harian dan bulanan sama?",
+              a: "Tidak. Tarif harian adalah bunga flat untuk satu tenor 7 sampai 28 hari. Cicilan bulanan memakai bunga flat per bulan ditambah biaya admin cicilan, sehingga totalnya berbeda. Kalkulator di atas memakai mesin yang sama dengan formulir.",
+            },
+            {
+              q: "Kapan biaya admin dipotong?",
+              a: "Biaya admin dan biaya lain yang berlaku dipotong di muka dari pokok, sehingga dana yang diterima lebih kecil dari pokok. Rinciannya tampil di kalkulator dan halaman Biaya.",
+            },
+            {
+              q: "Apakah pengajuan langsung disetujui?",
+              a: "Tidak. Aplikasi menampilkan ilustrasi; persetujuan dan pencairan ditetapkan petugas setelah pemeriksaan. Angka final mengikuti kontrak yang disepakati.",
+            },
+            ]}
+            pesanChat="Halo PINDAI, saya ingin bertanya tentang pinjaman konvensional, biaya, dan tenor."
+          />
+        )}
       </main>
 
-      <footer className="border-t border-border bg-background">
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Link to="/" className="inline-flex items-center gap-2.5">
-              <VaultLogo size={30} />
-              <span className="text-sm font-semibold tracking-[0.16em]">
-                PINDAI
-              </span>
-            </Link>
-            <nav
-              aria-label="Tautan produk"
-              className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600"
-            >
-              <Link to="/pinjaman/konvensional">Konvensional</Link>
-              <Link to="/pinjaman/syariah">Syariah</Link>
-              <Link to="/biaya">Biaya</Link>
-              <Link to="/cara-kerja">Cara kerja</Link>
-            </nav>
-          </div>
-          <p className="max-w-3xl text-xs leading-5 text-slate-500">
-            {PENAFIAN_PINDAI} Produk diterbitkan oleh {NAMA_ENTITAS_PINDAI}.
-          </p>
-          <p className="text-xs text-slate-500">{HAK_CIPTA_PINDAI}</p>
-        </div>
-      </footer>
+      <InfoFooter />
     </div>
   );
 }
@@ -1284,6 +1315,7 @@ export function ProdukPinjamanView({
   promos = [],
   akunHref = "/auth",
   akunLabel = "Masuk",
+  mulaiHref = "/dashboard",
   memuatAkun = false,
 }: {
   produk: JenisProduk;
@@ -1293,6 +1325,8 @@ export function ProdukPinjamanView({
   promos?: readonly PromoBungaRingkas[];
   akunHref?: string;
   akunLabel?: string;
+  /** Tujuan CTA pengajuan; default dashboard untuk pratinjau/uji. */
+  mulaiHref?: string;
   memuatAkun?: boolean;
 }) {
   return (
@@ -1303,6 +1337,7 @@ export function ProdukPinjamanView({
       promos={promos}
       akunHref={akunHref}
       akunLabel={akunLabel}
+      mulaiHref={mulaiHref}
       memuatAkun={memuatAkun}
     />
   );
@@ -1319,8 +1354,9 @@ export default function ProdukPinjaman({ produk }: { produk: JenisProduk }) {
       tarifBiaya={tarifBiayaAman(ketentuan?.tarifBiaya)}
       tarifBulanan={ketentuan?.tarifBulanan ?? TARIF_BULANAN_DEFAULT}
       promos={promos}
-      akunHref={isAuthenticated ? "/dashboard" : "/auth"}
+      akunHref={isAuthenticated ? "/dashboard" : FORM_HREF}
       akunLabel={isAuthenticated ? "Buka dashboard" : "Masuk"}
+      mulaiHref={isAuthenticated ? "/dashboard?tab=form" : FORM_HREF}
       memuatAkun={isLoading}
     />
   );
