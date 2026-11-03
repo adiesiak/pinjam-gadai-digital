@@ -227,6 +227,16 @@ for (const role of ["peminjam", "dana"]) {
     "blok kepercayaan menyebut batas pencatatan",
   );
   ada(markup, 'href="/privasi"', "blok kepercayaan menautkan privasi");
+  ada(
+    markup,
+    "Citra Kebun Mas, Karawang",
+    "alamat kantor tampil di halaman",
+  );
+  ada(
+    markup,
+    'href="mailto:support@pindai.biz.id"',
+    "email resmi bisa dihubungi dari halaman",
+  );
   ada(markup, "Lihat demo", "demo alur ditawarkan tanpa membanjiri halaman");
   tidakAda(
     markup,

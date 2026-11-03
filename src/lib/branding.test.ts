@@ -1,4 +1,6 @@
 import {
+  ALAMAT_KANTOR_PINDAI,
+  EMAIL_RESMI_PINDAI,
   HAK_CIPTA_PINDAI,
   NAMA_ENTITAS_PINDAI,
   PENERBIT_KUITANSI,
@@ -23,5 +25,7 @@ eq(
   "PINDAI adalah platform sistem informasi pembiayaan mikro berbasis teknologi yang dikembangkan oleh PT Pindai Digital Solusindo.",
 );
 eq("label penerbit kuitansi", PENERBIT_KUITANSI, "Publisher: PT Pindai Digital Solusindo");
+eq("alamat kantor", ALAMAT_KANTOR_PINDAI, "Citra Kebun Mas, Karawang");
+eq("email resmi", EMAIL_RESMI_PINDAI, "support@pindai.biz.id");
 
-console.log("branding.test: 4 lulus, 0 gagal");
+console.log("branding.test: 6 lulus, 0 gagal");

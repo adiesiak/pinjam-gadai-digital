@@ -2,14 +2,27 @@
  * Strip kepercayaan di bawah hero.
  *
  * Isinya sengaja hanya fakta yang sudah dipakai di dokumen resmi: nama badan,
- * penafian layanan, dan kanal bantuan. Tidak ada nomor izin, alamat, atau mitra
- * yang dikarang di sini; bila data itu belum tersedia, jangan menampilkannya.
+ * penafian layanan, alamat kantor, email resmi, dan kanal bantuan. Tidak ada
+ * nomor izin atau mitra yang dikarang di sini; bila data itu belum tersedia,
+ * jangan menampilkannya.
  */
-import { ArrowRight, Building2, FileCheck2, Scale } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  FileCheck2,
+  Mail,
+  MapPin,
+  Scale,
+} from "lucide-react";
 import { Link } from "react-router";
 
 import { IkonWhatsapp } from "@/components/IkonWhatsapp";
-import { NAMA_ENTITAS_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
+import {
+  ALAMAT_KANTOR_PINDAI,
+  EMAIL_RESMI_PINDAI,
+  NAMA_ENTITAS_PINDAI,
+  PENAFIAN_PINDAI,
+} from "@/lib/branding";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { urlChatCs } from "@/lib/kontak";
 
@@ -101,6 +114,26 @@ export function KepercayaanBeranda() {
             </p>
           </li>
         </ul>
+
+        <div className="mt-3 flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+            <MapPin
+              className="mt-0.5 size-4 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <span>
+              <span className="font-semibold text-foreground">Kantor</span>{" "}
+              · {ALAMAT_KANTOR_PINDAI}
+            </span>
+          </p>
+          <a
+            href={`mailto:${EMAIL_RESMI_PINDAI}`}
+            className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-foreground hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+          >
+            <Mail className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            {EMAIL_RESMI_PINDAI}
+          </a>
+        </div>
       </div>
     </section>
   );

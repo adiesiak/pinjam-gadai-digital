@@ -10,11 +10,17 @@
  * Teks deskripsi tetap datang dari CMS supaya admin bisa menggantinya.
  */
 
+import { Mail, MapPin } from "lucide-react";
 import { Link } from "react-router";
 
 import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { VaultLogo } from "@/components/VaultLogo";
-import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
+import {
+  ALAMAT_KANTOR_PINDAI,
+  EMAIL_RESMI_PINDAI,
+  HAK_CIPTA_PINDAI,
+  PENAFIAN_PINDAI,
+} from "@/lib/branding";
 import { CONTRACT_TERMS_VERSION } from "@/lib/contract";
 import { urlChatCs } from "@/lib/kontak";
 
@@ -89,6 +95,22 @@ export function FooterBeranda({ deskripsi }: { deskripsi: string }) {
             <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
               {deskripsi}
             </p>
+            <address className="mt-4 not-italic">
+              <p className="flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
+                <MapPin
+                  className="mt-0.5 size-3.5 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+                {ALAMAT_KANTOR_PINDAI}
+              </p>
+              <a
+                href={`mailto:${EMAIL_RESMI_PINDAI}`}
+                className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Mail className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                {EMAIL_RESMI_PINDAI}
+              </a>
+            </address>
             <a
               href={urlChatCs(
                 "Halo PINDAI, saya ingin bertanya tentang layanan.",
