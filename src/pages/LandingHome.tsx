@@ -22,8 +22,10 @@ import {
 import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { SkipLink } from "@/components/SkipLink";
 import { VaultLogo } from "@/components/VaultLogo";
+import { BatasLanding } from "@/components/landing/BatasLanding";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
+import { catatPeristiwaLanding } from "@/lib/analitikLanding";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
 import { ProdukBeranda } from "@/components/landing/ProdukBeranda";
 import { CtaLengket } from "@/components/landing/CtaLengket";
@@ -147,7 +149,10 @@ function DemoPengajuanTerlihat({ tarif }: { tarif: TarifBiaya }) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => setTampil(true)}
+            onClick={() => {
+              catatPeristiwaLanding({ nama: "landing_demo", aksi: "buka" });
+              setTampil(true);
+            }}
             className="min-h-11 shrink-0"
           >
             Lihat demo
@@ -163,15 +168,20 @@ function DemoPengajuanTerlihat({ tarif }: { tarif: TarifBiaya }) {
         <Button
           type="button"
           variant="ghost"
-          onClick={() => setTampil(false)}
+          onClick={() => {
+            catatPeristiwaLanding({ nama: "landing_demo", aksi: "tutup" });
+            setTampil(false);
+          }}
           className="min-h-11"
         >
           Tutup demo
         </Button>
       </div>
-      <Suspense fallback={<div aria-hidden="true" className="h-96" />}>
-        <DemoPengajuan tarif={tarif} />
-      </Suspense>
+      <BatasLanding nama="demo">
+        <Suspense fallback={<div aria-hidden="true" className="h-96" />}>
+          <DemoPengajuan tarif={tarif} />
+        </Suspense>
+      </BatasLanding>
     </div>
   );
 }
@@ -381,7 +391,17 @@ export default function LandingHome() {
                 asChild
                 className="min-h-11 bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90 sm:px-4 sm:text-sm"
               >
-                <Link to={accountHref}>{accountLabel}</Link>
+                <Link
+                  to={accountHref}
+                  onClick={() =>
+                    catatPeristiwaLanding({
+                      nama: "landing_cta",
+                      tempat: "header",
+                    })
+                  }
+                >
+                  {accountLabel}
+                </Link>
               </Button>
             )}
             {/* Menu ponsel diletakkan paling kanan supaya panelnya tumbuh ke kiri
@@ -418,6 +438,9 @@ export default function LandingHome() {
           }}
           mikro={konten.heroMikro}
           sudahMasuk={isAuthenticated}
+          onCtaUtamaClick={() =>
+            catatPeristiwaLanding({ nama: "landing_cta", tempat: "hero" })
+          }
         />
 
         <KepercayaanBeranda />
@@ -426,11 +449,13 @@ export default function LandingHome() {
             ditumpuk di atas kalkulator. Komponennya menyembunyikan diri bila
             tidak ada kampanye berjalan. */}
         <div className="mx-auto mt-6 w-full max-w-6xl px-4 sm:px-6">
-          <PromoPinjamanAktif
-            penempatan="beranda"
-            onAjukan={() => navigate(formHref)}
-            className="mt-0"
-          />
+          <BatasLanding nama="promo" cadangan={null}>
+            <PromoPinjamanAktif
+              penempatan="beranda"
+              onAjukan={() => navigate(formHref)}
+              className="mt-0"
+            />
+          </BatasLanding>
         </div>
 
         {/* Produk, jalur akad, dan banding dibaca sebagai satu keputusan. */}
@@ -536,7 +561,17 @@ export default function LandingHome() {
                 asChild
                 className="mt-4 min-h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                <Link to={accountHref}>{accountLabel}</Link>
+                <Link
+                  to={accountHref}
+                  onClick={() =>
+                    catatPeristiwaLanding({
+                      nama: "landing_cta",
+                      tempat: "penutup",
+                    })
+                  }
+                >
+                  {accountLabel}
+                </Link>
               </Button>
               <Link
                 to="/biaya"
@@ -551,7 +586,13 @@ export default function LandingHome() {
 
       <FooterBeranda deskripsi={konten.footerDeskripsi} />
 
-      <CtaLengket href={accountHref} label={accountLabel} />
+      <CtaLengket
+        href={accountHref}
+        label={accountLabel}
+        onClick={() =>
+          catatPeristiwaLanding({ nama: "landing_cta", tempat: "lengket" })
+        }
+      />
     </div>
   );
 }

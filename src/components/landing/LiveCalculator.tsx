@@ -35,6 +35,7 @@ import {
   tenorHarianEfektif,
   type LoanQuote,
 } from "@/lib/loan";
+import { catatPeristiwaLanding } from "@/lib/analitikLanding";
 import { formatRupiah, type Rupiah } from "@/lib/money";
 import { PLAFON_BATAS } from "@/lib/plafon";
 import { simpanSimulasiPengajuan } from "@/lib/simulasiPengajuan";
@@ -414,14 +415,18 @@ export function LiveCalculator({
       >
         <Link
           to={accountHref}
-          onClick={() =>
+          onClick={() => {
+            catatPeristiwaLanding({
+              nama: "landing_cta",
+              tempat: "kalkulator",
+            });
             simpanSimulasiPengajuan({
               skema,
               pokok: amount,
               tenorHari: tenorHarian,
               tenorBulan,
-            })
-          }
+            });
+          }}
         >
           {accountLabel}
           <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />

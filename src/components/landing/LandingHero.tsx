@@ -13,6 +13,8 @@ export interface LandingHeroProps {
   judul2: string;
   deskripsi: string;
   ctaUtama: { label: string; href: string; disabled?: boolean };
+  /** Event funnel opsional; tidak mengubah tujuan CTA. */
+  onCtaUtamaClick?: () => void;
   /**
    * Tautan rute bila tujuannya halaman lain; `onClick` hanya untuk halaman yang
    * memang menggulir ke bagian di layar yang sama (mis. landing lama).
@@ -102,12 +104,18 @@ export function LandingHero(props: LandingHeroProps) {
                 className="h-12 rounded-tombol bg-primary px-6 text-primary-foreground hover:bg-primary/90"
               >
                 {props.ctaUtama.href.startsWith("#") ? (
-                  <a href={props.ctaUtama.href}>
+                  <a
+                    href={props.ctaUtama.href}
+                    onClick={props.onCtaUtamaClick}
+                  >
                     {props.ctaUtama.label}
                     <ArrowRight className="ml-2 size-4" aria-hidden="true" />
                   </a>
                 ) : (
-                  <Link to={props.ctaUtama.href}>
+                  <Link
+                    to={props.ctaUtama.href}
+                    onClick={props.onCtaUtamaClick}
+                  >
                     {props.ctaUtama.label}
                     <ArrowRight className="ml-2 size-4" aria-hidden="true" />
                   </Link>

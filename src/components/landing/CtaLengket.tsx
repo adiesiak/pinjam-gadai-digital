@@ -11,7 +11,15 @@ import { Link } from "react-router";
 
 import { Button } from "@/components/ui/button";
 
-export function CtaLengket({ href, label }: { href: string; label: string }) {
+export function CtaLengket({
+  href,
+  label,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  onClick?: () => void;
+}) {
   // Tampil di markup agar uji statis tetap melihat aksinya. Setelah hidrasi,
   // bilah disembunyikan selama hero masih terlihat dan saat penutup masuk.
   const [tampil, setTampil] = useState(true);
@@ -52,7 +60,9 @@ export function CtaLengket({ href, label }: { href: string; label: string }) {
           asChild
           className="min-h-11 flex-1 bg-primary px-4 text-primary-foreground hover:bg-primary/90"
         >
-          <Link to={href}>{label}</Link>
+          <Link to={href} onClick={onClick}>
+            {label}
+          </Link>
         </Button>
         <Button asChild variant="outline" className="min-h-11 px-4">
           <Link to="/biaya">Lihat biaya</Link>
