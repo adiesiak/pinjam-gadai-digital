@@ -17,8 +17,10 @@ const routes = [
 const validInternalPaths = new Set([
   "/",
   "/auth",
+  "/auth?returnTo=%2Fdashboard%3Ftab%3Dform",
   "/biaya",
   "/cara-kerja",
+  "/layanan",
   "/layanan/pinjaman-tunai",
   "/layanan/gadai",
   "/layanan/kredit-barang",
@@ -27,6 +29,9 @@ const validInternalPaths = new Set([
   "/aplikasi",
   "/syarat-ketentuan",
   "/privasi",
+  "/pinjaman/syariah",
+  "/akses-bersama",
+  "/pemenang",
 ]);
 
 function renderPage(path: string, page: React.ReactNode): string {
@@ -50,16 +55,40 @@ for (const [path, expectedText] of routes) {
   const html = renderPage(path, <PublicInfoPageView />);
   check(html.includes(expectedText), `${path} renders its route content`);
   if (path !== "/keamanan" && path !== "/faq") {
-    check(html.includes('href="/auth"'), `${path} links into the account flow`);
+    check(
+      html.includes('href="/auth?returnTo=%2Fdashboard%3Ftab%3Dform"'),
+      `${path} links into the application form after auth`,
+    );
   }
-  const hrefs = [...html.matchAll(/href="([^"#][^"]*)"/g)].map(
-    (match) => match[1],
-  );
+  const hrefs = [...html.matchAll(/href="([^"#][^"]*)"/g)]
+    .map((match) => match[1])
+    .filter((href): href is string => href?.startsWith("/") === true);
   check(
-    hrefs.every((href) => validInternalPaths.has(href ?? "")),
+    hrefs.every((href) => validInternalPaths.has(href)),
     `${path} contains only known internal destinations`,
   );
 }
+
+const gadai = renderPage("/layanan/gadai", <PublicInfoPageView />);
+check(
+  gadai.includes("Sebelum mengajukan") &&
+    gadai.includes("Batas LTV 70%"),
+  "halaman gadai menampilkan langkah dan batas LTV dari mesin",
+);
+
+const kredit = renderPage("/layanan/kredit-barang", <PublicInfoPageView />);
+check(
+  kredit.includes("Sebelum mengajukan") &&
+    kredit.includes("Uang muka 10–50%"),
+  "halaman kredit menampilkan langkah dan uang muka dari mesin",
+);
+
+const pinjaman = renderPage("/layanan/pinjaman-tunai", <PublicInfoPageView />);
+check(
+  pinjaman.includes("Ringkasan pinjaman") &&
+    pinjaman.includes("7–28 hari"),
+  "halaman pinjaman menampilkan ringkasan tenor dari mesin",
+);
 
 const info = renderPage("/faq", <PublicInfoPageView />);
 check(
@@ -71,6 +100,11 @@ check(
     "PINDAI adalah platform sistem informasi pembiayaan mikro berbasis teknologi yang dikembangkan oleh PT Pindai Digital Solusindo.",
   ),
   "public footer carries the PINDAI entity disclaimer",
+);
+check(
+  info.includes("Citra Kebun Mas, Karawang") &&
+    info.includes("mailto:support@pindai.biz.id"),
+  "public footer exposes the office address and official email",
 );
 
 const biaya = renderPage("/biaya", <PublicInfoPageView />);
@@ -100,6 +134,10 @@ check(
 check(
   biaya.includes("pada setiap pembayaran bulanan"),
   "public pricing table charges the admin fee on every monthly payment",
+);
+check(
+  biaya.includes('aria-live="polite"'),
+  "calculator results announce changes to assistive technology",
 );
 const biayaBunga10 = renderPage(
   "/biaya",

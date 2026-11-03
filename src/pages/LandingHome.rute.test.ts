@@ -107,15 +107,30 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   ada(sumber, "SOROTAN_LAYANAN", "kartu layanan memakai angka dari lib");
 }
 
-// Tiga halaman publik memakai menu ponsel yang sama; tidak boleh ada satu pun
-// yang kembali ke `<details>`.
+// Halaman informasi memakai satu kepala bersama; halaman unduh masih memakai
+// menu ponsel langsung. Tidak boleh ada satu pun yang kembali ke `<details>`.
 for (const berkas of ["./PublicInfoPage.tsx", "./UnduhAplikasi.tsx"]) {
   const sumber = readFileSync(
     fileURLToPath(new URL(berkas, import.meta.url)),
     "utf8",
   );
-  ada(sumber, "<MenuInformasiPonsel", `${berkas} memakai menu ponsel bersama`);
+  ada(
+    sumber,
+    berkas === "./PublicInfoPage.tsx" ? "<InfoHeader" : "<MenuInformasiPonsel",
+    `${berkas} memakai kepala informasi bersama`,
+  );
   tidakAda(sumber, "<details className", `${berkas} tidak memakai <details>`);
+}
+
+// Menu ponsel kini tinggal di satu komponen kerangka informasi.
+{
+  const shell = readFileSync(
+    fileURLToPath(
+      new URL("../components/informasi/InfoShell.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  ada(shell, "<MenuInformasiPonsel", "InfoShell memakai menu ponsel bersama");
 }
 
 // Jalur awal landing tidak boleh menarik framer-motion hanya untuk animasi

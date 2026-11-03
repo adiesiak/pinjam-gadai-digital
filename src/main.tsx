@@ -43,6 +43,9 @@ const Promo = lazy(
 const PublicInfoPage = lazy(
   denganPercobaan(() => import("./pages/PublicInfoPage")),
 );
+// Indeks layanan sengaja dipisah dari halaman detail: ia hanya memuat kartu
+// produk dan panduan, tanpa mesin kalkulator yang ada di PublicInfoPage.
+const Layanan = lazy(denganPercobaan(() => import("./pages/Layanan")));
 // Dua halaman produk memakai kalkulator dan mesin syariah; keduanya tetap
 // lazy supaya bundel beranda tidak membawa kode yang belum dibuka pengunjung.
 const ProdukPinjaman = lazy(
@@ -411,6 +414,7 @@ createRoot(document.getElementById("root")!).render(
             <Suspense fallback={<RouteLoading />}>
               <Routes>
                 <Route path="/" element={<PublicLanding />} />
+                <Route path="/layanan" element={<Layanan />} />
                 <Route path="/biaya" element={<PublicInfoPage />} />
                 {/* Dua produk dipisah tegas: konvensional dan syariah punya
                     halaman, aturan, dan kalkulatornya sendiri. */}

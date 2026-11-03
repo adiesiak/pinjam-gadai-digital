@@ -27,6 +27,7 @@ import { urlChatCs } from "@/lib/kontak";
 type Tautan = { href: string; label: string };
 
 const PRODUK: readonly Tautan[] = [
+  { href: "/layanan", label: "Semua layanan" },
   { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
   { href: "/layanan/gadai", label: "Gadai" },
   { href: "/layanan/kredit-barang", label: "Kredit barang" },

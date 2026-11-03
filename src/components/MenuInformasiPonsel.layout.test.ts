@@ -47,14 +47,16 @@ cek(
 
 const halaman = [
   ["./../pages/LandingHome.tsx", "w-64"],
-  ["./../pages/PublicInfoPage.tsx", "w-56"],
+  ["./../components/informasi/InfoShell.tsx", "w-64"],
   ["./../pages/JadiPendana.tsx", "w-56"],
   ["./../pages/UnduhAplikasi.tsx", "w-56"],
 ] as const;
 
 for (const [berkas, lebar] of halaman) {
   const isi = sumber(berkas);
-  const nama = berkas.replace("./../pages/", "");
+  const nama = berkas
+    .replace("./../pages/", "")
+    .replace("./../components/", "");
   cek(`${nama} memakai menu ponsel bersama`, isi.includes("<MenuInformasiPonsel"));
   cek(
     `${nama} menambatkan panel ke tepi kanan`,

@@ -6,12 +6,18 @@ import {
   ArrowRight,
   Calculator,
   FileText,
+  HandCoins,
   LockKeyhole,
+  Package,
   ShieldCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
+import {
+  FORM_HREF,
+  InfoFooter,
+  InfoHeader,
+} from "@/components/informasi/InfoShell";
 import { api } from "@/convex/_generated/api";
 import {
   Accordion,
@@ -19,8 +25,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { VaultLogo } from "@/components/VaultLogo";
-import { HAK_CIPTA_PINDAI, PENAFIAN_PINDAI } from "@/lib/branding";
 import { formatRupiah } from "@/lib/money";
 import {
   quoteLoanBunga,
@@ -65,18 +69,6 @@ import { MAX_FILE_BYTES, GAMBAR_DITERIMA } from "@/lib/kyc";
  * FAQ disusun dari tarif yang berlaku supaya jawaban denda tidak lagi ditulis
  * tetap: angka di halaman ini harus sama dengan yang dipakai mesin pinjaman.
  */
-/** Menu ponsel: satu daftar untuk tombol pemicu di header. */
-const TAUTAN_MENU = [
-  { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
-  { href: "/layanan/gadai", label: "Gadai" },
-  { href: "/layanan/kredit-barang", label: "Kredit barang" },
-  { href: "/biaya", label: "Biaya" },
-  { href: "/cara-kerja", label: "Cara kerja" },
-  { href: "/keamanan", label: "Keamanan" },
-  { href: "/faq", label: "FAQ" },
-  { href: "/aplikasi", label: "Aplikasi Android" },
-] as const;
-
 function daftarFaq(
   dendaPerHari: number,
   maksDenda: number,
@@ -124,69 +116,6 @@ const ROUTES = [
   "/keamanan",
   "/faq",
 ] as const;
-
-function Header() {
-  const { pathname } = useLocation();
-  const aktif = (href: string) => pathname === href;
-  return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2.5"
-          aria-label="Kembali ke beranda PINDAI"
-        >
-          <VaultLogo size={32} />
-          <span className="text-sm font-semibold tracking-[0.16em]">
-            PINDAI
-          </span>
-        </Link>
-        <nav
-          aria-label="Navigasi informasi"
-          className="hidden flex-wrap items-center gap-4 text-sm text-slate-600 lg:flex"
-        >
-          {[
-            { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai" },
-            { href: "/layanan/gadai", label: "Gadai" },
-            { href: "/layanan/kredit-barang", label: "Kredit barang" },
-            { href: "/biaya", label: "Biaya" },
-            { href: "/cara-kerja", label: "Cara kerja" },
-            { href: "/keamanan", label: "Keamanan" },
-          ].map((tautan) => (
-            <Link
-              key={tautan.href}
-              to={tautan.href}
-              aria-current={aktif(tautan.href) ? "page" : undefined}
-              className={
-                aktif(tautan.href)
-                  ? "font-semibold text-emerald-900 underline decoration-2 underline-offset-8"
-                  : "hover:text-emerald-900"
-              }
-            >
-              {tautan.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" className="min-h-11">
-            <Link to="/">Beranda</Link>
-          </Button>
-          {/* Menu ponsel paling kanan agar panelnya muat di layar 375px. */}
-          <MenuInformasiPonsel
-            tautan={TAUTAN_MENU.map((tautan) => ({
-              ...tautan,
-              aktif: aktif(tautan.href),
-            }))}
-            kelasTombol="flex size-11 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800"
-            kelasPanel="absolute right-0 top-full z-50 mt-2 grid w-56 max-w-[calc(100vw-2rem)] gap-1 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg"
-            kelasTautan="rounded-lg px-3 py-3 hover:bg-slate-50"
-            kelasTautanAktif="bg-emerald-50 font-semibold text-emerald-900"
-          />
-        </div>
-      </div>
-    </header>
-  );
-}
 
 /**
  * Kalkulator publik memakai tarif yang sama dengan mesin pengajuan
@@ -251,10 +180,10 @@ function KalkulatorRingkas({
   }, [pokokGadai]);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <article className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+      <article className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="font-semibold">Pinjaman harian</h3>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             {formatRupiah(LOAN_LIMITS.minPokok)} sampai{" "}
             {formatRupiah(LOAN_LIMITS.maxPokok)}
           </span>
@@ -284,7 +213,7 @@ function KalkulatorRingkas({
                   Number(event.target.value) as (typeof TENOR_OPTIONS)[number],
                 )
               }
-              className="mt-1 min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm sm:w-32"
+              className="mt-1 min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm sm:w-32"
             >
               {TENOR_OPTIONS.map((hari) => {
                 const aktif = (tenorHarianOpsi as readonly number[]).includes(hari);
@@ -298,7 +227,10 @@ function KalkulatorRingkas({
           </div>
         </div>
         {simulasiHarian ? (
-          <dl className="mt-4 divide-y divide-slate-100 text-sm">
+          <dl
+            aria-live="polite"
+            className="mt-4 divide-y divide-border text-sm"
+          >
             <Baris label={`Tenor pilihan ${tenorHarianEfektif} hari`} nilai="" />
             <Baris
               label={`Potongan awal ${rincianPotonganDiMuka(tarif)}`}
@@ -324,10 +256,10 @@ function KalkulatorRingkas({
           </p>
         )}
       </article>
-      <article className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+      <article className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="font-semibold">Pinjaman bulanan</h3>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             {formatRupiah(BULANAN_LIMITS.minPokok)} sampai{" "}
             {formatRupiah(BULANAN_LIMITS.maxPokok)}
           </span>
@@ -359,7 +291,7 @@ function KalkulatorRingkas({
                   ) as (typeof TENOR_BULANAN_OPTIONS)[number],
                 )
               }
-              className="mt-1 min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm sm:w-32"
+              className="mt-1 min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm sm:w-32"
             >
               {TENOR_BULANAN_OPTIONS.map((bulan) => (
                 <option key={bulan} value={bulan}>
@@ -370,7 +302,10 @@ function KalkulatorRingkas({
           </div>
         </div>
         {simulasiBulanan ? (
-          <dl className="mt-4 divide-y divide-slate-100 text-sm">
+          <dl
+            aria-live="polite"
+            className="mt-4 divide-y divide-border text-sm"
+          >
             <Baris
               label={`Potongan awal ${tarifBulanan.persenBiayaLayananBulanan}%`}
               nilai={formatRupiah(simulasiBulanan.potonganDiMuka)}
@@ -410,10 +345,10 @@ function KalkulatorRingkas({
           </p>
         )}
       </article>
-      <article className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 lg:col-span-2">
+      <article className="rounded-2xl border border-border bg-card p-5 sm:p-6 lg:col-span-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="font-semibold">Gadai</h3>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             Potongan {GADAI_PRICING.upfrontDeductionPercent}% · sewa{" "}
             {GADAI_PRICING.sewaModalMinPercent} sampai{" "}
             {GADAI_PRICING.sewaModalMaxPercent}% per {GADAI_PRICING.periodeHari}{" "}
@@ -434,7 +369,10 @@ function KalkulatorRingkas({
           />
         </div>
         {simulasiGadai ? (
-          <dl className="mt-4 grid gap-x-8 divide-y divide-slate-100 text-sm sm:grid-cols-2">
+          <dl
+            aria-live="polite"
+            className="mt-4 grid gap-x-8 divide-y divide-border text-sm sm:grid-cols-2"
+          >
             <Baris
               label="Potongan awal"
               nilai={formatRupiah(simulasiGadai.potonganDiMuka)}
@@ -457,13 +395,13 @@ function KalkulatorRingkas({
             Masukkan pokok gadai berupa angka positif.
           </p>
         )}
-        <p className="mt-3 text-xs leading-5 text-slate-600">
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
           Batas hitung internal maksimal {GADAI_PRICING.ltvMaxPercent}% dari
           harga pasar yang dicantumkan. Taksiran aplikasi bukan pemeriksaan
           fisik.
         </p>
       </article>
-      <p className="text-sm leading-6 text-slate-600 lg:col-span-2">
+      <p className="text-sm leading-6 text-muted-foreground lg:col-span-2">
         Hasil ini ilustrasi hitung, bukan persetujuan atau bukti pencairan.
         Skema bulanan memakai bunga flat dari pokok penuh; admin cicilan 2%
         berlaku pada setiap pembayaran bulanan. Periksa angka final pada rincian
@@ -476,37 +414,118 @@ function KalkulatorRingkas({
 function Baris({ label, nilai }: { label: string; nilai: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2 py-2.5">
-      <dt className="text-slate-600">{label}</dt>
-      <dd className="font-semibold tabular-nums text-slate-900">{nilai}</dd>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-semibold tabular-nums text-foreground">{nilai}</dd>
     </div>
   );
 }
 
-function Footer() {
+type JenisLayanan = "pinjaman" | "gadai" | "kredit";
+
+const NAVIGASI_LAYANAN = [
+  { href: "/layanan", label: "Semua layanan", jenis: null },
+  { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai", jenis: "pinjaman" },
+  { href: "/layanan/gadai", label: "Gadai", jenis: "gadai" },
+  { href: "/layanan/kredit-barang", label: "Kredit barang", jenis: "kredit" },
+] as const;
+
+function NavigasiLayanan({ jenis }: { jenis: JenisLayanan | null }) {
   return (
-    <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto max-w-6xl px-4 py-7 text-xs text-slate-600 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <span>PINDAI · Perhitungan dan status adalah catatan aplikasi.</span>
-          <nav
-            aria-label="Tautan tambahan"
-            className="flex flex-wrap gap-x-4 gap-y-2"
+    <nav
+      aria-label="Jenis layanan"
+      className="mt-8 flex flex-wrap gap-2 border-y border-border py-3"
+    >
+      {NAVIGASI_LAYANAN.map((item) => {
+        const aktif = item.jenis === jenis;
+        return (
+          <Link
+            key={item.href}
+            to={item.href}
+            aria-current={aktif ? "page" : undefined}
+            className={
+              aktif
+                ? "inline-flex min-h-11 items-center rounded-lg border border-primary/30 bg-secondary px-3 text-sm font-semibold text-primary"
+                : "inline-flex min-h-11 items-center rounded-lg border border-transparent px-3 text-sm text-muted-foreground hover:bg-muted hover:text-primary"
+            }
           >
-            <Link to="/">Beranda</Link>
-            <Link to="/biaya">Biaya</Link>
-            <Link to="/cara-kerja">Cara kerja</Link>
-            <Link to="/keamanan">Keamanan</Link>
-            <Link to="/faq">FAQ</Link>
-            <Link to="/aplikasi">Aplikasi</Link>
-            <Link to="/syarat-ketentuan">Syarat &amp; Ketentuan</Link>
-          </nav>
-        </div>
-        <p className="mt-4 border-t border-slate-100 pt-3 text-[11px] leading-5 text-slate-500">
-          {PENAFIAN_PINDAI}
-        </p>
-        <p className="mt-1 text-[11px] text-slate-500">{HAK_CIPTA_PINDAI}</p>
-      </div>
-    </footer>
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+function RingkasanLayanan({ jenis }: { jenis: JenisLayanan }) {
+  const isi =
+    jenis === "pinjaman"
+      ? [
+          {
+            label: "Tenor harian",
+            nilai: `${TENOR_OPTIONS[0]}–${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari`,
+          },
+          {
+            label: "Cicilan bulanan",
+            nilai: `${TENOR_BULANAN_OPTIONS.join("/")} bulan`,
+          },
+          {
+            label: "Mulai dari",
+            nilai: formatRupiah(LOAN_LIMITS.minPokok),
+          },
+        ]
+      : jenis === "gadai"
+        ? [
+            {
+              label: "Batas hitung",
+              nilai: `${GADAI_PRICING.ltvMaxPercent}% harga pasar`,
+            },
+            {
+              label: "Sewa modal",
+              nilai: `${GADAI_PRICING.sewaModalMinPercent}–${GADAI_PRICING.sewaModalMaxPercent}% / ${GADAI_PRICING.periodeHari} hari`,
+            },
+            {
+              label: "Potongan awal",
+              nilai: `${GADAI_PRICING.upfrontDeductionPercent}%`,
+            },
+          ]
+        : [
+            {
+              label: "Uang muka",
+              nilai: `${KREDIT_PRICING.dpMinPersen}–${KREDIT_PRICING.dpMaxPersen}%`,
+            },
+            {
+              label: "Tenor",
+              nilai: `${KREDIT_TENOR_PENGAJUAN_OPTIONS.join("/")} bulan`,
+            },
+            {
+              label: "Pokok maksimal",
+              nilai: formatRupiah(KREDIT_BARANG_POKOK_MAKS),
+            },
+          ];
+
+  return (
+    <aside className="rounded-2xl border border-gold/40 bg-card p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+        Ringkasan {jenis === "pinjaman" ? "pinjaman" : jenis}
+      </p>
+      <dl className="mt-4 divide-y divide-border">
+        {isi.map((baris) => (
+          <div
+            key={baris.label}
+            className="flex flex-wrap items-baseline justify-between gap-2 py-2.5"
+          >
+            <dt className="text-sm text-muted-foreground">{baris.label}</dt>
+            <dd className="text-sm font-semibold tabular-nums text-foreground">
+              {baris.nilai}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-4 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+        Angka mengikuti mesin harga. Batas per akun tetap mengikuti plafon yang
+        tersedia.
+      </p>
+    </aside>
   );
 }
 
@@ -551,6 +570,13 @@ export function PublicInfoPageView({
   const pinjaman = pathname === "/layanan/pinjaman-tunai";
   const keamanan = pathname === "/keamanan";
   const faq = pathname === "/faq";
+  const jenisLayanan: JenisLayanan | null = pinjaman
+    ? "pinjaman"
+    : gadai
+      ? "gadai"
+      : kredit
+        ? "kredit"
+        : null;
   const title = biaya
     ? "Rincian biaya & kalkulator"
     : cara
@@ -581,9 +607,13 @@ export function PublicInfoPageView({
     ? Calculator
     : cara
       ? FileText
-      : keamanan
-        ? LockKeyhole
-        : ShieldCheck;
+      : gadai
+        ? HandCoins
+        : kredit
+          ? Package
+          : keamanan
+            ? LockKeyhole
+            : ShieldCheck;
 
   useEffect(() => {
     const originalTitle = document.title;
@@ -599,45 +629,64 @@ export function PublicInfoPageView({
   }, [title, description]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <Header />
+    <div className="min-h-screen bg-background text-foreground">
+      <InfoHeader />
       <main
         id="konten"
         tabIndex={-1}
-        className="mx-auto min-h-[70vh] w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-14"
+        className="mx-auto min-h-[70vh] w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12"
       >
-        <Link
-          to="/"
-          className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" /> Kembali ke beranda
-        </Link>
-        <div className="mt-7 max-w-3xl">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-900">
-            <Icon className="size-5" aria-hidden="true" />
-          </span>
-          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900">
-            Informasi PINDAI
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-            {title}
-          </h1>
-          <p className="mt-4 text-base leading-7 text-slate-600">
-            {biaya
-              ? "Tinjau biaya berdasarkan jenis layanan dan lihat contoh perhitungan. Nominal dan status pada halaman ini merupakan ilustrasi catatan aplikasi."
-              : cara
-                ? "Alur berikut menjelaskan tahapan yang tersedia di aplikasi. Peninjauan pengajuan dan proses di luar aplikasi tetap diperlukan."
-                : gadai
-                  ? "Aplikasi mencatat informasi barang dan perhitungan gadai. Penilaian fisik, penitipan, dan perpindahan dana berlangsung di luar aplikasi."
-                  : kredit
-                    ? "Aplikasi mencatat pilihan pembiayaan barang dan ilustrasi cicilan. Pembelian barang dan perpindahan dana tidak dijalankan otomatis oleh aplikasi."
-                    : pinjaman
-                      ? "Bandingkan skema harian dan bulanan sebelum membuat akun. Nilai bersih dan kewajiban di sini adalah hasil hitung, bukan dana yang ditransfer."
-                      : keamanan
-                        ? "Berikut batas akses dan tanggung jawab aplikasi berdasarkan alur yang tersedia. Tidak ada klaim keamanan atau sertifikasi di luar keterangan yang dapat diperiksa."
-                        : "Jawaban ringkas tentang pencatatan, perhitungan, dan batas layanan PINDAI."}
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            to={jenisLayanan ? "/layanan" : "/"}
+            className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            {jenisLayanan ? "Semua layanan" : "Kembali ke beranda"}
+          </Link>
+          {jenisLayanan ? (
+            <p className="text-xs font-medium text-muted-foreground">
+              Layanan / <span className="text-foreground">{title}</span>
+            </p>
+          ) : null}
         </div>
+
+        <div
+          className={
+            jenisLayanan
+              ? "mt-7 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start"
+              : "mt-7 max-w-3xl"
+          }
+        >
+          <div>
+            <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
+              <Icon className="size-5" aria-hidden="true" />
+            </span>
+            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+              Informasi PINDAI
+            </p>
+            <h1 className="mt-2 font-judul text-[2.2rem] leading-[1.08] tracking-tight text-foreground sm:text-[2.8rem]">
+              {title}
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+              {biaya
+                ? "Tinjau biaya berdasarkan jenis layanan dan lihat contoh perhitungan. Nominal dan status pada halaman ini merupakan ilustrasi catatan aplikasi."
+                : cara
+                  ? "Alur berikut menjelaskan tahapan yang tersedia di aplikasi. Peninjauan pengajuan dan proses di luar aplikasi tetap diperlukan."
+                  : gadai
+                    ? "Aplikasi mencatat informasi barang dan perhitungan gadai. Penilaian fisik, penitipan, dan perpindahan dana berlangsung di luar aplikasi."
+                    : kredit
+                      ? "Aplikasi mencatat pilihan pembiayaan barang dan ilustrasi cicilan. Pembelian barang dan perpindahan dana tidak dijalankan otomatis oleh aplikasi."
+                      : pinjaman
+                        ? "Bandingkan skema harian dan bulanan sebelum membuat akun. Nilai bersih dan kewajiban di sini adalah hasil hitung, bukan dana yang ditransfer."
+                        : keamanan
+                          ? "Berikut batas akses dan tanggung jawab aplikasi berdasarkan alur yang tersedia. Tidak ada klaim keamanan atau sertifikasi di luar keterangan yang dapat diperiksa."
+                          : "Jawaban ringkas tentang pencatatan, perhitungan, dan batas layanan PINDAI."}
+            </p>
+          </div>
+          {jenisLayanan ? <RingkasanLayanan jenis={jenisLayanan} /> : null}
+        </div>
+        {jenisLayanan ? <NavigasiLayanan jenis={jenisLayanan} /> : null}
 
         {biaya || pinjaman ? (
           <section aria-labelledby="tarif-title" className="mt-9 space-y-6">
@@ -657,20 +706,20 @@ export function PublicInfoPageView({
                 role="region"
                 aria-label="Tabel skema pinjaman"
                 tabIndex={0}
-                className="overflow-x-auto rounded-2xl border border-slate-200 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
+                className="overflow-x-auto rounded-2xl border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <table className="w-full min-w-[36rem] text-left text-sm">
                   <caption className="sr-only">
                     Perbandingan ketentuan pinjaman harian dan bulanan
                   </caption>
-                  <thead className="bg-slate-100 text-slate-700">
+                  <thead className="bg-muted text-foreground">
                     <tr>
                       <th scope="col" className="px-4 py-3">Ketentuan</th>
                       <th scope="col" className="px-4 py-3">Harian</th>
                       <th scope="col" className="px-4 py-3">Bulanan</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-border">
                     <tr>
                       <th scope="row" className="px-4 py-3 font-medium">
                         Tenor
@@ -760,10 +809,10 @@ export function PublicInfoPageView({
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground sm:hidden">
+              <p className="mt-2 text-xs text-muted-foreground sm:hidden">
                 Geser tabel ke samping untuk melihat kolom bulanan.
               </p>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 Bunga harian mengikuti matriks nominal–tenor di atas dan
                 ditampilkan langsung oleh kalkulator. Perpanjangan tenor di
                 bawah {formatRupiah(500_000)} menaikkan bunga dari 32% ke
@@ -775,9 +824,9 @@ export function PublicInfoPageView({
                 berlaku harus diperiksa pada rincian pengajuan Anda.
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="rounded-2xl border border-border bg-card p-5">
               <h2 className="font-semibold">Gadai</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Potongan awal {GADAI_PRICING.upfrontDeductionPercent}%; sewa
                 modal {GADAI_PRICING.sewaModalMinPercent} sampai{" "}
                 {GADAI_PRICING.sewaModalMaxPercent}% per{" "}
@@ -788,14 +837,14 @@ export function PublicInfoPageView({
               </p>
               <Link
                 to="/layanan/gadai"
-                className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-900 underline underline-offset-4"
+                className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary underline underline-offset-4"
               >
                 Rincian layanan gadai{" "}
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
             </div>
             {biaya && (
-              <p className="text-sm leading-6 text-slate-600">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Kredit barang: pokok pembiayaan sampai{" "}
                 {formatRupiah(KREDIT_BARANG_POKOK_MAKS)}. Tenor{" "}
                 {KREDIT_TENOR_PENGAJUAN_OPTIONS.join("/")} bulan, DP wajib{" "}
@@ -810,7 +859,7 @@ export function PublicInfoPageView({
                 cicilan.{" "}
                 <Link
                   to="/layanan/kredit-barang"
-                  className="font-semibold text-emerald-900 underline underline-offset-4"
+                  className="font-semibold text-primary underline underline-offset-4"
                 >
                   Baca rincian kredit barang
                 </Link>
@@ -820,9 +869,9 @@ export function PublicInfoPageView({
             <div className="flex flex-wrap gap-3">
               <Button
                 asChild
-                className="min-h-11 bg-primary text-white hover:bg-primary/90"
+                className="min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                <Link to="/auth">Buat akun</Link>
+                <Link to={FORM_HREF}>Buat akun</Link>
               </Button>
               <Button asChild variant="outline" className="min-h-11">
                 <Link to="/syarat-ketentuan">Baca syarat lengkap</Link>
@@ -832,65 +881,109 @@ export function PublicInfoPageView({
         ) : null}
 
         {gadai || kredit ? (
-          <section className="mt-9 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
-            <h2 className="text-xl font-semibold">Yang dicatat aplikasi</h2>
-            {gadai ? (
-              <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
-                <li>Deskripsi barang, nilai taksiran, dan pokok gadai.</li>
-                <li>
-                  Sewa modal {GADAI_PRICING.sewaModalMinPercent} sampai{" "}
-                  {GADAI_PRICING.sewaModalMaxPercent}% per{" "}
-                  {GADAI_PRICING.periodeHari} hari dari sisa pokok; batas hitung
-                  maksimal {GADAI_PRICING.ltvMaxPercent}% dari harga pasar yang
-                  dicantumkan.
-                </li>
-                <li>
-                  Status dan riwayat di catatan internal PINDAI. Penitipan dan
-                  pemeriksaan barang tidak dilakukan aplikasi.
-                </li>
-              </ul>
-            ) : (
-              <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
-                <li>
-                  Tenor baru 1, 3, atau 6 bulan dengan DP wajib{" "}
-                  {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}% dari
-                  harga barang.
-                </li>
-                <li>
-                  Biaya awal {tarifBulanan.persenBiayaLayananBulanan}% dan bunga
-                  flat dari pokok setelah DP: {persenBungaPerBulan(1, tarifBulanan)}%,{" "}
-                  {persenBungaPerBulan(3, tarifBulanan)}%, atau{" "}
-                  {persenBungaPerBulan(6, tarifBulanan)}% per bulan sesuai tenor.
-                </li>
-                <li>
-                  Biaya admin cicilan{" "}
-                  {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari nominal
-                  cicilan berlaku pada setiap pembayaran bulanan.
-                </li>
-                <li>
-                  Pokok pembiayaan maksimal{" "}
-                  {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} setelah DP; pembelian
-                  barang ditangani di luar aplikasi.
-                </li>
-              </ul>
-            )}
-            <p className="mt-5 text-sm leading-6 text-slate-600">
-              Semua nilai adalah perhitungan internal dan tidak dengan
-              sendirinya membuktikan penyimpanan barang, pembayaran, atau
-              pencairan.
-            </p>
-            <Button
-              asChild
-              className="mt-6 min-h-11 bg-primary text-white hover:bg-primary/90"
-            >
-              <Link to="/auth">Buat akun untuk melanjutkan</Link>
-            </Button>
+          <section className="mt-9 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-2xl border border-border bg-card p-5 sm:p-7">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+                Catatan aplikasi
+              </p>
+              <h2 className="mt-2 font-judul text-2xl leading-tight text-foreground">
+                Yang dicatat aplikasi
+              </h2>
+              {gadai ? (
+                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
+                  <li>Deskripsi barang, nilai taksiran, dan pokok gadai.</li>
+                  <li>
+                    Sewa modal {GADAI_PRICING.sewaModalMinPercent} sampai{" "}
+                    {GADAI_PRICING.sewaModalMaxPercent}% per{" "}
+                    {GADAI_PRICING.periodeHari} hari dari sisa pokok; batas
+                    hitung maksimal {GADAI_PRICING.ltvMaxPercent}% dari harga
+                    pasar yang dicantumkan.
+                  </li>
+                  <li>
+                    Status dan riwayat di catatan internal PINDAI. Penitipan dan
+                    pemeriksaan barang tidak dilakukan aplikasi.
+                  </li>
+                </ul>
+              ) : (
+                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
+                  <li>
+                    Tenor baru 1, 3, atau 6 bulan dengan DP wajib{" "}
+                    {KREDIT_PRICING.dpMinPersen}–{KREDIT_PRICING.dpMaxPersen}%
+                    dari harga barang.
+                  </li>
+                  <li>
+                    Biaya awal {tarifBulanan.persenBiayaLayananBulanan}% dan
+                    bunga flat dari pokok setelah DP:{" "}
+                    {persenBungaPerBulan(1, tarifBulanan)}%,{" "}
+                    {persenBungaPerBulan(3, tarifBulanan)}%, atau{" "}
+                    {persenBungaPerBulan(6, tarifBulanan)}% per bulan sesuai
+                    tenor.
+                  </li>
+                  <li>
+                    Biaya admin cicilan{" "}
+                    {tarifBulanan.persenBiayaAdminCicilanBulanan}% dari nominal
+                    cicilan berlaku pada setiap pembayaran bulanan.
+                  </li>
+                  <li>
+                    Pokok pembiayaan maksimal{" "}
+                    {formatRupiah(KREDIT_BARANG_POKOK_MAKS)} setelah DP;
+                    pembelian barang ditangani di luar aplikasi.
+                  </li>
+                </ul>
+              )}
+              <p className="mt-5 text-sm leading-6 text-muted-foreground">
+                Semua nilai adalah perhitungan internal dan tidak dengan
+                sendirinya membuktikan penyimpanan barang, pembayaran, atau
+                pencairan.
+              </p>
+            </div>
+
+            <aside className="rounded-2xl border border-gold/40 bg-card p-5 sm:p-7">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+                Sebelum mengajukan
+              </p>
+              <h2 className="mt-2 font-judul text-2xl leading-tight text-foreground">
+                Siapkan tiga hal ini.
+              </h2>
+              <ol className="mt-5 divide-y divide-border">
+                {(gadai
+                  ? [
+                      "Deskripsi barang dan nilai pasar yang ingin dicatat.",
+                      `Batas LTV ${GADAI_PRICING.ltvMaxPercent}% serta sewa modal ${GADAI_PRICING.sewaModalMinPercent}–${GADAI_PRICING.sewaModalMaxPercent}% per ${GADAI_PRICING.periodeHari} hari.`,
+                      "Kesadaran bahwa pemeriksaan fisik dan penitipan berlangsung di luar aplikasi.",
+                    ]
+                  : [
+                      "Barang dan harga yang ingin dibiayai.",
+                      `Uang muka ${KREDIT_PRICING.dpMinPersen}–${KREDIT_PRICING.dpMaxPersen}% dari harga barang.`,
+                      `Tenor ${KREDIT_TENOR_PENGAJUAN_OPTIONS.join("/")} bulan serta total cicilan yang harus dibaca.`,
+                    ]
+                ).map((langkah, i) => (
+                  <li key={langkah} className="flex gap-3 py-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-gold/45 bg-secondary font-mono text-xs text-gold-foreground">
+                      {i + 1}
+                    </span>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {langkah}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+              <Button
+                asChild
+                className="mt-5 min-h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Link to={FORM_HREF}>Buat akun untuk melanjutkan</Link>
+              </Button>
+              <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+                Angka final diperiksa petugas sebelum akad.
+              </p>
+            </aside>
           </section>
         ) : null}
 
         {cara ? (
           <section className="mt-9">
-            <ol className="divide-y divide-slate-200 border-y border-slate-200">
+            <ol className="divide-y divide-border border-y border-border">
               {[
                 [
                   "Pilih jenis pengajuan",
@@ -914,57 +1007,57 @@ export function PublicInfoPageView({
                 ],
               ].map(([step, desc], i) => (
                 <li key={step} className="flex gap-4 py-5">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-white text-sm font-semibold text-emerald-900">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold text-primary">
                     {i + 1}
                   </span>
                   <div>
                     <h2 className="font-semibold">{step}</h2>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
                       {desc}
                     </p>
                   </div>
                 </li>
               ))}
             </ol>
-            <p className="mt-5 rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
+            <p className="mt-5 rounded-xl border border-border bg-card p-4 text-sm leading-6 text-foreground">
               Pencairan, pelunasan, pembayaran, pemeriksaan fisik, dan penitipan
               barang berlangsung di luar aplikasi.
             </p>
             <Button
               asChild
-              className="mt-5 min-h-11 bg-primary text-white hover:bg-primary/90"
+              className="mt-5 min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <Link to="/auth">Mulai dengan akun</Link>
+              <Link to={FORM_HREF}>Mulai dengan akun</Link>
             </Button>
           </section>
         ) : null}
 
         {keamanan ? (
           <section className="mt-9 grid gap-4 md:grid-cols-2">
-            <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <article className="rounded-2xl border border-border bg-card p-5">
               <h2 className="flex items-center gap-2 font-semibold">
                 <ShieldCheck
-                  className="size-4 text-emerald-900"
+                  className="size-4 text-primary"
                   aria-hidden="true"
                 />
                 Akses dan akun
               </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 Dashboard memerlukan akun; kode email digunakan untuk masuk dan
                 OTP WhatsApp untuk verifikasi nomor pada alur yang
                 memerlukannya. Jaga kode OTP dan jangan membagikannya. Riwayat
                 tidak ditampilkan ke publik.
               </p>
             </article>
-            <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <article className="rounded-2xl border border-border bg-card p-5">
               <h2 className="flex items-center gap-2 font-semibold">
                 <LockKeyhole
-                  className="size-4 text-emerald-900"
+                  className="size-4 text-primary"
                   aria-hidden="true"
                 />
                 Data yang dicatat
               </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 Pengajuan identitas dapat memerlukan NIK, nomor WhatsApp,
                 informasi penghasilan, foto KTP, selfie dengan KTP, serta bukti
                 penghasilan. Dokumen gambar yang diterima adalah{" "}
@@ -977,24 +1070,24 @@ export function PublicInfoPageView({
                 mengirim lokasi setelah halaman ditutup.
               </p>
             </article>
-            <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <article className="rounded-2xl border border-border bg-card p-5">
               <h2 className="font-semibold">Batas pencatatan</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Aplikasi mencatat pengajuan, hasil hitung, perubahan status, dan
                 riwayat. Aplikasi tidak memindahkan uang atau
                 memeriksa/menyimpan barang. Catatan status bukan bukti
                 transaksi.
               </p>
             </article>
-            <article className="rounded-2xl border border-slate-200 bg-white p-5">
+            <article className="rounded-2xl border border-border bg-card p-5">
               <h2 className="font-semibold">Akses informasi</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Informasi akun dan pengajuan tidak ditampilkan ke publik. Akses
                 mengikuti akun dan peran; pendana yang diberi akses dapat
                 melihat ringkasan pinjaman, bukan dokumen identitas.
               </p>
               <Link
-                className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-900 underline underline-offset-4"
+                className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary underline underline-offset-4"
                 to="/syarat-ketentuan"
               >
                 Baca syarat dan ketentuan{" "}
@@ -1009,23 +1102,23 @@ export function PublicInfoPageView({
             <Accordion
               type="single"
               collapsible
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 sm:px-6"
+              className="overflow-hidden rounded-2xl border border-border bg-card px-4 sm:px-6"
             >
               {faqItems.map((item) => (
                 <AccordionItem key={item.q} value={item.q}>
                   <AccordionTrigger className="min-h-12 text-left font-semibold">
                     {item.q}
                   </AccordionTrigger>
-                  <AccordionContent className="text-sm leading-6 text-slate-600">
+                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
                     {item.a}
                   </AccordionContent>
                 </AccordionItem>
               ))}
             </Accordion>
-            <p className="mt-6 text-sm text-slate-600">
+            <p className="mt-6 text-sm text-muted-foreground">
               Perlu membaca ketentuan lengkap?{" "}
               <Link
-                className="font-semibold text-emerald-900 underline underline-offset-4"
+                className="font-semibold text-primary underline underline-offset-4"
                 to="/syarat-ketentuan"
               >
                 Buka Syarat &amp; Ketentuan
@@ -1035,9 +1128,9 @@ export function PublicInfoPageView({
           </section>
         ) : null}
         {cara ? (
-          <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
+          <section className="mt-8 rounded-2xl border border-border bg-card p-5">
             <h2 className="font-semibold">Proses di luar aplikasi</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Pencairan dana, cicilan, pelunasan, pemeriksaan fisik, serta
               penitipan atau pengembalian barang ditangani di luar aplikasi.
               PINDAI menyimpan catatan status dan hitungannya.
@@ -1045,7 +1138,7 @@ export function PublicInfoPageView({
           </section>
         ) : null}
       </main>
-      <Footer />
+      <InfoFooter />
     </div>
   );
 }
