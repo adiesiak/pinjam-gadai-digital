@@ -4,7 +4,6 @@ import { Link } from "react-router";
 
 import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { Button } from "@/components/ui/button";
-import { NAMA_ENTITAS_PINDAI } from "@/lib/branding";
 import { urlChatCs } from "@/lib/kontak";
 import { GelombangPattern, PindaiCard3D } from "./KartuHeroPindai";
 
@@ -101,10 +100,17 @@ export function LandingHero(props: LandingHeroProps) {
                 asChild
                 className="h-12 rounded-tombol bg-primary px-6 text-primary-foreground hover:bg-primary/90"
               >
-                <Link to={props.ctaUtama.href}>
-                  {props.ctaUtama.label}
-                  <ArrowRight className="ml-2 size-4" aria-hidden="true" />
-                </Link>
+                {props.ctaUtama.href.startsWith("#") ? (
+                  <a href={props.ctaUtama.href}>
+                    {props.ctaUtama.label}
+                    <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+                  </a>
+                ) : (
+                  <Link to={props.ctaUtama.href}>
+                    {props.ctaUtama.label}
+                    <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+                  </Link>
+                )}
               </Button>
             )}
             {/* CTA sekunder ke halaman lain adalah tautan sungguhan: bisa dibuka
@@ -130,14 +136,8 @@ export function LandingHero(props: LandingHeroProps) {
             <p className="mt-6 max-w-lg text-sm leading-5 text-slate-700">
               {props.mikro}
             </p>
-            <a
-              href="#kalkulator"
-              className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              Hitung dulu tanpa akun
-            </a>
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-5 text-sm font-medium text-slate-700">
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border pt-5 text-sm font-medium text-slate-700">
               <span className="flex items-center gap-2">
                 <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
                 Rincian biaya terbuka
@@ -158,13 +158,6 @@ export function LandingHero(props: LandingHeroProps) {
                 Bantuan WhatsApp
               </a>
             </div>
-            <p className="mt-2 text-xs leading-5 text-slate-600">
-              Platform pengajuan dan pencatatan pinjaman oleh{" "}
-              <span className="font-medium text-foreground">
-                {NAMA_ENTITAS_PINDAI}
-              </span>
-              .
-            </p>
           </div>
         </div>
 

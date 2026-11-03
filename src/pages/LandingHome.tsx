@@ -23,7 +23,6 @@ import { MenuInformasiPonsel } from "@/components/MenuInformasiPonsel";
 import { SkipLink } from "@/components/SkipLink";
 import { VaultLogo } from "@/components/VaultLogo";
 import { LandingHero } from "@/components/landing/LandingHero";
-import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
 import { ProdukBeranda } from "@/components/landing/ProdukBeranda";
@@ -35,7 +34,6 @@ import { KepercayaanBeranda } from "@/components/landing/KepercayaanBeranda";
 import { PanduanBeranda } from "@/components/landing/PanduanBeranda";
 import { GelombangPattern } from "@/components/landing/KartuHeroPindai";
 import { KalkulatorBeranda } from "@/components/landing/KalkulatorBeranda";
-import { RuangPendanaBeranda } from "@/components/landing/RuangPendanaBeranda";
 import { tarifBiayaAman, type TarifBiaya } from "@/lib/loan";
 import {
   JUMLAH_KARTU_LAYANAN,
@@ -384,11 +382,15 @@ export default function LandingHome() {
           judul1={konten.heroJudul1}
           judul2={konten.heroJudul2}
           deskripsi={konten.heroDeskripsi}
-          ctaUtama={{
-            label: isLoading ? "Memuat…" : accountLabel,
-            href: accountHref,
-            disabled: isLoading,
-          }}
+          ctaUtama={
+            isAuthenticated
+              ? {
+                  label: isLoading ? "Memuat…" : accountLabel,
+                  href: accountHref,
+                  disabled: isLoading,
+                }
+              : { label: "Hitung dulu", href: "#kalkulator" }
+          }
           ctaSekunder={{
             label: konten.heroCtaSekunder,
             href: "/biaya",
@@ -450,13 +452,6 @@ export default function LandingHome() {
           judul={konten.faqJudul}
           deskripsi={konten.faqDeskripsi}
           tarif={tarif}
-        />
-
-        <RuangPendanaBeranda />
-
-        <DoorprizeRingkas
-          accountHref={accountHref}
-          sudahMasuk={isAuthenticated}
         />
 
         {/* Penutup: satu panel, bukan pita teks. Panel ini memakai motif ombak

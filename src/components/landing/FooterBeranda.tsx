@@ -37,6 +37,7 @@ const PANDUAN: readonly Tautan[] = [
 const BANTUAN: readonly Tautan[] = [
   { href: "/aplikasi", label: "Aplikasi Android" },
   { href: "/akses-bersama", label: "Ruang pendana" },
+  { href: "/pemenang", label: "Program apresiasi" },
   { href: "/syarat-ketentuan", label: "Syarat & ketentuan" },
   { href: "/privasi", label: "Kebijakan privasi" },
 ];

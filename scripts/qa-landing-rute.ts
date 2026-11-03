@@ -236,12 +236,27 @@ for (const role of ["peminjam", "dana"]) {
   ada(
     markup,
     'href="/akses-bersama"',
-    "ruang pendana dibuka lewat kode akses bersama",
+    "ruang pendana tetap dapat dijangkau dari footer",
+  );
+  ada(
+    markup,
+    'href="/pemenang"',
+    "program apresiasi tetap dapat dijangkau dari footer",
   );
   tidakAda(
     markup,
     'href="/jadi-pendana"',
     "beranda tetap tidak menautkan proposal pendanaan",
+  );
+  tidakAda(
+    markup,
+    'id="pendana-judul"',
+    "strip ruang pendana keluar dari alur beranda",
+  );
+  tidakAda(
+    markup,
+    'id="doorprize-ringkas-judul"',
+    "doorprize keluar dari alur beranda",
   );
   ada(markup, "wa.me", "footer menyediakan kanal WhatsApp CS");
   ada(markup, 'aria-label="Aksi cepat"', "aksi lengket ponsel tersedia");
@@ -250,15 +265,13 @@ for (const role of ["peminjam", "dana"]) {
   const iDokumen = markup.indexOf('id="dokumen-judul"');
   const iPanduan = markup.indexOf('id="panduan-title"');
   const iFaq = markup.indexOf('id="faq-beranda-judul"');
-  const iPendana = markup.indexOf('id="pendana-judul"');
-  const iDoorprize = markup.indexOf('id="doorprize-ringkas-judul"');
+  const iPenutup = markup.indexOf('id="penutup-judul"');
   cek(
-    "urutan dokumen → panduan → FAQ → pendana → doorprize",
+    "urutan dokumen → panduan → FAQ → penutup",
     iDokumen !== -1 &&
       iPanduan > iDokumen &&
       iFaq > iPanduan &&
-      iPendana > iFaq &&
-      iDoorprize > iPendana,
+      iPenutup > iFaq,
   );
 }
 

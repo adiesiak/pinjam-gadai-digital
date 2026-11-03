@@ -1,5 +1,5 @@
 /**
- * Uji render ringkasan doorprize di beranda.
+ * Uji render ringkasan program apresiasi (`DoorprizeRingkas`).
  * Run: bun src/components/landing/RingkasanBeranda.render.test.tsx
  *
  * Yang dijaga (tanpa browser, render statis):

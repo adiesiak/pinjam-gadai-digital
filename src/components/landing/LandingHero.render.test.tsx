@@ -110,11 +110,6 @@ ok(html.includes("dalam Genggaman."), "baris kedua judul ada");
 ok(html.includes('href="/auth"'), "CTA utama menuju rute akun");
 ok(html.includes("Ajukan Sekarang"), "label CTA utama tampil");
 ok(html.includes("Pelajari Cara Kerja"), "CTA sekunder tampil");
-ok(
-  html.includes('href="#kalkulator"') &&
-    html.includes("Hitung dulu tanpa akun"),
-  "hero menautkan kalkulator tanpa akun",
-);
 // CTA sekunder dulu memanggil `window.location.assign`, sehingga halaman dimuat
 // ulang penuh dan tautannya tidak bisa dibuka di tab baru.
 ok(
@@ -138,12 +133,8 @@ ok(html.includes("Rincian biaya terbuka"), "poin kepercayaan pertama ada");
 ok(html.includes("Verifikasi OTP WhatsApp"), "poin kepercayaan kedua ada");
 ok(html.includes("Bantuan WhatsApp"), "kanal bantuan tampil di hero");
 ok(
-  html.includes("Platform pengajuan dan pencatatan pinjaman"),
-  "posisi produk dijelaskan di hero",
-);
-ok(
-  html.includes("PT Pindai Digital Solusindo"),
-  "nama entitas tampil di hero",
+  !html.includes("PT Pindai Digital Solusindo"),
+  "nama entitas tidak diulang di hero; sudah ada di blok kepercayaan",
 );
 
 // ── 4. Objek merek: kartu contoh ──

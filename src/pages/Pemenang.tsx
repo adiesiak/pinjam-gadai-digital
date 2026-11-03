@@ -18,6 +18,8 @@ import { Link } from "react-router";
 import { useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
+import { DoorprizeRingkas } from "@/components/landing/DoorprizeRingkas";
+import { useAuth } from "@/hooks/use-auth";
 import { EASE_OUT } from "@/lib/motion";
 import { formatTanggalWIB } from "@/lib/waktu";
 
@@ -28,6 +30,7 @@ const LABEL_PERAN: Record<"peminjam" | "pendana", string> = {
 
 export function PemenangView() {
   const daftar = useQuery(api.doorprize.pemenangPublik, { batas: 12 });
+  const { isAuthenticated } = useAuth();
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -77,6 +80,12 @@ export function PemenangView() {
             </span>
           </p>
         </motion.section>
+
+        <DoorprizeRingkas
+          accountHref={isAuthenticated ? "/dashboard" : "/auth"}
+          sudahMasuk={isAuthenticated}
+          tampilkanTautanPemenang={false}
+        />
 
         {daftar === undefined ? (
           <p

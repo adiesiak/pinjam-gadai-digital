@@ -17,6 +17,8 @@ export interface DoorprizeRingkasProps {
   sudahMasuk: boolean;
   /** Waktu acuan. Hanya diisi uji supaya kuartal yang dibaca tidak bergeser. */
   waktu?: number;
+  /** Di halaman pemenang, tautan ke halaman ini sendiri tidak perlu diulang. */
+  tampilkanTautanPemenang?: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export function DoorprizeRingkas({
   accountHref,
   sudahMasuk,
   waktu,
+  tampilkanTautanPemenang = true,
 }: DoorprizeRingkasProps) {
   const kuartal = kuartalDariWaktu(waktu ?? WAKTU_MUAT);
   const tanggalUndian = labelTanggalUndianKuartal(kuartal);
@@ -101,12 +104,14 @@ export function DoorprizeRingkas({
           >
             {sudahMasuk ? "Buka tiket di dashboard" : "Masuk untuk melihat tiket"}
           </Link>
-          <Link
-            to="/pemenang"
-            className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Lihat pemenang kuartal sebelumnya
-          </Link>
+          {tampilkanTautanPemenang ? (
+            <Link
+              to="/pemenang"
+              className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Lihat pemenang kuartal sebelumnya
+            </Link>
+          ) : null}
         </div>
       </div>
     </section>

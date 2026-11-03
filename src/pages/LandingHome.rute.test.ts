@@ -59,7 +59,7 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   const iDokumen = sumber.indexOf("<DokumenPerlindungan");
   const iPanduan = sumber.indexOf("<PanduanBeranda");
   const iFaq = sumber.indexOf("<FaqBeranda");
-  const iDoorprize = sumber.indexOf("<DoorprizeRingkas");
+  const iPenutup = sumber.indexOf('aria-labelledby="penutup-judul"');
   cek(
     "blok kepercayaan tepat setelah hero",
     iHero !== -1 && iKepercayaan > iHero,
@@ -69,10 +69,7 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
     iDokumen !== -1 && iPanduan > iDokumen,
   );
   cek("FAQ setelah panduan", iPanduan !== -1 && iFaq > iPanduan);
-  cek(
-    "doorprize tidak memotong alur panduan dan FAQ",
-    iDoorprize > iFaq,
-  );
+  cek("penutup tepat setelah FAQ", iFaq !== -1 && iPenutup > iFaq);
   // CTA sekunder pernah memanggil `window.location.assign("/biaya")`, yang
   // memuat ulang seluruh halaman dan tidak bisa dibuka di tab baru.
   tidakAda(
@@ -91,8 +88,14 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
     "/jadi-pendana",
     "beranda tidak menautkan proposal pendanaan",
   );
-  // Doorprize triwulanan boleh diumumkan; skema imbal hasil pendana tidak.
-  ada(sumber, "<DoorprizeRingkas", "beranda menjelaskan doorprize triwulanan");
+  // Program apresiasi dan ruang pendana punya halaman sendiri; keduanya tidak
+  // lagi memperpanjang alur calon peminjam di beranda.
+  tidakAda(sumber, "<DoorprizeRingkas", "doorprize keluar dari alur beranda");
+  tidakAda(
+    sumber,
+    "<RuangPendanaBeranda",
+    "ruang pendana dipindahkan ke footer",
+  );
   tidakAda(
     sumber,
     "<RuangPendanaRingkas",
