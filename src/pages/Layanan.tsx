@@ -10,6 +10,7 @@ import {
 import { useEffect } from "react";
 import { Link } from "react-router";
 
+import { FaqLayanan } from "@/components/informasi/FaqLayanan";
 import {
   FORM_HREF,
   InfoFooter,
@@ -112,6 +113,25 @@ const SAMA = [
   {
     judul: "Tidak ada janji hasil",
     isi: "Persetujuan dan pencairan tidak otomatis. Angka di halaman ini adalah ilustrasi, bukan jaminan.",
+  },
+] as const;
+
+const FAQ_LAYANAN = [
+  {
+    q: "Apa bedanya pinjaman tunai, gadai, dan kredit barang?",
+    a: "Pinjaman tunai memberi dana tunai; gadai memakai barang jaminan sebagai dasar pinjaman; kredit barang membiayai pembelian barang. Ketiganya punya batas, tenor, dan biaya yang berbeda.",
+  },
+  {
+    q: "Apakah saya perlu akun untuk melihat biaya?",
+    a: "Tidak. Kalkulator di halaman Biaya bisa dipakai tanpa akun. Akun diperlukan saat Anda mengirim pengajuan.",
+  },
+  {
+    q: "Apakah PINDAI mengirim dana ke rekening saya?",
+    a: "Tidak otomatis. PINDAI mencatat pengajuan, perhitungan, dan status. Perpindahan dana ditangani di luar aplikasi setelah pengajuan disetujui.",
+  },
+  {
+    q: "Di mana saya bisa membaca syarat dan biaya lengkap?",
+    a: "Rincian biaya ada di halaman Biaya; syarat lengkap ada di Syarat & Ketentuan. Angka final tetap mengikuti rincian pengajuan Anda.",
   },
 ] as const;
 
@@ -423,6 +443,13 @@ export default function Layanan() {
           </div>
         </section>
       </main>
+      <FaqLayanan
+        id="faq-layanan-indeks"
+        judul="Masih ragu memilih layanan?"
+        deskripsi="Empat pertanyaan yang paling dekat dengan keputusan di halaman ini. Jawaban panjang tetap ada di halaman pertanyaan umum."
+        daftar={FAQ_LAYANAN}
+        pesanChat="Halo PINDAI, saya sedang membaca halaman Layanan dan ingin bertanya tentang pilihan pinjaman tunai, gadai, atau kredit barang."
+      />
       <InfoFooter />
     </div>
   );

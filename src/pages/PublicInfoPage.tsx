@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { FaqLayanan } from "@/components/informasi/FaqLayanan";
 import {
   FORM_HREF,
   InfoFooter,
@@ -422,6 +423,83 @@ function Baris({ label, nilai }: { label: string; nilai: string }) {
 
 type JenisLayanan = "pinjaman" | "gadai" | "kredit";
 
+function faqLayananUntuk(jenis: JenisLayanan): {
+  judul: string;
+  deskripsi: string;
+  daftar: readonly { q: string; a: string }[];
+  pesanChat: string;
+} {
+  if (jenis === "pinjaman") {
+    return {
+      judul: "Pertanyaan sebelum mengajukan pinjaman",
+      deskripsi:
+        "Tiga hal yang paling sering ditanyakan tentang tenor, potongan, dan status pencairan.",
+      daftar: [
+        {
+          q: "Apakah bunga harian dan bulanan sama?",
+          a: `Tidak. Bunga harian dihitung flat untuk tenor ${TENOR_OPTIONS[0]}–${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari; skema bulanan punya tarif per tenor ${TENOR_BULANAN_OPTIONS.join("/")} bulan. Kalkulator menampilkan keduanya.`,
+        },
+        {
+          q: "Kapan potongan biaya dilakukan?",
+          a: "Potongan di muka dihitung dari pokok dan mengurangi dana yang diterima. Rincian potongan tampil di kalkulator dan rincian pengajuan.",
+        },
+        {
+          q: "Apakah status di aplikasi berarti dana sudah cair?",
+          a: "Tidak. Status adalah catatan aplikasi. Pencairan dan pelunasan ditangani di luar aplikasi; persetujuan bukan jaminan transfer.",
+        },
+      ],
+      pesanChat:
+        "Halo PINDAI, saya sedang membaca halaman Pinjaman tunai dan ingin bertanya tentang tenor dan biaya.",
+    };
+  }
+
+  if (jenis === "gadai") {
+    return {
+      judul: "Pertanyaan sebelum menggadaikan barang",
+      deskripsi:
+        "Tiga hal yang perlu jelas sebelum barang dan nilai taksiran dicatat.",
+      daftar: [
+        {
+          q: "Apakah barang saya disimpan PINDAI?",
+          a: "Aplikasi hanya mencatat deskripsi barang, taksiran, pokok, dan status. Penitipan serta pemeriksaan fisik barang ditangani di luar aplikasi.",
+        },
+        {
+          q: "Bagaimana batas LTV dihitung?",
+          a: `Batas hitung internal maksimal ${GADAI_PRICING.ltvMaxPercent}% dari harga pasar yang dicantumkan. Taksiran aplikasi bukan pemeriksaan fisik; angka final ditetapkan petugas.`,
+        },
+        {
+          q: "Apa yang harus saya lakukan jika terlambat?",
+          a: "Hubungi CS sebelum jatuh tempo. Pilihan penanganan mengikuti perjanjian gadai dan catatan pinjaman Anda; jangan menunggu sampai status berubah.",
+        },
+      ],
+      pesanChat:
+        "Halo PINDAI, saya sedang membaca halaman Gadai dan ingin bertanya tentang taksiran dan batas LTV.",
+    };
+  }
+
+  return {
+    judul: "Pertanyaan sebelum mengajukan kredit barang",
+    deskripsi:
+      "Tiga hal yang perlu dibaca sebelum memilih barang, DP, dan tenor.",
+    daftar: [
+      {
+        q: "Berapa DP minimum?",
+        a: `DP wajib ${KREDIT_PRICING.dpMinPersen}–${KREDIT_PRICING.dpMaxPersen}% dari harga barang untuk pengajuan baru.`,
+      },
+      {
+        q: "Apakah PINDAI membeli barangnya?",
+        a: "Pembelian barang ditangani di luar aplikasi. PINDAI mencatat pilihan pembiayaan, DP, tenor, dan jadwal cicilan.",
+      },
+      {
+        q: "Apakah jadwal cicilan di aplikasi adalah tagihan resmi?",
+        a: "Jadwal adalah ilustrasi perhitungan. Tagihan dan pembayaran mengikuti perjanjian serta catatan pinjaman Anda.",
+      },
+    ],
+    pesanChat:
+      "Halo PINDAI, saya sedang membaca halaman Kredit barang dan ingin bertanya tentang DP dan tenor.",
+  };
+}
+
 const NAVIGASI_LAYANAN = [
   { href: "/layanan", label: "Semua layanan", jenis: null },
   { href: "/layanan/pinjaman-tunai", label: "Pinjaman tunai", jenis: "pinjaman" },
@@ -577,6 +655,7 @@ export function PublicInfoPageView({
       : kredit
         ? "kredit"
         : null;
+  const faqKonteks = jenisLayanan === null ? null : faqLayananUntuk(jenisLayanan);
   const title = biaya
     ? "Rincian biaya & kalkulator"
     : cara
@@ -1138,6 +1217,15 @@ export function PublicInfoPageView({
           </section>
         ) : null}
       </main>
+      {faqKonteks ? (
+        <FaqLayanan
+          id={`faq-${jenisLayanan ?? "layanan"}`}
+          judul={faqKonteks.judul}
+          deskripsi={faqKonteks.deskripsi}
+          daftar={faqKonteks.daftar}
+          pesanChat={faqKonteks.pesanChat}
+        />
+      ) : null}
       <InfoFooter />
     </div>
   );

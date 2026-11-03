@@ -51,6 +51,24 @@ check(
   "footer indeks memuat alamat dan email resmi",
 );
 check(
+  html.includes("Masih ragu memilih layanan?") &&
+    html.includes("Apa bedanya pinjaman tunai, gadai, dan kredit barang?"),
+  "indeks menampilkan FAQ kontekstual",
+);
+check(
+  html.includes("Belum menemukan jawaban?") &&
+    html.includes("wa.me/6285119574032"),
+  "indeks menampilkan bantuan WhatsApp",
+);
+check(
+  html.includes("Jangan kirim kata sandi atau kode OTP"),
+  "kartu bantuan memuat peringatan anti-phishing",
+);
+check(
+  html.includes('href="/faq"') && html.includes("Semua pertanyaan"),
+  "FAQ indeks menautkan daftar pertanyaan lengkap",
+);
+check(
   !html.includes("undefined") && !html.includes("NaN"),
   "tidak ada nilai mentah yang bocor ke halaman",
 );

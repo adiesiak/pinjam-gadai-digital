@@ -75,6 +75,13 @@ check(
     gadai.includes("Batas LTV 70%"),
   "halaman gadai menampilkan langkah dan batas LTV dari mesin",
 );
+check(
+  gadai.includes("Pertanyaan sebelum menggadaikan barang") &&
+    gadai.includes("Belum menemukan jawaban?") &&
+    gadai.includes("wa.me/6285119574032") &&
+    gadai.includes("Jangan kirim kata sandi atau kode OTP"),
+  "halaman gadai menampilkan FAQ dan bantuan WhatsApp",
+);
 
 const kredit = renderPage("/layanan/kredit-barang", <PublicInfoPageView />);
 check(
@@ -82,12 +89,22 @@ check(
     kredit.includes("Uang muka 10–50%"),
   "halaman kredit menampilkan langkah dan uang muka dari mesin",
 );
+check(
+  kredit.includes("Pertanyaan sebelum mengajukan kredit barang") &&
+    kredit.includes("Belum menemukan jawaban?"),
+  "halaman kredit menampilkan FAQ kontekstual",
+);
 
 const pinjaman = renderPage("/layanan/pinjaman-tunai", <PublicInfoPageView />);
 check(
   pinjaman.includes("Ringkasan pinjaman") &&
     pinjaman.includes("7–28 hari"),
   "halaman pinjaman menampilkan ringkasan tenor dari mesin",
+);
+check(
+  pinjaman.includes("Pertanyaan sebelum mengajukan pinjaman") &&
+    pinjaman.includes("Belum menemukan jawaban?"),
+  "halaman pinjaman menampilkan FAQ kontekstual",
 );
 
 const info = renderPage("/faq", <PublicInfoPageView />);
