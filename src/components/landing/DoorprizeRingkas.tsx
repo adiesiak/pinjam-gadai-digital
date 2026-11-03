@@ -71,19 +71,19 @@ export function DoorprizeRingkas({
 
           <ul className="mt-6 grid gap-5 sm:grid-cols-2">
             <li className="border-t border-border pt-4">
-              <p className="font-display text-2xl leading-none tabular-nums text-slate-900">
+              <p className="font-judul text-2xl leading-none tabular-nums text-foreground">
                 +1 tiket
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Tiap pinjaman yang dilunasi penuh tepat waktu, tenor{" "}
                 {TENOR_TIKET} hari.
               </p>
             </li>
             <li className="border-t border-border pt-4">
-              <p className="font-display text-2xl leading-none tabular-nums text-slate-900">
+              <p className="font-judul text-2xl leading-none tabular-nums text-foreground">
                 +1 tiket
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Tiap kelipatan {formatRupiah(KELIPATAN_TIKET_PENDANA)}{" "}
                 penempatan dana pendana yang aktif.
               </p>
@@ -92,10 +92,10 @@ export function DoorprizeRingkas({
         </div>
 
         <div className="min-w-0 border-t border-border pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Undian kuartal ini
           </p>
-          <p className="mt-2 font-display text-xl leading-7 text-slate-900">
+          <p className="mt-2 font-judul text-xl leading-7 text-foreground">
             {tanggalUndian}
           </p>
           <Link

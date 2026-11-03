@@ -227,6 +227,12 @@ for (const role of ["peminjam", "dana"]) {
     "blok kepercayaan menyebut batas pencatatan",
   );
   ada(markup, 'href="/privasi"', "blok kepercayaan menautkan privasi");
+  ada(markup, "Lihat demo", "demo alur ditawarkan tanpa membanjiri halaman");
+  tidakAda(
+    markup,
+    "Demo berjalan sendiri",
+    "isi demo tidak dirender sebelum diminta",
+  );
   ada(markup, 'id="dokumen-judul"', "beranda menjelaskan alur & dokumen");
   ada(markup, 'id="panduan-title"', "panduan tampil setelah dokumen");
   ada(markup, "Selfie sambil memegang KTP", "dokumen verifikasi disebut");

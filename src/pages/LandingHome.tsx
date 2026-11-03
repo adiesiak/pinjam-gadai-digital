@@ -107,12 +107,11 @@ const HREF_PANDUAN = [
 ] as const;
 
 /**
- * Demo alur pengajuan dimuat saat hampir terlihat, bukan saat beranda dibuka.
+ * Demo alur pengajuan dibuka atas permintaan, bukan langsung dirender.
  *
- * Komponen ini menarik `framer-motion` (puluhan KB) untuk animasi contoh yang
- * baru berguna setelah pengunjung menggulir. Menundanya membuat paint pertama
- * hanya membawa hero dan daftar layanan, sementara animasinya tetap tersedia
- * sebelum bagian itu benar-benar terbaca (`rootMargin` 400px).
+ * Demo memuat `framer-motion` dan lima layar animasi; isinya berguna, tetapi
+ * tidak perlu menjadi tembok panjang di antara kalkulator dan dokumen. Tombol
+ * "Lihat demo" memuatnya saat dibutuhkan, lalu pengunjung bisa menutupnya lagi.
  */
 const DemoPengajuan = lazy(() =>
   import("@/components/landing/DemoPengajuan").then((m) => ({
@@ -121,36 +120,58 @@ const DemoPengajuan = lazy(() =>
 );
 
 function DemoPengajuanTerlihat({ tarif }: { tarif: TarifBiaya }) {
-  const wadah = useRef<HTMLDivElement>(null);
-  // Peramban tanpa IntersectionObserver langsung menampilkan demo: tidak ada
-  // sinyal "hampir terlihat" yang bisa ditunggu di sana.
-  const [tampil, setTampil] = useState(
-    () => typeof IntersectionObserver === "undefined",
-  );
+  const [tampil, setTampil] = useState(false);
 
-  useEffect(() => {
-    const el = wadah.current;
-    if (el === null || tampil) return;
-    const pengamat = new IntersectionObserver(
-      (entri) => {
-        if (entri.some((satu) => satu.isIntersecting)) {
-          setTampil(true);
-          pengamat.disconnect();
-        }
-      },
-      { rootMargin: "400px 0px" },
+  if (!tampil) {
+    return (
+      <section
+        aria-labelledby="demo-ringkas-judul"
+        className="pindai-bawah-lipatan border-t border-border bg-background"
+      >
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-12">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+              Demo alur
+            </p>
+            <h2
+              id="demo-ringkas-judul"
+              className="mt-2 font-judul text-2xl leading-tight tracking-tight text-foreground sm:text-3xl"
+            >
+              Lima layar, satu pengajuan.
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Lihat contoh dari masuk dengan WhatsApp sampai catatan pinjaman
+              tersimpan. Buka saat Anda ingin memeriksa detailnya.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setTampil(true)}
+            className="min-h-11 shrink-0"
+          >
+            Lihat demo
+          </Button>
+        </div>
+      </section>
     );
-    pengamat.observe(el);
-    return () => pengamat.disconnect();
-  }, [tampil]);
+  }
 
   return (
-    <div ref={wadah}>
-      {tampil ? (
-        <Suspense fallback={<div aria-hidden="true" className="h-96" />}>
-          <DemoPengajuan tarif={tarif} />
-        </Suspense>
-      ) : null}
+    <div>
+      <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setTampil(false)}
+          className="min-h-11"
+        >
+          Tutup demo
+        </Button>
+      </div>
+      <Suspense fallback={<div aria-hidden="true" className="h-96" />}>
+        <DemoPengajuan tarif={tarif} />
+      </Suspense>
     </div>
   );
 }

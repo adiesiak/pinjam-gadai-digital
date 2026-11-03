@@ -42,7 +42,8 @@ export function KepercayaanBeranda() {
               {NAMA_ENTITAS_PINDAI}
             </p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {PENAFIAN_PINDAI} Pinjaman didanai pendana yang tercatat.
+              {PENAFIAN_PINDAI} Pinjaman didanai pendana yang tercatat, yaitu
+              penyedia dana yang menempatkan dananya lewat PINDAI.
             </p>
           </li>
 

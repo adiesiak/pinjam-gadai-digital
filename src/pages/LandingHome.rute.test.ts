@@ -41,6 +41,8 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
     "<DemoPengajuan tarif={tarif} />",
     "beranda memasang demo alur pengajuan dengan tarif yang berlaku",
   );
+  ada(sumber, "Lihat demo", "demo alur dibuka lewat tombol");
+  ada(sumber, "Tutup demo", "demo alur bisa ditutup kembali");
   ada(
     sumber,
     'href: "/aplikasi"',

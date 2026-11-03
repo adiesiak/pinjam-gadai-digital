@@ -77,6 +77,10 @@ import {
 } from "@/lib/loan";
 import { formatRupiah, percentOf } from "@/lib/money";
 import { bungaSetelahPromo, pilihPromoBunga } from "@/lib/promoBunga";
+import {
+  bacaSimulasiPengajuan,
+  hapusSimulasiPengajuan,
+} from "@/lib/simulasiPengajuan";
 import { formatPeriodePromo } from "@/lib/promoPinjaman";
 import { diskonBiayaAdmin, labelNilaiVoucher } from "@/lib/voucher";
 import {
@@ -180,12 +184,23 @@ export function LoanForm({
   // dan titik peramban admin tidak boleh tercatat sebagai lokasi nasabah.
   const { user } = useAuth();
   const akunUji = user?.name?.trim() === AKUN_UJI.nama;
-  const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
-  const [pokok, setPokok] = useState<number>(LOAN_LIMITS.maxPokok);
-  const [tenorHari, setTenorHari] = useState<string>(
-    String(TENOR_OPTIONS[TENOR_OPTIONS.length - 1]),
+  // Pilihan dari kalkulator publik dibaca sekali saat formulir dibuka. Draf
+  // yang sudah tersimpan tetap menang dan akan menimpa nilai ini setelah query
+  // draf selesai dimuat.
+  const [simulasiAwal] = useState(() => bacaSimulasiPengajuan());
+  const [skema, setSkema] = useState<"harian" | "bulanan">(
+    simulasiAwal?.skema ?? "harian",
   );
-  const [tenorBulan, setTenorBulan] = useState<string>("3");
+  const [pokok, setPokok] = useState<number>(
+    simulasiAwal?.pokok ?? LOAN_LIMITS.maxPokok,
+  );
+  const [tenorHari, setTenorHari] = useState<string>(
+    String(simulasiAwal?.tenorHari ?? TENOR_OPTIONS[TENOR_OPTIONS.length - 1]),
+  );
+  const [tenorBulan, setTenorBulan] = useState<string>(
+    String(simulasiAwal?.tenorBulan ?? 3),
+  );
+
   // Centang cair ekspres (hanya skema harian): peminjam boleh melepasnya dan
   // tidak dikenai biaya ekspres. Bawaan menyala, sama dengan perilaku lama.
   const [cairEkspres, setCairEkspres] = useState(true);
@@ -636,6 +651,12 @@ export function LoanForm({
   // mencerminkannya lebih dulu supaya formulir panjang tidak diisi sia-sia.
   const kycQuery = useQuery(api.kyc.kycSaya, {});
   const kycSiap = isKycVerified(kycQuery?.status);
+  // Simulasi baru boleh dibuang setelah formulir benar-benar tampil. Kalau
+  // dibuang saat gerbang KYC masih menutup formulir, pilihan pengunjung hilang
+  // sebelum ia sempat melihatnya.
+  useEffect(() => {
+    if (kycSiap) hapusSimulasiPengajuan();
+  }, [kycSiap]);
   // Tanda tangan TIDAK dikumpulkan di formulir ini: nasabah membubuhkannya
   // sekali di modul KYC, lalu server memakai gambar itu untuk pengajuan ini.
   const ttdKyc = kycQuery?.tandaTangan ?? null;
@@ -1095,6 +1116,12 @@ export function LoanForm({
       <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
         Formulir ini mencatat pengajuan dan perkiraan hitungannya. Data, dokumen, gambar tanda tangan, dan lokasi yang Anda kirim hanya menjadi masukan. Data identitas dan lokasi Anda dicatat sebagai masukan pengajuan; perpindahan dana ditangani di luar aplikasi.
       </p>
+      {draftQuery === null && simulasiAwal !== null && (
+        <p className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-5 text-foreground">
+          Nominal dan tenor diisi dari kalkulator terakhir. Periksa kembali
+          sebelum mengirim.
+        </p>
+      )}
       {/* Identitas sudah diperiksa petugas: formulir ini fokus pada parameter
           pengajuan, dan buktinya ditampilkan di sini — bukan sekadar disembunyikan. */}
       {identitasKyc !== null && (

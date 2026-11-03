@@ -39,6 +39,7 @@ import {
 import { formatRupiah, type Rupiah } from "@/lib/money";
 import { EASE_OUT } from "@/lib/motion";
 import { PLAFON_BATAS } from "@/lib/plafon";
+import { simpanSimulasiPengajuan } from "@/lib/simulasiPengajuan";
 
 const QUICK_AMOUNTS = [100_000, 250_000, 500_000, 1_000_000];
 const QUICK_AMOUNTS_BULANAN = [500_000, 1_000_000, 2_500_000, 5_000_000, 10_000_000];
@@ -403,7 +404,17 @@ export function LiveCalculator({
         asChild
         className="mt-5 h-11 w-full rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
       >
-        <Link to={accountHref}>
+        <Link
+          to={accountHref}
+          onClick={() =>
+            simpanSimulasiPengajuan({
+              skema,
+              pokok: amount,
+              tenorHari: tenorHarian,
+              tenorBulan,
+            })
+          }
+        >
           {accountLabel}
           <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />
         </Link>
