@@ -42,11 +42,18 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
 import { audit } from "./system";
 import { ROLES } from "./schema";
 import { namaTampil } from "../lib/nama";
+import { normalisasiNomorWa } from "../lib/otpWa";
 import { formatWaktuWIB } from "../lib/waktu";
 
 /** Masa berlaku tiket sebelum dipakai provider login (5 menit). */
@@ -473,6 +480,86 @@ export const daftarPratinjauAktif = query({
 /** Jumlah akun yang dikirim pemilih Mode Nasabah sekali tampil. */
 const BATAS_HASIL_UJI = 20;
 
+/** Saringan cepat untuk memilih akun yang perlu diuji. */
+const saringanUjiValidator = v.union(
+  v.literal("semua"),
+  v.literal("data_kosong"),
+  v.literal("kyc_belum"),
+  v.literal("pernah_mengajukan"),
+);
+type SaringanUji = "semua" | "data_kosong" | "kyc_belum" | "pernah_mengajukan";
+
+/** Satu baris hasil pemilih Mode Nasabah. */
+type BarisNasabahUji = {
+  userId: Id<"users">;
+  nama: string;
+  email: string | null;
+  kodePeminjam: string | null;
+  kycStatus: Doc<"kycProfil">["status"] | null;
+  punyaDataDiri: boolean;
+  punyaPinjaman: boolean;
+};
+
+/** Apakah satu baris lolos saringan yang dipilih admin. */
+function cocokSaringan(baris: BarisNasabahUji, saringan: SaringanUji): boolean {
+  if (saringan === "data_kosong") return !baris.punyaDataDiri;
+  if (saringan === "kyc_belum") return baris.kycStatus !== "VERIFIED";
+  if (saringan === "pernah_mengajukan") return baris.punyaPinjaman;
+  return true;
+}
+
+/** Akun yang boleh dipratinjau: pendaftar tanpa peran atau peminjam. */
+function layakDiuJi(user: Doc<"users">): boolean {
+  return (
+    user.isAnonymous !== true &&
+    (user.role === undefined || user.role === ROLES.PEMINJAM)
+  );
+}
+
+/** Lengkapi satu akun dengan penanda yang dibutuhkan pemilih akun uji. */
+async function lengkapiBarisUji(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+): Promise<BarisNasabahUji> {
+  const [profil, kyc, pinjaman] = await Promise.all([
+    ctx.db
+      .query("nasabahProfil")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first(),
+    ctx.db
+      .query("kycProfil")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first(),
+    ctx.db
+      .query("loans")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first(),
+  ]);
+
+  return {
+    userId: user._id,
+    nama: namaTampil([profil?.namaLengkap, user.name, user.email], "TANPA NAMA"),
+    email: user.email?.trim() || null,
+    kodePeminjam: user.kodePeminjam ?? null,
+    kycStatus: kyc?.status ?? null,
+    punyaDataDiri: profil !== null,
+    punyaPinjaman: pinjaman !== null,
+  };
+}
+
+/** Baca beberapa akun lewat identitas tepat, lalu buang duplikat. */
+async function bacaAkunTepat(
+  ctx: QueryCtx,
+  ids: Set<Id<"users">>,
+): Promise<Doc<"users">[]> {
+  const users: Doc<"users">[] = [];
+  for (const id of ids) {
+    const user = await ctx.db.get(id);
+    if (user !== null && layakDiuJi(user)) users.push(user);
+  }
+  return users;
+}
+
 /**
  * AKUN NASABAH UNTUK MODE NASABAH — pencarian target pratinjau di /dashboard.
  *
@@ -483,6 +570,11 @@ const BATAS_HASIL_UJI = 20;
  * diri, sudah pernah mengajukan). NIK dan nomor WhatsApp hanya dipakai untuk
  * mencocokkan pencarian dan tidak pernah keluar dari server.
  *
+ * Pencarian memakai indeks: nama lewat search index, sedangkan email, kode,
+ * NIK, dan nomor WhatsApp lewat indeks identitas yang sudah ada (bentuk
+ * lengkap). Hasil dibatasi per halaman (`kursor`), jadi admin dapat menelusuri
+ * ribuan akun tanpa satu query membaca seluruh tabel.
+ *
  * Pagar: peran admin wajib. Sesi admin yang belum lolos TOTP tidak diberi galat
  * (layarnya hanya menampilkan "verifikasi dulu"), sebab galat di query akan
  * mematikan seluruh halaman alih-alih menjelaskan langkah berikutnya. Sesi yang
@@ -490,74 +582,130 @@ const BATAS_HASIL_UJI = 20;
  * daftar ini tidak menambah jalan masuk baru.
  */
 export const cariNasabahUji = query({
-  args: { kueri: v.string() },
-  handler: async (ctx, { kueri }) => {
+  args: {
+    kueri: v.string(),
+    kursor: v.optional(v.string()),
+    saringan: v.optional(saringanUjiValidator),
+  },
+  handler: async (ctx, { kueri, kursor, saringan = "semua" }) => {
     const gate = await getAdminGateStatus(ctx);
     if (!gate.isAdmin) throw new Error("Akses khusus Super Admin.");
     if (!gate.verified) return { siap: false, hasil: [], total: 0 };
 
     const kunci = kueri.trim().toLowerCase().slice(0, 64);
-    const [users, profil, kyc] = await Promise.all([
-      ctx.db.query("users").collect(),
-      ctx.db.query("nasabahProfil").collect(),
-      ctx.db.query("kycProfil").collect(),
-    ]);
-    const profilPer = new Map(profil.map((p) => [p.userId, p]));
-    const kycPer = new Map(kyc.map((k) => [k.userId, k]));
+    const istilah = kunci.split(/\s+/).filter(Boolean).slice(0, 16).join(" ");
+    const angka = kunci.replace(/\D/g, "");
+    let users: Doc<"users">[] = [];
+    let cursor: string | null = null;
+    let lanjut = false;
+    let totalTepat: number | null = null;
 
-    const cocok = users
-      .filter((u) => {
-        if (u.isAnonymous === true) return false;
-        // Akun tanpa peran adalah pendaftar yang belum mengajukan apa pun;
-        // justru akun seperti ini yang perlu dicoba untuk alur onboarding dan
-        // KYC. Peran pendana/pemantau punya ruangnya sendiri, dan akun admin
-        // memang tidak boleh dipratinjau.
-        return u.role === undefined || u.role === ROLES.PEMINJAM;
-      })
-      .map((u) => {
-        const p = profilPer.get(u._id);
-        return {
-          userId: u._id,
-          nama: namaTampil([p?.namaLengkap, u.name, u.email], "TANPA NAMA"),
-          email: u.email?.trim() || null,
-          kodePeminjam: u.kodePeminjam ?? null,
-          kycStatus: kycPer.get(u._id)?.status ?? null,
-          punyaDataDiri: p !== undefined,
-          punyaPinjaman: false,
-          cari: [p?.namaLengkap, u.name, u.email, u.kodePeminjam, p?.nik, p?.nomorWhatsApp]
-            .filter((nilai): nilai is string => typeof nilai === "string")
-            .join(" ")
-            .toLowerCase(),
-        };
-      })
-      .filter((baris) => kunci === "" || baris.cari.includes(kunci))
-      .sort((a, b) => a.nama.localeCompare(b.nama, "id"));
+    if (istilah === "") {
+      const halaman = await ctx.db.query("users").order("desc").paginate({
+        numItems: BATAS_HASIL_UJI,
+        cursor: kursor ?? null,
+      });
+      users = halaman.page;
+      cursor = halaman.isDone ? null : halaman.continueCursor;
+      lanjut = !halaman.isDone;
+    } else if (/^\d{16}$/.test(angka)) {
+      const ids = new Set<Id<"users">>();
+      const [profil, kyc] = await Promise.all([
+        ctx.db
+          .query("nasabahProfil")
+          .withIndex("by_nik", (q) => q.eq("nik", angka))
+          .take(BATAS_HASIL_UJI),
+        ctx.db
+          .query("kycProfil")
+          .withIndex("by_nik", (q) => q.eq("nik", angka))
+          .take(BATAS_HASIL_UJI),
+      ]);
+      for (const baris of profil) ids.add(baris.userId);
+      for (const baris of kyc) ids.add(baris.userId);
+      users = await bacaAkunTepat(ctx, ids);
+      totalTepat = users.length;
+    } else if (kunci.includes("@")) {
+      // Email dicocokkan tepat (bukan search index) supaya pencarian identitas
+      // tidak memakai tokenisasi teks yang bisa mengembalikan alamat lain.
+      const variants = new Set([kunci, kueri.trim()]);
+      const ditemukan = new Map<Id<"users">, Doc<"users">>();
+      for (const alamat of variants) {
+        const rows = await ctx.db
+          .query("users")
+          .withIndex("email", (q) => q.eq("email", alamat))
+          .take(BATAS_HASIL_UJI);
+        for (const user of rows) ditemukan.set(user._id, user);
+      }
+      users = [...ditemukan.values()];
+      totalTepat = users.length;
+    } else if (kunci.startsWith("pmn")) {
+      // Kode peminjam adalah identitas tetap; UI meminta kode lengkap.
+      const kode = kueri.trim().toUpperCase();
+      users = await ctx.db
+        .query("users")
+        .withIndex("by_kodePeminjam", (q) => q.eq("kodePeminjam", kode))
+        .take(BATAS_HASIL_UJI);
+      totalTepat = users.length;
+    } else if (/^\d{9,15}$/.test(angka) && normalisasiNomorWa(kunci) !== null) {
+      const nomor = normalisasiNomorWa(kunci);
+      const ids = new Set<Id<"users">>();
+      if (nomor !== null) {
+        const [akun, profil, kyc] = await Promise.all([
+          ctx.db
+            .query("users")
+            .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", nomor))
+            .take(BATAS_HASIL_UJI),
+          ctx.db
+            .query("nasabahProfil")
+            .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", nomor))
+            .take(BATAS_HASIL_UJI),
+          ctx.db
+            .query("kycProfil")
+            .withIndex("by_nomorWhatsApp", (q) => q.eq("nomorWhatsApp", nomor))
+            .take(BATAS_HASIL_UJI),
+        ]);
+        for (const user of akun) ids.add(user._id);
+        for (const baris of profil) ids.add(baris.userId);
+        for (const baris of kyc) ids.add(baris.userId);
+      }
+      users = await bacaAkunTepat(ctx, ids);
+      totalTepat = users.length;
+    } else {
+      const halaman = await ctx.db
+        .query("users")
+        .withSearchIndex("cari_nama", (q) => q.search("name", istilah))
+        .paginate({ numItems: BATAS_HASIL_UJI, cursor: kursor ?? null });
+      users = halaman.page;
+      cursor = halaman.isDone ? null : halaman.continueCursor;
+      lanjut = !halaman.isDone;
+    }
 
-    const halaman = cocok.slice(0, BATAS_HASIL_UJI);
-    // Satu pembacaan berindeks per akun yang benar-benar tampil, bukan
-    // `collect()` seluruh tabel pinjaman: daftar ini hanya butuh penanda.
-    await Promise.all(
-      halaman.map(async (baris) => {
-        const pinjaman = await ctx.db
-          .query("loans")
-          .withIndex("by_user", (q) => q.eq("userId", baris.userId))
-          .first();
-        baris.punyaPinjaman = pinjaman !== null;
-      }),
-    );
+    // Akun admin/pendana/pengamat tidak boleh dipratinjau. Filter ini juga
+    // berlaku untuk hasil search index, yang tidak punya filter peran.
+    users = users.filter(layakDiuJi);
+
+    const hasil = (await Promise.all(users.map((user) => lengkapiBarisUji(ctx, user))))
+      .filter((baris) => cocokSaringan(baris, saringan));
+    if (totalTepat !== null) {
+      hasil.sort((a, b) => a.nama.localeCompare(b.nama, "id"));
+      totalTepat = hasil.length;
+    }
 
     return {
       siap: true,
-      hasil: halaman.map((baris) => ({
-        userId: baris.userId,
-        nama: baris.nama,
-        email: baris.email,
-        kodePeminjam: baris.kodePeminjam,
-        kycStatus: baris.kycStatus,
-        punyaDataDiri: baris.punyaDataDiri,
-        punyaPinjaman: baris.punyaPinjaman,
-      })),
-      total: cocok.length,
+      // Kembalikan bentuk yang diketik klien (setelah trim) supaya UI dapat
+      // memastikan respons ini memang untuk kata kunci yang sedang tampil.
+      kueri: kueri.trim().slice(0, 64),
+      saringan,
+      hasil,
+      total:
+        totalTepat !== null
+          ? totalTepat
+          : lanjut || kursor !== undefined
+            ? null
+            : hasil.length,
+      kursor: lanjut ? cursor : null,
+      lanjut,
     };
   },
 });

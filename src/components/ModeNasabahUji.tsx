@@ -1,6 +1,6 @@
-import { useQuery } from "convex/react";
+import { useQueries } from "convex/react";
 import { ArrowLeft, Search, ShieldCheck, TriangleAlert } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { TombolMasukSebagai } from "@/components/admin/MasukSebagaiDialog";
@@ -28,7 +28,67 @@ export type NasabahUji = {
   punyaPinjaman: boolean;
 };
 
-const NADA_LENCANA = "rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-4";
+/** Saringan cepat akun yang perlu diuji. */
+export type SaringanNasabahUji =
+  | "semua"
+  | "data_kosong"
+  | "kyc_belum"
+  | "pernah_mengajukan";
+
+const OPSI_SARINGAN: ReadonlyArray<{
+  nilai: SaringanNasabahUji;
+  label: string;
+}> = [
+  { nilai: "semua", label: "Semua" },
+  { nilai: "data_kosong", label: "Data diri kosong" },
+  { nilai: "kyc_belum", label: "KYC belum terverifikasi" },
+  { nilai: "pernah_mengajukan", label: "Pernah mengajukan" },
+];
+
+const NADA_LENCANA = "rounded-md border px-1.5 py-0.5 text-xs font-medium leading-5";
+
+/** Gabungkan halaman berikutnya tanpa menggandakan akun yang sudah tampil. */
+function gabungHasil(sebelum: NasabahUji[], sesudah: NasabahUji[]): NasabahUji[] {
+  const perAkun = new Map(sebelum.map((row) => [row.userId, row]));
+  for (const row of sesudah) perAkun.set(row.userId, row);
+  return [...perAkun.values()];
+}
+
+/** Satu halaman hasil pemilih; bentuknya mengikuti query server. */
+type HalamanNasabahUji = {
+  siap: boolean;
+  hasil?: NasabahUji[];
+  total?: number | null;
+  kursor?: string | null;
+  lanjut?: boolean;
+};
+
+type PermintaanHalaman = Record<
+  string,
+  {
+    query: typeof api.pratinjau.cariNasabahUji;
+    args: {
+      kueri: string;
+      saringan: SaringanNasabahUji;
+      kursor?: string;
+    };
+  }
+>;
+
+/** Kursor halaman pertama dipakai ulang agar tidak membuat query baru tiap render. */
+const KURSOR_HALAMAN_AWAL: Array<string | null> = [null];
+
+/** Gabungkan semua halaman yang sudah dimuat, termasuk halaman yang masih pending. */
+function gabungHalaman(
+  halaman: Array<HalamanNasabahUji | Error | undefined>,
+): NasabahUji[] {
+  let hasil: NasabahUji[] = [];
+  for (const data of halaman) {
+    if (data === undefined || data instanceof Error || data.siap !== true) continue;
+    hasil = gabungHasil(hasil, data.hasil ?? []);
+  }
+  return hasil;
+}
 
 /**
  * DAFTAR AKUN NASABAH untuk Mode Nasabah.
@@ -46,7 +106,13 @@ export function DaftarNasabahUji({
   kueriCari,
   hasil,
   total,
+  lanjut = false,
+  memuatLagi = false,
+  galat,
+  saringan = "semua",
   onKueri,
+  onSaringan,
+  onMuatLagi,
   aksi,
 }: {
   /** Sesi admin sudah lolos TOTP dan daftar boleh dibaca. */
@@ -57,10 +123,45 @@ export function DaftarNasabahUji({
   /** Kata kunci yang sudah dipakai server — untuk kalimat hasil. */
   kueriCari: string;
   hasil: NasabahUji[];
-  total: number;
+  /** Kosong bila total belum diketahui karena masih ada halaman berikutnya. */
+  total: number | null;
+  /** Server masih punya halaman berikutnya. */
+  lanjut?: boolean;
+  /** Halaman berikutnya sedang dimuat. */
+  memuatLagi?: boolean;
+  /** Pesan bila pembacaan halaman gagal. */
+  galat?: string;
+  /** Saringan aktif di header. */
+  saringan?: SaringanNasabahUji;
   onKueri: (nilai: string) => void;
+  onSaringan?: (nilai: SaringanNasabahUji) => void;
+  onMuatLagi?: () => void;
   aksi: (row: NasabahUji) => ReactNode;
 }) {
+  const adaHalamanLagi = lanjut && onMuatLagi !== undefined;
+  const jumlah = total ?? hasil.length;
+  const adaSaringan = saringan !== "semua";
+
+  const status = galat
+    ? "Daftar akun gagal dimuat. Coba muat ulang halaman."
+    : memuat
+      ? "Mencari akun…"
+      : !siap
+      ? "Daftar akun terkunci sampai verifikasi TOTP selesai."
+      : kueriCari === ""
+        ? total !== null
+          ? total === 0
+            ? adaSaringan
+              ? "Tidak ada akun pada saringan ini."
+              : "Belum ada akun nasabah."
+            : `${total} akun nasabah tersedia.`
+          : `${jumlah} akun dimuat${lanjut ? "; masih ada hasil lain." : "."}`
+        : total !== null
+          ? total === 0
+            ? `Tidak ada akun yang cocok dengan “${kueriCari}”${adaSaringan ? " pada saringan ini" : ""}.`
+            : `${total} akun cocok; ${Math.min(hasil.length, total)} ditampilkan.`
+          : `${jumlah} akun cocok${lanjut ? "; masih ada hasil lain." : "."}`;
+
   return (
     <section
       aria-labelledby="judul-pemilih-nasabah"
@@ -86,27 +187,42 @@ export function DaftarNasabahUji({
               spellCheck={false}
               value={kueri}
               onChange={(event) => onKueri(event.target.value)}
-              placeholder="mis. Rani atau PMN-"
+              placeholder="mis. Rani, rani@…, PMN-7K2QX9, atau NIK"
               className="h-11 pl-9"
             />
           </div>
+          <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+            Nama boleh diketik sebagian; email, kode, dan NIK dicocokkan saat diketik lengkap.
+          </p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Saring akun nasabah">
+          {OPSI_SARINGAN.map((opsi) => (
+            <Button
+              key={opsi.nilai}
+              type="button"
+              size="sm"
+              variant={saringan === opsi.nilai ? "default" : "outline"}
+              aria-pressed={saringan === opsi.nilai}
+              className="min-h-11 rounded-full px-3 text-xs"
+              onClick={() => onSaringan?.(opsi.nilai)}
+            >
+              {opsi.label}
+            </Button>
+          ))}
         </div>
         <p role="status" aria-live="polite" className="mt-2 text-xs leading-5 text-muted-foreground">
-          {memuat
-            ? "Mencari akun…"
-            : !siap
-              ? "Daftar akun terkunci sampai verifikasi TOTP selesai."
-              : kueriCari === ""
-                ? total === 0
-                  ? "Belum ada akun nasabah."
-                  : `${total} akun nasabah tersedia.`
-                : total === 0
-                  ? `Tidak ada akun yang cocok dengan “${kueriCari}”.`
-                  : `${total} akun cocok; ${Math.min(hasil.length, total)} ditampilkan.`}
+          {status}
         </p>
       </div>
 
-      {!siap ? (
+      {galat ? (
+        <div role="alert" className="px-4 py-5 sm:px-5">
+          <p className="text-sm font-semibold text-navy">Daftar akun gagal dimuat</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {galat} Muat ulang halaman; bila masih gagal, periksa sesi admin Anda.
+          </p>
+        </div>
+      ) : !siap ? (
         <div className="flex items-start gap-3 px-4 py-5 sm:px-5">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-700">
             <ShieldCheck className="size-5" aria-hidden="true" />
@@ -129,12 +245,22 @@ export function DaftarNasabahUji({
       ) : hasil.length === 0 ? (
         <div className="px-4 py-8 text-center sm:px-5">
           <p className="text-sm font-medium text-navy">
-            {kueriCari === "" ? "Belum ada akun nasabah" : "Tidak ada akun yang cocok"}
+            {lanjut
+              ? "Belum ada hasil di halaman ini"
+              : adaSaringan
+                ? "Tidak ada akun pada saringan ini"
+                : kueriCari === ""
+                  ? "Belum ada akun nasabah"
+                  : "Tidak ada akun yang cocok"}
           </p>
           <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
-            {kueriCari === ""
-              ? "Akun muncul di sini setelah seseorang mendaftar, atau setelah Anda mencatat pengajuan manual di panel admin."
-              : "Coba nama lain, email lengkap, kode nasabah, atau 16 digit NIK."}
+            {lanjut
+              ? "Muat halaman berikutnya untuk melanjutkan pencarian."
+              : adaSaringan
+                ? "Ubah saringan atau kata kunci untuk melihat akun lain."
+                : kueriCari === ""
+                  ? "Akun muncul di sini setelah seseorang mendaftar, atau setelah Anda mencatat pengajuan manual di panel admin."
+                  : "Coba nama lain, email lengkap, kode nasabah, atau 16 digit NIK."}
           </p>
         </div>
       ) : (
@@ -179,6 +305,21 @@ export function DaftarNasabahUji({
           ))}
         </ul>
       )}
+
+      {adaHalamanLagi && (
+        <div className="border-t border-slate-200 bg-slate-50/60 px-4 py-3 sm:px-5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-11 rounded-xl bg-white"
+            onClick={onMuatLagi}
+            disabled={memuatLagi}
+          >
+            {memuatLagi ? "Memuat…" : "Muat lebih banyak"}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
@@ -195,6 +336,12 @@ export function DaftarNasabahUji({
 export function ModeNasabahUji() {
   const [kueri, setKueri] = useState("");
   const [kueriCari, setKueriCari] = useState("");
+  const [saringan, setSaringan] = useState<SaringanNasabahUji>("semua");
+  const [daftarKursor, setDaftarKursor] = useState<{
+    signature: string;
+    kursor: Array<string | null>;
+  }>({ signature: "\u0000semua", kursor: KURSOR_HALAMAN_AWAL });
+
   // Jeda ketik kecil: daftar akun dibaca di server, jadi satu permintaan per
   // huruf akan mengirim pembacaan yang sama berulang kali.
   useEffect(() => {
@@ -202,12 +349,78 @@ export function ModeNasabahUji() {
     return () => window.clearTimeout(timer);
   }, [kueri]);
 
-  const data = useQuery(api.pratinjau.cariNasabahUji, { kueri: kueriCari });
+  // Kata kunci dan saringan membentuk satu sesi pagination. Saat keduanya
+  // berganti, sesi lama tidak dipakai lagi dan daftar kembali ke halaman
+  // pertama tanpa perlu mengosongkan state di effect.
+  const signature = `${kueriCari}\u0000${saringan}`;
+  const kursorAktif =
+    daftarKursor.signature === signature ? daftarKursor.kursor : KURSOR_HALAMAN_AWAL;
+
+  const permintaan = useMemo<PermintaanHalaman>(() => {
+    const hasil: PermintaanHalaman = {};
+    kursorAktif.forEach((kursor, indeks) => {
+      hasil[`halaman-${indeks}`] = {
+        query: api.pratinjau.cariNasabahUji,
+        args: {
+          kueri: kueriCari,
+          saringan,
+          ...(kursor === null ? {} : { kursor }),
+        },
+      };
+    });
+    return hasil;
+  }, [kursorAktif, kueriCari, saringan]);
+
+  const dataHalaman = useQueries(permintaan) as Record<
+    string,
+    HalamanNasabahUji | Error | undefined
+  >;
+  const halaman = kursorAktif.map((_, indeks) => dataHalaman[`halaman-${indeks}`]);
+  const halamanPertama = halaman[0];
+  const halamanSelesai = [...halaman]
+    .reverse()
+    .find(
+      (data): data is HalamanNasabahUji =>
+        data !== undefined && !(data instanceof Error),
+    );
+  const hasil = gabungHalaman(halaman);
+  const siap =
+    halamanPertama instanceof Error ? true : (halamanPertama?.siap ?? true);
+  const memuat = halamanPertama === undefined;
+  const memuatLagi = !memuat && halaman.some((data) => data === undefined);
+  const adaHalamanLagi =
+    halamanSelesai !== undefined &&
+    halamanSelesai.lanjut === true &&
+    typeof halamanSelesai.kursor === "string";
+  const total =
+    kursorAktif.length === 1 &&
+    halamanPertama !== undefined &&
+    !(halamanPertama instanceof Error) &&
+    halamanPertama.siap === true
+      ? (halamanPertama.total ?? null)
+      : null;
+
+  const gantiKueri = (nilai: string) => setKueri(nilai);
+  const gantiSaringan = (nilai: SaringanNasabahUji) => setSaringan(nilai);
+
+  const muatLagi = () => {
+    if (
+      halamanSelesai === undefined ||
+      halamanSelesai.lanjut !== true ||
+      typeof halamanSelesai.kursor !== "string"
+    ) {
+      return;
+    }
+    setDaftarKursor({
+      signature,
+      kursor: [...kursorAktif, halamanSelesai.kursor],
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
       <DashboardHeader role="admin" />
-      <main id="konten" className="mx-auto w-full max-w-3xl px-4 pb-16 pt-5 sm:px-6 sm:pt-8">
+      <main id="konten" className="mx-auto w-full max-w-5xl px-4 pb-16 pt-5 sm:px-6 sm:pt-8">
         <Link
           to={ADMIN_ROUTE}
           className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-navy"
@@ -216,7 +429,7 @@ export function ModeNasabahUji() {
           Panel admin
         </Link>
 
-        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-foreground">
+        <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
           Pengujian fitur
         </p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-navy sm:text-3xl">
@@ -238,13 +451,19 @@ export function ModeNasabahUji() {
         </div>
 
         <DaftarNasabahUji
-          siap={data?.siap ?? true}
-          memuat={data === undefined}
+          siap={siap}
+          memuat={memuat}
           kueri={kueri}
           kueriCari={kueriCari}
-          hasil={data?.hasil ?? []}
-          total={data?.total ?? 0}
-          onKueri={setKueri}
+          hasil={hasil}
+          total={total}
+          lanjut={adaHalamanLagi}
+          memuatLagi={memuatLagi}
+          galat={halaman.find((data) => data instanceof Error)?.message}
+          saringan={saringan}
+          onKueri={gantiKueri}
+          onSaringan={gantiSaringan}
+          onMuatLagi={muatLagi}
           aksi={(row) => (
             <TombolMasukSebagai
               targetId={row.userId}

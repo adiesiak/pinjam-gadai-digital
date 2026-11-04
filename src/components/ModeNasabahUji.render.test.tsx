@@ -160,5 +160,46 @@ const budi: NasabahUji = {
   bersih(html, "hitungan tanpa pencarian");
 }
 
+// ===== 8. Total belum diketahui: jangan mengarang angka penuh =====
+{
+  const html = render({
+    hasil: [rani],
+    total: null,
+    lanjut: true,
+    onMuatLagi: () => undefined,
+  });
+  ada(html, "1 akun dimuat; masih ada hasil lain", "hitungan jujur saat masih ada halaman");
+  ada(html, "Muat lebih banyak", "tombol halaman berikutnya tersedia");
+  ok(!html.includes("1 akun nasabah tersedia"), "tidak mengklaim total yang belum diketahui");
+  bersih(html, "hitungan bertahap");
+}
+
+// ===== 9. Saringan aktif dan halaman berikutnya sedang dimuat =====
+{
+  const html = render({
+    hasil: [],
+    total: 0,
+    saringan: "data_kosong",
+    onSaringan: () => undefined,
+  });
+  ada(html, "Tidak ada akun pada saringan ini", "empty state menjelaskan saringan");
+  ada(html, "Data diri kosong", "opsi saringan tampil");
+  ada(html, "aria-pressed=\"true\"", "saringan aktif ditandai untuk pembaca layar");
+  bersih(html, "saringan kosong");
+}
+
+{
+  const html = render({
+    hasil: [rani],
+    total: null,
+    lanjut: true,
+    memuatLagi: true,
+    onMuatLagi: () => undefined,
+  });
+  ada(html, "Memuat…", "tombol halaman berikutnya memberi status memuat");
+  ok(html.includes("disabled"), "tombol tidak bisa ditekan saat memuat");
+  bersih(html, "memuat halaman berikutnya");
+}
+
 console.log(`\nModeNasabahUji.render: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

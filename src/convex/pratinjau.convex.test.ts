@@ -492,6 +492,16 @@ describe("Mode Nasabah — pemilih akun uji", () => {
       ctx.db.insert("users", { name: "Pemantau", email: "pantau@pindai.test", role: "pengamat" }),
     );
     await buatPengguna(t, "Tamu", { isAnonymous: true });
+    await t.run((ctx) =>
+      ctx.db.insert("nasabahProfil", {
+        userId: rani.userId,
+        namaLengkap: "RANI PUSPITA",
+        nik: "3201234567890003",
+        nomorWhatsApp: "628123456791",
+        diperbaruiPada: Date.now(),
+        diperbaruiOlehLabel: "admin uji",
+      }),
+    );
 
     const hasil = await admin.sesi.query(api.pratinjau.cariNasabahUji, { kueri: "" });
     expect(hasil.siap).toBe(true);
@@ -502,6 +512,51 @@ describe("Mode Nasabah — pemilih akun uji", () => {
     expect(hasil.hasil.map((r) => r.nama)).not.toContain("ROBERT");
     expect(hasil.hasil.map((r) => r.nama)).not.toContain("TAMU");
     expect(hasil.hasil.map((r) => r.userId)).not.toContain(pendana.userId);
+
+    const dataKosong = await admin.sesi.query(api.pratinjau.cariNasabahUji, {
+      kueri: "",
+      saringan: "data_kosong",
+    });
+    expect(dataKosong.hasil.map((r) => r.userId)).toEqual([pendaftar.userId]);
+
+    const kycBelum = await admin.sesi.query(api.pratinjau.cariNasabahUji, {
+      kueri: "",
+      saringan: "kyc_belum",
+    });
+    expect(kycBelum.total).toBe(2);
+
+    const pernahMengajukan = await admin.sesi.query(api.pratinjau.cariNasabahUji, {
+      kueri: "",
+      saringan: "pernah_mengajukan",
+    });
+    expect(pernahMengajukan.total).toBe(0);
+  });
+
+  it("membatasi 20 akun per halaman dan melanjutkan lewat kursor", async () => {
+    const t = convexTest(schema, modules);
+    const admin = await siapkanPengguna(t, "super admin", {
+      email: "admin@pindai.test",
+      role: "admin",
+    });
+    for (let i = 0; i < 25; i += 1) {
+      await buatPengguna(t, `NASABAH ${String(i).padStart(2, "0")}`);
+    }
+
+    const pertama = await admin.sesi.query(api.pratinjau.cariNasabahUji, { kueri: "" });
+    expect(pertama.hasil).toHaveLength(20);
+    expect(pertama.lanjut).toBe(true);
+    expect(pertama.total).toBeNull();
+    expect(pertama.kursor).toEqual(expect.any(String));
+    if (pertama.kursor === null) throw new Error("kursor halaman pertama hilang");
+
+    const kedua = await admin.sesi.query(api.pratinjau.cariNasabahUji, {
+      kueri: "",
+      kursor: pertama.kursor,
+    });
+    expect(kedua.hasil).toHaveLength(5);
+    expect(kedua.lanjut).toBe(false);
+    expect(kedua.kursor).toBeNull();
+    expect(kedua.total).toBeNull();
   });
 
   it("mencocokkan kode nasabah dan NIK tanpa mengirim NIK ke peramban", async () => {
@@ -552,6 +607,16 @@ describe("Mode Nasabah — pemilih akun uji", () => {
       kueri: "pmn-7k2qx9",
     });
     expect(lewatKode.hasil).toHaveLength(1);
+
+    const lewatEmail = await admin.sesi.query(api.pratinjau.cariNasabahUji, {
+      kueri: "rani@pindai.test",
+    });
+    expect(lewatEmail.hasil[0]?.userId).toBe(rani.userId);
+
+    const lewatWa = await admin.sesi.query(api.pratinjau.cariNasabahUji, {
+      kueri: "628123456791",
+    });
+    expect(lewatWa.hasil[0]?.userId).toBe(rani.userId);
 
     // NIK dan nomor WhatsApp hanya dipakai untuk mencocokkan, tidak dikirim.
     const teks = JSON.stringify(lewatNik.hasil);

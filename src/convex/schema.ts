@@ -222,7 +222,11 @@ const schema = defineSchema(
       .index("email", ["email"]) // index for the email. do not remove or modify
       .index("by_kodePeminjam", ["kodePeminjam"])
       // Login WhatsApp mencari akun lewat nomor yang sudah diverifikasi.
-      .index("by_nomorWhatsApp", ["nomorWhatsApp"]),
+      .index("by_nomorWhatsApp", ["nomorWhatsApp"])
+      // Pencarian nama di pemilih akun Mode Nasabah — tanpa memindai tabel.
+      // Email dan kode tetap memakai indeks tepat di atas; UI meminta bentuk
+      // lengkap untuk keduanya.
+      .searchIndex("cari_nama", { searchField: "name" }),
 
     /**
      * Aplikasi pinjaman tunai Peminjam.
