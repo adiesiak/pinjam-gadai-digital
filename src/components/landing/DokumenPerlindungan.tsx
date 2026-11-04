@@ -6,9 +6,10 @@
  * layar, yaitu berkas yang harus disiapkan dan dokumen yang terbit setelah
  * pengajuan. Daftarnya mengikuti `lib/kyc` dan generator PDF, bukan janji
  * tambahan.
+ *
+ * Redesign beranda mengganti dua kartu menjadi dua kolom daftar bernomor. Garis
+ * rambut membuat urutan dokumen lebih mudah dipindai daripada dua kotak putih.
  */
-import { Check, FileText } from "lucide-react";
-
 import { JudulBagian } from "./JudulBagian";
 
 const SIAPKAN = [
@@ -28,29 +29,28 @@ const DITERIMA = [
 function DaftarDokumen({
   judul,
   baris,
-  ikon,
 }: {
   judul: string;
   baris: readonly string[];
-  ikon?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
-        {ikon ? <FileText className="size-4 text-primary" aria-hidden="true" /> : null}
+    <div>
+      <p className="flex items-center gap-2 border-b border-border pb-3 text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
         {judul}
       </p>
-      <ul className="mt-3 space-y-2">
-        {baris.map((teks) => (
+      <ol className="divide-y divide-border">
+        {baris.map((teks, i) => (
           <li
             key={teks}
-            className="flex items-start gap-2.5 text-sm leading-6 text-foreground"
+            className="flex gap-3 py-3 text-sm leading-6 text-foreground"
           >
-            <Check className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
-            {teks}
+            <span className="mt-0.5 font-mono text-xs tabular-nums text-gold-foreground">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <span>{teks}</span>
           </li>
         ))}
-      </ul>
+      </ol>
     </div>
   );
 }
@@ -65,24 +65,26 @@ export function DokumenPerlindungan({
   return (
     <section
       aria-labelledby="dokumen-judul"
-      className="border-t border-border bg-background"
+      className="border-t border-border bg-secondary"
     >
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start lg:gap-12">
+        <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-start lg:gap-14">
           <JudulBagian
             id="dokumen-judul"
+            nomor="03"
             label="Alur & dokumen"
             judul={judul}
             deskripsi={deskripsi}
             className="max-w-xl border-t-0 pt-0"
           />
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-8 sm:grid-cols-2">
             <DaftarDokumen judul="Disiapkan sebelum mengajukan" baris={SIAPKAN} />
-            <DaftarDokumen
-              judul="Diterima setelah pengajuan"
-              baris={DITERIMA}
-              ikon
-            />
+            <div className="sm:border-l sm:border-border sm:pl-8">
+              <DaftarDokumen
+                judul="Diterima setelah pengajuan"
+                baris={DITERIMA}
+              />
+            </div>
           </div>
         </div>
       </div>

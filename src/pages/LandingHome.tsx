@@ -24,6 +24,7 @@ import { SkipLink } from "@/components/SkipLink";
 import { VaultLogo } from "@/components/VaultLogo";
 import { BatasLanding } from "@/components/landing/BatasLanding";
 import { LandingHero } from "@/components/landing/LandingHero";
+import { NAMA_ENTITAS_PINDAI } from "@/lib/branding";
 import { PromoPinjamanAktif } from "@/components/promo/PromoPinjamanAktif";
 import { catatPeristiwaLanding } from "@/lib/analitikLanding";
 import { SOROTAN_LAYANAN } from "@/lib/sorotanLayanan";
@@ -293,7 +294,18 @@ export default function LandingHome() {
     // baris terakhir footer.
     <div className="min-h-screen w-full overflow-x-hidden scroll-pb-28 bg-background pb-24 text-foreground sm:scroll-pb-0 sm:pb-0">
       <SkipLink />
+      <div className="border-b border-border bg-secondary/60">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+            Lembar informasi pembiayaan
+          </p>
+          <p className="hidden text-xs text-muted-foreground sm:block">
+            {NAMA_ENTITAS_PINDAI}
+          </p>
+        </div>
+      </div>
       <header className="sticky top-0 z-40 border-b border-border bg-background">
+        <div aria-hidden="true" className="h-0.5 bg-gold/70" />
         <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link
             to="/"
@@ -526,7 +538,12 @@ export default function LandingHome() {
 
           <div className="relative mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+                <span className="font-mono tracking-normal">06</span>
+                <span
+                  aria-hidden="true"
+                  className="h-px w-6 bg-gold/50"
+                />
                 Sebelum mengajukan
               </p>
               <h2

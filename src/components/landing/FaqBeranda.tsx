@@ -66,6 +66,7 @@ export function FaqBeranda({
         <div>
           <JudulBagian
             id="faq-beranda-judul"
+            nomor="05"
             label="Pertanyaan umum"
             judul={judul}
             deskripsi={deskripsi}
@@ -85,7 +86,7 @@ export function FaqBeranda({
           <Accordion
             type="single"
             collapsible
-            className="rounded-kartu border border-border bg-card px-5"
+            className="rounded-2xl border border-border bg-card px-5"
           >
             {daftar.map((item, i) => (
               <AccordionItem key={item.q} value={`faq-${i}`}>

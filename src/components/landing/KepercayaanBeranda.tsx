@@ -5,6 +5,10 @@
  * penafian layanan, alamat kantor, email resmi, dan kanal bantuan. Tidak ada
  * nomor izin atau mitra yang dikarang di sini; bila data itu belum tersedia,
  * jangan menampilkannya.
+ *
+ * Redesign beranda mengubah tiga kartu sejajar menjadi satu kolofon bergaris:
+ * satu bidang, tiga kolom, tanpa bayangan. Ini menurunkan bobot visual kartu
+ * dan membuat strip ini terbaca sebagai keterangan dokumen, bukan promosi.
  */
 import {
   ArrowRight,
@@ -30,10 +34,10 @@ export function KepercayaanBeranda() {
   return (
     <section
       aria-labelledby="kepercayaan-judul"
-      className="border-y border-border bg-muted/40"
+      className="border-t border-border bg-background"
     >
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-border pb-4">
           <h2
             id="kepercayaan-judul"
             className="text-sm font-semibold text-foreground"
@@ -45,8 +49,8 @@ export function KepercayaanBeranda() {
           </p>
         </div>
 
-        <ul className="mt-4 grid gap-3 md:grid-cols-3">
-          <li className="rounded-xl border border-border bg-card p-4">
+        <div className="grid md:grid-cols-3 md:divide-x md:divide-border">
+          <div className="py-5 md:pr-6">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
               <Building2 className="size-4 text-primary" aria-hidden="true" />
               Entitas
@@ -58,9 +62,9 @@ export function KepercayaanBeranda() {
               {PENAFIAN_PINDAI} Pinjaman didanai pendana yang tercatat, yaitu
               penyedia dana yang menempatkan dananya lewat PINDAI.
             </p>
-          </li>
+          </div>
 
-          <li className="rounded-xl border border-border bg-card p-4">
+          <div className="border-t border-border py-5 md:border-t-0 md:px-6">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
               <Scale className="size-4 text-primary" aria-hidden="true" />
               Batas layanan
@@ -72,14 +76,14 @@ export function KepercayaanBeranda() {
               PINDAI tidak memindahkan dana secara otomatis. Pencairan dan serah
               terima barang ditangani di luar aplikasi.
             </p>
-          </li>
+          </div>
 
-          <li className="rounded-xl border border-border bg-card p-4">
+          <div className="border-t border-border py-5 md:border-t-0 md:pl-6">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
               <FileCheck2 className="size-4 text-primary" aria-hidden="true" />
               Dokumen &amp; bantuan
             </p>
-            <div className="mt-1 divide-y divide-border">
+            <div className="mt-2 divide-y divide-border">
               <Link
                 to="/syarat-ketentuan"
                 className="flex min-h-11 items-center justify-between gap-2 text-sm font-semibold text-foreground hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -112,10 +116,10 @@ export function KepercayaanBeranda() {
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
               Ketentuan versi {CONTRACT_TERMS_VERSION}.
             </p>
-          </li>
-        </ul>
+          </div>
+        </div>
 
-        <div className="mt-3 flex flex-col gap-1 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+        <div className="flex flex-col gap-1 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
             <MapPin
               className="mt-0.5 size-4 shrink-0 text-primary"

@@ -52,7 +52,7 @@ function IsiBanding({ tarif }: { tarif: TarifBiaya }) {
         akad jual beli atau gadai tanpa bunga: syariah.
       </p>
 
-      <div className="mt-4 hidden overflow-hidden rounded-xl border border-border bg-card sm:block">
+      <div className="mt-4 hidden overflow-hidden rounded-2xl border border-border bg-card sm:block">
         <table className="w-full border-collapse text-left text-sm">
           <caption className="sr-only">
             Perbandingan pembiayaan konvensional dan syariah
@@ -110,7 +110,7 @@ function IsiBanding({ tarif }: { tarif: TarifBiaya }) {
             ["Syariah", "syariah"],
           ] as const
         ).map(([judul, kunci]) => (
-          <div key={kunci} className="rounded-xl border border-border bg-card p-4">
+          <div key={kunci} className="rounded-2xl border border-border bg-card p-4">
             <p className="text-sm font-semibold text-foreground">{judul}</p>
             <dl className="mt-2 divide-y divide-border">
               {baris.map((row) => (

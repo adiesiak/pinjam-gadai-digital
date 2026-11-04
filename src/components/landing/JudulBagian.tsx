@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 export function JudulBagian({
   id,
+  nomor,
   label,
   judul,
   deskripsi,
@@ -24,6 +25,8 @@ export function JudulBagian({
 }: {
   /** Id judul; bagian merujuk balik lewat `aria-labelledby`. */
   id: string;
+  /** Nomor urut bagian untuk irama laporan beranda. */
+  nomor?: string;
   /** Label pendek di atas judul, mis. "Biaya" atau "Alur & dokumen". */
   label: string;
   judul: string;
@@ -34,9 +37,19 @@ export function JudulBagian({
 }) {
   return (
     <div className={cn("border-t border-border pt-5", className)}>
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-foreground">
-        {label}
-      </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {nomor ? (
+          <span className="font-mono text-xs font-medium tabular-nums text-gold-foreground">
+            {nomor}
+          </span>
+        ) : null}
+        {nomor ? (
+          <span aria-hidden="true" className="h-px w-6 bg-gold/50" />
+        ) : null}
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+          {label}
+        </p>
+      </div>
       <h2
         id={id}
         className={cn(

@@ -4,6 +4,9 @@
  * Ditempatkan langsung setelah bagian dokumen supaya syarat, alur, dan
  * perhitungan dibaca sebagai satu blok — bukan bagian promosi yang terpisah di
  * bawah halaman.
+ *
+ * Redesign beranda melepas kartu dari tiga pintu ini. Kolom dipisahkan garis
+ * rambut supaya tetap cepat dipindai tanpa terasa seperti tiga tombol promo.
  */
 import { ArrowRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router";
@@ -33,12 +36,13 @@ export function PanduanBeranda({
   return (
     <section
       aria-labelledby="panduan-title"
-      className="pindai-bawah-lipatan bg-background"
+      className="pindai-bawah-lipatan border-t border-border bg-background"
     >
-      <div className="mx-auto max-w-6xl px-4 pb-12 pt-0 sm:px-6 sm:pb-16 sm:pt-0">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2">
           <JudulBagian
             id="panduan-title"
+            nomor="04"
             label={eyebrow}
             judul={judul}
             deskripsi={deskripsi}
@@ -51,28 +55,36 @@ export function PanduanBeranda({
             {ctaSyarat}
           </Link>
         </div>
-        <ul className="mt-5 grid gap-3 md:grid-cols-3">
-          {panduan.map(({ href, ikon: Icon, judul: judulItem, isi }) => (
-            <li key={href}>
+
+        <ul className="mt-6 grid border-y border-border md:grid-cols-3 md:divide-x md:divide-border">
+          {panduan.map(({ href, ikon: Icon, judul: judulItem, isi }, i) => (
+            <li
+              key={href}
+              className="border-b border-border last:border-b-0 md:border-b-0"
+            >
               <Link
                 to={href}
-                className="group flex min-h-24 items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/35 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={`group flex min-h-24 flex-col gap-4 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:px-5 ${
+                  i === 0 ? "md:pl-0" : ""
+                } ${i === panduan.length - 1 ? "md:pr-0" : ""}`}
               >
-                <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-                  <Icon className="size-4" aria-hidden="true" />
+                <span className="flex items-center justify-between gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
+                    <Icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <ArrowRight
+                    className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">
+                <span>
+                  <span className="block font-judul text-lg leading-snug text-foreground">
                     {judulItem}
                   </span>
-                  <span className="mt-1 block text-sm leading-5 text-muted-foreground">
+                  <span className="mt-1 block text-sm leading-6 text-muted-foreground">
                     {isi}
                   </span>
                 </span>
-                <ArrowRight
-                  className="mt-2.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                  aria-hidden="true"
-                />
               </Link>
             </li>
           ))}

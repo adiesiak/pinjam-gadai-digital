@@ -4,10 +4,14 @@
  * Isinya `LiveCalculator`, komponen yang sama dengan halaman `/biaya`, jadi
  * angka yang dilihat pengunjung sebelum punya akun tidak mungkin berbeda dari
  * mesin harga yang dipakai formulir pengajuan. Tarif berlaku diletakkan di
- * sampingnya supaya pengunjung tidak perlu menggulir ke bagian lain untuk
+ * bawahnya supaya pengunjung tidak perlu menggulir ke bagian lain untuk
  * menghubungkan simulasi dengan potongan resmi.
+ *
+ * Sejak redesign beranda, bagian ini memakai bidang hijau kertas yang sama
+ * dengan kalkulator `/biaya`: judul dan catatan di kiri, alat hitung di kanan,
+ * lalu kuitansi tarif sebagai penutup.
  */
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
 import type { TarifBulanan } from "@/lib/bulanan";
@@ -43,51 +47,52 @@ export function KalkulatorBeranda({
     <section
       id="kalkulator"
       aria-labelledby="kalkulator-judul"
-      className="pindai-bawah-lipatan scroll-mt-20 border-y border-border bg-muted"
+      className="pindai-bawah-lipatan scroll-mt-20 border-t border-sky-200 bg-sky-100"
     >
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-18">
-        <JudulBagian
-          id="kalkulator-judul"
-          label="Kalkulator"
-          judul={judul}
-          deskripsi={deskripsi}
-          className="max-w-2xl border-t-0 pt-0"
-          deskripsiClassName="max-w-xl"
-        />
+        <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-start lg:gap-12">
+          <div>
+            <JudulBagian
+              id="kalkulator-judul"
+              nomor="02"
+              label="Kalkulator"
+              judul={judul}
+              deskripsi={deskripsi}
+              className="max-w-xl border-t-0 pt-0"
+              deskripsiClassName="max-w-xl text-slate-700"
+            />
 
-        <div className="mt-8 grid gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-start lg:gap-8">
-          <LiveCalculator
-            tarifBulanan={tarifBulanan}
-            accountHref={accountHref}
-            accountLabel={accountLabel}
-          />
-
-          <aside className="grid gap-4">
-            <ul className="space-y-2.5 rounded-2xl border border-border bg-card p-5">
-              {CATATAN.map((baris) => (
+            <ol className="mt-7 divide-y divide-sky-200 border-y border-sky-200">
+              {CATATAN.map((baris, i) => (
                 <li
                   key={baris}
-                  className="flex items-start gap-2.5 text-sm leading-6 text-foreground"
+                  className="flex items-start gap-3 py-3 text-sm leading-6 text-slate-700"
                 >
-                  <Check
-                    className="mt-1 size-4 shrink-0 text-primary"
-                    aria-hidden="true"
-                  />
-                  {baris}
+                  <span className="mt-0.5 font-mono text-xs tabular-nums text-gold-foreground">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span>{baris}</span>
                 </li>
               ))}
-            </ul>
-
-            <BiayaBerlaku tarif={tarif} ringkas />
+            </ol>
 
             <Link
               to="/biaya"
-              className="inline-flex min-h-11 items-center gap-1.5 px-1 text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Rincian biaya lengkap
               <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
-          </aside>
+          </div>
+
+          <div className="grid gap-4">
+            <LiveCalculator
+              tarifBulanan={tarifBulanan}
+              accountHref={accountHref}
+              accountLabel={accountLabel}
+            />
+            <BiayaBerlaku tarif={tarif} ringkas />
+          </div>
         </div>
       </div>
     </section>
