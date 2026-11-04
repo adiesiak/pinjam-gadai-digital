@@ -119,6 +119,25 @@ export async function susunPeringatan(
         pesan: `Backup terakhir tercatat ${Math.round(umurHari)} hari lalu (batas ${BATAS_BACKUP_HARI} hari). Periksa jadwal backup dan lakukan uji pemulihan berkala — panduan: docs/operasional-backup.md.`,
       });
     }
+
+    // Kegagalan Drive tidak menulis aksi `backup`, jadi tanpa pemeriksaan ini
+    // arsip yang gagal bisa terlihat "belum waktunya" sampai batas tujuh hari.
+    const gagalDrive = await ctx.db
+      .query("auditLog")
+      .withIndex("by_aksi", (q) => q.eq("aksi", "backup_drive_gagal"))
+      .order("desc")
+      .first();
+    if (
+      gagalDrive !== null &&
+      (backup === null || gagalDrive.waktu > backup.waktu)
+    ) {
+      peringatan.push({
+        kunci: "backup-drive-gagal",
+        tingkat: "peringatan",
+        judul: "Backup Google Drive gagal",
+        pesan: `Percobaan terakhir ${Math.round((sekarang - gagalDrive.waktu) / JAM_MS)} jam lalu gagal. Periksa kredensial OAuth, folder Drive, dan audit trail. Panduan: docs/operasional-backup.md.`,
+      });
+    }
   }
 
   const petaDenyut = new Map(denyut.map((d) => [d.nama, d.terakhirPada]));

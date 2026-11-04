@@ -1,6 +1,6 @@
 import type { FunctionReturnType } from "convex/server";
 import { useConvex, useMutation, useQuery } from "convex/react";
-import { Database, FileDown, Loader2, Lock } from "lucide-react";
+import { CloudUpload, Database, FileDown, Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -63,6 +63,8 @@ export function BackupPanel() {
   const klien = useConvex();
   const auditData = useQuery(api.system.getConfigAdmin);
   const backupTerakhir = useQuery(api.system.backupTerakhir);
+  const driveStatus = useQuery(api.backupDriveAdmin.status);
+  const mintaDrive = useMutation(api.backupDriveAdmin.minta);
   const catat = useMutation(api.system.catatBackup);
   const backfillKode = useMutation(api.admin.backfillKodePeminjam);
   const backfillBerkasKyc = useMutation(api.kyc.backfillMetadataBerkas);
@@ -71,6 +73,7 @@ export function BackupPanel() {
   const [tabelJson, setTabelJson] = useState<number | null>(null);
   const [kodePeminjamDiterbitkan, setKodePeminjamDiterbitkan] = useState<number | null>(null);
   const [metadataBerkasDilengkapi, setMetadataBerkasDilengkapi] = useState<number | null>(null);
+  const [memintaDrive, setMemintaDrive] = useState(false);
 
   const unduhFile = (nama: string, isi: string, mime: string) => {
     const blob = new Blob([isi], { type: mime });
@@ -272,6 +275,24 @@ export function BackupPanel() {
     }
   };
 
+  const mintaBackupDrive = async () => {
+    setMemintaDrive(true);
+    try {
+      await mintaDrive({});
+      toast.success(
+        "Backup Google Drive dijadwalkan. Progres dan hasilnya tercatat di audit trail.",
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Backup Google Drive gagal dijadwalkan.",
+      );
+    } finally {
+      setMemintaDrive(false);
+    }
+  };
+
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
@@ -322,9 +343,55 @@ export function BackupPanel() {
                 : `${formatWaktuWIB(backupTerakhir.waktu)} WIB · ${backupTerakhir.jenis ?? "backup"} · oleh ${backupTerakhir.oleh}`}
           </p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Backup otomatis dijadwalkan di platform, bukan dari halaman ini. Unduhan di tab
-            Ekspor adalah arsip tambahan; setiap unduhan tercatat di audit trail.
+            Backup platform dijadwalkan di dashboard Convex. Salinan KYC &amp; pinjaman
+            ke Google Drive berjalan otomatis tiap hari pukul 01.30 WIB; unduhan di tab
+            Ekspor adalah arsip tambahan. Setiap backup tercatat di audit trail.
           </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <CloudUpload className="size-4 text-primary" /> Google Drive
+          </p>
+          {driveStatus === undefined ? (
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Memeriksa konfigurasi Google Drive…
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {driveStatus.siap
+                  ? `Otomatis tiap hari ke folder "${driveStatus.folder}". Berkas dienkripsi AES-256-GCM sebelum diunggah.`
+                  : driveStatus.alasan}
+              </p>
+              {driveStatus.terakhir && (
+                <p className="mt-2 text-xs leading-5 text-success-foreground">
+                  Terakhir {driveStatus.terakhir.status} ·{" "}
+                  {formatWaktuWIB(driveStatus.terakhir.waktu)} WIB
+                </p>
+              )}
+              {driveStatus.gagal &&
+                (!driveStatus.terakhir ||
+                  driveStatus.gagal.waktu > driveStatus.terakhir.waktu) && (
+                  <p className="mt-2 text-xs leading-5 text-destructive">
+                    Percobaan terakhir gagal. Periksa audit trail dan kredensial
+                    Google Drive.
+                  </p>
+                )}
+              <Button
+                variant="outline"
+                className="mt-3 w-full justify-start"
+                disabled={busy !== null || memintaDrive || !driveStatus.siap}
+                onClick={() => void mintaBackupDrive()}
+              >
+                {memintaDrive ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <CloudUpload className="mr-2 size-4 text-primary" />
+                )}
+                {memintaDrive ? "Menjadwalkan…" : "Backup sekarang ke Google Drive"}
+              </Button>
+            </>
+          )}
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-sm font-medium">Kode pseudonim untuk pengajuan lama</p>

@@ -247,6 +247,14 @@ const BAGIAN: Bagian[] = [
           </Butir>
           <Butir>
             <strong className="font-semibold text-foreground">
+              Google Drive
+            </strong>{" "}
+            hanya menerima berkas cadangan yang sudah dienkripsi dan nama berkas
+            netral untuk keperluan backup; kunci dekripsi tidak diberikan kepada
+            penyedia tersebut.
+          </Butir>
+          <Butir>
+            <strong className="font-semibold text-foreground">
               Gateway WhatsApp
             </strong>{" "}
             yang mengirim pesan ke nomor Anda: nomor tujuan dan isi pesan.
@@ -309,7 +317,9 @@ const BAGIAN: Bagian[] = [
           <Butir>
             Data diri, data KYC, dan dokumen identitas: selama akun Anda aktif.
             Semuanya dihapus ketika akun dihapus, termasuk berkas di
-            penyimpanan.
+            penyimpanan. Salinan cadangan terenkripsi memiliki jadwal retensi
+            terpisah; operator menghapus manifest lama yang memuat data Anda
+            saat permintaan hapus diproses atau pada pembersihan retensi.
           </Butir>
           <Butir>
             Catatan keuangan (pinjaman, gadai, kredit barang, angsuran, jurnal):
@@ -343,6 +353,12 @@ const BAGIAN: Bagian[] = [
           bawaan penyedia), dan dikirim lewat sambungan terenkripsi. Kami tidak
           memakai enkripsi tingkat kolom untuk NIK dan nomor rekening;
           karenanya akses ke basis data dibatasi pada tim PINDAI.
+        </Paragraf>
+        <Paragraf>
+          Salinan cadangan KYC dan data pinjaman dienkripsi AES-256-GCM sebelum
+          disimpan di Google Drive milik operator. Kunci enkripsi tidak disimpan
+          di Drive dan tidak ikut diunggah, sehingga isi cadangan tidak bisa
+          dibuka hanya dari akses ke folder tersebut.
         </Paragraf>
       </>
     ),

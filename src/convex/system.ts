@@ -43,6 +43,7 @@ import {
   apakahTabelSnapshot,
   type TabelSnapshot,
 } from "../lib/backupTabel";
+import type { TabelBackupDrive } from "../lib/backupDrive";
 
 /**
  * Konfigurasi sistem, kill switch, snapshot data, dan audit trail.
@@ -1193,9 +1194,9 @@ type HalamanTabel = {
  * tabel dinamis, supaya tipe hasilnya nyata dan tabel yang tidak dikenal
  * berhenti di daftar `TABEL_SNAPSHOT`, bukan di query yang mengembalikan kosong.
  */
-async function bacaHalamanSnapshot(
+export async function bacaHalamanSnapshot(
   ctx: QueryCtx,
-  tabel: TabelSnapshot,
+  tabel: TabelSnapshot | TabelBackupDrive,
   kursor: string | null,
   numItems: number,
 ): Promise<HalamanTabel> {
@@ -1239,6 +1240,28 @@ async function bacaHalamanSnapshot(
       return await ctx.db.query("auditLog").paginate(opsi);
     case "users":
       return await ctx.db.query("users").paginate(opsi);
+    case "nasabahProfil":
+      return await ctx.db.query("nasabahProfil").paginate(opsi);
+    case "kycProfil":
+      return await ctx.db.query("kycProfil").paginate(opsi);
+    case "kycRiwayat":
+      return await ctx.db.query("kycRiwayat").paginate(opsi);
+    case "kycKeputusanOtomatis":
+      return await ctx.db.query("kycKeputusanOtomatis").paginate(opsi);
+    case "berkasTerverifikasi":
+      return await ctx.db.query("berkasTerverifikasi").paginate(opsi);
+    case "angsuran":
+      return await ctx.db.query("angsuran").paginate(opsi);
+    case "gadaiTransfers":
+      return await ctx.db.query("gadaiTransfers").paginate(opsi);
+    case "pengajuanSyariah":
+      return await ctx.db.query("pengajuanSyariah").paginate(opsi);
+    case "akadSyariah":
+      return await ctx.db.query("akadSyariah").paginate(opsi);
+    case "kontrakDigital":
+      return await ctx.db.query("kontrakDigital").paginate(opsi);
+    case "siklusPendana":
+      return await ctx.db.query("siklusPendana").paginate(opsi);
   }
   throw new Error(`Tabel snapshot tidak dikenal: ${String(tabel)}`);
 }

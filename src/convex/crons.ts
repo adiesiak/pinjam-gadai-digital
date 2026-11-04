@@ -15,6 +15,8 @@ import { internal } from "./_generated/api";
  *   (jauh melewati jendela retry jaringan mana pun).
  * - UTC 18:15 — retensi jejak gerbang pengiriman: buang baris pembatas laju
  *   yang lebih tua dari 7 hari (jejak `auditLog` pelanggarannya tetap ada).
+ * - UTC 18:30 (01:30 WIB) — backup KYC & pinjaman ke Google Drive: manifest
+ *   terenkripsi harian dan dokumen baru yang belum ada di folder Drive.
  * - UTC 17:05 (00:05 WIB) — rekonsiliasi saldo PPOB: bandingkan saldo provider
  *   dengan saldo buku sejak pemeriksaan terakhir; selisih di atas ambang
  *   dikabarkan ke admin lewat WhatsApp.
@@ -82,6 +84,15 @@ crons.daily(
   { hourUTC: 18, minuteUTC: 15 },
   internal.gerbangKirim.bersihkanJejakGerbang,
   {},
+);
+
+// Salinan KYC & pinjaman ke Google Drive. Action tidak menulis apa pun bila
+// kredensial belum diisi, sehingga deployment pengembangan tidak berisik.
+crons.daily(
+  "backup-google-drive",
+  { hourUTC: 18, minuteUTC: 30 },
+  internal.backupDrive.jalankan,
+  { pemicu: "cron" },
 );
 
 crons.daily(

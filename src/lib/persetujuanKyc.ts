@@ -21,7 +21,7 @@
  */
 
 /** Versi teks persetujuan yang berlaku sekarang. Naikkan bila teks berubah. */
-export const VERSI_PERSETUJUAN_KYC = "pdp-2026-10";
+export const VERSI_PERSETUJUAN_KYC = "pdp-2026-11";
 
 export type PoinPersetujuan = {
   readonly judul: string;
@@ -58,7 +58,7 @@ export const POIN_PERSETUJUAN_KYC: readonly PoinPersetujuan[] = [
   },
   {
     judul: "Tempat penyimpanan",
-    isi: "Data tersimpan terenkripsi pada layanan basis data dan penyimpanan berkas kami, yang servernya berada di luar Indonesia, dengan dasar transfer yang sah dan akses terbatas.",
+    isi: "Data tersimpan terenkripsi pada layanan basis data dan penyimpanan berkas kami, yang servernya berada di luar Indonesia, dengan dasar transfer yang sah dan akses terbatas. Salinan cadangan KYC juga dienkripsi AES-256-GCM sebelum disimpan di Google Drive; kunci enkripsinya disimpan terpisah dan tidak ikut diunggah.",
   },
   {
     judul: "Hak Anda",
