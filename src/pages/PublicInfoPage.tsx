@@ -1,10 +1,12 @@
 import { useQuery } from "convex/react";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 import {
   ArrowLeft,
   ArrowRight,
+  type LucideIcon,
   Calculator,
+  CircleHelp,
   FileText,
   HandCoins,
   LockKeyhole,
@@ -12,6 +14,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { Button } from "@/components/ui/button";
 import { FaqLayanan } from "@/components/informasi/FaqLayanan";
 import {
@@ -19,6 +22,8 @@ import {
   InfoFooter,
   InfoHeader,
 } from "@/components/informasi/InfoShell";
+import { JudulBagian } from "@/components/landing/JudulBagian";
+import { urlChatCs } from "@/lib/kontak";
 import { api } from "@/convex/_generated/api";
 import {
   Accordion,
@@ -814,6 +819,118 @@ function RingkasanLayanan({ jenis }: { jenis: JenisLayanan }) {
   );
 }
 
+const LANGKAH_CARA_KERJA = [
+  [
+    "Pilih jenis pengajuan",
+    "Tentukan pinjaman tunai, gadai, atau kredit barang.",
+  ],
+  [
+    "Baca biaya dan ketentuan",
+    "Gunakan kalkulator dan periksa rincian yang ditampilkan aplikasi.",
+  ],
+  [
+    "Buat akun dan isi data",
+    "Lengkapi informasi yang diminta; proses identitas dapat mencakup dokumen dan verifikasi OTP WhatsApp.",
+  ],
+  [
+    "Kirim untuk ditinjau",
+    "Tim PINDAI memeriksa pengajuan. Status verifikasi identitas tidak sama dengan persetujuan pinjaman.",
+  ],
+  [
+    "Pantau catatan",
+    "Dashboard menampilkan status dan riwayat. Persetujuan bukan jaminan pencairan.",
+  ],
+] as const;
+
+/**
+ * Kepala tiga lembar informasi publik.
+ *
+ * Halaman biaya dan halaman layanan tetap memakai kepala produknya sendiri.
+ * Tiga halaman panduan ini dibaca seperti lembar laporan: label, judul serif,
+ * catatan pinggir, tanpa kartu hero tambahan.
+ */
+function LembarMasthead({
+  label,
+  title,
+  description,
+  catatan,
+  ikon: Icon,
+}: {
+  label: string;
+  title: string;
+  description: string;
+  catatan: string;
+  ikon: LucideIcon;
+}) {
+  return (
+    <header className="mt-7 border-y border-border">
+      <div className="grid gap-8 py-8 sm:py-10 lg:grid-cols-[1.18fr_0.82fr] lg:gap-14">
+        <div>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold uppercase tracking-[0.2em] text-gold-foreground">
+            <span className="font-mono tracking-normal">Lembar informasi</span>
+            <span aria-hidden="true" className="h-px w-6 bg-gold/50" />
+            {label}
+          </p>
+          <div className="mt-5 flex items-start gap-4">
+            <span className="mt-1 flex size-11 shrink-0 items-center justify-center rounded-lg border border-gold/40 bg-secondary text-primary">
+              <Icon className="size-5" aria-hidden="true" />
+            </span>
+            <h1 className="font-judul text-[2.35rem] leading-[1.05] tracking-tight text-foreground sm:text-[3rem]">
+              {title}
+            </h1>
+          </div>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+            {description}
+          </p>
+        </div>
+
+        <aside className="border-t border-border pt-5 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
+            Catatan pinggir
+          </p>
+          <p className="mt-3 font-judul text-xl leading-snug text-foreground">
+            {catatan}
+          </p>
+          <p className="mt-4 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+            Lembar informasi publik PINDAI. Angka dan status mengikuti catatan
+            aplikasi.
+          </p>
+        </aside>
+      </div>
+    </header>
+  );
+}
+
+/** Satu baris bernomor di lembar keamanan, tanpa permukaan kartu. */
+function BarisKeamanan({
+  nomor,
+  judul,
+  children,
+}: {
+  nomor: string;
+  judul: string;
+  children: ReactNode;
+}) {
+  return (
+    <article className="grid gap-4 border-b border-border py-6 sm:grid-cols-[3.25rem_1fr] sm:gap-6">
+      <span
+        aria-hidden="true"
+        className="font-mono text-xs font-medium tabular-nums text-gold-foreground"
+      >
+        {nomor}
+      </span>
+      <div className="min-w-0">
+        <h3 className="font-judul text-xl leading-snug text-foreground sm:text-2xl">
+          {judul}
+        </h3>
+        <div className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          {children}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 /**
  * Halaman ini menerima tarif denda lewat prop supaya bisa dirender tanpa
  * Convex (test render statis), sementara rute memakai versi live di bawah.
@@ -855,6 +972,18 @@ export function PublicInfoPageView({
   const pinjaman = pathname === "/layanan/pinjaman-tunai";
   const keamanan = pathname === "/keamanan";
   const faq = pathname === "/faq";
+  const lembar = cara || keamanan || faq;
+  const deskripsiLembar = cara
+    ? "Alur berikut menjelaskan tahapan yang tersedia di aplikasi. Peninjauan pengajuan dan proses di luar aplikasi tetap diperlukan."
+    : keamanan
+      ? "Berikut batas akses dan tanggung jawab aplikasi berdasarkan alur yang tersedia. Tidak ada klaim keamanan atau sertifikasi di luar keterangan yang dapat diperiksa."
+      : "Jawaban ringkas tentang pencatatan, perhitungan, dan batas layanan PINDAI.";
+  const catatanLembar = cara
+    ? "Pencairan, pelunasan, dan pemeriksaan barang berlangsung di luar aplikasi."
+    : keamanan
+      ? "Catatan status bukan bukti transaksi. Tidak ada klaim keamanan absolut."
+      : "Jawaban di sini bukan pengganti Syarat & Ketentuan.";
+  const labelLembar = cara ? "Panduan" : keamanan ? "Keamanan" : "Bantuan";
   const jenisLayanan: JenisLayanan | null = pinjaman
     ? "pinjaman"
     : gadai
@@ -899,7 +1028,9 @@ export function PublicInfoPageView({
           ? Package
           : keamanan
             ? LockKeyhole
-            : ShieldCheck;
+            : faq
+              ? CircleHelp
+              : ShieldCheck;
 
   useEffect(() => {
     const originalTitle = document.title;
@@ -937,14 +1068,23 @@ export function PublicInfoPageView({
           ) : null}
         </div>
 
-        <div
-          className={
-            jenisLayanan
-              ? "mt-7 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start"
-              : "mt-7 max-w-3xl"
-          }
-        >
-          <div>
+        {lembar ? (
+          <LembarMasthead
+            label={labelLembar}
+            title={title}
+            description={deskripsiLembar}
+            catatan={catatanLembar}
+            ikon={Icon}
+          />
+        ) : (
+          <div
+            className={
+              jenisLayanan
+                ? "mt-7 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start"
+                : "mt-7 max-w-3xl"
+            }
+          >
+            <div>
             <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
               <Icon className="size-5" aria-hidden="true" />
             </span>
@@ -970,8 +1110,9 @@ export function PublicInfoPageView({
                           : "Jawaban ringkas tentang pencatatan, perhitungan, dan batas layanan PINDAI."}
             </p>
           </div>
-          {jenisLayanan ? <RingkasanLayanan jenis={jenisLayanan} /> : null}
-        </div>
+            {jenisLayanan ? <RingkasanLayanan jenis={jenisLayanan} /> : null}
+          </div>
+        )}
         {jenisLayanan ? <NavigasiLayanan jenis={jenisLayanan} /> : null}
 
         {biaya || pinjaman ? (
@@ -1269,159 +1410,309 @@ export function PublicInfoPageView({
         ) : null}
 
         {cara ? (
-          <section className="mt-9">
-            <ol className="divide-y divide-border border-y border-border">
-              {[
-                [
-                  "Pilih jenis pengajuan",
-                  "Tentukan pinjaman tunai, gadai, atau kredit barang.",
-                ],
-                [
-                  "Baca biaya dan ketentuan",
-                  "Gunakan kalkulator dan periksa rincian yang ditampilkan aplikasi.",
-                ],
-                [
-                  "Buat akun dan isi data",
-                  "Lengkapi informasi yang diminta; proses identitas dapat mencakup dokumen dan verifikasi OTP WhatsApp.",
-                ],
-                [
-                  "Kirim untuk ditinjau",
-                  "Tim PINDAI memeriksa pengajuan. Status verifikasi identitas tidak sama dengan persetujuan pinjaman.",
-                ],
-                [
-                  "Pantau catatan",
-                  "Dashboard menampilkan status dan riwayat. Persetujuan bukan jaminan pencairan.",
-                ],
-              ].map(([step, desc], i) => (
-                <li key={step} className="flex gap-4 py-5">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold text-primary">
-                    {i + 1}
-                  </span>
-                  <div>
-                    <h2 className="font-semibold">{step}</h2>
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                      {desc}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <p className="mt-5 rounded-xl border border-border bg-card p-4 text-sm leading-6 text-foreground">
-              Pencairan, pelunasan, pembayaran, pemeriksaan fisik, dan penitipan
-              barang berlangsung di luar aplikasi.
-            </p>
-            <Button
-              asChild
-              className="mt-5 min-h-11 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Link to={FORM_HREF}>Mulai dengan akun</Link>
-            </Button>
+          <section
+            aria-labelledby="cara-alur-title"
+            className="mt-10 sm:mt-16"
+          >
+            <JudulBagian
+              id="cara-alur-title"
+              nomor="01"
+              label="Alur layanan"
+              judul="Lima langkah, satu catatan."
+              deskripsi="Urutan ini mengikuti alur yang tersedia di aplikasi. Status yang tampil adalah catatan, bukan bukti perpindahan dana."
+              className="max-w-2xl border-t-0 pt-0"
+            />
+
+            <div className="mt-7 grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-start lg:gap-14">
+              <ol className="border-t border-border">
+                {LANGKAH_CARA_KERJA.map(([step, desc], i) => (
+                  <li
+                    key={step}
+                    className="grid grid-cols-[2.5rem_1fr] gap-4 border-b border-border py-6 sm:grid-cols-[3.25rem_1fr] sm:gap-6"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="pt-0.5 font-mono text-xs font-medium tabular-nums text-gold-foreground"
+                    >
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="font-judul text-xl leading-snug text-foreground sm:text-2xl">
+                        {step}
+                      </h3>
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                        {desc}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+
+              <aside className="lg:sticky lg:top-24">
+                <div className="border-t border-gold/40 pt-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
+                    Proses di luar aplikasi
+                  </p>
+                  <h3 className="mt-2 font-judul text-xl leading-snug text-foreground">
+                    Aplikasi mencatat, tim yang menjalankan.
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Pencairan dana, cicilan, pelunasan, pemeriksaan fisik, serta
+                    penitipan atau pengembalian barang ditangani di luar
+                    aplikasi. PINDAI menyimpan catatan status dan hitungannya.
+                  </p>
+                </div>
+
+                <div className="mt-6 border-t border-border pt-5">
+                  <Button
+                    asChild
+                    className="min-h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Link to={FORM_HREF}>Mulai dengan akun</Link>
+                  </Button>
+                  <Link
+                    to="/biaya"
+                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Baca biaya dan ketentuan
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                </div>
+              </aside>
+            </div>
           </section>
         ) : null}
 
         {keamanan ? (
-          <section className="mt-9 grid gap-4 md:grid-cols-2">
-            <article className="rounded-2xl border border-border bg-card p-5">
-              <h2 className="flex items-center gap-2 font-semibold">
-                <ShieldCheck
-                  className="size-4 text-primary"
-                  aria-hidden="true"
+          <section
+            aria-labelledby="keamanan-daftar-title"
+            className="mt-10 sm:mt-16"
+          >
+            <JudulBagian
+              id="keamanan-daftar-title"
+              nomor="01"
+              label="Batas & akses"
+              judul="Empat hal yang perlu dibaca."
+              deskripsi="Halaman ini menjelaskan apa yang dicatat, siapa yang dapat membaca, dan bagian mana yang tetap ditangani di luar aplikasi."
+              className="max-w-2xl border-t-0 pt-0"
+            />
+
+            <div className="mt-6 border-t border-border">
+              <BarisKeamanan nomor="01" judul="Akses dan akun">
+                <p>
+                  Dashboard memerlukan akun; kode email digunakan untuk masuk
+                  dan OTP WhatsApp untuk verifikasi nomor pada alur yang
+                  memerlukannya. Jaga kode OTP dan jangan membagikannya. Riwayat
+                  tidak ditampilkan ke publik.
+                </p>
+              </BarisKeamanan>
+
+              <BarisKeamanan nomor="02" judul="Data yang dicatat">
+                <p>
+                  Pengajuan identitas dapat memerlukan NIK, nomor WhatsApp,
+                  informasi penghasilan, foto KTP, selfie dengan KTP, serta
+                  bukti penghasilan. Dokumen gambar yang diterima adalah{" "}
+                  {GAMBAR_DITERIMA.join(", ")} dengan batas{" "}
+                  {Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB per berkas.
+                  Saat alur Peminjam digunakan, titik lokasi dikirim berkala,
+                  sekitar tiap {LOKASI_KEBIJAKAN.intervalDetik} detik; transaksi
+                  tertentu memerlukan titik yang berumur tidak lebih dari{" "}
+                  {DEFAULT_CONFIG.lokasiMaxUmurMenit} menit. Browser tidak
+                  mengirim lokasi setelah halaman ditutup.
+                </p>
+              </BarisKeamanan>
+
+              <BarisKeamanan nomor="03" judul="Batas pencatatan">
+                <p>
+                  Aplikasi mencatat pengajuan, hasil hitung, perubahan status,
+                  dan riwayat. Aplikasi tidak memindahkan uang atau
+                  memeriksa/menyimpan barang. Catatan status bukan bukti
+                  transaksi.
+                </p>
+              </BarisKeamanan>
+
+              <BarisKeamanan nomor="04" judul="Akses informasi">
+                <p>
+                  Informasi akun dan pengajuan tidak ditampilkan ke publik.
+                  Akses mengikuti akun dan peran; pendana yang diberi akses
+                  dapat melihat ringkasan pinjaman, bukan dokumen identitas.
+                </p>
+              </BarisKeamanan>
+            </div>
+
+            <section
+              aria-labelledby="keamanan-rujukan-title"
+              className="mt-10 border-y border-border bg-secondary"
+            >
+              <div className="grid gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-14">
+                <JudulBagian
+                  id="keamanan-rujukan-title"
+                  nomor="02"
+                  label="Rujukan"
+                  judul="Baca sumber lengkapnya."
+                  deskripsi="Ketentuan dan kebijakan menjelaskan hak, kewajiban, serta pemrosesan data secara lengkap."
+                  className="border-t-0 pt-0"
                 />
-                Akses dan akun
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Dashboard memerlukan akun; kode email digunakan untuk masuk dan
-                OTP WhatsApp untuk verifikasi nomor pada alur yang
-                memerlukannya. Jaga kode OTP dan jangan membagikannya. Riwayat
-                tidak ditampilkan ke publik.
-              </p>
-            </article>
-            <article className="rounded-2xl border border-border bg-card p-5">
-              <h2 className="flex items-center gap-2 font-semibold">
-                <LockKeyhole
-                  className="size-4 text-primary"
-                  aria-hidden="true"
-                />
-                Data yang dicatat
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Pengajuan identitas dapat memerlukan NIK, nomor WhatsApp,
-                informasi penghasilan, foto KTP, selfie dengan KTP, serta bukti
-                penghasilan. Dokumen gambar yang diterima adalah{" "}
-                {GAMBAR_DITERIMA.join(", ")} dengan batas{" "}
-                {Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB per berkas. Saat
-                alur Peminjam digunakan, titik lokasi dikirim berkala, sekitar
-                tiap {LOKASI_KEBIJAKAN.intervalDetik} detik; transaksi tertentu
-                memerlukan titik yang berumur tidak lebih dari{" "}
-                {DEFAULT_CONFIG.lokasiMaxUmurMenit} menit. Browser tidak
-                mengirim lokasi setelah halaman ditutup.
-              </p>
-            </article>
-            <article className="rounded-2xl border border-border bg-card p-5">
-              <h2 className="font-semibold">Batas pencatatan</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Aplikasi mencatat pengajuan, hasil hitung, perubahan status, dan
-                riwayat. Aplikasi tidak memindahkan uang atau
-                memeriksa/menyimpan barang. Catatan status bukan bukti
-                transaksi.
-              </p>
-            </article>
-            <article className="rounded-2xl border border-border bg-card p-5">
-              <h2 className="font-semibold">Akses informasi</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Informasi akun dan pengajuan tidak ditampilkan ke publik. Akses
-                mengikuti akun dan peran; pendana yang diberi akses dapat
-                melihat ringkasan pinjaman, bukan dokumen identitas.
-              </p>
-              <Link
-                className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary underline underline-offset-4"
-                to="/syarat-ketentuan"
-              >
-                Baca syarat dan ketentuan{" "}
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
-            </article>
+                <ul className="divide-y divide-border">
+                  <li>
+                    <Link
+                      to="/syarat-ketentuan"
+                      className="group flex min-h-14 items-center justify-between gap-4 py-4 text-foreground hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          Syarat &amp; Ketentuan
+                        </span>
+                        <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                          Baca syarat dan ketentuan layanan.
+                        </span>
+                      </span>
+                      <ArrowRight
+                        className="size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/privasi"
+                      className="group flex min-h-14 items-center justify-between gap-4 py-4 text-foreground hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          Kebijakan Privasi
+                        </span>
+                        <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                          Data yang diproses, retensi, dan hak subjek data.
+                        </span>
+                      </span>
+                      <ArrowRight
+                        className="size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/faq"
+                      className="group flex min-h-14 items-center justify-between gap-4 py-4 text-foreground hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          Pertanyaan umum
+                        </span>
+                        <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                          Jawaban ringkas tentang biaya, akun, dan status.
+                        </span>
+                      </span>
+                      <ArrowRight
+                        className="size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </section>
           </section>
         ) : null}
 
         {faq ? (
-          <section className="mt-9">
-            <Accordion
-              type="single"
-              collapsible
-              className="overflow-hidden rounded-2xl border border-border bg-card px-4 sm:px-6"
+          <section
+            aria-labelledby="faq-daftar-title"
+            className="mt-10 sm:mt-16"
+          >
+            <JudulBagian
+              id="faq-daftar-title"
+              nomor="01"
+              label="Daftar pertanyaan"
+              judul="Tujuh pertanyaan yang sering masuk."
+              deskripsi="Pilih pertanyaan untuk membaca jawabannya. Angka biaya mengikuti pengaturan yang berlaku."
+              className="max-w-2xl border-t-0 pt-0"
+            />
+
+            <div className="mt-7 grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:gap-14">
+              <div className="order-2 lg:order-1">
+                <div className="border-t border-gold/40 pt-5 lg:sticky lg:top-24">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
+                    Rujukan
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                    Perlu membaca ketentuan lengkap?
+                  </p>
+                  <Link
+                    to="/syarat-ketentuan"
+                    className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Buka Syarat &amp; Ketentuan
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                </div>
+              </div>
+
+              <div className="order-1 min-w-0 lg:order-2">
+                <Accordion
+                  type="single"
+                  collapsible
+                  className="border-y border-border"
+                >
+                  {faqItems.map((item, i) => (
+                    <AccordionItem key={item.q} value={item.q}>
+                      <AccordionTrigger className="min-h-16 gap-4 rounded-lg py-5 text-left hover:no-underline">
+                        <span className="flex min-w-0 items-start gap-4">
+                          <span
+                            aria-hidden="true"
+                            className="mt-0.5 shrink-0 font-mono text-xs font-medium tabular-nums text-gold-foreground"
+                          >
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <span className="font-judul text-lg leading-snug text-foreground">
+                            {item.q}
+                          </span>
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-5 pl-8 pr-0 text-sm leading-6 text-muted-foreground sm:pl-9">
+                        {item.a}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            </div>
+
+            <section
+              aria-labelledby="faq-bantuan-title"
+              className="mt-10 border-y border-sky-200 bg-sky-100"
             >
-              {faqItems.map((item) => (
-                <AccordionItem key={item.q} value={item.q}>
-                  <AccordionTrigger className="min-h-12 text-left font-semibold">
-                    {item.q}
-                  </AccordionTrigger>
-                  <AccordionContent className="text-sm leading-6 text-muted-foreground">
-                    {item.a}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-            <p className="mt-6 text-sm text-muted-foreground">
-              Perlu membaca ketentuan lengkap?{" "}
-              <Link
-                className="font-semibold text-primary underline underline-offset-4"
-                to="/syarat-ketentuan"
-              >
-                Buka Syarat &amp; Ketentuan
-              </Link>
-              .
-            </p>
-          </section>
-        ) : null}
-        {cara ? (
-          <section className="mt-8 rounded-2xl border border-border bg-card p-5">
-            <h2 className="font-semibold">Proses di luar aplikasi</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Pencairan dana, cicilan, pelunasan, pemeriksaan fisik, serta
-              penitipan atau pengembalian barang ditangani di luar aplikasi.
-              PINDAI menyimpan catatan status dan hitungannya.
-            </p>
+              <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
+                    Belum terjawab?
+                  </p>
+                  <h2
+                    id="faq-bantuan-title"
+                    className="mt-2 font-judul text-2xl leading-tight text-foreground"
+                  >
+                    Tanya langsung ke CS.
+                  </h2>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-700">
+                    Chat CS di WhatsApp. Jangan kirim kata sandi atau kode OTP
+                    lewat chat.
+                  </p>
+                </div>
+                <a
+                  href={urlChatCs(
+                    "Halo PINDAI, saya belum menemukan jawaban di pertanyaan umum.",
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
+                >
+                  Chat CS di WhatsApp
+                  <IkonWhatsapp className="size-4" />
+                </a>
+              </div>
+            </section>
           </section>
         ) : null}
       </main>
