@@ -50,21 +50,27 @@ data pribadi.
 ### 2.1. Menyiapkan kredensial Google
 
 1. Di Google Cloud Console, aktifkan **Google Drive API** dan buat **OAuth client
-   ID** bertipe **Desktop app**. Tambahkan
+   ID** bertipe **Web application**. Tambahkan
    `https://developers.google.com/oauthplayground` sebagai **Authorized redirect
    URI**.
 2. Buka [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/),
    buka ikon gerigi, centang **Use your own OAuth credentials**, lalu isi client ID
-   dan client secret tadi.
-3. Masukkan scope `https://www.googleapis.com/auth/drive.file`, authorize dengan
-   akun Google pemilik folder backup, lalu tukar authorization code menjadi token.
-   Salin **refresh token**-nya.
-4. Isi empat variabel di **Keys/API keys** deployment Convex:
+   dan client secret tadi. Pilih **Access type: Offline** dan **Force prompt:
+   Consent Screen** agar Google selalu menerbitkan refresh token.
+   Jangan memakai kredensial bawaan Playground: tokennya dicabut otomatis dalam
+   24 jam dan tidak akan cocok dengan client ID deployment.
+3. Di **Step 1**, masukkan scope
+   `https://www.googleapis.com/auth/drive.file`, lalu authorize dengan akun Google
+   pemilik folder backup.
+4. Di **Step 2**, klik **Exchange authorization code for tokens**, lalu salin nilai
+   `refresh_token` (biasanya berawalan `1//`). **Step 3 tidak perlu diisi**; itu
+   hanya untuk menguji panggilan API dan bukan tempat memasukkan refresh token.
+5. Isi empat variabel di **Keys/API keys** deployment Convex:
    - `GOOGLE_DRIVE_CLIENT_ID`
    - `GOOGLE_DRIVE_CLIENT_SECRET`
    - `GOOGLE_DRIVE_REFRESH_TOKEN`
    - `BACKUP_DRIVE_ENCRYPTION_KEY`
-5. Opsional: `GOOGLE_DRIVE_FOLDER_NAME` untuk mengganti nama folder bawaan
+6. Opsional: `GOOGLE_DRIVE_FOLDER_NAME` untuk mengganti nama folder bawaan
    `PINDAI Backup`.
 
 > Aplikasi OAuth yang masih berstatus **Testing** memberi refresh token yang
