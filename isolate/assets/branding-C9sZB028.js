@@ -1,0 +1,1 @@
+const a="PT Pindai Digital Solusindo",i=`© 2026 ${a}. All Rights Reserved.`,s="Citra Kebun Mas, Karawang",A="support@pindai.biz.id",I="PINDAI adalah platform sistem informasi pembiayaan mikro berbasis teknologi yang dikembangkan oleh PT Pindai Digital Solusindo.",n=`Publisher: ${a}`;export{s as A,A as E,i as H,a as N,I as P,n as a};

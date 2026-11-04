@@ -1,1 +1,0 @@
-const a="PT Pindai Digital Solusindo",i=`© 2026 ${a}. All Rights Reserved.`,s="PINDAI adalah platform sistem informasi pembiayaan mikro berbasis teknologi yang dikembangkan oleh PT Pindai Digital Solusindo.",o=`Publisher: ${a}`;export{i as H,a as N,s as P,o as a};
