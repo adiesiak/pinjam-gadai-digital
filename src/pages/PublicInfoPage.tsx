@@ -118,6 +118,14 @@ const ROUTES = [
   "/faq",
 ] as const;
 
+const SKEMA_KALKULATOR = [
+  { id: "harian", label: "Harian" },
+  { id: "bulanan", label: "Bulanan" },
+  { id: "gadai", label: "Gadai" },
+] as const;
+
+type SkemaKalkulator = (typeof SKEMA_KALKULATOR)[number]["id"];
+
 /**
  * Kalkulator publik memakai tarif yang sama dengan mesin pengajuan
  * (`system.getKetentuanBiaya`): potongan di muka dan tarif bulanan per tenor.
@@ -140,6 +148,7 @@ function KalkulatorRingkas({
   const [pokokBulanan, setPokokBulanan] = useState(1_000_000);
   const [tenorBulanan, setTenorBulanan] =
     useState<(typeof TENOR_BULANAN_OPTIONS)[number]>(3);
+  const [skema, setSkema] = useState<SkemaKalkulator>("harian");
   const tenorHarianEfektif = sesuaikanTenorHarian(pokokHarian, tenorHarian);
   const tenorHarianOpsi = tenorHarianTersedia(pokokHarian);
   const tarifHarian =
@@ -180,244 +189,442 @@ function KalkulatorRingkas({
     }
   }, [pokokGadai]);
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <article className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="font-semibold">Pinjaman harian</h3>
-          <span className="text-xs text-muted-foreground">
-            {formatRupiah(LOAN_LIMITS.minPokok)} sampai{" "}
-            {formatRupiah(LOAN_LIMITS.maxPokok)}
-          </span>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <div>
-            <Label htmlFor="pokok-harian">Pokok pinjaman (Rp)</Label>
-            <Input
-              id="pokok-harian"
-              type="number"
-              inputMode="numeric"
-              min={LOAN_LIMITS.minPokok}
-              max={LOAN_LIMITS.maxPokok}
-              step={10_000}
-              value={pokokHarian}
-              onChange={(event) => pilihPokokHarian(Number(event.target.value))}
-              className="mt-1 min-h-11"
-            />
-          </div>
-          <div>
-            <Label htmlFor="tenor-harian">Tenor</Label>
-            <select
-              id="tenor-harian"
-              value={tenorHarianEfektif}
-              onChange={(event) =>
-                setTenorHarian(
-                  Number(event.target.value) as (typeof TENOR_OPTIONS)[number],
-                )
-              }
-              className="mt-1 min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm sm:w-32"
+    <div className="relative overflow-hidden rounded-2xl border border-sky-200 bg-sky-100">
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1.5 bg-gold" />
+      <div className="relative p-5 pt-7 sm:p-7 sm:pt-8 lg:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-2xl">
+            <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gold-foreground">
+              <span className="flex size-7 items-center justify-center rounded-lg border border-gold/40 bg-card">
+                <Calculator className="size-4" aria-hidden="true" />
+              </span>
+              Kalkulator biaya
+            </p>
+            <h2
+              id="kalkulator-title"
+              className="mt-3 font-judul text-[1.8rem] leading-[1.1] tracking-tight text-foreground sm:text-[2.2rem]"
             >
-              {TENOR_OPTIONS.map((hari) => {
-                const aktif = (tenorHarianOpsi as readonly number[]).includes(hari);
-                return (
-                  <option key={hari} value={hari} disabled={!aktif}>
-                    {hari} hari{aktif ? "" : " (terkunci)"}
-                  </option>
-                );
-              })}
-            </select>
+              Contoh perhitungan
+            </h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-700">
+              Pilih skema, ubah nominal dan tenor, lalu baca ringkasan di
+              sebelahnya. Angka bergerak tanpa memuat ulang halaman.
+            </p>
           </div>
-        </div>
-        {simulasiHarian ? (
-          <dl
-            aria-live="polite"
-            className="mt-4 divide-y divide-border text-sm"
-          >
-            <Baris label={`Tenor pilihan ${tenorHarianEfektif} hari`} nilai="" />
-            <Baris
-              label={`Potongan awal ${rincianPotonganDiMuka(tarif)}`}
-              nilai={formatRupiah(simulasiHarian.totalPotonganDiMuka)}
-            />
-            <Baris
-              label="Dana bersih pada hitungan"
-              nilai={formatRupiah(simulasiHarian.danaBersihDitransfer)}
-            />
-            <Baris
-              label={`Bunga ${tarifHarian}%`}
-              nilai={formatRupiah(simulasiHarian.bunga)}
-            />
-            <Baris
-              label="Kewajiban ilustratif"
-              nilai={formatRupiah(simulasiHarian.totalKewajibanPelunasan)}
-            />
-          </dl>
-        ) : (
-          <p className="mt-4 text-sm text-amber-800" role="status">
-            Masukkan pokok antara {formatRupiah(LOAN_LIMITS.minPokok)} dan{" "}
-            {formatRupiah(LOAN_LIMITS.maxPokok)}.
+          <p className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-card px-3 py-1.5 text-xs font-medium text-slate-700">
+            <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
+            Ilustrasi, bukan persetujuan
           </p>
-        )}
-      </article>
-      <article className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="font-semibold">Pinjaman bulanan</h3>
-          <span className="text-xs text-muted-foreground">
-            {formatRupiah(BULANAN_LIMITS.minPokok)} sampai{" "}
-            {formatRupiah(BULANAN_LIMITS.maxPokok)}
-          </span>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <div>
-            <Label htmlFor="pokok-bulanan">Pokok pinjaman (Rp)</Label>
-            <Input
-              id="pokok-bulanan"
-              type="number"
-              inputMode="numeric"
-              min={100_000}
-              max={500_000_000}
-              step={10_000}
-              value={pokokBulanan}
-              onChange={(event) => setPokokBulanan(Number(event.target.value))}
-              className="mt-1 min-h-11"
-            />
+
+        <div
+          role="group"
+          aria-label="Pilih skema perhitungan"
+          className="mt-6 grid grid-cols-3 gap-1 rounded-lg border border-sky-200 bg-card p-1"
+        >
+          {SKEMA_KALKULATOR.map((item) => {
+            const aktif = skema === item.id;
+            return (
+              <button
+                key={item.id}
+                id={`tab-${item.id}`}
+                type="button"
+                aria-pressed={aktif}
+                aria-controls={`panel-${item.id}`}
+                onClick={() => setSkema(item.id)}
+                className={
+                  aktif
+                    ? "min-h-11 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    : "min-h-11 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                }
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          id="panel-harian"
+          role="region"
+          aria-labelledby="tab-harian"
+          className={
+            skema === "harian"
+              ? "mt-4 grid gap-4 lg:grid-cols-[1.02fr_0.98fr]"
+              : "hidden"
+          }
+        >
+          <div className="rounded-2xl border border-sky-200 bg-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+                  Skema harian
+                </p>
+                <h3 className="mt-1 font-judul text-xl leading-tight text-foreground">
+                  Pinjaman harian
+                </h3>
+              </div>
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium tabular-nums text-muted-foreground">
+                {formatRupiah(LOAN_LIMITS.minPokok)} sampai{" "}
+                {formatRupiah(LOAN_LIMITS.maxPokok)}
+              </span>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+              <div>
+                <Label htmlFor="pokok-harian">Pokok pinjaman (Rp)</Label>
+                <Input
+                  id="pokok-harian"
+                  type="number"
+                  inputMode="numeric"
+                  min={LOAN_LIMITS.minPokok}
+                  max={LOAN_LIMITS.maxPokok}
+                  step={10_000}
+                  value={pokokHarian}
+                  onChange={(event) =>
+                    pilihPokokHarian(Number(event.target.value))
+                  }
+                  className="mt-1 min-h-11 tabular-nums"
+                />
+              </div>
+              <div>
+                <Label htmlFor="tenor-harian">Tenor</Label>
+                <select
+                  id="tenor-harian"
+                  value={tenorHarianEfektif}
+                  onChange={(event) =>
+                    setTenorHarian(
+                      Number(
+                        event.target.value,
+                      ) as (typeof TENOR_OPTIONS)[number],
+                    )
+                  }
+                  className="mt-1 min-h-11 w-full rounded-lg border border-input bg-card px-3 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-36"
+                >
+                  {TENOR_OPTIONS.map((hari) => {
+                    const aktif = (
+                      tenorHarianOpsi as readonly number[]
+                    ).includes(hari);
+                    return (
+                      <option key={hari} value={hari} disabled={!aktif}>
+                        {hari} hari{aktif ? "" : " (terkunci)"}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Tenor mengikuti batas nominal. Pilihan terkunci tidak tersedia
+              untuk pokok ini.
+            </p>
+            {simulasiHarian ? null : (
+              <p
+                role="status"
+                className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800"
+              >
+                Masukkan pokok antara {formatRupiah(LOAN_LIMITS.minPokok)} dan{" "}
+                {formatRupiah(LOAN_LIMITS.maxPokok)}.
+              </p>
+            )}
           </div>
-          <div>
-            <Label htmlFor="tenor-bulanan">Tenor</Label>
-            <select
-              id="tenor-bulanan"
-              value={tenorBulanan}
-              onChange={(event) =>
-                setTenorBulanan(
-                  Number(
-                    event.target.value,
-                  ) as (typeof TENOR_BULANAN_OPTIONS)[number],
-                )
-              }
-              className="mt-1 min-h-11 w-full rounded-lg border border-border bg-card px-3 text-sm sm:w-32"
-            >
-              {TENOR_BULANAN_OPTIONS.map((bulan) => (
-                <option key={bulan} value={bulan}>
-                  {bulan} bulan
-                </option>
-              ))}
-            </select>
+          {simulasiHarian ? (
+            <RingkasanKalkulator
+              judul={`${tenorHarianEfektif} hari`}
+              totalLabel="Kewajiban ilustratif"
+              total={formatRupiah(simulasiHarian.totalKewajibanPelunasan)}
+              baris={[
+                {
+                  label: `Potongan awal ${rincianPotonganDiMuka(tarif)}`,
+                  nilai: formatRupiah(simulasiHarian.totalPotonganDiMuka),
+                },
+                {
+                  label: "Dana bersih pada hitungan",
+                  nilai: formatRupiah(simulasiHarian.danaBersihDitransfer),
+                },
+                {
+                  label: `Bunga ${tarifHarian}%`,
+                  nilai: formatRupiah(simulasiHarian.bunga),
+                },
+              ]}
+              catatan="Dana bersih adalah pokok setelah potongan di muka. Kewajiban dihitung dari pokok dan bunga tenor terpilih."
+            />
+          ) : (
+            <RingkasanKosong pesan="Ringkasan muncul setelah nominal berada dalam batas pinjaman harian." />
+          )}
+        </div>
+
+        <div
+          id="panel-bulanan"
+          role="region"
+          aria-labelledby="tab-bulanan"
+          className={
+            skema === "bulanan"
+              ? "mt-4 grid gap-4 lg:grid-cols-[1.02fr_0.98fr]"
+              : "hidden"
+          }
+        >
+          <div className="rounded-2xl border border-sky-200 bg-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+                  Skema bulanan
+                </p>
+                <h3 className="mt-1 font-judul text-xl leading-tight text-foreground">
+                  Pinjaman bulanan
+                </h3>
+              </div>
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium tabular-nums text-muted-foreground">
+                {formatRupiah(BULANAN_LIMITS.minPokok)} sampai{" "}
+                {formatRupiah(BULANAN_LIMITS.maxPokok)}
+              </span>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+              <div>
+                <Label htmlFor="pokok-bulanan">Pokok pinjaman (Rp)</Label>
+                <Input
+                  id="pokok-bulanan"
+                  type="number"
+                  inputMode="numeric"
+                  min={BULANAN_LIMITS.minPokok}
+                  max={BULANAN_LIMITS.maxPokok}
+                  step={10_000}
+                  value={pokokBulanan}
+                  onChange={(event) =>
+                    setPokokBulanan(Number(event.target.value))
+                  }
+                  className="mt-1 min-h-11 tabular-nums"
+                />
+              </div>
+              <div>
+                <Label htmlFor="tenor-bulanan">Tenor</Label>
+                <select
+                  id="tenor-bulanan"
+                  value={tenorBulanan}
+                  onChange={(event) =>
+                    setTenorBulanan(
+                      Number(
+                        event.target.value,
+                      ) as (typeof TENOR_BULANAN_OPTIONS)[number],
+                    )
+                  }
+                  className="mt-1 min-h-11 w-full rounded-lg border border-input bg-card px-3 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-36"
+                >
+                  {TENOR_BULANAN_OPTIONS.map((bulan) => (
+                    <option key={bulan} value={bulan}>
+                      {bulan} bulan
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Bunga mengikuti tenor. Biaya admin cicilan dihitung pada setiap
+              pembayaran bulanan.
+            </p>
+            {simulasiBulanan ? null : (
+              <p
+                role="status"
+                className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800"
+              >
+                Masukkan pokok antara {formatRupiah(BULANAN_LIMITS.minPokok)}{" "}
+                dan {formatRupiah(BULANAN_LIMITS.maxPokok)}.
+              </p>
+            )}
           </div>
+          {simulasiBulanan ? (
+            <RingkasanKalkulator
+              judul={`${tenorBulanan} bulan`}
+              totalLabel="Cicilan per bulan"
+              total={formatRupiah(simulasiBulanan.cicilanPerBulan)}
+              baris={[
+                {
+                  label: `Potongan awal ${tarifBulanan.persenBiayaLayananBulanan}%`,
+                  nilai: formatRupiah(simulasiBulanan.potonganDiMuka),
+                },
+                {
+                  label: "Dana bersih pada hitungan",
+                  nilai: formatRupiah(simulasiBulanan.danaDiterima),
+                },
+                {
+                  label: `Bunga flat ${simulasiBulanan.persenBungaPerBulan}% per bulan`,
+                  nilai: formatRupiah(simulasiBulanan.bungaPerBulan),
+                },
+                {
+                  label: "Bunga selama tenor",
+                  nilai: formatRupiah(simulasiBulanan.bungaTotal),
+                },
+                {
+                  label: "Admin cicilan selama tenor",
+                  nilai: formatRupiah(simulasiBulanan.biayaAdminCicilanTotal),
+                },
+                {
+                  label: "Cicilan bulan terakhir (pembulatan pokok)",
+                  nilai: formatRupiah(simulasiBulanan.cicilanTerakhir),
+                },
+                {
+                  label: "Total jadwal cicilan",
+                  nilai: formatRupiah(simulasiBulanan.totalPengembalian),
+                },
+              ]}
+              catatan="Cicilan per bulan sudah termasuk biaya admin cicilan bila berlaku. Jadwal ini ilustrasi, bukan catatan pembayaran."
+            />
+          ) : (
+            <RingkasanKosong pesan="Ringkasan muncul setelah nominal berada dalam batas pinjaman bulanan." />
+          )}
         </div>
-        {simulasiBulanan ? (
-          <dl
-            aria-live="polite"
-            className="mt-4 divide-y divide-border text-sm"
-          >
-            <Baris
-              label={`Potongan awal ${tarifBulanan.persenBiayaLayananBulanan}%`}
-              nilai={formatRupiah(simulasiBulanan.potonganDiMuka)}
+
+        <div
+          id="panel-gadai"
+          role="region"
+          aria-labelledby="tab-gadai"
+          className={
+            skema === "gadai"
+              ? "mt-4 grid gap-4 lg:grid-cols-[1.02fr_0.98fr]"
+              : "hidden"
+          }
+        >
+          <div className="rounded-2xl border border-sky-200 bg-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-foreground">
+                  Gadai
+                </p>
+                <h3 className="mt-1 font-judul text-xl leading-tight text-foreground">
+                  Hitung gadai
+                </h3>
+              </div>
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium tabular-nums text-muted-foreground">
+                LTV {GADAI_PRICING.ltvMaxPercent}% · sewa{" "}
+                {GADAI_PRICING.sewaModalMinPercent}–{
+                  GADAI_PRICING.sewaModalMaxPercent
+                }%
+              </span>
+            </div>
+            <div className="mt-5 max-w-sm">
+              <Label htmlFor="pokok-gadai">Pokok acuan gadai (Rp)</Label>
+              <Input
+                id="pokok-gadai"
+                type="number"
+                inputMode="numeric"
+                min={100_000}
+                step={10_000}
+                value={pokokGadai}
+                onChange={(event) => setPokokGadai(Number(event.target.value))}
+                className="mt-1 min-h-11 tabular-nums"
+              />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Batas hitung maksimal {GADAI_PRICING.ltvMaxPercent}% dari harga
+              pasar yang dicantumkan. Taksiran aplikasi bukan pemeriksaan fisik.
+            </p>
+            {simulasiGadai ? null : (
+              <p
+                role="status"
+                className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800"
+              >
+                Masukkan pokok gadai berupa angka positif.
+              </p>
+            )}
+          </div>
+          {simulasiGadai ? (
+            <RingkasanKalkulator
+              judul={`${GADAI_PRICING.periodeHari} hari`}
+              totalLabel="Kewajiban awal ilustratif"
+              total={formatRupiah(simulasiGadai.totalKewajibanAwal)}
+              baris={[
+                {
+                  label: "Potongan awal",
+                  nilai: formatRupiah(simulasiGadai.potonganDiMuka),
+                },
+                {
+                  label: "Dana bersih pada hitungan",
+                  nilai: formatRupiah(simulasiGadai.danaBersihDitransfer),
+                },
+                {
+                  label: `Sewa periode awal ${simulasiGadai.persenSewaModal}%`,
+                  nilai: formatRupiah(simulasiGadai.sewaModalPeriode),
+                },
+              ]}
+              catatan="Sewa modal dihitung dari sisa pokok untuk satu periode. Angka ini belum termasuk perpanjangan atau biaya di luar ketentuan gadai."
             />
-            <Baris
-              label="Dana bersih pada hitungan"
-              nilai={formatRupiah(simulasiBulanan.danaDiterima)}
-            />
-            <Baris
-              label={`Bunga flat ${simulasiBulanan.persenBungaPerBulan}% per bulan`}
-              nilai={formatRupiah(simulasiBulanan.bungaPerBulan)}
-            />
-            <Baris
-              label="Bunga selama tenor"
-              nilai={formatRupiah(simulasiBulanan.bungaTotal)}
-            />
-            <Baris
-              label="Cicilan bulanan termasuk admin bila berlaku"
-              nilai={formatRupiah(simulasiBulanan.cicilanPerBulan)}
-            />
-            <Baris
-              label="Cicilan bulan terakhir (pembulatan pokok)"
-              nilai={formatRupiah(simulasiBulanan.cicilanTerakhir)}
-            />
-            <Baris
-              label="Total jadwal cicilan"
-              nilai={formatRupiah(simulasiBulanan.totalPengembalian)}
-            />
-            <Baris
-              label="Admin cicilan selama tenor"
-              nilai={formatRupiah(simulasiBulanan.biayaAdminCicilanTotal)}
-            />
-          </dl>
-        ) : (
-          <p className="mt-4 text-sm text-amber-800" role="status">
-            Masukkan pokok antara Rp100.000 dan Rp500.000.000.
-          </p>
-        )}
-      </article>
-      <article className="rounded-2xl border border-border bg-card p-5 sm:p-6 lg:col-span-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="font-semibold">Gadai</h3>
-          <span className="text-xs text-muted-foreground">
-            Potongan {GADAI_PRICING.upfrontDeductionPercent}% · sewa{" "}
-            {GADAI_PRICING.sewaModalMinPercent} sampai{" "}
-            {GADAI_PRICING.sewaModalMaxPercent}% per {GADAI_PRICING.periodeHari}{" "}
-            hari
-          </span>
+          ) : (
+            <RingkasanKosong pesan="Ringkasan muncul setelah pokok gadai diisi dengan angka positif." />
+          )}
         </div>
-        <div className="mt-4 max-w-sm">
-          <Label htmlFor="pokok-gadai">Pokok acuan gadai (Rp)</Label>
-          <Input
-            id="pokok-gadai"
-            type="number"
-            inputMode="numeric"
-            min={100_000}
-            step={10_000}
-            value={pokokGadai}
-            onChange={(event) => setPokokGadai(Number(event.target.value))}
-            className="mt-1 min-h-11"
-          />
-        </div>
-        {simulasiGadai ? (
-          <dl
-            aria-live="polite"
-            className="mt-4 grid gap-x-8 divide-y divide-border text-sm sm:grid-cols-2"
-          >
-            <Baris
-              label="Potongan awal"
-              nilai={formatRupiah(simulasiGadai.potonganDiMuka)}
-            />
-            <Baris
-              label="Dana bersih pada hitungan"
-              nilai={formatRupiah(simulasiGadai.danaBersihDitransfer)}
-            />
-            <Baris
-              label={`Sewa periode awal ${simulasiGadai.persenSewaModal}%`}
-              nilai={formatRupiah(simulasiGadai.sewaModalPeriode)}
-            />
-            <Baris
-              label="Kewajiban awal ilustratif"
-              nilai={formatRupiah(simulasiGadai.totalKewajibanAwal)}
-            />
-          </dl>
-        ) : (
-          <p className="mt-4 text-sm text-amber-800" role="status">
-            Masukkan pokok gadai berupa angka positif.
-          </p>
-        )}
-        <p className="mt-3 text-xs leading-5 text-muted-foreground">
-          Batas hitung internal maksimal {GADAI_PRICING.ltvMaxPercent}% dari
-          harga pasar yang dicantumkan. Taksiran aplikasi bukan pemeriksaan
-          fisik.
+
+        <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-700">
+          Hasil ini ilustrasi hitung, bukan persetujuan atau bukti pencairan.
+          Skema bulanan memakai bunga flat dari pokok penuh; admin cicilan 2%
+          berlaku pada setiap pembayaran bulanan. Periksa angka final pada
+          rincian pengajuan.
         </p>
-      </article>
-      <p className="text-sm leading-6 text-muted-foreground lg:col-span-2">
-        Hasil ini ilustrasi hitung, bukan persetujuan atau bukti pencairan.
-        Skema bulanan memakai bunga flat dari pokok penuh; admin cicilan 2%
-        berlaku pada setiap pembayaran bulanan. Periksa angka final pada rincian
-        pengajuan.
-      </p>
+      </div>
     </div>
   );
 }
 
-function Baris({ label, nilai }: { label: string; nilai: string }) {
+type BarisRingkasan = { label: string; nilai: string };
+
+function RingkasanKalkulator({
+  judul,
+  totalLabel,
+  total,
+  baris,
+  catatan,
+}: {
+  judul: string;
+  totalLabel: string;
+  total: string;
+  baris: readonly BarisRingkasan[];
+  catatan: string;
+}) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-2 py-2.5">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-semibold tabular-nums text-foreground">{nilai}</dd>
-    </div>
+    <aside className="relative flex flex-col overflow-hidden rounded-2xl border border-gold/40 bg-card p-5 sm:p-6">
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-gold" />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+          Ringkasan ilustrasi
+        </p>
+        <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground">
+          {judul}
+        </span>
+      </div>
+      <dl aria-live="polite" className="mt-4 flex-1">
+        <div>
+          <dt className="text-sm text-muted-foreground">{totalLabel}</dt>
+          <dd className="mt-1 font-judul text-[2rem] leading-none tabular-nums text-gold-foreground">
+            {total}
+          </dd>
+        </div>
+        <div className="mt-4 divide-y divide-dashed divide-border border-t border-border">
+          {baris.map((item) => (
+            <div
+              key={item.label}
+              className="flex flex-wrap items-baseline justify-between gap-2 py-2.5"
+            >
+              <dt className="text-sm text-muted-foreground">{item.label}</dt>
+              <dd className="text-sm font-semibold tabular-nums text-foreground">
+                {item.nilai}
+              </dd>
+            </div>
+          ))}
+        </div>
+      </dl>
+      <p className="mt-4 border-t border-dashed border-border pt-3 text-xs leading-5 text-muted-foreground">
+        {catatan}
+      </p>
+    </aside>
+  );
+}
+
+function RingkasanKosong({ pesan }: { pesan: string }) {
+  return (
+    <aside className="flex flex-col justify-center rounded-2xl border border-dashed border-gold/40 bg-card p-5 sm:p-6">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+        Ringkasan ilustrasi
+      </p>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">{pesan}</p>
+    </aside>
   );
 }
 
@@ -770,12 +977,13 @@ export function PublicInfoPageView({
         {biaya || pinjaman ? (
           <section aria-labelledby="tarif-title" className="mt-9 space-y-6">
             {biaya && (
-              <div id="kalkulator" className="scroll-mt-6">
-                <h2 className="mb-4 text-xl font-semibold">
-                  Contoh perhitungan
-                </h2>
+              <section
+                id="kalkulator"
+                aria-labelledby="kalkulator-title"
+                className="scroll-mt-6"
+              >
                 <KalkulatorRingkas tarifBulanan={tarifBulanan} tarif={tarif} />
-              </div>
+              </section>
             )}
             <div>
               <h2 id="tarif-title" className="mb-4 text-xl font-semibold">
