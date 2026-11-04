@@ -250,16 +250,16 @@ describe("otorisasi endpoint admin", () => {
       }),
     );
 
-    await expect(t.query(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/masuk/i);
+    await expect(t.mutation(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/masuk/i);
     const { sesi: peminjam } = await buatPengguna(t, "Peminjam lain", {
       email: "peminjam-lain-kyc@pindai.test",
       role: "peminjam",
     });
-    await expect(peminjam.query(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/admin/i);
-    await expect(admin.query(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/TOTP/i);
+    await expect(peminjam.mutation(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/admin/i);
+    await expect(admin.mutation(api.admin.dokumenKycUrls, { loanId })).rejects.toThrow(/TOTP/i);
 
     await aktifkanTotpUntukSesi(t, adminId, authSessionId);
-    await expect(admin.query(api.admin.dokumenKycUrls, { loanId })).resolves.toMatchObject({
+    await expect(admin.mutation(api.admin.dokumenKycUrls, { loanId })).resolves.toMatchObject({
       nik: "3201234567890001",
       nomorWhatsApp: "6281234567890",
       penghasilanBulanan: 5_000_000,
@@ -269,6 +269,19 @@ describe("otorisasi endpoint admin", () => {
       selfieUrl: null,
       slipUrl: null,
     });
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLog")
+        .withIndex("by_waktu")
+        .order("desc")
+        .first(),
+    );
+    expect(audit).toMatchObject({
+      aktorUserId: adminId,
+      aksi: "dokumen_kyc_dibuka",
+      target: "LON-KYC-AUTHZ",
+    });
+    expect(audit?.detail).toContain("tidak ada berkas identitas");
   });
 
   it("backfill kode pseudonim hanya dapat dijalankan admin dan memproses data lama bertahap", async () => {

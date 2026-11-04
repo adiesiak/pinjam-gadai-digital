@@ -40,7 +40,11 @@ import { HelpdeskSayaView } from "./dashboard/helpdesk-views";
 import { MyContractsSection } from "./dashboard/contract-views";
 import { DaftarPengajuanSyariah } from "./dashboard/syariah-views";
 import { ActiveLoanSection } from "./dashboard/loan-views";
-import { DueReminderBanner, LokasiPeringatanBanner } from "./dashboard/notice-views";
+import {
+  DueReminderBanner,
+  LocationStatusCard,
+  LokasiPeringatanBanner,
+} from "./dashboard/notice-views";
 import { RiwayatProgresPlafon, SummaryCards } from "./dashboard/summary-cards";
 import { DoorprizeWidget } from "@/components/DoorprizeWidget";
 import { KartuReferral } from "@/components/KartuReferral";
@@ -492,8 +496,11 @@ export default function Dashboard() {
                     lokasi nasabah ditandai (mis. koordinat beku berulang). */}
                 <LokasiPeringatanBanner />
 
-                {/* Status lokasi wajib tampil sebagai pil di kanan bawah,
-                    gerbangnya sendiri membungkus seluruh dashboard. */}
+                {/* Status lokasi wajib: kartu ini menjelaskan bahwa pemantauan
+                    adalah syarat transaksi, bukan opt-in yang bisa dibatalkan
+                    diam-diam oleh heartbeat berikutnya. Admin/pendana tidak
+                    diwajibkan lokasi, jadi kartunya tidak ditampilkan. */}
+                {role !== "admin" && role !== "dana" && <LocationStatusCard />}
 
                 {/* ===== TAB 1: RINGKASAN =====
                     Tiga hal saja: kewajiban terdekat (satu kartu), tiga angka

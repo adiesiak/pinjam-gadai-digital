@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { namaHurufBesar, samarkanNama } from "../lib/nama";
 import { KODE_PANJANG, MAKS_GAGAL, normalisasiKode } from "./aksesBersama";
 import schema from "./schema";
 import { buatPengguna, siapkanPengguna, type KonteksUji } from "./test.helpers";
@@ -139,6 +140,11 @@ describe("akses bersama penyedia dana", () => {
 
     const daftar = await tamu.query(api.penyediaDana.daftarPengajuan, {});
     expect(daftar.pinjaman[0]?.nomorReferensi).toBe("PGD-AB-1");
+    // Kode bersama tidak dapat ditelusuri ke satu orang, jadi nama peminjam
+    // harus sudah tersamar di payload server — bukan hanya di layar.
+    expect(daftar.pinjaman[0]?.namaLengkap).toBe(
+      samarkanNama(namaHurufBesar("Rani Peminjam")),
+    );
 
     // Peta titik lokasi boleh dibaca pemantau akun bersama (masih kosong di uji ini).
     const titik = await tamu.query(api.penyediaDana.titikPeminjam, {});

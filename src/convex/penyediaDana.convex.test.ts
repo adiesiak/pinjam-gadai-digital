@@ -25,6 +25,7 @@ import {
   totalPengembalianPendana,
 } from "../lib/imbalPendana";
 import { PERSEN_PORSI_PLATFORM } from "../lib/kebijakanPinjaman";
+import { namaHurufBesar, samarkanNama } from "../lib/nama";
 import { akunDompetDana } from "./ledger";
 import { kunciNamaPendana, pinjamanMilikPendana } from "./pendanaKepemilikan";
 import { BATAS_BARIS } from "./penyediaDana";
@@ -39,8 +40,10 @@ const RAHASIA = {
   nomorWhatsApp: "628123456791",
 };
 
-/** Nama lengkap pemohon — ditampilkan di ruang pemantau, bukan rahasia. */
+/** Nama pemohon: lengkap untuk admin, tersamar untuk peran dana/pengamat. */
 const NAMA_PEMOHON = "Rani Peminjam";
+const NAMA_SAMAR = samarkanNama(namaHurufBesar(NAMA_PEMOHON));
+const NAMA_ADMIN = namaHurufBesar(NAMA_PEMOHON);
 
 const KODE_PEMINJAM = "PMN-UJICOBA12345678";
 
@@ -327,6 +330,10 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(pribadi.gadai).toEqual([]);
     expect(pribadi.kredit.map((b) => b.nomorReferensi)).toEqual(["PGD-UJI-3"]);
     expect(pribadi.pinjaman[0]?.pendana).toBe("Penyedia Uji");
+    // Penyamaran dilakukan di server: payload pendana tidak boleh memuat nama
+    // lengkap, meskipun UI juga menyamarkannya sebagai lapisan tampilan.
+    expect(pribadi.pinjaman[0]?.namaLengkap).toBe(NAMA_SAMAR);
+    expect(JSON.stringify(pribadi)).not.toContain(NAMA_PEMOHON);
 
     // Bentuk baris lengkap diperiksa lewat admin: panel pemantau memang
     // menerima seluruh baris ruang ini.
@@ -335,7 +342,7 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(hasil.pinjaman).toHaveLength(1);
     expect(hasil.pinjaman[0]).toMatchObject({
       nomorReferensi: "PGD-UJI-1",
-      namaLengkap: NAMA_PEMOHON,
+      namaLengkap: NAMA_ADMIN,
       kodePeminjam: KODE_PEMINJAM,
       pokokPinjaman: 2_500_000,
       pokokDiajukan: 2_500_000,
@@ -346,14 +353,14 @@ describe("ruang penyedia dana (lihat saja)", () => {
     });
     expect(hasil.gadai[0]).toMatchObject({
       nomorReferensi: "PGD-UJI-2",
-      namaLengkap: NAMA_PEMOHON,
+      namaLengkap: NAMA_ADMIN,
       kategori: "Emas",
       nilaiTaksiran: 3_500_000,
       status: "sedang_dinilai",
     });
     expect(hasil.kredit[0]).toMatchObject({
       nomorReferensi: "PGD-UJI-3",
-      namaLengkap: NAMA_PEMOHON,
+      namaLengkap: NAMA_ADMIN,
       namaBarang: "Kulkas dua pintu",
       merchant: "Tokopedia",
       hargaBarang: 6_000_000,
@@ -501,7 +508,9 @@ describe("ruang penyedia dana (lihat saja)", () => {
     const hasil = await dana.query(api.penyediaDana.daftarPengajuan, {});
     expect(hasil.pinjaman).toHaveLength(3);
 
-    const barisRajin = hasil.pinjaman.filter((b) => b.namaLengkap === "Rani Rajin");
+    const barisRajin = hasil.pinjaman.filter(
+      (b) => b.namaLengkap === samarkanNama(namaHurufBesar("Rani Rajin")),
+    );
     expect(barisRajin).toHaveLength(2);
     // Penilaian bersifat per PEMINJAM: dua baris orang yang sama identik.
     expect(barisRajin[0]?.kepercayaan).toEqual(barisRajin[1]?.kepercayaan);
@@ -514,7 +523,9 @@ describe("ruang penyedia dana (lihat saja)", () => {
     expect(barisRajin[0]?.kepercayaan.alasan).toContain("2 pinjaman lunas tepat waktu");
     expect(barisRajin[0]?.kepercayaan.alasan).toContain("Data diri tersimpan lengkap");
 
-    const barisTelat = hasil.pinjaman.find((b) => b.namaLengkap === "Rusdi Telat");
+    const barisTelat = hasil.pinjaman.find(
+      (b) => b.namaLengkap === samarkanNama(namaHurufBesar("Rusdi Telat")),
+    );
     expect(barisTelat?.kepercayaan).toMatchObject({
       tingkat: "perlu_perhatian",
       label: "Perlu perhatian",
@@ -535,9 +546,11 @@ describe("ruang penyedia dana (lihat saja)", () => {
 
     // Dibaca ulang tanpa data berubah: skor tetap sama (deterministik).
     const ulang = await dana.query(api.penyediaDana.daftarPengajuan, {});
-    expect(ulang.pinjaman.find((b) => b.namaLengkap === "Rani Rajin")?.kepercayaan.skor).toBe(
-      barisRajin[0]?.kepercayaan.skor,
-    );
+    expect(
+      ulang.pinjaman.find(
+        (b) => b.namaLengkap === samarkanNama(namaHurufBesar("Rani Rajin")),
+      )?.kepercayaan.skor,
+    ).toBe(barisRajin[0]?.kepercayaan.skor);
 
     // Riwayat dibaca dari dokumen pinjaman yang sebenarnya, bukan dari
     // `kodePeminjam` atau klaim klien: melunasi satu pinjaman lagi mengubah
@@ -546,7 +559,9 @@ describe("ruang penyedia dana (lihat saja)", () => {
     if (targetId === null) throw new Error("seed pinjaman pertama gagal");
     await t.run((ctx) => ctx.db.patch(targetId, { lunasPada: DIDANAI + 60 * HARI }));
     const setelahTerlambat = await dana.query(api.penyediaDana.daftarPengajuan, {});
-    const rajinSetelah = setelahTerlambat.pinjaman.find((b) => b.namaLengkap === "Rani Rajin");
+    const rajinSetelah = setelahTerlambat.pinjaman.find(
+      (b) => b.namaLengkap === samarkanNama(namaHurufBesar("Rani Rajin")),
+    );
     expect(rajinSetelah?.kepercayaan.alasan.join(" | ")).toMatch(/melewati jatuh tempo/);
     expect(rajinSetelah?.kepercayaan.skor ?? 100).toBeLessThan(
       barisRajin[0]?.kepercayaan.skor ?? 0,
@@ -2023,7 +2038,7 @@ describe("lokasi & berkas peminjam di ruang penyedia dana", () => {
 
     const hasil = await dana.query(api.penyediaDana.titikPeminjam, {});
     expect(hasil.rows).toHaveLength(1);
-    expect(hasil.rows[0].namaLengkap).toBe(NAMA_PEMOHON);
+    expect(hasil.rows[0].namaLengkap).toBe(NAMA_SAMAR);
     expect(hasil.rows[0].posisi.lat).toBeCloseTo(-6.2);
     expect(hasil.rows[0].posisi.sumber).toBe("web");
     expect(hasil.rows[0].kodePeminjam).toBe(KODE_PEMINJAM);

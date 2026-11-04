@@ -960,13 +960,18 @@ export const backfillKodePeminjam = mutation({
 
 /**
  * URL dokumen KYC untuk dialog review pinjaman — admin saja.
- * Tautan bertanda tangan & berumur pendek (lihat `berkas.tautanBerkas`),
- * bukan URL penyimpanan Convex yang permanen.
+ *
+ * Sengaja `mutation`, bukan `query`: membuka dokumen identitas adalah aksi
+ * baca sensitif yang harus meninggalkan jejak. Setiap pemanggilan menulis
+ * `auditLog` (aktor, nomor pinjaman, jenis berkas yang tersedia) SEBELUM URL
+ * dikembalikan, jadi kegagalan audit membatalkan pembukaan dokumen. Tautan
+ * bertanda tangan & berumur pendek (lihat `berkas.tautanBerkas`), bukan URL
+ * penyimpanan Convex yang permanen.
  */
-export const dokumenKycUrls = query({
+export const dokumenKycUrls = mutation({
   args: { loanId: v.id("loans") },
   handler: async (ctx, { loanId }) => {
-    await requireAdmin(ctx);
+    const admin = await requireAdmin(ctx);
     const loan = await ctx.db.get(loanId);
     if (loan === null) return null;
     const [ktp, selfie, slip, kartuKeluarga, domisili] = await Promise.all([
@@ -976,6 +981,26 @@ export const dokumenKycUrls = query({
       tautanBerkas(loan.dokKartuKeluargaId),
       tautanBerkas(loan.dokBuktiDomisiliId),
     ]);
+    const tersedia = [
+      ["KTP", ktp],
+      ["selfie KTP", selfie],
+      ["slip gaji", slip],
+      ["kartu keluarga", kartuKeluarga],
+      ["bukti domisili", domisili],
+    ]
+      .filter(([, url]) => url !== null)
+      .map(([label]) => label)
+      .join(", ");
+    await audit(
+      ctx,
+      admin.userId,
+      admin.user.name ?? admin.user.email ?? "admin",
+      "dokumen_kyc_dibuka",
+      loan.nomorReferensi,
+      tersedia === ""
+        ? "Panel KYC dibuka; tidak ada berkas identitas tersedia."
+        : `Panel KYC dibuka; berkas tersedia: ${tersedia}. Tautan berumur 10 menit.`,
+    );
     return {
       ktpUrl: ktp,
       selfieUrl: selfie,

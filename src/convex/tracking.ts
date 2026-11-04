@@ -26,11 +26,17 @@ async function requireAdmin(ctx: QueryCtx) {
 }
 
 /**
- * Pelacakan lokasi berkelanjutan Peminjam (opt-in).
+ * Pelacakan lokasi berkelanjutan Peminjam.
+ *
+ * Lokasi adalah syarat transaksi selama gerbang lokasi menyala, bukan opt-in
+ * terpisah: `simpanTitik` mencatat persetujuan otomatis saat titik pertama
+ * diterima. Karena itu tidak ada mutation "cabut" di sini — UI menampilkan
+ * status apa adanya dan satu-satunya cara berhenti adalah mematikan izin
+ * lokasi di perangkat (transaksi yang mensyaratkan lokasi lalu tertahan).
  *
  * Privasi: hanya pemilik jejak yang bisa mendorong/membaca jejaknya;
- * admin membaca via query terpisah di admin.ts. Nonaktif menghentikan
- * penerimaan titik baru namun jejak lama tetap tersimpan (append-only).
+ * admin membaca via query terpisah di admin.ts. Jejak lama tetap tersimpan
+ * (append-only) sampai retensi menghapusnya.
  */
 
 /** Status persetujuan tracking — satu baris per pengguna. */
@@ -51,60 +57,14 @@ export const getStatus = query({
   },
 });
 
-/** Setujui pelacakan berkelanjutan (opt-in eksplisit). */
-export const setuju = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-    const existing = await ctx.db
-      .query("trackingConsents")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        aktif: true,
-        disetujuiPada: Date.now(),
-        dinonaktifkanPada: undefined,
-      });
-    } else {
-      await ctx.db.insert("trackingConsents", {
-        userId,
-        aktif: true,
-        disetujuiPada: Date.now(),
-      });
-    }
-    return { ok: true };
-  },
-});
-
-/** Cabut persetujuan — push titik baru ditolak. */
-export const cabut = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) throw new Error("Harus masuk terlebih dahulu.");
-    const existing = await ctx.db
-      .query("trackingConsents")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        aktif: false,
-        dinonaktifkanPada: Date.now(),
-      });
-    }
-    return { ok: true };
-  },
-});
-
 /**
  * Push satu titik GPS (perangkat memanggil tiap ±60 detik).
  *
  * Sejak gerbang lokasi wajib berlaku, jalur ini menumpang pemrosesan yang
  * sama dengan lokasi.catatLokasi: validasi wilayah Indonesia, cek akurasi,
  * proteksi lompatan mustahil, penulisan jejak, dan penyegaran status lokasi.
- * Persetujuan pemantauan kini tercatat otomatis (bukan lagi opt-in).
+ * Persetujuan pemantauan dicatat otomatis saat titik pertama diterima; UI
+ * menjelaskan syarat ini dan mengarahkan pengguna ke pengaturan perangkat.
  */
 export const pushTitik = mutation({
   args: {

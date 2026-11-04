@@ -1,6 +1,6 @@
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2, MapPin, Send, Users } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PenampilDokumen } from "./PenampilDokumen";
@@ -19,7 +19,48 @@ import { NasabahDetailDialog } from "./NasabahDetailDialog";
  * Panel data pengajuan, koordinat perangkat, dan pesan WhatsApp terkait catatan aplikasi.
  */
 export function LoanKycPanel({ row }: { row: LoanRow }) {
-  const urls = useQuery(api.admin.dokumenKycUrls, { loanId: row._id });
+  const ambilDokumen = useMutation(api.admin.dokumenKycUrls);
+  type HasilDokumen = Awaited<ReturnType<typeof ambilDokumen>>;
+  /** Hasil disimpan bersama ID-nya agar data pinjaman lama tidak tampil di baris baru. */
+  const [hasilDokumen, setHasilDokumen] = useState<{
+    id: Id<"loans">;
+    data: HasilDokumen | null;
+    galat: string | null;
+  } | null>(null);
+  const urls =
+    hasilDokumen?.id === row._id ? hasilDokumen.data : undefined;
+  const galatDokumen =
+    hasilDokumen?.id === row._id ? hasilDokumen.galat : null;
+  /** Permintaan yang sudah berjalan — mencegah audit ganda saat StrictMode. */
+  const permintaanRef = useRef<{
+    id: Id<"loans">;
+    promise: ReturnType<typeof ambilDokumen>;
+  } | null>(null);
+  useEffect(() => {
+    let aktif = true;
+    if (permintaanRef.current?.id !== row._id) {
+      permintaanRef.current = {
+        id: row._id,
+        promise: ambilDokumen({ loanId: row._id }),
+      };
+    }
+    void permintaanRef.current.promise
+      .then((hasil) => {
+        if (aktif) setHasilDokumen({ id: row._id, data: hasil, galat: null });
+      })
+      .catch((err: unknown) => {
+        if (!aktif) return;
+        setHasilDokumen({
+          id: row._id,
+          data: null,
+          galat:
+            err instanceof Error ? err.message : "Gagal membuka dokumen KYC.",
+        });
+      });
+    return () => {
+      aktif = false;
+    };
+  }, [ambilDokumen, row._id]);
   const sendWa = useAction(api.whatsapp.sendReminder);
   const [waBusy, setWaBusy] = useState(false);
   /** Nasabah pemilik pengajuan yang profil lengkapnya sedang dibuka. */
@@ -65,7 +106,11 @@ export function LoanKycPanel({ row }: { row: LoanRow }) {
       )}
 
       <RingkasPengajuan loanId={row._id} />
-      {urls === undefined ? (
+      {galatDokumen !== null ? (
+        <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive">
+          {galatDokumen}
+        </p>
+      ) : urls === undefined ? (
         <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Memuat data KYC…
         </div>

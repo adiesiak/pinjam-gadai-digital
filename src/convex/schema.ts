@@ -853,8 +853,8 @@ const schema = defineSchema(
       .index("by_oleh", ["olehUserId", "pada"]),
 
     /**
-     * Jejak lokasi berkelanjutan Peminjam (opt-in, dengan persetujuan).
-     * Satu baris per titik GPS yang dikirim device secara batch.
+     * Jejak lokasi berkelanjutan Peminjam (persetujuan dicatat otomatis saat
+     * titik pertama diterima). Satu baris per titik GPS yang dikirim device.
      */
     /**
      * Jejak titik GPS berkala. Disimpan append-only, lalu dibersihkan job
@@ -1178,7 +1178,10 @@ const schema = defineSchema(
       waktuBerakhir: v.optional(v.number()),
     }).index("by_user", ["userId"]),
 
-    /** Persetujuan pelacakan lokasi berkelanjutan — satu baris per pengguna. */
+    /**
+     * Status persetujuan pelacakan lokasi — satu baris per pengguna. Dicatat
+     * otomatis selama gerbang lokasi aktif; bukan opt-in terpisah.
+     */
     trackingConsents: defineTable({
       userId: v.id("users"),
       aktif: v.boolean(),

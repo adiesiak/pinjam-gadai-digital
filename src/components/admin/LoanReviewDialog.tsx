@@ -15,7 +15,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { EContractWidget } from "@/components/EContract";
@@ -152,10 +152,57 @@ export function LoanReviewDialog({
   );
   // URL lampiran KYC (KTP/selfie/slip) hanya dibaca peninjau admin; dipakai
   // tombol kecil di kotak profil agar gambar dokumen tidak memenuhi layar.
-  const dokumenQ = useQuery(
-    api.admin.dokumenKycUrls,
-    row === null ? ("skip" as const) : { loanId: row._id },
-  );
+  // Pemanggilannya mutation karena server menulis audit akses sebelum URL
+  // dikembalikan; hasilnya disimpan di state agar tidak memicu query berulang.
+  const ambilDokumen = useMutation(api.admin.dokumenKycUrls);
+  type HasilDokumen = Awaited<ReturnType<typeof ambilDokumen>>;
+  const idBaris = row?._id ?? null;
+  /** Hasil disimpan bersama ID-nya agar data pinjaman lama tidak tampil di baris baru. */
+  const [hasilDokumen, setHasilDokumen] = useState<{
+    id: Id<"loans">;
+    data: HasilDokumen | null;
+    galat: string | null;
+  } | null>(null);
+  const hasilDokumenBaris =
+    hasilDokumen?.id === idBaris ? hasilDokumen : null;
+  const dokumenQ = hasilDokumenBaris?.data;
+  const galatDokumen = hasilDokumenBaris?.galat ?? null;
+  /** Permintaan yang sudah berjalan — mencegah audit ganda saat StrictMode. */
+  const permintaanDokumenRef = useRef<{
+    id: Id<"loans">;
+    promise: ReturnType<typeof ambilDokumen>;
+  } | null>(null);
+  useEffect(() => {
+    if (idBaris === null) {
+      permintaanDokumenRef.current = null;
+      return;
+    }
+    let aktif = true;
+    if (permintaanDokumenRef.current?.id !== idBaris) {
+      permintaanDokumenRef.current = {
+        id: idBaris,
+        promise: ambilDokumen({ loanId: idBaris }),
+      };
+    }
+    void permintaanDokumenRef.current.promise
+      .then((hasil) => {
+        if (aktif) {
+          setHasilDokumen({ id: idBaris, data: hasil, galat: null });
+        }
+      })
+      .catch((err: unknown) => {
+        if (!aktif) return;
+        setHasilDokumen({
+          id: idBaris,
+          data: null,
+          galat:
+            err instanceof Error ? err.message : "Gagal membuka dokumen KYC.",
+        });
+      });
+    return () => {
+      aktif = false;
+    };
+  }, [ambilDokumen, idBaris]);
   // Sasaran status & nominal menyesuaikan saat dialog dibuka untuk baris lain.
   //
   // Disesuaikan SAAT RENDER lewat `_id`, bukan lewat effect + identitas objek:
@@ -163,7 +210,6 @@ export function LoanReviewDialog({
   // effect yang mengikuti identitas objek akan menghapus ketikan admin di
   // tengah proses review. Penyetelan saat render adalah pola React untuk
   // "menyesuaikan state ketika prop berubah" — tidak memicu render berantai.
-  const idBaris: string | null = row?._id ?? null;
   const [idTerakhir, setIdTerakhir] = useState<string | null>(idBaris);
   if (idBaris !== idTerakhir) {
     setIdTerakhir(idBaris);
@@ -1293,7 +1339,11 @@ export function LoanReviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {dokumenQ === undefined ? (
+        {galatDokumen !== null ? (
+          <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {galatDokumen}
+          </p>
+        ) : dokumenQ === undefined ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Memuat lampiran…
           </p>

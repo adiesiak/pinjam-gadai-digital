@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Loader2, MapPin } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { PaymentDueAlert } from "@/components/PaymentDueAlert";
@@ -114,103 +114,55 @@ export function LokasiPeringatanBanner() {
   );
 }
 
-/** Persetujuan pelacakan lokasi berkelanjutan (opt-in, dapat dicabut). */
-export function LocationConsentCard() {
+/**
+ * Status pelacakan lokasi berkelanjutan.
+ *
+ * Lokasi adalah syarat transaksi, bukan opt-in terpisah: persetujuan dicatat
+ * otomatis saat titik pertama diterima (lihat `simpanTitik`). Karena itu kartu
+ * ini tidak menawarkan tombol yang bisa dibatalkan diam-diam oleh heartbeat
+ * berikutnya. Satu-satunya cara berhenti adalah mematikan izin lokasi di
+ * perangkat; konsekuensinya transaksi yang mensyaratkan lokasi tertahan.
+ */
+export function LocationStatusCard() {
   const status = useQuery(api.tracking.getStatus);
-  const setuju = useMutation(api.tracking.setuju);
-  const cabut = useMutation(api.tracking.cabut);
-  const pushTitik = useMutation(api.tracking.pushTitik);
-  const [busy, setBusy] = useState(false);
-
-  const watchRef = useRef<number | null>(null);
-  const lastPushRef = useRef(0);
-  const pushRef = useRef(pushTitik);
-  useEffect(() => {
-    pushRef.current = pushTitik;
-  }, [pushTitik]);
-
-  useEffect(() => {
-    const stopWatch = () => {
-      if (watchRef.current !== null) {
-        navigator.geolocation?.clearWatch(watchRef.current);
-        watchRef.current = null;
-      }
-    };
-    if (status?.aktif !== true || !navigator.geolocation) {
-      stopWatch();
-      return;
-    }
-    watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const now = Date.now();
-        if (now - lastPushRef.current < 45_000) return;
-        lastPushRef.current = now;
-        void pushRef
-          .current({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            akurasi: pos.coords.accuracy,
-          })
-          .catch(() => undefined);
-      },
-      () => undefined,
-      { enableHighAccuracy: true, maximumAge: 20_000, timeout: 25_000 },
-    );
-    return stopWatch;
-  }, [status?.aktif]);
 
   const statusText =
     status === undefined
-      ? "Memuat status pelacakan…"
+      ? "Memuat status lokasi…"
       : status.aktif
-        ? "Aktif. Aplikasi mengirim koordinat dari perangkat secara berkala selama persetujuan berlaku; nonaktifkan kapan saja."
-        : "Belum aktif. Aktifkan kalau Anda bersedia membagikan koordinat dari perangkat secara berkala; bisa dicabut kapan saja.";
+        ? "Aktif. Titik lokasi dicatat selama gerbang lokasi menyala; persetujuan tercatat otomatis saat titik pertama diterima."
+        : "Belum ada titik tercatat. Buka dashboard dengan GPS aktif; PINDAI meminta izin lokasi perangkat sebelum mengirim titik pertama.";
 
   return (
-    <section className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <section className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p className="flex items-center gap-2 text-sm font-semibold">
           <MapPin className="size-4 text-primary" />
-          Pelacakan lokasi berkelanjutan
+          Pemantauan lokasi
+          <span
+            className={
+              status?.aktif
+                ? "rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800"
+                : "rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+            }
+          >
+            {status === undefined ? "Memuat" : status.aktif ? "Aktif" : "Belum ada titik"}
+          </span>
         </p>
         <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">{statusText}</p>
+        <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
+          Pemantauan ini syarat untuk transaksi. Untuk berhenti, matikan izin lokasi di
+          pengaturan perangkat — transaksi yang memerlukan lokasi akan tertahan sampai GPS
+          aktif kembali.{" "}
+          <a
+            href="/privasi#lokasi-penyimpanan"
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            Baca kebijakan lokasi
+          </a>
+          .
+        </p>
       </div>
-      {status?.aktif ? (
-        <Button
-          variant="outline"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await cabut();
-              toast.info("Pelacakan lokasi dinonaktifkan.");
-            } catch (e) {
-              toast.error(e instanceof Error ? e.message : "Gagal menonaktifkan.");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : "Nonaktifkan"}
-        </Button>
-      ) : (
-        <Button
-          disabled={busy || status === undefined}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await setuju();
-              toast.success("Pencatatan koordinat perangkat diaktifkan.");
-            } catch (e) {
-              toast.error(e instanceof Error ? e.message : "Gagal mengaktifkan.");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : "Izinkan pelacakan"}
-        </Button>
-      )}
     </section>
   );
 }

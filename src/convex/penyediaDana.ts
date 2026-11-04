@@ -14,10 +14,11 @@
  * tidak ada keuntungan yang tertagih dua kali.
  *
  * Privasi (whitelist, bukan spread dokumen mentah): baris yang dikirim ke
- * klien hanya berisi field operasional yang dibutuhkan ruang ini. Nama lengkap
- * pemohon ditampilkan untuk ruang pemantau (keputusan admin), NIK, nomor
- * rekening, nomor WhatsApp, alamat, dan penghasilan tetap TIDAK pernah keluar
- * sebagai teks.
+ * klien hanya berisi field operasional yang dibutuhkan ruang ini. Nama pemohon
+ * dikirim TERSAMAR ke peran `dana` dan `pengamat` — penyamaran dilakukan di
+ * server, bukan di React — sedangkan admin menerima nama lengkap untuk
+ * peninjauan internal. NIK, nomor rekening, nomor WhatsApp, alamat, dan
+ * penghasilan tetap TIDAK pernah keluar sebagai teks.
  *
  * DOKUMEN IDENTITAS TIDAK PERNAH DIBAGIKAN KE RUANG INI. KTP, selfie dengan
  * KTP, bukti penghasilan, dan tanda tangan peminjam hanya dapat dibuka oleh
@@ -78,7 +79,7 @@ import {
   kunciNamaPendana,
   pinjamanMilikPendana,
 } from "./pendanaKepemilikan";
-import { namaHurufBesar } from "../lib/nama";
+import { namaHurufBesar, samarkanNama } from "../lib/nama";
 import { nominalDisetujui, nominalTerkunci } from "../lib/statusPinjaman";
 import { pelunasanPinjaman } from "../lib/loan";
 import { quoteKreditBarang } from "../lib/kredit";
@@ -205,7 +206,10 @@ export type TarifBulananSnapshot = {
 export type BarisPinjaman = {
   _id: Id<"loans">;
   nomorReferensi: string;
-  /** Nama lengkap pemohon (ditampilkan; NIK/rekening/WA tetap di server). */
+  /**
+   * Nama pemohon untuk ditampilkan. Admin menerima nama lengkap; peran `dana`
+   * dan `pengamat` menerima nama tersamar dari server (bukan disamarkan di UI).
+   */
   namaLengkap: string;
   kodePeminjam: string | null;
   pokokPinjaman: number;
@@ -449,7 +453,10 @@ export type BarisGadai = {
 export type BarisKredit = {
   _id: Id<"kreditBarang">;
   nomorReferensi: string;
-  /** Nama lengkap pemohon (ditampilkan; NIK/rekening/WA tetap di server). */
+  /**
+   * Nama pemohon untuk ditampilkan. Admin menerima nama lengkap; peran `dana`
+   * dan `pengamat` menerima nama tersamar dari server (bukan disamarkan di UI).
+   */
   namaLengkap: string;
   kodePeminjam: string | null;
   namaBarang: string;
@@ -987,7 +994,7 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
       pinjaman.push({
         _id: loan._id,
         nomorReferensi: loan.nomorReferensi,
-        namaLengkap: loan.namaLengkap,
+        namaLengkap: namaPemohonTampil(user, loan.namaLengkap),
         kodePeminjam: await kodeUntuk(loan.userId),
         pokokPinjaman: loan.pokokPinjaman,
         pokokDiajukan: loan.pokokDiajukan ?? loan.pokokPinjaman,
@@ -1054,7 +1061,7 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
       gadai.push({
         _id: pawn._id,
         nomorReferensi: pawn.nomorReferensi,
-        namaLengkap: pawn.namaLengkap,
+        namaLengkap: namaPemohonTampil(user, pawn.namaLengkap),
         kodePeminjam: await kodeUntuk(pawn.userId),
         kategori: pawn.kategori,
         deskripsiBarang: pawn.deskripsiBarang,
@@ -1232,7 +1239,7 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
       kredit.push({
         _id: item._id,
         nomorReferensi: item.nomorReferensi,
-        namaLengkap: item.namaLengkap,
+        namaLengkap: namaPemohonTampil(user, item.namaLengkap),
         kodePeminjam: await kodeUntuk(item.userId),
         namaBarang: item.namaBarang,
         kategori: item.kategori,
@@ -1655,8 +1662,9 @@ export const simpanKontakLaporan = mutation({
 
 /**
  * Satu baris peta: peminjam + titik terakhir yang diketahui.
- * Hanya berisi identitas tampil (nama, kode pseudonim, nomor referensi) dan
- * koordinat — tanpa NIK, rekening, WhatsApp, atau alamat.
+ * Hanya berisi identitas tampil (nama tersamar untuk non-admin, kode pseudonim,
+ * nomor referensi) dan koordinat tingkat wilayah — tanpa NIK, rekening,
+ * WhatsApp, atau alamat.
  */
 export type TitikPeminjam = {
   userId: Id<"users">;
@@ -1723,7 +1731,7 @@ export const titikPeminjam = query({
       const peminjam = await ctx.db.get(userId);
       rows.push({
         userId,
-        namaLengkap,
+        namaLengkap: namaPemohonTampil(user, namaLengkap),
         kodePeminjam: peminjam?.kodePeminjam ?? null,
         nomorReferensi,
         kategori,
@@ -1854,6 +1862,20 @@ const PERAN_PENDANA_LEGACY = "pendana";
  */
 export function peranPenyedia(role: string | undefined): boolean {
   return role === ROLES.DANA || role === PERAN_PENDANA_LEGACY;
+}
+
+/**
+ * Nama pemohon yang dikirim ke pembaca ruang pendana.
+ *
+ * Admin tetap menerima nama lengkap untuk peninjauan internal. Peran `dana`
+ * dan sesi `pengamat` hanya menerima nama tersamar: penyamaran harus terjadi
+ * di server, bukan di React, supaya nama lengkap tidak pernah masuk ke payload
+ * yang bisa dibaca lewat devtools/WebSocket. Nama tetap dinormalkan ke bentuk
+ * kanonik agar penyamaran di UI tidak menghasilkan bentuk kedua.
+ */
+function namaPemohonTampil(user: Doc<"users">, nama: string): string {
+  const kanonik = namaHurufBesar(nama);
+  return user.role === ROLES.ADMIN ? kanonik : samarkanNama(kanonik);
 }
 
 /**

@@ -13,6 +13,15 @@
   kontrak pihak ketiga.
 - Tanggal: 9 Oktober 2026.
 
+> **Tindak lanjut 4 November 2026:** R-01 sudah dibatasi ke koordinat tingkat
+> wilayah untuk non-admin; R-02 sudah ditutup dengan penyamaran nama di server;
+> R-03 diperbaiki sebagian — akses baca dokumen KYC kini tercatat di audit dan
+> tautan berumur 10 menit, tetapi tanda air masih overlay tampilan; R-04 sudah
+> ditutup dengan halaman `/privasi`; R-05 diselesaikan dengan model lokasi wajib
+> yang dijelaskan jujur (bukan opt-in), bukan dengan tombol cabut yang bisa
+> ditimpa heartbeat; R-06 sudah dibatasi per pemilik alokasi. Temuan awal tetap
+> disimpan di bawah sebagai catatan audit.
+
 ---
 
 ## 1. Inventarisasi pemrosesan data pribadi

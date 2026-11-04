@@ -238,9 +238,10 @@ const BAGIAN: Bagian[] = [
             <strong className="font-semibold text-foreground">
               Penyedia dana
             </strong>{" "}
-            yang membiayai pinjaman tertentu, dan hanya untuk pengajuan yang
-            berkaitan dengan pinjaman itu. NIK, nomor rekening, alamat, dan
-            dokumen identitas tidak pernah masuk ke ruang penyedia dana; nama
+            beremail hanya menerima pengajuan yang berkaitan dengan pinjamannya;
+            sesi pemantau kode akses bersama yang diotorisasi admin dapat melihat
+            seluruh pengajuan untuk rekonsiliasi. Pada kedua ruang, NIK, nomor
+            rekening, alamat, dan dokumen identitas tidak pernah masuk; nama
             peminjam ditampilkan tersamar; titik lokasi ditampilkan pada tingkat
             wilayah.
           </Butir>
