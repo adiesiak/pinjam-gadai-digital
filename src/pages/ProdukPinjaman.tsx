@@ -26,6 +26,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "convex/react";
 
+import { PemilihTanggalJatuhTempo } from "@/components/PemilihTanggalJatuhTempo";
 import { Button } from "@/components/ui/button";
 import { VaultLogo } from "@/components/VaultLogo";
 import { api } from "@/convex/_generated/api";
@@ -51,10 +52,9 @@ import {
   TENOR_OPTIONS,
   persenBungaHarian,
   quoteLoanBunga,
-  sesuaikanTenorHarian,
   tarifBiayaAman,
+  tenorHarianEfektif,
   type TarifBiaya,
-  type Tenor,
 } from "@/lib/loan";
 import { formatRupiahAman, kelompokkanDigit, percentOf } from "@/lib/money";
 import { persenTeks, rincianPotonganDiMuka } from "@/lib/tarifBiayaTeks";
@@ -223,6 +223,10 @@ function TabelTarifHarian({ promos }: { promos: readonly PromoBungaRingkas[] }) 
       <p className="mt-2 text-xs leading-5 text-slate-500 sm:hidden">
         Geser tabel ke samping untuk melihat semua tenor.
       </p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">
+        Kolom 7/14/21/28 hari adalah acuan tarif. Tanggal 7–50 hari memakai
+        acuan terdekat; hari ke-29 ke atas memakai tarif perpanjangan.
+      </p>
       {adaPromo && (
         <p className="mt-2 text-xs leading-5 text-slate-700">
           Nilai berlabel “promo” memakai bunga promo yang sedang berjalan;
@@ -271,18 +275,21 @@ function KalkulatorKonvensional({
 }) {
   const [skema, setSkema] = useState<"harian" | "bulanan">("harian");
   const [nominalTeks, setNominalTeks] = useState("1.000.000");
-  const [tenorHari, setTenorHari] = useState<Tenor>(28);
+  const [tenorHari, setTenorHari] = useState(28);
   const [tenorBulan, setTenorBulan] = useState<(typeof TENOR_BULANAN)[number]>(3);
   const [ekspres, setEkspres] = useState(false);
 
   const nominal = bacaNominal(nominalTeks);
   const dalamBatas =
     nominal >= LOAN_LIMITS.minPokok && nominal <= LOAN_LIMITS.maxPokokPlafon;
+  // Tenor untuk pemilih tanggal dihitung di luar blok hasil agar tanggal yang
+  // tampil tetap sama saat nominal berada tepat di batas.
+  const tenorTampil = tenorHarianEfektif(nominal, tenorHari);
 
   let isi: React.ReactNode = null;
   if (dalamBatas) {
     if (skema === "harian") {
-      const tenor = sesuaikanTenorHarian(nominal, tenorHari);
+      const tenor = tenorHarianEfektif(nominal, tenorHari);
       const normal = persenBungaHarian(nominal, tenor) ?? 0;
       const promo = pilihPromoBunga(promos, {
         tenor,
@@ -330,6 +337,12 @@ function KalkulatorKonvensional({
             </div>
             <dl className="mt-3">
               <BarisAngka label="Biaya admin" nilai={rupiah(q.biayaAdmin)} />
+              {promo?.jenis === "bebas_admin" && q.diskonAdmin > 0 && (
+                <BarisAngka
+                  label="Potongan promo bebas admin"
+                  nilai={`-${rupiah(q.diskonAdmin)}`}
+                />
+              )}
               <BarisAngka
                 label="Biaya asuransi"
                 nilai={rupiah(q.biayaAsuransi)}
@@ -476,24 +489,33 @@ function KalkulatorKonvensional({
 
           {skema === "harian" ? (
             <>
-              <p className="mt-4 text-xs font-medium text-slate-700">Tenor</p>
-              <div className="mt-1.5 flex flex-wrap gap-2" role="group" aria-label="Tenor hari">
-                {TENOR_OPTIONS.map((tenor) => (
-                  <button
-                    key={tenor}
-                    type="button"
-                    aria-pressed={tenorHari === tenor}
-                    onClick={() => setTenorHari(tenor)}
-                    className={`min-h-11 rounded-lg border px-3 text-xs font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      tenorHari === tenor
-                        ? "border-emerald-700/50 bg-emerald-50 text-emerald-900"
-                        : "border-border bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {tenor} hari
-                  </button>
-                ))}
-              </div>
+              <label
+                htmlFor="produk-tenor"
+                className="mt-4 block text-xs font-medium text-slate-700"
+              >
+                Tanggal jatuh tempo
+              </label>
+              {dalamBatas ? (
+                <div className="mt-1.5">
+                  <PemilihTanggalJatuhTempo
+                    id="produk-tenor"
+                    pokok={nominal}
+                    tenor={tenorTampil}
+                    onPilih={setTenorHari}
+                    promos={promos}
+                  />
+                </div>
+              ) : (
+                <p className="mt-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+                  Masukkan nominal dalam batas untuk memilih tanggal dan melihat
+                  tenor yang tersedia.
+                </p>
+              )}
+              <p className="mt-1.5 text-xs leading-5 text-slate-500">
+                Bunga mengikuti tenor dan promo yang berlaku. Pilih tanggal 7–50
+                hari dari hari ini; tenor mengikuti tanggal, bukan pilihan
+                bawaan.
+              </p>
               <label className="mt-4 flex items-start gap-2 text-xs leading-5 text-slate-700">
                 <input
                   type="checkbox"
@@ -1046,7 +1068,7 @@ function KerangkaHalaman({
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-700 sm:text-base">
               {syariah
                 ? "Pinjaman syariah PINDAI memakai dua akad: Murabahah untuk kredit barang dan Rahn untuk gadai. Margin dan ujrah dibagi antara pendana dan pengelola sesuai nisbah di akad."
-                : `Pinjaman tunai harian 7 sampai 28 hari, dapat diperpanjang sampai 50 hari, dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat. Potongan di muka: ${rincianPotonganDiMuka(tarifBiaya)}. Marjin pinjaman dibagi dengan porsi ${PORSI_MARGIN.pendanaPembilang} : ${PORSI_MARGIN.platformPembilang}, yaitu ${persenTeks(PERSEN_PORSI_PENDANA)} untuk pendana dan ${persenTeks(PERSEN_PORSI_PLATFORM)} untuk platform, terpisah dari biaya layanan.`}
+                : `Pinjaman tunai harian 7 sampai 50 hari, dipilih lewat tanggal jatuh tempo, dan cicilan bulanan 1, 3, atau 6 bulan. Bunga flat. Potongan di muka: ${rincianPotonganDiMuka(tarifBiaya)}. Marjin pinjaman dibagi dengan porsi ${PORSI_MARGIN.pendanaPembilang} : ${PORSI_MARGIN.platformPembilang}, yaitu ${persenTeks(PERSEN_PORSI_PENDANA)} untuk pendana dan ${persenTeks(PERSEN_PORSI_PLATFORM)} untuk platform, terpisah dari biaya layanan.`}
             </p>
 
             {syariah ? (
@@ -1118,8 +1140,8 @@ function KerangkaHalaman({
                 : [
                     {
                       label: "Tenor harian",
-                      nilai: `${TENOR_OPTIONS.join(" / ")} hari`,
-                      detail: `Bunga flat ${persen(BUNGA_HARIAN_MIN)} sampai ${persen(BUNGA_HARIAN_MAX)} sesuai nominal.`,
+                      nilai: "7–50 hari (pilih tanggal)",
+                      detail: `Bunga flat ${persen(BUNGA_HARIAN_MIN)} sampai ${persen(BUNGA_HARIAN_MAX)} sesuai nominal dan tanggal.`,
                     },
                     {
                       label: "Cicilan bulanan",
@@ -1283,7 +1305,7 @@ function KerangkaHalaman({
             daftar={[
             {
               q: "Apakah bunga harian dan bulanan sama?",
-              a: "Tidak. Tarif harian adalah bunga flat untuk satu tenor 7 sampai 28 hari. Cicilan bulanan memakai bunga flat per bulan ditambah biaya admin cicilan, sehingga totalnya berbeda. Kalkulator di atas memakai mesin yang sama dengan formulir.",
+              a: "Tidak. Tarif harian adalah bunga flat untuk satu tenor 7 sampai 50 hari. Cicilan bulanan memakai bunga flat per bulan ditambah biaya admin cicilan, sehingga totalnya berbeda. Kalkulator di atas memakai mesin yang sama dengan formulir.",
             },
             {
               q: "Kapan biaya admin dipotong?",

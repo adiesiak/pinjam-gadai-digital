@@ -213,9 +213,9 @@ export function PromoBungaPanel() {
   };
 
   /**
-   * Tenor di luar 7/14/21/28 dipilih lewat tanggal jatuh tempo nasabah.
-   * Panel menyimpan angka harinya, bukan tanggal, supaya promo tetap berlaku
-   * untuk setiap pengajuan yang jatuh pada tenor tersebut.
+   * Tenor 7/14/21/28 hanyalah pintasan. Nasabah memilih tanggal jatuh tempo,
+   * jadi panel menyimpan angka harinya agar promo tetap berlaku untuk setiap
+   * pengajuan yang jatuh pada tenor tersebut, termasuk hari di antara acuan.
    */
   const tambahTenorLain = () => {
     const nilai = Number(tenorLain);

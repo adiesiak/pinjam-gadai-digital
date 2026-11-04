@@ -25,10 +25,10 @@ import {
   KREDIT_PRICING,
   KREDIT_TENOR_PENGAJUAN_OPTIONS,
 } from "@/lib/kredit";
-import { LOAN_LIMITS, TENOR_OPTIONS } from "@/lib/loan";
+import { LOAN_LIMITS, TENOR_HARIAN_MAKS, TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiah } from "@/lib/money";
 
-const TENOR_HARIAN = `${TENOR_OPTIONS[0]}–${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]}`;
+const TENOR_HARIAN = `${TENOR_OPTIONS[0]}–${TENOR_HARIAN_MAKS}`;
 const TENOR_BULANAN = TENOR_BULANAN_OPTIONS.join("/");
 const TENOR_KREDIT = KREDIT_TENOR_PENGAJUAN_OPTIONS.join("/");
 
@@ -82,7 +82,7 @@ const PANDUAN = [
     kebutuhan: "Butuh uang tunai",
     pilihan: "Pinjaman tunai",
     alasan:
-      "Cocok bila kebutuhan dan kemampuan bayar sudah jelas. Pilih tenor harian atau cicilan bulanan.",
+      "Cocok bila kebutuhan dan kemampuan bayar sudah jelas. Pilih pinjaman harian atau cicilan bulanan.",
     href: "/layanan/pinjaman-tunai",
   },
   {

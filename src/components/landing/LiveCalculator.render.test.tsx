@@ -57,5 +57,29 @@ ok(
   "permukaan memakai radius token, bukan radius satu-off",
 );
 
+// Promo harus ikut menjadi angka kalkulator, bukan hanya muncul di formulir.
+const promoHtml = renderToStaticMarkup(
+  <MemoryRouter initialEntries={["/"]}>
+    <LiveCalculator
+      promos={[
+        {
+          _id: "promo-uji",
+          nama: "Promo Uji",
+          persenBunga: 15,
+          tenor: [28],
+          mulai: 0,
+          selesai: Date.now() + 86_400_000,
+          aktif: true,
+        },
+      ]}
+    />
+  </MemoryRouter>,
+);
+ok(promoHtml.includes("Promo Uji"), "promo aktif disebut di kalkulator");
+ok(
+  promoHtml.includes("menurunkan bunga dari 32% menjadi 15%"),
+  "kalkulator memakai bunga promo untuk tenor tanggal",
+);
+
 console.log(`LiveCalculator.render: ${lulus} lulus, ${gagal} gagal`);
 if (gagal > 0) process.exit(1);

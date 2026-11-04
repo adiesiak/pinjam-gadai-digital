@@ -69,7 +69,7 @@ export const LANGKAH_DEMO: readonly LangkahDemo[] = [
     nomor: "03",
     judul: "Isi nominal dan tenor",
     ringkas:
-      "Pilih nominal, tenor 7–28 hari, dan tujuan pinjaman. Potongan serta total kewajiban muncul sebelum tombol kirim ditekan.",
+      "Pilih nominal, tanggal jatuh tempo 7–50 hari, dan tujuan pinjaman. Potongan serta total kewajiban muncul sebelum tombol kirim ditekan.",
   },
   {
     id: "tinjau",

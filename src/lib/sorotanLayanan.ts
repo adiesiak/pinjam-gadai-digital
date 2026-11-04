@@ -10,10 +10,10 @@
 import { TENOR_BULANAN_OPTIONS } from "./bulanan";
 import { GADAI_PRICING } from "./gadai";
 import { KREDIT_TENOR_PENGAJUAN_OPTIONS } from "./kredit";
-import { TENOR_OPTIONS } from "./loan";
+import { TENOR_HARIAN_MAKS, TENOR_OPTIONS } from "./loan";
 
 export type SorotanLayanan = {
-  /** Angka besar, mis. `7–28` atau `70%`. */
+  /** Angka besar, mis. `7–50` atau `70%`. */
   angka: string;
   /** Satuan yang menempel pada angka besar. */
   satuan: string;
@@ -21,7 +21,7 @@ export type SorotanLayanan = {
   label: string;
 };
 
-const TENOR_HARIAN = `${TENOR_OPTIONS[0]}–${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]}`;
+const TENOR_HARIAN = `${TENOR_OPTIONS[0]}–${TENOR_HARIAN_MAKS}`;
 const TENOR_BULANAN = TENOR_BULANAN_OPTIONS.join("/");
 const TENOR_KREDIT = KREDIT_TENOR_PENGAJUAN_OPTIONS.join("/");
 

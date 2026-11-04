@@ -99,7 +99,7 @@ check(
 const pinjaman = renderPage("/layanan/pinjaman-tunai", <PublicInfoPageView />);
 check(
   pinjaman.includes("Ringkasan pinjaman") &&
-    pinjaman.includes("7–28 hari"),
+    pinjaman.includes("7–50 hari"),
   "halaman pinjaman menampilkan ringkasan tenor dari mesin",
 );
 check(
@@ -156,6 +156,30 @@ check(
 check(
   biaya.includes('aria-live="polite"'),
   "calculator results announce changes to assistive technology",
+);
+const biayaPromo = renderPage(
+  "/biaya",
+  <PublicInfoPageView
+    promos={[
+      {
+        _id: "promo-biaya",
+        nama: "Promo Biaya Uji",
+        persenBunga: 15,
+        tenor: [14],
+        mulai: 0,
+        selesai: Date.now() + 86_400_000,
+        aktif: true,
+      },
+    ]}
+  />,
+);
+check(
+  biayaPromo.includes("Promo Biaya Uji"),
+  "daily calculator names the active promo",
+);
+check(
+  biayaPromo.includes("menurunkan bunga dari 34% menjadi 15%"),
+  "daily calculator uses the promo rate for the selected tenor",
 );
 const biayaBunga10 = renderPage(
   "/biaya",

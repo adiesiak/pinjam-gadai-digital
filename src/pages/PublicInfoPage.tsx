@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { IkonWhatsapp } from "@/components/IkonWhatsapp";
+import { PemilihTanggalJatuhTempo } from "@/components/PemilihTanggalJatuhTempo";
 import { Button } from "@/components/ui/button";
 import { FaqLayanan } from "@/components/informasi/FaqLayanan";
 import {
@@ -24,6 +25,7 @@ import {
 } from "@/components/informasi/InfoShell";
 import { JudulBagian } from "@/components/landing/JudulBagian";
 import { urlChatCs } from "@/lib/kontak";
+import { usePromoBungaAktif } from "@/hooks/use-promo-bunga";
 import { api } from "@/convex/_generated/api";
 import {
   Accordion,
@@ -31,20 +33,23 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { formatRupiah } from "@/lib/money";
+import { formatRupiah, percentOf } from "@/lib/money";
 import {
   quoteLoanBunga,
   LOAN_LIMITS,
   persenBungaHarian,
-  sesuaikanTenorHarian,
-  TENOR_OPTIONS,
   tenorHarianDefault,
-  tenorHarianTersedia,
+  tenorHarianEfektif,
   LATE_FEE_POLICY,
   PINDAI_PRICING,
   tarifBiayaAman,
   type TarifBiaya,
 } from "@/lib/loan";
+import {
+  bungaSetelahPromo,
+  pilihPromoBunga,
+  type PromoBungaRingkas,
+} from "@/lib/promoBunga";
 import {
   adaBiayaEkspres,
   persenTeks,
@@ -131,6 +136,9 @@ const SKEMA_KALKULATOR = [
 
 type SkemaKalkulator = (typeof SKEMA_KALKULATOR)[number]["id"];
 
+/** Waktu acuan promo untuk kalkulator; stabil selama halaman terbuka. */
+const WAKTU_MUAT_KALKULATOR = Date.now();
+
 /**
  * Kalkulator publik memakai tarif yang sama dengan mesin pengajuan
  * (`system.getKetentuanBiaya`): potongan di muka dan tarif bulanan per tenor.
@@ -140,24 +148,39 @@ type SkemaKalkulator = (typeof SKEMA_KALKULATOR)[number]["id"];
 function KalkulatorRingkas({
   tarifBulanan,
   tarif,
+  promos = [],
 }: {
   /** Tarif bulanan dari Pengaturan Parameter Bisnis. */
   tarifBulanan: TarifBulanan;
   /** Tarif potongan di muka dari Pengaturan Parameter Bisnis. */
   tarif: TarifBiaya;
+  /** Promo bunga yang sedang berlaku; ikut dihitung di kalkulator. */
+  promos?: readonly PromoBungaRingkas[];
 }) {
   const [pokokHarian, setPokokHarian] = useState(500_000);
-  const [tenorHarian, setTenorHarian] =
-    useState<(typeof TENOR_OPTIONS)[number]>(tenorHarianDefault(500_000));
+  const [tenorHarian, setTenorHarian] = useState<number>(
+    tenorHarianDefault(500_000),
+  );
   const [pokokGadai, setPokokGadai] = useState(1_000_000);
   const [pokokBulanan, setPokokBulanan] = useState(1_000_000);
   const [tenorBulanan, setTenorBulanan] =
     useState<(typeof TENOR_BULANAN_OPTIONS)[number]>(3);
   const [skema, setSkema] = useState<SkemaKalkulator>("harian");
-  const tenorHarianEfektif = sesuaikanTenorHarian(pokokHarian, tenorHarian);
-  const tenorHarianOpsi = tenorHarianTersedia(pokokHarian);
-  const tarifHarian =
-    persenBungaHarian(pokokHarian, tenorHarianEfektif) ?? PINDAI_PRICING.bungaPercent;
+  const tenorHarianAktif = tenorHarianEfektif(pokokHarian, tenorHarian);
+  const tarifNormalHarian =
+    persenBungaHarian(pokokHarian, tenorHarianAktif) ?? PINDAI_PRICING.bungaPercent;
+  // Tanggal menentukan tenor; promo dicocokkan dengan tenor hasil tanggal itu,
+  // bukan dengan empat tenor lama yang dulu menjadi tombol pilihan.
+  const promoBunga = pilihPromoBunga(promos, {
+    tenor: tenorHarianAktif,
+    sekarang: WAKTU_MUAT_KALKULATOR,
+    persenNormal: tarifNormalHarian,
+  });
+  const tarifHarian = bungaSetelahPromo(tarifNormalHarian, promoBunga);
+  const diskonAdminPromo =
+    promoBunga?.jenis === "bebas_admin"
+      ? percentOf(pokokHarian, tarif.adminPersen)
+      : 0;
   const simulasiHarian = useMemo(() => {
     if (
       !Number.isSafeInteger(pokokHarian) ||
@@ -166,16 +189,21 @@ function KalkulatorRingkas({
     )
       return null;
     try {
-      return quoteLoanBunga(pokokHarian, tarifHarian, { tarif });
+      return quoteLoanBunga(pokokHarian, tarifHarian, {
+        tarif,
+        ...(diskonAdminPromo > 0 ? { diskonAdmin: diskonAdminPromo } : {}),
+      });
     } catch {
       return null;
     }
-  }, [pokokHarian, tarifHarian, tarif]);
+  }, [pokokHarian, tarifHarian, tarif, diskonAdminPromo]);
 
-  // Nominal berubah → tenor dan tarif ikut menyesuaikan tanpa menunggu submit.
+  // Nominal berubah → tanggal tetap dipertahankan bila tenor hasilnya masih
+  // sah untuk nominal baru. Tenor bebas seperti 10 hari tidak boleh digeser ke
+  // 7/14/21/28 hanya karena nominal berubah.
   const pilihPokokHarian = (nilai: number) => {
     setPokokHarian(nilai);
-    setTenorHarian(sesuaikanTenorHarian(nilai, tenorHarianEfektif));
+    setTenorHarian(tenorHarianEfektif(nilai, tenorHarianAktif));
   };
   const simulasiBulanan = useMemo(() => {
     try {
@@ -212,8 +240,9 @@ function KalkulatorRingkas({
               Contoh perhitungan
             </h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-700">
-              Pilih skema, ubah nominal dan tenor, lalu baca ringkasan di
-              sebelahnya. Angka bergerak tanpa memuat ulang halaman.
+              Pilih skema, ubah nominal dan tanggal jatuh tempo, lalu baca
+              ringkasan di sebelahnya. Angka bergerak tanpa memuat ulang
+              halaman.
             </p>
           </div>
           <p className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-card px-3 py-1.5 text-xs font-medium text-slate-700">
@@ -274,7 +303,7 @@ function KalkulatorRingkas({
                 {formatRupiah(LOAN_LIMITS.maxPokok)}
               </span>
             </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="pokok-harian">Pokok pinjaman (Rp)</Label>
                 <Input
@@ -292,36 +321,30 @@ function KalkulatorRingkas({
                 />
               </div>
               <div>
-                <Label htmlFor="tenor-harian">Tenor</Label>
-                <select
-                  id="tenor-harian"
-                  value={tenorHarianEfektif}
-                  onChange={(event) =>
-                    setTenorHarian(
-                      Number(
-                        event.target.value,
-                      ) as (typeof TENOR_OPTIONS)[number],
-                    )
-                  }
-                  className="mt-1 min-h-11 w-full rounded-lg border border-input bg-card px-3 text-sm tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-36"
-                >
-                  {TENOR_OPTIONS.map((hari) => {
-                    const aktif = (
-                      tenorHarianOpsi as readonly number[]
-                    ).includes(hari);
-                    return (
-                      <option key={hari} value={hari} disabled={!aktif}>
-                        {hari} hari{aktif ? "" : " (terkunci)"}
-                      </option>
-                    );
-                  })}
-                </select>
+                <Label htmlFor="tanggal-harian">Tanggal jatuh tempo</Label>
+                <div className="mt-1">
+                  <PemilihTanggalJatuhTempo
+                    id="tanggal-harian"
+                    pokok={pokokHarian}
+                    tenor={tenorHarianAktif}
+                    onPilih={setTenorHarian}
+                    promos={promos}
+                  />
+                </div>
               </div>
             </div>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              Tenor mengikuti batas nominal. Pilihan terkunci tidak tersedia
-              untuk pokok ini.
+              Pilih tanggal 7–50 hari dari hari ini. Bunga dan promo mengikuti
+              tenor hasil tanggal itu, bukan pilihan tenor bawaan.
             </p>
+            {promoBunga !== null && (
+              <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs leading-5 text-emerald-900">
+                Promo <strong className="font-semibold">{promoBunga.nama}</strong>{" "}
+                {promoBunga.jenis === "bebas_admin"
+                  ? `membebaskan biaya admin di muka; bunga tetap ${tarifNormalHarian}%.`
+                  : `menurunkan bunga dari ${tarifNormalHarian}% menjadi ${tarifHarian}%.`}
+              </p>
+            )}
             {simulasiHarian ? null : (
               <p
                 role="status"
@@ -334,7 +357,7 @@ function KalkulatorRingkas({
           </div>
           {simulasiHarian ? (
             <RingkasanKalkulator
-              judul={`${tenorHarianEfektif} hari`}
+              judul={`${tenorHarianAktif} hari`}
               totalLabel="Kewajiban ilustratif"
               total={formatRupiah(simulasiHarian.totalKewajibanPelunasan)}
               baris={[
@@ -649,7 +672,7 @@ function faqLayananUntuk(jenis: JenisLayanan): {
       daftar: [
         {
           q: "Apakah bunga harian dan bulanan sama?",
-          a: `Tidak. Bunga harian dihitung flat untuk tenor ${TENOR_OPTIONS[0]}–${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari; skema bulanan punya tarif per tenor ${TENOR_BULANAN_OPTIONS.join("/")} bulan. Kalkulator menampilkan keduanya.`,
+          a: `Tidak. Bunga harian dihitung flat untuk tenor 7–50 hari; skema bulanan punya tarif per tenor ${TENOR_BULANAN_OPTIONS.join("/")} bulan. Kalkulator menampilkan keduanya.`,
         },
         {
           q: "Kapan potongan biaya dilakukan?",
@@ -752,7 +775,7 @@ function RingkasanLayanan({ jenis }: { jenis: JenisLayanan }) {
       ? [
           {
             label: "Tenor harian",
-            nilai: `${TENOR_OPTIONS[0]}–${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]} hari`,
+            nilai: "7–50 hari",
           },
           {
             label: "Cicilan bulanan",
@@ -951,8 +974,11 @@ export type KetentuanDendaTampil = {
 
 export function PublicInfoPageView({
   ketentuan,
+  promos = [],
 }: {
   ketentuan?: KetentuanDendaTampil | null;
+  /** Promo aktif; dipakai kalkulator agar angka tanggal sama dengan formulir. */
+  promos?: readonly PromoBungaRingkas[];
 }) {
   const { pathname } = useLocation();
   const dendaPerHari =
@@ -1123,7 +1149,11 @@ export function PublicInfoPageView({
                 aria-labelledby="kalkulator-title"
                 className="scroll-mt-6"
               >
-                <KalkulatorRingkas tarifBulanan={tarifBulanan} tarif={tarif} />
+                <KalkulatorRingkas
+                  tarifBulanan={tarifBulanan}
+                  tarif={tarif}
+                  promos={promos}
+                />
               </section>
             )}
             <div>
@@ -1153,7 +1183,7 @@ export function PublicInfoPageView({
                         Tenor
                       </th>
                       <td className="px-4 py-3">
-                        {TENOR_OPTIONS.join(", ")} hari
+                        7–50 hari
                       </td>
                       <td className="px-4 py-3">
                         {TENOR_BULANAN_OPTIONS.join(", ")} bulan
@@ -1195,15 +1225,16 @@ export function PublicInfoPageView({
                       </th>
                       <td className="px-4 py-3">
                         <span className="block">
-                          {formatRupiah(LOAN_LIMITS.minPokok)}–{formatRupiah(499_999)}: tenor
-                          7/14/21/28 hari, bunga 32/37/40/42%.
+                          {formatRupiah(LOAN_LIMITS.minPokok)}–{formatRupiah(499_999)}: tarif
+                          acuan 7/14/21/28 hari, bunga 32/37/40/42%.
                         </span>
                         <span className="mt-1 block">
-                          {formatRupiah(500_000)}–{formatRupiah(999_999)}: tenor 7/14/21/28 hari,
-                          bunga 30/34/36/37%.
+                          {formatRupiah(500_000)}–{formatRupiah(999_999)}: tarif acuan
+                          7/14/21/28 hari, bunga 30/34/36/37%.
                         </span>
                         <span className="mt-1 block">
-                          {formatRupiah(1_000_000)}: tenor 7/14/21/28 hari, bunga 28/30/31/32%.
+                          {formatRupiah(1_000_000)}: tarif acuan 7/14/21/28 hari, bunga
+                          28/30/31/32%.
                         </span>
                         <span className="mt-1 block text-muted-foreground">
                           Tenor harian bisa 7–50 hari. Angka di atas adalah tarif acuan
@@ -1735,5 +1766,6 @@ export { ROUTES as PUBLIC_INFO_ROUTES };
 /** Rute publik: tarif denda dibaca dari pengaturan admin yang berlaku. */
 export default function PublicInfoPage() {
   const ketentuan = useQuery(api.system.getKetentuanBiaya);
-  return <PublicInfoPageView ketentuan={ketentuan} />;
+  const promos = usePromoBungaAktif();
+  return <PublicInfoPageView ketentuan={ketentuan} promos={promos} />;
 }

@@ -14,6 +14,7 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
+import { usePromoBungaAktif } from "@/hooks/use-promo-bunga";
 import type { TarifBulanan } from "@/lib/bulanan";
 import type { TarifBiaya } from "@/lib/loan";
 
@@ -23,7 +24,7 @@ import { LiveCalculator } from "./LiveCalculator";
 
 const CATATAN = [
   "Kalkulator ini untuk pinjaman tunai; gadai, kredit barang, dan syariah dihitung di halamannya.",
-  "Nominal dan tenor diubah langsung; hasilnya ikut berubah.",
+  "Nominal dan tanggal jatuh tempo diubah langsung; hasilnya ikut berubah.",
   "Potongan di muka memakai tarif yang berlaku hari ini.",
 ] as const;
 
@@ -43,6 +44,10 @@ export function KalkulatorBeranda({
   accountHref: string;
   accountLabel: string;
 }) {
+  // Promo dibaca sekali di bagian ini lalu diteruskan ke kalkulator; dengan
+  // begitu tanggal, bunga, dan promo di beranda memakai sumber yang sama
+  // dengan halaman biaya dan formulir pengajuan.
+  const promos = usePromoBungaAktif();
   return (
     <section
       id="kalkulator"
@@ -88,6 +93,8 @@ export function KalkulatorBeranda({
           <div className="grid gap-4">
             <LiveCalculator
               tarifBulanan={tarifBulanan}
+              tarifBiaya={tarif}
+              promos={promos}
               accountHref={accountHref}
               accountLabel={accountLabel}
             />

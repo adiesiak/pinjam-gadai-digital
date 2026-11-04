@@ -67,13 +67,13 @@ import {
   LATE_FEE_POLICY,
   LOAN_LIMITS,
   LOAN_PURPOSE_OPTIONS,
+  TENOR_HARIAN_MAKS,
   persenBungaHarian,
   PINDAI_PRICING,
   quoteLoanBunga,
   TENOR_OPTIONS,
   tenorHarianDefault,
   tenorHarianEfektif,
-  tenorHarianTersedia,
 } from "@/lib/loan";
 import { formatRupiah, percentOf } from "@/lib/money";
 import { bungaSetelahPromo, pilihPromoBunga } from "@/lib/promoBunga";
@@ -531,7 +531,6 @@ export function LoanForm({
     pokok,
     Number(tenorHari) || tenorHarianDefault(pokok),
   );
-  const tenorHarianOpsi = tenorHarianTersedia(pokok);
   const tarifNormalHarian =
     persenBungaHarian(pokok, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
   // ===== Promo bunga =====
@@ -621,8 +620,8 @@ export function LoanForm({
       : `${formatRupiah(tarifBiaya.ekspres.tier1)}–${formatRupiah(tarifBiaya.ekspres.tier3)}`
     : "Rp5.000–Rp10.000";
 
-  // Nominal berubah → tarif tier ikut berubah. Pilihan tenor lama tetap sah
-  // selama termasuk 7/14/28 hari, jadi hanya tenor asing yang digeser.
+  // Nominal berubah → tarif tier ikut berubah. Tenor hasil tanggal tetap sah
+  // selama masih 7–50 hari untuk nominal baru; hanya tenor asing yang digeser.
   useEffect(() => {
     if (bulanan) return;
     queueMicrotask(() => {
@@ -795,7 +794,7 @@ export function LoanForm({
       ? "Ini hanya perkiraan, bukan persetujuan pinjaman. Batas pinjaman Anda sedang dibaca; penggeser terbuka setelah angkanya tersimpan."
       : bulanan
         ? `Ini hanya perkiraan, bukan persetujuan pinjaman. ${ungkapBatas} ${kalimatNaik}`
-        : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(MIN)} sampai ${formatRupiah(MAX)}, paling lama ${LOAN_LIMITS.maxTenorHari} hari. ${ungkapBatas} ${kalimatNaik}`;
+        : `Ini hanya perkiraan, bukan persetujuan pinjaman. Jumlah pinjaman harian ${formatRupiah(MIN)} sampai ${formatRupiah(MAX)}, paling lama ${TENOR_HARIAN_MAKS} hari. ${ungkapBatas} ${kalimatNaik}`;
 
   // Query batas dapat datang terlambat atau berubah akibat override admin.
   // Batasi jumlah pinjaman agar penggeser dan perkiraan mengikuti batas terbaru.
@@ -873,7 +872,7 @@ export function LoanForm({
     }
     if (!bulanan && (pokok < MIN || pokok > MAX || !Number.isInteger(pokok))) {
       setError(
-        `Jumlah pinjaman harus antara ${formatRupiah(MIN)} dan ${formatRupiah(MAX)}. Masukkan jumlah rupiah tanpa pecahan. Lama pinjaman paling lama ${LOAN_LIMITS.maxTenorHari} hari.`,
+        `Jumlah pinjaman harus antara ${formatRupiah(MIN)} dan ${formatRupiah(MAX)}. Masukkan jumlah rupiah tanpa pecahan. Lama pinjaman paling lama ${TENOR_HARIAN_MAKS} hari.`,
       );
       return;
     }
@@ -1485,6 +1484,7 @@ export function LoanForm({
                 pokok={pokok}
                 tenor={tenorHarian}
                 tambahanHari={tambahanTenorVoucher}
+                promos={promoBungaQuery ?? []}
                 disabled={submitting || !adaSisa}
                 invalid={error !== null}
                 onPilih={(hari) => setTenorHari(String(hari))}
@@ -1493,12 +1493,11 @@ export function LoanForm({
           )}
           {!bulanan && (
             <p className="text-xs leading-5 text-muted-foreground">
-              Nominal ini menerima tenor {tenorHarianOpsi.join(" / ")} hari. Bunga{" "}
-              <strong className="font-semibold text-slate-800">{tarifEfektif}%</strong> untuk
-              tenor {tenorHarian} hari mengikuti matriks produk. Tanggal yang bisa
-              dipilih 7–50 hari dari hari ini: semakin jauh tanggalnya, semakin besar
-              bunga. Di atas 28 hari, setiap hari tambahan dikenakan 1,5 kali harga
-              satu hari tenor 28 hari.
+              Bunga <strong className="font-semibold text-slate-800">{tarifEfektif}%</strong>{" "}
+              untuk tenor {tenorHarian} hari mengikuti matriks produk dan promo
+              yang berlaku. Pilih tanggal 7–50 hari dari hari ini: semakin jauh
+              tanggalnya, semakin besar bunga. Di atas 28 hari, setiap hari
+              tambahan dikenakan 1,5 kali harga satu hari tenor 28 hari.
               {tambahanTenorVoucher > 0
                 ? ` Voucher menambah ${tambahanTenorVoucher} hari tanpa menambah bunga.`
                 : ""}
@@ -2109,7 +2108,7 @@ export function LoanForm({
           : `Batas awal ${formatRupiah(PLAFON_DEFAULT)}. Selesaikan 1x pinjaman tepat waktu untuk membuka limit ${formatRupiah(PLAFON_NAIK_SETELAH_LUNAS)}. ${ungkapBatas}`}{" "}
         {bulanan
           ? "Jumlah cicilan ini perkiraan; pelunasan dicatat penuh saat tenor berakhir."
-          : `Pinjaman harian paling lama ${LOAN_LIMITS.maxTenorHari} hari.`}{" "}
+          : `Pinjaman harian paling lama ${TENOR_HARIAN_MAKS} hari.`}{" "}
         Semua tersimpan di PINDAI, dan perpindahan dana ditangani di luar aplikasi.
       </p>
     </form>

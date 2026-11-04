@@ -327,7 +327,8 @@ export function NasabahDetailDialog({
                     {detail.plafon.jumlahAktif > 0
                       ? ` ${detail.plafon.jumlahAktif} pinjaman aktif menahan plafon terpakai.`
                       : " Tidak ada pinjaman aktif yang menahan plafon."}{" "}
-                    Bunga pinjaman mengikuti tenor 7/14/21/28 hari dan tidak berubah karena plafon.
+                    Bunga pinjaman mengikuti tenor hasil tanggal (7–50 hari, acuan 7/14/21/28)
+                    dan tidak berubah karena plafon.
                   </p>
                 </KartuKolom>
 

@@ -193,7 +193,7 @@ export function FormPinjamanManual({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="harian">Harian (7–28 hari, sampai 50 hari)</SelectItem>
+              <SelectItem value="harian">Harian (7–50 hari)</SelectItem>
               <SelectItem value="bulanan">Bulanan (1/3/6/9/12 bulan)</SelectItem>
             </SelectContent>
           </Select>
@@ -261,7 +261,7 @@ export function FormPinjamanManual({
           {!bulanan && (
             <p className="text-xs leading-5 text-muted-foreground">
               {adaMatriksHarian
-                ? `Tanggal dihitung dari hari ini; tenor yang tersedia ${tenorHarianOpsi.join(" / ")} hari.`
+                ? `Tanggal dihitung dari hari ini; tenor ${tenorHarianOpsi[0]}–${tenorHarianOpsi[tenorHarianOpsi.length - 1]} hari.`
                 : `Tenor yang tersedia: ${tenorHarianOpsi.join(" / ")} hari.`}
             </p>
           )}

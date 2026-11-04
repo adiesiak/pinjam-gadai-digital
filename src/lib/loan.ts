@@ -52,11 +52,18 @@ export const LOAN_LIMITS = {
    * plafon khusus, `maxPokok` yang berlaku.
    */
   maxPokokPlafon: 10_000_000,
-  /** Tenor pinjaman harian maksimum 28 hari (4 minggu). */
+  /**
+   * Batas tenor standar lama (4 minggu). Pilihan nasabah sekarang mengikuti
+   * tanggal 7–50 hari; lihat `TENOR_HARIAN_MAKS`.
+   */
   maxTenorHari: 28,
 } as const;
 
-/** Tenor pinjaman dalam hari — dipilih nasabah saat mengajukan (maks 28 hari). */
+/**
+ * Empat tenor acuan tarif. Pilihan nasabah tidak dibatasi ke daftar ini:
+ * tanggal jatuh tempo 7–50 hari diterjemahkan menjadi tenor, dan hari di antara
+ * acuan memakai tarif interpolasi.
+ */
 export const TENOR_OPTIONS = [7, 14, 21, 28] as const;
 export type Tenor = (typeof TENOR_OPTIONS)[number];
 
@@ -119,8 +126,9 @@ export const PENAMBAHAN_BUNGA_HARIAN_PERSEN = 2;
  * plafon khusus di atas batas bawaan Rp1 juta. Tanpa plafon khusus, plafon
  * nasabah sendiri (Rp500 ribu/Rp1 juta) yang menahan pokoknya lebih dulu.
  *
- * Tenor standar yang ditawarkan adalah 7, 14, 21, dan 28 hari. Hari ke-29
- * sampai ke-50 tetap SAH sebagai perpanjangan berbayar (lihat
+ * Tenor 7, 14, 21, dan 28 hari adalah acuan tarif. Nasabah memilih tanggal
+ * 7–50 hari; hari di antara acuan memakai interpolasi, sedangkan hari ke-29
+ * sampai ke-50 SAH sebagai perpanjangan berbayar (lihat
  * `TENOR_PERPANJANGAN`), sehingga tenor 30 hari diterima server dengan tarif
  * perpanjangan — bukan tarif tenor 28 hari. Di atas 50 hari ditolak.
  */

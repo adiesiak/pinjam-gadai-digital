@@ -458,9 +458,10 @@ export function PlafonPanel() {
                   progresif; kredit barang memakai batas tersendiri.
                 </li>
                 <li>
-                  Bunga pinjaman selalu mengikuti tenor: harian 7/14/21/28 hari (28–42% sesuai nominal)
-                  dan bulanan 30/8/12/10/8% per bulan untuk tenor 1/3/6/9/12 bulan (marjin total
-                  30/24/72/90/96%). Pinjaman yang sudah cair tetap memakai snapshot bunganya.
+                  Bunga pinjaman selalu mengikuti tenor: harian 7–50 hari (acuan 7/14/21/28,
+                  28–42% sesuai nominal) dan bulanan 30/8/12/10/8% per bulan untuk tenor
+                  1/3/6/9/12 bulan (marjin total 30/24/72/90/96%). Pinjaman yang sudah cair tetap
+                  memakai snapshot bunganya.
                 </li>
                 <li>
                   Grade risiko pada kolom identitas dihitung dari model yang sama dengan detail

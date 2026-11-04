@@ -367,8 +367,9 @@ const PASAL: Pasal[] = [
             {formatRupiah(LOAN_LIMITS.minPokok)}
             sampai {formatRupiah(LOAN_LIMITS.maxPokok)}. Bila tim PINDAI menetapkan
             plafon khusus untuk akun Anda, pokok hariannya dapat lebih tinggi,
-            sampai {formatRupiah(LOAN_LIMITS.maxPokokPlafon)}, dengan pilihan tenor{" "}
-            {TENOR_OPTIONS.join(", ")} hari. Pinjaman bulanan menggunakan pokok{" "}
+            sampai {formatRupiah(LOAN_LIMITS.maxPokokPlafon)}, dengan tenor 7 sampai{" "}
+            {TENOR_HARIAN_MAKS} hari (acuan tarif {" "}
+            {TENOR_OPTIONS.join(", ")} hari). Pinjaman bulanan menggunakan pokok{" "}
             {formatRupiah(BULANAN_LIMITS.minPokok)} sampai{" "}
             {formatRupiah(BULANAN_LIMITS.maxPokok)}, dengan pilihan tenor{" "}
             {TENOR_BULANAN_OPTIONS.join(", ")} bulan.

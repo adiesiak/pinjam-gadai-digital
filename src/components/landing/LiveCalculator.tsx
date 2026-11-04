@@ -17,6 +17,7 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
+import { PemilihTanggalJatuhTempo } from "@/components/PemilihTanggalJatuhTempo";
 import { Button } from "@/components/ui/button";
 import {
   BULANAN_LIMITS,
@@ -34,10 +35,16 @@ import {
   tenorHarianDefault,
   tenorHarianEfektif,
   type LoanQuote,
+  type TarifBiaya,
 } from "@/lib/loan";
 import { catatPeristiwaLanding } from "@/lib/analitikLanding";
-import { formatRupiah, type Rupiah } from "@/lib/money";
+import { formatRupiah, percentOf, type Rupiah } from "@/lib/money";
 import { PLAFON_BATAS } from "@/lib/plafon";
+import {
+  bungaSetelahPromo,
+  pilihPromoBunga,
+  type PromoBungaRingkas,
+} from "@/lib/promoBunga";
 import { simpanSimulasiPengajuan } from "@/lib/simulasiPengajuan";
 
 const QUICK_AMOUNTS = [100_000, 250_000, 500_000, 1_000_000];
@@ -48,6 +55,8 @@ const MAX_SLIDER = LOAN_LIMITS.maxPokok;
 const MAX_SLIDER_BULANAN = Math.min(BULANAN_LIMITS.maxPokok, PLAFON_BATAS.maks);
 const SLIDER_STEPS = 140;
 const SLIDER_STEPS_BULANAN = 200;
+/** Waktu acuan promo; stabil selama halaman kalkulator terbuka. */
+const WAKTU_MUAT_KALKULATOR = Date.now();
 
 function sliderToRupiah(v: number, min: number, max: number, steps: number, step: number): Rupiah {
   const t = v / steps;
@@ -67,10 +76,16 @@ function rupiahToSlider(r: Rupiah, min: number, max: number, steps: number): num
  */
 export function LiveCalculator({
   tarifBulanan,
+  tarifBiaya,
+  promos = [],
   accountHref = "/auth",
   accountLabel = "Buat akun untuk mengajukan",
 }: {
   tarifBulanan?: Partial<TarifBulanan> | null;
+  /** Tarif potongan di muka dari Pengaturan Parameter Bisnis. */
+  tarifBiaya?: TarifBiaya | null;
+  /** Promo bunga yang sedang berlaku; ikut dihitung di kalkulator. */
+  promos?: readonly PromoBungaRingkas[];
   /** Tujuan CTA; landing mengisi formulir setelah sesi dibuat. */
   accountHref?: string;
   accountLabel?: string;
@@ -87,10 +102,31 @@ export function LiveCalculator({
   // Tenor yang ditampilkan selalu tenor sah untuk nominal saat ini. Tenor bebas
   // 8–27 dan perpanjangan 29–50 dipertahankan, bukan digeser ke 7/14/21/28.
   const tenorHarian = tenorHarianEfektif(amount, tenor);
-  const tarifHarian = persenBungaHarian(amount, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
+  const tarifNormalHarian =
+    persenBungaHarian(amount, tenorHarian) ?? PINDAI_PRICING.bungaPercent;
+  // Promo dipilih dari tenor hasil tanggal, bukan dari tombol tenor lama: satu
+  // pengajuan tetap memakai satu kampanye, dan tanggal yang sama selalu
+  // menghasilkan angka yang sama dengan formulir.
+  const promoBunga = pilihPromoBunga(promos, {
+    tenor: tenorHarian,
+    sekarang: WAKTU_MUAT_KALKULATOR,
+    persenNormal: tarifNormalHarian,
+  });
+  const tarifHarian = bungaSetelahPromo(tarifNormalHarian, promoBunga);
+  const diskonAdminPromo =
+    promoBunga?.jenis === "bebas_admin"
+      ? percentOf(
+          amount,
+          tarifBiaya?.adminPersen ?? PINDAI_PRICING.adminFeePercent,
+        )
+      : 0;
   const quote: LoanQuote = useMemo(
-    () => quoteLoanBunga(amount, tarifHarian),
-    [amount, tarifHarian],
+    () =>
+      quoteLoanBunga(amount, tarifHarian, {
+        ...(tarifBiaya ? { tarif: tarifBiaya } : {}),
+        ...(diskonAdminPromo > 0 ? { diskonAdmin: diskonAdminPromo } : {}),
+      }),
+    [amount, tarifHarian, tarifBiaya, diskonAdminPromo],
   );
   const sim = useMemo(() => {
     if (!bulanan) return null;
@@ -234,88 +270,58 @@ export function LiveCalculator({
       </div>
 
       <div className="mt-5">
-        <p className="text-sm font-medium text-foreground">Tenor</p>
-        <div role="group" aria-label="Pilih tenor" className="mt-2 grid grid-cols-3 gap-2">
-          {bulanan
-            ? TENOR_BULANAN_OPTIONS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTenorBulan(t)}
-                  aria-pressed={tenorBulan === t}
-                  className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${kelasFokus} ${
-                    tenorBulan === t
-                      ? "border-primary text-primary"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {tenorBulan === t && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-0 rounded-lg bg-primary/10"
-                    />
-                  )}
-                  <span className="relative">{t} bulan</span>
-                </button>
-              ))
-            : TENOR_OPTIONS.map((t) => {
-                const dipilih = tenorHarian === t;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTenor(t)}
-                    aria-pressed={dipilih}
-                    className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${kelasFokus} ${
-                      dipilih
-                        ? "border-primary text-primary"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {dipilih && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-0 rounded-lg bg-primary/10"
-                      />
-                    )}
-                    <span className="relative">{t} hari</span>
-                  </button>
-                );
-              })}
-        </div>
-        {!bulanan && (
+        <p className="text-sm font-medium text-foreground">
+          {bulanan ? "Tenor" : "Tanggal jatuh tempo"}
+        </p>
+        {bulanan ? (
+          <div role="group" aria-label="Pilih tenor" className="mt-2 grid grid-cols-3 gap-2">
+            {TENOR_BULANAN_OPTIONS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTenorBulan(t)}
+                aria-pressed={tenorBulan === t}
+                className={`relative min-h-11 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${kelasFokus} ${
+                  tenorBulan === t
+                    ? "border-primary text-primary"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {tenorBulan === t && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-lg bg-primary/10"
+                  />
+                )}
+                <span className="relative">{t} bulan</span>
+              </button>
+            ))}
+          </div>
+        ) : (
           <>
-            <div className="mt-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <label htmlFor="calc-tenor-bebas" className="text-xs font-medium text-foreground">
-                  Tanggal fleksibel
-                </label>
-                <span className="text-xs font-semibold tabular-nums text-foreground">
-                  {tenorHarian} hari
-                </span>
-              </div>
-              <input
-                id="calc-tenor-bebas"
-                type="range"
-                min={TENOR_OPTIONS[0]}
-                max={TENOR_HARIAN_MAKS}
-                step={1}
-                value={tenorHarian}
-                onChange={(e) => setTenor(Number(e.target.value))}
-                aria-valuetext={`${tenorHarian} hari`}
-                className={`mt-2 w-full accent-primary ${kelasFokus}`}
+            <div className="mt-2">
+              <PemilihTanggalJatuhTempo
+                pokok={amount}
+                tenor={tenorHarian}
+                onPilih={setTenor}
+                promos={promos}
               />
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Pilih {TENOR_OPTIONS[0]}–{TENOR_HARIAN_MAKS} hari. Semakin lama tenor, semakin besar
-                bunga; hari ke-29 dan seterusnya memakai tarif perpanjangan.
-              </p>
             </div>
             <p className="mt-2 text-sm leading-5 text-muted-foreground">
               Bunga <strong className="font-semibold text-foreground">{tarifHarian}%</strong> flat
-              untuk tenor {tenorHarian} hari (bukan bunga per tahun). Nominal ini menerima tenor{" "}
-              {TENOR_OPTIONS[0]}–{TENOR_HARIAN_MAKS} hari. Promo yang berlaku diterapkan saat
-              pengajuan di aplikasi.
+              untuk tenor {tenorHarian} hari (bukan bunga per tahun). Pilih tanggal{" "}
+              {TENOR_OPTIONS[0]}–{TENOR_HARIAN_MAKS} hari dari hari ini; semakin lama tenor,
+              semakin besar bunga. Hari ke-29 dan seterusnya memakai tarif perpanjangan.
             </p>
+            {promoBunga !== null && (
+              <p className="mt-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-5 text-foreground">
+                Promo <strong className="font-semibold">{promoBunga.nama}</strong>{" "}
+                {promoBunga.jenis === "bebas_admin"
+                  ? `membebaskan biaya admin di muka; bunga tetap ${tarifNormalHarian}%.`
+                  : `menurunkan bunga dari ${tarifNormalHarian}% menjadi ${tarifHarian}%.`}{" "}
+                Angka di bawah sudah memakainya.
+              </p>
+            )}
           </>
         )}
       </div>
@@ -363,7 +369,11 @@ export function LiveCalculator({
                   formatRupiah(quote.bunga),
                   false,
                 ],
-                ["Biaya admin (dipotong di muka)", formatRupiah(quote.biayaAdmin), false],
+                [
+                  "Biaya admin (dipotong di muka)",
+                  formatRupiah(quote.biayaAdmin - quote.diskonAdmin),
+                  false,
+                ],
                 [
                   "Cair ekspres (bila dipilih, dipotong di muka)",
                   formatRupiah(quote.biayaExpress),

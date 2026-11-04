@@ -9,8 +9,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { persenBungaHarian, TENOR_OPTIONS, tenorHarianSah } from "@/lib/loan";
+import { persenBungaHarian, TENOR_OPTIONS } from "@/lib/loan";
 import { formatRupiah, formatRupiahRingkas, percentOf } from "@/lib/money";
+import {
+  bungaSetelahPromo,
+  pilihPromoBunga,
+  type PromoBungaRingkas,
+} from "@/lib/promoBunga";
 import {
   akhirPekan,
   hariIniLokal,
@@ -45,10 +50,26 @@ const SEKARANG_MUAT = Date.now();
 function HariTenor({
   pokok,
   sekarang,
+  promos,
   ...props
-}: ComponentProps<typeof DayButton> & { pokok: number; sekarang: number }) {
+}: ComponentProps<typeof DayButton> & {
+  pokok: number;
+  sekarang: number;
+  promos: readonly PromoBungaRingkas[];
+}) {
   const tenor = tenorDariTanggal(props.day.date, pokok, sekarang);
-  const persen = tenor === null ? null : persenBungaHarian(pokok, tenor);
+  const normal = tenor === null ? null : persenBungaHarian(pokok, tenor);
+  // Angka di sel sudah memakai promo yang berlaku untuk tenor itu, supaya
+  // nasabah tidak melihat total normal lalu kaget saat ringkasan berubah.
+  const promo =
+    normal === null
+      ? null
+      : pilihPromoBunga(promos, {
+          tenor: tenor ?? 0,
+          sekarang,
+          persenNormal: normal,
+        });
+  const persen = normal === null ? null : bungaSetelahPromo(normal, promo);
   const total =
     tenor === null || persen === null ? null : pokok + percentOf(pokok, persen);
   const akhirPekan = props.modifiers.akhirPekan === true;
@@ -102,6 +123,7 @@ export function PemilihTanggalJatuhTempo({
   disabled = false,
   invalid = false,
   tambahanHari = 0,
+  promos = [],
   id = "loan-tenor-trigger",
 }: {
   /** Id tombol pemicu, dipasangkan dengan `<Label htmlFor>`. */
@@ -115,6 +137,8 @@ export function PemilihTanggalJatuhTempo({
   invalid?: boolean;
   /** Hari tambahan dari voucher tenor, hanya untuk keterangan tanggal akhir. */
   tambahanHari?: number;
+  /** Promo aktif; angka di kalender ikut memakainya. */
+  promos?: readonly PromoBungaRingkas[];
 }) {
   const [buka, setBuka] = useState(false);
   const sekarang = SEKARANG_MUAT;
@@ -124,11 +148,24 @@ export function PemilihTanggalJatuhTempo({
   const akhir = tambahanHari > 0 ? tambahHari(dipilih, tambahanHari) : null;
   // Bunga dihitung dari mesin harga yang sama dengan server, bukan perkiraan
   // terpisah: angka di popover harus sama dengan yang muncul di ringkasan.
+  const promoUntuk = (hari: number): PromoBungaRingkas | null => {
+    if (!Number.isInteger(pokok) || pokok <= 0) return null;
+    const normal = persenBungaHarian(pokok, hari);
+    if (normal === null) return null;
+    return pilihPromoBunga(promos, {
+      tenor: hari,
+      sekarang,
+      persenNormal: normal,
+    });
+  };
   const bungaUntuk = (hari: number): number | null => {
     if (!Number.isInteger(pokok) || pokok <= 0) return null;
-    const persen = persenBungaHarian(pokok, hari);
-    return persen === null ? null : percentOf(pokok, persen);
+    const normal = persenBungaHarian(pokok, hari);
+    if (normal === null) return null;
+    const promo = promoUntuk(hari);
+    return percentOf(pokok, bungaSetelahPromo(normal, promo));
   };
+  const promoDipilih = promoUntuk(tenor);
   const bungaSekarang = bungaUntuk(tenor);
   const bungaSehariLagi = bungaUntuk(tenor + 1);
   const tambahanSehari =
@@ -177,7 +214,7 @@ export function PemilihTanggalJatuhTempo({
           aria-label={`Tanggal jatuh tempo ${label}, tenor ${tenor} hari`}
           aria-invalid={invalid || undefined}
           className={cn(
-            "flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
+            "flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
             disabled ? "cursor-not-allowed opacity-60" : "hover:border-slate-400",
             invalid ? "border-red-400" : "border-slate-300",
           )}
@@ -230,7 +267,12 @@ export function PemilihTanggalJatuhTempo({
           }}
           components={{
             DayButton: (props) => (
-              <HariTenor {...props} pokok={pokok} sekarang={sekarang} />
+              <HariTenor
+                {...props}
+                pokok={pokok}
+                sekarang={sekarang}
+                promos={promos}
+              />
             ),
           }}
           disabled={(date) => tenorDariTanggal(date, pokok, sekarang) === null}
@@ -241,7 +283,7 @@ export function PemilihTanggalJatuhTempo({
             onPilih(hasil);
             setBuka(false);
           }}
-          className="w-full [--cell-size:--spacing(10)]"
+          className="w-full [--cell-size:--spacing(11)]"
         />
 
         {tenorJumat !== null && labelJumat !== null && (
@@ -256,7 +298,7 @@ export function PemilihTanggalJatuhTempo({
                 onPilih(tenorJumat);
                 setBuka(false);
               }}
-              className="mt-1.5 min-h-8 rounded-lg border border-amber-300 bg-white px-2.5 text-[11px] font-semibold text-amber-900 transition-colors hover:border-amber-500"
+              className="mt-1.5 inline-flex min-h-11 items-center rounded-lg border border-amber-300 bg-white px-3 text-[11px] font-semibold text-amber-900 transition-colors hover:border-amber-500"
             >
               Pilih Jumat, {labelJumat} ({tenorJumat} hari)
             </button>
@@ -292,36 +334,15 @@ export function PemilihTanggalJatuhTempo({
                 .
               </p>
             )}
+            {promoDipilih !== null && (
+              <p className="mt-1 text-emerald-700">
+                {promoDipilih.jenis === "bebas_admin"
+                  ? `Promo ${promoDipilih.nama} membebaskan biaya admin di muka.`
+                  : `Sudah termasuk promo ${promoDipilih.nama}.`}
+              </p>
+            )}
           </div>
         )}
-
-        <div className="flex flex-wrap gap-1.5 border-t border-slate-200 px-4 py-3">
-          {TENOR_OPTIONS.map((hari) => {
-            const aktif = hari === tenor;
-            const boleh = tenorHarianSah(pokok, hari);
-            return (
-              <button
-                key={hari}
-                type="button"
-                disabled={!boleh}
-                aria-pressed={aktif}
-                onClick={() => {
-                  onPilih(hari);
-                  setBuka(false);
-                }}
-                className={cn(
-                  "min-h-9 rounded-lg border px-2.5 text-xs font-semibold tabular-nums transition-colors",
-                  aktif
-                    ? "border-emerald-700 bg-emerald-700 text-white"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-emerald-700 hover:text-emerald-800",
-                  !boleh && "cursor-not-allowed opacity-50",
-                )}
-              >
-                {hari} hari
-              </button>
-            );
-          })}
-        </div>
 
         {labelAkhir !== null && (
           <p className="border-t border-emerald-100 bg-emerald-50/70 px-4 py-2.5 text-[11px] leading-5 text-emerald-900">

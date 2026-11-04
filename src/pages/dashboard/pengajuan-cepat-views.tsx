@@ -83,7 +83,6 @@ import {
   nominalAwalCepat,
   rekeningTersimpanSiap,
   TENOR_CEPAT,
-  tenorCepat,
   validasiPengajuanCepat,
   type KtpTerverifikasi,
   type IsianPengajuanCepat,
@@ -322,9 +321,9 @@ export function PengajuanCepatSection({
     };
   }, [batas.adaSisa, batas.min, batas.maks]);
 
-  // Tenor resmi 7/14/28 hari berlaku di semua tier. Pilihan lama yang tidak
-  // sah (mis. data lama 30 hari) digeser ke tenor sah terdekat agar dropdown
-  // tidak menampilkan nilai yang ditolak server.
+  // Tenor hasil tanggal 7–50 hari berlaku di semua tier. Pilihan lama yang
+  // tidak sah digeser ke tenor sah terdekat agar kalender tidak menampilkan
+  // nilai yang ditolak server.
   useEffect(() => {
     if (!batas.adaSisa) return;
     queueMicrotask(() => {
@@ -392,7 +391,6 @@ export function PengajuanCepatSection({
   // berjalan. Hitungan memakai batas minimum agar layar tidak gagal render;
   // tombol kirim tetap terkunci oleh `batas.adaSisa`.
   const pokokHitung = pokok > 0 ? pokok : batas.min;
-  const tenorTersedia = tenorCepat(pokokHitung);
   const tenor = tenorHarianEfektif(
     pokokHitung,
     Number(tenorHari) || tenorHarianDefault(pokokHitung),
@@ -677,15 +675,15 @@ export function PengajuanCepatSection({
                 id="cepat-tenor"
                 pokok={pokokHitung}
                 tenor={tenor}
+                promos={promoBungaQuery ?? []}
                 disabled={submitting || !batas.adaSisa}
                 onPilih={(hari) => setTenorHari(String(hari))}
               />
             </div>
             <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-              Nominal ini menerima tenor {tenorTersedia.join(" / ")} hari. Bunga{" "}
-              <strong className="font-semibold text-slate-800">{tarifBunga}%</strong> sesuai matriks
-              produk.
-              Tanggal bebas 7–{TENOR_PERPANJANGAN.maks} hari: semakin lama tenor,
+              Bunga <strong className="font-semibold text-slate-800">{tarifBunga}%</strong>{" "}
+              sesuai matriks produk dan promo yang berlaku. Pilih tanggal{" "}
+              {`7–${TENOR_PERPANJANGAN.maks}`} hari dari hari ini: semakin lama tenor,
               semakin besar bunga. Di atas 28 hari, setiap hari tambahan dikenakan
               1,5 kali harga satu hari tenor 28 hari.
               {promoBunga !== null && (

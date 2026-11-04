@@ -197,8 +197,8 @@ export function AturPlafonDialog({
               </span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                 Override berlaku untuk pengajuan berikutnya; pinjaman yang sudah cair tetap memakai
-                snapshot-nya. Bunga tetap mengikuti tenor 7/14/21/28 hari (harian) atau tenor bulan
-                yang dipilih.
+                snapshot-nya. Bunga harian mengikuti tenor hasil tanggal (7–50 hari, acuan
+                7/14/21/28) atau tenor bulan yang dipilih.
               </span>
             </span>
           </label>
@@ -250,9 +250,10 @@ export function AturPlafonDialog({
           </div>
 
           <p className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[11px] leading-5 text-muted-foreground">
-            Bunga pinjaman mengikuti tabel tenor website: harian 7/14/21/28 hari (28–42% sesuai
-            nominal) dan bulanan 30/8/12/10/8% per bulan untuk tenor 1/3/6/9/12 bulan (marjin total
-            30/24/72/90/96%). Plafon hanya menentukan batas pokok, bukan tarifnya.
+            Bunga pinjaman mengikuti tabel tenor website: harian 7–50 hari (acuan 7/14/21/28,
+            bunga 28–42% sesuai nominal) dan bulanan 30/8/12/10/8% per bulan untuk tenor
+            1/3/6/9/12 bulan (marjin total 30/24/72/90/96%). Plafon hanya menentukan batas pokok,
+            bukan tarifnya.
           </p>
         </div>
 
