@@ -172,11 +172,11 @@ export function LandingHero(props: LandingHeroProps) {
 
         <div className="motion-fade relative mx-auto w-full max-w-[340px] lg:max-w-[420px]" style={{ animationDelay: "0.12s" }}>
           <PindaiCard3D />
-          <p className="mt-2 text-center text-xs font-medium text-slate-700">
-            {props.sudahMasuk
-              ? "Sesi aktif"
-              : "Ilustrasi tampilan akun, bukan produk kartu"}
-          </p>
+          {props.sudahMasuk ? (
+            <p className="mt-2 text-center text-xs font-medium text-slate-700">
+              Sesi aktif
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

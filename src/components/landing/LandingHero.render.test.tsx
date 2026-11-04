@@ -9,10 +9,10 @@
  *     blur dan tanpa panggung gelap.
  *  3. Konten tidak bergantung pada apa pun yang bisa gagal dimuat: judul, dua
  *     CTA, catatan mikro, dan poin kepercayaan semuanya ada di markup.
- *  4. Objek merek tetap ada (kartu contoh) berikut pernyataan bahwa itu
- *     ilustrasi tampilan akun, bukan alat bayar.
- *  5. Penanda sesi mengikuti `sudahMasuk`, dan tidak ada "undefined" maupun
- *     "[object Object]" yang bocor ke markup.
+ *  4. Objek merek tetap ada (kartu contoh) tanpa keterangan ilustrasi di
+ *     bawahnya.
+ *  5. Penanda sesi hanya muncul saat `sudahMasuk`, dan tidak ada "undefined"
+ *     maupun "[object Object]" yang bocor ke markup.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -205,12 +205,9 @@ ok(
 
 // ── 5. Penanda sesi & kebersihan markup ──
 ok(
-  render(false).includes("Ilustrasi tampilan akun"),
-  'belum masuk → penanda "Ilustrasi tampilan akun"',
-);
-ok(
-  render(false).includes("bukan produk kartu"),
-  "penanda kartu menjelaskan bahwa itu bukan produk kartu",
+  !render(false).includes("Ilustrasi tampilan akun") &&
+    !render(false).includes("bukan produk kartu"),
+  "keterangan ilustrasi kartu tidak tampil saat belum masuk",
 );
 ok(render(true).includes("Sesi aktif"), 'sudah masuk → penanda "Sesi aktif"');
 ok(!html.includes("[object Object]"), 'tanpa "[object Object]"');
