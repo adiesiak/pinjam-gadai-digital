@@ -65,13 +65,6 @@ export function ProdukBeranda({
               deskripsi="Mulai dari yang Anda perlukan. Konvensional dan syariah tetap dipisah sejak awal, tetapi tidak perlu membaca dua daftar produk yang berbeda."
               className="max-w-xl"
             />
-            <Link
-              to="/biaya"
-              className="mt-6 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Bandingkan biaya
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
           </div>
 
           <div>

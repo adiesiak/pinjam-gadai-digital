@@ -220,6 +220,64 @@ for (const berkas of ["./PublicInfoPage.tsx", "./UnduhAplikasi.tsx"]) {
     'to="/biaya"',
     "CTA kalkulator panduan menuju halaman biaya, bukan melompat mundur",
   );
+  ada(panduan, "KELAS_TAUTAN_SEKSI", "tautan panduan memakai gaya seksi bersama");
+  tidakAda(
+    panduan,
+    "underline underline-offset",
+    "tautan panduan tidak bergaris bawah permanen",
+  );
+}
+
+// Tautan biaya dan produk tidak diulang di setiap seksi. Satu pintu utama per
+// tujuan sudah cukup; sisanya membuat halaman terbaca seperti daftar promo.
+{
+  const produk = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/ProdukBeranda.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  const kalkulator = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/KalkulatorBeranda.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  const banding = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/BandingProduk.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  const beranda = readFileSync(
+    fileURLToPath(new URL("./LandingHome.tsx", import.meta.url)),
+    "utf8",
+  );
+  tidakAda(produk, "Bandingkan biaya", "tidak ada CTA biaya ganda di produk");
+  tidakAda(
+    kalkulator,
+    "Rincian biaya lengkap",
+    "tidak ada CTA biaya ganda di kalkulator",
+  );
+  tidakAda(
+    banding,
+    "Produk konvensional",
+    "tidak ada tautan produk ganda di tabel banding",
+  );
+  tidakAda(beranda, "Lihat rincian biaya", "penutup tidak mengulang CTA biaya");
+
+  const faq = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/FaqBeranda.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  ada(faq, "KELAS_TAUTAN_SEKSI", "tautan FAQ memakai gaya seksi bersama");
+  tidakAda(
+    faq,
+    "underline underline-offset",
+    "tautan FAQ tidak bergaris bawah permanen",
+  );
 }
 
 // Jalur awal landing tidak boleh menarik framer-motion hanya untuk animasi

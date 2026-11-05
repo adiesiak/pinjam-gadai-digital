@@ -6,8 +6,6 @@
  * tampil di tabel. Hanya tiga baris yang dipakai di beranda karena tiga itu
  * yang menentukan pilihan; rincian lain ada di halaman produk masing-masing.
  */
-import { Link } from "react-router";
-
 import { TENOR_BULANAN_OPTIONS } from "@/lib/bulanan";
 import { TENOR_OPTIONS, type TarifBiaya } from "@/lib/loan";
 import {
@@ -142,30 +140,12 @@ export function BandingProduk({
   if (ringkas) {
     return (
       <div className="mt-6 border-t border-border pt-5">
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-          <div>
-            <h3
-              id="banding-judul"
-              className="font-judul text-lg leading-snug text-foreground"
-            >
-              Banding singkat
-            </h3>
-          </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
-            <Link
-              to="/pinjaman/konvensional"
-              className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Produk konvensional
-            </Link>
-            <Link
-              to="/pinjaman/syariah"
-              className="inline-flex min-h-11 items-center text-sm font-semibold text-gold-foreground underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Produk syariah
-            </Link>
-          </div>
-        </div>
+        <h3
+          id="banding-judul"
+          className="font-judul text-lg leading-snug text-foreground"
+        >
+          Banding singkat
+        </h3>
         <IsiBanding tarif={tarif} />
       </div>
     );

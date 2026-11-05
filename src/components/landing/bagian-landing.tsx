@@ -7,6 +7,15 @@
  */
 import type { ReactNode } from "react";
 
+/**
+ * Tautan seksi yang berdiri sendiri. Garis bawah muncul saat hover/fokus,
+ * bukan permanen: satu halaman dengan banyak tautan bergaris bawah terbaca
+ * seperti daftar promo, bukan dokumen. Tautan di dalam paragraf tetap memakai
+ * garis bawah supaya tetap dikenali tanpa mengandalkan warna.
+ */
+export const KELAS_TAUTAN_SEKSI =
+  "inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 transition-colors hover:text-primary/80 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 export function BrandWordmark({ name, compact = false }: { name: string; compact?: boolean }) {
   return (
     <span className="flex min-w-0 flex-col gap-1">

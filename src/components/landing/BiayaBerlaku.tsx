@@ -110,14 +110,6 @@ export function BiayaBerlaku({
           </span>
         </div>
         <DaftarTarif tarif={tarif} sempit />
-        <div className="border-t border-border px-5 py-3">
-          <Link
-            to="/biaya"
-            className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Hitung dengan nominal Anda
-          </Link>
-        </div>
       </div>
     );
   }

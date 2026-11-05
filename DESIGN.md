@@ -225,6 +225,7 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 ### B. Tombol dan tautan
 
 - Satu aksi utama per layar. Daftar dan antrean boleh punya aksi per baris asalkan aksinya jelas dan tidak bersaing dengan aksi utama halaman. Aksi sekunder memakai `variant="outline"` atau `ghost`.
+- Tautan seksi yang berdiri sendiri tidak memakai garis bawah permanen; garis bawah muncul saat hover/fokus. Tautan di dalam paragraf tetap bergaris bawah agar tidak bergantung pada warna. Jangan menumpuk beberapa tautan ke tujuan yang sama dalam satu halaman.
 - Tombol ikon wajib punya `aria-label`; ikon dekoratif di samping teks memakai `aria-hidden`.
 - Saat proses berjalan: nonaktifkan tombol, tampilkan spinner, dan cegah klik ganda.
 - Umpan balik tekan 80-150ms. Jangan menggeser tata letak saat ditekan.

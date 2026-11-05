@@ -9,16 +9,14 @@
 import { ArrowRight, Building2, Mail, MapPin, Scale } from "lucide-react";
 import { Link } from "react-router";
 
-import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import {
   ALAMAT_KANTOR_PINDAI,
   EMAIL_RESMI_PINDAI,
   NAMA_ENTITAS_PINDAI,
 } from "@/lib/branding";
-import { urlChatCs } from "@/lib/kontak";
 
 const KELAS_TAUTAN =
-  "inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function KepercayaanBeranda() {
   return (
@@ -59,17 +57,6 @@ export function KepercayaanBeranda() {
             <Link to="/privasi" className={KELAS_TAUTAN}>
               Privasi
             </Link>
-            <a
-              href={urlChatCs(
-                "Halo PINDAI, saya ingin menanyakan batas layanan aplikasi.",
-              )}
-              target="_blank"
-              rel="noreferrer"
-              className={KELAS_TAUTAN}
-            >
-              <IkonWhatsapp className="size-4 text-primary" aria-hidden="true" />
-              Chat CS
-            </a>
           </div>
         </div>
 

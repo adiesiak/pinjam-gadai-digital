@@ -610,12 +610,6 @@ export default function LandingHome() {
                   {accountLabel}
                 </Link>
               </Button>
-              <Link
-                to="/biaya"
-                className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                Lihat rincian biaya
-              </Link>
             </div>
           </div>
         </section>

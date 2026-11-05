@@ -11,9 +11,6 @@
  * dengan kalkulator `/biaya`: judul dan catatan di kiri, alat hitung di kanan,
  * lalu kuitansi tarif sebagai penutup.
  */
-import { ArrowRight } from "lucide-react";
-import { Link } from "react-router";
-
 import type { TarifBulanan } from "@/lib/bulanan";
 import type { TarifBiaya } from "@/lib/loan";
 import type { PromoBungaRingkas } from "@/lib/promoBunga";
@@ -80,13 +77,6 @@ export function KalkulatorBeranda({
               ))}
             </ol>
 
-            <Link
-              to="/biaya"
-              className="mt-5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Rincian biaya lengkap
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
           </div>
 
           <div className="grid gap-4">

@@ -13,6 +13,7 @@ import { Link } from "react-router";
 
 import type { ItemPanduan } from "@/lib/landing-cms";
 
+import { KELAS_TAUTAN_SEKSI } from "./bagian-landing";
 import { JudulBagian } from "./JudulBagian";
 
 export type PanduanBerandaItem = ItemPanduan & {
@@ -51,16 +52,10 @@ export function PanduanBeranda({
             className="max-w-2xl border-t-0 pt-0"
           />
           <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <Link
-              to="/biaya"
-              className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
+            <Link to="/biaya" className={KELAS_TAUTAN_SEKSI}>
               {ctaKalkulator}
             </Link>
-            <Link
-              to="/syarat-ketentuan"
-              className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
+            <Link to="/syarat-ketentuan" className={KELAS_TAUTAN_SEKSI}>
               {ctaSyarat}
             </Link>
           </div>

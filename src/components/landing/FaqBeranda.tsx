@@ -19,6 +19,7 @@ import { urlChatCs } from "@/lib/kontak";
 import type { TarifBiaya } from "@/lib/loan";
 import { rincianPotonganDiMuka } from "@/lib/tarifBiayaTeks";
 
+import { KELAS_TAUTAN_SEKSI } from "./bagian-landing";
 import { JudulBagian } from "./JudulBagian";
 
 function daftarTanya(tarif: TarifBiaya) {
@@ -69,10 +70,7 @@ export function FaqBeranda({
             className="border-t-0 pt-0"
             deskripsiClassName="max-w-sm"
           />
-          <Link
-            to="/faq"
-            className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline underline-offset-4"
-          >
+          <Link to="/faq" className={`mt-4 ${KELAS_TAUTAN_SEKSI}`}>
             Semua pertanyaan
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
