@@ -55,7 +55,10 @@ export function ProdukBeranda({
       className="border-t border-border bg-background"
     >
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-18">
-        <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-start lg:gap-14">
+        {/* Judul dan daftar produk dibaca berurutan, bukan sebagai dua kolom:
+            kolom kiri yang hanya berisi judul menyisakan ruang kosong setinggi
+            seluruh daftar di layar lebar. */}
+        <div className="space-y-8">
           <div>
             <JudulBagian
               id="produk-title"
