@@ -51,7 +51,9 @@ export function KalkulatorBeranda({
       className="pindai-bawah-lipatan scroll-mt-20 border-t border-sky-200 bg-sky-100"
     >
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-18">
-        <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-start lg:gap-12">
+        {/* Judul dan catatan membentang penuh, lalu kalkulator menjadi kolom
+            utama. Dua kolom judul–kalkulator menyisakan ruang kosong di kiri. */}
+        <div className="space-y-8">
           <div>
             <JudulBagian
               id="kalkulator-judul"
@@ -63,11 +65,11 @@ export function KalkulatorBeranda({
               deskripsiClassName="max-w-xl text-slate-700"
             />
 
-            <ol className="mt-7 divide-y divide-sky-200 border-y border-sky-200">
+            <ol className="mt-7 divide-y divide-sky-200 border-y border-sky-200 md:grid md:grid-cols-3 md:divide-x md:divide-y-0">
               {CATATAN.map((baris, i) => (
                 <li
                   key={baris}
-                  className="flex items-start gap-3 py-3 text-sm leading-6 text-slate-700"
+                  className="flex items-start gap-3 py-3 text-sm leading-6 text-slate-700 md:px-4 md:first:pl-0 md:last:pr-0"
                 >
                   <span className="mt-0.5 font-mono text-xs tabular-nums text-gold-foreground">
                     {String(i + 1).padStart(2, "0")}
@@ -76,10 +78,9 @@ export function KalkulatorBeranda({
                 </li>
               ))}
             </ol>
-
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,0.65fr)] lg:items-start">
             <LiveCalculator
               tarifBulanan={tarifBulanan}
               tarifBiaya={tarif}
