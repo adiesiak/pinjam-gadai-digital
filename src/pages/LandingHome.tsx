@@ -74,13 +74,12 @@ const TAUTAN_MENU = [
   { href: "/aplikasi", label: "Aplikasi Android", grup: "Lainnya" },
 ] as const;
 
-/** Tautan desktop: enam tujuan, produk masuk ke dropdown. */
+/** Tautan desktop: lima tujuan, produk masuk ke dropdown. */
 const TAUTAN_NAV = [
   { href: "/biaya", label: "Biaya" },
   { href: "/cara-kerja", label: "Cara kerja" },
   { href: "/keamanan", label: "Keamanan" },
   { href: "/faq", label: "FAQ" },
-  { href: "/aplikasi", label: "Aplikasi" },
 ] as const;
 
 const PRODUK_NAV = [
@@ -435,15 +434,11 @@ export default function LandingHome() {
           judul1={konten.heroJudul1}
           judul2={konten.heroJudul2}
           deskripsi={konten.heroDeskripsi}
-          ctaUtama={
-            isAuthenticated
-              ? {
-                  label: isLoading ? "Memuat…" : accountLabel,
-                  href: accountHref,
-                  disabled: isLoading,
-                }
-              : { label: "Hitung dulu", href: "#kalkulator" }
-          }
+          ctaUtama={{
+            label: isLoading ? "Memuat…" : accountLabel,
+            href: accountHref,
+            disabled: isLoading,
+          }}
           ctaSekunder={{
             label: konten.heroCtaSekunder,
             href: "/biaya",
@@ -457,19 +452,6 @@ export default function LandingHome() {
 
         <KepercayaanBeranda />
 
-        {/* Satu slot kampanye: banner gambar dan promo bunga tidak lagi
-            ditumpuk di atas kalkulator. Komponennya menyembunyikan diri bila
-            tidak ada kampanye berjalan. */}
-        <div className="mx-auto mt-6 w-full max-w-6xl px-4 sm:px-6">
-          <BatasLanding nama="promo" cadangan={null}>
-            <PromoPinjamanAktif
-              penempatan="beranda"
-              onAjukan={() => navigate(formHref)}
-              className="mt-0"
-            />
-          </BatasLanding>
-        </div>
-
         {/* Produk, jalur akad, dan banding dibaca sebagai satu keputusan. */}
         <ProdukBeranda
           eyebrow={konten.layananEyebrow}
@@ -479,6 +461,18 @@ export default function LandingHome() {
           tarif={tarif}
           ctaLayanan={konten.layananCta}
         />
+
+        {/* Satu slot kampanye di atas kalkulator. Komponennya menyembunyikan
+            diri bila tidak ada kampanye berjalan. */}
+        <div className="mx-auto mt-6 w-full max-w-6xl px-4 sm:px-6">
+          <BatasLanding nama="promo" cadangan={null}>
+            <PromoPinjamanAktif
+              penempatan="beranda"
+              onAjukan={() => navigate(formHref)}
+              className="mt-0"
+            />
+          </BatasLanding>
+        </div>
 
         {/* Kalkulator memakai mesin harga yang sama dengan `/biaya`, jadi
             angka di beranda tidak bisa berbeda dari formulir pengajuan. */}
@@ -502,6 +496,7 @@ export default function LandingHome() {
           eyebrow={konten.panduanEyebrow}
           judul={konten.panduanJudul}
           deskripsi={konten.panduanDeskripsi}
+          ctaKalkulator={konten.panduanCtaKalkulator}
           ctaSyarat={konten.panduanCtaSyarat}
           panduan={panduan}
         />

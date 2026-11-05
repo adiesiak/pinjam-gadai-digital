@@ -36,6 +36,22 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   ada(sumber, "ADMIN_ROUTE", "rute admin dibaca dari lib/routes");
   tidakAda(sumber, '"/admin"', "berkas tidak menyimpan jalur admin yang lama");
   ada(sumber, "accountHref", "tombol akun memakai satu variabel tujuan");
+  tidakAda(
+    sumber,
+    'href: "#kalkulator"',
+    "CTA utama tamu tidak memakai anchor kalkulator",
+  );
+  // Menu desktop hanya lima tujuan; Aplikasi tetap tersedia di menu ponsel
+  // dan footer, tetapi tidak menambah tujuan keenam di header lebar.
+  const navDesktop = sumber.slice(
+    sumber.indexOf("const TAUTAN_NAV"),
+    sumber.indexOf("const PRODUK_NAV"),
+  );
+  tidakAda(
+    navDesktop,
+    'href: "/aplikasi"',
+    "nav desktop berhenti di lima tujuan",
+  );
   ada(
     sumber,
     "<DemoPengajuan tarif={tarif} />",
@@ -55,9 +71,17 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
   );
   ada(sumber, "<KepercayaanBeranda", "beranda menampilkan batas layanan");
   ada(sumber, "<PanduanBeranda", "beranda memakai bagian panduan bersama");
+  ada(
+    sumber,
+    "ctaKalkulator={konten.panduanCtaKalkulator}",
+    "field CTA kalkulator CMS tersambung ke panduan",
+  );
 
   const iHero = sumber.indexOf("<LandingHero");
   const iKepercayaan = sumber.indexOf("<KepercayaanBeranda");
+  const iProduk = sumber.indexOf("<ProdukBeranda");
+  const iPromo = sumber.indexOf("<PromoPinjamanAktif");
+  const iKalkulator = sumber.indexOf("<KalkulatorBeranda");
   const iDokumen = sumber.indexOf("<DokumenPerlindungan");
   const iPanduan = sumber.indexOf("<PanduanBeranda");
   const iFaq = sumber.indexOf("<FaqBeranda");
@@ -66,6 +90,9 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
     "blok kepercayaan tepat setelah hero",
     iHero !== -1 && iKepercayaan > iHero,
   );
+  cek("produk setelah blok kepercayaan", iProduk > iKepercayaan);
+  cek("promo berada setelah produk", iPromo > iProduk);
+  cek("promo berada tepat sebelum kalkulator", iPromo > iProduk && iPromo < iKalkulator);
   cek(
     "panduan menyambung setelah dokumen",
     iDokumen !== -1 && iPanduan > iDokumen,

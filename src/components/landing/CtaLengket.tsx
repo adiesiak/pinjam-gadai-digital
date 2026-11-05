@@ -20,9 +20,13 @@ export function CtaLengket({
   label: string;
   onClick?: () => void;
 }) {
-  // Tampil di markup agar uji statis tetap melihat aksinya. Setelah hidrasi,
-  // bilah disembunyikan selama hero masih terlihat dan saat penutup masuk.
-  const [tampil, setTampil] = useState(true);
+  // Mulai tersembunyi agar bilah tidak berkedip di atas hero pada paint
+  // pertama. Setelah hidrasi, observer menampilkannya hanya setelah hero lewat
+  // dan menyembunyikannya lagi saat penutup masuk. Browser tanpa
+  // IntersectionObserver langsung mendapat aksinya.
+  const [tampil, setTampil] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
 
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") return;

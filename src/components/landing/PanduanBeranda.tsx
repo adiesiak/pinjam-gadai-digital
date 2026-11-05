@@ -24,12 +24,14 @@ export function PanduanBeranda({
   eyebrow,
   judul,
   deskripsi,
+  ctaKalkulator,
   ctaSyarat,
   panduan,
 }: {
   eyebrow: string;
   judul: string;
   deskripsi: string;
+  ctaKalkulator: string;
   ctaSyarat: string;
   panduan: readonly PanduanBerandaItem[];
 }) {
@@ -48,12 +50,20 @@ export function PanduanBeranda({
             deskripsi={deskripsi}
             className="max-w-2xl border-t-0 pt-0"
           />
-          <Link
-            to="/syarat-ketentuan"
-            className="mb-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {ctaSyarat}
-          </Link>
+          <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <a
+              href="#kalkulator"
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {ctaKalkulator}
+            </a>
+            <Link
+              to="/syarat-ketentuan"
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {ctaSyarat}
+            </Link>
+          </div>
         </div>
 
         <ul className="mt-6 grid border-y border-border md:grid-cols-3 md:divide-x md:divide-border">
