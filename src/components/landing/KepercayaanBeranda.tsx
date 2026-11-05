@@ -15,8 +15,7 @@ import {
   NAMA_ENTITAS_PINDAI,
 } from "@/lib/branding";
 
-const KELAS_TAUTAN =
-  "inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+import { KELAS_TAUTAN_SEKSI } from "./bagian-landing";
 
 export function KepercayaanBeranda() {
   return (
@@ -50,11 +49,11 @@ export function KepercayaanBeranda() {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <Link to="/syarat-ketentuan" className={KELAS_TAUTAN}>
+            <Link to="/syarat-ketentuan" className={KELAS_TAUTAN_SEKSI}>
               Syarat &amp; ketentuan
               <ArrowRight className="size-4 text-primary" aria-hidden="true" />
             </Link>
-            <Link to="/privasi" className={KELAS_TAUTAN}>
+            <Link to="/privasi" className={KELAS_TAUTAN_SEKSI}>
               Privasi
             </Link>
           </div>
