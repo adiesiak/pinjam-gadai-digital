@@ -109,7 +109,7 @@ ada(html, "catatan penyaluran, bukan laba", "dana tersalurkan dibedakan dari lab
 // 5. Tenor pendana 30 hari, bukan tenor pinjaman nasabah.
 ada(html, "30 hari", "tenor acuan pendana disebut");
 ada(html, "bukan tenor pinjaman nasabah", "tenor pendana dipisahkan dari tenor nasabah");
-ada(html, "tidak mengubah nominal maupun status hak pendana", "keterpisahan dinyatakan");
+ada(html, "mengubah nominal, status, maupun tanggal siklus hak pendana", "keterpisahan dinyatakan");
 
 // 6. Waktu pencairan siklus dan batas jaminannya.
 ada(html, "jatuh tempo siklus 30 hari", "waktu pencairan siklus disebut");

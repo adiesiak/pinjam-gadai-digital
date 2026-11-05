@@ -4,6 +4,7 @@ import {
   AMBANG_SEGERA_HARI,
   batasPelunasan,
   ringkasJatuhTempo,
+  ringkasJatuhTempoPendana,
   tanggalRingkas,
   type BarisJatuhTempo,
 } from "./jatuhTempo";
@@ -117,6 +118,32 @@ eq(lunas.nada, "lunas", "status lunas punya nada sendiri");
 eq(lunas.hitung, "Sudah lunas", "lunas tidak menghitung hari");
 eq(lunas.mencolok, false, "lunas tidak mencolok walau tanggalnya lewat");
 eq(lunas.tanggal, DIDANAI + 30 * HARI, "tanggal jatuh tempo tetap ditampilkan saat lunas");
+
+// ===== 3b. Siklus pendana tetap 30 hari, terpisah dari tenor pinjaman =====
+const siklusPendana = ringkasJatuhTempoPendana(baris({ tenorHari: 28 }), NOW);
+eq(
+  siklusPendana.tanggal,
+  DIDANAI + 30 * HARI,
+  "siklus pendana tetap 30 hari walau tenor pinjaman 28 hari",
+);
+eq(siklusPendana.hitung, "Sisa 20 hari", "hitungan hari memakai siklus pendana");
+eq(
+  ringkasJatuhTempo(baris({ tenorHari: 28 }), NOW).tanggal,
+  DIDANAI + 28 * HARI,
+  "jatuh tempo pinjaman tetap mengikuti tenor peminjam",
+);
+const siklusBelum = ringkasJatuhTempoPendana(
+  baris({ status: "diajukan", didanaiPada: null }),
+  NOW,
+);
+eq(siklusBelum.nada, "belum_didanai", "siklus belum mulai tanpa pendanaan");
+eq(siklusBelum.tanggal, null, "siklus tanpa pendanaan tidak punya tanggal");
+const siklusLunas = ringkasJatuhTempoPendana(
+  baris({ status: "lunas" }),
+  DIDANAI + 40 * HARI,
+);
+eq(siklusLunas.hitung, "Sudah lunas", "siklus lunas tidak menghitung hari");
+eq(siklusLunas.tanggal, DIDANAI + 30 * HARI, "tanggal siklus tetap tercatat saat lunas");
 
 const belum = ringkasJatuhTempo(baris({ status: "diajukan", didanaiPada: null }), NOW);
 eq(belum.ada, false, "belum didanai tidak punya tanggal");

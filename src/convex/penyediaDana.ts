@@ -87,6 +87,7 @@ import { GADAI_PRICING, bagiSewaModalGadai, sewaModalBerikutnya } from "../lib/g
 import { ROLES } from "./schema";
 import { bulatkanTitikWilayah } from "../lib/geo";
 import { batasPelunasan } from "../lib/jatuhTempo";
+import { jatuhTempoSiklus } from "../lib/siklusPendana";
 import { normalisasiNomorWa } from "../lib/otpWa";
 import { audit, getConfig } from "./system";
 import { tautanBerkas } from "./berkas";
@@ -246,10 +247,16 @@ export type BarisPinjaman = {
   /** Waktu pinjaman dicatat lunas — null selama belum lunas. */
   lunasPada: number | null;
   /**
-   * Jatuh tempo pinjaman menurut mesin pelunasan — dipakai laporan pendana
-   * sebagai proyeksi tanggal return. Null bila tenor/penjadwalan tidak terbaca.
+   * Jatuh tempo pinjaman menurut mesin pelunasan. Ini tanggal kewajiban
+   * PEMINJAM dan dapat berubah saat admin mengoreksi tenor.
    */
   jatuhTempoPada: number | null;
+  /**
+   * Jatuh tempo siklus PENYEDIA DANA — selalu 30 hari sejak pendanaan.
+   * Sengaja terpisah dari `jatuhTempoPada`: perubahan tenor pinjaman tidak
+   * boleh menggeser tanggal return yang dijanjikan ke pendana.
+   */
+  jatuhTempoPendanaPada: number | null;
   /** Nama penyedia dana tunggal pinjaman ini — null bila belum didanai. */
   pendana: string | null;
   /**
@@ -1015,6 +1022,10 @@ export async function ruangPendana(ctx: QueryCtx, user: Doc<"users">) {
         jatuhTempoPada:
           pelunasanPinjaman(loan, sekarang, cfg.persenDendaKeterlambatan)
             ?.jatuhTempoPada ?? null,
+        jatuhTempoPendanaPada:
+          loan.didanaiPada === undefined
+            ? null
+            : jatuhTempoSiklus(loan.didanaiPada),
         pendana,
         pendanaanLuarAplikasi:
           loan.pendanaanLuarAplikasi ??

@@ -134,7 +134,7 @@ function baris(over: Partial<BarisPortofolioPendanaan> = {}): BarisPortofolioPen
   ada(html, "Jatuh tempo 3 hari lagi", "jatuh tempo dekat terbaca sebagai badge");
   ada(html, "Berjalan", "status berjalan tampil");
   ada(html, "Selesai", "status selesai tampil");
-  ada(html, "31 Okt 2026", "proyeksi tanggal return memakai jatuh tempo");
+  ada(html, "31 Okt 2026", "proyeksi tanggal return memakai tanggal siklus");
   ada(html, 'scope="col"', "kepala tabel punya cakupan kolom");
   ada(html, "<caption", "tabel punya keterangan untuk pembaca layar");
   bersih(html, "tabel portofolio");

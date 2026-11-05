@@ -191,7 +191,7 @@ export function AturanPerhitungan({
           </p>
           <p className="mt-2">
             Jatuh tempo pinjaman nasabah tetap dipantau sistem untuk penagihan, tetapi tidak
-            mengubah nominal maupun status hak pendana di halaman ini.
+            mengubah nominal, status, maupun tanggal siklus hak pendana di halaman ini.
           </p>
         </>
       ),

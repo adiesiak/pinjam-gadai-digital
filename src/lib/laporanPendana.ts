@@ -73,8 +73,9 @@ export type BarisPortofolioPendana = {
   /** Tanggal acuan baris ini: pelunasan untuk lunas, pendanaan untuk berjalan. */
   tanggal: number | null;
   /**
-   * Jatuh tempo pinjaman — PROYEKSI tanggal return, bukan janji pembayaran.
-   * Null bila tenor tidak terbaca; laporan mengatakannya, tidak mengarang.
+   * Jatuh tempo siklus pendana 30 hari — PROYEKSI tanggal return, bukan janji
+   * pembayaran. Null bila siklus belum dimulai; laporan mengatakannya, tidak
+   * mengarang.
    */
   tanggalReturn: number | null;
 };

@@ -35,7 +35,7 @@ const BULAN_SINGKAT = [
 ];
 
 /**
- * Tanggal proyeksi return per alokasi, dari jatuh tempo pinjaman.
+ * Tanggal proyeksi return per alokasi, dari siklus pendana 30 hari.
  * Nama bulan ditulis manual supaya hasilnya tidak bergeser antar mesin
  * (format `id-ID` bawaan bergantung data lokal yang tersedia).
  */
@@ -174,7 +174,7 @@ export type BarisPortofolioPendanaan = {
   pokok: number;
   imbalHasil: number;
   status: string;
-  /** Jatuh tempo pinjaman sebagai proyeksi tanggal return; null bila tidak ada. */
+  /** Jatuh tempo siklus pendana sebagai proyeksi tanggal return; null bila tidak ada. */
   tanggalReturn: number | null;
   /** Keadaan pelunasan dari server; null bila tenor tidak terbaca. */
   statusPelunasan: "lancar" | "berjalan" | "menunggak" | null;
@@ -679,19 +679,20 @@ export function PortofolioPendanaanSection() {
             pokok: row.jumlahAlokasi,
             imbalHasil: row.imbalHasil,
             status: row.statusPendanaan,
-            tanggalReturn: row.pelunasan?.jatuhTempoPada ?? null,
+            tanggalReturn: row.pelunasan?.jatuhTempoPendanaPada ?? null,
             statusPelunasan: row.statusPelunasan,
-            hariTerlambat: row.pelunasan?.hariTerlambat ?? 0,
-            sisaHari: row.pelunasan?.sisaHari ?? null,
+            hariTerlambat: row.pelunasan?.hariTerlambatPendana ?? 0,
+            sisaHari: row.pelunasan?.sisaHariPendana ?? null,
           }))}
         />
       )}
       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
         Porsi platform dihitung dari marjin pinjaman (47 : 13), bukan dari pokok,
         jadi Diterima bersih adalah pokok ditambah keuntungan bersih; yield
-        efektif dihitung dari keuntungan bersih dibagi pokok. Tanggal return adalah jatuh tempo pinjaman, bukan
-        janji pembayaran, dan pembayaran dapat lebih lambat bila peminjam
-        menunggak.
+        efektif dihitung dari keuntungan bersih dibagi pokok. Tanggal return
+        mengikuti siklus pendana 30 hari sejak pendanaan, bukan tenor pinjaman
+        yang dapat diubah admin. Ini proyeksi, bukan janji pembayaran; pembayaran
+        dapat lebih lambat bila peminjam menunggak.
       </p>
     </section>
   );

@@ -292,7 +292,7 @@ export type BarisPengingatPendana = {
   pokokPinjaman: number;
   /** Status pembayaran pinjaman — selalu dari server. */
   status: string;
-  /** Tanggal jatuh tempo; null bila belum didanai. */
+  /** Tanggal jatuh tempo siklus pendana; null bila belum didanai. */
   jatuhTempoPada: number | null;
   /** Kalimat hitung hari dari `lib/jatuhTempo` (mis. "Sisa 2 hari"). */
   hitung: string;
@@ -336,13 +336,13 @@ export function PengingatJatuhTempoPendana({
 
   return (
     <section
-      aria-label="Jatuh tempo pinjaman Anda"
+      aria-label="Jatuh tempo siklus pendana Anda"
       className="animate-masuk mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-navy">
           <BellRing className="size-4 text-primary" aria-hidden />
-          Jatuh tempo pinjaman Anda
+          Jatuh tempo siklus Anda
         </h2>
         {jumlahMendesak > 0 ? (
           <Badge className="border-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
@@ -398,7 +398,7 @@ export function PengingatJatuhTempoPendana({
                       {r.jatuhTempoPada !== null && (
                         <>
                           {" "}
-                          · jatuh tempo{" "}
+                          · siklus cair{" "}
                           <span className="font-medium text-foreground">
                             {tanggalPanjang(r.jatuhTempoPada)}
                           </span>

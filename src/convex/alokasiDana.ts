@@ -42,7 +42,11 @@ import { pastikanAngsuran } from "./angsuranJadwal";
 import { beriTiketPendanaan } from "./doorprize";
 import { buatSiklusUntukAlokasi } from "./siklusPendana";
 import { rincianSaldoPendana } from "./saldoPendana";
-import { potonganPutaran, sisaHariSiklus } from "../lib/siklusPendana";
+import {
+  jatuhTempoSiklus,
+  potonganPutaran,
+  sisaHariSiklus,
+} from "../lib/siklusPendana";
 import { bagiMargin } from "../lib/kebijakanPinjaman";
 import { RISK_TEXT_VERSION } from "../lib/teksRisikoPendanaan";
 
@@ -1123,6 +1127,19 @@ export const myPortfolio = query({
       if (peminjam?.kodePeminjam === undefined) return null;
       // Satu sumber kebenaran pelunasan: skema harian & bulanan sekaligus.
       const rep = pelunasanPinjaman(loan, now, cfg.persenDendaKeterlambatan);
+      // Siklus pendana dihitung dari tanggal pendanaan, BUKAN dari tenor
+      // pinjaman. Admin boleh mengubah tenor pinjaman, tetapi tanggal return
+      // 30 hari yang dijanjikan ke pendana tidak boleh ikut bergeser.
+      const jatuhTempoPendanaPada =
+        loan.didanaiPada === undefined
+          ? null
+          : jatuhTempoSiklus(loan.didanaiPada);
+      const sisaHariPendana =
+        jatuhTempoPendanaPada === null
+          ? null
+          : sisaHariSiklus(jatuhTempoPendanaPada, now);
+      const hariTerlambatPendana =
+        sisaHariPendana === null ? 0 : Math.max(0, -sisaHariPendana);
       // Status pelunasan dari sudut pandang penyedia dana.
       const statusPelunasan: "lancar" | "berjalan" | "menunggak" =
         loan.status === "lunas"
@@ -1160,6 +1177,9 @@ export const myPortfolio = query({
                 dendaTerlambat: rep.dendaTerlambat,
                 totalKewajibanPelunasan: rep.totalKewajibanPelunasan,
                 totalKewajibanDenganPenalti: rep.totalKewajibanDenganPenalti,
+                jatuhTempoPendanaPada,
+                sisaHariPendana,
+                hariTerlambatPendana,
               },
       };
     };

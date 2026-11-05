@@ -185,7 +185,7 @@ const barisPendana: BarisPengingatPendana[] = [
 const pendana = renderToStaticMarkup(
   <PengingatJatuhTempoPendana rows={barisPendana} sekarang={JATUH_TEMPO + 3 * HARI} />,
 );
-ada(pendana, "Jatuh tempo pinjaman Anda", "judul penanda penyedia dana");
+ada(pendana, "Jatuh tempo siklus Anda", "judul penanda penyedia dana");
 ada(pendana, "2 perlu perhatian", "hanya yang mendesak dihitung");
 ada(pendana, "#PGD-TELAT", "nomor referensi tampil");
 ada(pendana, "Rp 1.500.000", "nominal alokasi tampil");

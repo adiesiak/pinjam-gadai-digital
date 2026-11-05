@@ -142,7 +142,7 @@ import {
   quotePinjaman,
   simulasiBulananPinjaman,
 } from "@/lib/loan";
-import { ringkasJatuhTempo } from "@/lib/jatuhTempo";
+import { ringkasJatuhTempoPendana } from "@/lib/jatuhTempo";
 import {
   adaFilter,
   bagiAntreanPinjaman,
@@ -543,7 +543,7 @@ function DetailPinjaman({
    * Jam "sekarang" datang dari halaman (jam berjalan), bukan dibaca di sini,
    * supaya render tetap bisa diuji.
    */
-  const tampilanJatuhTempo = ringkasJatuhTempo(row, sekarang);
+  const tampilanJatuhTempo = ringkasJatuhTempoPendana(row, sekarang);
 
   return (
     <>
@@ -707,9 +707,17 @@ function DetailPinjaman({
           nilai={`${row.tenorPendanaHari} hari`}
         />
         <BarisDetail
-          label="Jatuh tempo"
+          label="Jatuh tempo siklus pendana"
           nilai={
             <TampilanJatuhTempo tampilan={tampilanJatuhTempo} align="right" />
+          }
+        />
+        <BarisDetail
+          label="Jatuh tempo pinjaman"
+          nilai={
+            row.jatuhTempoPada === null
+              ? "—"
+              : tanggalRingkas(row.jatuhTempoPada)
           }
         />
         <BarisDetail
@@ -1373,7 +1381,8 @@ function DaftarPinjaman({
    * ketika jam halaman berjalan (60 detik), sehingga lencana "Terlambat n hari"
    * ikut menua tanpa perlu muat ulang.
    */
-  const jatuhTempo = (row: BarisPinjaman) => ringkasJatuhTempo(row, sekarang);
+  const jatuhTempo = (row: BarisPinjaman) =>
+    ringkasJatuhTempoPendana(row, sekarang);
   const bulanan = (row: BarisPinjaman) =>
     simulasiBulananBaris(row, persenBungaDefault);
 
@@ -1465,7 +1474,7 @@ function DaftarPinjaman({
                 </>
               )}
             </InfoKartu>
-            <InfoKartu label="Jatuh tempo">
+            <InfoKartu label="Jatuh tempo siklus">
               <TampilanJatuhTempoRingkas tampilan={jatuhTempo(row)} />
             </InfoKartu>
             <InfoKartu label="Kepercayaan peminjam">
@@ -1518,7 +1527,7 @@ function DaftarPinjaman({
             hanyaReferensi ? "No. referensi" : "Peminjam",
             "Pengajuan & tenor",
             "Kewajiban & biaya",
-            "Jatuh tempo",
+            "Jatuh tempo siklus",
             "Tanggal",
             "Status",
             "Pendana",
@@ -1573,6 +1582,11 @@ function DaftarPinjaman({
               </TableCell>
               <TableCell className="align-top">
                 <TampilanJatuhTempo tampilan={jatuhTempo(row)} />
+                {row.jatuhTempoPada !== null && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pinjaman {tanggalRingkas(row.jatuhTempoPada)}
+                  </p>
+                )}
               </TableCell>
               <TableCell className="align-top text-slate-600">
                 {tanggalRingkas(row.diajukanPada)}
@@ -1939,6 +1953,10 @@ function FormUbahPinjaman({
               onChange={(e) => setTenorHari(e.target.value)}
               className={KELAS_MEDAN}
             />
+            <p className="text-xs leading-5 text-muted-foreground">
+              Mengubah tenor menggeser jatuh tempo pinjaman. Siklus pendana
+              tetap 30 hari sejak pendanaan.
+            </p>
           </div>
         </div>
 
@@ -2171,9 +2189,9 @@ function IsiRuang() {
    * SAMA dengan kartu pendana (`status === "didanai"`), jadi jumlahnya tidak
    * pernah berbeda dari bagian "Belum lunas (perkiraan)" di kartu.
    *
-   * Angka jatuh tempo memakai `ringkasJatuhTempo` — modul yang sama dengan
-   * tabel ruang ini, sehingga lencana di sini tidak mungkin berbeda dari kolom
-   * "Jatuh tempo" di bawahnya.
+   * Angka jatuh tempo memakai `ringkasJatuhTempoPendana` — modul yang sama
+   * dengan tabel ruang ini, sehingga lencana di sini tidak mungkin berbeda dari
+   * kolom "Jatuh tempo siklus" di bawahnya.
    */
   const jatuhTempoSaya: BarisPengingatPendana[] =
     role === "dana" && kunciSendiri !== ""
@@ -2183,7 +2201,7 @@ function IsiRuang() {
               b.status === "didanai" && kunciNama(b.pendana) === kunciSendiri,
           )
           .map((b) => {
-            const tampilan = ringkasJatuhTempo(b, sekarang);
+            const tampilan = ringkasJatuhTempoPendana(b, sekarang);
             return {
               id: b._id,
               nomorReferensi: b.nomorReferensi,
@@ -2595,7 +2613,7 @@ function IsiRuang() {
                 </div>
                 <ul className="divide-y divide-slate-200">
                   {tampilDidanai.slice(0, 3).map((b) => {
-                    const tampilan = ringkasJatuhTempo(b, sekarang);
+                    const tampilan = ringkasJatuhTempoPendana(b, sekarang);
                     return (
                       <li
                         key={b._id}

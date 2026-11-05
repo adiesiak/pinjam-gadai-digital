@@ -17,6 +17,7 @@
  * hanya dipakai sebagai jaring pengaman bila data warisan tidak bisa dihitung.
  */
 import { BULAN_MS, DEFAULT_TENOR_HARI, pelunasanPinjaman } from "./loan";
+import { jatuhTempoSiklus } from "./siklusPendana";
 import { selisihHariWIB } from "./waktu";
 
 const DAY_MS = 86_400_000;
@@ -232,5 +233,89 @@ export function ringkasJatuhTempo(
     nada: segera ? "segera" : "netral",
     mencolok: segera,
     aksesibilitas: `Jatuh tempo ${teks}, sisa ${hari.sisaHari} hari.`,
+  };
+}
+
+/**
+ * Tampilan jatuh tempo siklus PENYEDIA DANA: selalu 30 hari sejak pendanaan.
+ *
+ * Jangan memakai `ringkasJatuhTempo` untuk angka ini. Baris pinjaman menyimpan
+ * `tenorHari` milik peminjam, dan admin boleh mengubahnya kapan saja. Siklus
+ * pendana adalah liabilitas terpisah: perubahan tenor atau perpanjangan di sisi
+ * peminjam tidak boleh menggeser tanggal return 30 hari yang dijanjikan ke
+ * pendana. `didanaiPada` adalah satu-satunya titik mulai yang dipakai.
+ */
+export function ringkasJatuhTempoPendana(
+  baris: Pick<BarisJatuhTempo, "status" | "didanaiPada">,
+  sekarang: number,
+): TampilanJatuhTempo {
+  const didanaiPada = baris.didanaiPada ?? null;
+  const tanggal =
+    didanaiPada !== null &&
+    Number.isSafeInteger(didanaiPada) &&
+    didanaiPada > 0
+      ? jatuhTempoSiklus(didanaiPada)
+      : null;
+
+  if (baris.status === "lunas") {
+    return {
+      ada: tanggal !== null,
+      tanggal,
+      teks: tanggal === null ? "—" : tanggalRingkas(tanggal),
+      hitung: "Sudah lunas",
+      nada: "lunas",
+      mencolok: false,
+      aksesibilitas:
+        tanggal === null
+          ? "Pinjaman sudah lunas, tanggal siklus pendana tidak tercatat."
+          : `Pinjaman sudah lunas. Jatuh tempo siklus pendana ${tanggalRingkas(tanggal)}.`,
+    };
+  }
+
+  if (tanggal === null) {
+    return {
+      ada: false,
+      tanggal: null,
+      teks: "—",
+      hitung: "Belum didanai",
+      nada: "belum_didanai",
+      mencolok: false,
+      aksesibilitas: "Belum didanai sehingga siklus pendana belum dimulai.",
+    };
+  }
+
+  const hari = sisaHariDari(tanggal, sekarang);
+  const teks = tanggalRingkas(tanggal);
+  if (hari.hariTerlambat > 0) {
+    return {
+      ada: true,
+      tanggal,
+      teks,
+      hitung: `Terlambat ${hari.hariTerlambat} hari`,
+      nada: "terlambat",
+      mencolok: true,
+      aksesibilitas: `Jatuh tempo siklus pendana ${teks}, sudah terlambat ${hari.hariTerlambat} hari.`,
+    };
+  }
+  if (hari.sisaHari === 0) {
+    return {
+      ada: true,
+      tanggal,
+      teks,
+      hitung: HITUNG_HARI_INI,
+      nada: "segera",
+      mencolok: true,
+      aksesibilitas: `Jatuh tempo siklus pendana ${teks} — hari ini.`,
+    };
+  }
+  const segera = hari.sisaHari <= AMBANG_SEGERA_HARI;
+  return {
+    ada: true,
+    tanggal,
+    teks,
+    hitung: `Sisa ${hari.sisaHari} hari`,
+    nada: segera ? "segera" : "netral",
+    mencolok: segera,
+    aksesibilitas: `Jatuh tempo siklus pendana ${teks}, sisa ${hari.sisaHari} hari.`,
   };
 }
