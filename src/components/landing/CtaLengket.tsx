@@ -3,8 +3,9 @@
  *
  * Di ponsel tombol hero cepat hilang setelah pengunjung menggulir. Bilah ini
  * menjaga dua aksi yang sama tetap terjangkau tanpa menutupi isi: halaman
- * menambahkan ruang bawah sendiri (`pb-24 sm:pb-0`). Hanya tampil di bawah
- * breakpoint `sm`, dan tidak ikut tercetak.
+ * menambahkan ruang bawah sendiri (`pb-24 sm:pb-0`). Bilah berhenti saat
+ * penutup atau footer masuk, jadi tautan footer tidak tertutup. Hanya tampil
+ * di bawah breakpoint `sm`, dan tidak ikut tercetak.
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -22,7 +23,7 @@ export function CtaLengket({
 }) {
   // Mulai tersembunyi agar bilah tidak berkedip di atas hero pada paint
   // pertama. Setelah hidrasi, observer menampilkannya hanya setelah hero lewat
-  // dan menyembunyikannya lagi saat penutup masuk. Browser tanpa
+  // dan menyembunyikannya lagi saat penutup atau footer masuk. Browser tanpa
   // IntersectionObserver langsung mendapat aksinya.
   const [tampil, setTampil] = useState(
     () => typeof IntersectionObserver === "undefined",
@@ -32,16 +33,20 @@ export function CtaLengket({
     if (typeof IntersectionObserver === "undefined") return;
     const hero = document.getElementById("hero-judul");
     const penutup = document.getElementById("penutup-judul");
-    if (hero === null && penutup === null) return;
+    const footer = document.getElementById("footer-beranda");
+    if (hero === null && penutup === null && footer === null) return;
 
     let heroTerlihat = false;
     let penutupTerlihat = false;
-    const perbarui = () => setTampil(!heroTerlihat && !penutupTerlihat);
+    let footerTerlihat = false;
+    const perbarui = () =>
+      setTampil(!heroTerlihat && !penutupTerlihat && !footerTerlihat);
     const pengamat = new IntersectionObserver(
       (entri) => {
         for (const satu of entri) {
           if (satu.target === hero) heroTerlihat = satu.isIntersecting;
           if (satu.target === penutup) penutupTerlihat = satu.isIntersecting;
+          if (satu.target === footer) footerTerlihat = satu.isIntersecting;
         }
         perbarui();
       },
@@ -49,6 +54,7 @@ export function CtaLengket({
     );
     if (hero !== null) pengamat.observe(hero);
     if (penutup !== null) pengamat.observe(penutup);
+    if (footer !== null) pengamat.observe(footer);
     return () => pengamat.disconnect();
   }, []);
 

@@ -80,14 +80,17 @@ function KolomTautan({
 
 export function FooterBeranda({ deskripsi }: { deskripsi: string }) {
   return (
-    <footer className="border-t border-border bg-background">
+    <footer
+      id="footer-beranda"
+      className="border-t border-border bg-background"
+    >
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pb-12 sm:pt-14">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_0.9fr_0.9fr_1.1fr] lg:gap-10">
           <div className="sm:col-span-2 lg:col-span-1">
             <Link
               to="/"
               aria-label="PINDAI, beranda"
-              className="inline-flex items-center gap-2.5"
+              className="inline-flex min-h-11 items-center gap-2.5"
             >
               <VaultLogo size={32} />
               <span className="text-sm font-semibold tracking-[0.16em]">
@@ -141,7 +144,7 @@ export function FooterBeranda({ deskripsi }: { deskripsi: string }) {
         </div>
 
         <div className="mt-8 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-          <p className="max-w-2xl text-xs leading-5 text-muted-foreground">
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
             {PENAFIAN_PINDAI}
           </p>
           <p className="shrink-0 text-xs leading-5 text-muted-foreground sm:text-right">

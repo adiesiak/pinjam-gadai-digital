@@ -447,7 +447,7 @@ export function DemoPengajuan({
                 <p className="mt-1 text-sm font-semibold text-foreground">
                   {langkah.judul}
                 </p>
-                <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   {langkah.ringkas}
                 </p>
               </div>
@@ -455,7 +455,7 @@ export function DemoPengajuan({
           </div>
         </div>
 
-        <p className="mt-4 text-sm leading-5 text-muted-foreground">
+        <p className="mt-4 text-sm leading-6 text-muted-foreground">
           Animasi dari alur sebenarnya, bukan rekaman layar. Angka dihitung
           mesin yang sama dengan kalkulator biaya; pencairan dana dan pembayaran
           tetap berlangsung di luar aplikasi.

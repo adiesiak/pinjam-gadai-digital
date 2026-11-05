@@ -178,7 +178,18 @@ function DemoPengajuanTerlihat({ tarif }: { tarif: TarifBiaya }) {
         </Button>
       </div>
       <BatasLanding nama="demo">
-        <Suspense fallback={<div aria-hidden="true" className="h-96" />}>
+        <Suspense
+          fallback={
+            <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+              <div
+                role="status"
+                className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 text-muted-foreground"
+              >
+                Menyiapkan demo…
+              </div>
+            </div>
+          }
+        >
           <DemoPengajuan tarif={tarif} />
         </Suspense>
       </BatasLanding>
@@ -207,6 +218,17 @@ export default function LandingHome() {
   const tarif = tarifBiayaAman(ketentuanBiaya?.tarifBiaya);
   /** Tarif bulanan untuk kalkulator beranda; kosong → tarif bawaan. */
   const tarifBulanan = ketentuanBiaya?.tarifBulanan;
+  /**
+   * Satu slot promo: promo bunga yang memengaruhi angka di kalkulator
+   * diprioritaskan. Banner promo pinjaman baru boleh tampil setelah data promo
+   * bunga termuat dan tidak ada promo bunga aktif. Dengan begitu pengunjung
+   * tidak melihat dua kampanye berbeda dalam satu layar, dan angka yang lebih
+   * rendah selalu punya penjelasan di kartu hitung.
+   */
+  const promoBunga = useQuery(api.promoBunga.berjalan, {});
+  const promosBunga = promoBunga ?? [];
+  const bolehTampilkanBannerPromo =
+    promoBunga !== undefined && promoBunga.length === 0;
   /** Teks CMS dipasangkan dengan rute/ikon tetap; CMS tidak mengubah tujuan. */
   const layanan = Array.from({ length: JUMLAH_KARTU_LAYANAN }, (_, i) => ({
     ...konten.layanan[i],
@@ -462,17 +484,19 @@ export default function LandingHome() {
           ctaLayanan={konten.layananCta}
         />
 
-        {/* Satu slot kampanye di atas kalkulator. Komponennya menyembunyikan
-            diri bila tidak ada kampanye berjalan. */}
-        <div className="mx-auto mt-6 w-full max-w-6xl px-4 sm:px-6">
-          <BatasLanding nama="promo" cadangan={null}>
-            <PromoPinjamanAktif
-              penempatan="beranda"
-              onAjukan={() => navigate(formHref)}
-              className="mt-0"
-            />
-          </BatasLanding>
-        </div>
+        {/* Satu slot kampanye di atas kalkulator. Banner hanya tampil bila
+            tidak ada promo bunga yang sudah menjelaskan angka di kalkulator. */}
+        {bolehTampilkanBannerPromo ? (
+          <div className="mx-auto mt-6 w-full max-w-6xl px-4 sm:px-6">
+            <BatasLanding nama="promo" cadangan={null}>
+              <PromoPinjamanAktif
+                penempatan="beranda"
+                onAjukan={() => navigate(formHref)}
+                className="mt-0"
+              />
+            </BatasLanding>
+          </div>
+        ) : null}
 
         {/* Kalkulator memakai mesin harga yang sama dengan `/biaya`, jadi
             angka di beranda tidak bisa berbeda dari formulir pengajuan. */}
@@ -481,6 +505,7 @@ export default function LandingHome() {
           deskripsi={konten.kalkulatorDeskripsi}
           tarif={tarif}
           tarifBulanan={tarifBulanan}
+          promos={promosBunga}
           accountHref={accountHref}
           accountLabel={accountLabel}
         />
@@ -566,7 +591,7 @@ export default function LandingHome() {
               <p className="text-sm font-semibold text-foreground">
                 Mulai dari hitungan Anda.
               </p>
-              <p className="mt-1 text-sm leading-5 text-muted-foreground">
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Nominal dan tenor bisa diubah kapan saja sebelum dikirim.
               </p>
               <Button

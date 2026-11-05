@@ -118,7 +118,7 @@ function IsiBanding({ tarif }: { tarif: TarifBiaya }) {
                   <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                     {row.label}
                   </dt>
-                  <dd className="mt-0.5 text-sm leading-5 text-foreground">
+                  <dd className="mt-0.5 text-sm leading-6 text-foreground">
                     {row[kunci]}
                   </dd>
                 </div>

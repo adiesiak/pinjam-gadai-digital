@@ -87,7 +87,7 @@ export function MenuInformasiPonsel({
           {tautan.map((item, i) => (
             <div key={item.href}>
               {item.grup !== undefined && item.grup !== tautan[i - 1]?.grup ? (
-                <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground first:pt-1">
+                <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground first:pt-1">
                   {item.grup}
                 </p>
               ) : null}

@@ -62,7 +62,7 @@ export function PromoPinjamanKartu({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="min-w-0">
           {promo.badge.trim() === "" ? null : (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-foreground">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-foreground">
               {promo.badge}
             </p>
           )}

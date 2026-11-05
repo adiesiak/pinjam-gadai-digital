@@ -14,9 +14,9 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
-import { usePromoBungaAktif } from "@/hooks/use-promo-bunga";
 import type { TarifBulanan } from "@/lib/bulanan";
 import type { TarifBiaya } from "@/lib/loan";
+import type { PromoBungaRingkas } from "@/lib/promoBunga";
 
 import { BiayaBerlaku } from "./BiayaBerlaku";
 import { JudulBagian } from "./JudulBagian";
@@ -33,6 +33,7 @@ export function KalkulatorBeranda({
   deskripsi,
   tarif,
   tarifBulanan,
+  promos = [],
   accountHref,
   accountLabel,
 }: {
@@ -41,13 +42,11 @@ export function KalkulatorBeranda({
   tarif: TarifBiaya;
   /** Tarif bulanan dari Pengaturan Parameter Bisnis; kosong berarti tarif bawaan. */
   tarifBulanan?: Partial<TarifBulanan> | null;
+  /** Promo bunga dibaca pemanggil agar slot promo beranda bisa dijaga satu. */
+  promos?: readonly PromoBungaRingkas[];
   accountHref: string;
   accountLabel: string;
 }) {
-  // Promo dibaca sekali di bagian ini lalu diteruskan ke kalkulator; dengan
-  // begitu tanggal, bunga, dan promo di beranda memakai sumber yang sama
-  // dengan halaman biaya dan formulir pengajuan.
-  const promos = usePromoBungaAktif();
   return (
     <section
       id="kalkulator"

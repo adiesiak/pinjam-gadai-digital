@@ -255,7 +255,7 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 
 ### D.1 Landasan beranda
 
-- Urutan beranda dibaca sebagai satu dokumen: hero, produk dan banding, kalkulator dan tarif, demo dan dokumen, pertanyaan umum, program apresiasi, aplikasi, penutup. Jangan menambah bagian baru tanpa menghapus atau menggabungkan bagian yang menjawab pertanyaan yang sama.
+- Urutan beranda dibaca sebagai satu dokumen: hero, batas layanan, produk dan banding, satu slot promo, kalkulator dan tarif, demo dan dokumen, panduan, pertanyaan umum, penutup. Program apresiasi tidak lagi menjadi bagian badan beranda; aplikasi dan ruang pendana tinggal di footer. Jangan menambah bagian baru tanpa menghapus atau menggabungkan bagian yang menjawab pertanyaan yang sama.
 - Header desktop hanya lima tujuan: Produk (dropdown), Biaya, Cara kerja, Keamanan, FAQ. Menu ponsel memakai kelompok Produk, Panduan, dan Lainnya. Aplikasi dan ruang pendana tinggal di footer.
 - Satu slot promo di atas kalkulator. Banner gambar, promo pinjaman, dan promo bunga tidak ditumpuk dalam satu layar.
 - Satu aksi utama per viewport. CTA tamu menuju `/auth?returnTo=%2Fdashboard%3Ftab%3Dform`, bukan halaman masuk tanpa tujuan. Label tombol dan tujuan sesudah masuk harus sama.
@@ -263,7 +263,7 @@ Uji di 375px, 768px, 1024px, dan 1440px. Tailwind: `sm` 640, `md` 768, `lg` 1024
 - Kalkulator dan tarif berlaku berbagi satu band. Kalkulator memakai token permukaan, `rounded-2xl`, dan `aria-valuetext` berupa rupiah pada slider nominal.
 - Demo berhenti saat keluar layar, tombol Jeda ada di kepala kartu, dan bingkai layar memakai identitas PINDAI, bukan tiruan jendela peramban.
 - Teks isi minimal 14px. 12px hanya untuk label, metadata, dan cap. Jangan memakai 12px untuk paragraf atau daftar dokumen.
-- CTA lengket ponsel hanya muncul setelah hero lewat dan hilang saat penutup masuk. Beri `scroll-padding-bottom` agar kontrol terakhir tidak tertutup.
+- CTA lengket ponsel hanya muncul setelah hero lewat dan hilang saat penutup atau footer masuk. Beri `scroll-padding-bottom` agar kontrol terakhir tidak tertutup.
 - Status dan uang tetap dipisah: petrol untuk status positif, kuningan untuk nilai uang. Produk konvensional memakai petrol; syariah memakai kuningan.
 
 ### E. Tabel dan angka

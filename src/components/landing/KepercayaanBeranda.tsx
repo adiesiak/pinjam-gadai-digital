@@ -35,14 +35,14 @@ export function KepercayaanBeranda() {
             >
               Kepercayaan &amp; batas layanan
             </h2>
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <p className="flex items-center gap-2 text-sm leading-6 text-muted-foreground">
               <Building2
                 className="size-4 shrink-0 text-primary"
                 aria-hidden="true"
               />
               {NAMA_ENTITAS_PINDAI}
             </p>
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <p className="flex items-center gap-2 text-sm leading-6 text-muted-foreground">
               <Scale
                 className="size-4 shrink-0 text-primary"
                 aria-hidden="true"
@@ -73,7 +73,7 @@ export function KepercayaanBeranda() {
           </div>
         </div>
 
-        <div className="mt-2 flex flex-col gap-x-6 gap-y-1 border-t border-border pt-2.5 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-2 flex flex-col gap-x-6 gap-y-1 border-t border-border pt-2.5 text-sm leading-6 text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-start gap-2">
             <MapPin
               className="mt-0.5 size-4 shrink-0 text-primary"

@@ -51,12 +51,12 @@ export function PanduanBeranda({
             className="max-w-2xl border-t-0 pt-0"
           />
           <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <a
-              href="#kalkulator"
+            <Link
+              to="/biaya"
               className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {ctaKalkulator}
-            </a>
+            </Link>
             <Link
               to="/syarat-ketentuan"
               className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

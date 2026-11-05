@@ -60,7 +60,7 @@ export function LandingHero(props: LandingHeroProps) {
         />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 pt-8 sm:px-6 sm:pb-10 sm:pt-12 lg:pb-12 lg:pt-16">
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-8 pt-8 sm:px-6 sm:pb-10 sm:pt-12 lg:pb-12 lg:pt-16">
         <div className="grid items-stretch gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:gap-12">
           <div className="max-w-2xl">
             {/* Tiga kelompok gerak saja: teks pembuka, aksi, lalu kartu. */}
@@ -81,7 +81,7 @@ export function LandingHero(props: LandingHeroProps) {
 
               <h1
                 id="hero-judul"
-                className="mt-7 text-balance text-[2.25rem] font-semibold leading-[1.03] tracking-[-0.04em] text-foreground min-[480px]:text-[2.8rem] sm:text-5xl lg:text-[3.8rem]"
+                className="mt-7 text-balance text-[2.25rem] font-semibold leading-[1.1] tracking-[-0.04em] text-foreground min-[480px]:text-[2.8rem] sm:text-5xl lg:text-[3.8rem]"
               >
                 <span className="block">{props.judul1}</span>{" "}
                 <span className="mt-1 block font-display text-primary">
@@ -162,7 +162,7 @@ export function LandingHero(props: LandingHeroProps) {
                 )}
               </div>
 
-              <p className="mt-5 max-w-lg text-sm leading-5 text-slate-700">
+              <p className="mt-5 max-w-lg text-sm leading-6 text-slate-700">
                 {props.mikro}
               </p>
             </div>

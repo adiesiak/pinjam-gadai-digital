@@ -210,7 +210,7 @@ export function LiveCalculator({
         ))}
       </div>
 
-      <p className="mt-2 text-sm leading-5 text-muted-foreground">
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
         Untuk akad syariah,{" "}
         <Link
           to="/pinjaman/syariah"
@@ -241,9 +241,9 @@ export function LiveCalculator({
           }
           aria-valuetext={formatRupiah(amount)}
           aria-describedby={idBantuan}
-          className={`mt-3 w-full accent-primary ${kelasFokus}`}
+          className={`mt-3 h-11 w-full accent-primary ${kelasFokus}`}
         />
-        <p id={idBantuan} className="mt-1 text-sm leading-5 text-muted-foreground">
+        <p id={idBantuan} className="mt-1 text-sm leading-6 text-muted-foreground">
           Batas {formatRupiah(min)} sampai {formatRupiah(max)}. Geser atau pilih nominal cepat.
         </p>
         <div
@@ -307,7 +307,7 @@ export function LiveCalculator({
                 promos={promos}
               />
             </div>
-            <p className="mt-2 text-sm leading-5 text-muted-foreground">
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Bunga <strong className="font-semibold text-foreground">{tarifHarian}%</strong> flat
               untuk tenor {tenorHarian} hari (bukan bunga per tahun). Pilih tanggal{" "}
               {TENOR_OPTIONS[0]}–{TENOR_HARIAN_MAKS} hari dari hari ini; semakin lama tenor,
@@ -411,7 +411,7 @@ export function LiveCalculator({
         Total pelunasan {formatRupiah(totalPelunasan)}
       </p>
 
-      <p className="mt-4 text-sm leading-5 text-muted-foreground">
+      <p className="mt-4 text-sm leading-6 text-muted-foreground">
         Ini perhitungan aplikasi, bukan persetujuan pinjaman. Skema bulanan
         menampilkan ilustrasi angsuran; pencatatan pelunasan di sistem dilakukan
         sekaligus saat jatuh tempo. Perpindahan dana ditangani di luar aplikasi.

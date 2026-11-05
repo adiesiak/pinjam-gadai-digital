@@ -76,6 +76,16 @@ const tidakAda = (sumber: string, teks: string, nama: string) =>
     "ctaKalkulator={konten.panduanCtaKalkulator}",
     "field CTA kalkulator CMS tersambung ke panduan",
   );
+  ada(
+    sumber,
+    "bolehTampilkanBannerPromo",
+    "banner promo mengikuti gerbang satu slot",
+  );
+  ada(
+    sumber,
+    "promos={promosBunga}",
+    "kalkulator memakai promo bunga dari data halaman",
+  );
 
   const iHero = sumber.indexOf("<LandingHero");
   const iKepercayaan = sumber.indexOf("<KepercayaanBeranda");
@@ -158,6 +168,58 @@ for (const berkas of ["./PublicInfoPage.tsx", "./UnduhAplikasi.tsx"]) {
     "utf8",
   );
   ada(shell, "<MenuInformasiPonsel", "InfoShell memakai menu ponsel bersama");
+}
+
+// Satu slot promo, label menu minimal 12px, dan CTA lengket berhenti di footer.
+{
+  const menu = readFileSync(
+    fileURLToPath(
+      new URL("../components/MenuInformasiPonsel.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  tidakAda(menu, "text-[11px]", "label grup menu minimal 12px");
+
+  const promo = readFileSync(
+    fileURLToPath(
+      new URL("../components/promo/PromoPinjamanKartu.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  tidakAda(promo, "text-[11px]", "badge promo minimal 12px");
+
+  const footer = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/FooterBeranda.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  ada(footer, 'id="footer-beranda"', "footer punya sasaran untuk CTA lengket");
+  ada(
+    footer,
+    'className="inline-flex min-h-11 items-center gap-2.5"',
+    "logo footer punya target sentuh 44px",
+  );
+
+  const cta = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/CtaLengket.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  ada(cta, '"footer-beranda"', "CTA lengket berhenti saat footer terlihat");
+
+  const panduan = readFileSync(
+    fileURLToPath(
+      new URL("../components/landing/PanduanBeranda.tsx", import.meta.url),
+    ),
+    "utf8",
+  );
+  ada(
+    panduan,
+    'to="/biaya"',
+    "CTA kalkulator panduan menuju halaman biaya, bukan melompat mundur",
+  );
 }
 
 // Jalur awal landing tidak boleh menarik framer-motion hanya untuk animasi

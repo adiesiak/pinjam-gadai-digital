@@ -74,8 +74,8 @@ function DaftarTarif({
             <span
               className={
                 sempit
-                  ? "mt-1.5 block text-sm leading-5 text-muted-foreground"
-                  : "mt-1.5 block text-sm leading-5 text-muted-foreground sm:max-w-[17rem]"
+                  ? "mt-1.5 block text-sm leading-6 text-muted-foreground"
+                  : "mt-1.5 block text-sm leading-6 text-muted-foreground sm:max-w-[17rem]"
               }
             >
               {item.keterangan}
