@@ -25,19 +25,19 @@ export function TotpGate() {
   const [ingat, setIngat] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [memeriksa, setMemeriksa] = useState(() => ambilTokenPerangkat() !== null);
   const sudahCoba = useRef(false);
 
-  // Coba pakai token perangkat tersimpan lebih dulu — supaya tidak selalu
-  // mengetik kode di perangkat yang sama. Dijalankan sekali per mount.
+  // Coba pakai token perangkat tersimpan di latar belakang — formulir kode
+  // TIDAK ditahan menunggu hasilnya. Kalau token valid, status gate yang
+  // reaktif berubah dan komponen ini unmount; kalau tidak, pengguna sudah
+  // bisa langsung mengetik kode. Menahan formulir di sini pernah membuat
+  // spinner "Memeriksa perangkat ini…" tidak pernah selesai saat StrictMode
+  // membatalkan efek pertama (cleanup) lalu melewati efek kedua karena ref.
   useEffect(() => {
     if (sudahCoba.current) return;
     sudahCoba.current = true;
     const token = ambilTokenPerangkat();
-    // Tanpa token, `memeriksa` sudah bernilai false sejak state awal — tidak
-    // perlu (dan tidak boleh) di-set ulang di dalam effect.
     if (token === null) return;
-    let batal = false;
     void (async () => {
       try {
         const ip = await getClientIp();
@@ -47,20 +47,17 @@ export function TotpGate() {
           perangkat: deviceLabelFromUa(ua),
           ip,
         });
-        if (!hasil.ok && !batal) {
+        // Hanya hapus token yang benar-benar diperiksa. Pengguna bisa saja
+        // sudah mengetik kode dan menyimpan token baru selagi pemeriksaan ini
+        // berjalan; token baru itu tidak boleh ikut terhapus.
+        if (!hasil.ok && ambilTokenPerangkat() === token) {
           // Token kedaluwarsa/dicabut — bersihkan agar tidak dicoba ulang.
           lupakanTokenPerangkat();
         }
-        // Sukses: gate status reaktif berubah dan komponen ini unmount.
       } catch {
-        // Gagal memeriksa — biarkan form kode tampil sebagai fallback.
-      } finally {
-        if (!batal) setMemeriksa(false);
+        // Pemeriksaan latar belakang gagal; formulir kode tetap tersedia.
       }
     })();
-    return () => {
-      batal = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -114,42 +111,34 @@ export function TotpGate() {
           </div>
         </div>
 
-        {memeriksa ? (
-          <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Memeriksa perangkat ini…
-          </p>
-        ) : (
-          <>
-            <div className="flex justify-center py-2">
-              <InputOTP value={kode} onChange={ubahKode} maxLength={6}>
-                <InputOTPGroup>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <InputOTPSlot key={i} index={i} />
-                  ))}
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
-            <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                className="size-4 accent-sky-600"
-                checked={ingat}
-                onChange={(event) => setIngat(event.target.checked)}
-                disabled={busy}
-              />
-              Ingat perangkat ini (30 hari)
-            </label>
-            {error && <p className="mt-2 text-center text-sm text-destructive">{error}</p>}
-            <Button
-              className="mt-4 w-full rounded-full"
-              onClick={() => void handleSubmit()}
-              disabled={busy || kode.length !== 6}
-            >
-              {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ShieldCheck className="mr-2 size-4" />}
-              Verifikasi & Masuk Panel
-            </Button>
-          </>
-        )}
+        <div className="flex justify-center py-2">
+          <InputOTP value={kode} onChange={ubahKode} maxLength={6}>
+            <InputOTPGroup>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <InputOTPSlot key={i} index={i} />
+              ))}
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
+        <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            className="size-4 accent-sky-600"
+            checked={ingat}
+            onChange={(event) => setIngat(event.target.checked)}
+            disabled={busy}
+          />
+          Ingat perangkat ini (30 hari)
+        </label>
+        {error && <p className="mt-2 text-center text-sm text-destructive">{error}</p>}
+        <Button
+          className="mt-4 w-full rounded-full"
+          onClick={() => void handleSubmit()}
+          disabled={busy || kode.length !== 6}
+        >
+          {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ShieldCheck className="mr-2 size-4" />}
+          Verifikasi & Masuk Panel
+        </Button>
 
         <p className="mt-3 text-center text-[11px] text-slate-400">
           Kode berlaku 30 detik. Ganti kode otomatis — jangan bagikan ke siapa pun.
