@@ -762,14 +762,13 @@ export function proposalPendanaanPindai(data: DataProposalPendana): DokumenPdf {
         baris: simulasiBulanan,
       },
     },
+    // Catatan tenor dan tabel sepuluh baris mulai bersama di halaman baru:
+    // catatan tidak boleh tertinggal sendirian di dasar halaman sebelumnya.
+    { halamanBaru: true },
     {
       teks: "Dana pada tenor bulanan terikat sampai tenor selesai: hak pendana baru dibayarkan setelah pinjaman lunas, bukan setiap bulan. Kolom setara per bulan hanya alat pembanding tenor, dan angka rupiahnya dibulatkan ke rupiah terdekat. Tenor lebih panjang tidak menaikkan hasil per bulan karena marjin per bulannya menurun (12%, 10%, dan 8% untuk tenor 6, 9, dan 12 bulan).",
       gaya: "kecil",
     },
-
-    // Tabel sepuluh baris dimulai di halaman sendiri supaya barisnya tidak
-    // terpotong di tengah dan kepala kolomnya tidak tertinggal di halaman lain.
-    { halamanBaru: true },
     {
       teks: "Simulasi pinjaman bulanan Rp 1 juta sampai Rp 10 juta",
       gaya: "tebal",

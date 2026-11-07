@@ -179,6 +179,7 @@ export function susunRincianPinjaman(
 
   const kelompok: KelompokRincian[] = [{ judul: "Pengajuan", baris: pengajuan }];
   let jadwal: JadwalRincian | null = null;
+  let totalBiayaBulanan: number | null = null;
 
   if (bulanan) {
     const sim = simulasiBulananPinjaman({
@@ -189,6 +190,7 @@ export function susunRincianPinjaman(
         : { persenBunga: loan.persenBunga }),
       tarifBulanan: loan.tarifBulanan ?? null,
     });
+    totalBiayaBulanan = sim.totalKeuntunganBersih;
     const dana: BarisRincian[] = [
       { label: "Pokok dibiayai", nilai: rp(sim.pokokDibiayai) },
       {
@@ -223,11 +225,11 @@ export function susunRincianPinjaman(
       nilai: rp(sim.bungaTotal),
     });
     bayar.push({
-      label: `Biaya admin tiap cicilan (${sim.tarif.persenBiayaAdminCicilanBulanan}% dari nominal cicilan)`,
+      label: `Biaya admin tiap cicilan (${sim.tarif.persenBiayaAdminCicilanBulanan}% dari pokok + bunga cicilan)`,
       nilai: rp(sim.biayaAdminCicilanTotal),
     });
     bayar.push({
-      label: `Total yang dibayar selama ${sim.tenorBulan} bulan`,
+      label: `Total cicilan selama ${sim.tenorBulan} bulan`,
       nilai: rp(sim.totalPengembalian),
       tegas: true,
       nada: "total",
@@ -352,7 +354,7 @@ export function susunRincianPinjaman(
       });
     }
     status.push({
-      label: "Total yang harus dibayar sekarang",
+      label: "Total jika dilunasi hari ini",
       nilai: rp(pelunasan.totalKewajibanDenganPenalti),
       tegas: true,
       nada: "total",
@@ -380,7 +382,7 @@ export function susunRincianPinjaman(
     sisaHari: pelunasan?.sisaHari ?? null,
     kelompok,
     jadwal,
-    catatan: catatanDokumen(loan),
+    catatan: catatanDokumen(loan, totalBiayaBulanan),
     dibuatPada: opsi.sekarang,
   };
 }
@@ -405,10 +407,18 @@ function rekeningLengkap(loan: PinjamanUntukRincian): string | null {
  * Catatan penutup dokumen. Kalimatnya menyebut batas dokumen apa adanya:
  * rincian ini perhitungan internal, bukan bukti pembayaran.
  */
-function catatanDokumen(loan: PinjamanUntukRincian): string[] {
+function catatanDokumen(
+  loan: PinjamanUntukRincian,
+  totalBiayaBulanan: number | null,
+): string[] {
   const catatan: string[] = [];
   if (loan.status === "dibatalkan" || loan.status === "ditolak") {
     catatan.push("Pinjaman ini tidak berjalan, jadi tidak ada kewajiban yang perlu dibayar.");
+  }
+  if (totalBiayaBulanan !== null) {
+    catatan.push(
+      `Total biaya pinjaman (bunga + biaya admin): ${rp(totalBiayaBulanan)}.`,
+    );
   }
   catatan.push(
     `Dokumen ini dihasilkan dari catatan internal PINDAI untuk pinjaman ${loan.nomorReferensi}.`,

@@ -713,6 +713,20 @@ eq(formatPersen(2.5), "2,5%", "persen desimal memakai koma");
     "kepala tabel tidak diulang di halaman lain",
   );
 
+  const halamanCatatan = halaman.findIndex((h) =>
+    h.some((t) => t.teks.includes("Dana pada tenor bulanan")),
+  );
+  ok(
+    halamanCatatan >= 0 &&
+      halaman[halamanCatatan].some((t) => t.teks.includes("Simulasi pinjaman bulanan Rp 1 juta")),
+    "catatan tenor tidak tertinggal sendirian dari tabel berikutnya",
+  );
+  const halamanTerpendek = Math.min(...halaman.slice(1).map((h) => h.length));
+  ok(
+    halamanTerpendek >= 20,
+    `tidak ada halaman isi yang hampir kosong (${halamanTerpendek} teks)`,
+  );
+
   const masalah = masalahTataLetak(pdf);
   ok(
     masalah.length === 0,

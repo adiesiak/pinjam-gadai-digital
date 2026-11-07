@@ -40,7 +40,7 @@ export function pdfDariHalamanJpeg(
   tinggiPiksel: number,
 ): Uint8Array {
   if (halaman.length === 0) {
-    throw new Error("Tidak ada halaman kontrak untuk disusun menjadi PDF.");
+    throw new Error("Tidak ada halaman dokumen untuk disusun menjadi PDF.");
   }
   const objek: Array<Uint8Array | string> = [];
   const nomorHalaman = halaman.map((_, i) => 3 + i * 3);
@@ -102,7 +102,7 @@ export function pdfDariHalamanJpeg(
 /** Ubah data URL JPEG menjadi byte mentah tanpa Buffer (aman di peramban). */
 export function jpegDariDataUrl(dataUrl: string): Uint8Array {
   const koma = dataUrl.indexOf(",");
-  if (koma < 0) throw new Error("Gambar halaman kontrak tidak valid.");
+  if (koma < 0) throw new Error("Gambar halaman dokumen tidak valid.");
   const base64 = dataUrl.slice(koma + 1);
   const biner = atob(base64);
   const hasil = new Uint8Array(biner.length);

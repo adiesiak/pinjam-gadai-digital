@@ -7,27 +7,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { LABEL_JUMLAH, SUMBER_DOKUMEN, TABEL_SNAPSHOT } from "@/lib/backupTabel";
-import { cetakLewatAplikasi } from "@/lib/jembatanAndroid";
+import { unduhLewatAplikasi } from "@/lib/jembatanAndroid";
+import { susunPdfResmi } from "@/lib/pdfSederhana";
 import { formatWaktuWIB } from "@/lib/waktu";
-
-/**
- * Escape teks sebelum ditempel ke HTML yang dirender di tab baru.
- * Wajib: isi audit/ledger memuat data yang diisi pengguna (nama, referensi),
- * dan tab hasil `window.open("", "_blank")` mewarisi origin aplikasi — tanpa
- * escape, satu isian berisi tag/script bisa berjalan dengan sesi admin.
- */
-function escapeHtml(value: unknown): string {
-  return String(value ?? "").replace(/[&<>"']/g, (character) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    };
-    return entities[character] ?? character;
-  });
-}
 
 /**
  * Sel CSV aman: kutip ganda di-escape dan sel yang diawali `=`, `+`, `-`, `@`,
@@ -256,20 +238,57 @@ export function BackupPanel() {
     setBusy("pdf");
     try {
       const log = auditData.auditTerbaru;
-      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Audit Trail PINDAI</title><style>body{font-family:system-ui,sans-serif;padding:32px;color:#1c1a15}h1{font-size:20px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #e3ddd0;padding:6px 8px;text-align:left}</style></head><body><h1>Audit Trail | Pinjam Gadai Digital</h1><p>Dicetak: ${formatWaktuWIB(Date.now())} WIB</p><table><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Target</th><th>Detail</th></tr>${log
-        .map((a) => `<tr><td>${escapeHtml(`${formatWaktuWIB(a.waktu)} WIB`)}</td><td>${escapeHtml(a.aktorLabel)}</td><td>${escapeHtml(a.aksi)}</td><td>${escapeHtml(a.target ?? "-")}</td><td>${escapeHtml(a.detail ?? "-")}</td></tr>`)
-        .join("")}</table></body></html>`;
-      // Aplikasi Android: window.open diblokir, jadi dialog cetak Android dipakai.
-      if (!cetakLewatAplikasi(html)) {
-        const w = window.open("", "_blank");
-        if (w) {
-          w.document.write(html);
-          w.document.close();
-          w.print();
-        }
+      const pdf = susunPdfResmi({
+        nomor: "AUDIT TRAIL",
+        judul: "LOG AKTIVITAS",
+        kaki: "PINDAI - dokumen audit internal",
+        bahasa: "id",
+        blok: [
+          {
+            jenis: "banner",
+            merek: "PINDAI",
+            subjudul: "Audit Trail",
+            nomor: "AUDIT TRAIL",
+            tanggal: `${formatWaktuWIB(Date.now())} WIB`,
+          },
+          {
+            jenis: "paragraf",
+            kecil: true,
+            teks: `${log.length} aktivitas terbaru. Dokumen ini memuat data internal; simpan sebagai rahasia.`,
+          },
+          {
+            jenis: "tabel",
+            kepala: ["WAKTU", "AKTOR", "AKSI", "TARGET", "DETAIL"],
+            bobot: [1.2, 1.4, 1.2, 1.6, 2.8],
+            baris: log.map((a) => ({
+              sel: [
+                `${formatWaktuWIB(a.waktu)} WIB`,
+                a.aktorLabel,
+                a.aksi,
+                a.target ?? "-",
+                a.detail ?? "-",
+              ],
+            })),
+          },
+        ],
+      });
+      const nama = `PINDAI-Audit-Trail-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const blob = new Blob([pdf as unknown as BlobPart], { type: "application/pdf" });
+      if (!(await unduhLewatAplikasi(nama, "application/pdf", blob))) {
+        const url = URL.createObjectURL(blob);
+        const tautan = document.createElement("a");
+        tautan.href = url;
+        tautan.download = nama;
+        tautan.rel = "noopener";
+        document.body.appendChild(tautan);
+        tautan.click();
+        tautan.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
       }
       await catat({ jenis: "audit-pdf" });
-      toast.success("Audit log dikirim ke dialog cetak PDF.");
+      toast.success("Audit log diunduh sebagai PDF.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Audit log gagal dibuat.");
     } finally {
       setBusy(null);
     }

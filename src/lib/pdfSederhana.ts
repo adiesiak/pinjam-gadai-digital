@@ -358,6 +358,8 @@ export type DokumenResmiPdf = {
   judul: string;
   /** Teks kaki di setiap halaman. */
   kaki: string;
+  /** Bahasa label bawaan penulis PDF; isi dokumen tetap dari pemanggil. */
+  bahasa?: "id" | "en";
   blok: BlokResmiPdf[];
 };
 
@@ -1174,10 +1176,79 @@ function garisResmi(y: number, warna = R.garis, tebal = 0.7): string {
   return `${warna} RG ${tebal} w ${angka(R_MARGIN)} ${angka(y)} m ${angka(LEBAR_HALAMAN - R_MARGIN)} ${angka(y)} l S`;
 }
 
+const KARTU_CELAH = 12;
+const KARTU_LEBAR = (R_LEBAR - KARTU_CELAH) / 2;
+const KARTU_ISI_LEBAR = KARTU_LEBAR - 24;
+
+type BarisKartuSiap = {
+  label: string[];
+  nilai: string[];
+  nada?: NadaTeksResmi;
+  satuBaris: boolean;
+  ukuranLabel: number;
+  ukuranNilai: number;
+  /** Jarak ke baris berikutnya; sudah termasuk napas bawah baris. */
+  tinggi: number;
+};
+
+type KartuSiap = {
+  judul: string;
+  baris: BarisKartuSiap[];
+  tinggi: number;
+};
+
+/**
+ * Siapkan satu baris kartu. Label dan nilai tetap satu baris bila muat; bila
+ * tidak, nilai turun ke bawah label dan dibungkus selebar kartu. Alamat panjang
+ * tidak boleh menimpa label atau keluar dari kotak kartu.
+ */
+function siapkanBarisKartu(baris: BarisKartuResmi): BarisKartuSiap {
+  const labelAwal = bungkusTeks(baris.label, 8.1, KARTU_ISI_LEBAR);
+  const nilaiAwal = bungkusTeks(baris.nilai, 8.1, KARTU_ISI_LEBAR);
+  const muatSatuBaris =
+    labelAwal.length === 1 &&
+    nilaiAwal.length === 1 &&
+    perkiraanLebar(labelAwal[0], 8.1) +
+      perkiraanLebar(nilaiAwal[0], 8.1) +
+      10 <=
+      KARTU_ISI_LEBAR;
+  if (muatSatuBaris) {
+    return {
+      label: labelAwal,
+      nilai: nilaiAwal,
+      ...(baris.nada === undefined ? {} : { nada: baris.nada }),
+      satuBaris: true,
+      ukuranLabel: 8.1,
+      ukuranNilai: 8.1,
+      tinggi: 16,
+    };
+  }
+
+  const ukuranNilai = nilaiAwal.length > 2 ? 7.2 : 8.1;
+  const ukuranLabel = labelAwal.length > 2 ? 7.4 : 8.1;
+  const label = bungkusTeks(baris.label, ukuranLabel, KARTU_ISI_LEBAR);
+  const nilai = bungkusTeks(baris.nilai, ukuranNilai, KARTU_ISI_LEBAR);
+  return {
+    label,
+    nilai,
+    ...(baris.nada === undefined ? {} : { nada: baris.nada }),
+    satuBaris: false,
+    ukuranLabel,
+    ukuranNilai,
+    tinggi: label.length * 9.8 + nilai.length * 10.2 + 9,
+  };
+}
+
+function siapkanKartu(kartu: KartuResmi): KartuSiap {
+  const baris = kartu.baris.map(siapkanBarisKartu);
+  // 39 titik untuk judul + garis, 11 titik napas bawah, lalu tinggi tiap baris.
+  const tinggi = 39 + 11 + baris.reduce((n, item) => n + item.tinggi, 0);
+  return { judul: kartu.judul, baris, tinggi };
+}
+
 /** Tinggi dua kartu informasi; kartu terpanjang yang menentukan. */
 function tinggiKartu(kartu: BlokResmiPdf & { jenis: "kartu" }): number {
-  const baris = Math.max(kartu.kiri.baris.length, kartu.kanan.baris.length);
-  return 34 + baris * 16;
+  return Math.max(siapkanKartu(kartu.kiri).tinggi, siapkanKartu(kartu.kanan).tinggi);
 }
 
 function lebarTabelResmi(bobot: number[] | undefined, jumlah: number): number[] {
@@ -1309,34 +1380,64 @@ function gambarBanner(blok: BlokResmiPdf & { jenis: "banner" }, y: number): stri
 }
 
 function gambarKartu(blok: BlokResmiPdf & { jenis: "kartu" }, y: number): string {
-  const tinggi = tinggiKartu(blok);
+  const kiri = siapkanKartu(blok.kiri);
+  const kananKartu = siapkanKartu(blok.kanan);
+  const tinggi = Math.max(kiri.tinggi, kananKartu.tinggi);
   const bawah = y - tinggi;
-  const celah = 12;
-  const lebar = (R_LEBAR - celah) / 2;
   const operasi: string[] = [];
 
-  [blok.kiri, blok.kanan].forEach((kartu, indeks) => {
-    const x = R_MARGIN + indeks * (lebar + celah);
-    const kanan = x + lebar;
-    operasi.push(kotakResmi(x, bawah, lebar, tinggi, R.kartu, R.garis));
+  [kiri, kananKartu].forEach((kartu, indeks) => {
+    const x = R_MARGIN + indeks * (KARTU_LEBAR + KARTU_CELAH);
+    const kanan = x + KARTU_LEBAR;
+    operasi.push(kotakResmi(x, bawah, KARTU_LEBAR, tinggi, R.kartu, R.garis));
     operasi.push(teksResmi(kartu.judul.toUpperCase(), 7.4, "F2", x + 12, y - 17, R.teksLembut));
     operasi.push(
       `${R.garis} RG 0.7 w ${angka(x + 12)} ${angka(y - 24)} m ${angka(kanan - 12)} ${angka(y - 24)} l S`,
     );
-    kartu.baris.forEach((baris, i) => {
-      const garisDasar = y - 39 - i * 16;
-      operasi.push(teksResmi(baris.label, 8.1, "F1", x + 12, garisDasar, R.label));
-      const ukuran = perkiraanLebar(baris.nilai, 8.1) > lebar - 28 ? 7.2 : 8.1;
-      operasi.push(
-        teksResmiKanan(
-          baris.nilai,
-          ukuran,
-          "F2",
-          kanan - 12,
-          garisDasar,
-          warnaNada(baris.nada),
-        ),
-      );
+    let garisDasar = y - 39;
+    kartu.baris.forEach((baris) => {
+      if (baris.satuBaris) {
+        operasi.push(
+          teksResmi(baris.label[0], baris.ukuranLabel, "F1", x + 12, garisDasar, R.label),
+        );
+        operasi.push(
+          teksResmiKanan(
+            baris.nilai[0],
+            baris.ukuranNilai,
+            "F2",
+            kanan - 12,
+            garisDasar,
+            warnaNada(baris.nada),
+          ),
+        );
+      } else {
+        baris.label.forEach((bagian, i) => {
+          operasi.push(
+            teksResmi(
+              bagian,
+              baris.ukuranLabel,
+              "F1",
+              x + 12,
+              garisDasar - i * 9.8,
+              R.label,
+            ),
+          );
+        });
+        const dasarNilai = garisDasar - (baris.label.length - 1) * 9.8 - 12;
+        baris.nilai.forEach((bagian, i) => {
+          operasi.push(
+            teksResmi(
+              bagian,
+              baris.ukuranNilai,
+              "F2",
+              x + 12,
+              dasarNilai - i * 10.2,
+              warnaNada(baris.nada),
+            ),
+          );
+        });
+      }
+      garisDasar -= baris.tinggi;
     });
   });
   return operasi.join("\n");
@@ -1530,10 +1631,24 @@ function potongTabel(
   const lebar = lebarTabelResmi(blok.bobot, blok.kepala.length);
   const rataKanan = blok.rataKanan ?? [];
   const kapasitas = ruang - TABEL_TINGGI_KEPALA - 4;
+  const tinggiBaris = blok.baris.map((baris) => tinggiBarisTabel(baris, lebar, rataKanan));
+  // Baris total (tebal/nada total) tidak boleh terpisah dari tabelnya hanya
+  // karena halaman habis. Bila total tidak muat, potong sebelum kelompok total
+  // dan ulangi kepala tabel di halaman berikutnya.
+  const indeksTotal = blok.baris.findIndex(
+    (baris) => baris.tebal === true || baris.nada === "total",
+  );
+  // Mulai dari baris total pertama, bukan hanya deretan total di akhir: tabel
+  // laporan menaruh "Porsi platform" setelah total, dan baris itu masih bagian
+  // dari ringkasan yang tidak boleh terpisah dari totalnya.
+  const awalTotal = indeksTotal === -1 ? blok.baris.length : indeksTotal;
+  const tinggiTotal = tinggiBaris
+    .slice(awalTotal)
+    .reduce((n, tinggi) => n + tinggi, 0);
   let terpakai = 0;
   let jumlah = 0;
-  for (const baris of blok.baris) {
-    const tinggi = tinggiBarisTabel(baris, lebar, rataKanan);
+  for (const [i, tinggi] of tinggiBaris.entries()) {
+    if (i >= awalTotal && terpakai + tinggiTotal > kapasitas) break;
     if (terpakai + tinggi > kapasitas) break;
     terpakai += tinggi;
     jumlah += 1;
@@ -1673,10 +1788,18 @@ function isiHalamanResmi(
   // Kaki: garis rambut, nomor dokumen + disclaimer kiri, nomor halaman kanan.
   operasi.push(garisResmi(54, R.garis));
   const kakiPenuh = `${dok.nomor} - ${dok.kaki}`;
+  // Sisakan ruang untuk nomor halaman di kanan; teks kaki yang terlalu panjang
+  // dipotong dengan elipsis, bukan dibiarkan menabrak nomor halaman.
+  const maksKaki = Math.floor((R_LEBAR - 96) / (7.2 * PERKIRAAN_LEBAR_KARAKTER));
   const kaki =
-    kakiPenuh.length > 92 ? `${kakiPenuh.slice(0, 90)}...` : kakiPenuh;
+    kakiPenuh.length > maksKaki
+      ? `${kakiPenuh.slice(0, Math.max(20, maksKaki - 3))}...`
+      : kakiPenuh;
   operasi.push(teksResmi(kaki, 7.2, "F1", R_MARGIN, 38, R.redup));
-  const nomor = `Halaman ${nomorHalaman} dari ${jumlahHalaman}`;
+  const nomor =
+    dok.bahasa === "en"
+      ? `Page ${nomorHalaman} of ${jumlahHalaman}`
+      : `Halaman ${nomorHalaman} dari ${jumlahHalaman}`;
   operasi.push(
     teksResmiKanan(nomor, 7.2, "F1", LEBAR_HALAMAN - R_MARGIN, 38, R.redup),
   );

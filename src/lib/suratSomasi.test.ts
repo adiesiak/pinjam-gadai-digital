@@ -300,5 +300,21 @@ const menembus = halaman.flatMap((isi) => {
 });
 ok(menembus.length === 0, `tidak ada huruf menembus garis tabel: ${menembus.map((t) => t.teks).join(", ")}`);
 
+// Alamat badan yang panjang harus membungkus di kartu, bukan menimpa label.
+const alamatPanjang = susunSuratSomasi(
+  {
+    ...data,
+    identitas: {
+      ...data.identitas,
+      alamat:
+        "Jl. Jenderal Sudirman Kaveling 52-53, Gedung Sentra Bisnis Lantai 18, Jakarta Selatan 12190",
+    },
+  },
+  { sekarang: SEKARANG },
+);
+const pdfAlamat = new TextDecoder("latin1").decode(buatPdfSomasi(alamatPanjang));
+ok(pdfAlamat.startsWith("%PDF-"), "alamat panjang tetap menghasilkan PDF");
+ok(pdfAlamat.includes("Sentra Bisnis"), "alamat panjang tetap tercetak");
+
 console.log(`suratSomasi: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);

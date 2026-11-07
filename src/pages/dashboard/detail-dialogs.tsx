@@ -3,6 +3,7 @@ import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 
+import { ContractPrintButton } from "@/components/contract/ContractPrintButton";
 import { PembayaranPinjamanDialog } from "@/components/PembayaranPinjamanDialog";
 import { PermohonanRestrukturisasi } from "@/components/PermohonanRestrukturisasi";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -75,7 +76,7 @@ function RincianPinjaman({ loan, final }: { loan: RincianPinjamanInput; final: b
     if (loan.simulasiBulanan !== null) {
       bayar.push(["Bunga selama tenor", formatRupiah(loan.simulasiBulanan.bungaTotal)]);
       bayar.push([
-        "Biaya admin cicilan (2% per bayar)",
+        "Biaya admin cicilan (2% dari pokok + bunga)",
         formatRupiah(loan.simulasiBulanan.biayaAdminCicilanTotal),
       ]);
       if (tenorAdminCicilan) {
@@ -103,7 +104,7 @@ function RincianPinjaman({ loan, final }: { loan: RincianPinjamanInput; final: b
       ]);
     }
     bayar.push([
-      `Total yang harus dibayar (${loan.tenorBulan} bulan)`,
+      `Total cicilan (${loan.tenorBulan} bulan)`,
       formatRupiah(loan.totalKewajiban),
       "tebal",
     ]);
@@ -177,6 +178,74 @@ function nomorKuitansi(row: KuitansiRow): string {
 
 function metodeBayar(metode: KuitansiRow["metodePembayaran"]): string {
   return metode === "qris" ? "QRIS" : "Bank Transfer";
+}
+
+/** Teks masuk ke HTML kuitansi; escape semua isian yang berasal dari data. */
+function escapeHtmlKuitansi(teks: string): string {
+  return teks.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
+  );
+}
+
+/**
+ * HTML kuitansi untuk jalur unduh/cetak. Isinya sengaja sama dengan dialog:
+ * angka berasal dari snapshot server, bukan dihitung ulang di peramban.
+ */
+function htmlKuitansiPembayaran(row: KuitansiRow): string {
+  const waktu = formatWaktuWIB(row.dicocokkanPada ?? row.tanggalTransfer);
+  const mutasi =
+    row.referensiMutasi === null
+      ? ""
+      : `<br/>Referensi mutasi: ${escapeHtmlKuitansi(row.referensiMutasi)}`;
+  return `
+    <div class="kop">
+      <div class="kop-kiri">
+        <div>
+          <p class="kop-judul">PINDAI</p>
+          <p class="kop-sub">Kuitansi pembayaran elektronik</p>
+          <p class="kop-sub">${escapeHtmlKuitansi(PENERBIT_KUITANSI)}</p>
+        </div>
+      </div>
+      <div class="kop-kanan">
+        <span class="kop-badge">Tercatat</span>
+        <span class="kop-ref">${escapeHtmlKuitansi(nomorKuitansi(row))}</span>
+      </div>
+    </div>
+    <h1>Kuitansi Pembayaran Pinjaman</h1>
+    <p>Waktu pembayaran ${waktu} WIB.${mutasi}</p>
+    <table class="rincian">
+      <tbody>
+        <tr><td>Jenis aksi</td><td class="angka">${escapeHtmlKuitansi(LABEL_MODE_PEMBAYARAN[row.paymentType])}</td></tr>
+        <tr><td>Pokok dibayar</td><td class="angka">${formatRupiah(row.rencana.principalPaid)}</td></tr>
+        <tr><td>Bunga dibayar</td><td class="angka">${formatRupiah(row.rencana.interestDue)}</td></tr>
+        <tr><td>Denda</td><td class="angka">${formatRupiah(row.rencana.lateFee)}</td></tr>
+        <tr class="total"><td>Total bayar</td><td class="angka">${formatRupiah(row.jumlah)}</td></tr>
+        <tr><td>Metode</td><td class="angka">${escapeHtmlKuitansi(metodeBayar(row.metodePembayaran))}</td></tr>
+      </tbody>
+    </table>
+    <table class="rincian">
+      <tbody>
+        <tr><td>Sisa pokok baru</td><td class="angka">${formatRupiah(row.rencana.principalSesudah)}</td></tr>
+        <tr><td>Jatuh tempo berikutnya</td><td class="angka">${escapeHtmlKuitansi(
+          row.rencana.nextDueDate === null
+            ? "Pinjaman lunas"
+            : formatTanggalWIB(row.rencana.nextDueDate),
+        )}</td></tr>
+        <tr><td>Suku bunga</td><td class="angka">${row.rencana.tierRate}%</td></tr>
+        <tr><td>Estimasi bunga periode berikutnya</td><td class="angka">${escapeHtmlKuitansi(
+          row.rencana.nextDueDate === null ? "-" : formatRupiah(row.rencana.nextInterestAmount),
+        )}</td></tr>
+      </tbody>
+    </table>
+    <p>Kuitansi ini sah sebagai bukti pembayaran elektronik PINDAI setelah bukti transfer dicocokkan dengan mutasi bank. Simpan nomor referensi ini untuk keperluan verifikasi. Kuitansi tidak dapat dipindahtangankan dan bukan bukti kepemilikan akun.</p>
+    <div class="warning">
+      <strong>Himbauan Keamanan Transaksi</strong>
+      <p>PINDAI tidak pernah meminta kode OTP, PIN, atau kata sandi lewat WhatsApp maupun email.</p>
+    </div>
+    <p style="margin-top:16px;font-size:10px;line-height:1.5;color:#64748b">Diterbitkan oleh ${escapeHtmlKuitansi(NAMA_ENTITAS_PINDAI)}. ${escapeHtmlKuitansi(PENAFIAN_PINDAI)}<br/>${escapeHtmlKuitansi(HAK_CIPTA_PINDAI)}</p>
+  `;
 }
 
 /**
@@ -336,9 +405,11 @@ function KuitansiPembayaranDialog({
               <p className="mr-auto text-[10px] leading-4 text-slate-500">
                 {HAK_CIPTA_PINDAI}
               </p>
-              <Button type="button" variant="outline" className="h-10" onClick={() => window.print()}>
-                Cetak kuitansi
-              </Button>
+              <ContractPrintButton
+                html={htmlKuitansiPembayaran(row)}
+                label="Unduh kuitansi"
+                fileName={`Kuitansi-${nomorKuitansi(row)}.pdf`}
+              />
               <Button type="button" className="h-10 bg-emerald-800 text-white hover:bg-emerald-900" onClick={onClose}>
                 Tutup
               </Button>

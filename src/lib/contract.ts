@@ -288,7 +288,7 @@ function rincianKeuanganBulanan(bulanan: SimulasiBulanan): string {
       <tr><td>Potongan di muka (${bulanan.tarif.persenBiayaLayananBulanan}%)</td><td class="angka potongan">${formatRupiah(bulanan.potonganDiMuka)}</td></tr>
       <tr class="bersih"><td>Dana bersih diterima</td><td class="angka">${formatRupiah(bulanan.danaDiterima)}</td></tr>
       <tr><td>Bunga/margin total (${bulanan.persenBungaPerBulan}%/bulan, flat)</td><td class="angka">${formatRupiah(bulanan.bungaTotal)}</td></tr>
-      ${bulanan.biayaAdminCicilanTotal > 0 ? `<tr><td>Biaya admin cicilan ${bulanan.tarif.persenBiayaAdminCicilanBulanan}% (${bulanan.tenorBulan} kali bayar)</td><td class="angka">${formatRupiah(bulanan.biayaAdminCicilanTotal)}</td></tr>` : ""}
+      ${bulanan.biayaAdminCicilanTotal > 0 ? `<tr><td>Biaya admin cicilan ${bulanan.tarif.persenBiayaAdminCicilanBulanan}% dari pokok + bunga (${bulanan.tenorBulan} kali bayar)</td><td class="angka">${formatRupiah(bulanan.biayaAdminCicilanTotal)}</td></tr>` : ""}
       <tr class="total"><td>Total pengembalian (${bulanan.tenorBulan} bulan)</td><td class="angka">${formatRupiah(bulanan.totalPengembalian)}</td></tr>
     </tbody>
   </table>`;
@@ -331,7 +331,7 @@ export function buildPinjamanContract(
       <li>Total potongan di muka ${bulanan.tarif.persenBiayaLayananBulanan}% (${formatRupiah(bulanan.biayaLayananTotal)}) dipotong di muka dari dana yang diterima — biaya platform dihapus (0%).</li>`
           : `<li>Biaya layanan ${bulanan.tarif.persenBiayaLayananBulanan}% dari pokok acuan: ${formatRupiah(bulanan.biayaLayananTotal)}, dipotong di muka dari dana yang diterima.</li>`) +
         (bulanan.biayaAdminCicilanTotal > 0
-          ? `<li>Biaya admin layanan cicilan ${bulanan.tarif.persenBiayaAdminCicilanBulanan}% dari nominal cicilan: ${formatRupiah(bulanan.biayaAdminCicilanTotal)} selama ${bulanan.tenorBulan} bulan (bulan pertama ${formatRupiah(bulanan.biayaAdminCicilanPerBulan)}), dibayar bersama setiap cicilan.</li>`
+          ? `<li>Biaya admin layanan cicilan ${bulanan.tarif.persenBiayaAdminCicilanBulanan}% dari pokok + bunga setiap cicilan: ${formatRupiah(bulanan.biayaAdminCicilanTotal)} selama ${bulanan.tenorBulan} bulan (bulan pertama ${formatRupiah(bulanan.biayaAdminCicilanPerBulan)}), dibayar bersama setiap cicilan.</li>`
           : "");
   const pasalFinansial =
     bulanan === null

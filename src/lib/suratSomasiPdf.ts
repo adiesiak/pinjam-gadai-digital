@@ -59,11 +59,13 @@ export function buatPdfSomasi(surat: SuratSomasi): Uint8Array {
       rataKanan: [1],
       baris: rincian,
     },
+    // Total sudah menjadi baris terakhir tabel. Mengulangnya di callout besar
+    // membuat surat satu halaman melebar ke halaman kedua hanya untuk angka
+    // yang sama; batas waktu tetap disebut sebagai kalimat tersendiri.
     {
-      jenis: "callout",
-      label: "Total yang harus dibayar",
-      nilai: surat.rincian[surat.rincian.length - 1]?.nilai ?? "Belum dihitung",
-      catatan: `Batas pembayaran ${surat.batasBayarTeks}.`,
+      jenis: "paragraf",
+      kecil: true,
+      teks: `Batas pembayaran ${surat.batasBayarTeks}. Total di atas adalah jumlah yang harus dibayar sampai batas tersebut.`,
     },
     { jenis: "judul", teks: "Cara Pembayaran" },
     {

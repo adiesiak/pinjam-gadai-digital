@@ -2,9 +2,9 @@
  * Unduh kontrak sebagai PDF langsung dari HTML cetak yang sudah ada.
  *
  * Alurnya: dokumen ditempatkan di iframe tersembunyi pada lebar A4, ditangkap
- * `snapdom` (sudah menjadi dependensi proyek), dipotong menjadi halaman A4,
- * lalu dibungkus dengan `pdfGambar`. Tidak ada dialog cetak dan tidak ada
- * pustaka PDF baru.
+ * `snapdom` (sudah menjadi dependensi proyek), dipotong pada awal blok yang
+ * aman, diberi nomor halaman, lalu dibungkus dengan `pdfGambar`. Tidak ada
+ * dialog cetak dan tidak ada pustaka PDF baru.
  *
  * Bila peramban tidak bisa menangkap dokumen (mis. kanvas diblokir), pemanggil
  * menampilkan tombol Cetak sebagai cadangan — bukan mengklaim PDF berhasil.
@@ -21,9 +21,13 @@ type PustakaSnapdom = {
   ) => Promise<HTMLCanvasElement>;
 };
 
-async function tangkapDokumen(
-  dokumenHtml: string,
-): Promise<HTMLCanvasElement> {
+type HasilTangkap = {
+  kanvas: HTMLCanvasElement;
+  /** Titik awal blok yang aman dipakai sebagai batas halaman. */
+  batasAman: number[];
+};
+
+async function tangkapDokumen(dokumenHtml: string): Promise<HasilTangkap> {
   if (typeof document === "undefined") {
     throw new Error("Unduhan PDF hanya tersedia di peramban.");
   }
@@ -44,7 +48,7 @@ async function tangkapDokumen(
 
   const selesaiDimuat = new Promise<void>((resolve, reject) => {
     iframe.onload = () => resolve();
-    iframe.onerror = () => reject(new Error("Dokumen kontrak gagal dimuat."));
+    iframe.onerror = () => reject(new Error("Dokumen gagal dimuat."));
   });
   iframe.srcdoc = dokumenHtml;
   document.body.appendChild(iframe);
@@ -54,7 +58,7 @@ async function tangkapDokumen(
     const isi = iframe.contentDocument;
     const body = isi?.body;
     if (body === null || body === undefined) {
-      throw new Error("Isi dokumen kontrak tidak dapat dibaca.");
+      throw new Error("Isi dokumen tidak dapat dibaca.");
     }
     // Biarkan gambar QR, SVG, dan font selesai ditata sebelum ditangkap.
     try {
@@ -71,9 +75,21 @@ async function tangkapDokumen(
     };
     const kanvas = await mod.snapdom.toCanvas(body, { fast: true });
     if (kanvas.width < 100 || kanvas.height < 100) {
-      throw new Error("Dokumen kontrak tidak menghasilkan halaman yang bisa diunduh.");
+      throw new Error("Dokumen tidak menghasilkan halaman yang bisa diunduh.");
     }
-    return kanvas;
+    // Kumpulkan titik awal blok teks/tabel. Pemotongan halaman memakai titik
+    // ini agar satu paragraf atau satu baris tanda tangan tidak terbelah dua.
+    const skala = kanvas.width / Math.max(1, body.clientWidth);
+    const atasBody = body.getBoundingClientRect().top;
+    const batasAman = [
+      ...body.querySelectorAll(
+        "p,h1,h2,h3,h4,table,li,.info-grid,.ttd,.warning,.verif,.kop,.signature-grid,.signature",
+      ),
+    ]
+      .map((elemen) => (elemen.getBoundingClientRect().top - atasBody) * skala)
+      .filter((y) => y > 0 && y < kanvas.height)
+      .sort((a, b) => a - b);
+    return { kanvas, batasAman };
   } finally {
     iframe.remove();
   }
@@ -87,14 +103,37 @@ export async function unduhKontrakPdf(
   dokumenHtml: string,
   namaFile: string,
 ): Promise<void> {
-  const kanvas = await tangkapDokumen(dokumenHtml);
+  const { kanvas, batasAman } = await tangkapDokumen(dokumenHtml);
   const tinggiHalaman = Math.round(
     (kanvas.width * 841.89) / 595.28,
   );
-  const jumlahHalaman = Math.max(1, Math.ceil(kanvas.height / tinggiHalaman));
-  const halaman: Uint8Array[] = [];
+  // Sisakan pita putih di bawah isi untuk nomor halaman, lalu pilih batas
+  // halaman pada awal blok terdekat. Blok yang tidak muat tetap dipotong tepat
+  // di batas halaman, tetapi paragraf biasa tidak lagi terbelah sia-sia.
+  const cadanganKaki = 28;
+  const tinggiTarget = tinggiHalaman - cadanganKaki;
+  const tinggiMinimum = Math.round(tinggiHalaman * 0.55);
+  const potonganHalaman: { mulai: number; tinggi: number }[] = [];
+  let mulai = 0;
+  const perluHalamanLanjutan = kanvas.height > tinggiHalaman;
+  while (mulai < kanvas.height) {
+    let akhir = Math.min(kanvas.height, mulai + tinggiTarget);
+    // Dokumen satu halaman tidak boleh dipendekkan hanya karena ada blok yang
+    // kebetulan mulai di dekat dasar halaman; itu justru menciptakan halaman
+    // kedua yang hampir kosong.
+    if (perluHalamanLanjutan && akhir < kanvas.height) {
+      const kandidat = batasAman.filter(
+        (y) => y > mulai + tinggiMinimum && y <= akhir,
+      );
+      if (kandidat.length > 0) akhir = kandidat[kandidat.length - 1];
+    }
+    if (akhir <= mulai) akhir = Math.min(kanvas.height, mulai + tinggiTarget);
+    potonganHalaman.push({ mulai, tinggi: akhir - mulai });
+    mulai = akhir;
+  }
 
-  for (let i = 0; i < jumlahHalaman; i += 1) {
+  const halaman: Uint8Array[] = [];
+  potonganHalaman.forEach((potonganHalamanIni, i) => {
     const potongan = document.createElement("canvas");
     potongan.width = kanvas.width;
     potongan.height = tinggiHalaman;
@@ -109,18 +148,26 @@ export async function unduhKontrakPdf(
     konteks.drawImage(
       kanvas,
       0,
-      i * tinggiHalaman,
+      potonganHalamanIni.mulai,
       kanvas.width,
-      tinggiHalaman,
+      potonganHalamanIni.tinggi,
       0,
       0,
       kanvas.width,
-      tinggiHalaman,
+      potonganHalamanIni.tinggi,
+    );
+    konteks.fillStyle = "#64748b";
+    konteks.font = "11px Arial, Helvetica, sans-serif";
+    konteks.textAlign = "center";
+    konteks.fillText(
+      `Halaman ${i + 1} dari ${potonganHalaman.length}`,
+      kanvas.width / 2,
+      tinggiHalaman - 10,
     );
     halaman.push(
       jpegDariDataUrl(potongan.toDataURL("image/jpeg", 0.92)),
     );
-  }
+  });
 
   const pdf = pdfDariHalamanJpeg(halaman, kanvas.width, tinggiHalaman);
   const blob = new Blob([pdf as unknown as BlobPart], {

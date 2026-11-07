@@ -193,6 +193,7 @@ type TeksLaporan = {
   lunas: string;
   kartuTanggalTransfer: string;
   danaTersalurkan: string;
+  tanggalPencairan: string;
   tanggalLunas: string;
   transferKeuntungan: string;
   sudahDicatat: string;
@@ -215,6 +216,7 @@ type TeksLaporan = {
   nomorDokPortofolio: string;
   pendana: string;
   jumlahPinjaman: string;
+  pinjamanKata: string;
   berjalanKata: string;
   lunasKata: string;
   ringkasanDana: string;
@@ -253,6 +255,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     lunas: "Lunas",
     kartuTanggalTransfer: "Tanggal & Transfer",
     danaTersalurkan: "Dana Tersalurkan",
+    tanggalPencairan: "Tanggal Pencairan",
     tanggalLunas: "Tanggal Lunas",
     transferKeuntungan: "Transfer Keuntungan",
     sudahDicatat: "Sudah dicatat",
@@ -279,6 +282,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     nomorDokPortofolio: "LAPORAN PENDANAAN",
     pendana: "Pendana",
     jumlahPinjaman: "Jumlah Pinjaman",
+    pinjamanKata: "pinjaman",
     berjalanKata: "berjalan",
     lunasKata: "lunas",
     ringkasanDana: "Ringkasan Dana",
@@ -323,7 +327,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
       "Seluruh keuntungan yang sudah dibukukan memiliki catatan transfer dari admin.",
     poinNamaSamar:
       "Nama peminjam disamarkan. Daftar lengkap pinjaman dan statusnya ada di ruang penyedia dana.",
-    judulDokPortofolio: "LAPORAN PENDANAAN",
+    judulDokPortofolio: "LAPORAN KINERJA PENDANAAN",
   },
   en: {
     kaki: "PINDAI - automatically generated document",
@@ -338,6 +342,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     lunas: "Settled",
     kartuTanggalTransfer: "Dates & Transfer",
     danaTersalurkan: "Funds Disbursed",
+    tanggalPencairan: "Disbursed On",
     tanggalLunas: "Settled On",
     transferKeuntungan: "Profit Transfer",
     sudahDicatat: "Recorded",
@@ -348,7 +353,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     keuntunganDibukukan: "Investor profit (booked)",
     pokokTersalur: "Funds disbursed (principal)",
     totalKewajiban: "Total borrower obligation",
-    biayaPlatform: "Platform fee (service)",
+    biayaPlatform: "Platform share (13/60 margin)",
     keuntunganCallout: "Booked profit",
     diterimaBersih: "Net received (principal + profit)",
     transferSudah: "The admin has recorded the profit transfer.",
@@ -364,6 +369,7 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     nomorDokPortofolio: "FUNDING REPORT",
     pendana: "Investor",
     jumlahPinjaman: "Loans",
+    pinjamanKata: "loans",
     berjalanKata: "active",
     lunasKata: "settled",
     ringkasanDana: "Fund Summary",
@@ -400,13 +406,13 @@ const TEKS: Record<BahasaLaporan, TeksLaporan> = {
     poinProyeksi:
       "Due dates are projected returns from the loan tenor, not a payment promise. Payment can be later when a borrower falls behind.",
     poinBiaya:
-      "The platform fee per loan is charged on the total return (principal + profit share). RECEIVED is principal plus net profit, not an extra amount on top.",
+      "The platform share per loan is 13/60 of the loan margin (Imbal Hasil), not a service fee. RECEIVED is principal plus net profit, not an extra amount on top.",
     poinTransferLunas: (n) =>
       `${n} settled loans are booked, but the admin has not recorded their profit transfers yet.`,
     poinTransferSemua: "Every booked profit has a transfer record from the admin.",
     poinNamaSamar:
       "Borrower names are masked. The full loan list and statuses are in the investor room.",
-    judulDokPortofolio: "FUNDING REPORT",
+    judulDokPortofolio: "FUNDING PERFORMANCE REPORT",
   },
 };
 
@@ -456,7 +462,7 @@ export function laporanPelunasan(
       kanan: {
         judul: t.kartuTanggalTransfer,
         baris: [
-          { label: t.danaTersalurkan, nilai: tanggalBahasa(data.didanaiPada, bhs) },
+          { label: t.tanggalPencairan, nilai: tanggalBahasa(data.didanaiPada, bhs) },
           { label: t.tanggalLunas, nilai: tanggalBahasa(data.lunasPada, bhs) },
           {
             label: t.transferKeuntungan,
@@ -504,6 +510,7 @@ export function laporanPelunasan(
     nomor: data.nomorReferensi,
     judul: t.judulDokPelunasan,
     kaki: t.kaki,
+    bahasa: bhs,
     blok,
   };
 }
@@ -579,10 +586,10 @@ export function laporanPortofolio(
       kanan: {
         judul: t.ringkasanDana,
         baris: [
-          { label: "Dana Tersalurkan", nilai: rupiah(data.totalDisalurkan) },
+          { label: t.danaTersalurkan, nilai: rupiah(data.totalDisalurkan) },
           {
             label: t.masihBerjalan,
-            nilai: `${rupiah(data.saldoBerjalan)} (${data.jumlahBerjalan} pinjaman)`,
+            nilai: `${rupiah(data.saldoBerjalan)} (${data.jumlahBerjalan} ${t.pinjamanKata})`,
           },
           {
             label: t.totalKeuntungan,
@@ -608,7 +615,7 @@ export function laporanPortofolio(
           tebal: true,
           nada: "bersih",
         },
-        { sel: ["Porsi platform (13/60 marjin)", rupiah(data.potonganAdmin)] },
+        { sel: [t.biayaPlatform, rupiah(data.potonganAdmin)] },
       ],
     },
     {
@@ -684,6 +691,7 @@ export function laporanPortofolio(
     nomor: t.nomorDokPortofolio,
     judul: t.judulDokPortofolio,
     kaki: t.kaki,
+    bahasa: bhs,
     blok,
   };
 }
@@ -824,8 +832,9 @@ export function laporanRekapPendana(data: DataRekapPendana): DokumenResmiPdf {
 
   return {
     nomor: "REKAP PENDANA",
-    judul: "REKAP PENDANA",
+    judul: "REKAP PINJAMAN SEMUA PENDANA",
     kaki: KAKI_LAPORAN,
+    bahasa: "id",
     blok,
   };
 }

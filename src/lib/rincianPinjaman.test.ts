@@ -110,13 +110,23 @@ eq(
 );
 const totalBaris = bulanan.kelompok
   .flatMap((k) => k.baris)
-  .find((b) => b.label.startsWith("Total yang dibayar selama"));
+  .find((b) => b.label.startsWith("Total cicilan selama"));
 eq(totalBaris?.tegas, true, "total cicilan dicetak tegas");
 // 1 jt tenor 3 bulan: bunga flat 8%/bulan = 240.000, ditambah biaya admin
 // cicilan 2% dari tiap cicilan (24.801), jadi 1.264.801.
 ok(
   totalBaris?.nilai === formatRupiah(1_264_801),
   `total cicilan sama dengan jumlah jadwal (${totalBaris?.nilai})`,
+);
+ok(
+  bulanan.catatan.some((c) => c.includes("Total biaya pinjaman") && c.includes("Rp 284.801")),
+  "catatan menyebut total bunga dan biaya admin",
+);
+ok(
+  bulanan.kelompok
+    .flatMap((k) => k.baris)
+    .some((b) => b.label.includes("dari pokok + bunga cicilan")),
+  "label biaya admin cicilan menjelaskan dasar perhitungan",
 );
 
 // Teks yang dikirim tidak boleh memuat em dash (aturan copy proyek).

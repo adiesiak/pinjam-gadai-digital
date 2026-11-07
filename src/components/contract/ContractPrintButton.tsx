@@ -39,7 +39,7 @@ export function ContractPrintButton({
     if (cetakLewatAplikasi(dokumen)) return;
     const w = window.open("", "_blank");
     if (!w) {
-      toast.error("Popup diblokir browser. Izinkan popup untuk mencetak kontrak.");
+      toast.error("Popup diblokir browser. Izinkan popup untuk mencetak dokumen.");
       return;
     }
     w.document.write(dokumen);
@@ -56,7 +56,7 @@ export function ContractPrintButton({
       // menyediakan "Simpan sebagai PDF".
       if (cetakLewatAplikasi(dokumen)) return;
       await unduhKontrakPdf(dokumen, fileName);
-      toast.success("PDF kontrak diunduh.");
+      toast.success("PDF dokumen diunduh.");
     } catch (err) {
       toast.error(
         err instanceof Error
@@ -92,7 +92,7 @@ export function ContractPrintButton({
         className="min-h-11 rounded-full px-2.5 text-xs text-muted-foreground"
         disabled={busy}
         onClick={() => void cetak()}
-        aria-label="Cetak kontrak lewat dialog cetak"
+        aria-label="Cetak dokumen lewat dialog cetak"
       >
         <Printer className="mr-1.5 size-4" />
         Cetak

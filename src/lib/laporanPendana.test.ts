@@ -58,8 +58,8 @@ const PELUNASAN: DataPelunasanPendana = {
   namaPeminjam: "Budi Santoso",
   pokokPinjaman: 5_000_000,
   totalLunas: 6_500_000,
-  potonganAdmin: 300_000,
-  keuntunganPendana: 1_200_000,
+  potonganAdmin: 325_000,
+  keuntunganPendana: 1_175_000,
   didanaiPada: T0,
   lunasPada: T1,
   transferDicatat: true,
@@ -71,10 +71,10 @@ const PORTOFOLIO: DataPortofolioPendana = {
   dicetakPada: T1,
   totalDisalurkan: 15_000_000,
   saldoBerjalan: 10_000_000,
-  keuntunganDibukukan: 1_200_000,
-  keuntunganPerkiraan: 2_400_000,
-  totalKeuntungan: 3_600_000,
-  potonganAdmin: 900_000,
+  keuntunganDibukukan: 1_175_000,
+  keuntunganPerkiraan: 2_350_000,
+  totalKeuntungan: 3_525_000,
+  potonganAdmin: 975_000,
   jumlahBerjalan: 2,
   jumlahLunas: 1,
   pinjamanBerjalan: [
@@ -82,7 +82,7 @@ const PORTOFOLIO: DataPortofolioPendana = {
       nomorReferensi: "PND/2026/09/0002",
       namaPeminjam: "Rina Wati",
       pokokPinjaman: 5_000_000,
-      keuntunganPendana: 1_200_000,
+      keuntunganPendana: 1_175_000,
       tanggal: T0,
       tanggalReturn: T1 + 10 * 86_400_000,
     },
@@ -90,7 +90,7 @@ const PORTOFOLIO: DataPortofolioPendana = {
       nomorReferensi: "PND/2026/09/0003",
       namaPeminjam: "Joko Susilo",
       pokokPinjaman: 5_000_000,
-      keuntunganPendana: 1_200_000,
+      keuntunganPendana: 1_175_000,
       tanggal: T0,
       tanggalReturn: T1 + 3 * 86_400_000,
     },
@@ -100,7 +100,7 @@ const PORTOFOLIO: DataPortofolioPendana = {
       nomorReferensi: "PND/2026/09/0001",
       namaPeminjam: "Budi Santoso",
       pokokPinjaman: 5_000_000,
-      keuntunganPendana: 1_200_000,
+      keuntunganPendana: 1_175_000,
       tanggal: T1,
       tanggalReturn: T1,
     },
@@ -160,15 +160,15 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
   const dokumen = laporanPelunasan(PELUNASAN);
   const teks = semuaTeks(dokumen);
   ok(
-    teks.some((t) => t === "Keuntungan pendana (dibukukan): Rp 1.200.000"),
+    teks.some((t) => t === "Keuntungan pendana (dibukukan): Rp 1.175.000"),
     "keuntungan dibukukan tercetak sebagai rupiah",
   );
   ok(
-    teks.some((t) => t === "Porsi platform (13/60 marjin): Rp 300.000"),
+    teks.some((t) => t === "Porsi platform (13/60 marjin): Rp 325.000"),
     "biaya platform tercetak terpisah dari keuntungan",
   );
   ok(
-    teks.some((t) => t === "Diterima bersih (pokok + keuntungan): Rp 6.200.000"),
+    teks.some((t) => t === "Diterima bersih (pokok + keuntungan): Rp 6.175.000"),
     "penerimaan bersih pelunasan menjumlahkan pokok dan keuntungan",
   );
   ok(
@@ -206,11 +206,11 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
   const dokumen = laporanPortofolio(PORTOFOLIO);
   const teks = semuaTeks(dokumen);
   ok(
-    teks.some((t) => t === "Total keuntungan pendana: Rp 3.600.000"),
+    teks.some((t) => t === "Total keuntungan pendana: Rp 3.525.000"),
     "total keuntungan dicetak",
   );
   ok(
-    teks.some((t) => t === "Keuntungan perkiraan (belum lunas): Rp 2.400.000"),
+    teks.some((t) => t === "Keuntungan perkiraan (belum lunas): Rp 2.350.000"),
     "bagian perkiraan dipisah dari yang dibukukan",
   );
   ok(
@@ -222,7 +222,7 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
     "baris pinjaman berjalan memuat referensi dan tanggalnya",
   );
   ok(
-    teks.some((t) => t.includes("PND/2026/09/0002") && t.includes("Rp 1.200.000")),
+    teks.some((t) => t.includes("PND/2026/09/0002") && t.includes("Rp 1.175.000")),
     "baris pinjaman berjalan memuat angka perkiraannya",
   );
   ok(
@@ -233,8 +233,8 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
     teks.some(
       (t) =>
         t.startsWith("PND/2026/09/0002 |") &&
-        t.includes("Rp 300.000") &&
-        t.includes("Rp 6.200.000"),
+        t.includes("Rp 325.000") &&
+        t.includes("Rp 6.175.000"),
     ),
     "baris pinjaman memuat biaya dan penerimaan bersih per pinjaman",
   );
@@ -335,7 +335,10 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
     pdf.includes("PINDAI - dokumen dibuat otomatis oleh sistem"),
     "keterangan penerbit tercetak di kaki",
   );
-  ok(pdf.includes("/Title (LAPORAN PENDANAAN LAPORAN PENDANAAN)"), "metadata judul ditulis");
+  ok(
+    pdf.includes("/Title (LAPORAN KINERJA PENDANAAN LAPORAN PENDANAAN)"),
+    "metadata judul ditulis",
+  );
 
   const banyak = Array.from({ length: 25 }, (_, i) => ({
     nomorReferensi: `PND/2026/10/${2000 + i}`,
@@ -466,7 +469,7 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
 {
   const pesan = pesanPelunasan(PELUNASAN);
   ok(pesan.includes("PND/2026/09/0001"), "pesan pelunasan menyebut nomor referensi");
-  ok(pesan.includes("Rp 1.200.000"), "pesan pelunasan menyebut angka yang dibukukan");
+  ok(pesan.includes("Rp 1.175.000"), "pesan pelunasan menyebut angka yang dibukukan");
   ok(!pesan.includes("\u2014"), "pesan pelunasan tanpa tanda pisah panjang");
   ok(!pesan.includes("lampiran"), "pesan pelunasan tidak menjanjikan lampiran");
   ok(pesan.includes("RINCIAN PELUNASAN"), "pesan memuat judul tabel rincian");
@@ -507,6 +510,15 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
   ok(porto.some((t) => t.startsWith("REFERENCE | BORROWER")), "kepala tabel versi Inggris");
   ok(porto.some((t) => t.includes("Printed")), "tanggal cetak versi Inggris");
   ok(!porto.some((t) => t.includes("Pinjaman Berjalan")), "versi Inggris tidak mencampur label Indonesia");
+  ok(!porto.some((t) => t.includes("Dana Tersalurkan")), "label dana versi Inggris");
+  ok(!porto.some((t) => t.includes("Porsi platform")), "label biaya platform versi Inggris");
+  ok(
+    porto.some((t) => t.includes("2 loans")),
+    "jumlah pinjaman versi Inggris memakai kata loans",
+  );
+  const portoPdf = teksPdf(susunPdfResmi(laporanPortofolio(PORTOFOLIO, "en")));
+  ok(portoPdf.includes("Page 1 of"), "nomor halaman portofolio versi Inggris");
+  ok(!portoPdf.includes("Halaman 1 dari"), "portofolio Inggris tanpa nomor halaman Indonesia");
   eq(
     namaBerkasPortofolio(T1, "en"),
     "PINDAI-Funding-Report-2026-10-02.pdf",
@@ -524,6 +536,14 @@ function semuaTeks(dokumen: DokumenResmiPdf): string[] {
     "status lunas versi Inggris",
   );
   ok(!pelunasan.some((t) => t.includes("Hasil untuk Anda")), "versi Inggris tidak memakai teks Indonesia");
+  ok(
+    pelunasan.some((t) => t.startsWith("Disbursed On:")),
+    "tanggal pencairan tidak memakai label dana tersalurkan",
+  );
+  ok(
+    !pelunasan.some((t) => t.startsWith("Funds Disbursed:")),
+    "label dana tersalurkan tidak dipakai untuk tanggal",
+  );
 
   // Bawaan tetap Indonesia, supaya pemanggil lama tidak berubah.
   const bawaan = semuaTeks(laporanPortofolio(PORTOFOLIO));

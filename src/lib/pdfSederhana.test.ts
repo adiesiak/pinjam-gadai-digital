@@ -661,5 +661,106 @@ function teksMenembusGaris(pdf: string): string[] {
   );
 }
 
+/* ===== 11. Kartu panjang, bahasa kaki, dan total tabel ===== */
+{
+  const pdf = teksPdf(
+    susunPdfResmi({
+      nomor: "DOK-KARTU",
+      judul: "UJI KARTU",
+      kaki: "PINDAI - uji kartu",
+      bahasa: "en",
+      blok: [
+        {
+          jenis: "banner",
+          merek: "PINDAI",
+          subjudul: "Card test",
+          nomor: "DOK-KARTU",
+          tanggal: "Printed today",
+        },
+        {
+          jenis: "kartu",
+          kiri: {
+            judul: "Borrower",
+            baris: [
+              {
+                label: "Address",
+                nilai:
+                  "Jl. Jenderal Sudirman Kaveling 52-53, Gedung Sentra Bisnis Lantai 18, Jakarta Selatan 12190",
+              },
+              { label: "Reference", nilai: "PND/2026/09/0001" },
+            ],
+          },
+          kanan: {
+            judul: "Loan",
+            baris: [{ label: "Status", nilai: "Active", nada: "bersih" }],
+          },
+        },
+      ],
+    }),
+  );
+  ok(pdf.includes("Page 1 of 1"), "nomor halaman versi Inggris");
+  ok(!pdf.includes("Halaman 1 dari"), "versi Inggris tidak memakai label Indonesia");
+  ok(pdf.includes("Sentra Bisnis"), "alamat panjang tetap tercetak");
+  eq(
+    masalahTataLetak(pdf).length,
+    0,
+    `kartu panjang tidak menumpuk: ${masalahTataLetak(pdf).join(", ")}`,
+  );
+
+  const total = teksPdf(
+    susunPdfResmi({
+      nomor: "DOK-TOTAL",
+      judul: "UJI TOTAL",
+      kaki: "PINDAI - uji total",
+      blok: [
+        {
+          jenis: "banner",
+          merek: "PINDAI",
+          subjudul: "Total test",
+          nomor: "DOK-TOTAL",
+          tanggal: "Dicetak hari ini",
+        },
+        {
+          jenis: "tabel",
+          kepala: ["KETERANGAN", "NOMINAL"],
+          bobot: [8, 2],
+          rataKanan: [1],
+          baris: [
+            ...Array.from({ length: 24 }, (_, i) => ({
+              sel: [`Baris ${i + 1}`, `Rp ${(i + 1) * 1000}`],
+            })),
+            { sel: ["TOTAL", "Rp 300.000"], tebal: true, nada: "total" as const },
+          ],
+        },
+      ],
+    }),
+  );
+  ok(total.includes("TOTAL"), "baris total tabel tercetak");
+  eq(
+    masalahTataLetak(total).length,
+    0,
+    `tabel total tidak menumpuk: ${masalahTataLetak(total).join(", ")}`,
+  );
+
+  const kaki = teksPdf(
+    susunPdfResmi({
+      nomor: "X".repeat(120),
+      judul: "UJI KAKI PANJANG",
+      kaki: "PINDAI - keterangan penerbit yang panjang untuk menguji batas kaki halaman",
+      blok: [{ jenis: "paragraf", teks: "Isi pendek." }],
+    }),
+  );
+  const barisKaki = posisiTeks(kaki)
+    .flat()
+    .filter((t) => Math.round(t.y) === 38);
+  const kiriKaki = barisKaki.find((t) => t.teks.startsWith("X"));
+  const kananKaki = barisKaki.find((t) => t.teks.startsWith("Halaman"));
+  ok(kiriKaki !== undefined && kananKaki !== undefined, "kedua bagian kaki tercetak");
+  if (kiriKaki !== undefined && kananKaki !== undefined) {
+    const akhirKiri = kiriKaki.x + kiriKaki.teks.length * kiriKaki.size * 0.55;
+    ok(akhirKiri < kananKaki.x, "kaki panjang tidak menabrak nomor halaman");
+  }
+}
+
 console.log(`pdfSederhana.test: ${passed} lulus, ${failed} gagal`);
 if (failed > 0) process.exit(1);
