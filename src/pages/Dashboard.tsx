@@ -406,6 +406,11 @@ export default function Dashboard() {
   // tetap memakai pengingat tingkat pinjaman supaya tidak ada tagihan yang
   // hilang dari layar.
   const adaJadwalAngsuran = (angsuran?.ringkasan.jumlah ?? 0) > 0;
+  // Kartu tagihan berikutnya hanya muncul bila ada kelompok angsuran berulang;
+  // skema harian dengan satu angsuran tetap memakai kartu pinjaman aktif.
+  const adaTagihanRingkas = (angsuran?.grup ?? []).some(
+    (grup) => grup.ringkasan.jumlah > 1 && grup.ringkasan.berikutnya !== null,
+  );
   if (adaJadwalAngsuran && angsuran !== undefined) {
     const r = angsuran.ringkasan;
     if (r.terlambat > 0) tabBadges.cicilan = { count: r.terlambat, tone: "danger" };
@@ -496,54 +501,97 @@ export default function Dashboard() {
                     lokasi nasabah ditandai (mis. koordinat beku berulang). */}
                 <LokasiPeringatanBanner />
 
-                {/* Status lokasi wajib: kartu ini menjelaskan bahwa pemantauan
-                    adalah syarat transaksi, bukan opt-in yang bisa dibatalkan
-                    diam-diam oleh heartbeat berikutnya. Admin/pendana tidak
-                    diwajibkan lokasi, jadi kartunya tidak ditampilkan. */}
-                {role !== "admin" && role !== "dana" && <LocationStatusCard />}
-
                 {/* ===== TAB 1: RINGKASAN =====
                     Tiga hal saja: kewajiban terdekat (satu kartu), tiga angka
                     pokok (limit, tagihan bulan ini, status KYC), lalu satu jalan
                     ke pengajuan. Riwayat dan formulir punya halamannya sendiri,
                     jadi tidak ada bagian yang muncul dua kali di layar. */}
                 <TabsContent value="ringkasan" className="mt-6 animate-masuk">
-                  {/* Banner gambar dari admin tampil lebih dulu bila ada;
-                      kartu promo teks/bunga tetap satu-satunya banner angka,
-                      supaya tagihan terdekat tidak terdorong jauh ke bawah. */}
-                  {role === "dana" ? null : (
-                    <>
-                      <BannerPromoGambar
-                        penempatan="dashboard"
-                        className="mt-0 mb-4 max-w-none px-0 sm:px-0"
-                      />
-                      <PromoDashboard
-                        onAjukan={() => bukaPengajuan("pinjaman")}
-                        className="mb-4"
-                      />
-                    </>
-                  )}
-                  {/* Tagihan angsuran terdekat langsung di Ringkasan. Halaman
-                      Cicilan tetap memegang dialog pembayaran; kartu ini hanya
-                      memilih tagihan paling awal dari data server yang sama. */}
-                  {angsuran !== undefined && (
+                  {/* Kepala halaman: sapaan, satu kalimat konteks, dan aksi
+                      utama. Ini membuat Ringkasan terbaca sebagai halaman kerja
+                      yang tenang, bukan tumpukan kartu tanpa titik mulai. */}
+                  <header className="mb-5 flex flex-col gap-4 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                        Ruang peminjam
+                      </p>
+                      <h1 className="mt-1.5 font-judul text-2xl leading-tight tracking-tight text-navy sm:text-[2rem]">
+                        Halo, {greetingName}
+                      </h1>
+                      <p className="mt-1.5 max-w-2xl text-sm leading-6 text-muted-foreground">
+                        Satu kewajiban terdekat, tiga angka pokok, dan langkah
+                        berikutnya. Tidak perlu membaca seluruh riwayat untuk tahu
+                        apa yang harus dilakukan.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        className="min-h-11 gap-2 bg-emerald-800 text-white hover:bg-emerald-900"
+                        onClick={() => bukaPengajuan("pinjaman")}
+                      >
+                        <FilePlus2 className="size-4" aria-hidden />
+                        Ajukan pinjaman
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11 gap-2 border-amber-700/40 text-amber-900 hover:bg-amber-50"
+                        onClick={bukaSyariah}
+                      >
+                        <HandCoins className="size-4" aria-hidden />
+                        Ajukan akad syariah
+                      </Button>
+                    </div>
+                  </header>
+
+                  {/* Kewajiban terdekat selalu menjadi isi pertama. Bila ada
+                      jadwal angsuran berkelompok, kartu tagihan berikutnya yang
+                      tampil; bila tidak, kartu pinjaman aktif menjadi pintunya. */}
+                  {angsuran === undefined ? (
+                    <div className="mb-4" role="status" aria-live="polite">
+                      <span className="sr-only">Memuat tagihan terdekat…</span>
+                      <SkeletonKartu className="p-5" />
+                    </div>
+                  ) : adaTagihanRingkas ? (
                     <div className="mb-4">
                       <TagihanBerikutnyaRingkas
                         data={angsuran}
                         onBukaCicilan={() => gantiTab("cicilan")}
                       />
                     </div>
+                  ) : (
+                    <ActiveLoanSection
+                      schedule={schedule ?? []}
+                      onOpenDetail={setLoanDetailId}
+                      batas={1}
+                    />
                   )}
-                  <ActiveLoanSection
-                    schedule={schedule ?? []}
-                    onOpenDetail={setLoanDetailId}
-                    batas={1}
-                  />
+
                   <SummaryCards
                     schedule={schedule ?? []}
                     kycStatus={kyc === undefined ? null : kyc.status}
                     onBukaKyc={() => gantiTab("kyc")}
                   />
+
+                  {/* Status lokasi adalah syarat transaksi, bukan pekerjaan
+                      harian. Ia diletakkan setelah angka pokok agar tidak
+                      menjadi hal pertama yang dibaca setiap kali membuka
+                      dashboard. */}
+                  {role !== "admin" && role !== "dana" && <LocationStatusCard />}
+
+                  {/* Promo tetap tersedia, tetapi tidak lagi mendorong
+                      kewajiban ke bawah lipatan. */}
+                  {role === "dana" ? null : (
+                    <div className="mt-5 space-y-4">
+                      <BannerPromoGambar
+                        penempatan="dashboard"
+                        className="max-w-none px-0 sm:px-0"
+                      />
+                      <PromoDashboard onAjukan={() => bukaPengajuan("pinjaman")} />
+                    </div>
+                  )}
+
                   {/* Lapis ketiga: informasi pendukung. Disembunyikan sampai
                       diminta agar kewajiban dan tiga angka pokok tampil dulu. */}
                   <div className="mt-4 flex justify-center">
@@ -575,25 +623,6 @@ export default function Dashboard() {
                       <DoorprizeWidget peran="peminjam" />
                     </div>
                   )}
-                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                    <Button
-                      type="button"
-                      className="w-full gap-2 bg-emerald-800 text-white hover:bg-emerald-900 sm:w-auto"
-                      onClick={() => bukaPengajuan("pinjaman")}
-                    >
-                      <FilePlus2 className="size-4" aria-hidden />
-                      Ajukan Pinjaman
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full gap-2 border-amber-700/40 text-amber-900 hover:bg-amber-50 sm:w-auto"
-                      onClick={bukaSyariah}
-                    >
-                      <HandCoins className="size-4" aria-hidden />
-                      Ajukan akad syariah
-                    </Button>
-                  </div>
                 </TabsContent>
 
                 {/* ===== TAB 2: CATATAN PINJAMAN =====

@@ -197,8 +197,9 @@ const gambar = (terbuka: boolean, drawerTerbuka = false) =>
     html.includes(">3<") && html.includes(">17<"),
   );
   cek(
-    "1o menu aktif memakai latar hijau tua dengan ikon putih",
-    html.includes("gradient-primary text-white"),
+    "1o menu aktif memakai pil lembut, bukan blok gelap",
+    html.includes("bg-sky-50 font-semibold text-sky-900") &&
+      !html.includes("gradient-primary text-white"),
   );
   cek(
     "1p setiap tombol menu punya cincin fokus saat dilewati keyboard",

@@ -112,9 +112,11 @@ export function pintasanSidebar(e: {
 
 /** Kelas bersama tombol menu (bagian yang tidak berubah saat aktif). */
 const KELAS_ITEM =
-  "flex min-h-10 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-medium shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:text-sm";
+  "flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:text-sm";
 const KELAS_ITEM_IDLE = "text-navy hover:bg-slate-50";
-const KELAS_ITEM_AKTIF = "gradient-primary text-white";
+// Menu aktif mengikuti pola konsol: pil lembut, bukan blok gelap yang berat.
+// Warna tetap dari aksen PINDAI, bukan biru SaaS generik.
+const KELAS_ITEM_AKTIF = "bg-sky-50 font-semibold text-sky-900 ring-1 ring-inset ring-sky-100";
 
 /**
  * Tombol buka/tutup sidebar. Satu ikon panel yang berputar mengikuti keadaan,
@@ -183,17 +185,17 @@ function KepalaSidebar({
   }
 
   return (
-    <div className="flex items-center gap-2 pb-3">
-      {tombol}
-      <VaultLogo size={32} className="size-8 shrink-0" />
+    <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
+      <VaultLogo size={36} className="size-9 shrink-0" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold tracking-tight text-navy">
+        <span className="block truncate text-base font-semibold tracking-[0.12em] text-navy">
           PINDAI
         </span>
         <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Panel admin
         </span>
       </span>
+      {tombol}
     </div>
   );
 }
@@ -261,7 +263,7 @@ function ItemIkon({
               <span
                 className={cn(
                   "absolute -right-0.5 -top-0.5 rounded-full px-1 text-[9px] font-semibold tabular-nums",
-                  aktif ? "bg-white text-navy" : "bg-amber-100 text-amber-900",
+                  aktif ? "bg-primary text-primary-foreground" : "bg-amber-100 text-amber-900",
                 )}
               >
                 {badge}
@@ -375,7 +377,7 @@ function DaftarMenu({
           <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {grup.judul}
           </p>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
             {grup.items.map(({ value, label, hint, badge, Icon }) => {
               const iniAktif = value === activeTab;
               return (

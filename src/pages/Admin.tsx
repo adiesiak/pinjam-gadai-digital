@@ -155,9 +155,10 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-slate-50 text-foreground">
       <AdminTabs
-        header={(judul, menuPonsel) => (
+        header={(judul, menuPonsel, grup) => (
           <AdminHeader
             judul={judul}
+            grup={grup}
             killSwitch={sysCfg?.killSwitch}
             seimbang={ledger?.seimbang}
             menuPonsel={menuPonsel}

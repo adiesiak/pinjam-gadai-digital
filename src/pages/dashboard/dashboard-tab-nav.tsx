@@ -50,7 +50,7 @@ export function labelTujuan(value: string): string {
 /** Kelas tombol menu; yang sedang dibuka memakai latar emerald-50 + garis aksen. */
 function kelasMenu(aktif: boolean): string {
   return cn(
-    "relative flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
+    "relative flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
     aktif && "bg-emerald-50 font-semibold text-emerald-900 hover:bg-emerald-50",
   );
 }
@@ -66,7 +66,7 @@ export function DashboardTabNav({
   onTabChange: (value: string) => void;
 }) {
   return (
-    <nav aria-label="Menu dashboard" className="rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+    <nav aria-label="Menu dashboard" className="rounded-2xl border border-slate-200 bg-white p-1.5">
       <ul className="space-y-1">
         {MENU_DASHBOARD.map((menu) => {
           const aktif = menuAktif(menu.value, activeTab);

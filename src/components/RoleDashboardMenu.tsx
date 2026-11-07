@@ -19,6 +19,9 @@ export function RoleDashboardMenu() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const role = user?.role;
+  const namaTampil =
+    user?.name?.trim() || user?.email?.split("@")[0] || "Akun PINDAI";
+  const inisial = namaTampil.charAt(0).toUpperCase();
 
   /**
    * Mode yang sedang terbuka dibaca dari ALAMAT halaman, bukan dari role akun.
@@ -94,12 +97,28 @@ export function RoleDashboardMenu() {
           size="sm"
           // Labelnya menyebut mode yang SEDANG terbuka, jadi pemicunya berbunyi
           // seperti sakelar, bukan seperti menu tanpa nama ("Akses Dashboard").
-          aria-label={`${labelMode} aktif. Ganti mode ruang kerja PINDAI`}
-          className="h-11 gap-1.5 rounded-full px-3 sm:h-9"
+          aria-label={`${labelMode} aktif. ${namaTampil}. Ganti mode ruang kerja PINDAI`}
+          className="h-11 min-w-0 gap-2 rounded-full px-2 sm:h-10 sm:px-2.5"
         >
-          <LayoutDashboard className="size-4" aria-hidden />
-          <span className="hidden md:inline">{labelMode}</span>
-          <ChevronDown className="size-3.5" aria-hidden />
+          {user ? (
+            <span
+              aria-hidden="true"
+              className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-primary"
+            >
+              {inisial}
+            </span>
+          ) : (
+            <LayoutDashboard className="size-4 shrink-0" aria-hidden />
+          )}
+          <span className="hidden min-w-0 flex-col text-left leading-tight md:flex">
+            <span className="max-w-[10rem] truncate text-xs font-semibold text-slate-900">
+              {namaTampil}
+            </span>
+            <span className="max-w-[10rem] truncate text-xs font-normal text-muted-foreground">
+              {user?.email ?? labelMode}
+            </span>
+          </span>
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">

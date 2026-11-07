@@ -2103,6 +2103,14 @@
    `!important` dipakai karena panel admin memakai utilitas Tailwind langsung
    (`bg-white`, `text-slate-900`), bukan token semantik; tanpa itu mode dim akan
    kalah oleh satu kelas utilitas. Hanya warna dan padding yang disentuh. */
+/* Kait permukaan dasar panel admin. Aturan token di bawah tetap memakai
+   [data-admin-aktif] agar dialog dan sheet yang diportal ikut berubah, tetapi
+   latar kolom admin sendiri tetap dapat dibaca sebagai satu permukaan Dim. */
+:root[data-admin-tema="dim"] .admin-shell {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
 :root[data-admin-tema="dim"][data-admin-aktif] {
   --background: #e8e1d3;
   --foreground: #1c1a15;

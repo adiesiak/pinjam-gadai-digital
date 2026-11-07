@@ -69,7 +69,7 @@ export function DashboardSidebar({
       {/* ── Kartu profil kecil ── */}
       <motion.div
         variants={fadeUpItem}
-        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3"
       >
         <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-sm font-bold text-white">
           {initial}

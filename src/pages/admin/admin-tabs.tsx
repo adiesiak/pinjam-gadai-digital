@@ -147,7 +147,11 @@ export function AdminTabs({
    *
    * Ia duduk di KOLOM KONTEN kanan, bukan di atas sidebar.
    */
-  header?: (judul: string, menuPonsel: KendaliMenuPonsel) => ReactNode;
+  header?: (
+    judul: string,
+    menuPonsel: KendaliMenuPonsel,
+    grup: string,
+  ) => ReactNode;
   overview: AdminOverviewData;
   stats: AdminStatsData | undefined;
   /** Cacah pengajuan menunggu keputusan per produk — untuk KPI di Ringkasan. */
@@ -534,6 +538,9 @@ export function AdminTabs({
 
   const semuaItem = menu.flatMap((g) => g.items);
   const aktif = semuaItem.find((i) => i.value === activeTab) ?? semuaItem[0];
+  const grupAktif =
+    menu.find((grup) => grup.items.some((item) => item.value === activeTab))
+      ?.judul ?? "Panel operasional";
 
   // Tombol Kembali/Maju peramban mengubah `?tab=`; state modul harus ikut,
   // kalau tidak URL dan isi panel menunjuk modul yang berbeda.
@@ -572,11 +579,6 @@ export function AdminTabs({
   const panel: Record<NilaiModulAdmin, ReactNode> = {
     "hari-ini": (
       <div className="space-y-4">
-        {/* Sapaan satu baris menggantikan banner gelap "Ringkasan sistem hari
-            ini": tidak ada lagi permukaan emerald-950 di kepala halaman. */}
-        <p className="text-sm leading-6 text-slate-600">
-          Selamat bekerja. Berikut yang perlu ditindak hari ini, urut dari yang paling mendesak.
-        </p>
         {/* Urutan tetap: (1) Perlu tindakan, (2) empat KPI seragam,
             (3) dua grafik. Yang menuntut tindakan selalu paling atas. */}
         <MejaKerja
@@ -682,10 +684,14 @@ export function AdminTabs({
 
       {/* Kepala panel duduk di kolom kanan, bukan di atas sidebar. Kendali laci
           dioper supaya tombol menunya satu-satunya pintu menu di layar kecil. */}
-      {header(aktif?.label ?? "Ringkasan", {
-        terbuka: drawerTerbuka,
-        onToggle: () => setDrawerTerbuka((sebelumnya) => !sebelumnya),
-      })}
+      {header(
+        aktif?.label ?? "Ringkasan",
+        {
+          terbuka: drawerTerbuka,
+          onToggle: () => setDrawerTerbuka((sebelumnya) => !sebelumnya),
+        },
+        grupAktif,
+      )}
 
       {/* Layar kecil: bilah bawah + strip chip modul + sheet pencarian.
           Menggantikan `<select>` lama yang menyembunyikan isi tiap menu. */}
@@ -715,19 +721,35 @@ export function AdminTabs({
           {/* H1 tetap ada untuk pembaca layar dan struktur dokumen, meskipun
               label visualnya sudah ditampilkan di sidebar dan breadcrumb. */}
           <h1 className="sr-only">{aktif?.label ?? "Panel admin"}</h1>
-          {/* Kartu judul modul DIHILANGKAN pada Ringkasan dan pada Verifikasi KYC:
-              label menu di sidebar sudah berbunyi sama, dan di KYC kartunya
-              digantikan baris ringkas + cacah antrean di dalam panelnya. */}
+          {/* Judul modul kini membaca seperti kepala halaman konsol: kelompok
+              menu, judul besar, lalu satu kalimat konteks. Kartu berbingkai
+              dihapus agar isi kerja mendapat ruang dan hierarki tidak berlapis.
+              KYC tetap memakai tata letaknya sendiri. */}
           {aktif && aktif.value !== "hari-ini" && aktif.value !== "kyc" && (
-            <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/5 text-primary">
-                <aktif.Icon className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900">{aktif.label}</p>
-                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{aktif.hint}</p>
-              </div>
-            </div>
+            <header className="border-b border-slate-200/70 pb-5">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                {grupAktif}
+              </p>
+              <h2 className="mt-1.5 font-judul text-2xl leading-tight tracking-tight text-navy sm:text-[2rem]">
+                {aktif.label}
+              </h2>
+              <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted-foreground">
+                {aktif.hint}
+              </p>
+            </header>
+          )}
+          {aktif?.value === "hari-ini" && (
+            <header className="border-b border-slate-200/70 pb-5">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                Meja kerja
+              </p>
+              <h2 className="mt-1.5 font-judul text-2xl leading-tight tracking-tight text-navy sm:text-[2rem]">
+                Ringkasan
+              </h2>
+              <p className="mt-1.5 max-w-3xl text-sm leading-6 text-muted-foreground">
+                Yang perlu ditindak hari ini, urut dari yang paling mendesak.
+              </p>
+            </header>
           )}
 
           {/* Panel menunjuk balik ke tombolnya (`aria-labelledby`) sekaligus

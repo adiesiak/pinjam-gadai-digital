@@ -347,8 +347,8 @@ function TampilanAdmin() {
 /**
  * Kepala panel admin — duduk di kolom KONTEN, bukan di atas sidebar.
  *
- * Isinya sengaja sedikit: judul/breadcrumb modul yang sedang dibuka, lonceng
- * notifikasi, satu indikator status sistem, dan menu profil (beralih ke mode
+ * Isinya sengaja sedikit: breadcrumb kelompok/modul, lonceng notifikasi, satu
+ * indikator status sistem, dan menu profil berisi identitas (beralih ke mode
  * nasabah / keluar). Tombol kill switch DIKELUARKAN dari sini: tindakan darurat
  * semacam itu tidak boleh menjadi tombol paling mudah dijangkau di kepala panel.
  *
@@ -358,12 +358,15 @@ function TampilanAdmin() {
  */
 export function AdminHeader({
   judul,
+  grup = "Panel operasional",
   killSwitch,
   seimbang,
   menuPonsel,
 }: {
   /** Label modul yang sedang dibuka — dipakai breadcrumb. */
   judul: string;
+  /** Kelompok menu induk, mis. "Operasional" atau "Pemantauan". */
+  grup?: string;
   killSwitch: boolean | undefined;
   seimbang: boolean | undefined;
   menuPonsel: KendaliMenuPonsel;
@@ -388,9 +391,9 @@ export function AdminHeader({
           />
           <nav aria-label="Breadcrumb" className="min-w-0">
             <ol className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              {/* Di ponsel, hanya modul aktif yang perlu tampil. Awalan
-                  "Panel admin /" memakan lebar yang dibutuhkan tombol kanan. */}
-              <li className="hidden shrink-0 sm:block">Panel admin</li>
+              {/* Di ponsel, hanya modul aktif yang perlu tampil. Kelompok menu
+                  memakan lebar yang dibutuhkan tombol kanan. */}
+              <li className="hidden shrink-0 sm:block">{grup}</li>
               <li aria-hidden className="hidden shrink-0 sm:block">
                 /
               </li>
