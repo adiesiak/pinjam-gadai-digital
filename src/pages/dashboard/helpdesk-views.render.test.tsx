@@ -1,12 +1,12 @@
 /**
- * Uji render bagian MURNI tab Bantuan (pengaduan nasabah).
+ * Uji render bagian MURNI kotak tiket nasabah.
  * Run: bun src/pages/dashboard/helpdesk-views.render.test.tsx
  *
  * Komponen yang tersambung Convex tidak bisa dirender di luar aplikasi, jadi
- * dua bagian presentasionalnya diuji langsung: baris pengaduan dan daftar pesan
+ * dua bagian presentasionalnya diuji langsung: kartu tiket dan daftar pesan
  * utas. Yang dijaga:
- *  - status & prioritas selalu terbaca sebagai TEKS (warna hanya pendamping);
- *  - penyelesaian petugas tampil bila ada, dan tidak muncul saat kosong;
+ *  - nomor tiket, kategori, status, dan balasan baru selalu terbaca sebagai TEKS;
+ *  - tiket yang ditutup tidak menawarkan balasan baru;
  *  - arah pesan ("Anda" vs "Petugas PINDAI") tidak pernah disimpulkan dari warna;
  *  - utas kosong menjelaskan keadaannya;
  *  - tidak ada "undefined"/"NaN"/"[object Object]" pada keluaran.
@@ -15,8 +15,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { Id } from "@/convex/_generated/dataModel";
 import {
-  BarisPengaduanSaya,
   DaftarPesanPengaduan,
+  KartuTiket,
   type PengaduanSaya,
   type PesanUtasSaya,
 } from "./helpdesk-views";
@@ -45,6 +45,7 @@ function bersih(html: string, label: string): void {
 function pengaduan(overrides: Partial<PengaduanSaya> = {}): PengaduanSaya {
   return {
     _id: "pg1" as Id<"pengaduanNasabah">,
+    nomorTiket: "TKT-20231114-ABC123",
     nomorReferensi: "PGD-BANTUAN-1",
     kanal: "aplikasi",
     kategori: "salah_tagih",
@@ -54,6 +55,7 @@ function pengaduan(overrides: Partial<PengaduanSaya> = {}): PengaduanSaya {
     statusLabel: "Ditinjau",
     prioritas: "tinggi",
     prioritasLabel: "Tinggi",
+    petugasLabel: "petugas@pindai.test",
     penyelesaian: null,
     dibuatPada: 1_700_000_000_000,
     diperbaruiPada: 1_700_000_100_000,
@@ -62,55 +64,74 @@ function pengaduan(overrides: Partial<PengaduanSaya> = {}): PengaduanSaya {
     pesanTerakhir: "Kami sedang mencocokkan bukti transfer Anda.",
     pesanTerakhirArah: "petugas",
     pesanTerakhirPada: 1_700_000_100_000,
+    jumlahBelumDibaca: 2,
     bolehBalas: true,
     ...overrides,
   };
 }
 
-// ===== 1. Baris pengaduan: status, prioritas, referensi, ringkasan utas =====
+// ===== 1. Kartu tiket: nomor, status, balasan baru, cuplikan ===============
 {
   const html = renderToStaticMarkup(
-    <BarisPengaduanSaya pengaduan={pengaduan()} terbuka={false} onToggle={() => {}} />,
+    <KartuTiket tiket={pengaduan()} aktif={false} onPilih={() => {}} />,
   );
+  ada(html, "TKT-20231114-ABC123", "nomor tiket tampil");
   ada(html, "Salah tagih", "kategori berlabel manusia");
   ada(html, "Ditinjau", "status tampil sebagai teks");
-  ada(html, "Prioritas Tinggi", "prioritas tampil sebagai teks");
-  ada(html, "PGD-BANTUAN-1", "nomor referensi pinjaman tampil");
-  ada(html, "Nominal tagihan berbeda", "isi pengaduan tampil");
-  ada(html, "2 pesan", "jumlah pesan tampil");
-  ada(html, "ada balasan petugas", "asal pesan terakhir dijelaskan");
-  ada(html, "Lihat percakapan", "tombol membuka percakapan");
-  tidakAda(html, "Penyelesaian dari petugas", "penyelesaian tidak dikarang saat kosong");
-  bersih(html, "baris pengaduan");
+  ada(html, "2 balasan baru", "jumlah balasan baru tampil sebagai teks");
+  ada(html, "Kami sedang mencocokkan", "cuplikan pesan terakhir tampil");
+  ada(html, "Diperbarui", "waktu pembaruan tampil");
+  tidakAda(html, "Tiket sudah ditutup", "tiket aktif tidak disebut ditutup");
+  bersih(html, "kartu tiket");
 }
 
-// ===== 2. Penyelesaian tampil saat ada, dan tombol berubah saat terbuka =====
+// ===== 2. Tiket ditutup tidak menawarkan balasan baru ======================
 {
   const html = renderToStaticMarkup(
-    <BarisPengaduanSaya
-      pengaduan={pengaduan({
+    <KartuTiket
+      tiket={pengaduan({
         status: "selesai",
         statusLabel: "Selesai",
-        prioritas: "kritis",
-        prioritasLabel: "Kritis",
         penyelesaian: "Tagihan dikoreksi dan nasabah sudah diberi tahu.",
         ditutupPada: 1_700_000_200_000,
+        jumlahBelumDibaca: 0,
         bolehBalas: false,
-        pesanTerakhirArah: "nasabah",
       })}
-      terbuka
-      onToggle={() => {}}
+      aktif
+      onPilih={() => {}}
     />,
   );
-  ada(html, "Penyelesaian dari petugas", "penyelesaian tampil saat ada");
-  ada(html, "Tagihan dikoreksi", "isi penyelesaian tampil");
-  ada(html, "Prioritas Kritis", "prioritas kritis tampil");
-  ada(html, "pesan terakhir dari Anda", "arah pesan terakhir nasabah terbaca");
-  ada(html, "Tutup percakapan", "tombol menutup saat utas terbuka");
-  bersih(html, "baris pengaduan selesai");
+  ada(html, "Selesai", "status selesai tampil");
+  ada(html, "Tiket sudah ditutup", "tiket tertutup dijelaskan");
+  ada(html, 'aria-pressed="true"', "kartu aktif ditandai untuk pembaca layar");
+  tidakAda(html, "balasan baru", "tiket tertutup tanpa lencana balasan baru");
+  bersih(html, "kartu tiket selesai");
 }
 
-// ===== 3. Utas pesan: arah sebagai kata, bukan warna saja ===================
+// ===== 3. Tiket baru: menunggu petugas =====================================
+{
+  const html = renderToStaticMarkup(
+    <KartuTiket
+      tiket={pengaduan({
+        status: "baru",
+        statusLabel: "Baru",
+        jumlahBelumDibaca: 0,
+        pesanTerakhir: null,
+        pesanTerakhirArah: null,
+        pesanTerakhirPada: null,
+        bolehBalas: true,
+      })}
+      aktif={false}
+      onPilih={() => {}}
+    />,
+  );
+  ada(html, "Menunggu petugas", "tiket baru menjelaskan antreannya");
+  ada(html, "Nominal tagihan berbeda", "isi awal menjadi cuplikan bila belum ada balasan");
+  tidakAda(html, "undefined", "tiket baru tanpa nilai kosong yang bocor");
+  bersih(html, "kartu tiket baru");
+}
+
+// ===== 4. Utas pesan: arah sebagai kata, bukan warna saja ==================
 {
   const pesan: PesanUtasSaya[] = [
     {
@@ -129,15 +150,15 @@ function pengaduan(overrides: Partial<PengaduanSaya> = {}): PengaduanSaya {
     },
   ];
   const html = renderToStaticMarkup(<DaftarPesanPengaduan pesan={pesan} />);
-  ada(html, "Anda", "pesan nasabah diberi label \"Anda\"");
-  ada(html, "Petugas PINDAI", "pesan petugas diberi label \"Petugas PINDAI\"");
+  ada(html, "Anda", 'pesan nasabah diberi label "Anda"');
+  ada(html, "Petugas PINDAI", 'pesan petugas diberi label "Petugas PINDAI"');
   ada(html, "Rani", "nama penulis nasabah tampil");
   ada(html, "petugas@pindai.test", "nama penulis petugas tampil");
   ada(html, "bukti transfer Anda", "isi pesan petugas tampil");
   bersih(html, "utas pesan");
 }
 
-// ===== 4. Utas kosong =====
+// ===== 5. Utas kosong ======================================================
 {
   const html = renderToStaticMarkup(<DaftarPesanPengaduan pesan={[]} />);
   ada(html, "Belum ada pesan", "utas kosong menjelaskan keadaan");
@@ -146,6 +167,6 @@ function pengaduan(overrides: Partial<PengaduanSaya> = {}): PengaduanSaya {
 
 if (failed > 0) {
   console.error(`\n${failed} gagal, ${passed} lulus`);
-  throw new Error(`${failed} tes render tab Bantuan gagal`);
+  throw new Error(`${failed} tes render kotak tiket gagal`);
 }
 console.log(`helpdesk-views: ${passed} lulus`);

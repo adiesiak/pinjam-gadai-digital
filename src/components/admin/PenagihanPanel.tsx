@@ -217,6 +217,7 @@ type Riwayat = {
 
 type Pengaduan = {
   _id: Id<"pengaduanNasabah">;
+  nomorTiket: string;
   nomorReferensi: string | null;
   kanal: string;
   kategori: string;
@@ -1419,6 +1420,7 @@ function PengaduanBagian({ aturan, kasus }: { aturan: Aturan; kasus: BarisKasus[
                     <p className="text-sm font-medium">
                       {labelKategoriPengaduan(p.kategori)} · {p.statusLabel}
                     </p>
+                    <p className="font-mono text-xs text-slate-500">{p.nomorTiket}</p>
                     <p className="text-xs text-muted-foreground">
                       {p.nomorReferensi ?? "tanpa catatan pinjaman"} · {labelSaluran(p.kanal)} ·{" "}
                       {formatDate(p.dibuatPada)}

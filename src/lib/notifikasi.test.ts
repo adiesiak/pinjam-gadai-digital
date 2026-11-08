@@ -96,7 +96,7 @@ eq(tabDariTautan("/dashboard?tab=pinjaman"), "pinjaman", "halaman catatan pinjam
 // ke halaman terdekatnya alih-alih ditolak (dan mendarat di halaman default).
 eq(tabDariTautan("/dashboard?tab=jadwal"), "cicilan", "tab lama jadwal diarahkan ke cicilan");
 eq(tabDariTautan("/dashboard?tab=riwayat"), "pinjaman", "tab lama riwayat diarahkan ke catatan pinjaman");
-eq(tabDariTautan("/dashboard?tab=bantuan"), "ringkasan", "tab lama bantuan diarahkan ke ringkasan");
+eq(tabDariTautan("/dashboard?tab=bantuan"), "akun", "tab lama bantuan diarahkan ke akun");
 eq(tabDariTautan("/dashboard?tab=tidak-ada"), null, "tab tak dikenal ditolak");
 eq(tabDariTautan("/dashboard"), null, "tautan tanpa parameter tidak dipaksa");
 eq(tabDariTautan("https://contoh.com/dashboard?tab=jadwal"), "cicilan", "tautan bertanya tetap dibaca");

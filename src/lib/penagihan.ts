@@ -918,6 +918,27 @@ export function labelKanalPengaduan(kanal: string): string {
 }
 
 /**
+ * Nomor tiket yang dibaca manusia, diturunkan dari id dan waktu dibuat.
+ *
+ * Tidak disimpan sebagai kolom baru: id pengaduan sudah unik dan tetap, jadi
+ * nomor ini tidak bisa berubah atau bentrok hanya karena dua tiket dibuat pada
+ * detik yang sama. Bagian tanggal memakai kalender WIB agar nomor yang dilihat
+ * nasabah dan petugas selalu menunjukkan hari kerja yang sama.
+ */
+export function nomorTiketPengaduan(id: string, dibuatPada: number): string {
+  const tanggal = new Date(dibuatPada + OFFSET_WIB_JAM * 3_600_000);
+  const tahun = tanggal.getUTCFullYear();
+  const bulan = String(tanggal.getUTCMonth() + 1).padStart(2, "0");
+  const hari = String(tanggal.getUTCDate()).padStart(2, "0");
+  const kode = id
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(-6)
+    .toUpperCase()
+    .padStart(6, "0");
+  return `TKT-${tahun}${bulan}${hari}-${kode}`;
+}
+
+/**
  * Boleh membalas utas pengaduan?
  *
  * Nasabah hanya boleh menambah pesan selama pengaduannya BELUM ditutup. Setelah

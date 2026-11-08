@@ -67,6 +67,7 @@ import {
   klasifikasiTunggakan,
   maskNomorTelepon,
   maskRekening,
+  nomorTiketPengaduan,
   periksaPesanPenagihan,
   prioritasBawaan,
   prioritasEfektif,
@@ -623,6 +624,7 @@ export const daftarPengaduan = query({
         const utas = ringkasUtas.get(p._id as string);
         return {
           _id: p._id,
+          nomorTiket: nomorTiketPengaduan(p._id, p.dibuatPada),
           nomorReferensi: p.nomorReferensi ?? null,
           kanal: p.kanal,
           kategori: p.kategori,
@@ -1610,8 +1612,12 @@ export const pengaduanSaya = query({
         .take(BATAS_PESAN_SAYA);
       const terakhir = pesan[0] ?? null;
       const prioritas = prioritasEfektif(p.prioritas);
+      const belumDibaca = pesan.filter(
+        (m) => m.arah === "petugas" && m.dibuatPada > (p.dibacaNasabahPada ?? 0),
+      ).length;
       hasil.push({
         _id: p._id,
+        nomorTiket: nomorTiketPengaduan(p._id, p.dibuatPada),
         nomorReferensi: p.nomorReferensi ?? null,
         kanal: p.kanal,
         kategori: p.kategori,
@@ -1624,6 +1630,7 @@ export const pengaduanSaya = query({
           LABEL_STATUS_PENGADUAN[p.status as keyof typeof LABEL_STATUS_PENGADUAN] ?? p.status,
         prioritas,
         prioritasLabel: LABEL_PRIORITAS_PENGADUAN[prioritas],
+        petugasLabel: p.petugasLabel ?? null,
         penyelesaian: p.penyelesaian ?? null,
         dibuatPada: p.dibuatPada,
         diperbaruiPada: p.diperbaruiPada,
@@ -1632,11 +1639,33 @@ export const pengaduanSaya = query({
         pesanTerakhir: terakhir === null ? null : terakhir.isi,
         pesanTerakhirArah: terakhir === null ? null : terakhir.arah,
         pesanTerakhirPada: terakhir === null ? null : terakhir.dibuatPada,
+        jumlahBelumDibaca: belumDibaca,
         // Boleh dibalas? Dihitung server supaya UI dan aturan tidak berbeda.
         bolehBalas: bolehBalasPengaduan(p.status).ok,
       });
     }
     return hasil;
+  },
+});
+
+/**
+ * Tandai tiket sudah dibaca nasabah.
+ *
+ * Hanya baris milik pemanggil yang boleh disentuh. Penanda ini semata-mata
+ * untuk lencana balasan baru; status, isi, dan urutan tiket tidak berubah.
+ * Tidak ada audit untuk tindakan membaca: pengguna sedang membuka tiketnya
+ * sendiri, bukan mengubah catatan operasional.
+ */
+export const tandaiPengaduanDibacaSaya = mutation({
+  args: { pengaduanId: v.id("pengaduanNasabah") },
+  handler: async (ctx, { pengaduanId }) => {
+    const { userId } = await requireNasabahPengaduan(ctx);
+    const pengaduan = await ctx.db.get(pengaduanId);
+    if (pengaduan === null || pengaduan.userId !== userId) {
+      throw new Error("Tiket tidak ditemukan.");
+    }
+    await ctx.db.patch(pengaduanId, { dibacaNasabahPada: Date.now() });
+    return { ok: true as const };
   },
 });
 
@@ -1721,7 +1750,11 @@ export const bukaPengaduanSaya = mutation({
       penulisLabel: labelNasabahPengaduan(user),
       dibuatPada: now,
     });
-    return { ok: true as const, pengaduanId: id };
+    return {
+      ok: true as const,
+      pengaduanId: id,
+      nomorTiket: nomorTiketPengaduan(id, now),
+    };
   },
 });
 

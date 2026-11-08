@@ -17,6 +17,7 @@ import {
   klasifikasiTunggakan,
   maskNomorTelepon,
   maskRekening,
+  nomorTiketPengaduan,
   periksaPesanPenagihan,
   pesanPengingatNetral,
   prioritasBawaan,
@@ -480,6 +481,22 @@ eq(validasiPesanPengaduan("Terima kasih, kami cek dulu.").ok, true, "pesan wajar
 eq(validasiPesanPengaduan("  ").ok, false, "pesan kosong ditolak");
 eq(validasiPesanPengaduan("x".repeat(PANJANG_MAKS_PESAN_PENGADUAN + 1)).ok, false, "pesan terlalu panjang ditolak");
 eq(validasiPesanPengaduan("x".repeat(PANJANG_MAKS_PESAN_PENGADUAN)).ok, true, "pesan tepat di batas maksimum diterima");
+
+eq(
+  nomorTiketPengaduan("pengaduan_abc123", Date.UTC(2026, 10, 8, 12, 0)),
+  "TKT-20261108-ABC123",
+  "nomor tiket: tanggal WIB dan enam karakter id",
+);
+eq(
+  nomorTiketPengaduan("pengaduan_abc123", Date.UTC(2026, 10, 8, 18, 0)),
+  "TKT-20261109-ABC123",
+  "nomor tiket: pergantian hari mengikuti WIB",
+);
+eq(
+  nomorTiketPengaduan("pg1", Date.UTC(2026, 10, 8, 12, 0)),
+  "TKT-20261108-000PG1",
+  "nomor tiket: id pendek tetap enam karakter",
+);
 
 if (failed > 0) {
   console.error(`\n${failed} gagal, ${passed} lulus`);

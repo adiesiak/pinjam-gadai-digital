@@ -2,11 +2,9 @@ import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, ChevronDown, FilePlus2, HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { IkonWhatsapp } from "@/components/IkonWhatsapp";
 import { tabDariParams } from "@/lib/notifikasi";
 import { Button } from "@/components/ui/button";
 import { JENIS_PENGAJUAN_AWAL, type JenisPengajuan } from "@/lib/jenisPengajuan";
-import { urlChatCs } from "@/lib/kontak";
 import { formatRupiah } from "@/lib/money";
 
 import { LocationGate } from "@/components/LocationGate";
@@ -153,6 +151,7 @@ export default function Dashboard() {
   // jadi tautan notifikasi selalu membuka tab yang dimaksud, tanpa memaksa
   // pengguna tetap terkunci di tab itu setelah ia berpindah sendiri.
   const [parameter, setParameter] = useSearchParams();
+  const tabMentah = parameter.get("tab");
   const tabDariUrl = tabDariParams(parameter);
   // Ringkasan adalah halaman pertama yang dilihat peminjam: tagihan terdekat
   // dan langkah berikutnya harus tampil sebelum daftar catatan. Tautan
@@ -162,13 +161,20 @@ export default function Dashboard() {
   // Profil dan KYC berbagi satu halaman Akun. Nilai tab lama tetap diterima
   // agar tautan notifikasi `?tab=diri`/`?tab=kyc` membuka subbagian yang benar.
   const tabTampil = activeTab === "diri" || activeTab === "kyc" ? "akun" : activeTab;
-  const [bagianAkun, setBagianAkun] = useState<"diri" | "kyc" | "bantuan">(
-    activeTab === "kyc" ? "kyc" : "diri",
-  );
-  // Tab lama `diri`/`kyc` menang atas pilihan submenu, tanpa perlu menyalin
-  // nilainya ke state lewat efek.
+  const [bagianAkun, setBagianAkun] = useState<"diri" | "kyc" | "bantuan">(() => {
+    if (tabMentah === "bantuan") return "bantuan";
+    return activeTab === "kyc" ? "kyc" : "diri";
+  });
+  // Tab lama `diri`/`kyc`/`bantuan` menang atas pilihan submenu, tanpa perlu
+  // menyalin nilainya ke state lewat efek. `bantuan` sengaja dibaca dari
+  // parameter mentah: `tabDariParams` memetakannya ke halaman Akun, sedangkan
+  // subbagian yang harus dibuka tetap Bantuan.
   const bagianAkunTampil: "diri" | "kyc" | "bantuan" =
-    activeTab === "diri" || activeTab === "kyc" ? activeTab : bagianAkun;
+    activeTab === "diri" || activeTab === "kyc"
+      ? activeTab
+      : tabMentah === "bantuan"
+        ? "bantuan"
+        : bagianAkun;
   const gantiTab = (value: string) => {
     setTabLokal(value);
     // Simpan tab di URL tanpa menumpuk riwayat: muat ulang dan tautan yang
@@ -185,7 +191,10 @@ export default function Dashboard() {
 
   const pilihBagianAkun = (bagian: "diri" | "kyc" | "bantuan") => {
     setBagianAkun(bagian);
-    if (activeTab !== "akun") gantiTab("akun");
+    // Simpan subbagian di URL memakai nama lamanya yang sudah dikenal parser.
+    // Dengan begitu Tiket tetap terbuka setelah muat ulang atau tautan dibagikan,
+    // bukan kembali ke Profil & Rekening.
+    gantiTab(bagian);
   };
 
   // Judul tab peramban mengikuti menu yang dibuka, supaya beberapa tab
@@ -694,8 +703,8 @@ export default function Dashboard() {
 
                 {/* ===== TAB: AKUN, profil & rekening + verifikasi KYC =====
                     Dua halaman yang dulu terpisah digabung karena menjawab
-                    pertanyaan yang sama. Deep link `?tab=diri` dan `?tab=kyc`
-                    tetap membuka subbagian yang benar. */}
+                    pertanyaan yang sama. Deep link `?tab=diri`, `?tab=kyc`,
+                    dan `?tab=bantuan` tetap membuka subbagian yang benar. */}
                 <TabsContent value="akun" className="mt-8 min-w-0 animate-masuk">
                   <div
                     role="group"
@@ -706,7 +715,7 @@ export default function Dashboard() {
                       [
                         { value: "diri", label: "Profil & Rekening" },
                         { value: "kyc", label: "Verifikasi KYC" },
-                        { value: "bantuan", label: "Bantuan" },
+                        { value: "bantuan", label: "Tiket" },
                       ] as const
                     ).map((bagian) => (
                       <button
@@ -736,31 +745,12 @@ export default function Dashboard() {
                          daripada formulirnya. */
                       <KycSection tahapPilihan={tahapKyc} onPilihTahap={setTahapKyc} />
                     ) : (
-                      <section className="space-y-4">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                          <p className="text-sm font-semibold text-navy">Bantuan &amp; pengaduan</p>
-                          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-                            Sampaikan nominal, status, atau prosedur yang tidak sesuai. Pengaduan
-                            tercatat di PINDAI dan balasan petugas muncul di daftar bawah. Untuk
-                            hal mendesak, gunakan WhatsApp CS.
-                          </p>
-                          <a
-                            href={urlChatCs("Halo PINDAI, saya butuh bantuan terkait akun saya.")}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2"
-                          >
-                            <IkonWhatsapp className="size-4 text-emerald-700" />
-                            Chat CS di WhatsApp
-                          </a>
-                        </div>
-                        <HelpdeskSayaView
-                          loans={(loans ?? []).map((loan) => ({
-                            _id: loan._id,
-                            nomorReferensi: loan.nomorReferensi,
-                          }))}
-                        />
-                      </section>
+                      <HelpdeskSayaView
+                        loans={(loans ?? []).map((loan) => ({
+                          _id: loan._id,
+                          nomorReferensi: loan.nomorReferensi,
+                        }))}
+                      />
                     )}
                   </div>
                 </TabsContent>

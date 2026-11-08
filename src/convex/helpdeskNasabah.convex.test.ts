@@ -223,6 +223,57 @@ describe("helpdesk sisi nasabah", () => {
     expect(jumlahBalasanPetugas).toBe(1);
   });
 
+  it("nomor tiket stabil dan balasan petugas bisa ditandai dibaca pemiliknya", async () => {
+    const t = buatKontek();
+    const nasabah = await siapkanPengguna(t, "nasabah-hd7", {
+      email: "nasabah-hd7@pindai.test",
+      role: "peminjam",
+    });
+    const admin = await siapkanPengguna(t, "admin-hd7", {
+      email: "admin-hd7@pindai.test",
+      role: "admin",
+    });
+    const { pengaduanId, nomorTiket } = await nasabah.sesi.mutation(
+      api.penagihan.bukaPengaduanSaya,
+      {
+        kategori: "salah_tagih",
+        isi: ISI,
+      },
+    );
+
+    expect(nomorTiket).toMatch(/^TKT-\d{8}-[A-Z0-9]{6}$/);
+    let daftar = await nasabah.sesi.query(api.penagihan.pengaduanSaya, {});
+    expect(daftar[0].nomorTiket).toBe(nomorTiket);
+    expect(daftar[0].jumlahBelumDibaca).toBe(0);
+
+    await admin.sesi.mutation(api.penagihan.tanganiPengaduan, {
+      pengaduanId,
+      status: "ditinjau",
+    });
+    await admin.sesi.mutation(api.penagihan.tambahPesanPengaduan, {
+      pengaduanId,
+      isi: "Kami sudah menerima tiket Anda dan sedang memeriksanya.",
+    });
+
+    daftar = await nasabah.sesi.query(api.penagihan.pengaduanSaya, {});
+    expect(daftar[0].jumlahBelumDibaca).toBe(1);
+
+    await nasabah.sesi.mutation(api.penagihan.tandaiPengaduanDibacaSaya, {
+      pengaduanId,
+    });
+    daftar = await nasabah.sesi.query(api.penagihan.pengaduanSaya, {});
+    expect(daftar[0].jumlahBelumDibaca).toBe(0);
+    expect(daftar[0].nomorTiket).toBe(nomorTiket);
+
+    const lain = await siapkanPengguna(t, "nasabah-hd7b", {
+      email: "nasabah-hd7b@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      lain.sesi.mutation(api.penagihan.tandaiPengaduanDibacaSaya, { pengaduanId }),
+    ).rejects.toThrow(/tidak ditemukan/i);
+  });
+
   it("pengaduan yang sudah ditutup tidak bisa dibalas nasabah", async () => {
     const t = buatKontek();
     const nasabah = await siapkanPengguna(t, "nasabah-hd6", {

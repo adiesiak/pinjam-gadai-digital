@@ -63,17 +63,17 @@ export const TAB_DASHBOARD = [
 /**
  * Tab lama yang masih tersimpan di tautan notifikasi di database.
  *
- * Menu nasabah sekarang lima; `diri` dan `kyc` tetap sah karena keduanya
- * membuka subbagian Akun. Nama lama lain dipetakan ke halaman TERDEKATNYA
- * supaya tautan yang sudah tersimpan tidak mendarat di halaman default tanpa
- * penjelasan. Pemetaan ini dihapus bersama tautan lama terakhir.
+ * Menu nasabah sekarang lima; `diri`, `kyc`, dan `bantuan` tetap sah karena
+ * ketiganya membuka subbagian Akun. Nama lama lain dipetakan ke halaman
+ * TERDEKATNYA supaya tautan yang sudah tersimpan tidak mendarat di halaman
+ * default tanpa penjelasan. Pemetaan ini dihapus bersama tautan lama terakhir.
  */
 const TAB_LAMA: Record<string, string> = {
   jadwal: "cicilan",
   riwayat: "pinjaman",
   gadai: "pinjaman",
   kontrak: "pinjaman",
-  bantuan: "ringkasan",
+  bantuan: "akun",
   profil: "akun",
   identitas: "akun",
 };

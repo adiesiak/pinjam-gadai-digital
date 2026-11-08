@@ -3462,6 +3462,12 @@ const schema = defineSchema(
       petugasUserId: v.optional(v.id("users")),
       petugasLabel: v.optional(v.string()),
       penyelesaian: v.optional(v.string()),
+      /**
+       * Kapan nasabah terakhir membuka tiket ini. Dipakai untuk menandai
+       * balasan petugas yang belum dibaca, bukan untuk mengubah status tiket.
+       * Opsional karena baris lama belum punya penanda baca.
+       */
+      dibacaNasabahPada: v.optional(v.number()),
       dibuatPada: v.number(),
       diperbaruiPada: v.number(),
       ditutupPada: v.optional(v.number()),
