@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { api } from "@/convex/_generated/api";
 
+import { MinatPendanaPanel } from "./MinatPendanaPanel";
 import { PanelSiklusPendana } from "./PanelSiklusPendana";
 import { PemulihanJejakPratinjauPanel } from "./PemulihanJejakPratinjauPanel";
 import { PencatatanTransferGadai } from "./PencatatanTransferGadai";
@@ -37,7 +38,7 @@ import { RekonsiliasiSetoranPendana } from "./RekonsiliasiSetoranPendana";
 import { PenarikanPendanaPanel } from "./PenarikanPendanaPanel";
 
 /**
- * PENDANA — lima tab utama, satu tempat.
+ * PENDANA — enam tab utama, satu tempat.
  *
  * 1. Manajemen Akun & Hak Akses — buat pendana baru, beri akses per email,
  *    kelola kode akses bersama/tamu, daftar akun pendana & pemantau (beserta
@@ -51,6 +52,8 @@ import { PenarikanPendanaPanel } from "./PenarikanPendanaPanel";
  *    bukti; jalur otomatis tetap ditutup.
  * 5. Rekonsiliasi & Auditing Pendana — bandingkan posisi panel dengan rekap
  *    ruang pendana.
+ * 6. Calon Pendana — prospek dari halaman publik `/pendana/daftar`, lengkap
+ *    dengan tombol WhatsApp dan status tindak lanjut.
  *
  * Semua binding data Convex tetap: `aksesBersama.statusKodeBersama`,
  * `penyediaDana.{ubahAkses,buatPendana,daftarInvestor}`, dan
@@ -480,6 +483,9 @@ export function AksesPenyediaDanaPanel() {
         <TabsTrigger value="akun" className="gap-2 text-xs sm:text-sm">
           <Users className="size-3.5" /> Manajemen Akun &amp; Hak Akses
         </TabsTrigger>
+        <TabsTrigger value="minat" className="gap-2 text-xs sm:text-sm">
+          <UserPlus className="size-3.5" /> Calon Pendana
+        </TabsTrigger>
         <TabsTrigger value="transfer" className="gap-2 text-xs sm:text-sm">
           <Coins className="size-3.5" /> Pencatatan Transfer Keuntungan
         </TabsTrigger>
@@ -496,6 +502,9 @@ export function AksesPenyediaDanaPanel() {
 
       <TabsContent value="akun" className="mt-0">
         <TabAkunAkses />
+      </TabsContent>
+      <TabsContent value="minat" className="mt-0">
+        <MinatPendanaPanel />
       </TabsContent>
       <TabsContent value="transfer" className="mt-0">
         <div className="space-y-5">

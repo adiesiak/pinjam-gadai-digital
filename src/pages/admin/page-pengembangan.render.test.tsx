@@ -6,7 +6,7 @@
  *  1. Halaman tetap dokumentasi internal: tidak ada query Convex, tidak ada
  *     tautan keluar ke halaman publik.
  *  2. Angka ringkasan dihitung dari daftar, bukan ditulis tangan: 31 modul
- *     admin, 23 rute (19 tanpa akun, 3 wajib akun, 1 khusus admin).
+ *     admin, 24 rute (20 tanpa akun, 3 wajib akun, 1 khusus admin).
  *  3. Setiap rute membawa label gerbangnya, supaya rute wajib akun tidak
  *     terbaca sebagai halaman publik.
  *  4. Aturan uang yang ditulis di halaman masih sama dengan konstanta kode,
@@ -57,14 +57,14 @@ cek("1g tanpa em dash", !html.includes("\u2014"));
 const modulChips = cacah(html, "rounded-md border border-slate-200 bg-slate-50");
 cek("2a 31 modul admin terdaftar", modulChips === 31, `ditemukan ${modulChips}`);
 const ruteTerdaftar = cacah(html, "<code class=\"w-fit shrink-0 rounded bg-slate-100");
-cek("2b 23 rute terdaftar", ruteTerdaftar === 23, `ditemukan ${ruteTerdaftar}`);
+cek("2b 24 rute terdaftar", ruteTerdaftar === 24, `ditemukan ${ruteTerdaftar}`);
 cek("2c ringkasan menyebut 31 modul", html.includes(">31<"));
-cek("2d ringkasan menyebut 19 rute publik", html.includes(">19<"));
+cek("2d ringkasan menyebut 20 rute publik", html.includes(">20<"));
 cek("2e ringkasan menyebut 3 rute wajib akun", html.includes(">3<"));
 cek("2f ringkasan menyebut 6 tab peminjam", html.includes(">6<"));
 cek(
   "2g keterangan bagian menyebut pembagian gerbang",
-  html.includes("19 rute terbuka tanpa akun, 3 rute menuntut sesi"),
+  html.includes("20 rute terbuka tanpa akun, 3 rute menuntut sesi"),
 );
 
 // ===== 3. Rute penting benar-benar tertulis =====
@@ -84,7 +84,7 @@ for (const rute of [
 const labelTanpaAkun = cacah(html, ">tanpa akun<");
 const labelWajibAkun = cacah(html, ">wajib akun<");
 const labelKhususAdmin = cacah(html, ">khusus admin<");
-cek("3a 19 label tanpa akun", labelTanpaAkun === 19, `ditemukan ${labelTanpaAkun}`);
+cek("3a 20 label tanpa akun", labelTanpaAkun === 20, `ditemukan ${labelTanpaAkun}`);
 cek("3b 3 label wajib akun", labelWajibAkun === 3, `ditemukan ${labelWajibAkun}`);
 cek("3c 1 label khusus admin", labelKhususAdmin === 1, `ditemukan ${labelKhususAdmin}`);
 cek("3d NIK dijelaskan sebagai pemilih akun", html.includes("NIK hanya memilih akun"));

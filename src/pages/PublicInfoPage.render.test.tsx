@@ -32,6 +32,7 @@ const validInternalPaths = new Set([
   "/pinjaman/konvensional",
   "/pinjaman/syariah",
   "/akses-bersama",
+  "/pendana/daftar",
   "/pemenang",
 ]);
 

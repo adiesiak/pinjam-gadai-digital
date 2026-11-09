@@ -117,6 +117,11 @@ const RUTE_HALAMAN: readonly {
     gerbang: "publik",
   },
   { rute: "/akses-bersama", isi: "Pintu lihat-saja dengan kode akses bersama.", gerbang: "publik" },
+  {
+    rute: "/pendana/daftar",
+    isi: "Pintu calon pendana: mekanisme siklus, risiko, dan formulir minat.",
+    gerbang: "publik",
+  },
   { rute: "/syarat-ketentuan", isi: "Syarat dan ketentuan layanan.", gerbang: "publik" },
   {
     rute: "/privasi",

@@ -56,6 +56,12 @@ const ProdukPinjaman = lazy(
 const JadiPendana = lazy(
   denganPercobaan(() => import("./pages/JadiPendana.tsx")),
 );
+// Halaman publik calon pendana. Berbeda dari proposal `/jadi-pendana` yang
+// dijaga kode akses: di sini pengunjung hanya membaca mekanisme dan mengirim
+// minat, tanpa melihat berkas atau angka internal.
+const PendanaDaftar = lazy(
+  denganPercobaan(() => import("./pages/PendanaDaftar.tsx")),
+);
 // Etalase PPOB publik: pembeli tidak perlu akun, jadi halaman ini dimuat
 // terpisah dari dashboard dan tidak menarik mesin pinjaman sama sekali.
 const Ppob = lazy(
@@ -479,6 +485,9 @@ createRoot(document.getElementById("root")!).render(
                     Sengaja di luar RequireAuth — halamannya sendiri yang
                     membuka sesi tamu sebelum memverifikasi kode. */}
                 <Route path="/akses-bersama" element={<AksesBersama />} />
+                {/* Pintu publik calon pendana: formulir minat, bukan proposal.
+                    Proposal tetap di balik RequirePendana di atas. */}
+                <Route path="/pendana/daftar" element={<PendanaDaftar />} />
                 <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
                 <Route path="/privasi" element={<Privasi />} />
                 {/* Pemenang undian: bukti publik bahwa undian dijalankan, dengan

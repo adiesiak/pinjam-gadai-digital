@@ -807,6 +807,37 @@ const schema = defineSchema(
     }).index("by_slot", ["slot"]),
 
     /**
+     * Minat calon pendana dari halaman publik `/pendana/daftar`.
+     *
+     * Ini prospek, bukan akun atau transaksi. Nomor WhatsApp disimpan sudah
+     * ternormalisasi (62…) supaya admin bisa langsung membuka `wa.me`; tidak ada
+     * KTP, rekening, atau dokumen di sini. Persetujuan diisi di formulir dan
+     * waktunya disimpan sebagai bukti kapan kontak boleh dihubungi.
+     */
+    minatPendana: defineTable({
+      nama: v.string(),
+      nomorWhatsApp: v.string(),
+      nominalRencana: v.number(),
+      kota: v.string(),
+      catatan: v.optional(v.string()),
+      sumber: v.optional(v.string()),
+      status: v.union(
+        v.literal("baru"),
+        v.literal("dihubungi"),
+        v.literal("selesai"),
+        v.literal("batal"),
+      ),
+      persetujuanPada: v.number(),
+      dibuatPada: v.number(),
+      diperbaruiPada: v.optional(v.number()),
+      olehUserId: v.optional(v.id("users")),
+    })
+      .index("by_dibuatPada", ["dibuatPada"])
+      // Urutan kedua membuat pengambilan "minat terakhir dari nomor ini"
+      // deterministik; tanpa itu deduplikasi bisa memperbarui baris lama.
+      .index("by_nomor", ["nomorWhatsApp", "dibuatPada"]),
+
+    /**
      * Log pengiriman WhatsApp — append-only, untuk audit penagihan.
      * Isi pesan disimpan persis seperti terkirim (placeholder sudah diganti).
      */
