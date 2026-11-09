@@ -65,7 +65,6 @@ export function KlaimPeminjamLama({
   const [nomor, setNomor] = useState("");
   const [kode, setKode] = useState("");
   const [nomorTampil, setNomorTampil] = useState("");
-  const [jmlBerkas, setJmlBerkas] = useState(0);
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sibuk, setSibuk] = useState(false);
@@ -87,7 +86,6 @@ export function KlaimPeminjamLama({
         return;
       }
       setNomorTampil(hasil.nomorTampil);
-      setJmlBerkas(hasil.berkasLama);
       setKode("");
       setLangkah("kode");
       setInfo(hasil.pesan);
@@ -246,12 +244,6 @@ export function KlaimPeminjamLama({
           <p className="text-sm text-slate-800">
             Kode dikirim ke{" "}
             <span className="font-semibold tabular-nums">{nomorTampil}</span>
-            {jmlBerkas > 0 && (
-              <>
-                {" "}
-                · {jmlBerkas} berkas lama menunggu diverifikasi
-              </>
-            )}
           </p>
           <div className="mt-3 flex justify-center">
             <InputOTP

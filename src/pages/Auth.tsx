@@ -198,7 +198,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [clientStep, setClientStep] = useState<
     | "signIn"
     | { email: string }
-    | { nomor: string; nomorTampil: string; berkasLama: number }
+    | { nomor: string; nomorTampil: string }
     | { nik: string }
   >("signIn");
   /** Jalur NIK di layar pertama: satu formulir, dua pilihan identitas. */
@@ -449,7 +449,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         setClientStep({
           nomor: kredensial.nomor,
           nomorTampil: hasil.nomorTampil,
-          berkasLama: hasil.berkasLama,
         });
       } catch (error) {
         console.error("WhatsApp OTP request error:", error);
@@ -1098,11 +1097,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         "nik" in clientStep
                           ? "Kode 6 angka dikirim ke WhatsApp yang terdaftar pada NIK itu. Kalau tidak ada pesan masuk, periksa lagi 16 angka NIK Anda, lalu tekan Kirim ulang kode setelah satu menit."
                           : "nomor" in clientStep
-                            ? `Kode 6 angka dikirim ke WhatsApp ${clientStep.nomorTampil}${
-                                clientStep.berkasLama > 0
-                                  ? ` · ${clientStep.berkasLama} berkas dari web lama menunggu dipulihkan`
-                                  : ""
-                              }`
+                            ? `Kode 6 angka dikirim ke WhatsApp ${clientStep.nomorTampil}`
                             : `Kami mengirim kode verifikasi ke ${clientStep.email}`
                       }
                       ikon={

@@ -485,8 +485,11 @@ async function terbitkanKodeMasuk(
  * Minta kode masuk WhatsApp — TANPA sesi, untuk nomor lama maupun baru.
  *
  * Pemilik nomor membuktikan dirinya lewat kode, bukan lewat sesi. Jawaban
- * hanya memuat jumlah berkas lama (0 untuk nomor baru), tanpa satu pun detail
- * portofolio; detail baru terbuka setelah kode diverifikasi.
+ * TIDAK membedakan nomor yang punya data lama dari nomor baru: `berkasLama`
+ * selalu 0 di respons pra-OTP, dan pesannya sama. Jumlah sebenarnya tetap
+ * disimpan di challenge server untuk dipakai setelah kode diverifikasi; kalau
+ * angka itu dibocorkan lebih awal, siapa pun bisa memeriksa apakah sebuah nomor
+ * punya riwayat PINDAI tanpa menguasai nomor tersebut.
  */
 export const mintaKodeKlaim = action({
   args: {
@@ -501,7 +504,11 @@ export const mintaKodeKlaim = action({
     sisaDetik: v.number(),
     /** Nomor bertopeng untuk ditampilkan kembali. */
     nomorTampil: v.string(),
-    /** Jumlah berkas lama yang menunggu — 0 bila tidak ada. */
+    /**
+     * Selalu 0 sebelum OTP diverifikasi. Jumlah sebenarnya hanya ada di
+     * challenge server; field ini dipertahankan agar bentuk respons lama tetap
+     * kompatibel, bukan sebagai sinyal keberadaan data.
+     */
     berkasLama: v.number(),
   }),
   // Tipe balasan ditulis EKSPLISIT (seperti `mintaOtpWa`): handler ini
@@ -542,22 +549,28 @@ export const mintaKodeKlaim = action({
     }
     // Nomor tanpa data lama tetap dilayani: setelah kode benar, pemilik nomor
     // masuk ke akun yang sudah terhubung atau mendapat akun peminjam baru.
-    // Pesan balasan tidak membedakan keduanya, jadi keberadaan akun tidak bisa
-    // ditebak dari respons.
+    // Jumlah berkas hanya dipakai server saat challenge dibuat; respons ke
+    // pemanggil sengaja tidak membedakan nomor lama dan baru.
     const berkasLama = utama === null ? 0 : totalBerkas(utama.berkas);
 
-    const { ditolak, ...hasil } = await terbitkanKodeMasuk(ctx, {
+    const hasil = await terbitkanKodeMasuk(ctx, {
       nomor: bersih,
       berkasLama,
       ip,
       userAgent,
       jenisLog: "otp_klaim_peminjam",
-      pesanTerkirim: (nomorTampil, jumlah) =>
-        jumlah > 0
-          ? `Kode dikirim ke ${nomorTampil}. Data lama Anda siap dipulihkan.`
-          : `Kode dikirim ke ${nomorTampil}. Masukkan kodenya untuk masuk atau membuat akun.`,
+      pesanTerkirim: (nomorTampil) =>
+        `Kode dikirim ke ${nomorTampil}. Masukkan kodenya untuk masuk atau membuat akun.`,
     });
-    return { ...hasil, berkasLama: ditolak ? 0 : berkasLama };
+    // `ditolak` adalah detail internal pembatas laju; jangan ikut ke respons.
+    return {
+      ok: hasil.ok,
+      terkirim: hasil.terkirim,
+      pesan: hasil.pesan,
+      sisaDetik: hasil.sisaDetik,
+      nomorTampil: hasil.nomorTampil,
+      berkasLama: 0,
+    };
   },
 });
 

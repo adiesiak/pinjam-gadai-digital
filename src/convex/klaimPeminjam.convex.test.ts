@@ -353,13 +353,18 @@ describe("mintaKodeKlaim", () => {
       expect(hasil.ok).toBe(true);
       expect(hasil.terkirim).toBe(true);
       expect(hasil.nomorTampil).toBe("62812•••••890");
-      expect(hasil.berkasLama).toBe(3);
+      // Respons pra-OTP tidak boleh membocorkan keberadaan data lama.
+      expect(hasil.berkasLama).toBe(0);
+      expect(hasil.pesan).not.toMatch(/data lama/i);
       expect(fonnte.keluar[0]?.target).toBe(NOMOR);
 
       const kode = kodeTerkirim(fonnte.keluar);
       const baris = await t.run((ctx) => ctx.db.query("klaimOtp").collect());
       expect(baris).toHaveLength(1);
       expect(baris[0].nomor).toBe(NOMOR);
+      // Jumlah sebenarnya tetap tersedia di challenge server untuk klaim
+      // setelah OTP diverifikasi, tetapi tidak pernah dikirim pra-OTP.
+      expect(baris[0].berkasLama).toBe(3);
       expect(baris[0].statusPengiriman).toBe("terkirim");
       expect(baris[0].kodeHash).not.toBe(kode);
       expect(baris[0].salt.length).toBeGreaterThan(0);
