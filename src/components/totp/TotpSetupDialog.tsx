@@ -15,6 +15,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Input } from "@/components/ui/input";
+import { useQrDataUrl } from "@/hooks/use-qr";
 import { useMutation, useQuery } from "convex/react";
 import { Loader2, ShieldCheck, QrCode, Copy, Check } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -44,6 +45,9 @@ export function TotpSetupDialog({
     () => (secret ? otpauthUri(secret, "admin@pindai.biz.id") : null),
     [secret],
   );
+  // QR dibuat di perangkat. Secret TOTP tidak boleh dikirim ke layanan gambar
+  // pihak ketiga, bahkan lewat URL query yang mungkin tercatat di log mereka.
+  const qr = useQrDataUrl(uri);
 
   const handleStart = async () => {
     setBusy(true);
@@ -160,14 +164,24 @@ export function TotpSetupDialog({
             ) : (
               <>
                 <div className="flex flex-col items-center gap-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4">
-                  {/* QR ringan tanpa dependensi: gambar QR dari otpauth URI
-                      di-render via API publik gratis (ok, sandbox-friendly).
-                      Alternatif: scan manual secret di bawah. */}
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(uri ?? "")}`}
-                    alt="QR TOTP"
-                    className="size-40 rounded-lg bg-white p-1"
-                  />
+                  {/* QR dibuat lokal dari otpauth URI; secret tidak keluar dari
+                      peramban. Bila pembuatan QR gagal, secret manual di bawah
+                      tetap bisa dipakai. */}
+                  {qr ? (
+                    <img
+                      src={qr}
+                      alt="QR TOTP"
+                      className="size-40 rounded-lg bg-white p-1"
+                    />
+                  ) : (
+                    <div
+                      role="status"
+                      className="flex size-40 flex-col items-center justify-center gap-2 rounded-lg bg-white p-2 text-center text-xs text-muted-foreground"
+                    >
+                      <QrCode className="size-6" aria-hidden />
+                      Menyiapkan QR… gunakan secret manual bila tidak muncul.
+                    </div>
+                  )}
                   <div className="flex w-full items-center gap-2">
                     <Input readOnly value={secret} className="font-mono text-xs" />
                     <Button

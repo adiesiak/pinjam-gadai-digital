@@ -289,9 +289,14 @@ async function susunNotifikasi(
       judul: "Pengumuman PINDAI",
       ringkasan: pengumuman.teks?.trim() ?? "",
       waktu: pengumuman.diperbaruiPada,
-      // Tautan CMS dipakai hanya bila menunjuk rute internal aplikasi.
+      // Tautan CMS dipakai hanya bila menunjuk rute internal aplikasi. `//host`
+      // dan `/\host` adalah trik protokol-relatif yang dibaca peramban sebagai
+      // situs lain; data lama bisa saja belum melewati validasi simpan.
       tautan:
-        pengumuman.tautan && pengumuman.tautan.startsWith("/")
+        pengumuman.tautan &&
+        pengumuman.tautan.startsWith("/") &&
+        !pengumuman.tautan.startsWith("//") &&
+        !pengumuman.tautan.startsWith("/\\")
           ? pengumuman.tautan
           : "/dashboard",
       dibaca: false,

@@ -33,6 +33,7 @@ import {
   lengkapiKontenPendana,
 } from "../lib/kontenPendana";
 import { getAdminGateStatus, requireAdminSession } from "./adminAuthz";
+import { ROLES } from "./schema";
 import { audit } from "./system";
 
 /** Gerbang admin untuk CMS — sesi + identitas aktor untuk jejak audit. */
@@ -163,6 +164,51 @@ export const DEFAULTS = {
   },
 } as const;
 
+/** Peran yang boleh membaca konten ruang pendana. */
+const PERAN_PENDANA = new Set<string>([
+  ROLES.DANA,
+  ROLES.PENGAMAT,
+  ROLES.ADMIN,
+]);
+
+/**
+ * Gerbang baca untuk konten `/jadi-pendana`.
+ *
+ * Halaman itu sudah dijaga `RequirePendana`, tetapi penjagaan klien tidak
+ * cukup: query Convex dapat dipanggil langsung. Karena itu teks pendana tidak
+ * ikut `getPublic` dan hanya dibaca lewat query ini setelah peran diperiksa
+ * di server.
+ */
+async function requirePendanaReader(ctx: QueryCtx): Promise<Doc<"users">> {
+  const userId = await getAuthUserId(ctx);
+  if (userId === null) {
+    throw new Error("Masuk ke ruang pendana terlebih dahulu.");
+  }
+  const user = await ctx.db.get(userId);
+  if (user === null || !PERAN_PENDANA.has(user.role ?? "")) {
+    throw new Error("Halaman ini hanya untuk akun pendana atau pemantau.");
+  }
+  return user;
+}
+
+/**
+ * Teks halaman `/jadi-pendana` untuk sesi pendana/pemantau/admin.
+ *
+ * Sengaja tidak digabung dengan `getPublic`: konten ini memuat strategi dan
+ * analisis pasar internal yang tidak boleh dibaca pengunjung anonim.
+ */
+export const getPendana = query({
+  args: {},
+  handler: async (ctx) => {
+    await requirePendanaReader(ctx);
+    const row = await ctx.db
+      .query("pengumuman")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    return lengkapiKontenPendana(row?.pendana);
+  },
+});
+
 /** Semua teks publik landing (bar + popup + float + hero/layanan) — tanpa auth. */
 export const getPublic = query({
   args: {},
@@ -196,8 +242,6 @@ export const getPublic = query({
        * jadi klien tidak perlu merakit fallback sendiri.
        */
       landing: lengkapiKontenLanding(row?.landing),
-      /** Konten `/jadi-pendana` (tanpa berkas: URL proposal dibaca terpisah). */
-      pendana: lengkapiKontenPendana(row?.pendana),
     };
   },
 });
@@ -483,6 +527,10 @@ export const proposalPendanaAktif = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) return null;
+    const user = await ctx.db.get(userId);
+    // Jangan hanya memeriksa "sudah masuk": peminjam juga punya sesi. URL
+    // penyimpanan proposal hanya untuk peran yang boleh membuka ruang pendana.
+    if (user === null || !PERAN_PENDANA.has(user.role ?? "")) return null;
     const row = await ctx.db
       .query("pengumuman")
       .withIndex("by_slot", (q) => q.eq("slot", SLOT))

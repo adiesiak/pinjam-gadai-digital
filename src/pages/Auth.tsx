@@ -143,7 +143,11 @@ function resolveRedirectAfterAuth(
   returnTo: string | null,
   fallback = "/dashboard",
 ) {
-  if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
+  if (
+    returnTo?.startsWith("/") &&
+    !returnTo.startsWith("//") &&
+    !returnTo.startsWith("/\\")
+  ) {
     return returnTo;
   }
   return fallback;

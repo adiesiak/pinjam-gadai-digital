@@ -262,11 +262,11 @@ describe("CMS situs publik — pengaturan admin", () => {
       role: "admin",
     });
 
-    // Halaman baru: publik membaca konten utuh dari bawaan, termasuk daftar.
-    const awal = await t.query(api.announcements.getPublic, {});
-    expect(awal.pendana.heroJudul).toBe(KONTEN_PENDANA_DEFAULT.heroJudul);
-    expect(awal.pendana.prinsip).toHaveLength(4);
-    expect(awal.pendana.faq).toHaveLength(6);
+    // Halaman baru: sesi pendana membaca konten utuh dari bawaan, termasuk daftar.
+    const awal = await admin.query(api.announcements.getPendana, {});
+    expect(awal.heroJudul).toBe(KONTEN_PENDANA_DEFAULT.heroJudul);
+    expect(awal.prinsip).toHaveLength(4);
+    expect(awal.faq).toHaveLength(6);
 
     await expect(
       admin.mutation(api.announcements.simpanKontenPendana, {
@@ -290,26 +290,27 @@ describe("CMS situs publik — pengaturan admin", () => {
     );
     expect(baris?.pendana?.prinsip).toHaveLength(1);
 
-    const publik = await t.query(api.announcements.getPublic, {});
-    expect(publik.pendana.heroJudul).toBe("Judul pendana baru");
-    expect(publik.pendana.prinsipJudul).toBe(
+    const publik = await admin.query(api.announcements.getPendana, {});
+    expect(publik.heroJudul).toBe("Judul pendana baru");
+    expect(publik.prinsipJudul).toBe(
       KONTEN_PENDANA_DEFAULT.prinsipJudul,
     );
-    expect(publik.pendana.prinsip[0].judul).toBe("Prinsip admin");
-    expect(publik.pendana.prinsip[1].judul).toBe(
+    expect(publik.prinsip[0].judul).toBe("Prinsip admin");
+    expect(publik.prinsip[1].judul).toBe(
       KONTEN_PENDANA_DEFAULT.prinsip[1].judul,
     );
-    expect(publik.pendana.proposalIsi[0]).toBe("Baris pertama");
-    expect(publik.pendana.proposalIsi[1]).toBe(
+    expect(publik.proposalIsi[0]).toBe("Baris pertama");
+    expect(publik.proposalIsi[1]).toBe(
       KONTEN_PENDANA_DEFAULT.proposalIsi[1],
     );
-    expect(publik.pendana.faq[0].tanya).toBe("Tanya admin?");
-    expect(publik.pendana.faq[5].tanya).toBe(
+    expect(publik.faq[0].tanya).toBe("Tanya admin?");
+    expect(publik.faq[5].tanya).toBe(
       KONTEN_PENDANA_DEFAULT.faq[5].tanya,
     );
 
     // Teks halaman tidak boleh mengubah konten landing.
-    expect(publik.landing.heroJudul1).toBe(
+    const landing = await t.query(api.announcements.getPublic, {});
+    expect(landing.landing.heroJudul1).toBe(
       KONTEN_LANDING_DEFAULT.heroJudul1,
     );
 
@@ -332,7 +333,7 @@ describe("CMS situs publik — pengaturan admin", () => {
     expect(setelah?.pendana?.heroJudul).toBe("Judul kedua");
   });
 
-  it("proposal PDF hanya terbaca sesi masuk, diverifikasi, dan bisa dikembalikan", async () => {
+  it("proposal PDF hanya terbaca peran pendana, diverifikasi, dan bisa dikembalikan", async () => {
     const t = convexTest(schema, modules);
     const { sesi: admin } = await siapkanPengguna(t, "Admin Proposal", {
       email: "admin-proposal@pindai.test",
@@ -368,9 +369,22 @@ describe("CMS situs publik — pengaturan admin", () => {
     expect(aktif?.namaBerkas).toBe("proposal 2027-final.pdf");
     expect(aktif?.url).toMatch(/^https?:/);
 
-    // Query publik tidak membawa URL berkas.
+    // Teks pendana dan URL proposal tidak boleh dibuka oleh pengunjung anonim
+    // atau akun peminjam hanya karena mereka punya sesi.
+    await expect(t.query(api.announcements.getPendana, {})).rejects.toThrow(/masuk/i);
+    const { sesi: peminjam } = await siapkanPengguna(t, "Peminjam Proposal", {
+      email: "peminjam-proposal@pindai.test",
+      role: "peminjam",
+    });
+    await expect(
+      peminjam.query(api.announcements.getPendana, {}),
+    ).rejects.toThrow(/pendana|pemantau/i);
+    expect(await peminjam.query(api.announcements.proposalPendanaAktif, {})).toBeNull();
+
+    // Query publik tidak membawa URL berkas atau teks pendana.
     const publik = await t.query(api.announcements.getPublic, {});
     expect(JSON.stringify(publik)).not.toContain("convex.cloud");
+    expect(publik).not.toHaveProperty("pendana");
 
     // Berkas non-PDF ditolak.
     const teks = await t.run((ctx) =>

@@ -1454,17 +1454,17 @@ export function JadiPendanaView({
  * dengan pencatatan hak pendana. Angka itu bukan biaya layanan yang bisa
  * diubah dari Pengaturan Sistem.
  *
- * Teks halaman dibaca dari CMS (`announcements.getPublic`); konten kosong jatuh
- * ke `KONTEN_PENDANA_DEFAULT` di sisi klien. Berkas proposal admin dibaca dari
- * query terpisah yang hanya menjawab untuk sesi masuk.
+ * Teks halaman dibaca dari CMS (`announcements.getPendana`), yang memeriksa
+ * peran di server; konten kosong jatuh ke `KONTEN_PENDANA_DEFAULT` di klien.
+ * Berkas proposal admin juga hanya dibuka untuk peran pendana/pemantau/admin.
  */
 export default function JadiPendana() {
-  const publik = useQuery(api.announcements.getPublic);
+  const publik = useQuery(api.announcements.getPendana);
   const berkas = useQuery(api.announcements.proposalPendanaAktif);
   return (
     <JadiPendanaView
       persenPotonganAdmin={PERSEN_PORSI_PLATFORM}
-      konten={publik?.pendana ?? KONTEN_PENDANA_DEFAULT}
+      konten={publik ?? KONTEN_PENDANA_DEFAULT}
       proposalTersimpan={
         berkas === undefined || berkas === null
           ? null

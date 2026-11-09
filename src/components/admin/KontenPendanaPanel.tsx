@@ -46,7 +46,7 @@ import { unggahDokumen } from "@/lib/unggahDokumen";
  * dulu; statusnya ditampilkan jujur di kotak proposal.
  */
 export function KontenPendanaPanel() {
-  const publik = useQuery(api.announcements.getPublic);
+  const publik = useQuery(api.announcements.getPendana);
   const baris = useQuery(api.announcements.getCmsRow);
   const simpan = useMutation(api.announcements.simpanKontenPendana);
   const mintaUrl = useMutation(api.announcements.generateUploadProposalUrl);
@@ -67,7 +67,7 @@ export function KontenPendanaPanel() {
     );
   }
 
-  const nilai = draft ?? publik.pendana;
+  const nilai = draft ?? publik;
   const kotor = draft !== null;
   const berkas = baris?.pendana;
 

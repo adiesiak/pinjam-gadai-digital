@@ -130,12 +130,18 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                Uri tujuan = req.getUrl();
-                String skema = tujuan.getScheme();
-                boolean web = "http".equals(skema) || "https".equals(skema);
-                if (web && HOST.equals(tujuan.getHost())) return false;
-                bukaDiLuar(tujuan);
-                return true;
+                return tanganiTautan(req.getUrl());
+            }
+
+            /**
+             * Android 6 (API 23) masih memakai overload lama. Tanpa method ini
+             * tautan luar dimuat DI DALAM WebView pada perangkat API 23, dan
+             * halaman asing itu ikut mendapat jembatan `PindaiAndroid`.
+             */
+            @Override
+            @SuppressWarnings("deprecation")
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return tanganiTautan(Uri.parse(url));
             }
         });
 
@@ -371,6 +377,19 @@ public class MainActivity extends Activity {
             }
         }
         return "*/*";
+    }
+
+    /**
+     * Tautan http(s) hanya boleh tinggal di WebView bila host-nya persis host
+     * aplikasi. Skema lain, subdomain lain, dan domain lain dibuka di aplikasi
+     * luar supaya WebView tidak pernah memuat halaman pihak ketiga.
+     */
+    private boolean tanganiTautan(Uri tujuan) {
+        String skema = tujuan.getScheme();
+        boolean web = "http".equals(skema) || "https".equals(skema);
+        if (web && HOST.equals(tujuan.getHost())) return false;
+        bukaDiLuar(tujuan);
+        return true;
     }
 
     private void bukaDiLuar(Uri tujuan) {
