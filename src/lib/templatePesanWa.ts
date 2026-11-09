@@ -510,6 +510,7 @@ export function jenisRamahWa(jenis: string): string {
     lokasi_dicurigai: "Peringatan lokasi perangkat",
     otp_verifikasi_nomor: "Kode OTP verifikasi nomor",
     otp_transaksi: "Kode OTP persetujuan transaksi",
+    pengingat_pendana_harian: "Pengingat siklus pendana",
     laporan_pelunasan: "Laporan pelunasan ke pendana (PDF)",
     laporan_portofolio: "Laporan kinerja pendanaan (PDF)",
   };

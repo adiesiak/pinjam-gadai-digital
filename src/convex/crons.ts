@@ -25,6 +25,9 @@ import { internal } from "./_generated/api";
  * - TIAP JAM: pengingat WhatsApp jatuh tempo & keterlambatan. Jenis
  *   yang berhak berangkat hari ini diputuskan `lib/templatePesanWa`, dan hanya
  *   antara 08.00-20.00 WIB; di luar itu penjadwal berhenti tanpa mengirim.
+ * - UTC 01:00 (08.00 WIB) — pengingat siklus pendana ke nomor akun pendana
+ *   sendiri pada H-7/H-3/H-1/H0 dan masa tenggang maksimal 7 hari. Satu pesan
+ *   per pendana per hari; tidak ada nomor yang ditanam di kode.
  */
 const crons = cronJobs();
 
@@ -70,6 +73,15 @@ crons.daily(
   "pengingat-voucher-h3",
   { hourUTC: 1, minuteUTC: 0 },
   internal.pengingatVoucher.jalankanPengingatVoucher,
+);
+
+// Pengingat siklus pendana — 08.00 WIB, setelah gateway dan jam kirim siap.
+// Tanggal siklus berasal dari `didanaiPada`, bukan tenor pinjaman peminjam.
+crons.daily(
+  "pengingat-siklus-pendana",
+  { hourUTC: 1, minuteUTC: 0 },
+  internal.pengingatPendana.jalankanPengingatPendana,
+  {},
 );
 
 crons.daily(
