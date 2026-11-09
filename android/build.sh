@@ -27,8 +27,8 @@ BANGUN="$AKAR/build"
 # Satu-satunya tempat versi ditulis. Nilai ini masuk ke APK dan ke
 # public/version.json yang dibaca aplikasi untuk menawarkan pembaruan, jadi
 # keduanya tidak bisa berbeda. Naikkan keduanya setiap merilis APK.
-VERSI_KODE=5
-VERSI_NAMA=1.3.1
+VERSI_KODE=6
+VERSI_NAMA=1.3.2
 
 : "${JAVA_HOME:?JAVA_HOME belum diisi}"
 export PATH="$JAVA_HOME/bin:$PATH"

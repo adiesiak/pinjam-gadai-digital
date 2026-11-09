@@ -271,7 +271,15 @@ function referenceNumber(prefix: string): string {
 // Peran penyedia dana
 // =====================================================================
 
-/** Naik peran menjadi penyedia dana. Sekali menjadi penyedia dana, peran tidak bisa diubah sendiri. */
+/**
+ * Naik peran menjadi penyedia dana. Sekali menjadi penyedia dana, peran tidak
+ * bisa diubah sendiri.
+ *
+ * Ini adalah alur onboarding mandiri yang memang diuji, bukan eskalasi ke
+ * admin: peran `dana` hanya membuka ruang lihat-saja dengan data pemohon yang
+ * sudah disamarkan. Tetap dicatat di auditLog supaya admin bisa meninjau akun
+ * yang naik peran tanpa melalui undangan.
+ */
 export const naikPeranDana = mutation({
   args: {},
   handler: async (ctx) => {
@@ -283,6 +291,15 @@ export const naikPeranDana = mutation({
       return { already: true };
     }
     await ctx.db.patch(userId, { role: ROLES.DANA });
+    await ctx.db.insert("auditLog", {
+      aktorUserId: userId,
+      aktorLabel: user.email ?? user.name ?? userId,
+      aksi: "naik_peran_dana_mandiri",
+      target: user.email ?? userId,
+      detail:
+        "Akun menaikkan perannya sendiri menjadi penyedia dana (ruang lihat-saja).",
+      waktu: Date.now(),
+    });
     return { already: false };
   },
 });

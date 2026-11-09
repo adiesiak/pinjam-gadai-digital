@@ -24,10 +24,20 @@
  *   aturan ini, draft basi bisa menurunkan data yang sudah benar.
  * - Kode OTP dan berkas (blob) TIDAK pernah masuk draft — kode OTP kredensial
  *   berumur pendek, dan berkas tidak bisa disimpan sebagai teks.
+ * - Draft berumur 30 hari. Setelah itu ia diabaikan (dan pemanggil boleh
+ *   membuangnya); data yang sudah tersimpan di server tetap menjadi sumber
+ *   utama, jadi tidak ada portofolio yang hilang karena draft kedaluwarsa.
  */
 
 /** Versi bentuk payload draft. Naikkan bila bentuknya berubah. */
 export const VERSI_DRAFT_KYC = 1;
+
+/**
+ * Draft yang tidak disentuh selama 30 hari dibuang saat dibaca. Ini batas
+ * retensi data pribadi di perangkat, bukan batas pengisian formulir: pengguna
+ * yang kembali setelah sebulan mengisi ulang dari data server.
+ */
+export const MASA_BERLAKU_DRAFT_KYC_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Kolom isian yang boleh dipulihkan dari draft. Sengaja teks biasa
@@ -119,6 +129,7 @@ export function serialisasiDraft(
 export function bacaDraftTersimpan(
   teks: string | null | undefined,
   userId: string,
+  sekarang: number = Date.now(),
 ): PayloadDraftKyc | null {
   if (typeof teks !== "string" || teks.trim() === "") return null;
   if (userId.trim() === "") return null;
@@ -136,6 +147,12 @@ export function bacaDraftTersimpan(
     typeof payload.diperbaruiPada === "number" && Number.isFinite(payload.diperbaruiPada)
       ? payload.diperbaruiPada
       : 0;
+  // `0` berarti payload lama/rusak tanpa waktu; tetap dibaca sekali agar
+  // pengguna tidak kehilangan isian, tetapi draft bertanggal yang sudah lewat
+  // 30 hari tidak boleh hidup selamanya di perangkat.
+  if (diperbaruiPada > 0 && sekarang - diperbaruiPada > MASA_BERLAKU_DRAFT_KYC_MS) {
+    return null;
+  }
   const isian = bersihkanIsian(payload.isian);
   if (!adaIsiDraft(isian)) return null;
   return { versi: VERSI_DRAFT_KYC, userId, diperbaruiPada, isian };

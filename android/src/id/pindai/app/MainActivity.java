@@ -70,7 +70,7 @@ public class MainActivity extends Activity {
      * AndroidManifest setiap kali merilis APK baru — angka inilah yang
      * dibandingkan dengan `version.json` di server.
      */
-    private static final int VERSI_KODE = 5;
+    private static final int VERSI_KODE = 6;
 
     /** Beranda saja yang dimuat ulang setelah aplikasi lama ditinggal. */
     private static final long JEDA_MUAT_ULANG_MS = 15L * 60 * 1000;

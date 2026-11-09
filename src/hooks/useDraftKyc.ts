@@ -122,7 +122,17 @@ export function useDraftKyc({
         return { isian: server, dipulihkan: [] as KunciDraftKyc[] };
       }
       const payload = bacaDraftTersimpan(teks, userId);
-      if (payload === null) return { isian: server, dipulihkan: [] as KunciDraftKyc[] };
+      if (payload === null) {
+        // Buang draft kedaluwarsa/rusak/milik akun lain saat ketahuan. Kalau
+        // dibiarkan, data pribadi lama tetap menetap di localStorage meski
+        // tidak pernah dipakai lagi.
+        try {
+          window.localStorage.removeItem(kunci);
+        } catch {
+          // Penyimpanan diblokir: tidak ada yang bisa dibersihkan.
+        }
+        return { isian: server, dipulihkan: [] as KunciDraftKyc[] };
+      }
       const hasil = pulihkanKeIsian(server, payload.isian);
       // Isian hasil gabungan dianggap sudah tertulis, supaya efek debounce
       // berikutnya tidak langsung menulis ulang isi yang sama.

@@ -48,8 +48,9 @@ function asalConvex(): string {
  * Kebijakan keamanan isi.
  *
  * - `script-src 'self'`: tidak ada skrip sebaris. Skrip tema sudah dipindah ke
- *   `/tema-awal.js` khusus untuk ini. `cdn.jsdelivr.net` dibutuhkan mesin OCR
- *   (worker dan core Tesseract), dan `challenges.cloudflare.com` untuk Turnstile.
+ *   `/tema-awal.js` khusus untuk ini. Worker & core Tesseract dibundel dari
+ *   origin sendiri lewat `?url`, dan model OCR ada di `/ocr`; tidak ada CDN
+ *   skrip. `challenges.cloudflare.com` tetap diperlukan untuk Turnstile.
  * - `'wasm-unsafe-eval'`: Tesseract menjalankan WebAssembly; tanpa izin ini
  *   pemindaian KTP gagal tanpa pesan yang jelas.
  * - `style-src 'unsafe-inline'`: React menulis atribut `style` (lebar bilah,
@@ -67,13 +68,13 @@ function kebijakanCsp(): string {
     "frame-ancestors 'none'",
     "form-action 'self'",
     "manifest-src 'self'",
-    "script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://challenges.cloudflare.com",
+    "script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "media-src 'self' blob:",
-    "worker-src 'self' blob: https://cdn.jsdelivr.net",
-    `connect-src 'self' ${asalConvex()} https://cdn.jsdelivr.net https://challenges.cloudflare.com https://integrations.vly.ai`,
+    "worker-src 'self' blob:",
+    `connect-src 'self' ${asalConvex()} https://challenges.cloudflare.com https://integrations.vly.ai`,
     "frame-src 'self' https://www.openstreetmap.org https://challenges.cloudflare.com",
     "upgrade-insecure-requests",
   ].join("; ");

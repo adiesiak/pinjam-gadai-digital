@@ -61,8 +61,8 @@ menggantikan verifikasi KYC, pembatas laju per IP, maupun CAPTCHA pihak ketiga.
   halaman pembuka), dan `Permissions-Policy` yang hanya membuka kamera, mikrofon,
   serta lokasi untuk origin sendiri.
   - Isi CSP ditulis satu kali di `main.ts` dengan alasan tiap izin: `script-src
-    'self'` (tanpa skrip sebaris), `wasm-unsafe-eval` + `cdn.jsdelivr.net` untuk
-    mesin OCR Tesseract, `challenges.cloudflare.com` untuk Turnstile,
+    'self'` (tanpa skrip sebaris), `wasm-unsafe-eval` untuk mesin OCR Tesseract
+    yang worker/core/model-nya disajikan dari origin sendiri, `challenges.cloudflare.com` untuk Turnstile,
     `connect-src` ke domain Convex (`.convex.cloud` dan pasangan `.convex.site`
     untuk Convex Auth), `frame-src` ke OpenStreetMap, serta `img-src` yang
     mengizinkan HTTPS karena avatar Google, gambar QRIS, dan berkas storage

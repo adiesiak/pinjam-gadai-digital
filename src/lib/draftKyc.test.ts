@@ -11,6 +11,7 @@ import {
   bacaDraftTersimpan,
   bersihkanIsian,
   kunciPenyimpananDraft,
+  MASA_BERLAKU_DRAFT_KYC_MS,
   pulihkanKeIsian,
   ringkasPemulihan,
   serialisasiDraft,
@@ -52,12 +53,23 @@ cek("ada isi", adaIsiDraft({ nik: "123" }) === true);
 
 /* --- serialisasi + baca (putaran penuh) -------------------------------- */
 const isian: IsianDraftKyc = { namaLengkap: "Rani Puspita", nik: "3201010101010001" };
-const teks = serialisasiDraft("u1", isian, 1700000000000);
-const dibaca = bacaDraftTersimpan(teks, "u1");
+const WAKTU_UJI = 1700000000000;
+const teks = serialisasiDraft("u1", isian, WAKTU_UJI);
+const dibaca = bacaDraftTersimpan(teks, "u1", WAKTU_UJI);
 cek("payload berhasil dibaca", dibaca !== null);
 sama("versi payload", dibaca?.versi, VERSI_DRAFT_KYC);
 sama("isian pulih apa adanya", dibaca?.isian, isian);
-sama("waktu tersimpan", dibaca?.diperbaruiPada, 1700000000000);
+sama("waktu tersimpan", dibaca?.diperbaruiPada, WAKTU_UJI);
+
+/* --- retensi: draft tidak boleh hidup selamanya di perangkat ---------- */
+cek(
+  "draft tepat 30 hari masih berlaku",
+  bacaDraftTersimpan(teks, "u1", WAKTU_UJI + MASA_BERLAKU_DRAFT_KYC_MS) !== null,
+);
+cek(
+  "draft lewat 30 hari ditolak",
+  bacaDraftTersimpan(teks, "u1", WAKTU_UJI + MASA_BERLAKU_DRAFT_KYC_MS + 1) === null,
+);
 
 /* --- penjaga: pengguna, versi, kerusakan ------------------------------- */
 cek("draft milik pengguna lain ditolak", bacaDraftTersimpan(teks, "u2") === null);
