@@ -79,7 +79,12 @@ ok(
 );
 
 {
-  const qr = readFileSync(`${akar}public/qr-aplikasi.svg`, "utf8");
+  // `qrcode` menghasilkan akhiran baris LF; checkout Windows (core.autocrlf)
+  // menyimpannya sebagai CRLF, jadi dibandingkan setelah dinormalkan.
+  const qr = readFileSync(`${akar}public/qr-aplikasi.svg`, "utf8").replace(
+    /\r\n/g,
+    "\n",
+  );
   ok(qr.startsWith("<svg"), "berkas QR berupa SVG");
   ok(qr.includes('fill="#ffffff"'), "QR punya bidang putih untuk quiet zone");
   ok(qr.includes('stroke="#0f3d3a"'), "QR memakai warna lambang");

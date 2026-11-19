@@ -2,9 +2,9 @@
 .env.keys
 node_modules
 dist
-# Tipe Convex yang dihasilkan kode (`convex dev` / `convex deploy`).
-# Tidak di-commit: dihasilkan ulang dari deployment.
-src/convex/_generated
+# Tipe Convex yang dihasilkan kode (`convex dev` / `convex deploy`) — DI-COMMIT.
+# Build CI (Vercel) menjalankan `tsc -b` tanpa login Convex, jadi berkas ini
+# harus ada di repo. Convex sendiri menyarankan hasil codegen di-commit.
 # Kunci deploy Convex — JANGAN pernah di-commit.
 .convex-deploy-key
 # Perantara build APK Android (lihat android/README.md).

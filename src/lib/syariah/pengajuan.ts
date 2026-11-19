@@ -132,8 +132,20 @@ export type BarangPengajuanSyariah = {
   harga: number;
 };
 
-/** Argumen `syariahPengajuan.ajukan` yang disusun formulir. */
-export type PermintaanAjukanSyariah = PermintaanPengajuanSyariah & {
+/**
+ * Argumen `syariahPengajuan.ajukan` yang disusun formulir.
+ *
+ * Sengaja TIDAK mewarisi `PermintaanPengajuanSyariah` apa adanya: tipe itu
+ * memuat `marginPersen`, sedangkan validator `syariahPengajuan.ajukan` tidak
+ * menerimanya (margin ditetapkan admin dari konfigurasi, bukan dikirim
+ * peminjam). Mewariskannya membuat payload membawa kunci ekstra yang ditolak
+ * validator `v.object` di server — seluruh pengajuan gagal. `nilaiTaksiran`
+ * tetap diambil dari tipe induk karena memang bagian dari validator.
+ */
+export type PermintaanAjukanSyariah = Pick<
+  PermintaanPengajuanSyariah,
+  "jenis" | "pokok" | "tenorHari" | "nilaiTaksiran"
+> & {
   tujuan: string;
   namaBarang?: string;
   katalogId?: string;

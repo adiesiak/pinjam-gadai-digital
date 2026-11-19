@@ -1,0 +1,41 @@
+# Akhiran baris dinormalkan ke LF di dalam repo DAN di working tree.
+#
+# Alasannya bukan selera: banyak tes membaca berkas sumber sebagai teks lalu
+# mencocokkan potongan kode apa adanya (`sumber.includes("{!bulanan && (\n...")`).
+# Dengan `core.autocrlf=true` (bawaan Git for Windows), checkout menghasilkan
+# CRLF sehingga tes itu gagal di Windows padahal lulus di Linux/CI. Memaksa LF
+# membuat hasil tes sama di semua mesin.
+#
+# Berkas biner tetap tidak disentuh.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.apk binary
+*.idsig binary
+*.keystore binary
+*.jks binary
+*.jar binary
+*.wav binary
+*.mp3 binary
+*.mp4 binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.pdf binary
+
+# Skrip shell harus LF agar tidak gagal saat dijalankan di Linux/CI.
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Berkas yang memang butuh CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

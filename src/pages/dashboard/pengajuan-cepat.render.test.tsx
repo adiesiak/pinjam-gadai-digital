@@ -37,8 +37,12 @@ function tidakAda(teks: string, cari: string, label: string): void {
   ok(!teks.includes(cari), `${label} (tidak memuat "${cari}")`);
 }
 
+// Akhiran baris dinormalkan ke `\n`: sebagian berkas memakai CRLF (checkout
+// Windows), dan pemeriksaan yang menyalin potongan kode apa adanya gagal hanya
+// karena `\r` — bukan karena kodenya berubah.
 const baca = (relatif: string) =>
   readFileSync(fileURLToPath(new URL(relatif, import.meta.url)), "utf8")
+    .replace(/\r\n/g, "\n")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^\s*\/\/.*$/gm, "");
 

@@ -55,19 +55,22 @@ eq(
 );
 
 // ===== 2. Opsi tier perpanjangan =====
+// Tarif final = tarif dasar matriks + `PENAMBAHAN_BUNGA_HARIAN_PERSEN` (2 poin),
+// angka yang juga dijaga `tenorHarian.test.ts` dan didokumentasikan di
+// `loan.ts` (tier 3: 28/30/31/32).
 eq(
   opsiPerpanjangan(1_000_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
-  "7:26,14:28,21:29,28:30",
+  "7:28,14:30,21:31,28:32",
   "pokok Rp1 juta memakai tier 7/14/21/28 hari",
 );
 eq(
   opsiPerpanjangan(750_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
-  "7:28,14:32,21:34,28:35",
+  "7:30,14:34,21:36,28:37",
   "pokok Rp750 ribu memakai tier 7/14/21/28 hari",
 );
 eq(
   opsiPerpanjangan(400_000).map((o) => `${o.hari}:${o.persenBunga}`).join(","),
-  "7:30,14:35,21:38,28:40",
+  "7:32,14:37,21:40,28:42",
   "pokok Rp400 ribu kembali ke tier 7 hari",
 );
 eq(opsiPerpanjangan(99_999).length, 0, "di bawah batas pokok tidak punya opsi");
@@ -97,8 +100,8 @@ const cicil = hitungRencanaPembayaran({
 });
 eq(cicil.totalDue, 500_000, "total hari ini = bunga + cicilan pokok");
 eq(cicil.principalSesudah, 800_000, "sisa pokok berkurang");
-eq(cicil.tierRate, 35, "tier mengikuti sisa pokok Rp800 ribu pada tenor 28 hari");
-eq(cicil.nextInterestAmount, 280_000, "bunga baru = sisa pokok x tier baru");
+eq(cicil.tierRate, 37, "tier mengikuti sisa pokok Rp800 ribu pada tenor 28 hari");
+eq(cicil.nextInterestAmount, 296_000, "bunga baru = sisa pokok x tier baru");
 eq(cicil.nextDueDate, JATUH_TEMPO + 28 * HARI, "cicil pokok juga memperpanjang tenor");
 
 const cicilTierTurun = hitungRencanaPembayaran({
@@ -109,8 +112,8 @@ const cicilTierTurun = hitungRencanaPembayaran({
   waktuTransaksi: JATUH_TEMPO,
 });
 eq(cicilTierTurun.principalSesudah, 400_000, "sisa pokok Rp400 ribu");
-eq(cicilTierTurun.tierRate, 30, "tier 7 hari untuk sisa pokok di bawah Rp500 ribu");
-eq(cicilTierTurun.nextInterestAmount, 120_000, "bunga baru mengikuti tier yang lebih rendah");
+eq(cicilTierTurun.tierRate, 32, "tier 7 hari untuk sisa pokok di bawah Rp500 ribu");
+eq(cicilTierTurun.nextInterestAmount, 128_000, "bunga baru mengikuti tier yang lebih rendah");
 
 // ===== 5. Denda & pelunasan total =====
 const terlambat = hitungRencanaPembayaran({

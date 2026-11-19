@@ -9,7 +9,7 @@
 import { TENOR_BULANAN_OPTIONS } from "./bulanan";
 import { GADAI_PRICING } from "./gadai";
 import { KREDIT_TENOR_PENGAJUAN_OPTIONS } from "./kredit";
-import { TENOR_OPTIONS } from "./loan";
+import { TENOR_HARIAN_MAKS, TENOR_OPTIONS } from "./loan";
 import { SOROTAN_LAYANAN } from "./sorotanLayanan";
 
 let lulus = 0;
@@ -29,9 +29,8 @@ cek("tiga kartu punya sorotan", SOROTAN_LAYANAN.length === 3);
 const [pinjaman, gadai, kredit] = SOROTAN_LAYANAN;
 
 cek(
-  "tenor harian memakai ujung TENOR_OPTIONS",
-  pinjaman.angka ===
-    `${TENOR_OPTIONS[0]}–${TENOR_OPTIONS[TENOR_OPTIONS.length - 1]}`,
+  "tenor harian memakai awal TENOR_OPTIONS sampai TENOR_HARIAN_MAKS",
+  pinjaman.angka === `${TENOR_OPTIONS[0]}–${TENOR_HARIAN_MAKS}`,
 );
 cek(
   "label pinjaman menyebut tenor bulanan",

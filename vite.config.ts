@@ -2,11 +2,34 @@ import { vlyPlugin } from "@vly-ai/integrations";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
+
+/**
+ * `VITE_CONVEX_URL` disuntikkan saat build dan tidak bisa diubah setelahnya.
+ * Build tanpa nilai ini tetap "sukses" tetapi menghasilkan aplikasi yang
+ * melempar "No address provided to ConvexReactClient" di peramban, jadi
+ * kegagalannya digeser ke sini agar terlihat di CI (Vercel) alih-alih
+ * ditemukan pengguna.
+ */
+function wajibkanUrlConvex(mode: string) {
+  return {
+    name: "pindai-wajibkan-url-convex",
+    apply: "build" as const,
+    config(_: unknown, env: { command: string; mode: string }) {
+      const terisi = loadEnv(env.mode ?? mode, process.cwd(), "VITE_");
+      if (!terisi.VITE_CONVEX_URL) {
+        throw new Error(
+          "VITE_CONVEX_URL kosong saat build. Setel di Vercel → Settings → " +
+            "Environment Variables, atau di `.env.local` untuk build lokal.",
+        );
+      }
+    },
+  };
+}
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), vlyPlugin(), tailwindcss()],
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), vlyPlugin(), tailwindcss(), wajibkanUrlConvex(mode)],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -74,4 +97,4 @@ export default defineConfig({
     hmr: false,
     ws: false,
   },
-});
+}));

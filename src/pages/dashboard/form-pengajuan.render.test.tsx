@@ -42,9 +42,18 @@ function ok(label: string, syarat: boolean) {
   }
 }
 
-/** Isi berkas sumber relatif terhadap `src/` (mis. "pages/Dashboard.tsx"). */
+/**
+ * Isi berkas sumber relatif terhadap `src/` (mis. "pages/Dashboard.tsx").
+ *
+ * Akhiran baris dinormalkan ke `\n`: beberapa berkas di repo ini memakai CRLF
+ * (checkout Windows), dan pemeriksaan yang menyalin potongan JSX apa adanya
+ * gagal hanya karena `\r` — bukan karena kodenya berubah.
+ */
 function bacaSumber(relatif: string): string {
-  return readFileSync(fileURLToPath(new URL(`../../${relatif}`, import.meta.url)), "utf8");
+  return readFileSync(
+    fileURLToPath(new URL(`../../${relatif}`, import.meta.url)),
+    "utf8",
+  ).replace(/\r\n/g, "\n");
 }
 
 /** Isi `<button aria-label="…">…</button>` — "wajah" sebuah dropdown. */

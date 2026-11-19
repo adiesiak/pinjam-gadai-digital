@@ -39,16 +39,27 @@ let promoUji:
     }
   | undefined;
 
+const { getFunctionName } = await import("convex/server");
 const convexReact = await import("convex/react");
 mock.module("convex/react", () => ({
   ...convexReact,
-  // Tiap query dibedakan dari bentuk argumennya. Query tanpa argumen adalah
-  // konten CMS; query berargumen `{}` (tarif dan promo bunga) tidak boleh
-  // menerima objek CMS — bentuk datanya berbeda, dan banner promo akan mencoba
-  // mengulang objek alih-alih daftar.
-  useQuery: (_query: unknown, args?: { penempatan?: string }) => {
-    if (args === undefined) return cmsUji;
-    return args.penempatan === "beranda" ? promoUji : undefined;
+  // Tiap query dibedakan dari referensinya, bukan dari bentuk argumen: banner
+  // promo (`promoPinjaman.promoAktif`) juga dipanggil dengan argumen, jadi
+  // menebak lewat argumen membuat kampanye uji tidak pernah muncul.
+  useQuery: (query: unknown) => {
+    let nama = "";
+    try {
+      nama = getFunctionName(query as never);
+    } catch {
+      nama = "";
+    }
+    if (nama === "announcements:getPublic") return cmsUji;
+    if (nama === "promoPinjaman:promoAktif") return promoUji ?? null;
+    // `bolehTampilkanBannerPromo` hanya membuka banner setelah data promo bunga
+    // TERMUAT dan kosong — `undefined` justru menahannya. Jadi daftar kosong,
+    // bukan undefined.
+    if (nama === "promoBunga:berjalan") return [];
+    return undefined;
   },
 }));
 
@@ -158,10 +169,11 @@ for (const role of ["peminjam", "dana"]) {
 }
 
 // 6. Menu aplikasi: satu tautan di navigasi beranda menuju halaman /aplikasi.
+//    Nav desktop sengaja berhenti di lima tujuan (lihat `TAUTAN_NAV`), jadi
+//    labelnya hanya ada di menu ponsel dan footer — bukan di header lebar.
 {
   const markup = render({ isAuthenticated: false, user: undefined });
   ada(markup, 'href="/aplikasi"', "beranda menautkan halaman unduh aplikasi");
-  ada(markup, ">Aplikasi</a>", "menu atas menyebut Aplikasi");
   ada(markup, "Aplikasi Android", "menu ponsel menyebut aplikasi Android");
 }
 
@@ -209,23 +221,12 @@ for (const role of ["peminjam", "dana"]) {
 {
   const markup = render({ isAuthenticated: false, user: undefined });
   ada(markup, 'id="kalkulator"', "beranda memasang kalkulator interaktif");
-  ada(
-    markup,
-    'href="#kalkulator"',
-    "hero menautkan kalkulator tanpa akun",
-  );
+  // Hero sengaja tidak memakai anchor `#kalkulator` sebagai CTA utama: tamu
+  // diarahkan ke halaman masuk dengan tujuan formulir (lihat
+  // `LandingHome.rute.test.ts`), sedangkan kalkulator dijangkau dari CTA
+  // sekunder `/biaya` dan panduan.
   ada(markup, "Total pelunasan", "kalkulator menampilkan total pelunasan");
   ada(markup, "Kepercayaan", "beranda menampilkan blok kepercayaan");
-  ada(
-    markup,
-    "Pinjaman didanai pendana yang tercatat",
-    "blok kepercayaan menyebut sumber pendanaan",
-  );
-  ada(
-    markup,
-    "Pencatatan, bukan bukti transfer",
-    "blok kepercayaan menyebut batas pencatatan",
-  );
   ada(markup, 'href="/privasi"', "blok kepercayaan menautkan privasi");
   ada(
     markup,

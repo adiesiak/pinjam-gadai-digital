@@ -800,7 +800,9 @@ export function HelpdeskSayaView({
             onBuatBaru={() => setBuatTerbuka(true)}
           />
         ) : (
-          <aside className="hidden min-w-0 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center lg:flex">
+          // Panel ini hanya ada di layar lebar (`hidden … lg:flex`), jadi jarak
+          // vertikal besarnya memang register desktop — ditulis `lg:py-14`.
+          <aside className="hidden min-w-0 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-6 text-center lg:flex lg:py-14">
             <span className="flex size-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500">
               <MessageSquare className="size-5" aria-hidden />
             </span>

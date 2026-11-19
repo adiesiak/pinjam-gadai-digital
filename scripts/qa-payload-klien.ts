@@ -116,25 +116,32 @@ for (const sf of program.getSourceFiles()) {
   if (/\.test\./.test(file)) continue;
 
   const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
-  const handle = new Map<string, { target: string; jenis: string }>();
 
-  const kumpulkanHandle = (node: ts.Node) => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-      const init = node.initializer;
-      if (ts.isCallExpression(init) && ts.isIdentifier(init.expression)) {
-        const hook = init.expression.text;
-        const target = init.arguments[0]?.getText(sf) ?? "";
-        const m = /^(?:api|internal)\.(\w+)\.(\w+)$/.exec(target);
-        const jenis =
-          hook === "useMutation" ? "mutation" : hook === "useQuery" ? "query" : hook === "useAction" ? "action" : null;
-        if (jenis !== null && m) {
-          handle.set(node.name.text, { target: `${m[1]}.${m[2]}`, jenis });
-        }
-      }
-    }
-    ts.forEachChild(node, kumpulkanHandle);
+  /**
+   * Resolusi handle lewat SIMBOL, bukan nama variabel.
+   *
+   * Versi sebelumnya menyimpan `Map<nama, handle>` per berkas, sehingga dua
+   * komponen di berkas yang sama dengan nama variabel sama (mis. `simpan` di
+   * `contract-views.tsx` untuk `setujuiPerjanjianPinjaman` dan
+   * `setujuiPerjanjianGadai`) saling menimpa: pemanggilan yang benar dilaporkan
+   * sebagai "KUNCI EKSTRA" karena dibandingkan dengan validator fungsi lain.
+   * `getSymbolAtLocation` menunjuk deklarasi yang benar-benar terlihat di titik
+   * pemanggilan, jadi shadowing tidak lagi mengaburkan hasil.
+   */
+  const handleDariIdent = (ident: ts.Identifier): { target: string; jenis: string } | null => {
+    const simbol = checker.getSymbolAtLocation(ident);
+    const decl = simbol?.valueDeclaration;
+    if (!decl || !ts.isVariableDeclaration(decl) || !decl.initializer) return null;
+    const init = decl.initializer;
+    if (!ts.isCallExpression(init) || !ts.isIdentifier(init.expression)) return null;
+    const hook = init.expression.text;
+    const target = init.arguments[0]?.getText(decl.getSourceFile()) ?? "";
+    const m = /^(?:api|internal)\.(\w+)\.(\w+)$/.exec(target);
+    const jenis =
+      hook === "useMutation" ? "mutation" : hook === "useQuery" ? "query" : hook === "useAction" ? "action" : null;
+    if (jenis === null || !m) return null;
+    return { target: `${m[1]}.${m[2]}`, jenis };
   };
-  kumpulkanHandle(sf);
 
   /**
    * `as` pada SELURUH payload mematikan pemeriksaan tipe untuk bentuk objeknya.
@@ -152,7 +159,7 @@ for (const sf of program.getSourceFiles()) {
 
   const telusuriPanggilan = (node: ts.Node) => {
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
-      const h = handle.get(node.expression.text);
+      const h = handleDariIdent(node.expression);
       if (h) {
         const line = lineOf(node);
         const arg = node.arguments[0];
