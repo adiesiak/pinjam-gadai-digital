@@ -110,9 +110,40 @@ menunggu kode yang tidak akan datang.
 ## 4. Login kata sandi admin
 
 Sudah berfungsi tanpa layanan luar. Akun kata sandi untuk
-`charelsoerya2@gmail.com` ada di tabel `authAccounts`. Ini satu-satunya jalan
-masuk admin selama email dan Google belum aktif — jadi jangan hapus akun itu
-sebelum salah satu kanal di atas siap.
+`charelsoerya2@gmail.com` ada di tabel `authAccounts`.
+
+### Kenapa admin sempat tidak bisa masuk sama sekali
+
+Convex Auth meminta **faktor kedua** (kode email) setiap kali masuk selama
+`authAccounts.emailVerified` masih kosong:
+
+```js
+// node_modules/@convex-dev/auth/dist/providers/Password.js
+if (config.verify && !account.emailVerified) {
+  return await signInViaProvider(ctx, config.verify, { accountId: account._id, params });
+}
+return { userId: user._id };
+```
+
+`src/convex/auth.ts` memasang `verify: adminPasswordOtp`, dan
+`adminPasswordOtp` mengirim kode lewat `kirimEmailVerifikasi`. Jadi alur masuk
+admin adalah **kata sandi + kode email**, bukan kata sandi saja.
+
+Akun admin hasil migrasi punya `users.emailVerificationTime` tetapi **tidak**
+punya `authAccounts.emailVerified`. Akibatnya login selalu menuntut kode email —
+dan karena kanal email belum dikonfigurasi, admin tidak bisa masuk sama sekali.
+Pesan di UI hanya "Permintaan gagal. Periksa kembali email dan coba lagi."
+(`src/lib/authAdmin.ts`), yang menyesatkan: emailnya benar, yang gagal adalah
+pengiriman kode.
+
+Perbaikannya: isi `authAccounts.emailVerified` dengan alamat admin. Alamat itu
+memang sudah terverifikasi, jadi pengisian ini jujur, dan sesudahnya masuk cukup
+dengan kata sandi. Faktor kedua otomatis diminta lagi bila kelak `verify`
+dipakai untuk akun yang emailnya belum terverifikasi.
+
+Saat menambah admin baru lewat panel, pastikan `authAccounts.emailVerified`
+ikut terisi; kalau tidak, admin itu akan mengalami masalah yang sama begitu
+kanal email dimatikan.
 
 ## Cara memeriksa kesiapan
 
