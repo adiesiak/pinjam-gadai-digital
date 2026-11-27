@@ -7,6 +7,15 @@ import type { ActionCtx } from "../_generated/server";
 
 /** Kirim kode verifikasi ke email tujuan lewat layanan email Freebuff. */
 export async function kirimEmailVerifikasi(email: string, token: string) {
+  // Resend didahulukan bila dikonfigurasi: ia punya kuota gratis yang tidak
+  // bergantung pada langganan VLY, dan API-nya cukup satu permintaan HTTP.
+  // Gateway VLY tetap dipakai sebagai cadangan supaya deployment lama yang
+  // sudah punya VLY_INTEGRATION_KEY tidak berubah perilakunya.
+  if ((process.env.RESEND_API_KEY ?? "") !== "") {
+    await kirimLewatResend(email, token);
+    return;
+  }
+
   try {
     await axios.post(
       freebuffEmailOtpUrl(),
@@ -27,6 +36,67 @@ export async function kirimEmailVerifikasi(email: string, token: string) {
     throw freebuffEmailOtpError(error);
   }
 }
+
+/**
+ * Kirim kode lewat Resend (https://resend.com) — kuota gratis 100 email/hari.
+ *
+ * `EMAIL_FROM` wajib memakai domain yang sudah diverifikasi di Resend. Untuk
+ * uji cepat tanpa domain, isi `onboarding@resend.dev`; Resend hanya
+ * mengizinkannya ke alamat pemilik akun sendiri.
+ */
+async function kirimLewatResend(email: string, token: string) {
+  const kunci = process.env.RESEND_API_KEY ?? "";
+  const pengirim = process.env.EMAIL_FROM ?? "PINDAI <onboarding@resend.dev>";
+
+  let respons: Response;
+  try {
+    // `AbortSignal.timeout` tidak dijamin ada di semua runtime Convex, jadi
+    // dipakai hanya bila tersedia; batas waktu tetap dijaga oleh action.
+    const sinyal =
+      typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+        ? AbortSignal.timeout(15_000)
+        : undefined;
+    respons = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${kunci}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: pengirim,
+        to: [email],
+        subject: `Kode masuk PINDAI: ${token}`,
+        html: `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1c1a15">
+  <p>Kode masuk PINDAI Anda:</p>
+  <p style="font-size:28px;font-weight:700;letter-spacing:6px;margin:16px 0">${token}</p>
+  <p style="font-size:13px;color:#6f6858">Berlaku 15 menit. Jangan bagikan kode ini kepada siapa pun, termasuk yang mengaku petugas PINDAI.</p>
+</div>`,
+        text: `Kode masuk PINDAI Anda: ${token}\n\nBerlaku 15 menit. Jangan bagikan kode ini kepada siapa pun.`,
+      }),
+      ...(sinyal === undefined ? {} : { signal: sinyal }),
+    });
+  } catch (galat) {
+    const pesan = galat instanceof Error ? galat.message : String(galat);
+    throw new Error(`Could not send the sign-in code: ${pesan}`);
+  }
+
+  if (respons.ok) return;
+
+  // Pesan dari Resend berguna untuk operator (domain belum diverifikasi, kuota
+  // habis, API key salah), jadi diteruskan — tetapi hanya potongan pendek dan
+  // tanpa header permintaan.
+  let rincian = "";
+  try {
+    const isi = (await respons.json()) as { message?: unknown };
+    if (typeof isi.message === "string") rincian = `: ${isi.message.slice(0, 200)}`;
+  } catch {
+    // Balasan bukan JSON: cukup statusnya.
+  }
+  throw new Error(
+    `Could not send the sign-in code (Resend HTTP ${respons.status})${rincian}`,
+  );
+}
+
 
 export const emailOtp = Email({
   id: "email-otp",
