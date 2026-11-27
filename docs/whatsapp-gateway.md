@@ -76,7 +76,7 @@ nameserver.
 
 ## Bila URL tunnel berubah
 
-Perbarui `waSettings.apiUrl` lewat panel admin **Pengaturan → WhatsApp**. Panel
+Perbarui `waSettings.apiUrl` lewat panel admin tab **WhatsApp**. Panel
 memvalidasi URL dengan aturan yang sama (`validasiGatewayUrl`), jadi URL yang
 tidak lolos akan ditolak sebelum tersimpan.
 

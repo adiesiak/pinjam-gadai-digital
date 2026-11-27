@@ -115,7 +115,7 @@ cd /path/ke/pinjam-gadai-digital
 npx convex env set WHATSAPP_API_KEY <TOKEN-BARU> --prod
 ```
 
-**`apiUrl`** — panel admin **Pengaturan → WhatsApp**, atau langsung:
+**`apiUrl`** — panel admin tab **WhatsApp**, atau langsung:
 
 ```js
 { apiUrl: "https://wa.pindai.biz.id/send", aktif: true }
@@ -245,7 +245,7 @@ Kalau salah satu jalan di atas belum dikerjakan, lakukan ini minimal:
 
 ```bash
 # di VPS, setelah cloudflared dijalankan ulang dan URL baru tercetak
-# perbarui apiUrl lewat panel admin Pengaturan -> WhatsApp
+# perbarui apiUrl lewat panel admin tab WhatsApp
 ```
 
 Tanpa pemantauan, kegagalan tunnel baru ketahuan saat ada pengguna yang gagal
