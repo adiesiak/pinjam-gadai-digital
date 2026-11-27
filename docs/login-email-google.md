@@ -1,14 +1,21 @@
 # Mengaktifkan Login Email dan Google (Gratis)
 
-Status per 27 November 2026: **login email dan OTP belum berfungsi di produksi.**
+Status per 27 November 2026:
 
-Penyebabnya bukan bug kode, melainkan kunci layanan pihak ketiga yang belum
-diisi di deployment Convex `academic-rooster-210`. Dokumen ini mencatat bukti,
-lalu langkah mengaktifkannya dengan layanan yang punya kuota gratis.
+| Kanal | Status |
+| --- | --- |
+| Login email OTP | **AKTIF** (Resend, domain `pindai.biz.id` terverifikasi) |
+| Lupa kata sandi admin | **AKTIF** (lewat Resend) |
+| Login kata sandi admin | **AKTIF** |
+| Login Google | belum — `AUTH_GOOGLE_ID` / `SECRET` kosong |
+| WhatsApp OTP | belum — butuh Fonnte berbayar |
 
-## Bukti dari produksi
+Dokumen ini mencatat bukti, keputusan, lalu langkah mengaktifkan yang tersisa.
 
-Log fungsi Convex (`npx convex logs --history 20`):
+## Riwayat: kenapa dulu gagal
+
+Sebelum Resend dipasang, semua kanal bergantung layanan berbayar yang belum
+dikonfigurasi. Log fungsi Convex waktu itu:
 
 ```
 [CONVEX A(auth:signIn)] Uncaught Error: Could not send the sign-in code:
@@ -18,53 +25,60 @@ so email sign-in cannot send codes.
 
 Uji per provider lewat `POST /api/action` ke `auth:signIn`:
 
-| Metode | Hasil | Sebab |
+| Metode | Dulu | Sekarang |
 | --- | --- | --- |
-| `email-otp` | gagal | `VLY_INTEGRATION_KEY` kosong (gateway VLY berbayar) |
-| `whatsapp-otp` | gagal | `WHATSAPP_API_KEY` / `FONNTE_TOKEN` kosong (Fonnte berbayar) |
-| `nik-otp` | gagal | sama, jalurnya lewat WhatsApp |
-| `google` | nonaktif | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` kosong |
-| `password` | akun ada | akun `charelsoerya2@gmail.com` terdaftar |
-| `anonymous` | **berhasil** | tidak butuh layanan luar |
+| `email-otp` | gagal (VLY kosong) | **berhasil** |
+| `whatsapp-otp` | gagal (Fonnte kosong) | gagal |
+| `nik-otp` | gagal (lewat WhatsApp) | gagal |
+| `google` | nonaktif | nonaktif |
+| `password` | akun ada | **berhasil** |
+| `anonymous` | berhasil | berhasil |
 
-Artinya infrastruktur auth sehat (JWT, JWKS, OIDC, route callback semua normal).
-Yang mati hanya **pengiriman kode**.
+## 1. Email OTP lewat Resend (aktif)
 
-## 1. Email OTP lewat Resend (gratis 100 email/hari)
-
-Kode sudah mendukung Resend. Bila `RESEND_API_KEY` diisi, jalur Resend dipakai;
-bila tidak, kode kembali ke gateway VLY seperti sebelumnya
-(lihat `src/convex/auth/emailOtp.ts`).
-
-Langkah:
-
-1. Daftar di <https://resend.com> (gratis, tanpa kartu kredit).
-2. **Domains** → tambahkan `pindai.biz.id`, lalu salin record DNS yang
-   ditampilkan (SPF, DKIM, dan opsional DMARC) ke pengelola DNS domain.
-   Tunggu status **Verified** (biasanya beberapa menit).
-3. **API Keys** → buat kunci baru, izin *Sending access*. Salin nilainya.
-4. Pasang di Convex:
+Konfigurasi terpasang di deployment `academic-rooster-210`:
 
 ```bash
-npx convex env set RESEND_API_KEY re_xxxxxxxx
+npx convex env set RESEND_API_KEY re_...
 npx convex env set EMAIL_FROM "PINDAI <noreply@pindai.biz.id>"
 ```
 
-5. Uji: buka <https://pindai.biz.id/auth>, masukkan email, tekan kirim kode.
+Domain `pindai.biz.id` sudah berstatus **verified** di Resend (region
+`ap-northeast-1`), jadi pengirim memakai domain sendiri, bukan
+`onboarding@resend.dev`.
 
-### Uji cepat tanpa domain
+Bukti pengiriman dari API Resend:
 
-Sebelum domain terverifikasi, isi `EMAIL_FROM` dengan `onboarding@resend.dev`.
-Resend hanya mengizinkannya mengirim ke alamat pemilik akun Resend sendiri —
-cukup untuk membuktikan alur berjalan.
+```
+to=uji.resend@pindai.biz.id  from=PINDAI <noreply@pindai.biz.id>
+subject='Kode masuk PINDAI: 849470'  last_event=sent
 
-### Kalau kuota 100/hari kurang
+to=charelsoerya2@gmail.com   from=PINDAI <noreply@pindai.biz.id>
+subject='Kode masuk PINDAI: ohIcxSLJ5C1bXqwE1kMEQH5LAUzfV0Kp'  last_event=delivered
+```
 
-- **Brevo** — 300 email/hari gratis, API HTTP juga.
-- **Gmail SMTP** — 500/hari, tetapi butuh `"use node"` + nodemailer dan
-  sering masuk folder spam. Tidak disarankan untuk kode login.
+Verifikasi kode 6 digit juga sudah diuji sampai mendapat token sesi.
 
-## 2. Login Google (gratis selamanya)
+### Catatan penting: OTP email untuk alamat admin TIDAK dikirim
+
+`emailOtp.sendVerificationRequest` sengaja tidak mengirim kode ke alamat Super
+Admin. Tujuannya agar alamat admin tidak bisa dibedakan dari alamat biasa
+(anti-enumerasi) dan kotak masuknya tidak bisa dibanjiri OTP. Permintaannya
+tetap dijawab sukses.
+
+Konsekuensinya: **admin tidak bisa masuk lewat tab "email OTP"**. Admin masuk
+dengan kata sandi, dan bila lupa memakai **Lupa kata sandi** — jalur itu memakai
+`adminPasswordOtp` yang mengirim kode tanpa penahan tersebut.
+
+### Kuota
+
+Resend gratis: 100 email/hari, 3.000/bulan. Bila kurang:
+
+- **Brevo** — 300 email/hari gratis.
+- **Gmail SMTP** — 500/hari, tetapi butuh `"use node"` + nodemailer dan sering
+  masuk folder spam. Tidak disarankan untuk kode login.
+
+## 2. Login Google (belum aktif)
 
 Kode sudah lengkap di `src/convex/auth/google.ts`; tombolnya menyala otomatis
 begitu dua variabel di bawah terisi (`api.users.googleSiap`).
@@ -93,15 +107,15 @@ npx convex env set AUTH_GOOGLE_SECRET GOCSPX-xxxx
 
 Catatan penting: **akun Super Admin sengaja ditolak** lewat Google
 (`jagaMasukGoogle` di `src/convex/auth/google.ts`). Admin tetap masuk dengan
-kata sandi + TOTP. Google hanya untuk peminjam dan penyedia dana.
+kata sandi. Google hanya untuk peminjam dan penyedia dana.
 
-## 3. WhatsApp OTP
+## 3. WhatsApp OTP (belum aktif)
 
 Tidak ada opsi yang benar-benar gratis:
 
 - **Fonnte** — berbayar sekitar Rp 65.000/bulan per perangkat.
 - **Meta WhatsApp Cloud API** — ada kuota gratis 1.000 percakapan/bulan, tetapi
-  butuh verifikasi bisnis dan approval template. Cocok bila volume OTP rendah.
+  butuh verifikasi bisnis dan approval template.
 
 Selama belum diaktifkan, sembunyikan jalur WhatsApp di UI atau biarkan
 menampilkan pesan bahwa kanal itu belum tersedia, supaya pengguna tidak
