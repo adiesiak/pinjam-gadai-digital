@@ -2789,7 +2789,8 @@ const schema = defineSchema(
      * memegangnya, jadi URL itu tidak pernah dikirim ke klien. Query yang lolos
      * gerbang otorisasi — pemiliknya sendiri (`kycSaya`) atau petugas ber-TOTP
      * (`detailKycAdmin`) — mengirim tautan `/berkas` bertanda tangan yang mati
-     * setelah satu jam (`convex/berkas.ts`). Berkas tidak pernah ditulis ke tabel
+     * setelah sepuluh menit (`MASA_TAUTAN_BERKAS_MS` di `convex/berkas.ts`).
+     * Berkas tidak pernah ditulis ke tabel
      * yang bisa dibaca publik, dan tidak ada URL dokumen yang masuk laporan,
      * log, atau pengumuman.
      */

@@ -9,6 +9,7 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { requireAdminSession } from "./adminAuthz";
+import { tautanBerkas } from "./berkas";
 import { acakHex, simpanTitik } from "./lokasi";
 import { audit, tarifDendaBerlaku } from "./system";
 import { pelunasanPinjaman } from "../lib/loan";
@@ -499,7 +500,10 @@ export const verifikasiTerbaru = query({
     const hasil = [];
     for (const row of verifikasi) {
       const loan = await ctx.db.get(row.loanId);
-      const foto = await ctx.storage.getUrl(row.selfieFileId);
+      // Selfie peminjam adalah dokumen identitas: sajikan lewat tautan
+      // bertanda tangan berumur pendek, bukan URL penyimpanan permanen yang
+      // bisa dibuka siapa pun yang memegangnya (lihat convex/berkas.ts).
+      const foto = await tautanBerkas(row.selfieFileId);
       hasil.push({
         _id: row._id,
         namaLengkap: loan?.namaLengkap ?? "—",
