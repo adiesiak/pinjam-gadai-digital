@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
+  action,
   internalMutation,
   internalQuery,
   mutation,
@@ -8,6 +9,7 @@ import {
   QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { requireAdminSession } from "./adminAuthz";
 import {
   DEFAULT_CONFIG,
@@ -1297,15 +1299,17 @@ export const snapshotBagian = query({
  * gaji, foto barang, dan bukti setoran tetap tinggal di storage. Tautannya
  * sengaja permanen supaya pemulihan masih mungkin — jangan pernah membagikan
  * berkas hasil backup ini.
+ *
+ * INTERNAL: gerbang otorisasi dan pencatatan audit ada di `snapshotDokumen`
+ * (action) di bawah. Query ini tidak boleh dipanggil langsung oleh klien.
  */
-export const snapshotDokumen = query({
+export const _halamanDokumenSnapshot = internalQuery({
   args: {
     sumber: v.string(),
     kursor: v.optional(v.string()),
     batas: v.optional(v.number()),
   },
   handler: async (ctx, { sumber, kursor, batas }) => {
-    await requireAdmin(ctx);
     if (!apakahSumberDokumen(sumber)) {
       throw new Error(`Sumber dokumen tidak dikenal: ${sumber}`);
     }
@@ -1366,6 +1370,80 @@ export const snapshotDokumen = query({
       await tambah("bukti_setoran", d.nomorReferensi, d.buktiPembayaranId);
     }
     return { dokumen, kursor: halaman.isDone ? null : halaman.continueCursor };
+  },
+});
+
+/**
+ * Identitas admin yang meminta ekspor dokumen (internal).
+ *
+ * Sekaligus gerbangnya: `requireAdminSession` menolak non-admin dan sesi yang
+ * belum lolos TOTP, jadi action di bawah tidak perlu memeriksa ulang.
+ */
+export const _adminEksporDokumen = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const { userId, user } = await requireAdminSession(ctx);
+    return { userId, label: user.email ?? user.name ?? "admin" };
+  },
+});
+
+/**
+ * Catat satu permintaan ekspor tautan dokumen ke audit trail (internal).
+ *
+ * Ditulis SEBELUM tautan dikembalikan. Kalau penulisan gagal, action gagal —
+ * dan itu memang yang diinginkan: ekspor tanpa jejak tidak boleh berhasil.
+ */
+export const _catatEksporDokumen = internalMutation({
+  args: {
+    sumber: v.string(),
+    jumlah: v.number(),
+    aktorLabel: v.string(),
+    aktorUserId: v.id("users"),
+  },
+  handler: async (ctx, { sumber, jumlah, aktorLabel, aktorUserId }) => {
+    await ctx.db.insert("auditLog", {
+      aktorUserId,
+      aktorLabel,
+      aksi: "backup_dokumen",
+      target: sumber,
+      detail: `Ekspor ${jumlah} tautan dokumen (${sumber})`,
+      waktu: Date.now(),
+    });
+  },
+});
+
+/**
+ * Satu halaman tautan dokumen penyimpanan untuk berkas backup — ACTION.
+ *
+ * Kenapa action dan bukan query: tautan yang dikembalikan PERMANEN dan membuka
+ * KTP, selfie, slip gaji, foto barang, serta bukti setoran tanpa autentikasi.
+ * Query tidak boleh menulis, jadi pencatatan audit sebelumnya bergantung pada
+ * klien memanggil `catatBackup` sesudahnya — pemanggil yang memakai API Convex
+ * langsung bisa memperoleh daftar tautan itu TANPA jejak audit sama sekali.
+ *
+ * Di sini setiap permintaan mencatat dirinya sendiri sebelum tautan
+ * dikembalikan, sehingga tidak ada jalan memperoleh tautan tanpa jejak.
+ * Satu panggilan = satu baris audit berisi sumber dan jumlah tautan.
+ */
+export const snapshotDokumen = action({
+  args: {
+    sumber: v.string(),
+    kursor: v.optional(v.string()),
+    batas: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const admin = await ctx.runQuery(internal.system._adminEksporDokumen, {});
+    const halaman = await ctx.runQuery(
+      internal.system._halamanDokumenSnapshot,
+      args,
+    );
+    await ctx.runMutation(internal.system._catatEksporDokumen, {
+      sumber: args.sumber,
+      jumlah: halaman.dokumen.length,
+      aktorLabel: admin.label,
+      aktorUserId: admin.userId,
+    });
+    return halaman;
   },
 });
 

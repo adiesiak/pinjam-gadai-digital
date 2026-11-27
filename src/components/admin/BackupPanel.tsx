@@ -102,12 +102,15 @@ export function BackupPanel() {
       }
 
       // Tautan dokumen diambil terpisah: barisnya sama dengan yang sudah di atas,
-      // tetapi URL penyimpanan hanya bisa dibuat di server.
+      // tetapi URL penyimpanan hanya bisa dibuat di server. Ini ACTION, bukan
+      // query: setiap panggilan mencatat ekspor ke audit trail sebelum tautan
+      // dikembalikan, jadi tidak ada cara memperoleh tautan KTP/selfie tanpa
+      // jejak (lihat `system.snapshotDokumen`).
       const dokumen: unknown[] = [];
       for (const sumber of SUMBER_DOKUMEN) {
         let kursor: string | null = null;
         do {
-          const halaman: HalamanDokumen = await klien.query(api.system.snapshotDokumen, {
+          const halaman: HalamanDokumen = await klien.action(api.system.snapshotDokumen, {
             sumber,
             kursor: kursor ?? undefined,
           });

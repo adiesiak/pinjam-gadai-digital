@@ -1,0 +1,62 @@
+version: 2
+# Dependabot PINDAI
+#
+# Tujuan: CVE dependensi ditangani otomatis lewat PR, bukan menunggu audit
+# manual. `bun audit` tetap dipakai untuk pemeriksaan cepat; Dependabot yang
+# memastikan tidak ada yang terlewat saat repo tidak sedang disentuh.
+#
+# Batas PR dibuat kecil supaya tinjauan tetap realistis: satu PR per ekosistem
+# per minggu, bukan puluhan PR sekaligus.
+
+updates:
+  # ------------------------------------------------------------------ npm/bun
+  # Bun membaca `package.json`, jadi ekosistem "npm" yang dipakai Dependabot.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 5
+    # Dikelompokkan supaya satu PR berisi pembaruan sejenis, bukan satu PR per
+    # paket. Patch/minor digabung; major dipisah karena butuh tinjauan kode.
+    groups:
+      patch-dan-minor:
+        applies-to: version-updates
+        update-types:
+          - "patch"
+          - "minor"
+      keamanan:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    labels:
+      - "dependabot"
+      - "keamanan"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # Convex Auth dan Convex inti dikunci ke versi yang cocok dengan kode
+      # `src/convex/auth.ts`; naik major bisa mengubah bentuk provider.
+      - dependency-name: "@convex-dev/auth"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "convex"
+        update-types: ["version-update:semver-major"]
+      # React 19 dipakai bersama beberapa paket UI; major butuh migrasi manual.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+
+  # --------------------------------------------------------------- Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependabot"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"
