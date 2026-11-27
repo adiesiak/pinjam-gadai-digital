@@ -34,11 +34,29 @@ const passwordProvider = Password({
   },
 });
 
+/**
+ * Logika `Password` asli yang dipanggil di ujung `authorize` kustom di bawah.
+ *
+ * Diambil dari `options`, BUKAN dari properti top-level provider: `Password()`
+ * mengembalikan `{ authorize: noop, options: { authorize: <logika asli> } }`,
+ * dan Convex Auth menjalankan `merge(provider, provider.options)` sebelum
+ * memakai provider — jadi `options.authorize` yang menang. Memanggil
+ * `passwordProvider.authorize` akan memanggil noop dan selalu mengembalikan
+ * `null`, sehingga tidak ada yang bisa masuk.
+ */
+const authorizeKataSandiAsli = passwordProvider.options.authorize;
+
 // Password provider authorization runs in an action; preflight the verified
 // admin identity before sign-in, account activation, or password reset starts.
-const adminPassword: typeof passwordProvider = {
-  ...passwordProvider,
-  authorize: async (params, ctx) => {
+//
+// `authorize` WAJIB diletakkan di dalam `options`. Convex Auth memanggil
+// `providerDefaults(provider)`, yang menjalankan
+// `merge(provider, provider.options)` — `options` menimpa properti top-level
+// dengan nama sama. Menaruh `authorize` di top-level membuat seluruh isi fungsi
+// ini mati: pembatas percobaan kata sandi, pembatas permintaan token, dan
+// penyamaan pesan untuk alamat non-admin tidak pernah berjalan.
+const authorizeAdminPassword: (typeof passwordProvider.options)["authorize"] =
+  async (params, ctx) => {
     const email = params.email;
     if (typeof email !== "string" || email.length === 0) {
       throw new Error("Email admin wajib diisi.");
@@ -140,7 +158,23 @@ const adminPassword: typeof passwordProvider = {
     // `flow` yang sudah dinormalisasi selalu dikirim ulang: nilai non-string
     // juga membuat Convex Auth melempar "Missing `flow` param" yang hanya
     // dialami alamat admin.
-    return passwordProvider.authorize({ ...params, flow }, ctx);
+    return authorizeKataSandiAsli({ ...params, flow }, ctx);
+  };
+
+/**
+ * Provider kata sandi dengan `authorize` kustom yang BENAR-BENAR dipakai.
+ *
+ * `authorize` diletakkan di dalam `options` karena Convex Auth menjalankan
+ * `merge(provider, provider.options)` sebelum memakai provider: properti di
+ * `options` menimpa properti top-level dengan nama sama. Menaruhnya di
+ * top-level membuatnya tertimpa `options.authorize` milik `Password()`, dan
+ * seluruh preflight di atas tidak pernah berjalan.
+ */
+const adminPassword: typeof passwordProvider = {
+  ...passwordProvider,
+  options: {
+    ...passwordProvider.options,
+    authorize: authorizeAdminPassword,
   },
 };
 
