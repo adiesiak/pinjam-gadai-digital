@@ -32,7 +32,13 @@ pengingat tagihan.
 | `POST /send` langsung dengan token | `{"ok":true,"status":true,"messageId":"3EB01CD49A25051792AB4D"}` |
 | `whatsapp:_kirimPesanUmum` (jalur produksi) | `ok: true`, `messageId 3EB0D8589B30FEF4359557` |
 | `kirimPesanOtp` (jalur OTP) | `terkirim: true`, `messageId 3EB0E5758B95E451CB82A0` |
+| **`klaimPeminjam:mintaKodeKlaim`** (alur login sungguhan) | `terkirim: true`, baris `klaimOtp` tersimpan dengan `statusPengiriman: "terkirim"` dan `messageId 3EB06010780327496EC85D` |
 | `validasiGatewayUrl` | lolos (HTTPS, port 443, domain publik, tanpa wildcard DNS) |
+
+Uji terakhir adalah bukti end-to-end yang sebenarnya: kode OTP dibuat, di-hash
+dengan salt, dikirim lewat gateway, dan challenge tersimpan dengan masa berlaku
+5 menit serta maksimal 5 percobaan. Kode aslinya tidak pernah tersimpan — hanya
+hash-nya.
 
 ## Risiko utama: URL tunnel bersifat SEMENTARA
 
@@ -51,17 +57,22 @@ cepat, tetapi tetap tanpa alarm.
 
 ### Cara menutup risiko ini
 
-**Pilihan 1 — Named tunnel (disarankan).** Buat tunnel permanen di Cloudflare
-Zero Trust dengan subdomain tetap, mis. `wa.pindai.biz.id`. URL-nya tidak
-berubah, dan `cloudflared` bisa dijalankan sebagai layanan systemd.
+Panduan langkah-demi-langkah ada di
+**[whatsapp-endpoint-permanen.md](whatsapp-endpoint-permanen.md)**, termasuk
+perbandingan risiko kedua jalan.
 
-**Pilihan 2 — Domain sendiri + Caddy.** Ikuti `deploy/wa-sender/install.sh`
-yang sudah ada di repo: Caddy menerbitkan sertifikat Let's Encrypt untuk
-subdomain tetap. Ini juga menghilangkan ketergantungan pada Cloudflare.
+Ringkasnya:
 
-**Pilihan 3 — tetap quick tunnel, tetapi pantau.** Tambahkan pemeriksaan
-berkala terhadap `/health`; bila gagal, kirim peringatan ke admin. Paling murah,
-paling rapuh.
+- **Jalan A — Caddy + A record.** Tambah satu record `A` untuk subdomain
+  (mis. `wa.pindai.biz.id`) di idwebhost, lalu jalankan
+  `deploy/wa-sender/install.sh`. Tidak menyentuh DNS Vercel. **Disarankan.**
+- **Jalan B — Named tunnel Cloudflare.** URL tetap dan IP VPS tersembunyi,
+  tetapi **DNS `pindai.biz.id` harus dipindahkan ke Cloudflare** lebih dulu,
+  dan itu menyentuh situs produksi.
+
+Catatan penting: DNS `pindai.biz.id` sekarang di `ns1/ns2.idwebhost.id`, bukan
+Cloudflare, jadi named tunnel **tidak bisa** dipakai tanpa memindahkan
+nameserver.
 
 ## Bila URL tunnel berubah
 
