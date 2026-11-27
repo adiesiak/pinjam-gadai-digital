@@ -7,7 +7,7 @@ Status per 27 November 2026:
 | Login email OTP | **AKTIF** (Resend, domain `pindai.biz.id` terverifikasi) |
 | Lupa kata sandi admin | **AKTIF** (lewat Resend) |
 | Login kata sandi admin | **AKTIF** |
-| Login Google | belum — `AUTH_GOOGLE_ID` / `SECRET` kosong |
+| Login Google | **AKTIF** (OAuth client terpasang, sudah diuji sampai halaman Google) |
 | WhatsApp OTP | belum — butuh Fonnte berbayar |
 
 Dokumen ini mencatat bukti, keputusan, lalu langkah mengaktifkan yang tersisa.
@@ -78,36 +78,49 @@ Resend gratis: 100 email/hari, 3.000/bulan. Bila kurang:
 - **Gmail SMTP** — 500/hari, tetapi butuh `"use node"` + nodemailer dan sering
   masuk folder spam. Tidak disarankan untuk kode login.
 
-## 2. Login Google (belum aktif)
+## 2. Login Google (aktif)
 
-Kode sudah lengkap di `src/convex/auth/google.ts`; tombolnya menyala otomatis
-begitu dua variabel di bawah terisi (`api.users.googleSiap`).
+Kode ada di `src/convex/auth/google.ts`; tombolnya menyala otomatis begitu dua
+variabel di bawah terisi (`api.users.googleSiap` mengembalikan `true`).
 
-Langkah:
+Konfigurasi terpasang di deployment `academic-rooster-210`:
 
-1. Buka <https://console.cloud.google.com> → buat project (gratis).
-2. **APIs & Services → OAuth consent screen** → pilih *External*, isi nama
-   aplikasi, email dukungan, dan domain `pindai.biz.id`. Tambahkan scope
-   `userinfo.email` dan `userinfo.profile`.
-3. **Credentials → Create credentials → OAuth client ID → Web application**.
-4. Isi **Authorized redirect URIs** dengan tepat:
+```bash
+npx convex env set AUTH_GOOGLE_ID ....apps.googleusercontent.com
+npx convex env set AUTH_GOOGLE_SECRET GOCSPX-...
+```
+
+Redirect URI yang WAJIB terdaftar di Google Cloud Console
+(**Credentials → OAuth client → Authorized redirect URIs**):
 
 ```
 https://academic-rooster-210.convex.site/api/auth/callback/google
 ```
 
-5. Salin *Client ID* dan *Client secret*, lalu:
+Bukti alur berjalan — menekan tombol "Masuk dengan Google" di
+<https://pindai.biz.id/auth> membawa peramban ke:
 
-```bash
-npx convex env set AUTH_GOOGLE_ID xxxx.apps.googleusercontent.com
-npx convex env set AUTH_GOOGLE_SECRET GOCSPX-xxxx
+```
+https://accounts.google.com/v3/signin/identifier
+  ?client_id=995217004291-...apps.googleusercontent.com
+  &redirect_uri=https%3A%2F%2Facademic-rooster-210.convex.site%2Fapi%2Fauth%2Fcallback%2Fgoogle
+  &response_type=code&scope=openid+profile+email
+  &code_challenge=...&code_challenge_method=S256
 ```
 
-6. Uji: tombol "Masuk dengan Google" di halaman masuk tidak lagi abu-abu.
+`client_id` cocok, `redirect_uri` tepat, PKCE aktif, dan Google **tidak**
+menampilkan `redirect_uri_mismatch` — artinya pendaftaran URI di Cloud Console
+sudah benar.
 
 Catatan penting: **akun Super Admin sengaja ditolak** lewat Google
 (`jagaMasukGoogle` di `src/convex/auth/google.ts`). Admin tetap masuk dengan
 kata sandi. Google hanya untuk peminjam dan penyedia dana.
+
+### Kalau nanti mau menguji dari localhost
+
+Tambahkan juga `http://localhost:5173/api/auth/callback/google` di daftar
+Authorized redirect URIs, lalu set `SITE_URL` deployment dev ke
+`http://localhost:5173`. Jangan menukar `SITE_URL` produksi.
 
 ## 3. WhatsApp OTP (belum aktif)
 
