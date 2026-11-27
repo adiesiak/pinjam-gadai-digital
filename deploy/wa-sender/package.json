@@ -1,0 +1,19 @@
+{
+  "name": "pindai-wa-sender",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Jembatan Baileys untuk gateway WhatsApp generik PINDAI",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "pino": "^10.4.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
