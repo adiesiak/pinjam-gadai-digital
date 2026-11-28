@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ObjectType, v } from "convex/values";
 
 import { audit } from "./system";
 import {
@@ -1130,8 +1130,8 @@ export const mulaiKyc = mutation({
  * - Perubahan data identitas penting saat `VERIFIED` memindahkan status ke
  *   `REVERIFICATION_REQUIRED` — diputuskan oleh `perluVerifikasiUlang()`.
  */
-export const simpanProgresKyc = mutation({
-  args: {
+/** Argumen simpan progres KYC - satu definisi untuk kedua jalur. */
+export const argsProgresKyc = {
     namaLengkap: v.optional(v.string()),
     nik: v.optional(v.string()),
     nomorWhatsApp: v.optional(v.string()),
@@ -1167,9 +1167,30 @@ export const simpanProgresKyc = mutation({
         v.null(),
       ),
     ),
-  },
+};
+
+export const simpanProgresKyc = mutation({
+  args: argsProgresKyc,
   handler: async (ctx, args) => {
     const { userId, label } = await requireNasabah(ctx);
+    return simpanProgresKycInti(ctx, args, userId, label);
+  },
+});
+
+/**
+ * Inti simpan progres KYC - dipakai panel website dan bot WhatsApp.
+ *
+ * Menerima `userId`/`label` sebagai parameter, bukan mengambil sesi, supaya bot
+ * bisa memakai jalur yang SAMA. KYC adalah data pribadi: menyalin validasinya
+ * ke jalur bot akan melahirkan dua aturan berbeda untuk data identitas yang
+ * sama, dan hanya satu di antaranya yang diuji.
+ */
+export async function simpanProgresKycInti(
+  ctx: MutationCtx,
+  args: ObjectType<typeof argsProgresKyc>,
+  userId: Id<"users">,
+  label: string,
+) {
     const sekarang = Date.now();
     const lama = await ctx.db
       .query("kycProfil")
@@ -1366,21 +1387,22 @@ export const simpanProgresKyc = mutation({
 
     const akhir = await ctx.db.get(row._id);
     return { status: (akhir?.status ?? "IN_PROGRESS") as StatusKyc };
-  },
-});
+}
 
-/**
- * Ajukan KYC untuk peninjauan (IN_PROGRESS | NEEDS_CORRECTION |
- * REVERIFICATION_REQUIRED → PENDING_REVIEW).
- *
- * Server memvalidasi ulang SELURUH isian dengan `bacaDataDiri()` dan memastikan
- * ketiga berkas ada serta sudah diperiksa isinya. Jadi mengirim pengajuan tidak
- * bisa melewati kelengkapan hanya karena tombolnya ada di klien.
- */
 export const ajukanKyc = mutation({
   args: {},
   handler: async (ctx) => {
     const { userId, label } = await requireNasabah(ctx);
+    return ajukanKycInti(ctx, userId, label);
+  },
+});
+
+/** Inti pengajuan KYC - dipakai panel website dan bot WhatsApp. */
+export async function ajukanKycInti(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  label: string,
+) {
     const row = await ctx.db
       .query("kycProfil")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -1493,8 +1515,8 @@ export const ajukanKyc = mutation({
       status: (akhir?.status ?? otomatis.keputusan) as StatusKyc,
       otomatis: { keputusan: otomatis.keputusan, diterapkan: otomatis.diterapkan },
     };
-  },
-});
+}
+
 
 /* ==========================================================================
  * Query & mutation — petugas (admin ber-TOTP)

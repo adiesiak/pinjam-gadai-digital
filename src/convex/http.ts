@@ -796,4 +796,88 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/bot/kyc",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ditolak = tolakKunci(kunciSah(request));
+    if (ditolak !== null) return ditolak;
+
+    const body = await bodyJson(request);
+    if (body instanceof Response) return body;
+
+    const teks = (k: string) => (typeof body[k] === "string" ? body[k] : "");
+    const wajib = [
+      "nomor",
+      "namaLengkap",
+      "nik",
+      "alamat",
+      "pekerjaan",
+      "sumberPenghasilan",
+      "namaBank",
+      "nomorRekening",
+      "ktpId",
+      "selfieKtpId",
+      "buktiPenghasilanId",
+    ];
+    const kurang = wajib.filter((k) => teks(k).trim() === "");
+    if (kurang.length > 0) {
+      return balas(400, {
+        ok: false,
+        error: `Field wajib kosong: ${kurang.join(", ")}.`,
+      });
+    }
+    if (body.persetujuan !== true) {
+      return balas(400, {
+        ok: false,
+        error:
+          "`persetujuan` wajib true. Bot harus benar-benar menanyakan persetujuan pemrosesan data pribadi, bukan mengirimkannya sendiri.",
+      });
+    }
+    if (
+      typeof body.penghasilanBulanan !== "number" ||
+      !Number.isSafeInteger(body.penghasilanBulanan) ||
+      body.penghasilanBulanan <= 0
+    ) {
+      return balas(400, {
+        ok: false,
+        error: "`penghasilanBulanan` wajib rupiah bulat positif.",
+      });
+    }
+
+    try {
+      const hasil = await ctx.runMutation(internal.botKyc._simpanKycDariBot, {
+        nomor: teks("nomor"),
+        namaLengkap: teks("namaLengkap"),
+        nik: teks("nik"),
+        alamat: teks("alamat"),
+        pekerjaan: teks("pekerjaan"),
+        penghasilanBulanan: body.penghasilanBulanan,
+        sumberPenghasilan: teks("sumberPenghasilan"),
+        namaBank: teks("namaBank"),
+        nomorRekening: teks("nomorRekening"),
+        ktpId: teks("ktpId") as never,
+        selfieKtpId: teks("selfieKtpId") as never,
+        buktiPenghasilanId: teks("buktiPenghasilanId") as never,
+        persetujuan: true,
+        ...(teks("namaKontakDarurat") !== ""
+          ? { namaKontakDarurat: teks("namaKontakDarurat") }
+          : {}),
+        ...(teks("nomorKontakDarurat") !== ""
+          ? { nomorKontakDarurat: teks("nomorKontakDarurat") }
+          : {}),
+        ...(teks("hubunganKontakDarurat") !== ""
+          ? { hubunganKontakDarurat: teks("hubunganKontakDarurat") }
+          : {}),
+      });
+      return balas(200, hasil);
+    } catch (err) {
+      return balas(400, {
+        ok: false,
+        error: err instanceof Error ? err.message : "KYC ditolak.",
+      });
+    }
+  }),
+});
+
 export default http;
