@@ -111,6 +111,7 @@ import type * as tracking from "../tracking.js";
 import type * as turnstile from "../turnstile.js";
 import type * as users from "../users.js";
 import type * as voucher from "../voucher.js";
+import type * as waLaporUrl from "../waLaporUrl.js";
 import type * as whatsapp from "../whatsapp.js";
 
 import type {
@@ -223,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   turnstile: typeof turnstile;
   users: typeof users;
   voucher: typeof voucher;
+  waLaporUrl: typeof waLaporUrl;
   whatsapp: typeof whatsapp;
 }>;
 

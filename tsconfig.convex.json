@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.convex.tsbuildinfo"
+  },
+  "include": ["src/convex", "src/lib"],
+  "exclude": []
+}

@@ -1,0 +1,46 @@
+[Unit]
+Description=PINDAI WhatsApp gateway - tunnel Cloudflare dengan pelaporan URL otomatis
+Documentation=https://github.com/adiesiak/pinjam-gadai-digital/blob/main/deploy/wa-sender/tunnel-otomatis.sh
+After=network-online.target pindai-wa-sender.service
+Wants=network-online.target
+# Tunnel hanya berguna bila gateway-nya hidup.
+Requires=pindai-wa-sender.service
+
+[Service]
+Type=simple
+User=pindai
+Group=pindai
+WorkingDirectory=/opt/pindai-wa-sender
+
+# Token dan URL Convex dibaca dari berkas terpisah supaya tidak muncul di
+# `systemctl status` atau `ps`. Buat berkasnya dengan izin 600 milik user pindai:
+#   sudo install -m 600 -o pindai -g pindai /dev/null /etc/pindai/wa.env
+#   sudo nano /etc/pindai/wa.env
+# Isinya:
+#   WHATSAPP_API_KEY=<token gateway dari PINDAI>
+#   CONVEX_URL=https://academic-rooster-210.convex.cloud
+EnvironmentFile=/etc/pindai/wa.env
+Environment=WA_SENDER_PORT=8787
+
+ExecStart=/opt/pindai-wa-sender/tunnel-otomatis.sh
+Restart=always
+RestartSec=10
+
+# Pengamanan dasar: skrip ini hanya butuh jaringan dan folder kerjanya.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/pindai-wa-sender
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pindai-wa-tunnel
+
+[Install]
+WantedBy=multi-user.target

@@ -84,6 +84,7 @@ describe("peringatan sistem", () => {
         akun: "pinjaman:uji",
         jenis: "uji",
         keterangan: "uji",
+        aktor: "uji",
         waktu: Date.now(),
       });
       await ctx.db.insert("auditLog", {
@@ -132,6 +133,7 @@ describe("peringatan sistem", () => {
         akun: "pinjaman:uji",
         jenis: "uji",
         keterangan: "uji",
+        aktor: "uji",
         waktu: Date.now(),
       });
     });

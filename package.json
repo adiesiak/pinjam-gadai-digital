@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && tsc -p tsconfig.convex.json && vite build",
     "lint": "eslint .",
+    "typecheck": "tsc -b && tsc -p tsconfig.convex.json",
     "format": "prettier --write .",
     "preview": "vite preview",
     "rilis:android": "bun scripts/rilis-android.ts",

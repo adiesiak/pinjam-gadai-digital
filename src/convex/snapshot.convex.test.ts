@@ -119,7 +119,7 @@ describe("snapshot backup per halaman", () => {
     const t = convexTest(schema, modules);
     const nasabah = await siapkanPengguna(t, "NASABAH EKSPOR", {
       email: "nasabah-ekspor@contoh.test",
-      role: "nasabah",
+      role: "peminjam",
     });
     await expect(
       nasabah.sesi.action(api.system.snapshotDokumen, { sumber: "loans" }),
