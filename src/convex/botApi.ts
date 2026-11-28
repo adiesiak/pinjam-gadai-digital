@@ -29,7 +29,9 @@ import {
   internalMutation,
   internalQuery,
 } from "./_generated/server";
-import { audit } from "./system";
+import { audit, tarifDendaBerlaku } from "./system";
+import { barisTampil } from "./angsuran";
+import { ringkasAngsuran } from "../lib/angsuran";
 import { ROLES } from "./schema";
 
 /** Kunci API bot dari environment. Kosong = endpoint menolak semua. */
@@ -188,6 +190,101 @@ export const _statusPengajuan = internalQuery({
           tenorBulan: l.tenorBulan ?? null,
           dibuatPada: l._creationTime,
         })),
+    };
+  },
+});
+
+/**
+ * Tagihan berjalan milik satu nomor WhatsApp.
+ *
+ * KENAPA ADA: `/bot/status` hanya mengembalikan pengajuan. Tanpa endpoint ini
+ * bot tidak bisa menjawab "berapa yang harus saya bayar" — padahal itu
+ * pertanyaan yang paling sering ditanyakan nasabah lewat WhatsApp.
+ *
+ * Perhitungan denda memakai `barisTampil` dan `tarifDendaBerlaku` yang SAMA
+ * dengan panel website. Menghitung ulang di bot akan membuat angka berbeda
+ * antara dua kanal, dan itu jenis kesalahan yang paling sulit dijelaskan ke
+ * nasabah.
+ */
+export const _tagihanBot = internalQuery({
+  args: { nomor: v.string() },
+  handler: async (ctx, args) => {
+    const nomor = normalisasiNomor(args.nomor);
+    if (nomor === "") return { ok: false as const, alasan: "Nomor tidak valid." };
+
+    const semua = await ctx.db.query("users").collect();
+    const user = semua.find(
+      (u) => u.nomorWhatsApp !== undefined && normalisasiNomor(u.nomorWhatsApp) === nomor,
+    );
+    if (user === undefined) {
+      return { ok: false as const, alasan: "Nomor belum terdaftar." };
+    }
+
+    const [rows, tarif] = await Promise.all([
+      ctx.db
+        .query("angsuran")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect(),
+      tarifDendaBerlaku(ctx),
+    ]);
+    const sekarang = Date.now();
+
+    const perPinjaman = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const daftar = perPinjaman.get(row.loanId) ?? [];
+      daftar.push(row);
+      perPinjaman.set(row.loanId, daftar);
+    }
+
+    const grup = [];
+    for (const [loanId, daftar] of perPinjaman) {
+      const loan = await ctx.db.get(loanId as never);
+      if (loan === null) continue;
+      const tampil = await Promise.all(
+        daftar
+          .sort((a, b) => a.nomor - b.nomor)
+          .map((row) => barisTampil(ctx, row, sekarang, tarif)),
+      );
+      const ringkas = ringkasAngsuran(tampil);
+      grup.push({
+        nomorReferensi: (loan as { nomorReferensi: string }).nomorReferensi,
+        status: (loan as { status: string }).status,
+        ringkasan: {
+          jumlahAngsuran: ringkas.jumlah,
+          lunas: ringkas.lunas,
+          menungguVerifikasi: ringkas.menunggu,
+          terlambat: ringkas.terlambat,
+          jatuhTempoHariIni: ringkas.jatuhTempoHariIni,
+          totalKewajiban: ringkas.totalKewajiban,
+          totalDibayar: ringkas.totalDibayar,
+          sisaTagihan: ringkas.sisaTagihan,
+          dendaBerjalan: ringkas.dendaBerjalan,
+          semuaLunas: ringkas.semuaLunas,
+          berikutnya:
+            ringkas.berikutnya === null
+              ? null
+              : {
+                  nomor: ringkas.berikutnya.nomor,
+                  jatuhTempoPada: ringkas.berikutnya.jatuhTempoPada,
+                  total: ringkas.berikutnya.total,
+                  dendaBerjalan: ringkas.berikutnya.dendaBerjalan,
+                },
+        },
+      });
+    }
+
+    grup.sort((a, b) => {
+      if (a.status !== b.status) return a.status === "didanai" ? -1 : 1;
+      const at = a.ringkasan.berikutnya?.jatuhTempoPada ?? Infinity;
+      const bt = b.ringkasan.berikutnya?.jatuhTempoPada ?? Infinity;
+      return at - bt;
+    });
+
+    return {
+      ok: true as const,
+      userId: user._id,
+      tarifDendaPerHari: tarif,
+      pinjaman: grup,
     };
   },
 });

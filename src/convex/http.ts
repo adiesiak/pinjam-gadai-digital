@@ -682,4 +682,21 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/bot/tagihan",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const ditolak = tolakKunci(kunciSah(request));
+    if (ditolak !== null) return ditolak;
+
+    const nomor = new URL(request.url).searchParams.get("nomor") ?? "";
+    if (nomor === "") {
+      return balas(400, { ok: false, error: "Parameter `nomor` wajib ada." });
+    }
+
+    const hasil = await ctx.runQuery(internal.botApi._tagihanBot, { nomor });
+    return balas(200, hasil);
+  }),
+});
+
 export default http;

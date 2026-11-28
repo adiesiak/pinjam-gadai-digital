@@ -40,7 +40,7 @@ async function requirePengguna(ctx: QueryCtx) {
   return { userId, user };
 }
 
-async function barisTampil(
+export async function barisTampil(
   ctx: QueryCtx,
   row: Doc<"angsuran">,
   sekarang: number,
