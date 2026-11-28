@@ -3190,6 +3190,35 @@ const schema = defineSchema(
       jumlah: v.number(),
     }).index("by_nama", ["nama"]),
 
+    /**
+     * Status kesehatan gateway WhatsApp, diperiksa PROAKTIF (bukan menunggu
+     * ada pengiriman yang gagal).
+     *
+     * Kenapa perlu: `waLogs` hanya mencatat kegagalan SETELAH ada yang mencoba
+     * mengirim. Gateway yang mati pada malam hari tidak meninggalkan satu baris
+     * pun sampai ada pengguna yang gagal masuk — dan pada titik itu mereka sudah
+     * terlanjur tidak bisa masuk lewat WhatsApp.
+     *
+     * Satu baris per slot (selalu "global"). `gagalBerturut` dipakai untuk
+     * memastikan gangguan sesaat tidak langsung memicu peringatan, dan
+     * `terakhirPeringatanPada` menahan peringatan berulang untuk gangguan yang
+     * sama.
+     */
+    gatewayWaStatus: defineTable({
+      slot: v.string(),
+      /** true bila pemeriksaan terakhir berhasil. */
+      sehat: v.boolean(),
+      /** Endpoint yang diperiksa — agar status tidak terbaca untuk URL lain. */
+      apiUrl: v.optional(v.string()),
+      /** Alasan bila tidak sehat, siap tampil di panel. */
+      alasan: v.optional(v.string()),
+      diperiksaPada: v.number(),
+      terakhirSehatPada: v.optional(v.number()),
+      /** Berapa kali berturut-turut gagal; direset saat sehat. */
+      gagalBerturut: v.number(),
+      terakhirPeringatanPada: v.optional(v.number()),
+    }).index("by_slot", ["slot"]),
+
     kontrakDigital: defineTable({
       kode: v.string(),
       jenis: v.union(v.literal("pinjaman"), v.literal("gadai")),

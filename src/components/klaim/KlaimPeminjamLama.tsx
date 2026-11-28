@@ -44,6 +44,28 @@ function pesanGalat(error: unknown): string {
   return teks === "" ? "Terjadi kesalahan. Coba lagi." : teks;
 }
 
+/**
+ * Pesan saat kode TIDAK terkirim.
+ *
+ * `sisaDetik > 0` berarti permintaan ditolak pembatas laju — pengguna memang
+ * harus menunggu, dan pesan server sudah menjelaskan itu.
+ *
+ * Selain itu, kegagalan berasal dari gateway WhatsApp (tidak menjawab, token
+ * salah, atau prosesnya mati). Itu BUKAN sesuatu yang bisa diperbaiki pengguna
+ * dengan mencoba lagi, dan pesan teknis seperti "HTTP 502" atau "timeout 10
+ * detik" tidak memberi tahu mereka harus apa. Karena itu pesannya mengarahkan
+ * ke jalur yang tidak bergantung gateway: OTP email.
+ */
+function pesanGagalKirim(hasil: { pesan: string; sisaDetik: number }): string {
+  if (hasil.sisaDetik > 0) return hasil.pesan;
+  return (
+    "Kode WhatsApp belum bisa dikirim karena layanan WhatsApp sedang tidak " +
+    "tersedia. Ini bukan kesalahan Anda dan menunggu tidak akan memperbaikinya. " +
+    "Silakan masuk memakai OTP EMAIL — jalur itu tidak terpengaruh, dan kodenya " +
+    "dikirim ke email yang terdaftar pada akun Anda."
+  );
+}
+
 type Langkah = "nomor" | "kode";
 
 export function KlaimPeminjamLama({
@@ -82,7 +104,7 @@ export function KlaimPeminjamLama({
       const ip = await getClientIp();
       const hasil = await mintaKode({ nomor, ip, userAgent: getUserAgent() });
       if (!hasil.ok) {
-        setError(hasil.pesan);
+        setError(pesanGagalKirim(hasil));
         return;
       }
       setNomorTampil(hasil.nomorTampil);
@@ -104,7 +126,7 @@ export function KlaimPeminjamLama({
       const ip = await getClientIp();
       const hasil = await mintaKode({ nomor, ip, userAgent: getUserAgent() });
       if (!hasil.ok) {
-        setError(hasil.pesan);
+        setError(pesanGagalKirim(hasil));
         return;
       }
       setInfo(hasil.pesan);

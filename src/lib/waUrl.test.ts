@@ -1,5 +1,5 @@
 /** Uji validasi URL gateway WhatsApp (anti-SSRF) tanpa server. */
-import { validasiGatewayUrl } from "./waUrl";
+import { urlKesehatanGateway, validasiGatewayUrl } from "./waUrl";
 
 let passed = 0;
 let failed = 0;
@@ -61,6 +61,47 @@ tolak("trailing dot ditolak", "https://api.example.com./send");
 // ===== Port =====
 tolak("port non-standar ditolak", "https://api.example.com:8443/send");
 tolak("port 80 ditolak", "https://api.example.com:80/send");
+
+// ===== URL pemeriksaan kesehatan gateway =====
+//
+// Dipakai pemantau proaktif (`convex/jagaGatewayWa.ts`). Salah menurunkan URL
+// di sini berarti peringatan palsu setiap 15 menit — atau, lebih buruk, gateway
+// yang mati tidak pernah terdeteksi.
+
+eq(
+  "/send diturunkan menjadi /health",
+  urlKesehatanGateway("https://wa.pindai.biz.id/send"),
+  "https://wa.pindai.biz.id/health",
+);
+eq(
+  "tunnel quick Cloudflare juga diturunkan",
+  urlKesehatanGateway(
+    "https://amsterdam-briefly-pentium-paint.trycloudflare.com/send",
+  ),
+  "https://amsterdam-briefly-pentium-paint.trycloudflare.com/health",
+);
+eq(
+  "query dan fragment dibuang",
+  urlKesehatanGateway("https://wa.pindai.biz.id/send?x=1#y"),
+  "https://wa.pindai.biz.id/health",
+);
+eq(
+  "spasi di tepi dimaafkan",
+  urlKesehatanGateway("  https://wa.pindai.biz.id/send  "),
+  "https://wa.pindai.biz.id/health",
+);
+eq(
+  "Fonnte tidak punya endpoint kesehatan",
+  urlKesehatanGateway("https://api.fonnte.com/send"),
+  null,
+);
+eq(
+  "path selain /send tidak ditebak",
+  urlKesehatanGateway("https://api.example.com/v20.0/123/messages"),
+  null,
+);
+eq("URL tidak sah menghasilkan null", urlKesehatanGateway("bukan-url"), null);
+eq("string kosong menghasilkan null", urlKesehatanGateway(""), null);
 
 console.log(`waUrl tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

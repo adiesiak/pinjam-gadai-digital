@@ -172,4 +172,23 @@ crons.interval(
   {},
 );
 
+// Pemantau gateway WhatsApp PROAKTIF.
+//
+// `pemeriksaan-sistem` di atas hanya melihat `waLogs` — yaitu setelah ada yang
+// mencoba mengirim dan gagal. Gateway yang mati pada malam hari tidak
+// meninggalkan satu baris pun sampai ada pengguna yang gagal masuk. Pemeriksaan
+// ini menanya endpoint gateway langsung, jadi gangguan terdeteksi sebelum ada
+// yang terhalang, dan operator diberi tahu lewat EMAIL (kanal yang sedang
+// diperiksa tidak boleh menjadi satu-satunya kanal pemberitahuan).
+//
+// Lima belas menit: cukup cepat untuk malam hari, cukup jarang untuk tidak
+// membebani kuota fungsi. Dua kegagalan berturut-turut (±30 menit) baru
+// memicu email, supaya gangguan sesaat tidak membangunkan siapa pun.
+crons.interval(
+  "pantau-gateway-wa",
+  { minutes: 15 },
+  internal.jagaGatewayWa.cekGateway,
+  {},
+);
+
 export default crons;

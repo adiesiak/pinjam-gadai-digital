@@ -91,3 +91,28 @@ export function validasiGatewayUrl(mentah: string): HasilValidasiGateway {
 
   return { ok: true };
 }
+
+/**
+ * URL pemeriksaan kesehatan dari `apiUrl` gateway WhatsApp.
+ *
+ * `null` berarti gateway ini tidak punya endpoint kesehatan yang bisa ditanya.
+ * Fonnte hanya menyediakan `/send`, jadi menembaknya dengan `/health` akan
+ * menghasilkan 404 dan peringatan palsu setiap kali.
+ *
+ * Gateway generik yang dipasang PINDAI (lihat `deploy/wa-sender/server.mjs`)
+ * melayani `GET /health` yang membalas `{ok, siap, alasan}`.
+ */
+export function urlKesehatanGateway(apiUrl: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(apiUrl.trim());
+  } catch {
+    return null;
+  }
+  if (u.hostname.toLowerCase() === "api.fonnte.com") return null;
+  if (!/\/send\/?$/.test(u.pathname)) return null;
+  u.pathname = u.pathname.replace(/\/send\/?$/, "/health");
+  u.search = "";
+  u.hash = "";
+  return u.toString();
+}
