@@ -69,7 +69,31 @@ try {
   catat("Route /bot/unggah-url hidup", false, e.message);
 }
 
-// 3. Route tagihan hidup: bot butuh ini untuk menjawab "berapa yang harus saya
+// 3. Unggah berkas SUNGGUHAN: bukan hanya memeriksa route-nya.
+//
+// Sebelumnya skrip ini hanya memanggil /bot/unggah-url dan menganggap selesai,
+// sehingga bug "PUT dijawab 405" lolos dari uji 5/5. Yang menentukan adalah
+// benar-benar mengunggah dan mendapat storageId.
+try {
+  const hasil = await klien.unggahFoto(
+    Buffer.from("uji-unggah-" + Date.now()),
+    "image/jpeg",
+  );
+  const sah = typeof hasil.storageId === "string" && hasil.storageId.length >= 20;
+  catat(
+    "Unggah berkas sungguhan",
+    sah,
+    sah ? `storageId diterima (${hasil.storageId.length} karakter)` : "storageId tidak sah",
+  );
+  if (sah) {
+    console.log(`         storageId uji: ${hasil.storageId}`);
+    console.log("         (laporkan ke admin untuk dihapus; bot tidak punya endpoint hapus)");
+  }
+} catch (e) {
+  catat("Unggah berkas sungguhan", false, e.pesan ?? e.message);
+}
+
+// 4. Route tagihan hidup: bot butuh ini untuk menjawab "berapa yang harus saya
 //    bayar". Nomor uji tidak terdaftar, jadi yang diperiksa hanya bahwa
 //    kontraknya sesuai (bukan galat jaringan atau 404).
 try {
@@ -83,7 +107,7 @@ try {
   catat("Route /bot/tagihan hidup", false, e.pesan ?? e.message);
 }
 
-// 4. Pengajuan untuk nomor tak terdaftar harus ditolak dengan pesan jelas,
+// 5. Pengajuan untuk nomor tak terdaftar harus ditolak dengan pesan jelas,
 //    BUKAN diterima (kalau diterima, ada yang salah dengan pemetaan nomor).
 try {
   await klien.ajukan(NOMOR_UJI, {
