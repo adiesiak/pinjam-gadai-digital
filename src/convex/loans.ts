@@ -2311,6 +2311,28 @@ export const danaiPinjaman = mutation({
   args: { loanId: v.id("loans") },
   handler: async (ctx, { loanId }) => {
     const adminId = await requireAdmin(ctx);
+    return danaiPinjamanInti(ctx, loanId, adminId);
+  },
+});
+
+/**
+ * Inti pencairan pinjaman - dipakai DUA jalur.
+ *
+ * 1. Panel admin: `danaiPinjaman` mengambil `adminId` dari sesi.
+ * 2. Bot WhatsApp: `_danaiDariBot` menerima `adminId` dari pemanggil yang
+ *    sudah diverifikasi API key-nya.
+ *
+ * Pencairan BUKAN sekadar mengubah status: ia membuat jadwal angsuran
+ * (`pastikanAngsuran`), mencatat sumber dana pendana, menulis audit, dan
+ * mengirim rincian resmi ke nasabah. Menyalin langkah-langkah itu ke jalur
+ * bot akan membuat pinjaman yang dicairkan lewat WhatsApp tidak punya jadwal
+ * angsuran - dan tagihannya tidak akan pernah muncul. Karena itu satu fungsi.
+ */
+export async function danaiPinjamanInti(
+  ctx: MutationCtx,
+  loanId: Id<"loans">,
+  adminId: Id<"users">,
+) {
     const loan = await ctx.db.get(loanId);
     if (loan === null) throw new Error("Aplikasi tidak ditemukan.");
     if (!diTahapTinjauan(loan.status)) {
@@ -2352,8 +2374,7 @@ export const danaiPinjaman = mutation({
       olehUserId: adminId,
     });
     return { ok: true };
-  },
-});
+}
 
 async function setPawnStatus(
   ctx: MutationCtx,
@@ -3257,5 +3278,62 @@ export const qaBackdateDidanai = internalMutation({
       didanaiPada: Date.now() - args.hariLalu * DAY_MS,
     });
     return { success: true };
+  },
+});
+
+/**
+ * Jalur bot WhatsApp: tandai pinjaman tersalurkan.
+ *
+ * Dipanggil dari HTTP action yang sudah memverifikasi API key bot. Mencari
+ * pinjaman lewat `nomorReferensi` (bukan ID internal) karena itu yang dipegang
+ * bot.
+ *
+ * IDEMPOTEN: pinjaman yang sudah `didanai` tidak diproses ulang. Tanpa ini,
+ * kiriman ulang karena jaringan putus akan membuat jadwal angsuran kedua.
+ *
+ * Aktor audit adalah admin pertama yang ditemukan; label detail menyebut bahwa
+ * aksi dipicu lewat bot, supaya jejaknya tidak menyamar sebagai klik panel.
+ */
+export const _danaiDariBot = internalMutation({
+  args: {
+    nomorReferensi: v.string(),
+    catatan: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const referensi = args.nomorReferensi.trim();
+    if (referensi === "") throw new Error("Nomor referensi wajib diisi.");
+
+    const admin = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "admin"))
+      .first();
+    if (admin === null) {
+      throw new Error("Tidak ada akun admin untuk mencatat pencairan ini.");
+    }
+
+    const loan = await ctx.db
+      .query("loans")
+      .filter((q) => q.eq(q.field("nomorReferensi"), referensi))
+      .first();
+    if (loan === null) {
+      throw new Error(`Pinjaman ${referensi} tidak ditemukan.`);
+    }
+
+    if (loan.status === "didanai") {
+      return { ok: true as const, sudah: true as const, nomorReferensi: referensi };
+    }
+
+    await danaiPinjamanInti(ctx, loan._id, admin._id);
+    await audit(
+      ctx,
+      String(admin._id),
+      "bot-whatsapp",
+      "pencairan_dari_bot",
+      referensi,
+      args.catatan !== undefined && args.catatan.trim() !== ""
+        ? `Pencairan ditandai lewat bot WhatsApp. ${args.catatan.trim()}`
+        : "Pencairan ditandai lewat bot WhatsApp.",
+    );
+    return { ok: true as const, sudah: false as const, nomorReferensi: referensi };
   },
 });

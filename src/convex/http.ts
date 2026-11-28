@@ -699,4 +699,40 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/bot/pencairan",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ditolak = tolakKunci(kunciSah(request));
+    if (ditolak !== null) return ditolak;
+
+    const body = await bodyJson(request);
+    if (body instanceof Response) return body;
+
+    const nomorReferensi =
+      typeof body.nomorReferensi === "string" ? body.nomorReferensi.trim() : "";
+    if (nomorReferensi === "") {
+      return balas(400, {
+        ok: false,
+        error: "`nomorReferensi` wajib diisi.",
+      });
+    }
+    const catatan =
+      typeof body.catatan === "string" ? body.catatan : undefined;
+
+    try {
+      const hasil = await ctx.runMutation(internal.loans._danaiDariBot, {
+        nomorReferensi,
+        ...(catatan !== undefined ? { catatan } : {}),
+      });
+      return balas(200, hasil);
+    } catch (err) {
+      return balas(400, {
+        ok: false,
+        error: err instanceof Error ? err.message : "Pencairan ditolak.",
+      });
+    }
+  }),
+});
+
 export default http;
