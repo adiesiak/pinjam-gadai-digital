@@ -2,12 +2,12 @@
 /**
  * Generated `api` utility.
  *
- * This file is temporarily generated locally (the Convex CLI needs a login to
- * run `convex codegen`). It is replaced by the official codegen output on the
- * next `convex dev` / `convex deploy`.
+ * THIS CODE IS AUTOMATICALLY GENERATED.
+ *
+ * To regenerate, run `npx convex dev`.
+ * @module
  */
-import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
-import { anyApi } from "convex/server";
+
 import type * as admin from "../admin.js";
 import type * as adminAuthz from "../adminAuthz.js";
 import type * as adminPengajuan from "../adminPengajuan.js";
@@ -113,113 +113,143 @@ import type * as users from "../users.js";
 import type * as voucher from "../voucher.js";
 import type * as whatsapp from "../whatsapp.js";
 
-const fullApi: ApiFromModules<{
-  "admin": typeof admin,
-  "adminAuthz": typeof adminAuthz,
-  "adminPengajuan": typeof adminPengajuan,
-  "aksesBersama": typeof aksesBersama,
-  "akunUji": typeof akunUji,
-  "akunUjiInternal": typeof akunUjiInternal,
-  "alokasiDana": typeof alokasiDana,
-  "androidApp": typeof androidApp,
-  "angsuran": typeof angsuran,
-  "angsuranJadwal": typeof angsuranJadwal,
-  "angsuranPengingat": typeof angsuranPengingat,
-  "announcements": typeof announcements,
-  "auth": typeof auth,
-  "auth/adminPasswordOtp": typeof auth_adminPasswordOtp,
-  "auth/emailOtp": typeof auth_emailOtp,
-  "auth/enumerasi": typeof auth_enumerasi,
-  "auth/google": typeof auth_google,
-  "auth/nikOtp": typeof auth_nikOtp,
-  "auth/pratinjau": typeof auth_pratinjau,
-  "auth/whatsappOtp": typeof auth_whatsappOtp,
-  "backupDrive": typeof backupDrive,
-  "backupDriveAdmin": typeof backupDriveAdmin,
-  "backupDriveCrypto": typeof backupDriveCrypto,
-  "backupDriveData": typeof backupDriveData,
-  "bahasaPendana": typeof bahasaPendana,
-  "bannerPromo": typeof bannerPromo,
-  "berkas": typeof berkas,
-  "berkasIdentitas": typeof berkasIdentitas,
-  "berkasWaktu": typeof berkasWaktu,
-  "bi": typeof bi,
-  "cicilanKredit": typeof cicilanKredit,
-  "contohKreditHp": typeof contohKreditHp,
-  "contohPendana": typeof contohPendana,
-  "crons": typeof crons,
-  "dataDiriProfil": typeof dataDiriProfil,
-  "dataSaya": typeof dataSaya,
-  "dataUji": typeof dataUji,
-  "doorprize": typeof doorprize,
-  "draftPinjaman": typeof draftPinjaman,
-  "duplikatNasabah": typeof duplikatNasabah,
-  "emailNotifikasi": typeof emailNotifikasi,
-  "gadai": typeof gadai,
-  "gerbangKirim": typeof gerbangKirim,
-  "hapusAkunTurunan": typeof hapusAkunTurunan,
-  "http": typeof http,
-  "idempotensi": typeof idempotensi,
-  "integrasiLedger": typeof integrasiLedger,
-    "jagaGatewayWa": typeof jagaGatewayWa,
-  "kalenderKas": typeof kalenderKas,
-  "katalog": typeof katalog,
-  "kesehatan": typeof kesehatan,
-  "klaimPeminjam": typeof klaimPeminjam,
-  "kontrakDigital": typeof kontrakDigital,
-  "kontrakPersetujuan": typeof kontrakPersetujuan,
-  "kredit": typeof kredit,
-  "kyc": typeof kyc,
-  "laporanPendana": typeof laporanPendana,
-  "laporanRisiko": typeof laporanRisiko,
-  "ledger": typeof ledger,
-  "loans": typeof loans,
-  "lokasi": typeof lokasi,
-  "matchingQueue": typeof matchingQueue,
-  "migrasiNasabah": typeof migrasiNasabah,
-  "minatPendana": typeof minatPendana,
-  "monitoring": typeof monitoring,
-  "nasabah": typeof nasabah,
-  "notifikasi": typeof notifikasi,
-  "notifikasiNasabah": typeof notifikasiNasabah,
-  "otpWhatsapp": typeof otpWhatsapp,
-  "paymentGuard": typeof paymentGuard,
-  "pembaruanAplikasi": typeof pembaruanAplikasi,
-  "peminjamCode": typeof peminjamCode,
-  "penagihan": typeof penagihan,
-  "pendanaKepemilikan": typeof pendanaKepemilikan,
-  "pengingatPendana": typeof pengingatPendana,
-  "pengingatVoucher": typeof pengingatVoucher,
-  "penyediaDana": typeof penyediaDana,
-  "perpanjanganPinjaman": typeof perpanjanganPinjaman,
-  "persetujuanRisiko": typeof persetujuanRisiko,
-  "ppob": typeof ppob,
-  "ppobH2h": typeof ppobH2h,
-  "ppobNotifikasi": typeof ppobNotifikasi,
-  "pratinjau": typeof pratinjau,
-  "profilNasabah": typeof profilNasabah,
-  "promoBunga": typeof promoBunga,
-  "promoPinjaman": typeof promoPinjaman,
-  "referral": typeof referral,
-  "restrukturisasi": typeof restrukturisasi,
-  "retensi": typeof retensi,
-  "rincianKirim": typeof rincianKirim,
-  "rincianPinjaman": typeof rincianPinjaman,
-  "saldoPendana": typeof saldoPendana,
-  "security": typeof security,
-  "siklusPendana": typeof siklusPendana,
-  "somasi": typeof somasi,
-  "syariahAkad": typeof syariahAkad,
-  "syariahPengajuan": typeof syariahPengajuan,
-  "system": typeof system,
-  "tautanStatus": typeof tautanStatus,
-  "tracking": typeof tracking,
-  "turnstile": typeof turnstile,
-  "users": typeof users,
-  "voucher": typeof voucher,
-  "whatsapp": typeof whatsapp,
-}> = anyApi as any;
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 
-export const api: FilterApi<typeof fullApi, FunctionReference<any, "public">> = anyApi as any;
+declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
+  adminAuthz: typeof adminAuthz;
+  adminPengajuan: typeof adminPengajuan;
+  aksesBersama: typeof aksesBersama;
+  akunUji: typeof akunUji;
+  akunUjiInternal: typeof akunUjiInternal;
+  alokasiDana: typeof alokasiDana;
+  androidApp: typeof androidApp;
+  angsuran: typeof angsuran;
+  angsuranJadwal: typeof angsuranJadwal;
+  angsuranPengingat: typeof angsuranPengingat;
+  announcements: typeof announcements;
+  auth: typeof auth;
+  "auth/adminPasswordOtp": typeof auth_adminPasswordOtp;
+  "auth/emailOtp": typeof auth_emailOtp;
+  "auth/enumerasi": typeof auth_enumerasi;
+  "auth/google": typeof auth_google;
+  "auth/nikOtp": typeof auth_nikOtp;
+  "auth/pratinjau": typeof auth_pratinjau;
+  "auth/whatsappOtp": typeof auth_whatsappOtp;
+  backupDrive: typeof backupDrive;
+  backupDriveAdmin: typeof backupDriveAdmin;
+  backupDriveCrypto: typeof backupDriveCrypto;
+  backupDriveData: typeof backupDriveData;
+  bahasaPendana: typeof bahasaPendana;
+  bannerPromo: typeof bannerPromo;
+  berkas: typeof berkas;
+  berkasIdentitas: typeof berkasIdentitas;
+  berkasWaktu: typeof berkasWaktu;
+  bi: typeof bi;
+  cicilanKredit: typeof cicilanKredit;
+  contohKreditHp: typeof contohKreditHp;
+  contohPendana: typeof contohPendana;
+  crons: typeof crons;
+  dataDiriProfil: typeof dataDiriProfil;
+  dataSaya: typeof dataSaya;
+  dataUji: typeof dataUji;
+  doorprize: typeof doorprize;
+  draftPinjaman: typeof draftPinjaman;
+  duplikatNasabah: typeof duplikatNasabah;
+  emailNotifikasi: typeof emailNotifikasi;
+  gadai: typeof gadai;
+  gerbangKirim: typeof gerbangKirim;
+  hapusAkunTurunan: typeof hapusAkunTurunan;
+  http: typeof http;
+  idempotensi: typeof idempotensi;
+  integrasiLedger: typeof integrasiLedger;
+  jagaGatewayWa: typeof jagaGatewayWa;
+  kalenderKas: typeof kalenderKas;
+  katalog: typeof katalog;
+  kesehatan: typeof kesehatan;
+  klaimPeminjam: typeof klaimPeminjam;
+  kontrakDigital: typeof kontrakDigital;
+  kontrakPersetujuan: typeof kontrakPersetujuan;
+  kredit: typeof kredit;
+  kyc: typeof kyc;
+  laporanPendana: typeof laporanPendana;
+  laporanRisiko: typeof laporanRisiko;
+  ledger: typeof ledger;
+  loans: typeof loans;
+  lokasi: typeof lokasi;
+  matchingQueue: typeof matchingQueue;
+  migrasiNasabah: typeof migrasiNasabah;
+  minatPendana: typeof minatPendana;
+  monitoring: typeof monitoring;
+  nasabah: typeof nasabah;
+  notifikasi: typeof notifikasi;
+  notifikasiNasabah: typeof notifikasiNasabah;
+  otpWhatsapp: typeof otpWhatsapp;
+  paymentGuard: typeof paymentGuard;
+  pembaruanAplikasi: typeof pembaruanAplikasi;
+  peminjamCode: typeof peminjamCode;
+  penagihan: typeof penagihan;
+  pendanaKepemilikan: typeof pendanaKepemilikan;
+  pengingatPendana: typeof pengingatPendana;
+  pengingatVoucher: typeof pengingatVoucher;
+  penyediaDana: typeof penyediaDana;
+  perpanjanganPinjaman: typeof perpanjanganPinjaman;
+  persetujuanRisiko: typeof persetujuanRisiko;
+  ppob: typeof ppob;
+  ppobH2h: typeof ppobH2h;
+  ppobNotifikasi: typeof ppobNotifikasi;
+  pratinjau: typeof pratinjau;
+  profilNasabah: typeof profilNasabah;
+  promoBunga: typeof promoBunga;
+  promoPinjaman: typeof promoPinjaman;
+  referral: typeof referral;
+  restrukturisasi: typeof restrukturisasi;
+  retensi: typeof retensi;
+  rincianKirim: typeof rincianKirim;
+  rincianPinjaman: typeof rincianPinjaman;
+  saldoPendana: typeof saldoPendana;
+  security: typeof security;
+  siklusPendana: typeof siklusPendana;
+  somasi: typeof somasi;
+  syariahAkad: typeof syariahAkad;
+  syariahPengajuan: typeof syariahPengajuan;
+  system: typeof system;
+  tautanStatus: typeof tautanStatus;
+  tracking: typeof tracking;
+  turnstile: typeof turnstile;
+  users: typeof users;
+  voucher: typeof voucher;
+  whatsapp: typeof whatsapp;
+}>;
 
-export const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">> = anyApi as any;
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
+export declare const api: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "public">
+>;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
+export declare const internal: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "internal">
+>;
+
+export declare const components: {};

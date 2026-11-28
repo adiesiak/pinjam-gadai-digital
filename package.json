@@ -5,9 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "typecheck": "tsc -b",
     "format": "prettier --write .",
     "preview": "vite preview",
     "rilis:android": "bun scripts/rilis-android.ts",

@@ -1425,15 +1425,25 @@ export const _catatEksporDokumen = internalMutation({
  * dikembalikan, sehingga tidak ada jalan memperoleh tautan tanpa jejak.
  * Satu panggilan = satu baris audit berisi sumber dan jumlah tautan.
  */
+type HasilSnapshotDokumen = {
+  dokumen: Array<{
+    jenis: string;
+    pemilik: string;
+    storageId: string;
+    url: string | null;
+  }>;
+  kursor: string | null;
+};
+
 export const snapshotDokumen = action({
   args: {
     sumber: v.string(),
     kursor: v.optional(v.string()),
     batas: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<HasilSnapshotDokumen> => {
     const admin = await ctx.runQuery(internal.system._adminEksporDokumen, {});
-    const halaman = await ctx.runQuery(
+    const halaman: HasilSnapshotDokumen = await ctx.runQuery(
       internal.system._halamanDokumenSnapshot,
       args,
     );

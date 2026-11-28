@@ -35,16 +35,36 @@ const passwordProvider = Password({
 });
 
 /**
+ * Bentuk RUNTIME provider `Password`, yang tidak diekspos tipe publiknya.
+ *
+ * `Password()` mengembalikan `{ authorize: noop, options: { authorize: <asli> } }`,
+ * dan Convex Auth menjalankan `merge(provider, provider.options)` sebelum memakai
+ * provider — jadi `options.authorize` yang menang. Tipe publik
+ * `ConvexCredentialsConfig` tidak menyatakan `options`, sehingga tanpa tipe lokal
+ * ini setiap akses `.options` menjadi error dan — lebih buruk — membuat
+ * inferensi tipe Convex berputar sampai seluruh `api` jatuh menjadi `any`.
+ *
+ * Dinyatakan SEKALI di sini, bukan sebagai cast berulang di tiap pemakaian.
+ */
+type ProviderKataSandiRuntime = typeof passwordProvider & {
+  options: {
+    authorize: (
+      params: Record<string, unknown>,
+      ctx: Parameters<typeof passwordProvider.authorize>[1],
+    ) => ReturnType<typeof passwordProvider.authorize>;
+  };
+};
+
+const opsiKataSandi = (passwordProvider as ProviderKataSandiRuntime).options;
+
+/**
  * Logika `Password` asli yang dipanggil di ujung `authorize` kustom di bawah.
  *
- * Diambil dari `options`, BUKAN dari properti top-level provider: `Password()`
- * mengembalikan `{ authorize: noop, options: { authorize: <logika asli> } }`,
- * dan Convex Auth menjalankan `merge(provider, provider.options)` sebelum
- * memakai provider — jadi `options.authorize` yang menang. Memanggil
+ * Diambil dari `options`, BUKAN dari properti top-level provider. Memanggil
  * `passwordProvider.authorize` akan memanggil noop dan selalu mengembalikan
  * `null`, sehingga tidak ada yang bisa masuk.
  */
-const authorizeKataSandiAsli = passwordProvider.options.authorize;
+const authorizeKataSandiAsli = opsiKataSandi.authorize;
 
 // Password provider authorization runs in an action; preflight the verified
 // admin identity before sign-in, account activation, or password reset starts.
@@ -55,7 +75,7 @@ const authorizeKataSandiAsli = passwordProvider.options.authorize;
 // dengan nama sama. Menaruh `authorize` di top-level membuat seluruh isi fungsi
 // ini mati: pembatas percobaan kata sandi, pembatas permintaan token, dan
 // penyamaan pesan untuk alamat non-admin tidak pernah berjalan.
-const authorizeAdminPassword: (typeof passwordProvider.options)["authorize"] =
+const authorizeAdminPassword: ProviderKataSandiRuntime["options"]["authorize"] =
   async (params, ctx) => {
     const email = params.email;
     if (typeof email !== "string" || email.length === 0) {
@@ -173,10 +193,10 @@ const authorizeAdminPassword: (typeof passwordProvider.options)["authorize"] =
 const adminPassword: typeof passwordProvider = {
   ...passwordProvider,
   options: {
-    ...passwordProvider.options,
+    ...opsiKataSandi,
     authorize: authorizeAdminPassword,
   },
-};
+} as ProviderKataSandiRuntime;
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   // `whatsappOtp` = pintu masuk PEMINJAM LAMA dari web lama: pembuktian nomor
