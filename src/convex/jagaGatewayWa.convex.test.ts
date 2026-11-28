@@ -178,6 +178,64 @@ describe("pemantau gateway WhatsApp", () => {
     expect(audit[0]?.target).toBe("gatewayWa");
   });
 
+  it("pemeriksaan manual tidak menelan jatah email alarm", async () => {
+    const t = convexTest(schema, modules);
+    // Dua kegagalan dari pemeriksaan MANUAL (admin menekan tombol periksa).
+    await t.mutation(internal.jagaGatewayWa._simpanStatus, {
+      sehat: false,
+      apiUrl: "https://wa.contoh.test/send",
+      alasan: "HTTP 502",
+      tandaiSaatDiperiksa: false,
+    });
+    const kedua = await t.mutation(internal.jagaGatewayWa._simpanStatus, {
+      sehat: false,
+      apiUrl: "https://wa.contoh.test/send",
+      alasan: "HTTP 502",
+      tandaiSaatDiperiksa: false,
+    });
+    // Ambang tercapai, DAN penanda waktu belum ditulis.
+    expect(kedua.perluPeringatan).toBe(true);
+    const status = await t.run(async (ctx) =>
+      ctx.db.query("gatewayWaStatus").first(),
+    );
+    expect(status?.terakhirPeringatanPada).toBeUndefined();
+
+    // Karena penanda belum ditulis, cron berikutnya MASIH boleh mengirim email.
+    const cron = await t.mutation(internal.jagaGatewayWa._simpanStatus, {
+      sehat: false,
+      apiUrl: "https://wa.contoh.test/send",
+      alasan: "HTTP 502",
+    });
+    expect(cron.perluPeringatan).toBe(true);
+    const sesudah = await t.run(async (ctx) =>
+      ctx.db.query("gatewayWaStatus").first(),
+    );
+    expect(sesudah?.terakhirPeringatanPada).toBeTypeOf("number");
+  });
+
+  it("pemeriksaan manual tidak meninggalkan jejak audit peringatan", async () => {
+    const t = convexTest(schema, modules);
+    await t.mutation(internal.jagaGatewayWa._simpanStatus, {
+      sehat: false,
+      apiUrl: "https://wa.contoh.test/send",
+      alasan: "HTTP 502",
+      tandaiSaatDiperiksa: false,
+    });
+    await t.mutation(internal.jagaGatewayWa._simpanStatus, {
+      sehat: false,
+      apiUrl: "https://wa.contoh.test/send",
+      alasan: "HTTP 502",
+      tandaiSaatDiperiksa: false,
+    });
+    const audit = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLog").collect()).filter(
+        (a) => a.aksi === "gateway_wa_tidak_sehat",
+      ),
+    );
+    // Email tidak dikirim, jadi audit "sudah diperingatkan" juga tidak ditulis.
+    expect(audit.length).toBe(0);
+  });
+
   it("pemeriksaan dilewati saat gateway tidak aktif", async () => {
     const t = convexTest(schema, modules);
     const hasil = await t.action(internal.jagaGatewayWa.cekGateway, {});

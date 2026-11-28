@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import {
+  action,
   internalAction,
   internalMutation,
   internalQuery,
@@ -140,10 +141,16 @@ export const _simpanStatus = internalMutation({
     sehat: v.boolean(),
     apiUrl: v.string(),
     alasan: v.optional(v.string()),
+    /**
+     * Tulis penanda "sudah diperingatkan". `false` untuk pemeriksaan manual
+     * dari panel: admin sedang melihat hasilnya sendiri, dan menulis penanda
+     * berarti menelan jatah email alarm untuk 6 jam ke depan.
+     */
+    tandaiSaatDiperiksa: v.optional(v.boolean()),
   },
   handler: async (
     ctx: MutationCtx,
-    { sehat, apiUrl, alasan },
+    { sehat, apiUrl, alasan, tandaiSaatDiperiksa = true },
   ): Promise<{ perluPeringatan: boolean; gagalBerturut: number }> => {
     const sekarang = Date.now();
     const existing = await ctx.db
@@ -162,6 +169,14 @@ export const _simpanStatus = internalMutation({
       gagalBerturut >= AMBANG_PERINGATAN &&
       sekarang - terakhirPeringatan >= JEDA_PERINGATAN_MS;
 
+    /**
+     * Penanda waktu peringatan hanya ditulis bila email BENAR-BENAR akan
+     * dikirim. Pemeriksaan manual dari panel (`kirimPeringatan: false`) tidak
+     * boleh "memakan" jatah 6 jam — kalau boleh, admin yang menekan tombol
+     * periksa sekali akan menelan satu-satunya email alarm untuk gangguan itu.
+     */
+    const tandaiPeringatan = bolehPeringatkan && tandaiSaatDiperiksa;
+
     const patch = {
       slot: SLOT,
       sehat,
@@ -174,7 +189,7 @@ export const _simpanStatus = internalMutation({
         : existing?.terakhirSehatPada === undefined
           ? {}
           : { terakhirSehatPada: existing.terakhirSehatPada }),
-      ...(bolehPeringatkan ? { terakhirPeringatanPada: sekarang } : {}),
+      ...(tandaiPeringatan ? { terakhirPeringatanPada: sekarang } : {}),
     };
 
     if (existing === null) {
@@ -184,7 +199,7 @@ export const _simpanStatus = internalMutation({
     }
 
     // Jejak audit hanya saat gangguan dilaporkan, bukan setiap pemeriksaan.
-    if (bolehPeringatkan) {
+    if (tandaiPeringatan) {
       await ctx.db.insert("auditLog", {
         aktorLabel: "pemantau gateway WhatsApp",
         aksi: "gateway_wa_tidak_sehat",
@@ -230,8 +245,18 @@ export const _catatPeringatanTerkirim = internalMutation({
  * kesehatan, lewati → tanya `/health` → simpan status → kirim email bila perlu.
  */
 export const cekGateway = internalAction({
-  args: {},
-  handler: async (ctx): Promise<{ diperiksa: boolean; sehat: boolean }> => {
+  args: {
+    /**
+     * Kirim email peringatan bila memang perlu. Cron memakai `true`;
+     * pemeriksaan manual dari panel memakai `false` karena admin sedang
+     * menatap hasilnya sendiri.
+     */
+    kirimPeringatan: v.optional(v.boolean()),
+  },
+  handler: async (
+    ctx,
+    { kirimPeringatan = true },
+  ): Promise<{ diperiksa: boolean; sehat: boolean }> => {
     const cfg = await ctx.runQuery(internal.jagaGatewayWa._konfigurasi, {});
     if (!cfg.aktif || cfg.apiUrl === "") {
       return { diperiksa: false, sehat: false };
@@ -294,10 +319,10 @@ export const cekGateway = internalAction({
 
     const { perluPeringatan, gagalBerturut } = await ctx.runMutation(
       internal.jagaGatewayWa._simpanStatus,
-      { sehat, apiUrl: cfg.apiUrl, alasan },
+      { sehat, apiUrl: cfg.apiUrl, alasan, tandaiSaatDiperiksa: kirimPeringatan },
     );
 
-    if (perluPeringatan) {
+    if (perluPeringatan && kirimPeringatan) {
       const penerima = await ctx.runQuery(
         internal.jagaGatewayWa._emailOperator,
         {},
@@ -364,6 +389,49 @@ export const statusGateway = query({
       diperiksaPada: row.diperiksaPada,
       terakhirSehatPada: row.terakhirSehatPada ?? null,
       gagalBerturut: row.gagalBerturut,
+    };
+  },
+});
+
+/**
+ * Periksa gateway SEKARANG, dipicu admin dari panel.
+ *
+ * Kenapa perlu tombol manual padahal sudah ada cron tiap 15 menit: saat admin
+ * baru mengganti `apiUrl`, menunggu seperempat jam untuk tahu apakah URL barunya
+ * benar itu terlalu lama — dan kesalahan URL adalah penyebab kegagalan yang
+ * paling sering. Pemeriksaan manual memberi jawaban seketika.
+ *
+ * Peringatan TIDAK dikirim dari jalur ini. Admin sedang menatap layarnya; email
+ * alarm untuk kegagalan yang sudah terlihat sendiri hanya menambah kebisingan.
+ */
+export const periksaSekarang = action({
+  args: {},
+  handler: async (ctx): Promise<{ sehat: boolean; alasan: string | null }> => {
+    // Gerbang yang sama dengan seluruh konfigurasi WhatsApp lain: admin + TOTP.
+    await ctx.runQuery(api.security.assertAdminSession, {});
+    // `kirimPeringatan: false` — admin sedang menatap layarnya, dan pemeriksaan
+    // manual tidak boleh menelan jatah email alarm 6 jam ke depan.
+    await ctx.runAction(internal.jagaGatewayWa.cekGateway, {
+      kirimPeringatan: false,
+    });
+    const row = await ctx.runQuery(internal.jagaGatewayWa._statusTersimpan, {});
+    return { sehat: row?.sehat === true, alasan: row?.alasan ?? null };
+  },
+});
+
+/** Status tersimpan tanpa gerbang — dipakai action yang sudah memeriksa admin. */
+export const _statusTersimpan = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.db
+      .query("gatewayWaStatus")
+      .withIndex("by_slot", (q) => q.eq("slot", SLOT))
+      .first();
+    if (row === null) return null;
+    return {
+      sehat: row.sehat,
+      alasan: row.alasan ?? null,
+      diperiksaPada: row.diperiksaPada,
     };
   },
 });

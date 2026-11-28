@@ -21,6 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
+import { StatusGatewayWa } from "@/components/admin/StatusGatewayWa";
 import { formatWaktuWIB } from "@/lib/waktu";
 import {
   CONTOH_NILAI_WA,
@@ -488,6 +489,11 @@ export function WhatsAppPanel() {
           )}
         </div>
       </div>
+
+      {/* Kesehatan gateway terlihat di KEDUA tab: masalah kirim pesan dan
+          masalah kode OTP berasal dari endpoint yang sama, jadi menyembunyikan
+          statusnya di salah satu tab hanya membuat orang mencarinya. */}
+      <StatusGatewayWa />
 
       <Tabs value={tab} onValueChange={setTab} className="flex-1 space-y-4">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
