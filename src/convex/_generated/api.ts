@@ -55,6 +55,7 @@ import type * as hapusAkunTurunan from "../hapusAkunTurunan.js";
 import type * as http from "../http.js";
 import type * as idempotensi from "../idempotensi.js";
 import type * as integrasiLedger from "../integrasiLedger.js";
+import type * as jagaGatewayWa from "../jagaGatewayWa.js";
 import type * as kalenderKas from "../kalenderKas.js";
 import type * as katalog from "../katalog.js";
 import type * as kesehatan from "../kesehatan.js";
@@ -160,6 +161,7 @@ const fullApi: ApiFromModules<{
   "http": typeof http,
   "idempotensi": typeof idempotensi,
   "integrasiLedger": typeof integrasiLedger,
+    "jagaGatewayWa": typeof jagaGatewayWa,
   "kalenderKas": typeof kalenderKas,
   "katalog": typeof katalog,
   "kesehatan": typeof kesehatan,

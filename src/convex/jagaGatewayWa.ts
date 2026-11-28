@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import {
   action,
   internalAction,
@@ -408,7 +408,11 @@ export const periksaSekarang = action({
   args: {},
   handler: async (ctx): Promise<{ sehat: boolean; alasan: string | null }> => {
     // Gerbang yang sama dengan seluruh konfigurasi WhatsApp lain: admin + TOTP.
-    await ctx.runQuery(api.security.assertAdminSession, {});
+    // Dipanggil lewat internalQuery, BUKAN `api.security.*`: modul ini diekspor
+    // oleh `_generated/api`, jadi mengimpornya kembali menciptakan siklus yang
+    // membuat seluruh tipe Convex di proyek ini jatuh menjadi `any`
+    // (lihat peringatan yang sama di `auth/whatsappOtp.ts`).
+    await ctx.runQuery(internal.jagaGatewayWa._pastikanAdmin, {});
     // `kirimPeringatan: false` — admin sedang menatap layarnya, dan pemeriksaan
     // manual tidak boleh menelan jatah email alarm 6 jam ke depan.
     await ctx.runAction(internal.jagaGatewayWa.cekGateway, {
@@ -416,6 +420,15 @@ export const periksaSekarang = action({
     });
     const row = await ctx.runQuery(internal.jagaGatewayWa._statusTersimpan, {});
     return { sehat: row?.sehat === true, alasan: row?.alasan ?? null };
+  },
+});
+
+/** Gerbang admin + TOTP sebagai internalQuery (menghindari siklus impor `api`). */
+export const _pastikanAdmin = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminSession(ctx);
+    return { ok: true as const };
   },
 });
 
