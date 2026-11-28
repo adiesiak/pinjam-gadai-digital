@@ -6,7 +6,7 @@ import {
   MutationCtx,
   QueryCtx,
 } from "./_generated/server";
-import { v } from "convex/values";
+import { ObjectType, v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { periksaBerkasIdentitasStorage } from "./berkasIdentitas";
@@ -523,8 +523,14 @@ export const statusManualPaymentReceipts = query({
   },
 });
 
-export const createLoanApplication = mutation({
-  args: {
+/**
+ * Argumen pengajuan pinjaman — SATU definisi untuk kedua jalur pemanggil.
+ *
+ * Dipisahkan dari mutation-nya supaya website (lewat sesi login) dan bot
+ * WhatsApp (lewat API key) memakai bentuk data yang sama persis. Kalau
+ * daftar ini disalin ke dua tempat, cepat atau lambat keduanya akan berbeda.
+ */
+export const argsPengajuanPinjaman = {
     pokokPinjaman: v.number(),
     /**
      * Voucher milik peminjam yang dipakai untuk pengajuan ini. Server memeriksa
@@ -613,11 +619,37 @@ export const createLoanApplication = mutation({
      * kunci yang sama mengembalikan pengajuan yang SAMA, bukan yang kedua.
      */
     kunciIdempotensi: kunciIdempotensiValidator,
-  },
+};
+
+export const createLoanApplication = mutation({
+  args: argsPengajuanPinjaman,
   returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
   handler: async (ctx, args) => {
     await requireBukanPratinjau(ctx);
     const { userId, user } = await requirePeminjam(ctx);
+    return ajukanPinjamanInti(ctx, args, userId, user);
+  },
+});
+
+/**
+ * Inti pengajuan pinjaman — dipakai DUA jalur.
+ *
+ * 1. Website: `createLoanApplication` mengambil `userId` dari sesi Convex Auth.
+ * 2. Bot WhatsApp: `_ajukanDariBot` mengambil `userId` dari nomor WhatsApp yang
+ *    sudah dipetakan, dipanggil dari HTTP action dengan API key.
+ *
+ * Keduanya menjalankan fungsi ini, jadi seluruh validasi — gerbang KYC,
+ * plafon, pricing, voucher, promo, syarat underwriting, idempotensi, audit —
+ * MUSTAHIL berbeda antar kanal. Menyalin logika ke jalur kedua akan membuat
+ * pengajuan dari bot punya aturan berbeda dari website, dan itu jenis bug
+ * yang tidak terlihat sampai ada uang berjalan.
+ */
+export async function ajukanPinjamanInti(
+  ctx: MutationCtx,
+  args: ObjectType<typeof argsPengajuanPinjaman>,
+  userId: Id<"users">,
+  user: Doc<"users">,
+) {
     // Gerbang KYC wajib: pengajuan finansial hanya dilayani bila modul KYC
     // nasabah sudah VERIFIED (diperiksa server, bukan dari klien).
     // Pengiriman ulang (retry jaringan / tombol ganda) tidak boleh melahirkan
@@ -1132,8 +1164,29 @@ export const createLoanApplication = mutation({
     const hasil = { appId: loanId, nomorReferensi };
     await simpanHasilIdempoten(ctx, userId, args.kunciIdempotensi, "pinjaman.create", hasil);
     return hasil;
+}
+
+/**
+ * Jalur bot WhatsApp: ajukan pinjaman atas nama user yang sudah dipetakan dari
+ * nomor WhatsApp-nya.
+ *
+ * INTERNAL — hanya boleh dipanggil dari HTTP action yang sudah memverifikasi
+ * API key bot. Tidak diekspor sebagai mutation publik: kalau publik, siapa pun
+ * yang punya akun bisa mengajukan atas nama orang lain.
+ */
+export const _ajukanDariBot = internalMutation({
+  args: {
+    userId: v.id("users"),
+    data: v.object(argsPengajuanPinjaman),
+  },
+  returns: v.object({ appId: v.id("loans"), nomorReferensi: v.string() }),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (user === null) throw new Error("Pengguna tidak ditemukan.");
+    return ajukanPinjamanInti(ctx, args.data, args.userId, user);
   },
 });
+
 
 /**
  * Turunan pelunasan live untuk satu pinjaman didanai: jatuh tempo, sisa hari,

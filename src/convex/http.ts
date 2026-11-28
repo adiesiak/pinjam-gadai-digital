@@ -5,6 +5,7 @@ import { httpAction } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { auth } from "./auth";
 import { periksaTautanBerkas } from "./berkas";
+import { kunciBot, samaAman } from "./botApi";
 
 const http = httpRouter();
 
@@ -505,6 +506,177 @@ http.route({
       return balas(500, {
         ok: false,
         error: err instanceof Error ? err.message : "Gagal menyimpan status.",
+      });
+    }
+  }),
+});
+
+/* ==========================================================================
+ * API BOT WHATSAPP
+ *
+ * Bot berjalan di VPS terpisah. Endpoint ini membuatnya menjadi KLIEN Convex,
+ * bukan sistem kedua: pengajuan dari bot ditulis ke tabel `loans` yang sama
+ * dengan website, lewat fungsi inti yang sama.
+ *
+ * Semua endpoint menuntut `BOT_API_KEY`. Bila kunci belum dikonfigurasi,
+ * endpoint MENOLAK semua permintaan - bukan menerima tanpa verifikasi.
+ * ========================================================================== */
+
+/** Verifikasi header Authorization terhadap BOT_API_KEY. */
+function kunciSah(request: Request): { siap: boolean; cocok: boolean } {
+  const diharapkan = kunciBot();
+  if (diharapkan === "") return { siap: false, cocok: false };
+  const header = request.headers.get("Authorization") ?? "";
+  const token = header.toLowerCase().startsWith("bearer ")
+    ? header.slice(7).trim()
+    : "";
+  return { siap: true, cocok: token !== "" && samaAman(token, diharapkan) };
+}
+
+/** Tolak dengan pesan seragam supaya tidak membocorkan keadaan kunci. */
+function tolakKunci(v: { siap: boolean; cocok: boolean }): Response | null {
+  if (!v.siap) {
+    return balas(503, {
+      ok: false,
+      error: "BOT_API_KEY belum diisi di environment.",
+    });
+  }
+  if (!v.cocok) {
+    return balas(401, { ok: false, error: "Kunci API bot tidak sah." });
+  }
+  return null;
+}
+
+/** Baca body JSON dengan batas ukuran. */
+async function bodyJson(
+  request: Request,
+): Promise<Record<string, unknown> | Response> {
+  const mentah = await request.text();
+  if (mentah.length > 262_144) {
+    return balas(413, { ok: false, error: "Body terlalu besar." });
+  }
+  try {
+    const diurai: unknown = JSON.parse(mentah);
+    if (typeof diurai !== "object" || diurai === null || Array.isArray(diurai)) {
+      return balas(400, { ok: false, error: "Body harus berupa objek JSON." });
+    }
+    return diurai as Record<string, unknown>;
+  } catch {
+    return balas(400, { ok: false, error: "Body bukan JSON yang sah." });
+  }
+}
+
+http.route({
+  path: "/bot/daftar",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ditolak = tolakKunci(kunciSah(request));
+    if (ditolak !== null) return ditolak;
+
+    const body = await bodyJson(request);
+    if (body instanceof Response) return body;
+
+    const nomor = typeof body.nomor === "string" ? body.nomor : "";
+    const nama = typeof body.nama === "string" ? body.nama : "";
+    if (nomor === "" || nama === "") {
+      return balas(400, { ok: false, error: "`nomor` dan `nama` wajib diisi." });
+    }
+
+    try {
+      const hasil = await ctx.runMutation(internal.botApi._daftarDariBot, {
+        nomor,
+        nama,
+      });
+      return balas(200, { ok: true, ...hasil });
+    } catch (err) {
+      return balas(400, {
+        ok: false,
+        error: err instanceof Error ? err.message : "Pendaftaran gagal.",
+      });
+    }
+  }),
+});
+
+http.route({
+  path: "/bot/unggah-url",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ditolak = tolakKunci(kunciSah(request));
+    if (ditolak !== null) return ditolak;
+
+    try {
+      const url = await ctx.runMutation(internal.botApi._buatUrlUnggah, {});
+      return balas(200, { ok: true, urlUnggah: url });
+    } catch (err) {
+      return balas(500, {
+        ok: false,
+        error: err instanceof Error ? err.message : "Gagal membuat URL unggah.",
+      });
+    }
+  }),
+});
+
+http.route({
+  path: "/bot/status",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const ditolak = tolakKunci(kunciSah(request));
+    if (ditolak !== null) return ditolak;
+
+    const nomor = new URL(request.url).searchParams.get("nomor") ?? "";
+    if (nomor === "") {
+      return balas(400, { ok: false, error: "Parameter `nomor` wajib ada." });
+    }
+
+    const hasil = await ctx.runQuery(internal.botApi._statusPengajuan, { nomor });
+    return balas(200, hasil);
+  }),
+});
+
+http.route({
+  path: "/bot/pengajuan",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ditolak = tolakKunci(kunciSah(request));
+    if (ditolak !== null) return ditolak;
+
+    const body = await bodyJson(request);
+    if (body instanceof Response) return body;
+
+    const nomor = typeof body.nomor === "string" ? body.nomor : "";
+    if (nomor === "") {
+      return balas(400, { ok: false, error: "`nomor` wajib diisi." });
+    }
+
+    // Pemetaan nomor -> user dilakukan di sini, BUKAN dengan menerima `userId`
+    // dari bot: bot tidak boleh bisa mengajukan atas nama orang lain hanya
+    // dengan menebak ID.
+    const user = await ctx.runQuery(internal.botApi._cariUserByNomor, { nomor });
+    if (user === null) {
+      return balas(404, {
+        ok: false,
+        error:
+          "Nomor WhatsApp belum terdaftar. Daftarkan dulu lewat /bot/daftar.",
+      });
+    }
+
+    const data = body.data;
+    if (typeof data !== "object" || data === null || Array.isArray(data)) {
+      return balas(400, { ok: false, error: "`data` wajib berupa objek." });
+    }
+
+    try {
+      const hasil = await ctx.runMutation(internal.loans._ajukanDariBot, {
+        userId: user.userId,
+        // Validator tujuan memeriksa bentuknya; Convex menolak field tak dikenal
+        // dan tipe yang salah sebelum inti pengajuan dijalankan.
+        data: data as never,
+      });
+      return balas(200, { ok: true, ...hasil });
+    } catch (err) {
+      return balas(400, {
+        ok: false,
+        error: err instanceof Error ? err.message : "Pengajuan ditolak.",
       });
     }
   }),
