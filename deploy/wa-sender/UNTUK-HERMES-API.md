@@ -43,6 +43,12 @@ curl -fsSLO "$BASE/UNTUK-HERMES-API.md"
 ls -la pindai-api.cjs uji-api-bot.mjs
 ```
 
+> **Catatan cache:** `raw.githubusercontent.com` menyimpan cache sekitar 5 menit.
+> Kalau berkas yang terunduh terasa ketinggalan (mis. isinya tidak memuat bagian
+> yang baru), pakai **Cara 1** (`git pull`) yang selalu mengambil versi terbaru,
+> atau paksa versi terbaru dengan menambahkan query acak:
+> `curl -fsSL "$BASE/pindai-api.cjs?v=$(date +%s)" -o pindai-api.cjs`
+
 ### Cara 3 - clone baru (kalau belum ada sama sekali)
 
 ```bash
