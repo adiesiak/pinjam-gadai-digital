@@ -254,3 +254,63 @@ Pemeriksaan dari luar:
 curl -s -o /dev/null -w "situs %{http_code}\n" https://pindai.biz.id/
 curl -s https://<domain-gateway-anda>/health
 ```
+---
+
+## Aturan deploy: SATU tempat saja
+
+**Ditambahkan 28 November 2026 setelah kejadian nyata.**
+
+`convex deploy` meng-upload SELURUH project — semua fungsi, schema, dan
+`http.ts` — bukan hanya yang berubah. Karena itu **deploy terakhir menang total**
+dan menghapus apa pun yang tidak ada di mesin yang men-deploy.
+
+Kejadian yang sudah terbukti:
+
+| Waktu | Yang men-deploy | Akibat |
+| --- | --- | --- |
+| Sesi ini | Admin (harness) | `integrasiBot` milik Hermes hilang |
+| Sesi ini | Hermes (VPS) | `botApi` hilang, route `/bot/*` jadi 404 |
+
+Selama beberapa jam endpoint `/bot/status` dan `/bot/daftar` mengembalikan 404
+tanpa sebab yang jelas, sampai ditemukan bahwa deployment berisi modul
+`integrasiBot` yang tidak ada di repo.
+
+### Aturan
+
+1. **Hanya satu mesin yang boleh menjalankan `convex deploy`.** Saat ini:
+   mesin admin.
+2. **Bot WhatsApp TIDAK boleh punya akses deploy.** Bot adalah klien HTTP,
+   bukan pengelola deployment. Semua yang dibutuhkan sudah tersedia lewat
+   `/bot/*`.
+3. Kalau pihak lain butuh bereksperimen: buat **deployment dev** terpisah
+   (`npx convex deployment create <nama> --type dev`), jangan pakai produksi.
+
+### Kenapa ini berbahaya, bukan sekadar tidak nyaman
+
+Bukan hanya fitur saling menimpa. Kalau dua pihak men-deploy dengan `schema.ts`
+berbeda, tabel atau field yang tidak ada di versi terakhir **hilang dari
+definisi schema**. Datanya masih di database, tapi aplikasi akan gagal karena
+"tabel tidak dikenal". Itu kerusakan yang tidak bisa diperbaiki dengan deploy
+ulang.
+
+### Cara memeriksa apakah ada deploy asing
+
+```bash
+# daftar fungsi yang ada di deployment
+npx convex run --inline-query 'return 1' --prod
+
+# atau bandingkan: modul yang tidak ada di repo tapi ada di deployment
+# berarti ada mesin lain yang men-deploy
+```
+
+Gejala khas: endpoint HTTP yang seharusnya ada tiba-tiba 404, padahal kode di
+repo benar dan `git status` bersih.
+
+### Pencabutan akses deploy dari VPS bot
+
+```bash
+# di VPS Hermes
+unset CONVEX_DEPLOY_KEY
+# lalu hapus dari berkas environment dan unit systemd
+# cek juga: ~/.convex/config.json, .env, ecosystem.config.js
+```
