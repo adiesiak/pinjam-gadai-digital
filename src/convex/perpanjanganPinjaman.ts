@@ -6,7 +6,7 @@
  * (dengan `paymentType`). Antrean di sini adalah tempat admin mencocokkan mutasi
  * bank; hanya setelah itu state pinjaman dan jurnal ledger berubah.
  */
-import { v } from "convex/values";
+import { ObjectType, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -395,17 +395,39 @@ function periksaMasukanPelunasan(
  * lama: tidak ada status yang berubah tanpa uang dan tanpa jurnal. Pinjaman
  * bulanan memakai `angsuran.catatPelunasanManualBulanan`.
  */
-export const catatPelunasanManual = mutation({
-  args: {
+/** Argumen pelunasan manual - satu definisi untuk kedua jalur pemanggil. */
+export const argsPelunasanHarian = {
     loanId: v.id("loans"),
     referensiMutasi: v.optional(v.string()),
     jumlahMutasi: v.number(),
     tanggal: v.number(),
     catatan: v.optional(v.string()),
-  },
+};
+
+export const catatPelunasanManual = mutation({
+  args: argsPelunasanHarian,
   handler: async (ctx, args) => {
     const { userId: adminId, user } = await requireAdminSession(ctx);
     const adminLabel = user.email ?? user.name ?? "admin";
+    return catatPelunasanHarianInti(ctx, args, adminId, adminLabel);
+  },
+});
+
+/**
+ * Inti pelunasan manual pinjaman HARIAN - dipakai panel admin dan bot.
+ *
+ * Menerima `adminId`/`adminLabel` sebagai parameter, bukan mengambil sesi,
+ * supaya bot bisa memakai jalur yang sama persis. Pelunasan bukan sekadar
+ * mengubah angka: ia menulis jurnal, memindahkan imbal hasil ke pendana, dan
+ * menutup pinjaman. Salinan logika di jalur bot akan membuat angka berbeda
+ * antara dua kanal.
+ */
+export async function catatPelunasanHarianInti(
+  ctx: MutationCtx,
+  args: ObjectType<typeof argsPelunasanHarian>,
+  adminId: Id<"users">,
+  adminLabel: string,
+) {
     const loan = await ctx.db.get(args.loanId);
     if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
     if (loan.status !== "didanai") {
@@ -459,8 +481,8 @@ export const catatPelunasanManual = mutation({
       `${referensi === "" ? "Pelunasan tanpa nomor mutasi" : `Mutasi ${referensi}`} sebesar ${formatRupiah(rencana.totalDue)} dicatat sebagai pelunasan penuh${catatan === "" ? "" : `; catatan: ${catatan}`}.`,
     );
     return { ok: true as const, totalDue: rencana.totalDue };
-  },
-});
+}
+
 
 function rencanaDari(receipt: Doc<"manualPaymentReceipts">) {
   if (receipt.rencana === undefined) throw new Error("Rencana pembayaran tidak ada.");

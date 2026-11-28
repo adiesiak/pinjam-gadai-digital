@@ -735,4 +735,65 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/bot/pembayaran",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const ditolak = tolakKunci(kunciSah(request));
+    if (ditolak !== null) return ditolak;
+
+    const body = await bodyJson(request);
+    if (body instanceof Response) return body;
+
+    const nomorReferensi =
+      typeof body.nomorReferensi === "string" ? body.nomorReferensi.trim() : "";
+    const referensi =
+      typeof body.referensi === "string" ? body.referensi.trim() : "";
+    const jumlahMutasi =
+      typeof body.jumlah === "number" ? body.jumlah : Number.NaN;
+
+    if (nomorReferensi === "") {
+      return balas(400, { ok: false, error: "`nomorReferensi` wajib diisi." });
+    }
+    if (referensi === "") {
+      return balas(400, {
+        ok: false,
+        error: "`referensi` wajib diisi (dipakai sebagai kunci idempotensi).",
+      });
+    }
+    if (!Number.isSafeInteger(jumlahMutasi) || jumlahMutasi <= 0) {
+      return balas(400, {
+        ok: false,
+        error: "`jumlah` wajib rupiah bulat positif.",
+      });
+    }
+
+    const tanggal =
+      typeof body.tanggal === "number" ? body.tanggal : undefined;
+    const catatan = typeof body.catatan === "string" ? body.catatan : undefined;
+
+    try {
+      const hasil = await ctx.runMutation(internal.botBayar._catatPembayaranDariBot, {
+        nomorReferensi,
+        referensi,
+        jumlahMutasi,
+        ...(tanggal !== undefined ? { tanggal } : {}),
+        ...(catatan !== undefined ? { catatan } : {}),
+      });
+
+      // Nominal tidak sama persis: bukan galat sistem, tapi bot perlu tahu
+      // berapa yang SEHARUSNYA dibayar supaya bisa memberi tahu nasabah.
+      if (hasil.ok === false) {
+        return balas(409, hasil);
+      }
+      return balas(200, hasil);
+    } catch (err) {
+      return balas(400, {
+        ok: false,
+        error: err instanceof Error ? err.message : "Pembayaran ditolak.",
+      });
+    }
+  }),
+});
+
 export default http;

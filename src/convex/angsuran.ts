@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ObjectType, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -720,17 +720,36 @@ export const verifikasiBuktiAngsuran = mutation({
  * penyedia dana dibayar, posisi alokasi ditutup, voucher dan tiket terbit sekali.
  * Nominal wajib sama dengan sisa tagihan pada tanggal terima, termasuk denda.
  */
-export const catatPelunasanManualBulanan = mutation({
-  args: {
+/** Argumen pelunasan manual - satu definisi untuk kedua jalur pemanggil. */
+export const argsPelunasanBulanan = {
     loanId: v.id("loans"),
     referensiMutasi: v.optional(v.string()),
     jumlahMutasi: v.number(),
     tanggal: v.number(),
     catatan: v.optional(v.string()),
-  },
+};
+
+export const catatPelunasanManualBulanan = mutation({
+  args: argsPelunasanBulanan,
   handler: async (ctx, args) => {
     const { userId: adminId, user } = await requireAdminSession(ctx);
     const adminLabel = user.email ?? user.name ?? "admin";
+    return catatPelunasanBulananInti(ctx, args, adminId, adminLabel);
+  },
+});
+
+/**
+ * Inti pelunasan manual pinjaman BULANAN - dipakai panel admin dan bot.
+ *
+ * Setiap cicilan punya baris `angsuran` sendiri, jadi jalur ini berbeda dari
+ * pelunasan harian yang menutup pinjaman sekaligus.
+ */
+export async function catatPelunasanBulananInti(
+  ctx: MutationCtx,
+  args: ObjectType<typeof argsPelunasanBulanan>,
+  adminId: Id<"users">,
+  adminLabel: string,
+) {
     const loan = await ctx.db.get(args.loanId);
     if (loan === null) throw new Error("Pinjaman tidak ditemukan.");
     if (loan.status !== "didanai") {
@@ -832,8 +851,8 @@ export const catatPelunasanManualBulanan = mutation({
       `${referensi === "" ? "Pelunasan tanpa nomor mutasi" : `Mutasi ${referensi}`} sebesar ${formatRupiah(totalDue)} menutup ${belum.length} angsuran${catatan === "" ? "" : `; catatan: ${catatan}`}.`,
     );
     return { ok: true as const, totalDue, semuaLunas: hasil.semuaLunas };
-  },
-});
+}
+
 
 /** Admin: siapkan jadwal untuk pinjaman lama yang sudah cair. */
 export const pastikanSemuaAngsuran = mutation({

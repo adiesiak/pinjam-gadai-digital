@@ -39,6 +39,7 @@ import type * as berkasIdentitas from "../berkasIdentitas.js";
 import type * as berkasWaktu from "../berkasWaktu.js";
 import type * as bi from "../bi.js";
 import type * as botApi from "../botApi.js";
+import type * as botBayar from "../botBayar.js";
 import type * as cicilanKredit from "../cicilanKredit.js";
 import type * as contohKreditHp from "../contohKreditHp.js";
 import type * as contohPendana from "../contohPendana.js";
@@ -153,6 +154,7 @@ declare const fullApi: ApiFromModules<{
   berkasWaktu: typeof berkasWaktu;
   bi: typeof bi;
   botApi: typeof botApi;
+  botBayar: typeof botBayar;
   cicilanKredit: typeof cicilanKredit;
   contohKreditHp: typeof contohKreditHp;
   contohPendana: typeof contohPendana;
