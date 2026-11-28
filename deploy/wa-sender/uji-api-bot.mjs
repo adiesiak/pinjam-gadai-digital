@@ -69,7 +69,21 @@ try {
   catat("Route /bot/unggah-url hidup", false, e.message);
 }
 
-// 3. Pengajuan untuk nomor tak terdaftar harus ditolak dengan pesan jelas,
+// 3. Route tagihan hidup: bot butuh ini untuk menjawab "berapa yang harus saya
+//    bayar". Nomor uji tidak terdaftar, jadi yang diperiksa hanya bahwa
+//    kontraknya sesuai (bukan galat jaringan atau 404).
+try {
+  const t = await klien.tagihan(NOMOR_UJI);
+  catat(
+    "Route /bot/tagihan hidup",
+    t.terdaftar === false && Array.isArray(t.pinjaman),
+    t.terdaftar ? "nomor uji ternyata terdaftar" : "nomor uji belum terdaftar, sesuai harapan",
+  );
+} catch (e) {
+  catat("Route /bot/tagihan hidup", false, e.pesan ?? e.message);
+}
+
+// 4. Pengajuan untuk nomor tak terdaftar harus ditolak dengan pesan jelas,
 //    BUKAN diterima (kalau diterima, ada yang salah dengan pemetaan nomor).
 try {
   await klien.ajukan(NOMOR_UJI, {
@@ -108,4 +122,6 @@ if (lulus !== hasil.length) {
 }
 
 console.log("\nKoneksi siap. Bot sudah bisa memanggil API PINDAI.");
-console.log("Langkah berikutnya: lihat docs/api-bot-whatsapp.md bagian 'Alur lengkap'.");
+console.log("Langkah berikutnya:");
+console.log("  - docs/api-bot-whatsapp.md    (daftar, unggah, pengajuan, status)");
+console.log("  - docs/api-bot-kyc-dan-uang.md (KYC, tagihan, pencairan, pembayaran)");

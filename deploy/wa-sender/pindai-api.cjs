@@ -27,7 +27,7 @@ const BASE_BAWAAN = "https://academic-rooster-210.convex.site";
 
 /** Error dengan pesan yang aman ditampilkan ke pengguna WhatsApp. */
 class GalatPindai extends Error {
-  constructor(pesan, { kode = 0, mentah = null } = {}) {
+  constructor(pesan, { kode = 0, mentah = null, data = null } = {}) {
     super(pesan);
     this.name = "GalatPindai";
     /** Pesan siap tampil ke nasabah. */
@@ -36,6 +36,8 @@ class GalatPindai extends Error {
     this.kode = kode;
     /** Body respons mentah, untuk log. */
     this.mentah = mentah;
+    /** Body terurai, mis. rincian 409 { totalDue, kurang, lebih }. */
+    this.data = data;
   }
 }
 
@@ -96,7 +98,7 @@ function buatKlien({ apiKey, base = BASE_BAWAAN, timeoutMs = 30_000 } = {}) {
       const pesan =
         (diurai && (diurai.error || diurai.alasan)) ||
         `PINDAI menolak permintaan (HTTP ${res.status}).`;
-      throw new GalatPindai(pesan, { kode: res.status, mentah: diurai });
+      throw new GalatPindai(pesan, { kode: res.status, mentah: diurai, data: diurai });
     }
     return diurai;
   }
@@ -185,6 +187,65 @@ function buatKlien({ apiKey, base = BASE_BAWAAN, timeoutMs = 30_000 } = {}) {
         isi: { nomor, data },
       });
       return { nomorReferensi: h.nomorReferensi, appId: h.appId };
+    },
+
+    /**
+     * Tagihan berjalan milik satu nomor.
+     * @returns {Promise<{terdaftar: boolean, tarifDendaPerHari: number, pinjaman: Array}>}
+     */
+    async tagihan(nomor) {
+      const h = await minta(`/bot/tagihan?nomor=${encodeURIComponent(nomor)}`, {
+        metode: "GET",
+      });
+      if (!h || h.ok !== true) {
+        return { terdaftar: false, tarifDendaPerHari: 0, pinjaman: [], alasan: h?.alasan ?? null };
+      }
+      return {
+        terdaftar: true,
+        tarifDendaPerHari: h.tarifDendaPerHari ?? 0,
+        pinjaman: h.pinjaman ?? [],
+      };
+    },
+
+    /**
+     * Kumpulkan KYC lewat bot. Status akhir PENDING_REVIEW, bukan disetujui.
+     * `persetujuan` harus benar-benar ditanyakan ke nasabah.
+     */
+    async kyc(data) {
+      const h = await minta("/bot/kyc", { metode: "POST", isi: data });
+      return { status: h.status };
+    },
+
+    /**
+     * Tandai pinjaman tersalurkan. `sudah: true` berarti sudah pernah dicairkan.
+     */
+    async pencairan(nomorReferensi, catatan) {
+      const h = await minta("/bot/pencairan", {
+        metode: "POST",
+        isi: { nomorReferensi, ...(catatan ? { catatan } : {}) },
+      });
+      return { sudah: h.sudah === true };
+    },
+
+    /**
+     * Catat pembayaran. `referensi` adalah kunci idempotensi: kiriman ulang
+     * dengan kunci yang sama tidak mencatat pembayaran kedua.
+     *
+     * Nominal harus sama persis. Bila tidak, melempar GalatPindai dengan
+     * `kode === 409` dan `data` berisi { totalDue, dibayar, kurang, lebih }.
+     */
+    async pembayaran(nomorReferensi, { referensi, jumlah, tanggal, catatan } = {}) {
+      const h = await minta("/bot/pembayaran", {
+        metode: "POST",
+        isi: {
+          nomorReferensi,
+          referensi,
+          jumlah,
+          ...(tanggal !== undefined ? { tanggal } : {}),
+          ...(catatan !== undefined ? { catatan } : {}),
+        },
+      });
+      return { jalur: h.jalur, ulangan: h.ulangan === true };
     },
 
     /**

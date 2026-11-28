@@ -13,6 +13,22 @@ database website**, bukan ke database bot sendiri.
 Saat ini bot menyimpan pengajuan sendiri. Akibatnya ada dua database untuk hal
 yang sama, dan pengajuan dari bot tidak muncul di panel admin website.
 
+### Delapan endpoint yang tersedia
+
+| Endpoint | Metode | Menyentuh uang? |
+| --- | --- | --- |
+| `/bot/daftar` | POST | tidak |
+| `/bot/unggah-url` | POST | tidak |
+| `/bot/status` | GET | tidak |
+| `/bot/tagihan` | GET | tidak (baca saja) |
+| `/bot/kyc` | POST | tidak |
+| `/bot/pengajuan` | POST | tidak (mengajukan) |
+| `/bot/pencairan` | POST | **ya** |
+| `/bot/pembayaran` | POST | **ya** |
+
+Kontrak lengkap tiap endpoint: `docs/api-bot-kyc-dan-uang.md` di repo. Berkas
+yang Anda baca ini hanya panduan pemasangan dan pemakaian.
+
 ---
 
 ## Cara mendapatkan berkas ini di VPS
@@ -89,7 +105,8 @@ Tiga berkas ini ada di folder `deploy/wa-sender/`:
 | --- | --- | --- |
 | `pindai-api.cjs` | **Klien siap pakai.** Semua detail HTTP sudah ditangani | Pakai langsung, jangan ubah |
 | `uji-api-bot.mjs` | Skrip uji koneksi | Jalankan untuk verifikasi |
-| `docs/api-bot-whatsapp.md` | Referensi kontrak API lengkap | Baca bagian "Field wajib" |
+| `docs/api-bot-whatsapp.md` | Kontrak endpoint awal (daftar, unggah, pengajuan, status) | Baca bagian "Field wajib" |
+| `docs/api-bot-kyc-dan-uang.md` | Kontrak KYC, tagihan, pencairan, pembayaran | Baca saat menyambungkan alur uang |
 
 `pindai-api.cjs` sudah menangani: header Authorization, timeout, parsing JSON,
 normalisasi galat menjadi teks Indonesia yang layak ditampilkan nasabah.
@@ -233,6 +250,85 @@ try {
 jaringan putus, **tidak** lahir pengajuan kedua.
 
 ---
+
+### Kumpulkan KYC lewat WhatsApp
+
+Tanpa ini, pengajuan akan ditolak dengan "KYC belum terverifikasi".
+
+```js
+const { storageId: ktp } = await pindai.unggahFoto(bufferKtp, "image/jpeg");
+const { storageId: selfie } = await pindai.unggahFoto(bufferSelfie, "image/jpeg");
+const { storageId: slip } = await pindai.unggahFoto(bufferSlip, "image/jpeg");
+
+await pindai.kyc({
+  nomor: nomorUser,
+  namaLengkap: "Budi Santoso",
+  nik: "3273012345678901",
+  alamat: "Jl. Contoh No. 1, Bandung",
+  pekerjaan: "Karyawan swasta",
+  penghasilanBulanan: 5000000,
+  sumberPenghasilan: "Gaji bulanan",
+  namaBank: "BCA",
+  nomorRekening: "1234567890",
+  ktpId: ktp,
+  selfieKtpId: selfie,
+  buktiPenghasilanId: slip,
+  persetujuan: true,
+});
+// -> { ok: true, status: "PENDING_REVIEW" }
+```
+
+> `persetujuan: true` **hanya boleh dikirim setelah nasabah benar-benar
+> menyetujui**. Server mencatat waktu dan versi persetujuan sebagai jejak audit.
+> Mengirimnya tanpa bertanya adalah pemalsuan persetujuan.
+
+Status akhir `PENDING_REVIEW`, **bukan** disetujui. Admin memverifikasi di panel
+website. Setelah `VERIFIED`, `/bot/pengajuan` baru bisa dipakai.
+
+### Cek tagihan
+
+```js
+const t = await pindai.tagihan(nomorUser);
+for (const p of t.pinjaman) {
+  // p.nomorReferensi, p.status
+  // p.ringkasan.sisaTagihan, p.ringkasan.dendaBerjalan
+  // p.ringkasan.berikutnya.jatuhTempoPada
+}
+```
+
+`tarifDendaPerHari` disertakan supaya bot bisa menjelaskan dendanya
+("terlambat 10 hari x 2%/hari"), bukan sekadar menyebut angka.
+
+### Cairkan pinjaman
+
+```js
+await pindai.pencairan("PGD-20261128-A1B2");
+// -> { ok: true, sudah: false }
+```
+
+`sudah: true` berarti sudah pernah dicairkan sebelumnya; aman diulang.
+
+Kalau gagal dengan "belum punya penyedia dana", tampilkan apa adanya ke admin --
+pinjaman itu harus ditetapkan pendananya dulu.
+
+### Catat pembayaran
+
+```js
+try {
+  const h = await pindai.pembayaran("PGD-20261128-A1B2", {
+    referensi: "MUTASI-BCA-20261128-001",   // kunci idempotensi
+    jumlah: 4500000,
+  });
+  // h.ulangan === true berarti kiriman ulang, bukan pembayaran kedua
+} catch (e) {
+  if (e.kode === 409) {
+    // e.data.kurang / e.data.lebih -> berapa lagi yang harus dibayar
+  }
+}
+```
+
+Nominal harus **sama persis**; sistem tidak menerima pembayaran sebagian.
+Pakai kunci `referensi` yang sama saat mengirim ulang, jangan membuat yang baru.
 
 ## Aturan yang TIDAK bisa dilanggar bot
 
