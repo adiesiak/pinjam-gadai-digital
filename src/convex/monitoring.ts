@@ -20,6 +20,16 @@ import { audit, catatanBackupTerakhir } from "./system";
 const JAM_MS = 60 * 60 * 1000;
 const SEHARI_MS = 24 * JAM_MS;
 
+/**
+ * Jeda minimum sebelum masalah yang sama dilaporkan lagi.
+ *
+ * Kritis lebih cepat (6 jam) karena menyangkut keseimbangan uang atau
+ * penjadwal yang mati. Peringatan 24 jam: cukup untuk ditindaklanjuti tanpa
+ * membanjiri audit trail.
+ */
+const JEDA_LAPOR_KRITIS_MS = 6 * JAM_MS;
+const JEDA_LAPOR_PERINGATAN_MS = SEHARI_MS;
+
 /** Cron yang harus berdenyut beserta batas umur denyutnya. */
 export const CRON_DIHARAPKAN = [
   { nama: "pengingat-jatuh-tempo-wa", label: "Pengingat WhatsApp (tiap jam)", maksJam: 3 },
@@ -188,37 +198,64 @@ export const catatDenyutInternal = internalMutation({
 });
 
 /**
- * Pemeriksa terjadwal: tulis SATU entri audit bila ada masalah kritis dan
- * belum ada entri serupa dalam 6 jam. Tidak menulis apa pun saat sehat —
- * audit trail yang penuh "semua baik" justru menyembunyikan kejadian.
+ * Pemeriksa terjadwal.
+ *
+ * Menulis entri audit untuk masalah yang BELUM pernah dilaporkan dalam jendela
+ * waktunya, lalu diam. Tidak menulis apa pun saat sehat — audit trail yang
+ * penuh "semua baik" justru menyembunyikan kejadian.
+ *
+ * Dua jendela sengaja berbeda:
+ *  - kritis (ledger tidak seimbang, cron mati jauh): 6 jam. Masalah uang atau
+ *    penjadwal mati harus cepat terlihat.
+ *  - peringatan (backup terlantar, backup Drive gagal, cron terlambat, WA
+ *    gagal): 24 jam. Cukup sering untuk ditindaklanjuti, cukup jarang untuk
+ *    tidak membanjiri audit trail.
+ *
+ * SEBELUMNYA hanya kritis yang dicatat. Akibatnya masalah yang "hanya"
+ * peringatan tidak pernah meninggalkan jejak sama sekali — termasuk backup yang
+ * tidak pernah dibuat. Keadaan itu terbukti: backup terakhir tercatat 48 hari
+ * lalu dan tidak ada satu pun entri audit yang menandainya.
  */
 export const periksaSistem = internalMutation({
   args: {},
   handler: async (ctx) => {
     const { peringatan } = await susunPeringatan(ctx);
-    const kritis = peringatan.filter((p) => p.tingkat === "kritis");
-    if (kritis.length === 0) return { ok: true as const, kritis: 0 };
+    if (peringatan.length === 0) {
+      return { ok: true as const, kritis: 0, dicatat: 0 };
+    }
 
+    const kritis = peringatan.filter((p) => p.tingkat === "kritis").length;
     const terakhir = await ctx.db
       .query("auditLog")
       .order("desc")
-      .take(30);
-    const sudahDilaporkan = terakhir.some(
-      (a) =>
-        a.aksi === "peringatan_sistem" &&
-        a.waktu >= Date.now() - 6 * JAM_MS &&
-        (a.detail ?? "").includes(kritis[0]!.kunci),
-    );
-    if (!sudahDilaporkan) {
-      await audit(
-        ctx,
-        undefined,
-        "monitoring",
-        "peringatan_sistem",
-        "sistem",
-        kritis.map((p) => `[${p.kunci}] ${p.judul}: ${p.pesan}`).join(" | "),
+      .take(40);
+    const sekarang = Date.now();
+
+    const belumDilaporkan = peringatan.filter((p) => {
+      const jeda =
+        p.tingkat === "kritis" ? JEDA_LAPOR_KRITIS_MS : JEDA_LAPOR_PERINGATAN_MS;
+      return !terakhir.some(
+        (a) =>
+          a.aksi === "peringatan_sistem" &&
+          a.waktu >= sekarang - jeda &&
+          (a.detail ?? "").includes(p.kunci),
       );
+    });
+
+    if (belumDilaporkan.length === 0) {
+      return { ok: true as const, kritis, dicatat: 0 };
     }
-    return { ok: true as const, kritis: kritis.length };
+
+    await audit(
+      ctx,
+      undefined,
+      "monitoring",
+      "peringatan_sistem",
+      "sistem",
+      belumDilaporkan
+        .map((p) => `[${p.kunci}] ${p.judul}: ${p.pesan}`)
+        .join(" | "),
+    );
+    return { ok: true as const, kritis, dicatat: belumDilaporkan.length };
   },
 });
