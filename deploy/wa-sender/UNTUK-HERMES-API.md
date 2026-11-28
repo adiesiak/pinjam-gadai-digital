@@ -1,4 +1,4 @@
-# Instruksi untuk Hermes — integrasi bot ke PINDAI
+# Instruksi untuk Hermes - integrasi bot ke PINDAI
 
 Berkas ini **untuk agen/developer yang memegang bot WhatsApp di VPS**.
 Tempelkan seluruh isi berkas ini sebagai tugas, atau tunjuk berkasnya.
@@ -15,9 +15,69 @@ yang sama, dan pengajuan dari bot tidak muncul di panel admin website.
 
 ---
 
+## Cara mendapatkan berkas ini di VPS
+
+Tiga berkas yang dibutuhkan (`pindai-api.cjs`, `uji-api-bot.mjs`, berkas ini)
+ada di repo publik `adiesiak/pinjam-gadai-digital`, folder `deploy/wa-sender/`.
+
+### Cara 1 - kalau VPS sudah punya clone repo
+
+```bash
+cd /path/ke/clone/pinjam-gadai-digital
+git pull origin main
+ls -la deploy/wa-sender/
+```
+
+### Cara 2 - ambil 3 berkas saja, tanpa clone
+
+Paling ringan kalau VPS hanya butuh kliennya:
+
+```bash
+BASE="https://raw.githubusercontent.com/adiesiak/pinjam-gadai-digital/main/deploy/wa-sender"
+cd /opt/pindai-wa-sender          # sesuaikan dengan folder bot
+
+curl -fsSLO "$BASE/pindai-api.cjs"
+curl -fsSLO "$BASE/uji-api-bot.mjs"
+curl -fsSLO "$BASE/UNTUK-HERMES-API.md"
+
+ls -la pindai-api.cjs uji-api-bot.mjs
+```
+
+### Cara 3 - clone baru (kalau belum ada sama sekali)
+
+```bash
+git clone --depth 1 \
+  https://github.com/adiesiak/pinjam-gadai-digital.git \
+  /opt/pindai-repo
+
+ls /opt/pindai-repo/deploy/wa-sender/
+```
+
+Repo publik, jadi tidak butuh kredensial.
+
+### PENTING: jangan deploy Convex dari VPS
+
+Repo ini berisi kode website (Convex). **Bot tidak boleh menjalankan
+`npx convex deploy`** - itu akan menghapus modul dan route yang dibuat dari
+mesin admin, karena `convex deploy` meng-upload SELURUH project.
+
+Ini sudah pernah terjadi: route `/bot/*` sempat 404 selama beberapa jam karena
+deploy dari VPS menimpa `http.ts`.
+
+Kalau `CONVEX_DEPLOY_KEY` ada di environment VPS, **hapus**:
+
+```bash
+unset CONVEX_DEPLOY_KEY
+grep -rn "CONVEX_DEPLOY" /etc/pindai/ /etc/systemd/system/ ~/.bashrc 2>/dev/null
+```
+
+Bot adalah **klien HTTP**, bukan pengelola deployment.
+
+---
+
 ## Yang sudah disiapkan (jangan ditulis ulang)
 
-Tiga berkas ini ada di folder yang sama (`deploy/wa-sender/`):
+Tiga berkas ini ada di folder `deploy/wa-sender/`:
 
 | Berkas | Isi | Tindakan |
 | --- | --- | --- |
@@ -26,11 +86,11 @@ Tiga berkas ini ada di folder yang sama (`deploy/wa-sender/`):
 | `docs/api-bot-whatsapp.md` | Referensi kontrak API lengkap | Baca bagian "Field wajib" |
 
 `pindai-api.cjs` sudah menangani: header Authorization, timeout, parsing JSON,
-normalisasi pesan galat menjadi teks Indonesia yang layak ditampilkan nasabah.
+normalisasi galat menjadi teks Indonesia yang layak ditampilkan nasabah.
 
 ---
 
-## Langkah 1 — simpan kunci API
+## Langkah 1 - simpan kunci API
 
 Kunci diberikan admin PINDAI (64 karakter hex). **Jangan ditanam di kode** yang
 di-commit.
@@ -62,7 +122,7 @@ sudo systemctl restart <nama-service-bot>
 
 ---
 
-## Langkah 2 — verifikasi koneksi
+## Langkah 2 - verifikasi koneksi
 
 ```bash
 cd /path/ke/deploy/wa-sender
@@ -82,12 +142,12 @@ Harus keluar:
   4/4 periksa lulus
 ```
 
-**Jangan lanjut sebelum 4/4 lulus.** Kalau gagal, tabel gejala ada di bagian
+**Jangan lanjut sebelum 4/4 lulus.** Kalau gagal, lihat tabel gejala di bagian
 akhir berkas ini.
 
 ---
 
-## Langkah 3 — pakai klien di kode bot
+## Langkah 3 - pakai klien di kode bot
 
 ```js
 const { buatKlien, GalatPindai } = require("./pindai-api.cjs");
@@ -175,13 +235,13 @@ berlaku otomatis:
 
 | Aturan | Pesan yang muncul |
 | --- | --- |
-| KYC harus terverifikasi | "KYC belum terverifikasi…" |
-| Plafon pinjaman | "Plafon …" |
-| Batas pokok | "Pokok pinjaman minimal/maksimal …" |
-| Tenor dari opsi resmi | "Tenor tidak dikenali…" |
-| Jaminan untuk pinjaman besar | "… wajib melampirkan Kartu Keluarga" |
-| Anti-spam | "Terlalu cepat…" |
-| Pembatas laju | "Terlalu banyak percobaan…" |
+| KYC harus terverifikasi | "KYC belum terverifikasi..." |
+| Plafon pinjaman | "Plafon ..." |
+| Batas pokok | "Pokok pinjaman minimal/maksimal ..." |
+| Tenor dari opsi resmi | "Tenor tidak dikenali..." |
+| Jaminan untuk pinjaman besar | "... wajib melampirkan Kartu Keluarga" |
+| Anti-spam | "Terlalu cepat..." |
+| Pembatas laju | "Terlalu banyak percobaan..." |
 
 **Jangan** mencoba melewati ini dengan memanggil endpoint lain. Server memeriksa
 ulang semuanya.
@@ -197,6 +257,7 @@ ulang semuanya.
 | Mengirim `userId` sendiri | Server memetakan dari nomor; bot tidak boleh menentukan identitas |
 | Membuat database pengajuan sendiri | Itu kembali ke masalah dua database |
 | Menyalin logika validasi | Validasi ada di server, satu sumber |
+| Menjalankan `convex deploy` | Menghapus modul dan route milik mesin admin |
 
 ---
 
@@ -205,11 +266,11 @@ ulang semuanya.
 ```
 1. User: "AJUKAN 2 JUTA"
 2. Bot:  status(nomor)
-         ├─ belum terdaftar → minta nama → daftar(nomor, nama)
-         └─ terdaftar
+         - belum terdaftar -> minta nama -> daftar(nomor, nama)
+         - terdaftar
 3. Bot:  minta: tujuan, bank, rekening, NIK, penghasilan
 4. Bot:  minta foto: KTP, selfie, slip gaji
-         untuk tiap foto: unggahFoto() → storageId
+         untuk tiap foto: unggahFoto() -> storageId
 5. Bot:  ringkas ke user, minta konfirmasi
 6. Bot:  ajukanSekali(nomor, data, kunciUnik)
 7. Bot:  kirim nomorReferensi ke user
@@ -224,8 +285,9 @@ ulang semuanya.
 | `401` | Kunci berbeda dengan di Convex | Cek `/etc/pindai/bot.env` |
 | `503` | `BOT_API_KEY` belum diset di Convex | Hubungi admin PINDAI |
 | `404` saat pengajuan | Nomor belum terdaftar | Panggil `daftar()` dulu |
+| `404` di semua endpoint `/bot/*` | Ada deploy dari mesin lain | Hubungi admin PINDAI; **jangan** deploy sendiri |
 | `400` "KYC belum terverifikasi" | User harus selesaikan KYC di website | Arahkan user ke website |
-| `400` "Plafon …" | Pokok melebihi plafon | Tampilkan pesan, tawarkan nominal lebih kecil |
+| `400` "Plafon ..." | Pokok melebihi plafon | Tampilkan pesan, tawarkan nominal lebih kecil |
 | Timeout | Jaringan VPS | Coba lagi; `ajukanSekali` aman diulang |
 
 ---
@@ -239,5 +301,5 @@ Laporkan ke admin PINDAI:
 3. Apakah ada data pengajuan lama di bot yang masih perlu dipindahkan
 
 Untuk data lama: **jangan** pindahkan sendiri. Kirim strukturnya (`.tables` dan
-jumlah baris kalau SQLite) ke admin PINDAI — migrasinya harus menghindari
+jumlah baris kalau SQLite) ke admin PINDAI - migrasinya harus menghindari
 duplikat dengan data yang sudah ada di website.
