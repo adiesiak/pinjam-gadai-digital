@@ -51,9 +51,9 @@ Kalau `BOT_API_KEY` belum diisi di Convex, semua endpoint menjawab `503`
         │
 ③ Bot:  POST /bot/unggah-url     → { urlUnggah }
         │
-④ Bot:  PUT <urlUnggah>          → { storageId }  (foto KTP)
-        PUT <urlUnggah>          → { storageId }  (selfie KTP)
-        PUT <urlUnggah>          → { storageId }  (slip gaji)
+④ Bot:  POST <urlUnggah>         → { storageId }  (foto KTP)
+        POST <urlUnggah>         → { storageId }  (selfie KTP)
+        POST <urlUnggah>         → { storageId }  (slip gaji)
         │
 ⑤ Bot:  POST /bot/pengajuan      → { nomorReferensi: "PGD-20261128-A1B2" }
         │
@@ -108,15 +108,15 @@ Dapatkan URL unggah **sekali pakai** untuk satu berkas.
 { "ok": true, "urlUnggah": "https://academic-rooster-210.convex.cloud/api/storage/upload?…" }
 ```
 
-**Cara mengunggah** — `PUT` berkas ke URL itu:
+**Cara mengunggah** — `POST` berkas ke URL itu. Convex storage HANYA menerima POST di URL ini; `PUT` dijawab 405 (terbukti di produksi 28 Nov 2026):
 
 ```bash
-curl -X PUT "$URL" \
+curl -X POST "$URL" \
   -H "Content-Type: image/jpeg" \
   --data-binary @ktp.jpg
 ```
 
-**Response dari PUT**
+**Response dari POST**
 
 ```json
 { "storageId": "kg2b2400pv6qask6r9eetdggns8k19fv" }
@@ -173,9 +173,9 @@ Buat pengajuan pinjaman atas nama pemilik nomor.
 | `nomorWhatsApp` | string | |
 | `penghasilanBulanan` | number | |
 | `sumberPenghasilan` | string | |
-| `dokKtpId` | storageId | Hasil PUT |
-| `dokSelfieKtpId` | storageId | Hasil PUT |
-| `dokSlipGajiId` | storageId | Hasil PUT |
+| `dokKtpId` | storageId | Hasil POST |
+| `dokSelfieKtpId` | storageId | Hasil POST |
+| `dokSlipGajiId` | storageId | Hasil POST |
 | `persetujuanSyarat` | `true` | Harus `true` literal |
 
 **Field opsional penting**
@@ -266,7 +266,7 @@ Bot:  cek POST /bot/status?nomor=…
 Bot:  minta data: tujuan, bank, rekening, NIK, penghasilan
 
 Bot:  minta foto: KTP, selfie + KTP, slip gaji
-      untuk tiap foto: POST /bot/unggah-url → PUT berkas → simpan storageId
+      untuk tiap foto: POST /bot/unggah-url → POST berkas → simpan storageId
 
 Bot:  konfirmasi ringkasan ke user
 
@@ -294,7 +294,7 @@ URL=$(curl -s -X POST "$BASE/bot/unggah-url" \
   -H "Authorization: Bearer $KEY" | jq -r .urlUnggah)
 
 # 3. unggah berkas
-SID=$(curl -s -X PUT "$URL" \
+SID=$(curl -s -X POST "$URL" \
   -H "Content-Type: image/jpeg" \
   --data-binary @ktp.jpg | jq -r .storageId)
 

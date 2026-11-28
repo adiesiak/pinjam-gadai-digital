@@ -222,7 +222,7 @@ Mengumpulkan KYC lewat WhatsApp supaya nasabah tidak perlu pindah ke website.
 | Hal | Keterangan |
 | --- | --- |
 | `persetujuan` | **Wajib `true`**, dan bot harus **benar-benar menanyakannya** ke nasabah |
-| 3 berkas | `ktpId`, `selfieKtpId`, `buktiPenghasilanId` — hasil `PUT` dari `/bot/unggah-url` |
+| 3 berkas | `ktpId`, `selfieKtpId`, `buktiPenghasilanId` — hasil `POST` dari `/bot/unggah-url` |
 | Status akhir | `PENDING_REVIEW` — **bukan** disetujui |
 | Verifikasi | Tetap dilakukan admin di panel website |
 

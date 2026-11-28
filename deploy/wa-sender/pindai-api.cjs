@@ -134,7 +134,7 @@ function buatKlien({ apiKey, base = BASE_BAWAAN, timeoutMs = 30_000 } = {}) {
 
     /**
      * Dapat URL unggah sekali pakai.
-     * @returns {Promise<string>} URL untuk PUT berkas
+     * @returns {Promise<string>} URL untuk POST berkas
      */
     async urlUnggah() {
       const h = await minta("/bot/unggah-url", { metode: "POST" });
@@ -157,7 +157,9 @@ function buatKlien({ apiKey, base = BASE_BAWAAN, timeoutMs = 30_000 } = {}) {
     async unggahFoto(data, contentType = "image/jpeg") {
       const url = await this.urlUnggah();
       const res = await fetch(url, {
-        method: "PUT",
+        // Convex storage HANYA menerima POST di URL ini. PUT dijawab 405;
+        // sudah terbukti di produksi 28 Nov 2026.
+        method: "POST",
         headers: { "Content-Type": contentType },
         body: data,
       });
