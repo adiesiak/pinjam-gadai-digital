@@ -50,6 +50,32 @@ describe("tautan berkas sensitif", () => {
     expect(await tautanBerkas(null)).toBeNull();
   });
 
+  it("tautan bertanda tangan tidak pernah berupa URL penyimpanan permanen", async () => {
+    const t = convexTest(schema, modules);
+    const id = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["bukti transfer"])),
+    );
+
+    const url = (await tautanBerkas(id)) as string;
+
+    // Bentuk yang diharapkan: /berkas?id=…&exp=…&sig=…
+    expect(url).toMatch(/\/berkas\?id=/);
+    expect(url).toMatch(/&exp=\d+/);
+    expect(url).toMatch(/&sig=[0-9a-f]{64}$/);
+
+    // BUKAN URL penyimpanan Convex (`/api/storage/…`). URL itu PERMANEN dan
+    // bisa dibuka siapa pun yang memegangnya — tidak ada autentikasi, tidak ada
+    // kedaluwarsa. Seluruh dokumen keuangan (bukti setoran, bukti transfer,
+    // bukti pembayaran angsuran) harus memakai bentuk bertanda tangan ini.
+    expect(url).not.toContain("/api/storage/");
+
+    // `getUrl` bawaan Convex memang menghasilkan bentuk yang dilarang itu —
+    // ditegaskan di sini supaya perbedaannya tidak kabur saat menambah kode.
+    const permanen = await t.run((ctx) => ctx.storage.getUrl(id));
+    expect(permanen).toContain("/api/storage/");
+    expect(permanen).not.toContain("/berkas?");
+  });
+
   it("endpoint /berkas menyajikan berkas hanya dengan tautan sah", async () => {
     const t = convexTest(schema, modules);
     const id = await t.run((ctx) =>

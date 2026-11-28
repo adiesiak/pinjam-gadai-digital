@@ -1475,7 +1475,11 @@ export const pendingDepositEvidence = query({
         referensiTransfer: deposit.referensiTransfer,
         metodePembayaran: deposit.metodePembayaran ?? null,
         tanggalTransfer: deposit.tanggalTransfer ?? null,
-        buktiUrl: await ctx.storage.getUrl(deposit.buktiPembayaranId!),
+        // Tautan bertanda tangan berumur pendek, bukan URL penyimpanan
+        // permanen: bukti transfer memuat data rekening dan nominal, dan URL
+        // permanen tetap hidup selamanya bila bocor lewat riwayat peramban,
+        // tangkapan layar, atau log proxy.
+        buktiUrl: await tautanBerkas(deposit.buktiPembayaranId!),
         fileContentType: metadata?.contentType ?? null,
         emailDana: akunDana?.email ?? null,
       });
@@ -1507,7 +1511,7 @@ export const pendingDeposits = query({
         statusPencocokan: d.statusPencocokan ?? null,
         referensiMutasi: d.referensiMutasi ?? null,
         jumlahMutasi: d.jumlahMutasi ?? null,
-        buktiUrl: d.buktiPembayaranId ? await ctx.storage.getUrl(d.buktiPembayaranId) : null,
+        buktiUrl: d.buktiPembayaranId ? await tautanBerkas(d.buktiPembayaranId) : null,
         emailDana: akunDana?.email ?? null,
       });
     }
@@ -1557,7 +1561,7 @@ export const pendingDepositCredits = query({
         referensiTransfer: d.referensiTransfer,
         referensiMutasi: d.referensiMutasi ?? null,
         buktiUrl: d.buktiPembayaranId
-          ? await ctx.storage.getUrl(d.buktiPembayaranId)
+          ? await tautanBerkas(d.buktiPembayaranId)
           : null,
         fileContentType: metadata?.contentType ?? null,
         emailDana: akunDana?.email ?? null,
@@ -1640,8 +1644,8 @@ export const processWithdrawal = mutation({
     if (referensi.length < 4 || referensi.length > 120) {
       throw new Error("Referensi transfer keluar wajib 4–120 karakter.");
     }
-    const buktiUrl = await ctx.storage.getUrl(args.buktiTransferId);
-    if (buktiUrl === null) {
+    const adaBukti = await ctx.db.system.get("_storage", args.buktiTransferId);
+    if (adaBukti === null) {
       throw new Error("Bukti transfer keluar tidak dapat dibuka.");
     }
 
@@ -1745,7 +1749,7 @@ export const matchDepositEvidence = mutation({
       throw new Error("Setoran tidak ada di antrean pencocokan.");
     }
     if (!deposit.buktiPembayaranId) throw new Error("Setoran ini tidak memiliki bukti unggahan untuk dicocokkan.");
-    if (!(await ctx.storage.getUrl(deposit.buktiPembayaranId))) {
+    if ((await ctx.db.system.get("_storage", deposit.buktiPembayaranId)) === null) {
       throw new Error("File bukti setoran tidak lagi tersedia untuk ditinjau.");
     }
     const reference = args.referensiMutasi.trim();

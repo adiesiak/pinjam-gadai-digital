@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { tautanBerkas } from "./berkas";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireAdminRole, requireAdminSession } from "./adminAuthz";
 import { pastikanAngsuran } from "./angsuranJadwal";
@@ -52,7 +53,7 @@ async function barisTampil(
   const buktiUrl =
     row.buktiPembayaranId === undefined
       ? null
-      : await ctx.storage.getUrl(row.buktiPembayaranId);
+      : await tautanBerkas(row.buktiPembayaranId);
   return {
     _id: row._id,
     nomor: row.nomor,
@@ -552,7 +553,7 @@ export const daftarBuktiAngsuran = query({
         referensiTransfer: receipt.referensiTransfer,
         metodePembayaran: receipt.metodePembayaran,
         buktiUrl: receipt.buktiPembayaranId
-          ? await ctx.storage.getUrl(receipt.buktiPembayaranId)
+          ? await tautanBerkas(receipt.buktiPembayaranId)
           : null,
         loanId: loan._id,
         nomorPinjaman: loan.nomorReferensi,

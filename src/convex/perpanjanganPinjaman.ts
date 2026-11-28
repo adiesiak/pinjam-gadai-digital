@@ -10,6 +10,7 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { tautanBerkas } from "./berkas";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { requireAdminRole, requireAdminSession } from "./adminAuthz";
 import { pastikanAngsuran } from "./angsuranJadwal";
@@ -109,7 +110,7 @@ export const daftarPembayaranPinjaman = query({
         tanggalTransfer: receipt.tanggalTransfer,
         referensiTransfer: receipt.referensiTransfer,
         metodePembayaran: receipt.metodePembayaran,
-        buktiUrl: await ctx.storage.getUrl(receipt.buktiPembayaranId),
+        buktiUrl: await tautanBerkas(receipt.buktiPembayaranId),
         loanId: loan._id,
         nomorPinjaman: loan.nomorReferensi,
         namaPeminjam: loan.namaLengkap,
